@@ -101,6 +101,23 @@ serve(async (req) => {
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
     const questionsStr = (keyword.questions || []).join("\n- ");
 
+    // Build tables/lists instructions
+    let tablesListsInstructions = "";
+    if (competitor_tables?.length) {
+      tablesListsInstructions += "\n\nTABLES TO INCLUDE (based on competitor analysis):\n";
+      competitor_tables.forEach((t: any, i: number) => {
+        tablesListsInstructions += `${i + 1}. Table about "${t.topic}" with columns: ${(t.columns || []).join(" | ")}\n`;
+      });
+      tablesListsInstructions += "Create these tables with real, useful data filled in. Use Markdown table syntax.";
+    }
+    if (competitor_lists?.length) {
+      tablesListsInstructions += "\n\nLISTS TO INCLUDE (based on competitor analysis):\n";
+      competitor_lists.forEach((l: any, i: number) => {
+        tablesListsInstructions += `${i + 1}. ${l.type === "numbered" ? "Numbered" : l.type === "checklist" ? "Checklist" : "Bullet"} list about "${l.topic}"${l.estimated_items ? ` (~${l.estimated_items} items)` : ""}\n`;
+      });
+      tablesListsInstructions += "Include these lists naturally within the relevant sections.";
+    }
+
     const systemPrompt = `You are an expert SEO content writer.${authorStyle ? ` You are writing AS the author described below — adopt their voice, tone, vocabulary, and style throughout the ENTIRE article. Every sentence must sound like this author wrote it.` : ""}
 
 ${authorStyle ? `\n=== AUTHOR PERSONA (CRITICAL — follow strictly) ===\n${authorStyle}\n=== END AUTHOR PERSONA ===\n` : ""}
@@ -112,7 +129,11 @@ RULES:
 - Make content informative, engaging, and original
 - Aim for the recommended word count
 - Format the article in Markdown (# for h1, ## for h2, ### for h3)
+- IMPORTANT: Include comparison tables, feature tables, and structured lists where competitors use them. Tables and lists improve readability and SEO ranking.
+- Use Markdown table syntax: | Column1 | Column2 | with header separator |---|---|
+- Use bullet lists (- item), numbered lists (1. item), or checklists where appropriate
 ${authorStyle ? "- CRITICAL: Maintain the author's unique voice and style in EVERY paragraph. Do NOT fall into generic AI writing patterns." : ""}
+${tablesListsInstructions}
 
 FAQ SECTION (MANDATORY):
 - At the end of the article, add a section "## Часто задаваемые вопросы (FAQ)"
