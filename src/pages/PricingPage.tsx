@@ -11,8 +11,8 @@ const plans = [
   {
     id: "free" as const,
     name: "Free",
-    price: "0",
-    period: "навсегда",
+    price: "0 ₽",
+    period: "/ мес",
     icon: Sparkles,
     description: "Для знакомства с платформой",
     badge: null,
