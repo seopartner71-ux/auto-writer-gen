@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";
 import {
   FileText, Search, BarChart3, Zap, TrendingUp, Hash,
@@ -22,16 +23,17 @@ const STATUS_COLORS: Record<string, string> = {
   published: "hsl(var(--primary))",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Черновик",
-  review: "На проверке",
-  published: "Опубликовано",
-};
-
 export default function DashboardPage() {
   const { profile } = useAuth();
+  const { t } = useI18n();
   const plan = (profile?.plan ?? "basic") as "basic" | "pro";
   const limits = PLAN_LIMITS[plan];
+
+  const STATUS_LABELS: Record<string, string> = {
+    draft: t("dashboard.statusDraft"),
+    review: t("dashboard.statusReview"),
+    published: t("dashboard.statusPublished"),
+  };
 
   const { data: articles = [] } = useQuery({
     queryKey: ["dashboard-articles"],
@@ -68,7 +70,6 @@ export default function DashboardPage() {
     const totalKeywords = keywords.length;
     const totalGenerations = usageLogs.length;
 
-    // SEO scores
     const scores = articles
       .map((a: any) => {
         const s = a.seo_score;
@@ -83,44 +84,37 @@ export default function DashboardPage() {
       ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
       : null;
 
-    // Word counts
     const wordCounts = articles.map((a: any) =>
       a.content ? a.content.trim().split(/\s+/).length : 0
     );
     const totalWords = wordCounts.reduce((a: number, b: number) => a + b, 0);
     const avgWords = totalArticles ? Math.round(totalWords / totalArticles) : 0;
 
-    // Tokens
     const totalTokens = usageLogs.reduce(
       (sum: number, l: any) => sum + (l.tokens_used || 0),
       0
     );
 
-    // Status breakdown
     const statusMap: Record<string, number> = {};
     articles.forEach((a: any) => {
       const st = a.status || "draft";
       statusMap[st] = (statusMap[st] || 0) + 1;
     });
 
-    // Intent breakdown
     const intentMap: Record<string, number> = {};
     keywords.forEach((k: any) => {
       const intent = k.intent || "unknown";
       intentMap[intent] = (intentMap[intent] || 0) + 1;
     });
 
-    // Top keywords (by volume)
     const topKeywords = [...keywords]
       .sort((a: any, b: any) => (b.volume || 0) - (a.volume || 0))
       .slice(0, 5);
 
-    // Recent articles
     const recentArticles = [...articles]
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 5);
 
-    // Articles per week (last 4 weeks)
     const now = Date.now();
     const weeklyData = Array.from({ length: 4 }, (_, i) => {
       const weekStart = now - (3 - i) * 7 * 24 * 3600 * 1000;
@@ -129,7 +123,7 @@ export default function DashboardPage() {
         const t = new Date(a.created_at).getTime();
         return i === 3 ? t >= weekStart : t >= weekStart && t < weekEnd;
       }).length;
-      return { name: `Нед ${i + 1}`, count };
+      return { name: `${t("dashboard.week")} ${i + 1}`, count };
     });
 
     return {
@@ -146,7 +140,7 @@ export default function DashboardPage() {
       recentArticles,
       weeklyData,
     };
-  }, [articles, keywords, usageLogs]);
+  }, [articles, keywords, usageLogs, t]);
 
   const statusChartData = Object.entries(stats.statusMap).map(([key, value]) => ({
     name: STATUS_LABELS[key] || key,
@@ -155,26 +149,26 @@ export default function DashboardPage() {
   }));
 
   const intentChartData = Object.entries(stats.intentMap).map(([key, value]) => ({
-    name: key === "informational" ? "Инфо" : key === "transactional" ? "Транз" : key === "navigational" ? "Навиг" : key,
+    name: key === "informational" ? t("dashboard.intentInfo") : key === "transactional" ? t("dashboard.intentTrans") : key === "navigational" ? t("dashboard.intentNav") : key,
     value,
   }));
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Дашборд</h1>
+        <h1 className="text-2xl font-semibold">{t("dashboard.title")}</h1>
         <p className="text-muted-foreground mt-1">
-          Обзор вашего контента и аналитики
+          {t("dashboard.subtitle")}
         </p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Статьи", value: stats.totalArticles, icon: FileText, color: "text-primary" },
-          { label: "Ключевые слова", value: stats.totalKeywords, icon: Search, color: "text-accent" },
-          { label: "Средний SEO", value: stats.avgSeo !== null ? `${stats.avgSeo}%` : "—", icon: BarChart3, color: "text-success" },
-          { label: "Генерации", value: stats.totalGenerations, icon: Zap, color: "text-warning" },
+          { label: t("dashboard.totalArticles"), value: stats.totalArticles, icon: FileText, color: "text-primary" },
+          { label: t("dashboard.keywords"), value: stats.totalKeywords, icon: Search, color: "text-accent" },
+          { label: t("dashboard.avgSeo"), value: stats.avgSeo !== null ? `${stats.avgSeo}%` : "—", icon: BarChart3, color: "text-success" },
+          { label: t("dashboard.generations"), value: stats.totalGenerations, icon: Zap, color: "text-warning" },
         ].map((s) => (
           <Card key={s.label} className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -193,59 +187,50 @@ export default function DashboardPage() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <BookOpen className="h-4 w-4" /> Всего слов
+              <BookOpen className="h-4 w-4" /> {t("dashboard.totalWords")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{stats.totalWords.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">~{stats.avgWords} слов/статья</p>
+            <p className="text-xs text-muted-foreground mt-1">~{stats.avgWords} {t("dashboard.wordsPerArticle")}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <Hash className="h-4 w-4" /> Токены AI
+              <Hash className="h-4 w-4" /> {t("dashboard.aiTokens")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{stats.totalTokens.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">за всё время</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("dashboard.allTime")}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" /> Тариф
+              <TrendingUp className="h-4 w-4" /> {t("dashboard.tariff")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold uppercase">{plan}</p>
-            <p className="text-xs text-muted-foreground mt-1">{limits.maxGenerations} генераций/мес</p>
+            <p className="text-xs text-muted-foreground mt-1">{limits.maxGenerations} {t("dashboard.genPerMonth")}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts row */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* Status pie */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Статусы статей</CardTitle>
+            <CardTitle className="text-sm">{t("dashboard.articleStatuses")}</CardTitle>
           </CardHeader>
           <CardContent>
             {statusChartData.length > 0 ? (
               <div className="flex items-center gap-4">
                 <ResponsiveContainer width={120} height={120}>
                   <PieChart>
-                    <Pie
-                      data={statusChartData}
-                      dataKey="value"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={30}
-                      outerRadius={50}
-                      strokeWidth={2}
-                    >
+                    <Pie data={statusChartData} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={50} strokeWidth={2}>
                       {statusChartData.map((entry, i) => (
                         <Cell key={i} fill={entry.fill} />
                       ))}
@@ -255,10 +240,7 @@ export default function DashboardPage() {
                 <div className="space-y-1.5">
                   {statusChartData.map((d) => (
                     <div key={d.name} className="flex items-center gap-2 text-xs">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: d.fill }}
-                      />
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
                       <span className="text-muted-foreground">{d.name}</span>
                       <span className="font-semibold ml-auto">{d.value}</span>
                     </div>
@@ -266,15 +248,14 @@ export default function DashboardPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-6">Нет данных</p>
+              <p className="text-xs text-muted-foreground text-center py-6">{t("common.noData")}</p>
             )}
           </CardContent>
         </Card>
 
-        {/* Intent breakdown */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Интенты запросов</CardTitle>
+            <CardTitle className="text-sm">{t("dashboard.queryIntents")}</CardTitle>
           </CardHeader>
           <CardContent>
             {intentChartData.length > 0 ? (
@@ -283,27 +264,19 @@ export default function DashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
                   <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-6">Нет данных</p>
+              <p className="text-xs text-muted-foreground text-center py-6">{t("common.noData")}</p>
             )}
           </CardContent>
         </Card>
 
-        {/* Weekly activity */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Активность (4 недели)</CardTitle>
+            <CardTitle className="text-sm">{t("dashboard.activity")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={120}>
@@ -311,14 +284,7 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
                 <Bar dataKey="count" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -328,11 +294,10 @@ export default function DashboardPage() {
 
       {/* Bottom row */}
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Top keywords */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Search className="h-4 w-4" /> Топ ключевые слова
+              <Search className="h-4 w-4" /> {t("dashboard.topKeywords")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -343,9 +308,7 @@ export default function DashboardPage() {
                     <span className="font-medium truncate max-w-[60%]">{kw.seed_keyword}</span>
                     <div className="flex items-center gap-2">
                       {kw.intent && (
-                        <Badge variant="outline" className="text-[10px]">
-                          {kw.intent}
-                        </Badge>
+                        <Badge variant="outline" className="text-[10px]">{kw.intent}</Badge>
                       )}
                       {kw.volume != null && (
                         <span className="text-xs text-muted-foreground">{kw.volume} vol</span>
@@ -358,16 +321,15 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">Нет ключевых слов</p>
+              <p className="text-xs text-muted-foreground text-center py-4">{t("dashboard.noKeywords")}</p>
             )}
           </CardContent>
         </Card>
 
-        {/* Recent articles */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Последние статьи
+              <Clock className="h-4 w-4" /> {t("dashboard.recentArticles")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -379,14 +341,11 @@ export default function DashboardPage() {
                   return (
                     <div key={a.id} className="flex items-center justify-between text-sm">
                       <span className="font-medium truncate max-w-[55%]">
-                        {a.title || "Без названия"}
+                        {a.title || t("common.noTitle")}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{words} сл.</span>
-                        <Badge
-                          variant={a.status === "published" ? "default" : "secondary"}
-                          className="text-[10px]"
-                        >
+                        <span className="text-xs text-muted-foreground">{words} {t("dashboard.wrd")}</span>
+                        <Badge variant={a.status === "published" ? "default" : "secondary"} className="text-[10px]">
                           {statusLabel}
                         </Badge>
                       </div>
@@ -395,7 +354,7 @@ export default function DashboardPage() {
                 })}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">Нет статей</p>
+              <p className="text-xs text-muted-foreground text-center py-4">{t("dashboard.noArticles")}</p>
             )}
           </CardContent>
         </Card>

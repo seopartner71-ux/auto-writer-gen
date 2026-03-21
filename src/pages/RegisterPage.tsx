@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -17,6 +18,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +35,7 @@ export default function RegisterPage() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Проверьте почту для подтверждения!");
+      toast.success(t("auth.checkEmail"));
       navigate("/login");
     }
   };
@@ -59,7 +61,7 @@ export default function RegisterPage() {
             </div>
           </div>
           <CardTitle className="text-2xl gradient-text">SEO-Synthesizer <sup className="text-xs text-muted-foreground font-normal">v2.0</sup></CardTitle>
-          <CardDescription>Создайте новый аккаунт</CardDescription>
+          <CardDescription>{t("auth.registerTitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button
@@ -78,7 +80,7 @@ export default function RegisterPage() {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
             )}
-            Войти через Google
+            {t("auth.googleSignIn")}
           </Button>
 
           <div className="relative mb-4">
@@ -86,22 +88,22 @@ export default function RegisterPage() {
               <Separator className="w-full" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">или</span>
+              <span className="bg-card px-2 text-muted-foreground">{t("common.or")}</span>
             </div>
           </div>
 
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Имя</Label>
+              <Label htmlFor="name">{t("auth.name")}</Label>
               <Input
                 id="name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Иван Иванов"
+                placeholder={t("auth.namePlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -112,25 +114,25 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Минимум 6 символов"
+                placeholder={t("auth.passwordPlaceholder")}
                 minLength={6}
                 required
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Регистрация..." : "Зарегистрироваться"}
+              {loading ? t("auth.registering") : t("auth.register")}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            Уже есть аккаунт?{" "}
+            {t("auth.hasAccount")}{" "}
             <Link to="/login" className="text-primary hover:underline">
-              Войти
+              {t("auth.login")}
             </Link>
           </div>
         </CardContent>
