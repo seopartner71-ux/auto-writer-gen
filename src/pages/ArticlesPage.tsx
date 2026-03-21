@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
 
 // Readability helpers
 function countWords(text: string): number {
