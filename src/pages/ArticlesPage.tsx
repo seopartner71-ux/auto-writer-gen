@@ -89,6 +89,13 @@ export default function ArticlesPage() {
     },
   });
 
+  // Auto-select single author profile
+  useEffect(() => {
+    if (authorProfiles.length === 1 && !selectedAuthorId) {
+      setSelectedAuthorId(authorProfiles[0].id);
+    }
+  }, [authorProfiles]);
+
   // State
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
