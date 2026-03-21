@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   Wand2, GripVertical, Plus, Trash2, ChevronRight, Loader2,
   Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
-  ExternalLink, BarChart3
+  ExternalLink, BarChart3, FileText
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ interface OutlineItem {
 }
 
 export default function PlanBuilderPage() {
+  const navigate = useNavigate();
   // Fetch keywords with analysis data
   const { data: keywords = [] } = useQuery({
     queryKey: ["keywords-with-analysis"],
@@ -494,6 +496,20 @@ export default function PlanBuilderPage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Navigation to Article Generator */}
+          <div className="flex justify-end pt-4 lg:col-span-2">
+            <Button
+              size="lg"
+              className="gap-2"
+              disabled={outline.length === 0}
+              onClick={() => navigate("/articles")}
+            >
+              <FileText className="h-4 w-4" />
+              Перейти к генерации статьи
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       ) : (

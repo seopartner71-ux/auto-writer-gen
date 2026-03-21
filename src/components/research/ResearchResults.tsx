@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   Target, Lightbulb, HelpCircle, Hash, BarChart3, FileText,
-  ExternalLink, ChevronDown, ChevronUp, ListTree
+  ExternalLink, ChevronDown, ChevronUp, ListTree, ArrowRight
 } from "lucide-react";
 import type { ResearchData, Competitor } from "@/pages/KeywordsPage";
 
@@ -28,6 +29,7 @@ const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export function ResearchResults({ data }: Props) {
+  const navigate = useNavigate();
   const { analysis, competitors: initialCompetitors } = data;
   const [competitors, setCompetitors] = useState<Competitor[]>(
     initialCompetitors.map((c) => ({ ...c, excluded: false }))
@@ -244,6 +246,18 @@ export function ResearchResults({ data }: Props) {
             ))}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Navigation to Plan Builder */}
+      <div className="flex justify-end pt-2">
+        <Button
+          size="lg"
+          className="gap-2"
+          onClick={() => navigate("/plan-builder")}
+        >
+          Перейти в конструктор плана
+          <ArrowRight className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
