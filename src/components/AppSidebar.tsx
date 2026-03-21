@@ -13,6 +13,7 @@ import {
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";
 import {
   Sidebar,
@@ -27,38 +28,37 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainItems = [
-  { title: "Дашборд", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Ключевые слова", url: "/keywords", icon: Search },
-  { title: "Конструктор плана", url: "/plan-builder", icon: ListTree },
-  { title: "Статьи", url: "/articles", icon: FileText },
-  { title: "Календарь", url: "/calendar", icon: CalendarDays },
-  { title: "Аналитика", url: "/analytics", icon: BarChart3 },
-];
-
-const settingsItems = [
-  { title: "Профили авторов", url: "/author-profiles", icon: UserPen },
-  { title: "Настройки", url: "/settings", icon: Settings },
-];
-
-const adminItems = [
-  { title: "Админ-панель", url: "/admin", icon: ShieldCheck },
-];
-
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { role, profile } = useAuth();
+  const { t } = useI18n();
 
-  const isActive = (path: string) => location.pathname.startsWith(path);
+  const mainItems = [
+    { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
+    { title: t("nav.keywords"), url: "/keywords", icon: Search },
+    { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
+    { title: t("nav.articles"), url: "/articles", icon: FileText },
+    { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
+    { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
+  ];
+
+  const settingsItems = [
+    { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
+    { title: t("nav.settings"), url: "/settings", icon: Settings },
+  ];
+
+  const adminItems = [
+    { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
+  ];
+
   const plan = profile?.plan ?? "basic";
-  const limits = PLAN_LIMITS[plan];
+  const limits = PLAN_LIMITS[plan as "basic" | "pro"];
 
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        {/* Logo */}
         <div className="flex items-center gap-2 px-4 py-4">
           <KeyRound className="h-6 w-6 text-primary shrink-0" />
           {!collapsed && (
@@ -67,11 +67,11 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Основное</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("nav.main")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
@@ -90,11 +90,11 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Инструменты</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("nav.tools")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
@@ -113,11 +113,11 @@ export function AppSidebar() {
 
         {role === "admin" && (
           <SidebarGroup>
-            <SidebarGroupLabel>Администрирование</SidebarGroupLabel>
+            <SidebarGroupLabel>{t("nav.administration")}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild>
                       <NavLink
                         to={item.url}
@@ -136,17 +136,16 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      {/* Status bar footer */}
       {!collapsed && (
         <SidebarFooter>
           <div className="px-4 py-3 border-t border-sidebar-border">
             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-              <span>Тариф</span>
+              <span>{t("nav.plan")}</span>
               <span className="font-medium text-primary uppercase">{plan}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Лимит</span>
-              <span>{limits.maxGenerations} / мес</span>
+              <span>{t("nav.limit")}</span>
+              <span>{limits.maxGenerations} {t("nav.perMonth")}</span>
             </div>
           </div>
         </SidebarFooter>

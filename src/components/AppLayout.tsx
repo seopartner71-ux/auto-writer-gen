@@ -1,11 +1,15 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useTheme } from "@/shared/hooks/useTheme";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Sun, Moon, Languages } from "lucide-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { lang, setLang } = useI18n();
 
   return (
     <SidebarProvider>
@@ -16,8 +20,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2">
               <SidebarTrigger />
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground hidden sm:inline">
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLang(lang === "ru" ? "en" : "ru")}
+                title={lang === "ru" ? "Switch to English" : "Переключить на русский"}
+              >
+                <span className="text-xs font-bold uppercase">{lang}</span>
+              </Button>
+              <Button variant="ghost" size="icon" onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"}>
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+              <span className="text-sm text-muted-foreground hidden sm:inline ml-2">
                 {user?.email}
               </span>
               <Button variant="ghost" size="icon" onClick={signOut}>
