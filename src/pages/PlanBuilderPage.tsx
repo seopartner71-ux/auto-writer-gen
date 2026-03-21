@@ -163,6 +163,8 @@ export default function PlanBuilderPage() {
   const autopilot = useMutation({
     mutationFn: async () => {
       if (!selectedKeywordId) throw new Error("Выберите ключевое слово");
+      if (!session?.access_token) throw new Error("Сессия истекла, войдите снова");
+
       const { data, error } = await supabase.functions.invoke("generate-outline", {
         body: {
           keyword_id: selectedKeywordId,
@@ -170,6 +172,9 @@ export default function PlanBuilderPage() {
           serp_titles: serpResults.map((s: any) => s.title).filter(Boolean),
           questions: selectedKeyword?.questions || [],
           lsi_keywords: lsiKeywords,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
       if (error) throw error;
