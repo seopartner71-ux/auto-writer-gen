@@ -212,9 +212,34 @@ IMPORTANT: Write ALL output text in ${langName}.`;
                   type: "array",
                   items: { type: "string" },
                   description: "Recommended H2/H3 headings for the article"
+                },
+                competitor_tables: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      topic: { type: "string", description: "What the table compares or describes" },
+                      columns: { type: "array", items: { type: "string" }, description: "Suggested column headers" }
+                    },
+                    required: ["topic", "columns"]
+                  },
+                  description: "Tables found or inferred from competitor content that should be included"
+                },
+                competitor_lists: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      topic: { type: "string", description: "What the list covers" },
+                      type: { type: "string", enum: ["bullet", "numbered", "checklist"], description: "List type" },
+                      estimated_items: { type: "number", description: "Approximate number of items" }
+                    },
+                    required: ["topic", "type"]
+                  },
+                  description: "Lists found or inferred from competitor content that should be included"
                 }
               },
-              required: ["intent", "must_cover_topics", "content_gaps", "top_questions", "lsi_keywords", "difficulty_estimate", "recommended_word_count", "recommended_headings"],
+              required: ["intent", "must_cover_topics", "content_gaps", "top_questions", "lsi_keywords", "difficulty_estimate", "recommended_word_count", "recommended_headings", "competitor_tables", "competitor_lists"],
               additionalProperties: false
             }
           }
