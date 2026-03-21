@@ -245,6 +245,64 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_generations: {
+        Row: {
+          article_id: string | null
+          author_profile_id: string | null
+          created_at: string | null
+          id: string
+          keyword_id: string
+          scheduled_at: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          article_id?: string | null
+          author_profile_id?: string | null
+          created_at?: string | null
+          id?: string
+          keyword_id: string
+          scheduled_at: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          article_id?: string | null
+          author_profile_id?: string | null
+          created_at?: string | null
+          id?: string
+          keyword_id?: string
+          scheduled_at?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_generations_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_generations_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_generations_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       serp_results: {
         Row: {
           analyzed_at: string | null
