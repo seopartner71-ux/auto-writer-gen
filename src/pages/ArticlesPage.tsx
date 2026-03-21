@@ -280,9 +280,10 @@ export default function ArticlesPage() {
     abortRef.current = controller;
 
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      if (!token) throw new Error("Not authenticated");
+      // Refresh session to ensure fresh token
+      const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
+      const token = freshSession?.access_token;
+      if (refreshError || !token) throw new Error("Not authenticated");
 
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
       const resp = await fetch(url, {
