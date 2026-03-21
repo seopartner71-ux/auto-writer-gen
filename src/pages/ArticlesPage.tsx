@@ -679,48 +679,50 @@ export default function ArticlesPage() {
           </Card>
 
           {/* JSON-LD Schema */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Code2 className="h-4 w-4 text-primary" />
-                  JSON-LD Schema
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => generateSchema.mutate()}
-                    disabled={!content || generateSchema.isPending}
-                  >
-                    {generateSchema.isPending ? (
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    ) : (
-                      <Code2 className="h-3 w-3 mr-1" />
-                    )}
-                    Generate Schema
-                  </Button>
-                  {schemaJson && (
-                    <Button variant="ghost" size="sm" onClick={copySchema}>
-                      {schemaCopied ? (
-                        <Check className="h-3 w-3 mr-1" />
+          <PlanGate allowed={limits.hasJsonLdSchema} featureName="JSON-LD микроразметка" requiredPlan="Базовый">
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Code2 className="h-4 w-4 text-primary" />
+                    JSON-LD Schema
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateSchema.mutate()}
+                      disabled={!content || generateSchema.isPending}
+                    >
+                      {generateSchema.isPending ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                       ) : (
-                        <Copy className="h-3 w-3 mr-1" />
+                        <Code2 className="h-3 w-3 mr-1" />
                       )}
-                      {schemaCopied ? "Скопировано" : "Копировать"}
+                      Generate Schema
                     </Button>
-                  )}
-                </div>
-              </CardTitle>
-            </CardHeader>
-            {schemaJson && (
-              <CardContent>
-                <pre className="bg-muted rounded-md p-4 text-xs overflow-x-auto max-h-[300px] overflow-y-auto font-mono">
-                  {schemaJson}
-                </pre>
-              </CardContent>
-            )}
-          </Card>
+                    {schemaJson && (
+                      <Button variant="ghost" size="sm" onClick={copySchema}>
+                        {schemaCopied ? (
+                          <Check className="h-3 w-3 mr-1" />
+                        ) : (
+                          <Copy className="h-3 w-3 mr-1" />
+                        )}
+                        {schemaCopied ? "Скопировано" : "Копировать"}
+                      </Button>
+                    )}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              {schemaJson && (
+                <CardContent>
+                  <pre className="bg-muted rounded-md p-4 text-xs overflow-x-auto max-h-[300px] overflow-y-auto font-mono">
+                    {schemaJson}
+                  </pre>
+                </CardContent>
+              )}
+            </Card>
+          </PlanGate>
         </div>
 
         {/* Right: SEO Dashboard */}
