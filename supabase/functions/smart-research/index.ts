@@ -257,6 +257,9 @@ IMPORTANT: Write ALL output text in ${langName}.`;
       lsi_keywords: analysis.lsi_keywords,
       questions: analysis.top_questions,
       difficulty: analysis.difficulty_estimate === "easy" ? 20 : analysis.difficulty_estimate === "medium" ? 50 : analysis.difficulty_estimate === "hard" ? 75 : 90,
+      must_cover_topics: analysis.must_cover_topics || [],
+      content_gaps: analysis.content_gaps || [],
+      recommended_headings: analysis.recommended_headings || [],
     }).eq("id", keywordRow.id);
 
     // 9. Log usage

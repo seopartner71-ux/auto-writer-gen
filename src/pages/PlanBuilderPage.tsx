@@ -61,10 +61,32 @@ export default function PlanBuilderPage() {
 
     const items: InsightItem[] = [];
 
-    // Must-cover topics from analysis aren't stored directly, but we have questions & lsi
+    // Must-cover topics
+    if (selectedKeyword.must_cover_topics) {
+      (selectedKeyword.must_cover_topics as string[]).forEach((t: string, i: number) => {
+        items.push({ id: `topic-${i}`, text: t, type: "topic" });
+      });
+    }
+
+    // Content gaps
+    if (selectedKeyword.content_gaps) {
+      const gaps = selectedKeyword.content_gaps as any[];
+      gaps.forEach((g: any, i: number) => {
+        items.push({ id: `gap-${i}`, text: `${g.topic} — ${g.reason}`, type: "gap" });
+      });
+    }
+
+    // Questions
     if (selectedKeyword.questions) {
       (selectedKeyword.questions as string[]).forEach((q: string, i: number) => {
         items.push({ id: `q-${i}`, text: q, type: "question" });
+      });
+    }
+
+    // Recommended headings from AI analysis
+    if (selectedKeyword.recommended_headings) {
+      (selectedKeyword.recommended_headings as string[]).forEach((h: string, i: number) => {
+        items.push({ id: `rec-${i}`, text: h, type: "heading" });
       });
     }
 
@@ -73,7 +95,7 @@ export default function PlanBuilderPage() {
     setOutline([]);
   }, [selectedKeywordId]);
 
-  // Fetch SERP headings for richer insights
+  // Fetch SERP results for competitor structure
   const { data: serpResults = [] } = useQuery({
     queryKey: ["serp-results", selectedKeywordId],
     queryFn: async () => {
@@ -88,23 +110,6 @@ export default function PlanBuilderPage() {
     },
     enabled: !!selectedKeywordId,
   });
-
-  // Enrich insights with SERP titles as heading suggestions
-  useEffect(() => {
-    if (serpResults.length === 0 || !selectedKeyword) return;
-    const headingItems: InsightItem[] = serpResults
-      .filter((s: any) => s.title)
-      .map((s: any, i: number) => ({
-        id: `serp-${i}`,
-        text: s.title!,
-        type: "heading" as const,
-      }));
-
-    setInsights((prev) => {
-      const nonSerp = prev.filter((p) => !p.id.startsWith("serp-"));
-      return [...nonSerp, ...headingItems];
-    });
-  }, [serpResults]);
 
   // Drag handlers
   const handleDragStart = (item: InsightItem) => setDraggedItem(item);
