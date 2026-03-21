@@ -87,6 +87,10 @@ export interface UsageLog {
 
 // Plan limits
 export const PLAN_LIMITS: Record<Plan, { maxGenerations: number; models: string[] }> = {
+  free: {
+    maxGenerations: 5,
+    models: ["google/gemini-2.5-flash-lite"],
+  },
   basic: {
     maxGenerations: 30,
     models: ["google/gemini-2.5-flash-lite", "openai/gpt-5-nano"],
