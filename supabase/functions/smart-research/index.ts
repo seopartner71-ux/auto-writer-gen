@@ -124,7 +124,9 @@ serve(async (req) => {
 
     const paaQuestions = peopleAlsoAsk.map((p: any) => p.question || p.title).filter(Boolean);
 
-    const systemPrompt = `You are an expert SEO analyst. Analyze Google search results for the given keyword and provide actionable insights. Return structured data via the provided tool.`;
+    const langName = language === "ru" ? "Russian" : language === "de" ? "German" : language === "fr" ? "French" : language === "es" ? "Spanish" : language === "it" ? "Italian" : language === "pt" ? "Portuguese" : language === "ja" ? "Japanese" : language === "zh" ? "Chinese" : language === "ko" ? "Korean" : language === "ar" ? "Arabic" : language === "tr" ? "Turkish" : language === "pl" ? "Polish" : language === "nl" ? "Dutch" : language === "uk" ? "Ukrainian" : "English";
+
+    const systemPrompt = `You are an expert SEO analyst. Analyze Google search results for the given keyword and provide actionable insights. IMPORTANT: All text output (topics, questions, gaps, keywords, headings) MUST be written in ${langName}. Return structured data via the provided tool.`;
 
     const userPrompt = `Keyword: "${keyword}"
 Geo: ${geo || "US"}, Language: ${language || "en"}
@@ -140,7 +142,9 @@ Analyze these results and identify:
 2. Content gaps - topics that are missing or underserved  
 3. The top 5 questions users are asking (from PAA and inferred from content)
 4. Search intent classification
-5. LSI keywords to include`;
+5. LSI keywords to include
+
+IMPORTANT: Write ALL output text in ${langName}.`;
 
     // 7. Call AI
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
