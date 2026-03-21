@@ -379,11 +379,3 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
   );
 }
 
-const TONE_OPTIONS = [
-  { value: "expert", label: "Экспертный" },
-  { value: "friendly", label: "Дружелюбный" },
-  { value: "formal", label: "Формальный" },
-  { value: "casual", label: "Неформальный" },
-  { value: "persuasive", label: "Убедительный" },
-  { value: "educational", label: "Образовательный" },
-];
