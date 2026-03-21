@@ -35,7 +35,7 @@ export default function LoginPage() {
               <KeyRound className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl gradient-text">SEO Engine</CardTitle>
+          <CardTitle className="text-2xl gradient-text">SEO-Synthesizer <sup className="text-xs text-muted-foreground font-normal">v2.0</sup></CardTitle>
           <CardDescription>Войдите в свой аккаунт</CardDescription>
         </CardHeader>
         <CardContent>
