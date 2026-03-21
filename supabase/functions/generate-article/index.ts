@@ -67,16 +67,23 @@ serve(async (req) => {
         .single();
       if (author) {
         const parts = [];
-        if (author.voice_tone) parts.push(`Tone of voice: ${author.voice_tone}`);
-        if (author.niche) parts.push(`Niche expertise: ${author.niche}`);
+        parts.push(`AUTHOR NAME: ${author.name}`);
+        if (author.voice_tone) parts.push(`TONE OF VOICE: ${author.voice_tone}. You MUST write the entire article in this exact tone.`);
+        if (author.niche) parts.push(`NICHE EXPERTISE: ${author.niche}. Use domain-specific terminology naturally.`);
         if (author.style_analysis) {
           const sa = author.style_analysis as any;
-          if (sa.tone_description) parts.push(`Style: ${sa.tone_description}`);
-          if (sa.paragraph_length) parts.push(`Paragraph length: ${sa.paragraph_length}`);
-          if (sa.recommended_system_prompt) parts.push(sa.recommended_system_prompt);
+          if (sa.tone_description) parts.push(`WRITING STYLE: ${sa.tone_description}`);
+          if (sa.vocabulary_level) parts.push(`VOCABULARY LEVEL: ${sa.vocabulary_level}`);
+          if (sa.paragraph_length) parts.push(`PARAGRAPH LENGTH: ${sa.paragraph_length}`);
+          if (sa.sentence_style) parts.push(`SENTENCE STYLE: ${sa.sentence_style}`);
+          if (sa.metaphor_usage) parts.push(`METAPHOR USAGE: ${sa.metaphor_usage}`);
+          if (sa.formality) parts.push(`FORMALITY: ${sa.formality}`);
+          if (sa.emotional_tone) parts.push(`EMOTIONAL TONE: ${sa.emotional_tone}`);
+          if (sa.recommended_system_prompt) parts.push(`STYLE DIRECTIVE: ${sa.recommended_system_prompt}`);
         }
-        if (author.stop_words?.length) parts.push(`Avoid these words: ${author.stop_words.join(", ")}`);
-        if (author.system_prompt_override) parts.push(author.system_prompt_override);
+        if (author.style_examples) parts.push(`REFERENCE WRITING SAMPLE (mimic this style closely):\n"${author.style_examples.slice(0, 1500)}"`);
+        if (author.stop_words?.length) parts.push(`FORBIDDEN WORDS (never use these): ${author.stop_words.join(", ")}`);
+        if (author.system_prompt_override) parts.push(`ADDITIONAL AUTHOR INSTRUCTIONS: ${author.system_prompt_override}`);
         authorStyle = parts.join("\n");
       }
     }
@@ -94,19 +101,27 @@ serve(async (req) => {
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
     const questionsStr = (keyword.questions || []).join("\n- ");
 
-    const systemPrompt = `You are an expert SEO content writer. Write a comprehensive, well-structured article following the provided outline. 
-${authorStyle ? `\nAUTHOR STYLE INSTRUCTIONS:\n${authorStyle}` : ""}
+    const systemPrompt = `You are an expert SEO content writer.${authorStyle ? ` You are writing AS the author described below — adopt their voice, tone, vocabulary, and style throughout the ENTIRE article. Every sentence must sound like this author wrote it.` : ""}
 
+${authorStyle ? `\n=== AUTHOR PERSONA (CRITICAL — follow strictly) ===\n${authorStyle}\n=== END AUTHOR PERSONA ===\n` : ""}
 RULES:
 - Follow the exact heading structure provided
 - Naturally incorporate LSI keywords throughout the text
 - Write in the same language as the keyword and headings
 - Include transition phrases between sections
-- Add a FAQ section answering the provided questions
 - Make content informative, engaging, and original
 - Aim for the recommended word count
-- Use proper HTML heading tags (h1, h2, h3)
-- Format the article in Markdown`;
+- Format the article in Markdown (# for h1, ## for h2, ### for h3)
+${authorStyle ? "- CRITICAL: Maintain the author's unique voice and style in EVERY paragraph. Do NOT fall into generic AI writing patterns." : ""}
+
+FAQ SECTION (MANDATORY):
+- At the end of the article, add a section "## Часто задаваемые вопросы (FAQ)"
+- Include at least 5 questions and answers
+- Use the provided user questions as a base, and add more relevant questions
+- Format each Q&A as: "### <Question>\\n<Answer paragraph>"
+- Answers should be 2-4 sentences, concise and informative
+- Add structured data hint: wrap the FAQ section with a comment <!-- FAQ Schema -->
+- The FAQ must match the article's language and the author's tone`;
 
     const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
