@@ -39,6 +39,7 @@ const TONE_OPTIONS = [
 
 export default function AuthorProfilesPage() {
   const queryClient = useQueryClient();
+  const { limits } = usePlanLimits();
   const [createOpen, setCreateOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
