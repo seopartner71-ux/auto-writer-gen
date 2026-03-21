@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,6 +47,57 @@ function readabilityLabel(score: number): { label: string; color: string } {
   if (score >= 50) return { label: "Средне", color: "text-warning" };
   return { label: "Сложно", color: "text-destructive" };
 }
+
+function markdownToHtml(md: string, title?: string, metaDesc?: string): string {
+  let html = md
+    // headings
+    .replace(/^######\s+(.+)$/gm, "<h6>$1</h6>")
+    .replace(/^#####\s+(.+)$/gm, "<h5>$1</h5>")
+    .replace(/^####\s+(.+)$/gm, "<h4>$1</h4>")
+    .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
+    .replace(/^##\s+(.+)$/gm, "<h2>$1</h2>")
+    .replace(/^#\s+(.+)$/gm, "<h1>$1</h1>")
+    // bold & italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    // unordered lists
+    .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
+    // ordered lists
+    .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
+    // links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    // line breaks → paragraphs
+    .replace(/\n{2,}/g, "\n</p>\n<p>\n")
+    .replace(/\n/g, "<br>\n");
+
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, "<ul>$1</ul>");
+  html = `<p>${html}</p>`;
+
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title || "Article"}</title>
+  ${metaDesc ? `<meta name="description" content="${metaDesc.replace(/"/g, "&quot;")}">` : ""}
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; color: #1a1a1a; }
+    h1 { font-size: 2rem; margin-top: 2rem; }
+    h2 { font-size: 1.5rem; margin-top: 1.5rem; border-bottom: 1px solid #e5e5e5; padding-bottom: .3rem; }
+    h3 { font-size: 1.25rem; margin-top: 1.2rem; }
+    ul { padding-left: 1.5rem; }
+    a { color: #2563eb; }
+    strong { font-weight: 600; }
+  </style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+}
+
 
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
@@ -444,6 +495,25 @@ export default function ArticlesPage() {
                   Контент
                 </span>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!content}
+                    onClick={() => {
+                      const html = markdownToHtml(content, title, metaDescription);
+                      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.html`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success("HTML файл скачан");
+                    }}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    HTML
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
