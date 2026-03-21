@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Search,
+  ListTree,
   FileText,
   CalendarDays,
   BarChart3,
@@ -29,6 +30,7 @@ import {
 const mainItems = [
   { title: "Дашборд", url: "/dashboard", icon: LayoutDashboard },
   { title: "Ключевые слова", url: "/keywords", icon: Search },
+  { title: "Конструктор плана", url: "/plan-builder", icon: ListTree },
   { title: "Статьи", url: "/articles", icon: FileText },
   { title: "Календарь", url: "/calendar", icon: CalendarDays },
   { title: "Аналитика", url: "/analytics", icon: BarChart3 },
