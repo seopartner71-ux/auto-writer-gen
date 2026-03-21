@@ -11,6 +11,7 @@ import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import DashboardPage from "@/pages/DashboardPage";
 import KeywordsPage from "@/pages/KeywordsPage";
+import PlanBuilderPage from "@/pages/PlanBuilderPage";
 import ArticlesPage from "@/pages/ArticlesPage";
 import CalendarPage from "@/pages/CalendarPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
