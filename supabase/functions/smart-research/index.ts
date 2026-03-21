@@ -13,20 +13,25 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Auth
+    // Auth — decode JWT to get user ID
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
+
+    const token = authHeader.replace("Bearer ", "");
+    // Decode JWT payload (base64url)
+    const payloadB64 = token.split(".")[1];
+    if (!payloadB64) throw new Error("Unauthorized");
+    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+    const userId = payload.sub;
+    if (!userId) throw new Error("Unauthorized");
+    console.log("Authenticated user:", userId);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) throw new Error("Unauthorized");
-    const user = { id: claimsData.claims.sub as string };
+    const user = { id: userId };
 
     const { keyword, geo, language } = await req.json();
     if (!keyword || typeof keyword !== "string" || keyword.trim().length < 2) {
