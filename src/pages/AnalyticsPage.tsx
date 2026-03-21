@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
 
 // ── helpers ──────────────────────────────────────────────
 function countWords(t: string) { return t.trim().split(/\s+/).filter(Boolean).length; }
@@ -87,6 +89,7 @@ function waterLevel(text: string): number {
 export default function AnalyticsPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { limits } = usePlanLimits();
   const [selectedArticleId, setSelectedArticleId] = useState("");
   const [uniquenessResult, setUniquenessResult] = useState<any>(null);
 
@@ -482,6 +485,7 @@ export default function AnalyticsPage() {
           </Card>
 
           {/* AI Uniqueness Check */}
+          <PlanGate allowed={limits.hasUniquenessCheck} featureName="Проверка уникальности AI" requiredPlan="Базовый">
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center justify-between">
@@ -573,6 +577,7 @@ export default function AnalyticsPage() {
               )}
             </CardContent>
           </Card>
+          </PlanGate>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">

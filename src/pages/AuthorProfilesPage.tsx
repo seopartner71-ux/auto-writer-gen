@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 
 interface AuthorProfile {
   id: string;
@@ -38,6 +39,7 @@ const TONE_OPTIONS = [
 
 export default function AuthorProfilesPage() {
   const queryClient = useQueryClient();
+  const { limits } = usePlanLimits();
   const [createOpen, setCreateOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -61,6 +63,9 @@ export default function AuthorProfilesPage() {
 
   const createAuthor = useMutation({
     mutationFn: async () => {
+      if (limits.maxAuthorProfiles !== -1 && authors.length >= limits.maxAuthorProfiles) {
+        throw new Error(`Лимит профилей: ${limits.maxAuthorProfiles}. Обновите тариф для создания новых.`);
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 

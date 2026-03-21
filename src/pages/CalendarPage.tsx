@@ -15,6 +15,8 @@ import {
   Trash2, CheckCircle2, AlertCircle, Timer, FileText
 } from "lucide-react";
 import { toast } from "sonner";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
 
 const STATUS_CONFIG: Record<string, { label: string; icon: any; class: string }> = {
   pending: { label: "Ожидает", icon: Timer, class: "bg-warning/15 text-warning border-warning/30" },
@@ -25,6 +27,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: any; class: string }>
 
 export default function CalendarPage() {
   const queryClient = useQueryClient();
+  const { limits } = usePlanLimits();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -144,6 +147,23 @@ export default function CalendarPage() {
     : [];
 
   const pendingCount = scheduled.filter((s: any) => s.status === "pending").length;
+
+  if (!limits.hasCalendar) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <CalendarDays className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold">Календарь</h1>
+            <p className="text-sm text-muted-foreground">Планировщик генерации контента</p>
+          </div>
+        </div>
+        <PlanGate allowed={false} featureName="Планировщик календаря" requiredPlan="Базовый">
+          <div />
+        </PlanGate>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
