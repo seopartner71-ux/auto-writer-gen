@@ -86,6 +86,7 @@ function waterLevel(text: string): number {
 // ── component ────────────────────────────────────────────
 export default function AnalyticsPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [selectedArticleId, setSelectedArticleId] = useState("");
   const [uniquenessResult, setUniquenessResult] = useState<any>(null);
 
