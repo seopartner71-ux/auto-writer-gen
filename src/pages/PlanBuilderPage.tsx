@@ -497,6 +497,20 @@ export default function PlanBuilderPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Navigation to Article Generator */}
+          <div className="flex justify-end pt-4 lg:col-span-2">
+            <Button
+              size="lg"
+              className="gap-2"
+              disabled={outline.length === 0}
+              onClick={() => navigate("/articles")}
+            >
+              <FileText className="h-4 w-4" />
+              Перейти к генерации статьи
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
