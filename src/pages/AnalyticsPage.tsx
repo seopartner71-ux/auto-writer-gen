@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/shared/api/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import {
   BarChart3, FileText, Hash, BookOpen, Target, CheckCircle2,
-  Circle, AlertTriangle, TrendingUp, Search, Award, ShieldCheck, Loader2, Bot
+  Circle, AlertTriangle, TrendingUp, Search, Award, ShieldCheck, Loader2, Bot, Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -85,6 +86,7 @@ function waterLevel(text: string): number {
 // ── component ────────────────────────────────────────────
 export default function AnalyticsPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [selectedArticleId, setSelectedArticleId] = useState("");
   const [uniquenessResult, setUniquenessResult] = useState<any>(null);
 
@@ -292,11 +294,33 @@ export default function AnalyticsPage() {
                   </svg>
                   <span className={`absolute text-2xl font-bold ${seoColor}`}>{seoScore}</span>
                 </div>
-                <div>
+                <div className="flex-1">
                   <h2 className="text-lg font-semibold">SEO Score: <span className={seoColor}>{seoLabel}</span></h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     Оценка на основе объёма, читаемости, плотности ключей, структуры и мета-данных
                   </p>
+                  {seoScore < 60 && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="mt-3 gap-2"
+                      onClick={() => navigate(`/articles?edit=${article.id}`)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Редактировать статью
+                    </Button>
+                  )}
+                  {seoScore >= 60 && seoScore < 80 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 gap-2 border-warning text-warning hover:bg-warning/10"
+                      onClick={() => navigate(`/articles?edit=${article.id}`)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Улучшить статью
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
