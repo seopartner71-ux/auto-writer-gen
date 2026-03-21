@@ -41,6 +41,39 @@ export type Database = {
         }
         Relationships: []
       }
+      api_keys: {
+        Row: {
+          api_key: string
+          created_at: string | null
+          id: string
+          is_valid: boolean | null
+          label: string | null
+          last_checked_at: string | null
+          provider: string
+          updated_at: string | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string | null
+          id?: string
+          is_valid?: boolean | null
+          label?: string | null
+          last_checked_at?: string | null
+          provider: string
+          updated_at?: string | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string | null
+          id?: string
+          is_valid?: boolean | null
+          label?: string | null
+          last_checked_at?: string | null
+          provider?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       articles: {
         Row: {
           author_profile_id: string | null
@@ -176,6 +209,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          monthly_limit: number | null
           plan: string | null
         }
         Insert: {
@@ -183,6 +217,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          monthly_limit?: number | null
           plan?: string | null
         }
         Update: {
@@ -190,6 +225,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          monthly_limit?: number | null
           plan?: string | null
         }
         Relationships: []
@@ -237,6 +273,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      task_model_assignments: {
+        Row: {
+          id: string
+          model_key: string
+          task_key: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          model_key: string
+          task_key: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          model_key?: string
+          task_key?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       usage_logs: {
         Row: {
