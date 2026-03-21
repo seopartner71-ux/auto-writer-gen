@@ -456,6 +456,99 @@ export default function AnalyticsPage() {
               <CheckItem ok={water <= 60} text={`Водность <= 60% (${water}%)`} />
             </CardContent>
           </Card>
+
+          {/* AI Uniqueness Check */}
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  {t("analytics.uniquenessCheck")}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!content || checkUniqueness.isPending}
+                  onClick={() => checkUniqueness.mutate(content)}
+                >
+                  {checkUniqueness.isPending ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Bot className="h-3 w-3 mr-1" />
+                  )}
+                  {checkUniqueness.isPending ? t("analytics.checking") : t("analytics.checkUniqueness")}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {uniquenessResult ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <div className="text-2xl font-bold" style={{
+                        color: uniquenessResult.overall_score >= 70
+                          ? "hsl(var(--success))"
+                          : uniquenessResult.overall_score >= 40
+                          ? "hsl(var(--warning))"
+                          : "hsl(var(--destructive))"
+                      }}>
+                        {uniquenessResult.overall_score}%
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{t("analytics.uniqueness")}</div>
+                    </div>
+                    <div className="text-center p-3 rounded-lg bg-muted/50">
+                      <div className="text-2xl font-bold" style={{
+                        color: uniquenessResult.ai_probability <= 30
+                          ? "hsl(var(--success))"
+                          : uniquenessResult.ai_probability <= 60
+                          ? "hsl(var(--warning))"
+                          : "hsl(var(--destructive))"
+                      }}>
+                        {uniquenessResult.ai_probability}%
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">AI Detection</div>
+                    </div>
+                  </div>
+
+                  {uniquenessResult.cliche_phrases?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5">Клише и шаблоны:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {uniquenessResult.cliche_phrases.map((p: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-[10px] text-destructive border-destructive/30">
+                            {p}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {uniquenessResult.unique_elements?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5">Уникальные элементы:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {uniquenessResult.unique_elements.map((p: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-[10px] text-success border-success/30">
+                            {p}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {uniquenessResult.recommendation && (
+                    <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
+                      💡 {uniquenessResult.recommendation}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Нажмите «{t("analytics.checkUniqueness")}» для AI-анализа уникальности текста
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
