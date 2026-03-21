@@ -24,7 +24,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { keyword_id, author_profile_id, outline, lsi_keywords } = await req.json();
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists } = await req.json();
     if (!keyword_id) throw new Error("keyword_id is required");
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
