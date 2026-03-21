@@ -84,7 +84,25 @@ function waterLevel(text: string): number {
 
 // ── component ────────────────────────────────────────────
 export default function AnalyticsPage() {
+  const { t } = useI18n();
   const [selectedArticleId, setSelectedArticleId] = useState("");
+  const [uniquenessResult, setUniquenessResult] = useState<any>(null);
+
+  const checkUniqueness = useMutation({
+    mutationFn: async (text: string) => {
+      const { data, error } = await supabase.functions.invoke("check-uniqueness", {
+        body: { content: text },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data.analysis;
+    },
+    onSuccess: (data) => {
+      setUniquenessResult(data);
+      toast.success(t("analytics.uniquenessCheck") + ": " + data.overall_score + "%");
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const { data: articles = [] } = useQuery({
     queryKey: ["analytics-articles"],
