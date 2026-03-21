@@ -47,6 +47,7 @@ export function AppSidebar() {
 
   const settingsItems = [
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
+    { title: "Тарифы", url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
   ];
 
