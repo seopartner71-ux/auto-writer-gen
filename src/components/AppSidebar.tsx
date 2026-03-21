@@ -62,7 +62,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-2 px-4 py-4">
           <KeyRound className="h-6 w-6 text-primary shrink-0" />
           {!collapsed && (
-            <span className="text-lg font-semibold gradient-text">SEO Engine</span>
+            <span className="text-lg font-semibold gradient-text">SEO-Synthesizer <sup className="text-[10px] text-muted-foreground">v2.0</sup></span>
           )}
         </div>
 
