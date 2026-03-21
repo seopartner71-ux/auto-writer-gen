@@ -1,5 +1,5 @@
 export type AppRole = "admin" | "user";
-export type Plan = "basic" | "pro";
+export type Plan = "free" | "basic" | "pro";
 export type ArticleStatus = "draft" | "review" | "published";
 export type SearchIntent = "informational" | "transactional" | "navigational";
 
