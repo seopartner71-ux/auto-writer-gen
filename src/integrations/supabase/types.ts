@@ -175,6 +175,8 @@ export type Database = {
       }
       keywords: {
         Row: {
+          competitor_lists: Json | null
+          competitor_tables: Json | null
           content_gaps: Json | null
           created_at: string | null
           difficulty: number | null
@@ -189,6 +191,8 @@ export type Database = {
           volume: number | null
         }
         Insert: {
+          competitor_lists?: Json | null
+          competitor_tables?: Json | null
           content_gaps?: Json | null
           created_at?: string | null
           difficulty?: number | null
@@ -203,6 +207,8 @@ export type Database = {
           volume?: number | null
         }
         Update: {
+          competitor_lists?: Json | null
+          competitor_tables?: Json | null
           content_gaps?: Json | null
           created_at?: string | null
           difficulty?: number | null

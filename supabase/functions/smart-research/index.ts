@@ -143,6 +143,8 @@ Analyze these results and identify:
 3. The top 5 questions users are asking (from PAA and inferred from content)
 4. Search intent classification
 5. LSI keywords to include
+6. Tables that competitors use or that would be useful (comparison tables, feature tables, pricing tables, etc.) — specify what columns to include
+7. Lists that competitors use (bullet lists, numbered steps, checklists) — specify the topic and type
 
 IMPORTANT: Write ALL output text in ${langName}.`;
 
@@ -212,9 +214,34 @@ IMPORTANT: Write ALL output text in ${langName}.`;
                   type: "array",
                   items: { type: "string" },
                   description: "Recommended H2/H3 headings for the article"
+                },
+                competitor_tables: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      topic: { type: "string", description: "What the table compares or describes" },
+                      columns: { type: "array", items: { type: "string" }, description: "Suggested column headers" }
+                    },
+                    required: ["topic", "columns"]
+                  },
+                  description: "Tables found or inferred from competitor content that should be included"
+                },
+                competitor_lists: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      topic: { type: "string", description: "What the list covers" },
+                      type: { type: "string", enum: ["bullet", "numbered", "checklist"], description: "List type" },
+                      estimated_items: { type: "number", description: "Approximate number of items" }
+                    },
+                    required: ["topic", "type"]
+                  },
+                  description: "Lists found or inferred from competitor content that should be included"
                 }
               },
-              required: ["intent", "must_cover_topics", "content_gaps", "top_questions", "lsi_keywords", "difficulty_estimate", "recommended_word_count", "recommended_headings"],
+              required: ["intent", "must_cover_topics", "content_gaps", "top_questions", "lsi_keywords", "difficulty_estimate", "recommended_word_count", "recommended_headings", "competitor_tables", "competitor_lists"],
               additionalProperties: false
             }
           }
@@ -260,6 +287,8 @@ IMPORTANT: Write ALL output text in ${langName}.`;
       must_cover_topics: analysis.must_cover_topics || [],
       content_gaps: analysis.content_gaps || [],
       recommended_headings: analysis.recommended_headings || [],
+      competitor_tables: analysis.competitor_tables || [],
+      competitor_lists: analysis.competitor_lists || [],
     }).eq("id", keywordRow.id);
 
     // 9. Log usage
