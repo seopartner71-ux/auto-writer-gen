@@ -9,6 +9,7 @@ import {
   Settings,
   ShieldCheck,
   KeyRound,
+  CreditCard,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -46,6 +47,7 @@ export function AppSidebar() {
 
   const settingsItems = [
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
+    { title: "Тарифы", url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
   ];
 
@@ -53,8 +55,8 @@ export function AppSidebar() {
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
   ];
 
-  const plan = profile?.plan ?? "basic";
-  const limits = PLAN_LIMITS[plan as "basic" | "pro"];
+  const plan = profile?.plan ?? "free";
+  const limits = PLAN_LIMITS[plan as "free" | "basic" | "pro"];
 
   return (
     <Sidebar collapsible="icon">

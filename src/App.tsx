@@ -20,6 +20,7 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import AuthorProfilesPage from "@/pages/AuthorProfilesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import AdminPage from "@/pages/AdminPage";
+import PricingPage from "@/pages/PricingPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
                 <Route path="/analytics" element={<ProtectedLayout><AnalyticsPage /></ProtectedLayout>} />
                 <Route path="/author-profiles" element={<ProtectedLayout><AuthorProfilesPage /></ProtectedLayout>} />
                 <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+                <Route path="/pricing" element={<ProtectedLayout><PricingPage /></ProtectedLayout>} />
 
                 <Route
                   path="/admin"
