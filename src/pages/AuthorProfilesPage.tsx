@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
 
