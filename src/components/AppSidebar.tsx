@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Search,
+  ListTree,
   FileText,
   CalendarDays,
   BarChart3,
