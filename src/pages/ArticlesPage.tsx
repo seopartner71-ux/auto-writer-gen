@@ -160,6 +160,7 @@ ${html}
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { limits } = usePlanLimits();
 
   // Data fetching
   const { data: keywords = [] } = useQuery({
