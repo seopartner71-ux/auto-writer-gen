@@ -255,7 +255,7 @@ export function ResearchResults({ data }: Props) {
           className="gap-2"
           onClick={() => navigate("/plan-builder")}
         >
-          Перейти в конструктор плана
+          Перейти к структуре статьи
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>

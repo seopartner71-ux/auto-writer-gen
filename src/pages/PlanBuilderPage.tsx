@@ -212,9 +212,9 @@ export default function PlanBuilderPage() {
       <div className="flex items-center gap-3">
         <ListTree className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Insights Builder</h1>
+          <h1 className="text-2xl font-semibold">Структура статьи</h1>
           <p className="text-sm text-muted-foreground">
-            Конструктор плана статьи на основе AI-анализа
+            Построение структуры статьи на основе AI-анализа
           </p>
         </div>
       </div>

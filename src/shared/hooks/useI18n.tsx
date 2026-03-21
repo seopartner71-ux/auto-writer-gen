@@ -6,7 +6,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // Sidebar
   "nav.dashboard": { ru: "Дашборд", en: "Dashboard" },
   "nav.keywords": { ru: "Ключевые слова", en: "Keywords" },
-  "nav.planBuilder": { ru: "Конструктор плана", en: "Plan Builder" },
+  "nav.planBuilder": { ru: "Структура статьи", en: "Article Structure" },
   "nav.articles": { ru: "Статьи", en: "Articles" },
   "nav.calendar": { ru: "Календарь", en: "Calendar" },
   "nav.analytics": { ru: "Аналитика", en: "Analytics" },
