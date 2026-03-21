@@ -101,19 +101,27 @@ serve(async (req) => {
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
     const questionsStr = (keyword.questions || []).join("\n- ");
 
-    const systemPrompt = `You are an expert SEO content writer. Write a comprehensive, well-structured article following the provided outline. 
-${authorStyle ? `\nAUTHOR STYLE INSTRUCTIONS:\n${authorStyle}` : ""}
+    const systemPrompt = `You are an expert SEO content writer.${authorStyle ? ` You are writing AS the author described below — adopt their voice, tone, vocabulary, and style throughout the ENTIRE article. Every sentence must sound like this author wrote it.` : ""}
 
+${authorStyle ? `\n=== AUTHOR PERSONA (CRITICAL — follow strictly) ===\n${authorStyle}\n=== END AUTHOR PERSONA ===\n` : ""}
 RULES:
 - Follow the exact heading structure provided
 - Naturally incorporate LSI keywords throughout the text
 - Write in the same language as the keyword and headings
 - Include transition phrases between sections
-- Add a FAQ section answering the provided questions
 - Make content informative, engaging, and original
 - Aim for the recommended word count
-- Use proper HTML heading tags (h1, h2, h3)
-- Format the article in Markdown`;
+- Format the article in Markdown (# for h1, ## for h2, ### for h3)
+${authorStyle ? "- CRITICAL: Maintain the author's unique voice and style in EVERY paragraph. Do NOT fall into generic AI writing patterns." : ""}
+
+FAQ SECTION (MANDATORY):
+- At the end of the article, add a section "## Часто задаваемые вопросы (FAQ)"
+- Include at least 5 questions and answers
+- Use the provided user questions as a base, and add more relevant questions
+- Format each Q&A as: "### <Question>\\n<Answer paragraph>"
+- Answers should be 2-4 sentences, concise and informative
+- Add structured data hint: wrap the FAQ section with a comment <!-- FAQ Schema -->
+- The FAQ must match the article's language and the author's tone`;
 
     const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
