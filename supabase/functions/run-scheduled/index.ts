@@ -80,7 +80,16 @@ RULES:
 - Write in the same language as the keyword
 - Add a FAQ section with at least 5 Q&As at the end
 - Format in Markdown
-- Aim for 1500-2500 words`;
+- Aim for 1500-2500 words
+
+ANTI-AI DETECTION (CRITICAL):
+- Write like a real human expert. Vary sentence length: mix short punchy sentences with longer complex ones.
+- Use colloquial expressions, idioms, informal transitions naturally.
+- Include personal opinions, first-person perspective, subjective judgments.
+- Add rhetorical questions, parenthetical asides, dashes — for emphasis.
+- NEVER use: "В заключение", "Важно отметить", "Следует подчеркнуть", "Необходимо учитывать", "В современном мире", "Данный", "Является", "Осуществлять", "На сегодняшний день", "Комплексный подход", "Furthermore", "Moreover", "Additionally", "It's worth noting".
+- Never start paragraphs with the same pattern. Use concrete examples and numbers instead of abstractions.
+- Vary paragraph length. Use active voice. Show emotional engagement.`;
 
         const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
