@@ -287,6 +287,8 @@ IMPORTANT: Write ALL output text in ${langName}.`;
       must_cover_topics: analysis.must_cover_topics || [],
       content_gaps: analysis.content_gaps || [],
       recommended_headings: analysis.recommended_headings || [],
+      competitor_tables: analysis.competitor_tables || [],
+      competitor_lists: analysis.competitor_lists || [],
     }).eq("id", keywordRow.id);
 
     // 9. Log usage

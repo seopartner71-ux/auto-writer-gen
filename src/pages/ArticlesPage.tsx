@@ -211,6 +211,8 @@ export default function ArticlesPage() {
           author_profile_id: selectedAuthorId || null,
           outline,
           lsi_keywords: lsiKeywords,
+          competitor_tables: (selectedKeyword as any)?.competitor_tables || [],
+          competitor_lists: (selectedKeyword as any)?.competitor_lists || [],
         }),
         signal: controller.signal,
       });
