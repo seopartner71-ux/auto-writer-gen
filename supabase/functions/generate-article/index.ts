@@ -1,0 +1,187 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Unauthorized");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) throw new Error("Unauthorized");
+
+    const { keyword_id, author_profile_id, outline, lsi_keywords } = await req.json();
+    if (!keyword_id) throw new Error("keyword_id is required");
+
+    const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // 1. Get user profile for tier
+    const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+    const userPlan = profile?.plan || "basic";
+
+    // 2. Get model assignment based on tier
+    const writerTask = userPlan === "pro" ? "writer_pro" : "writer_basic";
+    const { data: assignment } = await supabaseAdmin
+      .from("task_model_assignments")
+      .select("model_key")
+      .eq("task_key", writerTask)
+      .single();
+
+    // Fallback models by tier
+    const fallbackModel = userPlan === "pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash-lite";
+    const model = assignment?.model_key || fallbackModel;
+
+    // 3. Get keyword data
+    const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
+    if (!keyword) throw new Error("Keyword not found");
+
+    // 4. Get SERP results
+    const { data: serpResults } = await supabase
+      .from("serp_results")
+      .select("title, snippet, url")
+      .eq("keyword_id", keyword_id)
+      .order("position", { ascending: true })
+      .limit(10);
+
+    // 5. Get author profile if provided
+    let authorStyle = "";
+    if (author_profile_id) {
+      const { data: author } = await supabase
+        .from("author_profiles")
+        .select("*")
+        .eq("id", author_profile_id)
+        .single();
+      if (author) {
+        const parts = [];
+        if (author.voice_tone) parts.push(`Tone of voice: ${author.voice_tone}`);
+        if (author.niche) parts.push(`Niche expertise: ${author.niche}`);
+        if (author.style_analysis) {
+          const sa = author.style_analysis as any;
+          if (sa.tone_description) parts.push(`Style: ${sa.tone_description}`);
+          if (sa.paragraph_length) parts.push(`Paragraph length: ${sa.paragraph_length}`);
+          if (sa.recommended_system_prompt) parts.push(sa.recommended_system_prompt);
+        }
+        if (author.stop_words?.length) parts.push(`Avoid these words: ${author.stop_words.join(", ")}`);
+        if (author.system_prompt_override) parts.push(author.system_prompt_override);
+        authorStyle = parts.join("\n");
+      }
+    }
+
+    // 6. Build outline string
+    const outlineStr = (outline || [])
+      .map((o: any) => `${{ h1: "#", h2: "##", h3: "###" }[o.level] || "##"} ${o.text}`)
+      .join("\n");
+
+    // 7. Competitor analysis
+    const competitorStr = (serpResults || [])
+      .map((r: any, i: number) => `${i + 1}. "${r.title}" — ${r.snippet || ""}`)
+      .join("\n");
+
+    const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
+    const questionsStr = (keyword.questions || []).join("\n- ");
+
+    const systemPrompt = `You are an expert SEO content writer. Write a comprehensive, well-structured article following the provided outline. 
+${authorStyle ? `\nAUTHOR STYLE INSTRUCTIONS:\n${authorStyle}` : ""}
+
+RULES:
+- Follow the exact heading structure provided
+- Naturally incorporate LSI keywords throughout the text
+- Write in the same language as the keyword and headings
+- Include transition phrases between sections
+- Add a FAQ section answering the provided questions
+- Make content informative, engaging, and original
+- Aim for the recommended word count
+- Use proper HTML heading tags (h1, h2, h3)
+- Format the article in Markdown`;
+
+    const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
+INTENT: ${keyword.intent || "informational"}
+
+ARTICLE OUTLINE:
+${outlineStr || "Write a comprehensive article about this keyword"}
+
+COMPETITOR INSIGHTS:
+${competitorStr || "No competitor data"}
+
+LSI KEYWORDS TO INCLUDE:
+${lsiStr || "None"}
+
+USER QUESTIONS TO ANSWER:
+${questionsStr ? `- ${questionsStr}` : "None"}
+
+RECOMMENDED WORD COUNT: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} words
+
+Write the full article now.`;
+
+    // 8. Stream AI response
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        stream: true,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded, try again later" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (aiResponse.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const errText = await aiResponse.text();
+      console.error("AI error:", aiResponse.status, errText);
+      throw new Error(`AI gateway error: ${aiResponse.status}`);
+    }
+
+    // Log usage (estimate tokens for streaming)
+    supabaseAdmin.from("usage_logs").insert({
+      user_id: user.id,
+      action: "generate_article",
+      model_used: model,
+      tokens_used: 0, // updated later if needed
+    }).then(() => {});
+
+    // Stream response back
+    return new Response(aiResponse.body, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch (e) {
+    console.error("generate-article error:", e);
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    const status = msg.includes("Unauthorized") ? 401 : 500;
+    return new Response(JSON.stringify({ error: msg }), {
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
