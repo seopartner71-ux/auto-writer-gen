@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
 
@@ -264,7 +265,26 @@ interface AuthorCardProps {
 }
 
 function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing }: AuthorCardProps) {
+  const queryClient = useQueryClient();
   const [analyzeText, setAnalyzeText] = useState(author.style_examples || "");
+  const [referenceText, setReferenceText] = useState(author.style_examples || "");
+  const [refDirty, setRefDirty] = useState(false);
+
+  const saveReference = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("author_profiles")
+        .update({ style_examples: referenceText.trim() || null })
+        .eq("id", author.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["author-profiles"] });
+      setRefDirty(false);
+      toast.success("Эталонный текст сохранён");
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const toneLabel = TONE_OPTIONS.find((t) => t.value === author.voice_tone)?.label || author.voice_tone;
 
@@ -295,6 +315,12 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                     Стиль проанализирован
                   </Badge>
                 )}
+                {author.style_examples && (
+                  <Badge className="text-xs bg-success/20 text-success border-0">
+                    <FileText className="h-3 w-3 mr-1" />
+                    Эталонный текст
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -316,9 +342,68 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
 
       {expanded && (
         <CardContent className="space-y-4 pt-0">
+          {/* Reference Text — the core style sample */}
+          <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-4">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              <Label className="text-sm font-semibold">Эталонный текст автора</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Вставьте текст, написанный этим автором. ИИ будет копировать этот стиль при генерации статей.
+              Чем больше текста — тем точнее стиль.
+            </p>
+            <Textarea
+              placeholder="Вставьте сюда текст автора (статья, пост, эссе)... Минимум 200 символов для качественного результата."
+              rows={10}
+              value={referenceText}
+              onChange={(e) => {
+                setReferenceText(e.target.value);
+                setRefDirty(true);
+              }}
+              className="bg-background font-mono text-sm leading-relaxed"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {referenceText.length} символов
+                {referenceText.length > 0 && referenceText.length < 200 && (
+                  <span className="text-warning ml-1">(рекомендуется ≥200)</span>
+                )}
+                {referenceText.length >= 200 && (
+                  <span className="text-success ml-1">✓ достаточно для анализа</span>
+                )}
+              </p>
+              <div className="flex gap-2">
+                {refDirty && (
+                  <Button
+                    size="sm"
+                    onClick={() => saveReference.mutate()}
+                    disabled={saveReference.isPending}
+                  >
+                    {saveReference.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-1" />
+                    )}
+                    Сохранить текст
+                  </Button>
+                )}
+                {!refDirty && referenceText.length > 0 && (
+                  <span className="flex items-center text-xs text-success gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Сохранено
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Style Analysis Section */}
           <div className="space-y-3 rounded-lg bg-muted/50 p-4">
             <Label className="text-sm font-medium">Анализ стиля</Label>
+            <p className="text-xs text-muted-foreground">
+              Проанализируйте эталонный текст, чтобы извлечь параметры стиля автоматически.
+            </p>
             <Textarea
               placeholder="Вставьте текст-образец автора (минимум 50 символов)..."
               rows={6}
