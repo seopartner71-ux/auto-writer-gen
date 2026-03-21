@@ -1,40 +1,47 @@
 import { ShieldCheck } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ApiVaultTab } from "@/components/admin/ApiVaultTab";
+import { ModelRoutingTab } from "@/components/admin/ModelRoutingTab";
+import { HealthCheckTab } from "@/components/admin/HealthCheckTab";
+import { UserManagementTab } from "@/components/admin/UserManagementTab";
 
 export default function AdminPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-semibold">Админ-панель</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Админ-панель</h1>
+          <p className="text-sm text-muted-foreground">
+            Управление ключами, моделями и пользователями
+          </p>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">Пользователи</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">—</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">AI Модели</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">—</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">Логи использования</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">—</div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="vault" className="w-full">
+        <TabsList className="bg-muted border border-border">
+          <TabsTrigger value="vault">API Vault</TabsTrigger>
+          <TabsTrigger value="routing">Model Routing</TabsTrigger>
+          <TabsTrigger value="health">Health Check</TabsTrigger>
+          <TabsTrigger value="users">Пользователи</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="vault" className="mt-4">
+          <ApiVaultTab />
+        </TabsContent>
+
+        <TabsContent value="routing" className="mt-4">
+          <ModelRoutingTab />
+        </TabsContent>
+
+        <TabsContent value="health" className="mt-4">
+          <HealthCheckTab />
+        </TabsContent>
+
+        <TabsContent value="users" className="mt-4">
+          <UserManagementTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
