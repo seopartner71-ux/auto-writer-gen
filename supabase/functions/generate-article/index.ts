@@ -135,6 +135,18 @@ RULES:
 ${authorStyle ? "- CRITICAL: Maintain the author's unique voice and style in EVERY paragraph. Do NOT fall into generic AI writing patterns." : ""}
 ${tablesListsInstructions}
 
+ANTI-AI DETECTION (CRITICAL — follow strictly):
+- Write like a real human expert, NOT like an AI. Vary sentence length dramatically: mix very short punchy sentences with longer complex ones.
+- Use colloquial expressions, idioms, and informal transitions naturally ("Честно говоря", "Давайте разберёмся", "Вот в чём дело").
+- Include personal opinions, subjective judgments, and first-person perspective ("Я считаю", "По моему опыту", "На мой взгляд").
+- Add imperfections: occasional rhetorical questions, parenthetical asides (like this one), dashes — for emphasis.
+- Avoid these AI giveaway patterns: "В заключение", "Важно отметить", "Следует подчеркнуть", "Необходимо учитывать", "В современном мире", "Данный", "Является", "Осуществлять", "В рамках", "На сегодняшний день", "Комплексный подход".
+- NEVER start paragraphs with the same word pattern. NEVER use formulaic transitions like "Furthermore", "Moreover", "Additionally", "It's worth noting".
+- Use concrete examples, numbers, anecdotes instead of abstract generalizations.
+- Vary paragraph length: some 1-2 sentences, others 4-5. Real writers are inconsistent.
+- Use active voice predominantly. Avoid passive constructions and nominalized verbs.
+- Write with emotional engagement — show enthusiasm, skepticism, surprise where appropriate.
+
 FAQ SECTION (MANDATORY):
 - At the end of the article, add a section "## Часто задаваемые вопросы (FAQ)"
 - Include at least 5 questions and answers
