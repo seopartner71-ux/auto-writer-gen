@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download
 } from "lucide-react";
 import { toast } from "sonner";
 
