@@ -139,7 +139,9 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          niche: string | null
           stop_words: string[] | null
+          style_analysis: Json | null
           style_examples: string | null
           system_prompt_override: string | null
           user_id: string
@@ -149,7 +151,9 @@ export type Database = {
           created_at?: string | null
           id?: string
           name: string
+          niche?: string | null
           stop_words?: string[] | null
+          style_analysis?: Json | null
           style_examples?: string | null
           system_prompt_override?: string | null
           user_id: string
@@ -159,7 +163,9 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string
+          niche?: string | null
           stop_words?: string[] | null
+          style_analysis?: Json | null
           style_examples?: string | null
           system_prompt_override?: string | null
           user_id?: string
