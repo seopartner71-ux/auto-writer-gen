@@ -149,6 +149,32 @@ export default function ArticlesPage() {
     }
   }, [authorProfiles]);
 
+  // Load article for editing from ?edit= query param
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId) return;
+
+    const loadArticle = async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("*")
+        .eq("id", editId)
+        .single();
+      if (error || !data) return;
+
+      setContent(data.content || "");
+      setTitle(data.title || "");
+      setMetaDescription(data.meta_description || "");
+      setCurrentArticleId(data.id);
+      if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
+      if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
+      // Clear the param so it doesn't reload on re-render
+      setSearchParams({}, { replace: true });
+      toast.info("Статья загружена для редактирования");
+    };
+    loadArticle();
+  }, [searchParams]);
+
   // State
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
