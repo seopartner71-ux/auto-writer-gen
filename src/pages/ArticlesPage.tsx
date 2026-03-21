@@ -571,58 +571,108 @@ export default function ArticlesPage() {
             </CardContent>
           </Card>
 
-          {/* Content Editor */}
+          {/* Content Editor / Preview */}
           <Card className="bg-card border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  Контент
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!content}
-                    onClick={() => {
-                      const html = markdownToHtml(content, title, metaDescription);
-                      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.html`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                      toast.success("HTML файл скачан");
-                    }}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    HTML
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => saveArticle.mutate()}
-                    disabled={!content || saveArticle.isPending}
-                  >
-                    <Save className="h-3 w-3 mr-1" />
-                    {saveArticle.isPending ? "..." : "Сохранить"}
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isStreaming && (
-                <div className="flex items-center gap-2 mb-3 text-sm text-primary">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Генерация текста...</span>
-                </div>
-              )}
-              <Textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Нажмите Generate для создания контента или введите текст вручную..."
-                className="min-h-[500px] font-mono text-sm leading-relaxed resize-y"
+            <Tabs defaultValue="edit">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <TabsList className="h-8">
+                    <TabsTrigger value="edit" className="text-xs gap-1.5 px-3">
+                      <Pencil className="h-3 w-3" />
+                      Редактор
+                    </TabsTrigger>
+                    <TabsTrigger value="preview" className="text-xs gap-1.5 px-3">
+                      <Eye className="h-3 w-3" />
+                      Предпросмотр
+                    </TabsTrigger>
+                  </TabsList>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!content}
+                      onClick={() => {
+                        const html = markdownToHtml(content, title, metaDescription);
+                        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.html`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success("HTML файл скачан");
+                      }}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      HTML
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => saveArticle.mutate()}
+                      disabled={!content || saveArticle.isPending}
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      {saveArticle.isPending ? "..." : "Сохранить"}
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isStreaming && (
+                  <div className="flex items-center gap-2 mb-3 text-sm text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Генерация текста...</span>
+                  </div>
+                )}
+                <TabsContent value="edit" className="mt-0">
+                  <Textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Нажмите Generate для создания контента или введите текст вручную..."
+                    className="min-h-[500px] font-mono text-sm leading-relaxed resize-y"
+                  />
+                </TabsContent>
+                <TabsContent value="preview" className="mt-0">
+                  {content ? (
+                    <div className="space-y-0">
+                      {/* Author block */}
+                      {selectedAuthorId && selectedAuthorId !== "none" && (() => {
+                        const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
+                        if (!author) return null;
+                        return (
+                          <div className="flex items-center gap-3 p-4 mb-6 rounded-lg bg-muted/50 border border-border">
+                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary">
+                              <User className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold">{author.name}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {author.niche && <span>{author.niche}</span>}
+                                {author.voice_tone && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{author.voice_tone}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      <div
+                        className="article-preview prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: markdownToPreviewHtml(content) }}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm py-12 text-center">
+                      Нет контента для предпросмотра
+                    </p>
+                  )}
+                </TabsContent>
+              </CardContent>
+            </Tabs>
               />
             </CardContent>
           </Card>
