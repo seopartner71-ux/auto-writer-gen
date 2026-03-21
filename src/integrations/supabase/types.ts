@@ -14,16 +14,290 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_models: {
+        Row: {
+          created_at: string | null
+          display_name: string | null
+          id: string
+          is_active: boolean | null
+          model_key: string
+          tier: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          model_key: string
+          tier?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          model_key?: string
+          tier?: string | null
+        }
+        Relationships: []
+      }
+      articles: {
+        Row: {
+          author_profile_id: string | null
+          content: string | null
+          created_at: string | null
+          id: string
+          keyword_id: string | null
+          meta_description: string | null
+          scheduled_at: string | null
+          seo_score: Json | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          author_profile_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          keyword_id?: string | null
+          meta_description?: string | null
+          scheduled_at?: string | null
+          seo_score?: Json | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          author_profile_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          keyword_id?: string | null
+          meta_description?: string | null
+          scheduled_at?: string | null
+          seo_score?: Json | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "articles_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "articles_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      author_profiles: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          stop_words: string[] | null
+          style_examples: string | null
+          system_prompt_override: string | null
+          user_id: string
+          voice_tone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          stop_words?: string[] | null
+          style_examples?: string | null
+          system_prompt_override?: string | null
+          user_id: string
+          voice_tone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          stop_words?: string[] | null
+          style_examples?: string | null
+          system_prompt_override?: string | null
+          user_id?: string
+          voice_tone?: string | null
+        }
+        Relationships: []
+      }
+      keywords: {
+        Row: {
+          created_at: string | null
+          difficulty: number | null
+          id: string
+          intent: string | null
+          lsi_keywords: string[] | null
+          questions: string[] | null
+          seed_keyword: string
+          user_id: string
+          volume: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          difficulty?: number | null
+          id?: string
+          intent?: string | null
+          lsi_keywords?: string[] | null
+          questions?: string[] | null
+          seed_keyword: string
+          user_id: string
+          volume?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          difficulty?: number | null
+          id?: string
+          intent?: string | null
+          lsi_keywords?: string[] | null
+          questions?: string[] | null
+          seed_keyword?: string
+          user_id?: string
+          volume?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          plan: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          plan?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          plan?: string | null
+        }
+        Relationships: []
+      }
+      serp_results: {
+        Row: {
+          analyzed_at: string | null
+          headings: Json | null
+          id: string
+          keyword_id: string
+          position: number | null
+          snippet: string | null
+          title: string | null
+          url: string | null
+          word_count: number | null
+        }
+        Insert: {
+          analyzed_at?: string | null
+          headings?: Json | null
+          id?: string
+          keyword_id: string
+          position?: number | null
+          snippet?: string | null
+          title?: string | null
+          url?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          analyzed_at?: string | null
+          headings?: Json | null
+          id?: string
+          keyword_id?: string
+          position?: number | null
+          snippet?: string | null
+          title?: string | null
+          url?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "serp_results_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_logs: {
+        Row: {
+          action: string | null
+          created_at: string | null
+          id: string
+          model_used: string | null
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string | null
+          id?: string
+          model_used?: string | null
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          action?: string | null
+          created_at?: string | null
+          id?: string
+          model_used?: string | null
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +424,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
