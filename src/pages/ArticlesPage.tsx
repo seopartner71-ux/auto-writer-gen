@@ -50,6 +50,60 @@ function readabilityLabel(score: number): { label: string; color: string } {
   return { label: "Сложно", color: "text-destructive" };
 }
 
+function markdownToPreviewHtml(md: string): string {
+  // Handle tables first
+  let html = md.replace(
+    /(?:^|\n)((?:\|.+\|\s*\n)+)/g,
+    (_, tableBlock: string) => {
+      const rows = tableBlock.trim().split("\n").filter(Boolean);
+      if (rows.length < 2) return tableBlock;
+      const headerCells = rows[0].split("|").filter(c => c.trim());
+      // Check if row 2 is separator
+      const isSep = /^[\s|:-]+$/.test(rows[1]);
+      const dataRows = isSep ? rows.slice(2) : rows.slice(1);
+      let table = '<table class="md-table"><thead><tr>';
+      headerCells.forEach(c => { table += `<th>${c.trim()}</th>`; });
+      table += "</tr></thead><tbody>";
+      dataRows.forEach(row => {
+        const cells = row.split("|").filter(c => c.trim());
+        table += "<tr>";
+        cells.forEach(c => { table += `<td>${c.trim()}</td>`; });
+        table += "</tr>";
+      });
+      table += "</tbody></table>";
+      return "\n" + table + "\n";
+    }
+  );
+
+  html = html
+    .replace(/^######\s+(.+)$/gm, '<h6 class="md-h6">$1</h6>')
+    .replace(/^#####\s+(.+)$/gm, '<h5 class="md-h5">$1</h5>')
+    .replace(/^####\s+(.+)$/gm, '<h4 class="md-h4">$1</h4>')
+    .replace(/^###\s+(.+)$/gm, '<h3 class="md-h3">$1</h3>')
+    .replace(/^##\s+(.+)$/gm, '<h2 class="md-h2">$1</h2>')
+    .replace(/^#\s+(.+)$/gm, '<h1 class="md-h1">$1</h1>')
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="md-link">$1</a>')
+    .replace(/^[-*]\s+(.+)$/gm, '<li class="md-ul-li">$1</li>')
+    .replace(/^\d+\.\s+(.+)$/gm, '<li class="md-ol-li">$1</li>');
+
+  // Wrap consecutive ul/ol items
+  html = html.replace(/((?:<li class="md-ul-li">.*?<\/li>\s*)+)/g, '<ul class="md-ul">$1</ul>');
+  html = html.replace(/((?:<li class="md-ol-li">.*?<\/li>\s*)+)/g, '<ol class="md-ol">$1</ol>');
+
+  // Paragraphs
+  html = html.replace(/\n{2,}/g, '</p><p class="md-p">');
+  html = `<p class="md-p">${html}</p>`;
+  // Clean empty paragraphs
+  html = html.replace(/<p class="md-p">\s*<\/p>/g, "");
+  html = html.replace(/<p class="md-p">\s*(<h[1-6]|<ul|<ol|<table)/g, "$1");
+  html = html.replace(/(<\/h[1-6]>|<\/ul>|<\/ol>|<\/table>)\s*<\/p>/g, "$1");
+
+  return html;
+}
+
 function markdownToHtml(md: string, title?: string, metaDesc?: string): string {
   let html = md
     // headings
