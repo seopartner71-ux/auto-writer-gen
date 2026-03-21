@@ -485,6 +485,7 @@ export default function AnalyticsPage() {
           </Card>
 
           {/* AI Uniqueness Check */}
+          <PlanGate allowed={limits.hasUniquenessCheck} featureName="Проверка уникальности AI" requiredPlan="Базовый">
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center justify-between">
