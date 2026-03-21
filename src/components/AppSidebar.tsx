@@ -55,8 +55,8 @@ export function AppSidebar() {
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
   ];
 
-  const plan = profile?.plan ?? "basic";
-  const limits = PLAN_LIMITS[plan as "basic" | "pro"];
+  const plan = profile?.plan ?? "free";
+  const limits = PLAN_LIMITS[plan as "free" | "basic" | "pro"];
 
   return (
     <Sidebar collapsible="icon">
