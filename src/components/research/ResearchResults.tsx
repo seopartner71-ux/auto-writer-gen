@@ -247,6 +247,18 @@ export function ResearchResults({ data }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Navigation to Plan Builder */}
+      <div className="flex justify-end pt-2">
+        <Button
+          size="lg"
+          className="gap-2"
+          onClick={() => navigate("/plan-builder")}
+        >
+          Перейти в конструктор плана
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
