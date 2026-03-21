@@ -329,6 +329,67 @@ export default function PlanBuilderPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Competitor Structure from SERP */}
+            {serpResults.length > 0 && (
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    Структура конкурентов (ТОП)
+                    <Badge variant="secondary" className="ml-auto text-[10px]">
+                      {serpResults.length} сайтов
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 max-h-[350px] overflow-y-auto">
+                  {serpResults.slice(0, 5).map((sr: any) => (
+                    <div key={sr.id} className="rounded-md bg-muted/40 p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                            #{sr.position}
+                          </span>
+                          <span className="text-xs font-medium truncate">{sr.title}</span>
+                        </div>
+                        {sr.url && (
+                          <a
+                            href={sr.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0"
+                          >
+                            <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                          </a>
+                        )}
+                      </div>
+                      {sr.snippet && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-2">
+                          {sr.snippet}
+                        </p>
+                      )}
+                      {/* Add competitor title as heading suggestion */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px] px-2 gap-1"
+                        onClick={() => {
+                          const newItem: OutlineItem = {
+                            id: `comp-${Date.now()}-${sr.position}`,
+                            text: sr.title,
+                            level: "h2",
+                          };
+                          setOutline((prev) => [...prev, newItem]);
+                        }}
+                      >
+                        <ArrowRight className="h-3 w-3" />
+                        В план
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Right: Article Structure */}
