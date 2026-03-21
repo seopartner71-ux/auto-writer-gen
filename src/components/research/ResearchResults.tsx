@@ -29,6 +29,7 @@ const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export function ResearchResults({ data }: Props) {
+  const navigate = useNavigate();
   const { analysis, competitors: initialCompetitors } = data;
   const [competitors, setCompetitors] = useState<Competitor[]>(
     initialCompetitors.map((c) => ({ ...c, excluded: false }))
