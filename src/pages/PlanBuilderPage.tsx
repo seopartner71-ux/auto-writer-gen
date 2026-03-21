@@ -29,6 +29,7 @@ interface OutlineItem {
 }
 
 export default function PlanBuilderPage() {
+  const { session } = useAuth();
   const navigate = useNavigate();
   // Fetch keywords with analysis data
   const { data: keywords = [] } = useQuery({
