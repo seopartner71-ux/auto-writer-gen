@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/shared/hooks/useAuth";
+import { ThemeProvider } from "@/shared/hooks/useTheme";
+import { I18nProvider } from "@/shared/hooks/useI18n";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 
@@ -32,39 +34,43 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+    <ThemeProvider>
+      <I18nProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-            <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
-            <Route path="/keywords" element={<ProtectedLayout><KeywordsPage /></ProtectedLayout>} />
-            <Route path="/plan-builder" element={<ProtectedLayout><PlanBuilderPage /></ProtectedLayout>} />
-            <Route path="/articles" element={<ProtectedLayout><ArticlesPage /></ProtectedLayout>} />
-            <Route path="/calendar" element={<ProtectedLayout><CalendarPage /></ProtectedLayout>} />
-            <Route path="/analytics" element={<ProtectedLayout><AnalyticsPage /></ProtectedLayout>} />
-            <Route path="/author-profiles" element={<ProtectedLayout><AuthorProfilesPage /></ProtectedLayout>} />
-            <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+                <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
+                <Route path="/keywords" element={<ProtectedLayout><KeywordsPage /></ProtectedLayout>} />
+                <Route path="/plan-builder" element={<ProtectedLayout><PlanBuilderPage /></ProtectedLayout>} />
+                <Route path="/articles" element={<ProtectedLayout><ArticlesPage /></ProtectedLayout>} />
+                <Route path="/calendar" element={<ProtectedLayout><CalendarPage /></ProtectedLayout>} />
+                <Route path="/analytics" element={<ProtectedLayout><AnalyticsPage /></ProtectedLayout>} />
+                <Route path="/author-profiles" element={<ProtectedLayout><AuthorProfilesPage /></ProtectedLayout>} />
+                <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
 
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AppLayout><AdminPage /></AppLayout>
-                </ProtectedRoute>
-              }
-            />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <AppLayout><AdminPage /></AppLayout>
+                    </ProtectedRoute>
+                  }
+                />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </I18nProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
