@@ -175,34 +175,43 @@ export type Database = {
       }
       keywords: {
         Row: {
+          content_gaps: Json | null
           created_at: string | null
           difficulty: number | null
           id: string
           intent: string | null
           lsi_keywords: string[] | null
+          must_cover_topics: string[] | null
           questions: string[] | null
+          recommended_headings: string[] | null
           seed_keyword: string
           user_id: string
           volume: number | null
         }
         Insert: {
+          content_gaps?: Json | null
           created_at?: string | null
           difficulty?: number | null
           id?: string
           intent?: string | null
           lsi_keywords?: string[] | null
+          must_cover_topics?: string[] | null
           questions?: string[] | null
+          recommended_headings?: string[] | null
           seed_keyword: string
           user_id: string
           volume?: number | null
         }
         Update: {
+          content_gaps?: Json | null
           created_at?: string | null
           difficulty?: number | null
           id?: string
           intent?: string | null
           lsi_keywords?: string[] | null
+          must_cover_topics?: string[] | null
           questions?: string[] | null
+          recommended_headings?: string[] | null
           seed_keyword?: string
           user_id?: string
           volume?: number | null

@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
   Wand2, GripVertical, Plus, Trash2, ChevronRight, Loader2,
-  Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight
+  Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
+  ExternalLink, BarChart3
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,10 +62,32 @@ export default function PlanBuilderPage() {
 
     const items: InsightItem[] = [];
 
-    // Must-cover topics from analysis aren't stored directly, but we have questions & lsi
+    // Must-cover topics
+    if (selectedKeyword.must_cover_topics) {
+      (selectedKeyword.must_cover_topics as string[]).forEach((t: string, i: number) => {
+        items.push({ id: `topic-${i}`, text: t, type: "topic" });
+      });
+    }
+
+    // Content gaps
+    if (selectedKeyword.content_gaps) {
+      const gaps = selectedKeyword.content_gaps as any[];
+      gaps.forEach((g: any, i: number) => {
+        items.push({ id: `gap-${i}`, text: `${g.topic} — ${g.reason}`, type: "gap" });
+      });
+    }
+
+    // Questions
     if (selectedKeyword.questions) {
       (selectedKeyword.questions as string[]).forEach((q: string, i: number) => {
         items.push({ id: `q-${i}`, text: q, type: "question" });
+      });
+    }
+
+    // Recommended headings from AI analysis
+    if (selectedKeyword.recommended_headings) {
+      (selectedKeyword.recommended_headings as string[]).forEach((h: string, i: number) => {
+        items.push({ id: `rec-${i}`, text: h, type: "heading" });
       });
     }
 
@@ -73,7 +96,7 @@ export default function PlanBuilderPage() {
     setOutline([]);
   }, [selectedKeywordId]);
 
-  // Fetch SERP headings for richer insights
+  // Fetch SERP results for competitor structure
   const { data: serpResults = [] } = useQuery({
     queryKey: ["serp-results", selectedKeywordId],
     queryFn: async () => {
@@ -88,23 +111,6 @@ export default function PlanBuilderPage() {
     },
     enabled: !!selectedKeywordId,
   });
-
-  // Enrich insights with SERP titles as heading suggestions
-  useEffect(() => {
-    if (serpResults.length === 0 || !selectedKeyword) return;
-    const headingItems: InsightItem[] = serpResults
-      .filter((s: any) => s.title)
-      .map((s: any, i: number) => ({
-        id: `serp-${i}`,
-        text: s.title!,
-        type: "heading" as const,
-      }));
-
-    setInsights((prev) => {
-      const nonSerp = prev.filter((p) => !p.id.startsWith("serp-"));
-      return [...nonSerp, ...headingItems];
-    });
-  }, [serpResults]);
 
   // Drag handlers
   const handleDragStart = (item: InsightItem) => setDraggedItem(item);
@@ -323,6 +329,67 @@ export default function PlanBuilderPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Competitor Structure from SERP */}
+            {serpResults.length > 0 && (
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    Структура конкурентов (ТОП)
+                    <Badge variant="secondary" className="ml-auto text-[10px]">
+                      {serpResults.length} сайтов
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 max-h-[350px] overflow-y-auto">
+                  {serpResults.slice(0, 5).map((sr: any) => (
+                    <div key={sr.id} className="rounded-md bg-muted/40 p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                            #{sr.position}
+                          </span>
+                          <span className="text-xs font-medium truncate">{sr.title}</span>
+                        </div>
+                        {sr.url && (
+                          <a
+                            href={sr.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0"
+                          >
+                            <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                          </a>
+                        )}
+                      </div>
+                      {sr.snippet && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-2">
+                          {sr.snippet}
+                        </p>
+                      )}
+                      {/* Add competitor title as heading suggestion */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px] px-2 gap-1"
+                        onClick={() => {
+                          const newItem: OutlineItem = {
+                            id: `comp-${Date.now()}-${sr.position}`,
+                            text: sr.title,
+                            level: "h2",
+                          };
+                          setOutline((prev) => [...prev, newItem]);
+                        }}
+                      >
+                        <ArrowRight className="h-3 w-3" />
+                        В план
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Right: Article Structure */}
