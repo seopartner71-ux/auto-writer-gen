@@ -63,6 +63,9 @@ export default function AuthorProfilesPage() {
 
   const createAuthor = useMutation({
     mutationFn: async () => {
+      if (limits.maxAuthorProfiles !== -1 && authors.length >= limits.maxAuthorProfiles) {
+        throw new Error(`Лимит профилей: ${limits.maxAuthorProfiles}. Обновите тариф для создания новых.`);
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
