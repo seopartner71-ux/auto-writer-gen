@@ -117,3 +117,99 @@
     background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
   }
 }
+
+/* Article Preview Styles */
+.article-preview .md-h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: hsl(var(--foreground));
+  line-height: 1.3;
+}
+
+.article-preview .md-h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.article-preview .md-h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.4rem;
+  color: hsl(var(--foreground) / 0.9);
+}
+
+.article-preview .md-p {
+  margin-bottom: 0.75rem;
+  line-height: 1.75;
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.article-preview .md-ul,
+.article-preview .md-ol {
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.article-preview .md-ul {
+  list-style-type: disc;
+}
+
+.article-preview .md-ol {
+  list-style-type: decimal;
+}
+
+.article-preview .md-ul-li,
+.article-preview .md-ol-li {
+  margin-bottom: 0.3rem;
+  line-height: 1.6;
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.article-preview .md-link {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.article-preview .md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+
+.article-preview .md-table th {
+  background: hsl(var(--muted));
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.article-preview .md-table td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground) / 0.85);
+}
+
+.article-preview .md-table tbody tr:nth-child(even) {
+  background: hsl(var(--muted) / 0.3);
+}
+
+.article-preview strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.article-preview em {
+  font-style: italic;
+}
