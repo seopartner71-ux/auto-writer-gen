@@ -26,7 +26,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: any; class: string }>
 };
 
 export default function CalendarPage() {
-  const queryClient = useQueryClient();
+  const { limits } = usePlanLimits();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
