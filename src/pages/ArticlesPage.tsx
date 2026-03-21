@@ -673,8 +673,6 @@ export default function ArticlesPage() {
                 </TabsContent>
               </CardContent>
             </Tabs>
-              />
-            </CardContent>
           </Card>
 
           {/* JSON-LD Schema */}
