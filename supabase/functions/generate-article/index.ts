@@ -67,16 +67,23 @@ serve(async (req) => {
         .single();
       if (author) {
         const parts = [];
-        if (author.voice_tone) parts.push(`Tone of voice: ${author.voice_tone}`);
-        if (author.niche) parts.push(`Niche expertise: ${author.niche}`);
+        parts.push(`AUTHOR NAME: ${author.name}`);
+        if (author.voice_tone) parts.push(`TONE OF VOICE: ${author.voice_tone}. You MUST write the entire article in this exact tone.`);
+        if (author.niche) parts.push(`NICHE EXPERTISE: ${author.niche}. Use domain-specific terminology naturally.`);
         if (author.style_analysis) {
           const sa = author.style_analysis as any;
-          if (sa.tone_description) parts.push(`Style: ${sa.tone_description}`);
-          if (sa.paragraph_length) parts.push(`Paragraph length: ${sa.paragraph_length}`);
-          if (sa.recommended_system_prompt) parts.push(sa.recommended_system_prompt);
+          if (sa.tone_description) parts.push(`WRITING STYLE: ${sa.tone_description}`);
+          if (sa.vocabulary_level) parts.push(`VOCABULARY LEVEL: ${sa.vocabulary_level}`);
+          if (sa.paragraph_length) parts.push(`PARAGRAPH LENGTH: ${sa.paragraph_length}`);
+          if (sa.sentence_style) parts.push(`SENTENCE STYLE: ${sa.sentence_style}`);
+          if (sa.metaphor_usage) parts.push(`METAPHOR USAGE: ${sa.metaphor_usage}`);
+          if (sa.formality) parts.push(`FORMALITY: ${sa.formality}`);
+          if (sa.emotional_tone) parts.push(`EMOTIONAL TONE: ${sa.emotional_tone}`);
+          if (sa.recommended_system_prompt) parts.push(`STYLE DIRECTIVE: ${sa.recommended_system_prompt}`);
         }
-        if (author.stop_words?.length) parts.push(`Avoid these words: ${author.stop_words.join(", ")}`);
-        if (author.system_prompt_override) parts.push(author.system_prompt_override);
+        if (author.style_examples) parts.push(`REFERENCE WRITING SAMPLE (mimic this style closely):\n"${author.style_examples.slice(0, 1500)}"`);
+        if (author.stop_words?.length) parts.push(`FORBIDDEN WORDS (never use these): ${author.stop_words.join(", ")}`);
+        if (author.system_prompt_override) parts.push(`ADDITIONAL AUTHOR INSTRUCTIONS: ${author.system_prompt_override}`);
         authorStyle = parts.join("\n");
       }
     }
