@@ -44,6 +44,7 @@ const App = () => (
 
             <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
             <Route path="/keywords" element={<ProtectedLayout><KeywordsPage /></ProtectedLayout>} />
+            <Route path="/plan-builder" element={<ProtectedLayout><PlanBuilderPage /></ProtectedLayout>} />
             <Route path="/articles" element={<ProtectedLayout><ArticlesPage /></ProtectedLayout>} />
             <Route path="/calendar" element={<ProtectedLayout><CalendarPage /></ProtectedLayout>} />
             <Route path="/analytics" element={<ProtectedLayout><AnalyticsPage /></ProtectedLayout>} />
