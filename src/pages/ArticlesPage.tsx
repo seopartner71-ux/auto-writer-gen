@@ -498,6 +498,25 @@ export default function ArticlesPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    disabled={!content}
+                    onClick={() => {
+                      const html = markdownToHtml(content, title, metaDescription);
+                      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.html`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success("HTML файл скачан");
+                    }}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    HTML
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => saveArticle.mutate()}
                     disabled={!content || saveArticle.isPending}
                   >
