@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -10,8 +11,10 @@ import {
 } from "@/components/ui/select";
 import {
   BarChart3, FileText, Hash, BookOpen, Target, CheckCircle2,
-  Circle, AlertTriangle, TrendingUp, Search, Award
+  Circle, AlertTriangle, TrendingUp, Search, Award, ShieldCheck, Loader2, Bot
 } from "lucide-react";
+import { toast } from "sonner";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 // ── helpers ──────────────────────────────────────────────
 function countWords(t: string) { return t.trim().split(/\s+/).filter(Boolean).length; }
