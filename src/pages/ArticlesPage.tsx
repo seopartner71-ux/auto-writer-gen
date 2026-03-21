@@ -200,9 +200,19 @@ export default function ArticlesPage() {
         }
       }
 
-      // Extract title from content
+      // Auto-fill title and meta from generated content
       const h1Match = fullContent.match(/^#\s+(.+)$/m);
       if (h1Match) setTitle(h1Match[1]);
+
+      // Auto-generate meta description from first paragraph
+      const paragraphs = fullContent
+        .replace(/^#.+$/gm, "")
+        .split(/\n\n+/)
+        .map((p: string) => p.trim())
+        .filter((p: string) => p.length > 30);
+      if (paragraphs.length > 0) {
+        setMetaDescription(paragraphs[0].replace(/[*_#`]/g, "").slice(0, 160));
+      }
 
       toast.success("Статья сгенерирована");
     } catch (e: any) {
