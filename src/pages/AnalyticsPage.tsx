@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import {
   BarChart3, FileText, Hash, BookOpen, Target, CheckCircle2,
-  Circle, AlertTriangle, TrendingUp, Search, Award, ShieldCheck, Loader2, Bot
+  Circle, AlertTriangle, TrendingUp, Search, Award, ShieldCheck, Loader2, Bot, Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
