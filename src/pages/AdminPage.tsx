@@ -4,6 +4,7 @@ import { ApiVaultTab } from "@/components/admin/ApiVaultTab";
 import { ModelRoutingTab } from "@/components/admin/ModelRoutingTab";
 import { HealthCheckTab } from "@/components/admin/HealthCheckTab";
 import { UserManagementTab } from "@/components/admin/UserManagementTab";
+import { UserContentTab } from "@/components/admin/UserContentTab";
 
 export default function AdminPage() {
   return (
@@ -24,6 +25,7 @@ export default function AdminPage() {
           <TabsTrigger value="routing">Model Routing</TabsTrigger>
           <TabsTrigger value="health">Health Check</TabsTrigger>
           <TabsTrigger value="users">Пользователи</TabsTrigger>
+          <TabsTrigger value="content">Контент</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4">
@@ -40,6 +42,10 @@ export default function AdminPage() {
 
         <TabsContent value="users" className="mt-4">
           <UserManagementTab />
+        </TabsContent>
+
+        <TabsContent value="content" className="mt-4">
+          <UserContentTab />
         </TabsContent>
       </Tabs>
     </div>
