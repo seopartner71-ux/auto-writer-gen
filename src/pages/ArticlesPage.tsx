@@ -13,8 +13,9 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 // Readability helpers
@@ -47,6 +48,60 @@ function readabilityLabel(score: number): { label: string; color: string } {
   if (score >= 70) return { label: "Легко", color: "text-success" };
   if (score >= 50) return { label: "Средне", color: "text-warning" };
   return { label: "Сложно", color: "text-destructive" };
+}
+
+function markdownToPreviewHtml(md: string): string {
+  // Handle tables first
+  let html = md.replace(
+    /(?:^|\n)((?:\|.+\|\s*\n)+)/g,
+    (_, tableBlock: string) => {
+      const rows = tableBlock.trim().split("\n").filter(Boolean);
+      if (rows.length < 2) return tableBlock;
+      const headerCells = rows[0].split("|").filter(c => c.trim());
+      // Check if row 2 is separator
+      const isSep = /^[\s|:-]+$/.test(rows[1]);
+      const dataRows = isSep ? rows.slice(2) : rows.slice(1);
+      let table = '<table class="md-table"><thead><tr>';
+      headerCells.forEach(c => { table += `<th>${c.trim()}</th>`; });
+      table += "</tr></thead><tbody>";
+      dataRows.forEach(row => {
+        const cells = row.split("|").filter(c => c.trim());
+        table += "<tr>";
+        cells.forEach(c => { table += `<td>${c.trim()}</td>`; });
+        table += "</tr>";
+      });
+      table += "</tbody></table>";
+      return "\n" + table + "\n";
+    }
+  );
+
+  html = html
+    .replace(/^######\s+(.+)$/gm, '<h6 class="md-h6">$1</h6>')
+    .replace(/^#####\s+(.+)$/gm, '<h5 class="md-h5">$1</h5>')
+    .replace(/^####\s+(.+)$/gm, '<h4 class="md-h4">$1</h4>')
+    .replace(/^###\s+(.+)$/gm, '<h3 class="md-h3">$1</h3>')
+    .replace(/^##\s+(.+)$/gm, '<h2 class="md-h2">$1</h2>')
+    .replace(/^#\s+(.+)$/gm, '<h1 class="md-h1">$1</h1>')
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="md-link">$1</a>')
+    .replace(/^[-*]\s+(.+)$/gm, '<li class="md-ul-li">$1</li>')
+    .replace(/^\d+\.\s+(.+)$/gm, '<li class="md-ol-li">$1</li>');
+
+  // Wrap consecutive ul/ol items
+  html = html.replace(/((?:<li class="md-ul-li">.*?<\/li>\s*)+)/g, '<ul class="md-ul">$1</ul>');
+  html = html.replace(/((?:<li class="md-ol-li">.*?<\/li>\s*)+)/g, '<ol class="md-ol">$1</ol>');
+
+  // Paragraphs
+  html = html.replace(/\n{2,}/g, '</p><p class="md-p">');
+  html = `<p class="md-p">${html}</p>`;
+  // Clean empty paragraphs
+  html = html.replace(/<p class="md-p">\s*<\/p>/g, "");
+  html = html.replace(/<p class="md-p">\s*(<h[1-6]|<ul|<ol|<table)/g, "$1");
+  html = html.replace(/(<\/h[1-6]>|<\/ul>|<\/ol>|<\/table>)\s*<\/p>/g, "$1");
+
+  return html;
 }
 
 function markdownToHtml(md: string, title?: string, metaDesc?: string): string {
@@ -516,60 +571,108 @@ export default function ArticlesPage() {
             </CardContent>
           </Card>
 
-          {/* Content Editor */}
+          {/* Content Editor / Preview */}
           <Card className="bg-card border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  Контент
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!content}
-                    onClick={() => {
-                      const html = markdownToHtml(content, title, metaDescription);
-                      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.html`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                      toast.success("HTML файл скачан");
-                    }}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    HTML
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => saveArticle.mutate()}
-                    disabled={!content || saveArticle.isPending}
-                  >
-                    <Save className="h-3 w-3 mr-1" />
-                    {saveArticle.isPending ? "..." : "Сохранить"}
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isStreaming && (
-                <div className="flex items-center gap-2 mb-3 text-sm text-primary">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Генерация текста...</span>
-                </div>
-              )}
-              <Textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Нажмите Generate для создания контента или введите текст вручную..."
-                className="min-h-[500px] font-mono text-sm leading-relaxed resize-y"
-              />
-            </CardContent>
+            <Tabs defaultValue="edit">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <TabsList className="h-8">
+                    <TabsTrigger value="edit" className="text-xs gap-1.5 px-3">
+                      <Pencil className="h-3 w-3" />
+                      Редактор
+                    </TabsTrigger>
+                    <TabsTrigger value="preview" className="text-xs gap-1.5 px-3">
+                      <Eye className="h-3 w-3" />
+                      Предпросмотр
+                    </TabsTrigger>
+                  </TabsList>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!content}
+                      onClick={() => {
+                        const html = markdownToHtml(content, title, metaDescription);
+                        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.html`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success("HTML файл скачан");
+                      }}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      HTML
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => saveArticle.mutate()}
+                      disabled={!content || saveArticle.isPending}
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      {saveArticle.isPending ? "..." : "Сохранить"}
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isStreaming && (
+                  <div className="flex items-center gap-2 mb-3 text-sm text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Генерация текста...</span>
+                  </div>
+                )}
+                <TabsContent value="edit" className="mt-0">
+                  <Textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Нажмите Generate для создания контента или введите текст вручную..."
+                    className="min-h-[500px] font-mono text-sm leading-relaxed resize-y"
+                  />
+                </TabsContent>
+                <TabsContent value="preview" className="mt-0">
+                  {content ? (
+                    <div className="space-y-0">
+                      {/* Author block */}
+                      {selectedAuthorId && selectedAuthorId !== "none" && (() => {
+                        const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
+                        if (!author) return null;
+                        return (
+                          <div className="flex items-center gap-3 p-4 mb-6 rounded-lg bg-muted/50 border border-border">
+                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary">
+                              <User className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold">{author.name}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {author.niche && <span>{author.niche}</span>}
+                                {author.voice_tone && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{author.voice_tone}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      <div
+                        className="article-preview prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: markdownToPreviewHtml(content) }}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm py-12 text-center">
+                      Нет контента для предпросмотра
+                    </p>
+                  )}
+                </TabsContent>
+              </CardContent>
+            </Tabs>
           </Card>
 
           {/* JSON-LD Schema */}
