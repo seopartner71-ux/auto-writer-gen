@@ -143,6 +143,8 @@ Analyze these results and identify:
 3. The top 5 questions users are asking (from PAA and inferred from content)
 4. Search intent classification
 5. LSI keywords to include
+6. Tables that competitors use or that would be useful (comparison tables, feature tables, pricing tables, etc.) — specify what columns to include
+7. Lists that competitors use (bullet lists, numbered steps, checklists) — specify the topic and type
 
 IMPORTANT: Write ALL output text in ${langName}.`;
 
