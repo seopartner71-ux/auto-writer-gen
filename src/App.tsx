@@ -20,6 +20,7 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import AuthorProfilesPage from "@/pages/AuthorProfilesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import AdminPage from "@/pages/AdminPage";
+import PricingPage from "@/pages/PricingPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
