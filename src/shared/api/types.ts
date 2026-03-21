@@ -85,18 +85,47 @@ export interface UsageLog {
   created_at: string;
 }
 
-// Plan limits
-export const PLAN_LIMITS: Record<Plan, { maxGenerations: number; models: string[] }> = {
+// Plan limits & feature flags
+export interface PlanConfig {
+  maxGenerations: number;
+  maxAuthorProfiles: number; // -1 = unlimited
+  models: string[];
+  hasCalendar: boolean;
+  hasUniquenessCheck: boolean;
+  hasJsonLdSchema: boolean;
+  hasFullSerp: boolean;
+  hasAntiAiCheck: boolean;
+}
+
+export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
   free: {
     maxGenerations: 5,
+    maxAuthorProfiles: 1,
     models: ["google/gemini-2.5-flash-lite"],
+    hasCalendar: false,
+    hasUniquenessCheck: false,
+    hasJsonLdSchema: false,
+    hasFullSerp: false,
+    hasAntiAiCheck: false,
   },
   basic: {
     maxGenerations: 30,
-    models: ["google/gemini-2.5-flash-lite", "openai/gpt-5-nano"],
+    maxAuthorProfiles: 5,
+    models: ["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash", "openai/gpt-5-nano"],
+    hasCalendar: true,
+    hasUniquenessCheck: true,
+    hasJsonLdSchema: true,
+    hasFullSerp: true,
+    hasAntiAiCheck: false,
   },
   pro: {
     maxGenerations: 100,
-    models: ["google/gemini-2.5-pro", "openai/gpt-5", "google/gemini-2.5-flash"],
+    maxAuthorProfiles: -1,
+    models: ["google/gemini-2.5-pro", "openai/gpt-5", "google/gemini-2.5-flash", "google/gemini-2.5-flash-lite", "openai/gpt-5-nano"],
+    hasCalendar: true,
+    hasUniquenessCheck: true,
+    hasJsonLdSchema: true,
+    hasFullSerp: true,
+    hasAntiAiCheck: true,
   },
 };
