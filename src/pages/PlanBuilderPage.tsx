@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
   Wand2, GripVertical, Plus, Trash2, ChevronRight, Loader2,
-  Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight
+  Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
+  ExternalLink, BarChart3
 } from "lucide-react";
 import { toast } from "sonner";
 
