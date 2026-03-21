@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +52,7 @@ export default function LoginPage() {
             </div>
           </div>
           <CardTitle className="text-2xl gradient-text">SEO-Synthesizer <sup className="text-xs text-muted-foreground font-normal">v2.0</sup></CardTitle>
-          <CardDescription>Войдите в свой аккаунт</CardDescription>
+          <CardDescription>{t("auth.loginTitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button
@@ -69,7 +71,7 @@ export default function LoginPage() {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
             )}
-            Войти через Google
+            {t("auth.googleSignIn")}
           </Button>
 
           <div className="relative mb-4">
@@ -77,13 +79,13 @@ export default function LoginPage() {
               <Separator className="w-full" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">или</span>
+              <span className="bg-card px-2 text-muted-foreground">{t("common.or")}</span>
             </div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("auth.email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -94,7 +96,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -105,13 +107,13 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Вход..." : "Войти"}
+              {loading ? t("auth.logging") : t("auth.login")}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            Нет аккаунта?{" "}
+            {t("auth.noAccount")}{" "}
             <Link to="/register" className="text-primary hover:underline">
-              Зарегистрироваться
+              {t("auth.register")}
             </Link>
           </div>
         </CardContent>
