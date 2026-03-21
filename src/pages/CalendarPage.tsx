@@ -15,6 +15,8 @@ import {
   Trash2, CheckCircle2, AlertCircle, Timer, FileText
 } from "lucide-react";
 import { toast } from "sonner";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
 
 const STATUS_CONFIG: Record<string, { label: string; icon: any; class: string }> = {
   pending: { label: "Ожидает", icon: Timer, class: "bg-warning/15 text-warning border-warning/30" },

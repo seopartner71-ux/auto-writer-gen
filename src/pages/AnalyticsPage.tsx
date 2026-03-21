@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
 
 // ── helpers ──────────────────────────────────────────────
 function countWords(t: string) { return t.trim().split(/\s+/).filter(Boolean).length; }

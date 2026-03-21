@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 
 interface AuthorProfile {
   id: string;
