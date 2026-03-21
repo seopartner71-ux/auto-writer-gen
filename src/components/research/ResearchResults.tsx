@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
   Target, Lightbulb, HelpCircle, Hash, BarChart3, FileText,
-  ExternalLink, ChevronDown, ChevronUp, ListTree
+  ExternalLink, ChevronDown, ChevronUp, ListTree, ArrowRight
 } from "lucide-react";
 import type { ResearchData, Competitor } from "@/pages/KeywordsPage";
 
