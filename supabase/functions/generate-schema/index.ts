@@ -36,7 +36,18 @@ serve(async (req) => {
       .single();
     const model = assignment?.model_key || "google/gemini-2.5-flash";
 
-    const systemPrompt = `You are an SEO schema markup expert. Generate valid JSON-LD schema markup for the given article. Return structured data via the provided tool. Write in the same language as the article content.`;
+    // Extract FAQ section from content for explicit FAQ schema generation
+    const faqMatch = content.match(/##\s*(?:Часто задаваемые вопросы|FAQ|Вопросы и ответы)[\s\S]*/i);
+    const faqSection = faqMatch ? faqMatch[0] : "";
+    const faqQuestions = faqSection.match(/###\s*(.+?)(?:\n|\r)([\s\S]*?)(?=###|\s*$)/g) || [];
+
+    const systemPrompt = `You are an SEO schema markup expert. Generate valid JSON-LD schema markup for the given article. Return structured data via the provided tool. Write in the same language as the article content.
+
+CRITICAL RULES for FAQ schema:
+- Extract ALL questions from the FAQ section provided
+- Each FAQ entry must have "question" and "answer" fields
+- The FAQ schema must follow the Google FAQPage specification exactly
+- Return the complete FAQ schema with @context, @type, and mainEntity array`;
 
     const userPrompt = `Generate JSON-LD structured data for this article:
 
@@ -46,9 +57,11 @@ Keyword: ${keyword || ""}
 Article content (first 2000 chars):
 ${content.slice(0, 2000)}
 
+${faqSection ? `\nFAQ SECTION FOUND IN ARTICLE (generate FAQPage schema from this):\n${faqSection.slice(0, 3000)}` : "\nNo FAQ section found in article."}
+
 Generate:
-1. Article schema (headline, description, datePublished, author)
-2. FAQ schema if the article contains Q&A sections`;
+1. Article schema (@type: Article with headline, description, datePublished, author)
+2. FAQPage schema with ALL questions and answers from the FAQ section above`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -66,20 +79,20 @@ Generate:
           type: "function",
           function: {
             name: "return_schema",
-            description: "Return JSON-LD schema markup",
+            description: "Return JSON-LD schema markup for Article and FAQ",
             parameters: {
               type: "object",
               properties: {
                 article_schema: {
                   type: "object",
-                  description: "Article JSON-LD schema",
+                  description: "Article JSON-LD schema with @context, @type, headline, description, datePublished, author",
                 },
                 faq_schema: {
                   type: "object",
-                  description: "FAQ JSON-LD schema (null if no FAQ found)",
+                  description: "FAQPage JSON-LD schema with @context: https://schema.org, @type: FAQPage, mainEntity array of {\"@type\":\"Question\",\"name\":\"...\",\"acceptedAnswer\":{\"@type\":\"Answer\",\"text\":\"...\"}}. Must include ALL questions from the FAQ section. Return null only if no FAQ exists.",
                 },
               },
-              required: ["article_schema"],
+              required: ["article_schema", "faq_schema"],
               additionalProperties: false,
             },
           },
