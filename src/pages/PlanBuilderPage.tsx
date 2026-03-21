@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase";
+import { useAuth } from "@/shared/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ interface OutlineItem {
 }
 
 export default function PlanBuilderPage() {
+  const { session } = useAuth();
   const navigate = useNavigate();
   // Fetch keywords with analysis data
   const { data: keywords = [] } = useQuery({
@@ -161,6 +163,8 @@ export default function PlanBuilderPage() {
   const autopilot = useMutation({
     mutationFn: async () => {
       if (!selectedKeywordId) throw new Error("Выберите ключевое слово");
+      if (!session?.access_token) throw new Error("Сессия истекла, войдите снова");
+
       const { data, error } = await supabase.functions.invoke("generate-outline", {
         body: {
           keyword_id: selectedKeywordId,
@@ -168,6 +172,9 @@ export default function PlanBuilderPage() {
           serp_titles: serpResults.map((s: any) => s.title).filter(Boolean),
           questions: selectedKeyword?.questions || [],
           lsi_keywords: lsiKeywords,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
       if (error) throw error;
