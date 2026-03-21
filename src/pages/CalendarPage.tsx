@@ -147,6 +147,23 @@ export default function CalendarPage() {
 
   const pendingCount = scheduled.filter((s: any) => s.status === "pending").length;
 
+  if (!limits.hasCalendar) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <CalendarDays className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold">Календарь</h1>
+            <p className="text-sm text-muted-foreground">Планировщик генерации контента</p>
+          </div>
+        </div>
+        <PlanGate allowed={false} featureName="Планировщик календаря" requiredPlan="Базовый">
+          <div />
+        </PlanGate>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
