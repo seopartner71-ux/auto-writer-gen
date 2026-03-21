@@ -292,15 +292,29 @@ export default function ArticlesPage() {
     setTimeout(() => setSchemaCopied(false), 2000);
   };
 
-  // Load saved article outline from plan builder (via keyword serp data)
+  // Auto-fill fields when keyword changes
   useEffect(() => {
     if (!selectedKeywordId) {
       setOutline([]);
+      setTitle("");
+      setMetaDescription("");
       return;
     }
-    // Try to load recommended headings from keyword questions
     const kw = keywords.find((k: any) => k.id === selectedKeywordId);
-    if (kw?.questions) {
+    if (!kw) return;
+
+    // Auto-fill title from seed keyword
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    setTitle(capitalize(kw.seed_keyword));
+
+    // Auto-fill meta description
+    const intent = kw.intent || "informational";
+    setMetaDescription(
+      `${capitalize(kw.seed_keyword)} — ${intent === "informational" ? "полное руководство" : intent === "transactional" ? "лучшие предложения" : intent === "commercial" ? "сравнение и обзор" : "всё что нужно знать"}. ${(kw.lsi_keywords as string[] || []).slice(0, 3).join(", ")}.`.slice(0, 160)
+    );
+
+    // Auto-fill outline from questions
+    if (kw.questions) {
       const items = (kw.questions as string[]).map((q: string) => ({ text: q, level: "h2" }));
       setOutline(items);
     }
