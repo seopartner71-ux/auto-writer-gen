@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   Wand2, GripVertical, Plus, Trash2, ChevronRight, Loader2,
   Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
-  ExternalLink, BarChart3
+  ExternalLink, BarChart3, FileText
 } from "lucide-react";
 import { toast } from "sonner";
 
