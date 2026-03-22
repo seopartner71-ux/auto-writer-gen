@@ -173,6 +173,105 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_job_items: {
+        Row: {
+          article_id: string | null
+          bulk_job_id: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          keyword_id: string | null
+          seed_keyword: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          bulk_job_id: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          keyword_id?: string | null
+          seed_keyword: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          bulk_job_id?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          keyword_id?: string | null
+          seed_keyword?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_job_items_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bulk_job_items_bulk_job_id_fkey"
+            columns: ["bulk_job_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bulk_job_items_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bulk_jobs: {
+        Row: {
+          author_profile_id: string | null
+          completed_items: number
+          created_at: string | null
+          id: string
+          status: string
+          total_items: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          author_profile_id?: string | null
+          completed_items?: number
+          created_at?: string | null
+          id?: string
+          status?: string
+          total_items?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          author_profile_id?: string | null
+          completed_items?: number
+          created_at?: string | null
+          id?: string
+          status?: string
+          total_items?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_jobs_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       keywords: {
         Row: {
           competitor_lists: Json | null
