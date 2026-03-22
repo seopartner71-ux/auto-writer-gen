@@ -244,6 +244,9 @@ export default function ArticlesPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [schemaJson, setSchemaJson] = useState<string>("");
   const [schemaCopied, setSchemaCopied] = useState(false);
+  const [faqTextBlock, setFaqTextBlock] = useState<string>("");
+  const [faqCopied, setFaqCopied] = useState(false);
+  const [schemaGenerating, setSchemaGenerating] = useState(false);
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
