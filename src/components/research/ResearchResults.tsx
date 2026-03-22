@@ -28,6 +28,25 @@ const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
   very_hard: { label: "Очень сложная", color: "bg-destructive/30 text-destructive" },
 };
 
+// Detect non-organic site types by domain patterns
+const SITE_TYPE_PATTERNS: { pattern: RegExp; label: string }[] = [
+  { pattern: /facebook\.com|instagram\.com|twitter\.com|x\.com|linkedin\.com|pinterest\.com|tiktok\.com|reddit\.com|vk\.com|t\.me/i, label: "Соцсеть" },
+  { pattern: /youtube\.com|youtu\.be|vimeo\.com|dailymotion\.com|rumble\.com/i, label: "Видеохостинг" },
+  { pattern: /tripadvisor\.|yelp\.|booking\.com|expedia\.|hotels\.com|airbnb\.|kayak\.|agoda\./i, label: "Агрегатор" },
+  { pattern: /wikipedia\.org|wikimedia\.org/i, label: "Вики" },
+  { pattern: /amazon\.|ebay\.|aliexpress\.|walmart\./i, label: "Маркетплейс" },
+  { pattern: /quora\.com|stackexchange\.com|stackoverflow\.com/i, label: "Q&A" },
+  { pattern: /maps\.google|google\.com\/maps/i, label: "Карты" },
+  { pattern: /news\.google|news\.yahoo/i, label: "Агрегатор новостей" },
+];
+
+function getSiteType(url: string): string | null {
+  for (const { pattern, label } of SITE_TYPE_PATTERNS) {
+    if (pattern.test(url)) return label;
+  }
+  return null;
+}
+
 export function ResearchResults({ data }: Props) {
   const navigate = useNavigate();
   const { analysis, competitors: initialCompetitors } = data;
