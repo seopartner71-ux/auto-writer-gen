@@ -4,7 +4,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";
-import { LogOut, Sun, Moon, Languages } from "lucide-react";
+import { LogOut, Sun, Moon, MessageCircle } from "lucide-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -21,6 +21,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <SidebarTrigger />
             </div>
             <div className="flex items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                asChild
+                title="Поддержка"
+              >
+                <a href="https://t.me/sin0ptick" target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="h-4 w-4" />
+                </a>
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
