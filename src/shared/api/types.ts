@@ -97,6 +97,7 @@ export interface PlanConfig {
   hasFullSerp: boolean;
   hasAntiAiCheck: boolean;
   hasBulkMode: boolean;
+  hasWordPress: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
@@ -110,6 +111,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasFullSerp: false,
     hasAntiAiCheck: false,
     hasBulkMode: false,
+    hasWordPress: false,
   },
   basic: {
     maxGenerations: 30,
@@ -121,6 +123,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasFullSerp: true,
     hasAntiAiCheck: false,
     hasBulkMode: false,
+    hasWordPress: false,
   },
   pro: {
     maxGenerations: 100,
@@ -132,5 +135,6 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasFullSerp: true,
     hasAntiAiCheck: true,
     hasBulkMode: true,
+    hasWordPress: true,
   },
 };

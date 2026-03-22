@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -241,7 +243,10 @@ export default function WordPressPage() {
 
   const selectedArticle = articles.find((a) => a.id === selectedArticleId);
 
+  const limits = usePlanLimits();
+
   return (
+    <PlanGate allowed={limits.limits.hasWordPress} featureName="WordPress интеграция" requiredPlan="PRO">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -252,6 +257,7 @@ export default function WordPressPage() {
             Публикация статей на ваши WordPress-сайты в один клик
           </p>
         </div>
+        <Badge variant="outline" className="ml-auto text-primary border-primary">PRO</Badge>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
@@ -542,5 +548,6 @@ export default function WordPressPage() {
         </Card>
       </div>
     </div>
+    </PlanGate>
   );
 }
