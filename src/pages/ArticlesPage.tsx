@@ -706,6 +706,10 @@ export default function ArticlesPage() {
                       <Eye className="h-3 w-3" />
                       Предпросмотр
                     </TabsTrigger>
+                    <TabsTrigger value="html" className="text-xs gap-1.5 px-3">
+                      <Code2 className="h-3 w-3" />
+                      HTML
+                    </TabsTrigger>
                   </TabsList>
                   <div className="flex gap-2">
                     <Button
