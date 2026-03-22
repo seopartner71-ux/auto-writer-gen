@@ -27,6 +27,9 @@ serve(async (req) => {
     const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content } = await req.json();
     if (!keyword_id) throw new Error("keyword_id is required");
 
+    // Detect language from keyword
+    const keywordText = keyword?.seed_keyword || "";
+
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // 1. Get user profile for tier
@@ -48,6 +51,8 @@ serve(async (req) => {
     // 3. Get keyword data
     const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
     if (!keyword) throw new Error("Keyword not found");
+
+    const isRussian = /[а-яё]/i.test(keyword.seed_keyword);
 
     // 4. Get SERP results
     const { data: serpResults } = await supabase
@@ -136,12 +141,18 @@ ${authorStyle ? "- CRITICAL: Maintain the author's unique voice and style in EVE
 ${tablesListsInstructions}
 ${deep_analysis_context ? `\n${deep_analysis_context}` : ""}
 
+CRITICAL LANGUAGE RULE: The ENTIRE article MUST be written in the SAME language as the keyword "${keyword.seed_keyword}". ${isRussian ? "The keyword is in Russian — write everything in Russian." : "The keyword is NOT in Russian — write in the language of the keyword. Do NOT write in Russian."}
+
 ANTI-AI DETECTION (CRITICAL — follow strictly):
 - Write like a real human expert, NOT like an AI. Vary sentence length dramatically: mix very short punchy sentences with longer complex ones.
-- Use colloquial expressions, idioms, and informal transitions naturally ("Честно говоря", "Давайте разберёмся", "Вот в чём дело").
+${isRussian 
+  ? `- Use colloquial expressions, idioms, and informal transitions naturally ("Честно говоря", "Давайте разберёмся", "Вот в чём дело").
 - Include personal opinions, subjective judgments, and first-person perspective ("Я считаю", "По моему опыту", "На мой взгляд").
+- Avoid these AI giveaway patterns: "В заключение", "Важно отметить", "Следует подчеркнуть", "Необходимо учитывать", "В современном мире", "Данный", "Является", "Осуществлять", "В рамках", "На сегодняшний день", "Комплексный подход".`
+  : `- Use colloquial expressions, idioms, and informal transitions natural to the keyword's language.
+- Include personal opinions, subjective judgments, and first-person perspective ("I believe", "In my experience", "From what I've seen").
+- Avoid these AI giveaway patterns: "In conclusion", "It's important to note", "It should be emphasized", "It's worth mentioning", "In today's world", "comprehensive", "utilize", "leverage", "streamline".`}
 - Add imperfections: occasional rhetorical questions, parenthetical asides (like this one), dashes — for emphasis.
-- Avoid these AI giveaway patterns: "В заключение", "Важно отметить", "Следует подчеркнуть", "Необходимо учитывать", "В современном мире", "Данный", "Является", "Осуществлять", "В рамках", "На сегодняшний день", "Комплексный подход".
 - NEVER start paragraphs with the same word pattern. NEVER use formulaic transitions like "Furthermore", "Moreover", "Additionally", "It's worth noting".
 - Use concrete examples, numbers, anecdotes instead of abstract generalizations.
 - Vary paragraph length: some 1-2 sentences, others 4-5. Real writers are inconsistent.
@@ -149,13 +160,13 @@ ANTI-AI DETECTION (CRITICAL — follow strictly):
 - Write with emotional engagement — show enthusiasm, skepticism, surprise where appropriate.
 
 FAQ SECTION (MANDATORY):
-- At the end of the article, add a section "## Часто задаваемые вопросы (FAQ)"
+- At the end of the article, add a section "${isRussian ? "## Часто задаваемые вопросы (FAQ)" : "## Frequently Asked Questions (FAQ)"}"
 - Include at least 5 questions and answers
 - Use the provided user questions as a base, and add more relevant questions
 - Format each Q&A as: "### <Question>\\n<Answer paragraph>"
 - Answers should be 2-4 sentences, concise and informative
 - Add structured data hint: wrap the FAQ section with a comment <!-- FAQ Schema -->
-- The FAQ must match the article's language and the author's tone`;
+- The FAQ must be in the SAME language as the keyword and the article`;
 
     let userPrompt: string;
 
