@@ -24,8 +24,21 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { keyword, content, lang } = await req.json();
+    const { keyword, content, lang, keyword_id } = await req.json();
     if (!content) throw new Error("Content is required");
+
+    // Fetch competitor titles from serp_results
+    let competitorTitles: string[] = [];
+    if (keyword_id) {
+      const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: serp } = await supabaseAdmin
+        .from("serp_results")
+        .select("title")
+        .eq("keyword_id", keyword_id)
+        .order("position", { ascending: true })
+        .limit(10);
+      if (serp) competitorTitles = serp.map((s: any) => s.title).filter(Boolean);
+    }
 
     const snippet = content.slice(0, 1500);
     const isRu = lang === "ru" || /[а-яё]/i.test(snippet.slice(0, 200));
@@ -36,6 +49,7 @@ serve(async (req) => {
 - Ключевое слово как можно ближе к началу
 - Без кавычек, без кликбейта
 - Привлекательный, информативный, побуждающий к клику
+- Проанализируй Title конкурентов из ТОП-10 и создай Title, который выделяется на их фоне и при этом соответствует поисковому интенту
 - На русском языке
 Верни ТОЛЬКО текст Title, без пояснений.`
       : `You are an SEO title expert. Generate one perfect Title tag for the article. Rules:
@@ -43,11 +57,16 @@ serve(async (req) => {
 - Primary keyword near the beginning
 - No quotes, no clickbait
 - Informative and click-worthy
+- Analyze competitor titles from TOP-10 and create a title that stands out while matching search intent
 - In the same language as the content
 Return ONLY the title text, no explanations.`;
 
-    const userPrompt = `Keyword: "${keyword || ""}"
+    const competitorBlock = competitorTitles.length > 0
+      ? `\nCompetitor Titles (TOP-10):\n${competitorTitles.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n`
+      : "";
 
+    const userPrompt = `Keyword: "${keyword || ""}"
+${competitorBlock}
 Article excerpt:
 ${snippet}
 
