@@ -604,6 +604,81 @@ export type Database = {
         }
         Relationships: []
       }
+      wp_scheduled_posts: {
+        Row: {
+          article_id: string
+          categories: Json | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          meta_description: string | null
+          meta_title: string | null
+          publish_immediately: boolean | null
+          scheduled_at: string
+          seo_plugin: string | null
+          site_id: string
+          status: string
+          tags: string | null
+          updated_at: string | null
+          user_id: string
+          wp_post_id: number | null
+          wp_post_url: string | null
+        }
+        Insert: {
+          article_id: string
+          categories?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          publish_immediately?: boolean | null
+          scheduled_at: string
+          seo_plugin?: string | null
+          site_id: string
+          status?: string
+          tags?: string | null
+          updated_at?: string | null
+          user_id: string
+          wp_post_id?: number | null
+          wp_post_url?: string | null
+        }
+        Update: {
+          article_id?: string
+          categories?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          publish_immediately?: boolean | null
+          scheduled_at?: string
+          seo_plugin?: string | null
+          site_id?: string
+          status?: string
+          tags?: string | null
+          updated_at?: string | null
+          user_id?: string
+          wp_post_id?: number | null
+          wp_post_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_scheduled_posts_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_scheduled_posts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "wordpress_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
