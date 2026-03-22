@@ -13,12 +13,13 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 import { PlanGate } from "@/shared/components/PlanGate";
+import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -728,140 +729,178 @@ export default function ArticlesPage() {
 
         {/* Right: SEO Dashboard */}
         <div className="space-y-4">
-          {/* Word count & readability */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                SEO Dashboard
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>Слова</span>
-                  <span className="font-mono">{wordCount.toLocaleString()}</span>
-                </div>
-                <Progress
-                  value={Math.min(100, (wordCount / 2000) * 100)}
-                  className="h-2"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">Рекомендовано: 1500-2500</p>
-              </div>
+          <Tabs defaultValue="dashboard">
+            <TabsList className="w-full h-8">
+              <TabsTrigger value="dashboard" className="text-xs gap-1 flex-1">
+                <BarChart3 className="h-3 w-3" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
+                <Target className="h-3 w-3" />
+                Benchmark
+              </TabsTrigger>
+            </TabsList>
 
-              <Separator />
-
-              <div>
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>Читаемость</span>
-                  <span className={`font-semibold ${readInfo.color}`}>
-                    {readability} — {readInfo.label}
-                  </span>
-                </div>
-                <Progress value={readability} className="h-2" />
-                <p className="text-[10px] text-muted-foreground mt-1">Flesch Reading Ease</p>
-              </div>
-
-              <Separator />
-
-              <div>
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>LSI покрытие</span>
-                  <span className="font-mono">
-                    {lsiFoundCount}/{lsiKeywords.length}
-                  </span>
-                </div>
-                <Progress
-                  value={lsiKeywords.length > 0 ? (lsiFoundCount / lsiKeywords.length) * 100 : 0}
-                  className="h-2"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* LSI Keywords */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Hash className="h-4 w-4 text-primary" />
-                LSI-ключевые слова
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {lsiStatus.length > 0 ? (
-                <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
-                  {lsiStatus.map((item, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-2 text-xs rounded-md px-2 py-1.5 transition-colors ${
-                        item.found
-                          ? "bg-success/10 text-success"
-                          : "bg-muted/50 text-muted-foreground"
-                      }`}
-                    >
-                      {item.found ? (
-                        <CheckCircle2 className="h-3 w-3 shrink-0" />
-                      ) : (
-                        <Circle className="h-3 w-3 shrink-0" />
-                      )}
-                      <span className="font-mono">{item.keyword}</span>
+            <TabsContent value="dashboard" className="mt-3 space-y-4">
+              {/* Word count & readability */}
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    SEO Dashboard
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Слова</span>
+                      <span className="font-mono">{wordCount.toLocaleString()}</span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground text-center py-4">
-                  Выберите ключевое слово для отображения LSI
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                    <Progress
+                      value={Math.min(100, (wordCount / 2000) * 100)}
+                      className="h-2"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">Рекомендовано: 1500-2500</p>
+                  </div>
 
-          {/* Saved Articles */}
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Сохранённые статьи
-                <Badge variant="secondary" className="ml-auto text-[10px]">
-                  {savedArticles.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {savedArticles.length > 0 ? (
-                <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-                  {savedArticles.slice(0, 10).map((a: any) => (
-                    <button
-                      key={a.id}
-                      className="w-full text-left text-xs rounded-md px-2 py-1.5 bg-muted/50 hover:bg-muted/80 transition-colors truncate"
-                      onClick={async () => {
-                        const { data } = await supabase
-                          .from("articles")
-                          .select("*")
-                          .eq("id", a.id)
-                          .single();
-                        if (data) {
-                          setCurrentArticleId(data.id);
-                          setTitle(data.title || "");
-                          setContent(data.content || "");
-                          setMetaDescription(data.meta_description || "");
-                          if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
-                          if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
-                        }
-                      }}
-                    >
-                      <span className="font-medium">{a.title || "Без названия"}</span>
-                      <span className="text-muted-foreground ml-1">({a.status})</span>
-                    </button>
-                  ))}
-                </div>
+                  <Separator />
+
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Читаемость</span>
+                      <span className={`font-semibold ${readInfo.color}`}>
+                        {readability} — {readInfo.label}
+                      </span>
+                    </div>
+                    <Progress value={readability} className="h-2" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Flesch Reading Ease</p>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>LSI покрытие</span>
+                      <span className="font-mono">
+                        {lsiFoundCount}/{lsiKeywords.length}
+                      </span>
+                    </div>
+                    <Progress
+                      value={lsiKeywords.length > 0 ? (lsiFoundCount / lsiKeywords.length) * 100 : 0}
+                      className="h-2"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* LSI Keywords */}
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-primary" />
+                    LSI-ключевые слова
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {lsiStatus.length > 0 ? (
+                    <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                      {lsiStatus.map((item, i) => (
+                        <div
+                          key={i}
+                          className={`flex items-center gap-2 text-xs rounded-md px-2 py-1.5 transition-colors ${
+                            item.found
+                              ? "bg-success/10 text-success"
+                              : "bg-muted/50 text-muted-foreground"
+                          }`}
+                        >
+                          {item.found ? (
+                            <CheckCircle2 className="h-3 w-3 shrink-0" />
+                          ) : (
+                            <Circle className="h-3 w-3 shrink-0" />
+                          )}
+                          <span className="font-mono">{item.keyword}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      Выберите ключевое слово для отображения LSI
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Saved Articles */}
+              <Card className="bg-card border-border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Сохранённые статьи
+                    <Badge variant="secondary" className="ml-auto text-[10px]">
+                      {savedArticles.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {savedArticles.length > 0 ? (
+                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                      {savedArticles.slice(0, 10).map((a: any) => (
+                        <button
+                          key={a.id}
+                          className="w-full text-left text-xs rounded-md px-2 py-1.5 bg-muted/50 hover:bg-muted/80 transition-colors truncate"
+                          onClick={async () => {
+                            const { data } = await supabase
+                              .from("articles")
+                              .select("*")
+                              .eq("id", a.id)
+                              .single();
+                            if (data) {
+                              setCurrentArticleId(data.id);
+                              setTitle(data.title || "");
+                              setContent(data.content || "");
+                              setMetaDescription(data.meta_description || "");
+                              if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
+                              if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
+                            }
+                          }}
+                        >
+                          <span className="font-medium">{a.title || "Без названия"}</span>
+                          <span className="text-muted-foreground ml-1">({a.status})</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      Нет сохранённых статей
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="benchmark" className="mt-3">
+              {selectedKeywordId ? (
+                <SeoBenchmark
+                  keywordId={selectedKeywordId}
+                  content={content}
+                  title={title}
+                  metaDescription={metaDescription}
+                  onOptimize={(instructions) => {
+                    toast.info("Оптимизация: " + instructions.slice(0, 100) + "...");
+                    // TODO: integrate with AI rewrite
+                  }}
+                />
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-2">
-                  Нет сохранённых статей
-                </p>
+                <Card className="bg-card border-border">
+                  <CardContent className="py-8 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Выберите ключевое слово для сравнения с конкурентами
+                    </p>
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
