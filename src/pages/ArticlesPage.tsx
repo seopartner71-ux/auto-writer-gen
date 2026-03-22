@@ -621,7 +621,7 @@ export default function ArticlesPage() {
           <Card className="bg-card border-border">
             <CardContent className="pt-4 space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Заголовок (H1)</Label>
+                <Label className="text-xs text-muted-foreground">Title (SEO-заголовок страницы)</Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
