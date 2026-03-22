@@ -98,7 +98,7 @@ export default function IndexingPage() {
 
   const statusIcon = (status: string) => {
     switch (status) {
-      case "success": return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case "success": return <CheckCircle2 className="h-4 w-4 text-primary" />;
       case "error": return <XCircle className="h-4 w-4 text-destructive" />;
       default: return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
