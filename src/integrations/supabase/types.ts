@@ -272,6 +272,47 @@ export type Database = {
           },
         ]
       }
+      indexing_logs: {
+        Row: {
+          article_id: string | null
+          created_at: string | null
+          id: string
+          provider: string
+          response_message: string | null
+          status: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          article_id?: string | null
+          created_at?: string | null
+          id?: string
+          provider: string
+          response_message?: string | null
+          status?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string | null
+          created_at?: string | null
+          id?: string
+          provider?: string
+          response_message?: string | null
+          status?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "indexing_logs_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       keywords: {
         Row: {
           competitor_lists: Json | null
@@ -328,6 +369,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           full_name: string | null
+          gsc_json_key: string | null
           id: string
           is_active: boolean
           monthly_limit: number | null
@@ -337,6 +379,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           full_name?: string | null
+          gsc_json_key?: string | null
           id: string
           is_active?: boolean
           monthly_limit?: number | null
@@ -346,6 +389,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           full_name?: string | null
+          gsc_json_key?: string | null
           id?: string
           is_active?: boolean
           monthly_limit?: number | null

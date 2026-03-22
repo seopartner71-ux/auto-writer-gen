@@ -495,6 +495,29 @@ const translations: Record<string, Record<Lang, string>> = {
   // NotFound
   "notFound.title": { ru: "Страница не найдена", en: "Page not found" },
   "notFound.back": { ru: "Вернуться на главную", en: "Return to Home" },
+
+  // Indexing
+  "nav.indexing": { ru: "Индексация", en: "Indexing" },
+  "indexing.title": { ru: "Мгновенная индексация", en: "Instant Indexing" },
+  "indexing.subtitle": { ru: "Отправка URL в Google Indexing API и IndexNow (Яндекс)", en: "Submit URLs to Google Indexing API and IndexNow (Yandex)" },
+  "indexing.gscSetup": { ru: "Google Search Console API", en: "Google Search Console API" },
+  "indexing.gscStatus": { ru: "Статус ключа", en: "Key status" },
+  "indexing.configured": { ru: "Настроено", en: "Configured" },
+  "indexing.notConfigured": { ru: "Не настроено", en: "Not configured" },
+  "indexing.gscJsonKey": { ru: "JSON-ключ сервисного аккаунта", en: "Service account JSON key" },
+  "indexing.gscPlaceholder": { ru: "Вставьте содержимое JSON-файла от Google Cloud...", en: "Paste Google Cloud JSON file contents..." },
+  "indexing.saveKey": { ru: "Сохранить ключ", en: "Save key" },
+  "indexing.keySaved": { ru: "Ключ сохранён", en: "Key saved" },
+  "indexing.submitUrl": { ru: "Отправить на индексацию", en: "Submit for Indexing" },
+  "indexing.submitDesc": { ru: "Введите URL опубликованной статьи для отправки в Google и Яндекс", en: "Enter the published article URL to submit to Google and Yandex" },
+  "indexing.sendToIndex": { ru: "Отправить на индексацию", en: "Send to Index" },
+  "indexing.submitted": { ru: "Запрос отправлен", en: "Request submitted" },
+  "indexing.logsTitle": { ru: "Журнал индексации", en: "Indexing Log" },
+  "indexing.noLogs": { ru: "Нет записей об индексации", en: "No indexing records" },
+  "indexing.colDate": { ru: "Дата", en: "Date" },
+  "indexing.colProvider": { ru: "Провайдер", en: "Provider" },
+  "indexing.colStatus": { ru: "Статус", en: "Status" },
+  "indexing.colMessage": { ru: "Ответ", en: "Response" },
 };
 
 interface I18nContextValue {
