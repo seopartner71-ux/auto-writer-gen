@@ -24,7 +24,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context } = await req.json();
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content } = await req.json();
     if (!keyword_id) throw new Error("keyword_id is required");
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -157,7 +157,28 @@ FAQ SECTION (MANDATORY):
 - Add structured data hint: wrap the FAQ section with a comment <!-- FAQ Schema -->
 - The FAQ must match the article's language and the author's tone`;
 
-    const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
+    let userPrompt: string;
+
+    if (optimize_instructions && existing_content) {
+      // Optimization mode: rewrite existing article based on benchmark gaps
+      userPrompt = `KEYWORD: "${keyword.seed_keyword}"
+INTENT: ${keyword.intent || "informational"}
+
+CURRENT ARTICLE (to be improved):
+${existing_content}
+
+OPTIMIZATION INSTRUCTIONS (based on TOP-10 benchmark comparison):
+${optimize_instructions}
+
+LSI KEYWORDS TO INCLUDE:
+${lsiStr || "None"}
+
+USER QUESTIONS TO ANSWER:
+${questionsStr ? `- ${questionsStr}` : "None"}
+
+TASK: Rewrite and expand the article above to fix ALL listed problems. Keep the existing good parts, add missing entities and LSI phrases, expand sections where needed, and ensure the article surpasses the TOP-10 benchmark. Maintain the same language, tone, and style. Output the FULL improved article in Markdown.`;
+    } else {
+      userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
 
 ARTICLE OUTLINE:
@@ -175,6 +196,7 @@ ${questionsStr ? `- ${questionsStr}` : "None"}
 RECOMMENDED WORD COUNT: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} words
 
 Write the full article now.`;
+    }
 
     // 8. Stream AI response
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
