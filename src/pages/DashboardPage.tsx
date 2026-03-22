@@ -322,9 +322,10 @@ export default function DashboardPage() {
                         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                         title="Удалить"
                         onClick={async () => {
-                          const { error } = await supabase.from("keywords").delete().eq("id", kw.id);
+                          const { error } = await supabase.functions.invoke("delete-content", { body: { type: "keyword", id: kw.id } });
                           if (error) { console.error(error); toast.error("Ошибка: " + error.message); return; }
                           queryClient.invalidateQueries({ queryKey: ["dashboard-keywords"] });
+                          queryClient.invalidateQueries({ queryKey: ["dashboard-articles"] });
                           toast.success("Ключевое слово удалено");
                         }}
                       >
@@ -366,7 +367,7 @@ export default function DashboardPage() {
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                           title="Удалить"
                           onClick={async () => {
-                            const { error } = await supabase.from("articles").delete().eq("id", a.id);
+                            const { error } = await supabase.functions.invoke("delete-content", { body: { type: "article", id: a.id } });
                             if (error) { console.error(error); toast.error("Ошибка: " + error.message); return; }
                             queryClient.invalidateQueries({ queryKey: ["dashboard-articles"] });
                             toast.success("Статья удалена");
