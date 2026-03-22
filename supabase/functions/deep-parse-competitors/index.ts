@@ -229,7 +229,7 @@ function emptyAnalysis(): Omit<CompetitorAnalysis, "url" | "position"> {
 async function fetchPage(url: string): Promise<{ html: string | null; error?: string }> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 8000); // reduced from 20s to 8s
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -252,7 +252,6 @@ async function fetchPage(url: string): Promise<{ html: string | null; error?: st
     }
 
     const html = await resp.text();
-    // Check for Cloudflare/bot protection
     if (html.includes("cf-browser-verification") || html.includes("challenge-platform")) {
       return { html: null, error: "cloudflare" };
     }
