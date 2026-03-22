@@ -1,25 +1,26 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Loader2, Globe } from "lucide-react";
+import { Search, Loader2, Globe, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { ResearchResults } from "@/components/research/ResearchResults";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const GEO_OPTIONS = [
-  { value: "us", label: "🇺🇸 США" },
-  { value: "gb", label: "🇬🇧 Великобритания" },
-  { value: "de", label: "🇩🇪 Германия" },
-  { value: "fr", label: "🇫🇷 Франция" },
-  { value: "ru", label: "🇷🇺 Россия" },
-  { value: "ua", label: "🇺🇦 Украина" },
-  { value: "br", label: "🇧🇷 Бразилия" },
-  { value: "in", label: "🇮🇳 Индия" },
-  { value: "jp", label: "🇯🇵 Япония" },
-  { value: "es", label: "🇪🇸 Испания" },
+  { value: "us", label: "🇺🇸 США", cities: ["New York", "Los Angeles", "Chicago", "Houston", "Miami", "San Francisco", "Seattle", "Boston"] },
+  { value: "gb", label: "🇬🇧 Великобритания", cities: ["London", "Manchester", "Birmingham", "Leeds", "Edinburgh", "Glasgow"] },
+  { value: "de", label: "🇩🇪 Германия", cities: ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart"] },
+  { value: "fr", label: "🇫🇷 Франция", cities: ["Paris", "Lyon", "Marseille", "Toulouse", "Nice", "Bordeaux"] },
+  { value: "ru", label: "🇷🇺 Россия", cities: ["Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань", "Краснодар"] },
+  { value: "ua", label: "🇺🇦 Украина", cities: ["Київ", "Харків", "Одеса", "Дніпро", "Львів", "Запоріжжя"] },
+  { value: "br", label: "🇧🇷 Бразилия", cities: ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador", "Curitiba"] },
+  { value: "in", label: "🇮🇳 Индия", cities: ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata"] },
+  { value: "jp", label: "🇯🇵 Япония", cities: ["Tokyo", "Osaka", "Yokohama", "Nagoya", "Kyoto", "Fukuoka"] },
+  { value: "es", label: "🇪🇸 Испания", cities: ["Madrid", "Barcelona", "Valencia", "Seville", "Málaga", "Bilbao"] },
 ];
 
 const LANG_OPTIONS = [
@@ -69,13 +70,19 @@ export interface ResearchData {
 export default function KeywordsPage() {
   const [keyword, setKeyword] = useState("");
   const [geo, setGeo] = useState("us");
+  const [geoMode, setGeoMode] = useState<"country" | "city">("country");
+  const [city, setCity] = useState("");
   const [language, setLanguage] = useState("en");
   const [results, setResults] = useState<ResearchData | null>(null);
+
+  const currentCities = useMemo(() => {
+    return GEO_OPTIONS.find((o) => o.value === geo)?.cities || [];
+  }, [geo]);
 
   const research = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("smart-research", {
-        body: { keyword: keyword.trim(), geo, language },
+        body: { keyword: keyword.trim(), geo, language, ...(geoMode === "city" && city ? { city } : {}) },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
@@ -114,16 +121,40 @@ export default function KeywordsPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">ГЕО</Label>
-            <Select value={geo} onValueChange={setGeo}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GEO_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto">
+              <TabsList className="h-8 p-0.5">
+                <TabsTrigger value="country" className="text-xs px-2.5 h-7 gap-1">
+                  <Globe className="h-3 w-3" /> Страна
+                </TabsTrigger>
+                <TabsTrigger value="city" className="text-xs px-2.5 h-7 gap-1">
+                  <MapPin className="h-3 w-3" /> Город
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="flex gap-2">
+              <Select value={geo} onValueChange={(v) => { setGeo(v); setCity(""); }}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GEO_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {geoMode === "city" && (
+                <Select value={city} onValueChange={setCity}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Выберите город" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentCities.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Язык</Label>
