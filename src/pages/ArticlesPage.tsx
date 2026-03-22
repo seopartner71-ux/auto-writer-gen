@@ -812,7 +812,7 @@ export default function ArticlesPage() {
                         Копировать
                       </Button>
                       <pre className="min-h-[500px] max-h-[700px] overflow-auto p-4 rounded-md bg-muted text-xs font-mono whitespace-pre-wrap break-all text-foreground">
-                        <code>{markdownToHtml(content, title, metaDescription)}</code>
+                        <code dangerouslySetInnerHTML={{ __html: highlightHtml(markdownToHtml(content, title, metaDescription)) }} />
                       </pre>
                     </div>
                   ) : (
