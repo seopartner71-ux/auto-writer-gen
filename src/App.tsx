@@ -28,6 +28,7 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const PricingPage = lazy(() => import("@/pages/PricingPage"));
 const IndexingPage = lazy(() => import("@/pages/IndexingPage"));
+const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
 
 const queryClient = new QueryClient();
 
