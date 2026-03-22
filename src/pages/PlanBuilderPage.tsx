@@ -400,7 +400,17 @@ export default function PlanBuilderPage() {
                 </CardContent>
               </Card>
             )}
-          </div>
+
+            {/* Expert Insights — Content Gap Analysis */}
+            <ExpertInsightsBlock
+              keywordId={selectedKeywordId}
+              onAddToOutline={(text, level) => {
+                setOutline((prev) => [
+                  ...prev,
+                  { id: `gap-${Date.now()}`, text, level },
+                ]);
+              }}
+            />
 
           {/* Right: Article Structure */}
           <div className="space-y-4">
