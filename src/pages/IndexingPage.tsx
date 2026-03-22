@@ -128,7 +128,7 @@ export default function IndexingPage() {
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">{t("indexing.gscStatus")}:</span>
                 {hasGscKey ? (
-                  <Badge variant="default" className="bg-green-600">{t("indexing.configured")}</Badge>
+                  <Badge variant="default" className="bg-primary">{t("indexing.configured")}</Badge>
                 ) : (
                   <Badge variant="secondary">{t("indexing.notConfigured")}</Badge>
                 )}

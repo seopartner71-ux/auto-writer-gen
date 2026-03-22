@@ -74,6 +74,7 @@ const App = () => (
                 <Route path="/author-profiles" element={<ProtectedLayout><AuthorProfilesPage /></ProtectedLayout>} />
                 <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
                 <Route path="/pricing" element={<ProtectedLayout><PricingPage /></ProtectedLayout>} />
+                <Route path="/indexing" element={<ProtectedLayout><IndexingPage /></ProtectedLayout>} />
 
                 <Route
                   path="/admin"
