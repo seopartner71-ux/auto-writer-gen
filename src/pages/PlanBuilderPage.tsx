@@ -402,6 +402,20 @@ export default function PlanBuilderPage() {
               </Card>
             )}
 
+            {/* Deep Competitor Analysis */}
+            <CompetitorBenchmark
+              keywordId={selectedKeywordId}
+              onAddEntity={(entity) => {
+                toast.info(`Сущность "${entity}" добавлена в контекст`);
+              }}
+              onAddHeading={(text, level) => {
+                setOutline((prev) => [
+                  ...prev,
+                  { id: `comp-heading-${Date.now()}`, text, level },
+                ]);
+              }}
+            />
+
             {/* Expert Insights — Content Gap Analysis */}
             <ExpertInsightsBlock
               keywordId={selectedKeywordId}
