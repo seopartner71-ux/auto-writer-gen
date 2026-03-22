@@ -10,8 +10,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
@@ -120,9 +120,9 @@ Competitors found: ${competitors.map((c: any) => c.title).join(", ") || "none"}
 
 Return JSON: { "intent": "informational|transactional|navigational", "must_cover_topics": [...], "lsi_keywords": [...], "recommended_headings": [...], "recommended_word_count": number }`;
 
-        const analysisResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const analysisResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
-          headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: researchModel, messages: [{ role: "user", content: analysisPrompt }], response_format: { type: "json_object" } }),
         });
 
@@ -174,9 +174,9 @@ ${lsiKws.length > 0 ? `Include LSI keywords: ${lsiKws.join(", ")}` : ""}
 Target word count: ${analysis.recommended_word_count || 2000}
 Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
 
-        const articleResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const articleResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
-          headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: writerModel, messages: [{ role: "user", content: articlePrompt }] }),
         });
 
