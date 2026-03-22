@@ -243,7 +243,10 @@ export default function WordPressPage() {
 
   const selectedArticle = articles.find((a) => a.id === selectedArticleId);
 
+  const limits = usePlanLimits();
+
   return (
+    <PlanGate allowed={limits.hasWordPress} featureName="WordPress интеграция" requiredPlan="PRO">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -254,6 +257,7 @@ export default function WordPressPage() {
             Публикация статей на ваши WordPress-сайты в один клик
           </p>
         </div>
+        <Badge variant="outline" className="ml-auto text-primary border-primary">PRO</Badge>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
