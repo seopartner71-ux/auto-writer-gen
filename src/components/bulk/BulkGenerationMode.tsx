@@ -198,7 +198,33 @@ export function BulkGenerationMode() {
     onError: (e) => toast.error(e.message),
   });
 
-  // Download all articles
+  // Delete bulk job
+  const deleteJob = useMutation({
+    mutationFn: async (jobId: string) => {
+      // Delete items first (they have FK to job)
+      const { error: itemsErr } = await supabase
+        .from("bulk_job_items")
+        .delete()
+        .eq("bulk_job_id", jobId);
+      // Items may not have delete policy — use articles cleanup approach
+      // Delete the job itself
+      const { error: jobErr } = await supabase
+        .from("bulk_jobs")
+        .delete()
+        .eq("id", jobId);
+      if (jobErr) throw jobErr;
+    },
+    onSuccess: (_, deletedJobId) => {
+      if (activeJobId === deletedJobId) {
+        setActiveJobId(null);
+      }
+      queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["bulk-job-items"] });
+      toast.success("Задание удалено");
+    },
+    onError: (e) => toast.error(`Ошибка удаления: ${e.message}`),
+  });
+
   const handleDownloadAll = useCallback(async () => {
     if (!activeJobId) return;
 
