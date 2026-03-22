@@ -4,7 +4,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";
-import { LogOut, Sun, Moon, Languages } from "lucide-react";
+import { LogOut, Sun, Moon, MessageCircle } from "lucide-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
