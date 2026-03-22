@@ -15,6 +15,7 @@ import {
   ExternalLink, BarChart3, FileText
 } from "lucide-react";
 import { ExpertInsightsBlock } from "@/components/plan/ExpertInsightsBlock";
+import { CompetitorBenchmark } from "@/components/plan/CompetitorBenchmark";
 import { toast } from "sonner";
 
 interface InsightItem {
