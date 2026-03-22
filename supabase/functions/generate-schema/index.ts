@@ -41,27 +41,34 @@ serve(async (req) => {
     const faqSection = faqMatch ? faqMatch[0] : "";
     const faqQuestions = faqSection.match(/###\s*(.+?)(?:\n|\r)([\s\S]*?)(?=###|\s*$)/g) || [];
 
-    const systemPrompt = `You are an SEO schema markup expert. Generate valid JSON-LD schema markup for the given article. Return structured data via the provided tool. Write in the same language as the article content.
+    const { title, content, keyword, questions } = await req.json();
+    if (!content) throw new Error("Content is required");
+
+    // Override: we already destructured above
+    const systemPrompt = `You are an SEO schema markup and FAQ expert. Generate valid JSON-LD schema markup AND a standalone FAQ text block for the given article. Write in the same language as the article content.
 
 CRITICAL RULES for FAQ schema:
-- Extract ALL questions from the FAQ section provided
+- Generate 3-5 FAQ questions based on the article content, the keyword, and provided "People Also Ask" questions
 - Each FAQ entry must have "question" and "answer" fields
 - The FAQ schema must follow the Google FAQPage specification exactly
-- Return the complete FAQ schema with @context, @type, and mainEntity array`;
+- Return the complete FAQ schema with @context, @type, and mainEntity array
+- Also return a plain-text FAQ block formatted in Markdown (### Question / Answer) for embedding into the article`;
 
-    const userPrompt = `Generate JSON-LD structured data for this article:
+    const userPrompt = `Generate JSON-LD structured data and FAQ for this article:
 
 Title: ${title || "Untitled"}
 Keyword: ${keyword || ""}
+People Also Ask questions: ${(questions || []).slice(0, 10).join("; ") || "None provided"}
 
 Article content (first 2000 chars):
 ${content.slice(0, 2000)}
 
-${faqSection ? `\nFAQ SECTION FOUND IN ARTICLE (generate FAQPage schema from this):\n${faqSection.slice(0, 3000)}` : "\nNo FAQ section found in article."}
+${faqSection ? `\nEXISTING FAQ SECTION IN ARTICLE (use it as base, improve and expand):\n${faqSection.slice(0, 3000)}` : "\nNo existing FAQ section — generate 3-5 new FAQ questions and answers."}
 
 Generate:
 1. Article schema (@type: Article with headline, description, datePublished, author)
-2. FAQPage schema with ALL questions and answers from the FAQ section above`;
+2. FAQPage schema with 3-5 questions and answers
+3. A standalone FAQ text block in Markdown format (## FAQ / ### Q / A)`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -91,8 +98,12 @@ Generate:
                   type: "object",
                   description: "FAQPage JSON-LD schema with @context: https://schema.org, @type: FAQPage, mainEntity array of {\"@type\":\"Question\",\"name\":\"...\",\"acceptedAnswer\":{\"@type\":\"Answer\",\"text\":\"...\"}}. Must include ALL questions from the FAQ section. Return null only if no FAQ exists.",
                 },
+                faq_text_block: {
+                  type: "string",
+                  description: "Standalone FAQ section in Markdown format. Start with '## Часто задаваемые вопросы (FAQ)' then each Q&A as '### Question\\nAnswer paragraph'. Include 3-5 questions. Write in the same language as the article.",
+                },
               },
-              required: ["article_schema", "faq_schema"],
+              required: ["article_schema", "faq_schema", "faq_text_block"],
               additionalProperties: false,
             },
           },
