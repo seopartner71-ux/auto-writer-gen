@@ -548,5 +548,6 @@ export default function WordPressPage() {
         </Card>
       </div>
     </div>
+    </PlanGate>
   );
 }
