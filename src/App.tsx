@@ -28,6 +28,7 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const PricingPage = lazy(() => import("@/pages/PricingPage"));
 const IndexingPage = lazy(() => import("@/pages/IndexingPage"));
+const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
                 <Route path="/pricing" element={<ProtectedLayout><PricingPage /></ProtectedLayout>} />
                 <Route path="/indexing" element={<ProtectedLayout><IndexingPage /></ProtectedLayout>} />
+                <Route path="/wordpress" element={<ProtectedLayout><WordPressPage /></ProtectedLayout>} />
 
                 <Route
                   path="/admin"

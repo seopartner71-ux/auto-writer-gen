@@ -568,6 +568,42 @@ export type Database = {
         }
         Relationships: []
       }
+      wordpress_sites: {
+        Row: {
+          app_password: string
+          created_at: string | null
+          id: string
+          is_connected: boolean | null
+          site_name: string | null
+          site_url: string
+          updated_at: string | null
+          user_id: string
+          username: string
+        }
+        Insert: {
+          app_password: string
+          created_at?: string | null
+          id?: string
+          is_connected?: boolean | null
+          site_name?: string | null
+          site_url: string
+          updated_at?: string | null
+          user_id: string
+          username: string
+        }
+        Update: {
+          app_password?: string
+          created_at?: string | null
+          id?: string
+          is_connected?: boolean | null
+          site_name?: string | null
+          site_url?: string
+          updated_at?: string | null
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
