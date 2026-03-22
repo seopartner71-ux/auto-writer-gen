@@ -76,6 +76,7 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
                 <Route path="/pricing" element={<ProtectedLayout><PricingPage /></ProtectedLayout>} />
                 <Route path="/indexing" element={<ProtectedLayout><IndexingPage /></ProtectedLayout>} />
+                <Route path="/wordpress" element={<ProtectedLayout><WordPressPage /></ProtectedLayout>} />
 
                 <Route
                   path="/admin"
