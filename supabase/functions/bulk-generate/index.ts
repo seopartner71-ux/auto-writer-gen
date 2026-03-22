@@ -174,7 +174,7 @@ ${lsiKws.length > 0 ? `Include LSI keywords: ${lsiKws.join(", ")}` : ""}
 Target word count: ${analysis.recommended_word_count || 2000}
 Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
 
-        const articleResp = await fetch("https://api.lovable.dev/v1/chat/completions", {
+        const articleResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: writerModel, messages: [{ role: "user", content: articlePrompt }] }),
