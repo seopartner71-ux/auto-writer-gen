@@ -230,6 +230,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          is_active: boolean
           monthly_limit: number | null
           plan: string | null
         }
@@ -238,6 +239,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          is_active?: boolean
           monthly_limit?: number | null
           plan?: string | null
         }
@@ -246,6 +248,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          is_active?: boolean
           monthly_limit?: number | null
           plan?: string | null
         }
