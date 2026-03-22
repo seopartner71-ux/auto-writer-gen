@@ -14,6 +14,7 @@ import {
   Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
   ExternalLink, BarChart3, FileText
 } from "lucide-react";
+import { ExpertInsightsBlock } from "@/components/plan/ExpertInsightsBlock";
 import { toast } from "sonner";
 
 interface InsightItem {
