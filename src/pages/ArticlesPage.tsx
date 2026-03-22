@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
-  Wand2, Loader2, Hash, FileText, Save, Code2,
+  Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
   CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -980,9 +980,12 @@ export default function ArticlesPage() {
                   {savedArticles.length > 0 ? (
                     <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
                       {savedArticles.slice(0, 10).map((a: any) => (
-                        <button
+                        <div
                           key={a.id}
-                          className="w-full text-left text-xs rounded-md px-2 py-1.5 bg-muted/50 hover:bg-muted/80 transition-colors truncate"
+                          className="flex items-center gap-1 group"
+                        >
+                        <button
+                          className="flex-1 text-left text-xs rounded-md px-2 py-1.5 bg-muted/50 hover:bg-muted/80 transition-colors truncate"
                           onClick={async () => {
                             const { data } = await supabase
                               .from("articles")
@@ -1002,6 +1005,27 @@ export default function ArticlesPage() {
                           <span className="font-medium">{a.title || "Без названия"}</span>
                           <span className="text-muted-foreground ml-1">({a.status})</span>
                         </button>
+                        <button
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0"
+                          title="Удалить статью"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!confirm("Удалить эту статью?")) return;
+                            const { error } = await supabase.from("articles").delete().eq("id", a.id);
+                            if (error) { toast.error("Ошибка удаления"); return; }
+                            queryClient.invalidateQueries({ queryKey: ["articles-list"] });
+                            if (currentArticleId === a.id) {
+                              setCurrentArticleId(null);
+                              setTitle("");
+                              setContent("");
+                              setMetaDescription("");
+                            }
+                            toast.success("Статья удалена");
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                        </div>
                       ))}
                     </div>
                   ) : (
