@@ -180,21 +180,80 @@ export default function WordPressPage() {
       const article = articles.find((a) => a.id === selectedArticleId);
       if (!article?.content) throw new Error("У статьи нет контента");
 
-      // Convert markdown to HTML (basic)
-      let htmlContent = article.content
-        .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-        .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-        .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+      // Convert markdown tables to HTML tables
+      const convertMarkdownTables = (text: string): string => {
+        const lines = text.split("\n");
+        const result: string[] = [];
+        let i = 0;
+
+        while (i < lines.length) {
+          const line = lines[i].trim();
+          // Detect table: line starts/ends with | and next line is separator (|---|...)
+          if (
+            line.startsWith("|") &&
+            line.endsWith("|") &&
+            i + 1 < lines.length &&
+            /^\|[\s:-]+\|/.test(lines[i + 1].trim())
+          ) {
+            // Parse header
+            const headerCells = line
+              .slice(1, -1)
+              .split("|")
+              .map((c) => c.trim());
+            const headerRow = headerCells
+              .map((c) => `<th>${c}</th>`)
+              .join("");
+
+            // Skip separator line
+            i += 2;
+
+            // Parse body rows
+            const bodyRows: string[] = [];
+            while (i < lines.length && lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|")) {
+              const cells = lines[i]
+                .trim()
+                .slice(1, -1)
+                .split("|")
+                .map((c) => c.trim());
+              bodyRows.push(
+                `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`
+              );
+              i++;
+            }
+
+            result.push(
+              `<!-- wp:table -->\n<figure class="wp-block-table"><table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows.join("")}</tbody></table></figure>\n<!-- /wp:table -->`
+            );
+          } else {
+            result.push(lines[i]);
+            i++;
+          }
+        }
+        return result.join("\n");
+      };
+
+      // First convert tables, then other markdown
+      let htmlContent = convertMarkdownTables(article.content)
+        .replace(/^### (.+)$/gm, "<!-- wp:heading {\"level\":3} -->\n<h3>$1</h3>\n<!-- /wp:heading -->")
+        .replace(/^## (.+)$/gm, "<!-- wp:heading -->\n<h2>$1</h2>\n<!-- /wp:heading -->")
+        .replace(/^# (.+)$/gm, "<!-- wp:heading {\"level\":1} -->\n<h1>$1</h1>\n<!-- /wp:heading -->")
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
         .replace(/\*(.+?)\*/g, "<em>$1</em>")
         .replace(/^- (.+)$/gm, "<li>$1</li>")
-        .replace(/(<li>.+<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
-        .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
-        .replace(/\n\n/g, "\n<!-- wp:paragraph -->\n<p>")
-        .replace(/\n(?!<)/g, "</p>\n<!-- /wp:paragraph -->\n");
+        .replace(/(<li>.+<\/li>\n?)+/g, (m) => `<!-- wp:list -->\n<ul>${m}</ul>\n<!-- /wp:list -->`)
+        .replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
 
-      // Wrap in Gutenberg blocks
-      htmlContent = `<!-- wp:paragraph -->\n<p>${htmlContent}</p>\n<!-- /wp:paragraph -->`;
+      // Wrap remaining plain text paragraphs
+      htmlContent = htmlContent
+        .split("\n\n")
+        .map((block) => {
+          const trimmed = block.trim();
+          if (!trimmed) return "";
+          if (trimmed.startsWith("<!--") || trimmed.startsWith("<")) return trimmed;
+          return `<!-- wp:paragraph -->\n<p>${trimmed}</p>\n<!-- /wp:paragraph -->`;
+        })
+        .filter(Boolean)
+        .join("\n\n");
 
       const tags = tagsInput
         .split(",")
