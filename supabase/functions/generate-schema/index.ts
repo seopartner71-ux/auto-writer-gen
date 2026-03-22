@@ -40,14 +40,15 @@ serve(async (req) => {
     const faqMatch = content.match(/##\s*(?:Часто задаваемые вопросы|FAQ|Вопросы и ответы)[\s\S]*/i);
     const faqSection = faqMatch ? faqMatch[0] : "";
 
-    const systemPrompt = `You are an SEO schema markup and FAQ expert. Generate valid JSON-LD schema markup AND a standalone FAQ text block for the given article. Write in the same language as the article content.
+    const systemPrompt = `You are an SEO schema markup and FAQ expert. Respond with a JSON object containing exactly three keys:
 
-CRITICAL RULES for FAQ schema:
-- Generate 3-5 FAQ questions based on the article content, the keyword, and provided "People Also Ask" questions
-- Each FAQ entry must have "question" and "answer" fields
-- The FAQ schema must follow the Google FAQPage specification exactly
-- Return the complete FAQ schema with @context, @type, and mainEntity array
-- Also return a plain-text FAQ block formatted in Markdown (### Question / Answer) for embedding into the article`;
+"article_schema": A complete Article JSON-LD object: {"@context":"https://schema.org","@type":"Article","headline":"...","description":"...","datePublished":"${new Date().toISOString().split("T")[0]}","author":{"@type":"Person","name":"Author"}}
+
+"faq_schema": A complete FAQPage JSON-LD object: {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"question text","acceptedAnswer":{"@type":"Answer","text":"answer text"}}, ...]}. Generate 3-5 FAQ questions based on article content, keyword, and People Also Ask data.
+
+"faq_text_block": A Markdown string starting with "## Часто задаваемые вопросы (FAQ)" followed by "### Question" and answer paragraphs.
+
+ALL fields must contain real data from the article. NEVER return empty objects. Write in the same language as the article.`;
 
     const userPrompt = `Generate JSON-LD structured data and FAQ for this article:
 
@@ -77,33 +78,7 @@ Generate:
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "return_schema",
-            description: "Return JSON-LD schema markup for Article and FAQ",
-            parameters: {
-              type: "object",
-              properties: {
-                article_schema: {
-                  type: "object",
-                  description: "Article JSON-LD schema with @context, @type, headline, description, datePublished, author",
-                },
-                faq_schema: {
-                  type: "object",
-                  description: "FAQPage JSON-LD schema with @context: https://schema.org, @type: FAQPage, mainEntity array of {\"@type\":\"Question\",\"name\":\"...\",\"acceptedAnswer\":{\"@type\":\"Answer\",\"text\":\"...\"}}. Must include ALL questions from the FAQ section. Return null only if no FAQ exists.",
-                },
-                faq_text_block: {
-                  type: "string",
-                  description: "Standalone FAQ section in Markdown format. Start with '## Часто задаваемые вопросы (FAQ)' then each Q&A as '### Question\\nAnswer paragraph'. Include 3-5 questions. Write in the same language as the article.",
-                },
-              },
-              required: ["article_schema", "faq_schema", "faq_text_block"],
-              additionalProperties: false,
-            },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "return_schema" } },
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -122,16 +97,20 @@ Generate:
     }
 
     const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    console.log("AI response status:", aiResponse.status);
+    const rawContent = aiData.choices?.[0]?.message?.content || "";
+    console.log("AI raw content length:", rawContent.length);
+    
     let result;
-    if (toolCall?.function?.arguments) {
-      result = JSON.parse(toolCall.function.arguments);
-    } else {
-      const c = aiData.choices?.[0]?.message?.content || "";
-      const m = c.match(/\{[\s\S]*\}/);
+    try {
+      result = JSON.parse(rawContent);
+    } catch {
+      const m = rawContent.match(/\{[\s\S]*\}/);
       if (m) result = JSON.parse(m[0]);
       else throw new Error("Failed to parse AI response");
     }
+    
+    console.log("Parsed keys:", Object.keys(result));
 
     await supabaseAdmin.from("usage_logs").insert({
       user_id: user.id,
