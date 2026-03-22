@@ -12,11 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Globe, Plus, Trash2, CheckCircle2, XCircle, Loader2,
-  Send, ExternalLink, Eye, EyeOff, RefreshCw, Pencil
+  Send, ExternalLink, Eye, EyeOff, RefreshCw, Pencil,
+  Clock, Calendar, AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface WpSite {
   id: string;
