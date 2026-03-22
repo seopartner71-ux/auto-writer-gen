@@ -553,6 +553,7 @@ export default function ArticlesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Mode Switcher */}
       <div className="flex items-center gap-3">
         <FileText className="h-6 w-6 text-primary" />
         <div>
@@ -561,7 +562,40 @@ export default function ArticlesPage() {
             Генератор SEO-контента с динамическим выбором модели
           </p>
         </div>
+        <div className="ml-auto flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-1">
+          <Button
+            variant={mode === "single" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setMode("single")}
+            className="gap-1.5 text-xs"
+          >
+            <Gem className="h-3.5 w-3.5" />
+            Boutique
+          </Button>
+          <Button
+            variant={mode === "bulk" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => {
+              if (!limits.hasBulkMode) {
+                toast.error("Factory Mode доступен только на тарифе PRO");
+                return;
+              }
+              setMode("bulk");
+            }}
+            className="gap-1.5 text-xs"
+          >
+            <Factory className="h-3.5 w-3.5" />
+            Factory
+            {!limits.hasBulkMode && <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PRO</Badge>}
+          </Button>
+        </div>
       </div>
+
+      {mode === "bulk" ? (
+        <BulkGenerationMode />
+      ) : (
+      <>
+
 
       {/* Configuration */}
       <div className="rounded-lg border border-border bg-card p-4">
