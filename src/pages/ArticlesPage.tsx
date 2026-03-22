@@ -952,7 +952,7 @@ export default function ArticlesPage() {
                       if (h1Match) setTitle(h1Match[1]);
                       toast.success("Статья оптимизирована по бенчмарку ТОП-10");
                     } catch (e: any) {
-                      if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
+                      if (e.name === "AbortError") { toast.info("Генерация остановлена"); }
                       else { toast.error(e.message); setContent(prevContent); }
                     } finally {
                       setIsStreaming(false);
