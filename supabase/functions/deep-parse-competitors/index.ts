@@ -229,7 +229,7 @@ function emptyAnalysis(): Omit<CompetitorAnalysis, "url" | "position"> {
 async function fetchPage(url: string): Promise<{ html: string | null; error?: string }> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 8000); // reduced from 20s to 8s
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -252,7 +252,6 @@ async function fetchPage(url: string): Promise<{ html: string | null; error?: st
     }
 
     const html = await resp.text();
-    // Check for Cloudflare/bot protection
     if (html.includes("cf-browser-verification") || html.includes("challenge-platform")) {
       return { html: null, error: "cloudflare" };
     }
@@ -409,27 +408,33 @@ serve(async (req) => {
       throw new Error("No SERP results found. Run Smart Research first.");
     }
 
-    // ── Parse each competitor page ──
+    // ── Parse each competitor page (parallel, max 7) ──
     const parsedPages: CompetitorAnalysis[] = [];
     const failedUrls: { url: string; reason: string }[] = [];
 
-    for (const sr of serpResults) {
-      if (!sr.url) continue;
-      console.log(`Fetching: ${sr.url}`);
-      const { html, error } = await fetchPage(sr.url);
+    const validSerps = serpResults.filter((sr: any) => sr.url).slice(0, 7);
+    console.log(`Fetching ${validSerps.length} pages in parallel...`);
+
+    const fetchResults = await Promise.allSettled(
+      validSerps.map(async (sr: any) => {
+        console.log(`Fetching: ${sr.url}`);
+        const { html, error } = await fetchPage(sr.url);
+        if (!html) return { sr, error: error || "unknown", html: null };
+        return { sr, html, error: null };
+      })
+    );
+
+    for (const result of fetchResults) {
+      if (result.status === "rejected") continue;
+      const { sr, html, error } = result.value;
       if (!html) {
         failedUrls.push({ url: sr.url, reason: error || "unknown" });
         continue;
       }
-
       const parsed = parseHTML(html, kw.seed_keyword);
-      const pageData: CompetitorAnalysis = {
-        url: sr.url,
-        position: sr.position || 0,
-        ...parsed,
-      };
-      parsedPages.push(pageData);
+      parsedPages.push({ url: sr.url, position: sr.position || 0, ...parsed });
     }
+    console.log(`Parsed ${parsedPages.length} pages, ${failedUrls.length} failed`);
 
     if (parsedPages.length === 0) {
       throw new Error(`Could not fetch any competitor pages. Errors: ${failedUrls.map((f) => `${f.url}(${f.reason})`).join(", ")}`);
@@ -634,46 +639,14 @@ TASK:
       })),
     };
 
-    // ── Save per-competitor deep analysis + cache ──
-    for (const sr of serpResults) {
-      const page = parsedPages.find((p) => p.url === sr.url);
-      if (!page) continue;
+    // ── Save cached result on first serp entry ──
+    if (serpResults.length > 0) {
       await supabaseAdmin
         .from("serp_results")
         .update({
-          deep_analysis: {
-            _cached_result: result, // cache the full result on first serp entry
-            structure: page.structure,
-            content: page.content,
-            media: page.media,
-            seo: page.seo,
-            parsed_at: new Date().toISOString(),
-          },
-          word_count: page.structure.word_count,
-          headings: { hierarchy: page.structure.h_tags },
+          deep_analysis: { _cached_result: result, parsed_at: new Date().toISOString() },
         })
-        .eq("id", sr.id);
-      // Only cache full result on first entry
-      break;
-    }
-    // Save remaining per-competitor data without full cache
-    for (const sr of serpResults.slice(1)) {
-      const page = parsedPages.find((p) => p.url === sr.url);
-      if (!page) continue;
-      await supabaseAdmin
-        .from("serp_results")
-        .update({
-          deep_analysis: {
-            structure: page.structure,
-            content: page.content,
-            media: page.media,
-            seo: page.seo,
-            parsed_at: new Date().toISOString(),
-          },
-          word_count: page.structure.word_count,
-          headings: { hierarchy: page.structure.h_tags },
-        })
-        .eq("id", sr.id);
+        .eq("id", serpResults[0].id);
     }
 
     // Log usage
@@ -684,6 +657,8 @@ TASK:
       model_used: model,
       tokens_used: tokensUsed,
     });
+
+    console.log(`Deep parse complete: ${parsedPages.length} pages, ${(entityAnalysis.entities || []).length} entities, score ready`);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
