@@ -118,17 +118,24 @@ export function ResearchResults({ data }: Props) {
                 <span className="text-xs font-mono text-muted-foreground w-5 shrink-0 pt-0.5">
                   #{c.position}
                 </span>
-                <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <a
                       href={c.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium hover:text-primary truncate flex items-center gap-1"
+                      className={`text-sm font-medium hover:text-primary truncate flex items-center gap-1 ${
+                        getSiteType(c.url) ? "text-destructive" : ""
+                      }`}
                     >
                       {c.title}
                       <ExternalLink className="h-3 w-3 shrink-0" />
                     </a>
+                    {getSiteType(c.url) && (
+                      <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-[10px] px-1.5 py-0 shrink-0">
+                        {getSiteType(c.url)}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                     {c.snippet}
