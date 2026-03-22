@@ -27,9 +27,6 @@ serve(async (req) => {
     const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content } = await req.json();
     if (!keyword_id) throw new Error("keyword_id is required");
 
-    // Detect language from keyword
-    const keywordText = keyword?.seed_keyword || "";
-
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // 1. Get user profile for tier
