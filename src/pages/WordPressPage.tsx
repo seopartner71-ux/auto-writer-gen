@@ -61,6 +61,8 @@ export default function WordPressPage() {
   const [seoPlugin, setSeoPlugin] = useState<"none" | "rank_math" | "yoast">("none");
   const [customTitle, setCustomTitle] = useState("");
   const [customDescription, setCustomDescription] = useState("");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
 
   // Fetch WP sites
   const { data: sites = [], isLoading: sitesLoading } = useQuery({
