@@ -114,7 +114,7 @@ export default function IndexingPage() {
         </div>
       </div>
 
-      <PlanGate feature="indexing" requiredPlan="pro">
+      <PlanGate allowed={isPro} featureName={t("indexing.title")} requiredPlan="PRO">
         <div className="grid gap-6 lg:grid-cols-2">
           {/* GSC Key Setup */}
           <Card className="bg-card border-border">
