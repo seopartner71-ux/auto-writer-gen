@@ -61,10 +61,10 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        <div className="flex items-center gap-2 px-4 py-4">
+        <div className="flex items-center gap-2 px-4 py-2">
           <KeyRound className="h-6 w-6 text-primary shrink-0" />
           {!collapsed && (
-            <span className="text-lg font-semibold gradient-text">SEO-Synthesizer <sup className="text-[10px] text-muted-foreground">v2.0</sup></span>
+            <span className="text-lg font-semibold gradient-text">SERPblueprint <sup className="text-[10px] text-muted-foreground">v2.0</sup></span>
           )}
         </div>
 
