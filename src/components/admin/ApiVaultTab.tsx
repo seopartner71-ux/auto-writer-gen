@@ -9,6 +9,7 @@ import { Eye, EyeOff, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const PROVIDERS = [
+  { key: "openrouter", label: "OpenRouter", placeholder: "sk-or-v1-..." },
   { key: "openai", label: "OpenAI", placeholder: "sk-..." },
   { key: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
   { key: "gemini", label: "Google Gemini", placeholder: "AIza..." },
