@@ -250,6 +250,31 @@ export default function ArticlesPage() {
   const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
 
+  // Auto-generate SEO Title via AI
+  const generateSeoTitle = useCallback(async (articleContent: string) => {
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const token = s?.access_token;
+      if (!token) return;
+
+      const keyword = selectedKeyword?.seed_keyword || "";
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-title`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ keyword, content: articleContent }),
+      });
+      if (!resp.ok) return;
+      const { title: seoTitle } = await resp.json();
+      if (seoTitle) setTitle(seoTitle);
+    } catch {
+      // Title generation is best-effort; fallback to H1
+    }
+  }, [selectedKeyword]);
+
   // LSI keyword check
   const lsiStatus = useMemo(() => {
     const lower = content.toLowerCase();
@@ -349,8 +374,6 @@ export default function ArticlesPage() {
       }
 
       // Auto-fill title and meta from generated content
-      const h1Match = fullContent.match(/^#\s+(.+)$/m);
-      if (h1Match) setTitle(h1Match[1]);
 
       // Auto-generate meta description from first paragraph
       const paragraphs = fullContent
@@ -361,6 +384,9 @@ export default function ArticlesPage() {
       if (paragraphs.length > 0) {
         setMetaDescription(paragraphs[0].replace(/[*_#`]/g, "").slice(0, 160));
       }
+
+      // Auto-generate SEO Title via AI (async, best-effort)
+      generateSeoTitle(fullContent);
 
       toast.success("Статья сгенерирована");
     } catch (e: any) {
@@ -949,8 +975,8 @@ export default function ArticlesPage() {
                         }
                       }
 
-                      const h1Match = fullContent.match(/^#\s+(.+)$/m);
-                      if (h1Match) setTitle(h1Match[1]);
+                      // Auto-generate SEO Title via AI
+                      generateSeoTitle(fullContent);
                       toast.success("Статья оптимизирована по бенчмарку ТОП-10");
                     } catch (e: any) {
                       if (e.name === "AbortError") { toast.info("Генерация остановлена"); }
