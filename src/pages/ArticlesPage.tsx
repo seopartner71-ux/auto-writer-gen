@@ -885,7 +885,7 @@ export default function ArticlesPage() {
                   content={content}
                   title={title}
                   metaDescription={metaDescription}
-                  onOptimize={async (instructions) => {
+                  onOptimize={async ({ instructions, benchmarkContext }) => {
                     if (isStreaming) return;
                     setIsStreaming(true);
                     const prevContent = content;
@@ -911,6 +911,7 @@ export default function ArticlesPage() {
                           outline,
                           lsi_keywords: lsiKeywords,
                           optimize_instructions: instructions,
+                          deep_analysis_context: benchmarkContext,
                           existing_content: prevContent,
                         }),
                         signal: controller.signal,

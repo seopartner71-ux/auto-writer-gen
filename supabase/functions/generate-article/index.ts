@@ -170,13 +170,22 @@ ${existing_content}
 OPTIMIZATION INSTRUCTIONS (based on TOP-10 benchmark comparison):
 ${optimize_instructions}
 
+TOP-10 BENCHMARK DATA (apply these recommendations directly when rewriting):
+${deep_analysis_context || "No additional TOP-10 benchmark context provided."}
+
 LSI KEYWORDS TO INCLUDE:
 ${lsiStr || "None"}
 
 USER QUESTIONS TO ANSWER:
 ${questionsStr ? `- ${questionsStr}` : "None"}
 
-TASK: Rewrite and expand the article above to fix ALL listed problems. Keep the existing good parts, add missing entities and LSI phrases, expand sections where needed, and ensure the article surpasses the TOP-10 benchmark. Maintain the same language, tone, and style. Output the FULL improved article in Markdown.`;
+TASK: Rewrite and expand the article above to fix ALL listed problems. Keep the existing good parts, but explicitly use the TOP-10 comparison data to:
+- add missing sections and subtopics that leaders cover;
+- add missing entities, related terms, and LSI phrases from the benchmark;
+- align article depth, structure, and completeness with TOP-10 patterns;
+- improve usefulness, specificity, and expert detail where competitors are stronger.
+
+Do not just mention the recommendations — implement them in the rewritten article. Maintain the same language, tone, and style. Output the FULL improved article in Markdown.`;
     } else {
       userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}

@@ -27,7 +27,7 @@ interface SeoBenchmarkProps {
   content: string;
   title: string;
   metaDescription: string;
-  onOptimize?: (instructions: string) => void;
+  onOptimize?: (payload: { instructions: string; benchmarkContext: string }) => void;
 }
 
 interface BenchmarkMetric {
@@ -315,14 +315,47 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
         issues.push(`${t("bench.statusMissed")}: ${entityCoverage.missing.map((e) => e.name).join(", ")}`);
       }
 
-      const instructions = `${t("bench.scorePoints")}: ${overallScore}/100.\n\n${t("bench.problemZones")}:\n${issues.map((i) => `- ${i}`).join("\n")}\n\nДополни статью экспертными блоками, раскрывающими пропущенные сущности. Добавь LSI-фразы. Доведи объём до целевого. Сохрани стиль и тональность.`;
+      const missingStructure = (structureComparison || [])
+        .filter((h) => !h.covered && h.level <= 3)
+        .slice(0, 10)
+        .map((h) => `${"#".repeat(h.level)} ${h.text}`);
 
-      onOptimize(instructions);
+      const topEntities = result.entities
+        .filter((e) => e.importance >= 5)
+        .slice(0, 15)
+        .map((e) => `${e.name} (${e.type}, ${e.importance}/10)`);
+
+      const mustUsePhrases = result.must_use_phrases
+        .slice(0, 12)
+        .map((p) => `${p.phrase} — ${p.reason}`);
+
+      const tfidfRecommendations = result.tfidf_phrases
+        .slice(0, 10)
+        .map((p) => `${p.phrase} (TF-IDF ${p.tfidf.toFixed(2)})`);
+
+      const top10Recommendations = [
+        `Целевой объём статьи: ${result.benchmark.target_word_count} слов (медиана TOP-10: ${result.benchmark.median_word_count})`,
+        `Целевое число H2: ${result.benchmark.target_h2_count}, медиана H3: ${result.benchmark.median_h3_count}`,
+        `Целевое число изображений: ${result.benchmark.target_img_count}`,
+        `Целевая плотность ключа: около ${result.benchmark.median_keyword_density}%`,
+        result.benchmark.video_percentage > 50 ? `У ${result.benchmark.video_percentage}% страниц из TOP-10 есть видео — добавь видеоблок или упоминание видеоформата.` : null,
+        missingStructure.length > 0 ? `Добавь недостающие блоки структуры из лидеров TOP-10:\n${missingStructure.map((item) => `- ${item}`).join("\n")}` : null,
+        entityCoverage.missing.length > 0 ? `Обязательно раскрой отсутствующие сущности:\n- ${entityCoverage.missing.map((e) => e.name).join("\n- ")}` : null,
+        mustUsePhrases.length > 0 ? `Добавь фразы, которые часто встречаются у TOP-10:\n${mustUsePhrases.map((item) => `- ${item}`).join("\n")}` : null,
+        tfidfRecommendations.length > 0 ? `Усиль тематическую релевантность через термины TOP-10:\n${tfidfRecommendations.map((item) => `- ${item}`).join("\n")}` : null,
+        topEntities.length > 0 ? `Ориентир по сущностям из TOP-10:\n${topEntities.map((item) => `- ${item}`).join("\n")}` : null,
+      ].filter(Boolean).join("\n\n");
+
+      const instructions = `${t("bench.scorePoints")}: ${overallScore}/100.\n\n${t("bench.problemZones")}:\n${issues.map((i) => `- ${i}`).join("\n")}\n\nРЕКОМЕНДАЦИИ НА ОСНОВЕ СРАВНЕНИЯ С TOP-10:\n${top10Recommendations}\n\nДополни статью экспертными блоками, раскрывающими пропущенные сущности. Добавь LSI-фразы, термины и структурные блоки, которые реально встречаются у лидеров выдачи. Доведи объём до целевого. Сохрани стиль и тональность.`;
+
+      const benchmarkContext = buildAnalysisContext(result);
+
+      onOptimize({ instructions, benchmarkContext });
       toast.success(t("bench.optimizeSent"));
     } finally {
       setOptimizing(false);
     }
-  }, [result, metrics, entityCoverage, overallScore, onOptimize, t]);
+  }, [result, metrics, entityCoverage, overallScore, onOptimize, structureComparison, t]);
 
   // ── Chart data ──
   const chartData = [
