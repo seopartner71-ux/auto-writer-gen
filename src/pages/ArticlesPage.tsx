@@ -885,9 +885,79 @@ export default function ArticlesPage() {
                   content={content}
                   title={title}
                   metaDescription={metaDescription}
-                  onOptimize={(instructions) => {
-                    toast.info("Оптимизация: " + instructions.slice(0, 100) + "...");
-                    // TODO: integrate with AI rewrite
+                  onOptimize={async (instructions) => {
+                    if (isStreaming) return;
+                    setIsStreaming(true);
+                    const prevContent = content;
+                    setContent("");
+                    const controller = new AbortController();
+                    abortRef.current = controller;
+                    try {
+                      const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
+                      const token = freshSession?.access_token;
+                      if (refreshError || !token) throw new Error("Not authenticated");
+
+                      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
+                      const resp = await fetch(url, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                        },
+                        body: JSON.stringify({
+                          keyword_id: selectedKeywordId,
+                          author_profile_id: selectedAuthorId || null,
+                          outline,
+                          lsi_keywords: lsiKeywords,
+                          optimize_instructions: instructions,
+                          existing_content: prevContent,
+                        }),
+                        signal: controller.signal,
+                      });
+
+                      if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({ error: "Unknown error" }));
+                        throw new Error(err.error || `HTTP ${resp.status}`);
+                      }
+                      if (!resp.body) throw new Error("No stream body");
+
+                      const reader = resp.body.getReader();
+                      const decoder = new TextDecoder();
+                      let buffer = "";
+                      let fullContent = "";
+
+                      while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        let ni: number;
+                        while ((ni = buffer.indexOf("\n")) !== -1) {
+                          let line = buffer.slice(0, ni);
+                          buffer = buffer.slice(ni + 1);
+                          if (line.endsWith("\r")) line = line.slice(0, -1);
+                          if (line.startsWith(":") || line.trim() === "") continue;
+                          if (!line.startsWith("data: ")) continue;
+                          const jsonStr = line.slice(6).trim();
+                          if (jsonStr === "[DONE]") break;
+                          try {
+                            const parsed = JSON.parse(jsonStr);
+                            const delta = parsed.choices?.[0]?.delta?.content;
+                            if (delta) { fullContent += delta; setContent(fullContent); }
+                          } catch { buffer = line + "\n" + buffer; break; }
+                        }
+                      }
+
+                      const h1Match = fullContent.match(/^#\s+(.+)$/m);
+                      if (h1Match) setTitle(h1Match[1]);
+                      toast.success("Статья оптимизирована по бенчмарку ТОП-10");
+                    } catch (e: any) {
+                      if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
+                      else { toast.error(e.message); setContent(prevContent); }
+                    } finally {
+                      setIsStreaming(false);
+                      abortRef.current = null;
+                    }
                   }}
                 />
               ) : (
