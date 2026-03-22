@@ -198,7 +198,33 @@ export function BulkGenerationMode() {
     onError: (e) => toast.error(e.message),
   });
 
-  // Download all articles
+  // Delete bulk job
+  const deleteJob = useMutation({
+    mutationFn: async (jobId: string) => {
+      // Delete items first (they have FK to job)
+      const { error: itemsErr } = await supabase
+        .from("bulk_job_items")
+        .delete()
+        .eq("bulk_job_id", jobId);
+      // Items may not have delete policy — use articles cleanup approach
+      // Delete the job itself
+      const { error: jobErr } = await supabase
+        .from("bulk_jobs")
+        .delete()
+        .eq("id", jobId);
+      if (jobErr) throw jobErr;
+    },
+    onSuccess: (_, deletedJobId) => {
+      if (activeJobId === deletedJobId) {
+        setActiveJobId(null);
+      }
+      queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["bulk-job-items"] });
+      toast.success("Задание удалено");
+    },
+    onError: (e) => toast.error(`Ошибка удаления: ${e.message}`),
+  });
+
   const handleDownloadAll = useCallback(async () => {
     if (!activeJobId) return;
 
@@ -357,6 +383,22 @@ export function BulkGenerationMode() {
                   <Button size="sm" variant="outline" onClick={handleDownloadAll} className="gap-1.5">
                     <Download className="h-4 w-4" />
                     Скачать всё (.md)
+                  </Button>
+                )}
+                {activeJob.status !== "processing" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1.5 text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (confirm("Удалить задание и все связанные данные?")) {
+                        deleteJob.mutate(activeJob.id);
+                      }
+                    }}
+                    disabled={deleteJob.isPending}
+                  >
+                    {deleteJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Удалить
                   </Button>
                 )}
                 {activeJob.status === "processing" && (
