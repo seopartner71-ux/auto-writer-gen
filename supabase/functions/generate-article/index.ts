@@ -134,6 +134,7 @@ RULES:
 - Use bullet lists (- item), numbered lists (1. item), or checklists where appropriate
 ${authorStyle ? "- CRITICAL: Maintain the author's unique voice and style in EVERY paragraph. Do NOT fall into generic AI writing patterns." : ""}
 ${tablesListsInstructions}
+${deep_analysis_context ? `\n${deep_analysis_context}` : ""}
 
 ANTI-AI DETECTION (CRITICAL — follow strictly):
 - Write like a real human expert, NOT like an AI. Vary sentence length dramatically: mix very short punchy sentences with longer complex ones.
