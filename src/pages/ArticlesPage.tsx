@@ -244,6 +244,9 @@ export default function ArticlesPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [schemaJson, setSchemaJson] = useState<string>("");
   const [schemaCopied, setSchemaCopied] = useState(false);
+  const [faqTextBlock, setFaqTextBlock] = useState<string>("");
+  const [faqCopied, setFaqCopied] = useState(false);
+  const [schemaGenerating, setSchemaGenerating] = useState(false);
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -389,6 +392,9 @@ export default function ArticlesPage() {
       generateSeoTitle(fullContent);
 
       toast.success("Статья сгенерирована");
+
+      // Auto-generate FAQ & JSON-LD schema (async, best-effort)
+      autoGenerateSchema(fullContent, title);
     } catch (e: any) {
       if (e.name === "AbortError") {
         toast.info("Генерация остановлена");
@@ -454,7 +460,12 @@ export default function ArticlesPage() {
   const generateSchema = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("generate-schema", {
-        body: { title, content, keyword: selectedKeyword?.seed_keyword },
+        body: {
+          title,
+          content,
+          keyword: selectedKeyword?.seed_keyword,
+          questions: selectedKeyword?.questions || [],
+        },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
@@ -465,16 +476,49 @@ export default function ArticlesPage() {
       if (data.article_schema) schemas.push(data.article_schema);
       if (data.faq_schema) schemas.push(data.faq_schema);
       setSchemaJson(JSON.stringify(schemas, null, 2));
-      toast.success("JSON-LD Schema сгенерирована");
+      if (data.faq_text_block) setFaqTextBlock(data.faq_text_block);
+      toast.success("FAQ и JSON-LD Schema сгенерированы");
     },
     onError: (e) => toast.error(e.message),
   });
 
-  const copySchema = () => {
-    navigator.clipboard.writeText(schemaJson);
-    setSchemaCopied(true);
-    setTimeout(() => setSchemaCopied(false), 2000);
+  const copyToClipboard = (text: string, type: "schema" | "faq") => {
+    const copyText = type === "schema" ? `<script type="application/ld+json">\n${text}\n</script>` : text;
+    navigator.clipboard.writeText(copyText);
+    if (type === "schema") {
+      setSchemaCopied(true);
+      setTimeout(() => setSchemaCopied(false), 2000);
+    } else {
+      setFaqCopied(true);
+      setTimeout(() => setFaqCopied(false), 2000);
+    }
   };
+
+  // Auto-generate FAQ & schema after article generation
+  const autoGenerateSchema = useCallback(async (articleContent: string, articleTitle: string) => {
+    if (!articleContent || !limits.hasJsonLdSchema) return;
+    try {
+      setSchemaGenerating(true);
+      const { data, error } = await supabase.functions.invoke("generate-schema", {
+        body: {
+          title: articleTitle,
+          content: articleContent,
+          keyword: selectedKeyword?.seed_keyword,
+          questions: selectedKeyword?.questions || [],
+        },
+      });
+      if (error || data?.error) return;
+      const schemas = [];
+      if (data.article_schema) schemas.push(data.article_schema);
+      if (data.faq_schema) schemas.push(data.faq_schema);
+      setSchemaJson(JSON.stringify(schemas, null, 2));
+      if (data.faq_text_block) setFaqTextBlock(data.faq_text_block);
+    } catch {
+      // best-effort
+    } finally {
+      setSchemaGenerating(false);
+    }
+  }, [selectedKeyword, limits.hasJsonLdSchema]);
 
   // Auto-fill fields when keyword changes
   useEffect(() => {
@@ -706,49 +750,114 @@ export default function ArticlesPage() {
             </Tabs>
           </Card>
 
-          {/* JSON-LD Schema */}
-          <PlanGate allowed={limits.hasJsonLdSchema} featureName="JSON-LD микроразметка" requiredPlan="Базовый">
+          {/* SEO-метаданные: FAQ + JSON-LD */}
+          <PlanGate allowed={limits.hasJsonLdSchema} featureName="FAQ + JSON-LD микроразметка" requiredPlan="Базовый">
             <Card className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Code2 className="h-4 w-4 text-primary" />
-                    JSON-LD Schema
-                  </span>
-                  <div className="flex gap-2">
+              <Tabs defaultValue="faq">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Code2 className="h-4 w-4 text-primary" />
+                      SEO-метаданные
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => generateSchema.mutate()}
-                      disabled={!content || generateSchema.isPending}
+                      disabled={!content || generateSchema.isPending || schemaGenerating}
                     >
-                      {generateSchema.isPending ? (
+                      {(generateSchema.isPending || schemaGenerating) ? (
                         <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                       ) : (
-                        <Code2 className="h-3 w-3 mr-1" />
+                        <Wand2 className="h-3 w-3 mr-1" />
                       )}
-                      Generate Schema
+                      {(generateSchema.isPending || schemaGenerating) ? "Генерация..." : "Сгенерировать FAQ + Schema"}
                     </Button>
-                    {schemaJson && (
-                      <Button variant="ghost" size="sm" onClick={copySchema}>
-                        {schemaCopied ? (
-                          <Check className="h-3 w-3 mr-1" />
-                        ) : (
-                          <Copy className="h-3 w-3 mr-1" />
-                        )}
-                        {schemaCopied ? "Скопировано" : "Копировать"}
-                      </Button>
-                    )}
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              {schemaJson && (
+                  </CardTitle>
+                  <TabsList className="h-8 mt-2">
+                    <TabsTrigger value="faq" className="text-xs gap-1.5 px-3">
+                      <BookOpen className="h-3 w-3" />
+                      FAQ-блок
+                    </TabsTrigger>
+                    <TabsTrigger value="jsonld" className="text-xs gap-1.5 px-3">
+                      <Code2 className="h-3 w-3" />
+                      JSON-LD разметка
+                    </TabsTrigger>
+                  </TabsList>
+                </CardHeader>
                 <CardContent>
-                  <pre className="bg-muted rounded-md p-4 text-xs overflow-x-auto max-h-[300px] overflow-y-auto font-mono">
-                    {schemaJson}
-                  </pre>
+                  <TabsContent value="faq" className="mt-0">
+                    {faqTextBlock ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            Текстовый блок FAQ для вставки в статью
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(faqTextBlock, "faq")}
+                            className="h-7 text-xs"
+                          >
+                            {faqCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                            {faqCopied ? "Скопировано" : "Копировать FAQ"}
+                          </Button>
+                        </div>
+                        <div className="bg-muted rounded-md p-4 text-sm leading-relaxed whitespace-pre-wrap max-h-[400px] overflow-y-auto">
+                          {faqTextBlock}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full gap-1.5"
+                          onClick={() => {
+                            setContent((prev) => prev + "\n\n" + faqTextBlock);
+                            toast.success("FAQ-блок добавлен в статью");
+                          }}
+                        >
+                          <BookOpen className="h-3 w-3" />
+                          Вставить FAQ в статью
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-8 text-center">
+                        {(generateSchema.isPending || schemaGenerating)
+                          ? "Генерация FAQ..."
+                          : "Нажмите «Сгенерировать FAQ + Schema» или сгенерируйте статью"}
+                      </p>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="jsonld" className="mt-0">
+                    {schemaJson ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            Код разметки для вставки в &lt;head&gt;
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(schemaJson, "schema")}
+                            className="h-7 text-xs"
+                          >
+                            {schemaCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                            {schemaCopied ? "Скопировано" : "Копировать код разметки"}
+                          </Button>
+                        </div>
+                        <pre className="bg-muted rounded-md p-4 text-xs overflow-x-auto max-h-[400px] overflow-y-auto font-mono">
+                          {`<script type="application/ld+json">\n${schemaJson}\n</script>`}
+                        </pre>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-8 text-center">
+                        {(generateSchema.isPending || schemaGenerating)
+                          ? "Генерация JSON-LD..."
+                          : "Нажмите «Сгенерировать FAQ + Schema» или сгенерируйте статью"}
+                      </p>
+                    )}
+                  </TabsContent>
                 </CardContent>
-              )}
+              </Tabs>
             </Card>
           </PlanGate>
         </div>
