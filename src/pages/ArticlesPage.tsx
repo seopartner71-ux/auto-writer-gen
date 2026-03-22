@@ -240,6 +240,7 @@ export default function ArticlesPage() {
   const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
+  const [h1, setH1] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [schemaJson, setSchemaJson] = useState<string>("");
@@ -625,7 +626,16 @@ export default function ArticlesPage() {
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Заголовок статьи..."
+                  placeholder="SEO Title (до 60 символов)..."
+                  maxLength={70}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">H1 (заголовок на странице)</Label>
+                <Input
+                  value={h1}
+                  onChange={(e) => setH1(e.target.value)}
+                  placeholder="Заголовок H1 статьи..."
                   className="text-lg font-semibold"
                 />
               </div>
