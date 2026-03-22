@@ -120,9 +120,9 @@ Competitors found: ${competitors.map((c: any) => c.title).join(", ") || "none"}
 
 Return JSON: { "intent": "informational|transactional|navigational", "must_cover_topics": [...], "lsi_keywords": [...], "recommended_headings": [...], "recommended_word_count": number }`;
 
-        const analysisResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const analysisResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
-          headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: researchModel, messages: [{ role: "user", content: analysisPrompt }], response_format: { type: "json_object" } }),
         });
 
