@@ -40,14 +40,15 @@ serve(async (req) => {
     const faqMatch = content.match(/##\s*(?:Часто задаваемые вопросы|FAQ|Вопросы и ответы)[\s\S]*/i);
     const faqSection = faqMatch ? faqMatch[0] : "";
 
-    const systemPrompt = `You are an SEO schema markup and FAQ expert. Generate valid JSON-LD schema markup AND a standalone FAQ text block for the given article. Write in the same language as the article content.
+    const systemPrompt = `You are an SEO schema markup and FAQ expert. Respond with a JSON object containing exactly three keys:
 
-CRITICAL RULES for FAQ schema:
-- Generate 3-5 FAQ questions based on the article content, the keyword, and provided "People Also Ask" questions
-- Each FAQ entry must have "question" and "answer" fields
-- The FAQ schema must follow the Google FAQPage specification exactly
-- Return the complete FAQ schema with @context, @type, and mainEntity array
-- Also return a plain-text FAQ block formatted in Markdown (### Question / Answer) for embedding into the article`;
+"article_schema": A complete Article JSON-LD object: {"@context":"https://schema.org","@type":"Article","headline":"...","description":"...","datePublished":"${new Date().toISOString().split("T")[0]}","author":{"@type":"Person","name":"Author"}}
+
+"faq_schema": A complete FAQPage JSON-LD object: {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"question text","acceptedAnswer":{"@type":"Answer","text":"answer text"}}, ...]}. Generate 3-5 FAQ questions based on article content, keyword, and People Also Ask data.
+
+"faq_text_block": A Markdown string starting with "## Часто задаваемые вопросы (FAQ)" followed by "### Question" and answer paragraphs.
+
+ALL fields must contain real data from the article. NEVER return empty objects. Write in the same language as the article.`;
 
     const userPrompt = `Generate JSON-LD structured data and FAQ for this article:
 
