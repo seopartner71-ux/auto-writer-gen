@@ -94,10 +94,10 @@ Also provide 3-5 "Expert Insight" recommendations — specific E-E-A-T elements 
 
 Write ALL output in the same language as the keyword "${kw.seed_keyword}".`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
