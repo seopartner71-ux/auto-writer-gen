@@ -457,7 +457,12 @@ export default function ArticlesPage() {
   const generateSchema = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("generate-schema", {
-        body: { title, content, keyword: selectedKeyword?.seed_keyword },
+        body: {
+          title,
+          content,
+          keyword: selectedKeyword?.seed_keyword,
+          questions: selectedKeyword?.questions || [],
+        },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
@@ -468,16 +473,49 @@ export default function ArticlesPage() {
       if (data.article_schema) schemas.push(data.article_schema);
       if (data.faq_schema) schemas.push(data.faq_schema);
       setSchemaJson(JSON.stringify(schemas, null, 2));
-      toast.success("JSON-LD Schema сгенерирована");
+      if (data.faq_text_block) setFaqTextBlock(data.faq_text_block);
+      toast.success("FAQ и JSON-LD Schema сгенерированы");
     },
     onError: (e) => toast.error(e.message),
   });
 
-  const copySchema = () => {
-    navigator.clipboard.writeText(schemaJson);
-    setSchemaCopied(true);
-    setTimeout(() => setSchemaCopied(false), 2000);
+  const copyToClipboard = (text: string, type: "schema" | "faq") => {
+    const copyText = type === "schema" ? `<script type="application/ld+json">\n${text}\n</script>` : text;
+    navigator.clipboard.writeText(copyText);
+    if (type === "schema") {
+      setSchemaCopied(true);
+      setTimeout(() => setSchemaCopied(false), 2000);
+    } else {
+      setFaqCopied(true);
+      setTimeout(() => setFaqCopied(false), 2000);
+    }
   };
+
+  // Auto-generate FAQ & schema after article generation
+  const autoGenerateSchema = useCallback(async (articleContent: string, articleTitle: string) => {
+    if (!articleContent || !limits.hasJsonLdSchema) return;
+    try {
+      setSchemaGenerating(true);
+      const { data, error } = await supabase.functions.invoke("generate-schema", {
+        body: {
+          title: articleTitle,
+          content: articleContent,
+          keyword: selectedKeyword?.seed_keyword,
+          questions: selectedKeyword?.questions || [],
+        },
+      });
+      if (error || data?.error) return;
+      const schemas = [];
+      if (data.article_schema) schemas.push(data.article_schema);
+      if (data.faq_schema) schemas.push(data.faq_schema);
+      setSchemaJson(JSON.stringify(schemas, null, 2));
+      if (data.faq_text_block) setFaqTextBlock(data.faq_text_block);
+    } catch {
+      // best-effort
+    } finally {
+      setSchemaGenerating(false);
+    }
+  }, [selectedKeyword, limits.hasJsonLdSchema]);
 
   // Auto-fill fields when keyword changes
   useEffect(() => {
