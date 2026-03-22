@@ -24,7 +24,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { title, content, keyword } = await req.json();
+    const { title, content, keyword, questions } = await req.json();
     if (!content) throw new Error("Content is required");
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -36,15 +36,10 @@ serve(async (req) => {
       .single();
     const model = assignment?.model_key || "google/gemini-2.5-flash";
 
-    // Extract FAQ section from content for explicit FAQ schema generation
+    // Extract existing FAQ section from content
     const faqMatch = content.match(/##\s*(?:Часто задаваемые вопросы|FAQ|Вопросы и ответы)[\s\S]*/i);
     const faqSection = faqMatch ? faqMatch[0] : "";
-    const faqQuestions = faqSection.match(/###\s*(.+?)(?:\n|\r)([\s\S]*?)(?=###|\s*$)/g) || [];
 
-    const { title, content, keyword, questions } = await req.json();
-    if (!content) throw new Error("Content is required");
-
-    // Override: we already destructured above
     const systemPrompt = `You are an SEO schema markup and FAQ expert. Generate valid JSON-LD schema markup AND a standalone FAQ text block for the given article. Write in the same language as the article content.
 
 CRITICAL RULES for FAQ schema:
