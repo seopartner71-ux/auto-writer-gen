@@ -24,7 +24,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists } = await req.json();
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context } = await req.json();
     if (!keyword_id) throw new Error("keyword_id is required");
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -134,6 +134,7 @@ RULES:
 - Use bullet lists (- item), numbered lists (1. item), or checklists where appropriate
 ${authorStyle ? "- CRITICAL: Maintain the author's unique voice and style in EVERY paragraph. Do NOT fall into generic AI writing patterns." : ""}
 ${tablesListsInstructions}
+${deep_analysis_context ? `\n${deep_analysis_context}` : ""}
 
 ANTI-AI DETECTION (CRITICAL — follow strictly):
 - Write like a real human expert, NOT like an AI. Vary sentence length dramatically: mix very short punchy sentences with longer complex ones.
