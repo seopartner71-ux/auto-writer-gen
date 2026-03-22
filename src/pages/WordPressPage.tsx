@@ -106,6 +106,68 @@ export default function WordPressPage() {
     enabled: !!selectedSiteId,
   });
 
+  // Fetch scheduled posts
+  const { data: scheduledPosts = [], isLoading: scheduledLoading } = useQuery({
+    queryKey: ["wp-scheduled-posts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("wp_scheduled_posts" as any)
+        .select("*, wordpress_sites(site_url, site_name), articles(title)")
+        .order("scheduled_at", { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Schedule post mutation
+  const schedulePost = useMutation({
+    mutationFn: async () => {
+      if (!selectedSiteId) throw new Error("Выберите сайт");
+      if (!selectedArticleId) throw new Error("Выберите статью");
+      if (!scheduleDate || !scheduleTime) throw new Error("Укажите дату и время");
+
+      const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`);
+      if (scheduledAt <= new Date()) throw new Error("Дата должна быть в будущем");
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("wp_scheduled_posts" as any).insert({
+        user_id: user.id,
+        site_id: selectedSiteId,
+        article_id: selectedArticleId,
+        scheduled_at: scheduledAt.toISOString(),
+        categories: selectedCategories,
+        tags: tagsInput,
+        seo_plugin: seoPlugin,
+        meta_title: seoPlugin !== "none" ? customTitle : null,
+        meta_description: seoPlugin !== "none" ? customDescription : null,
+        publish_immediately: publishImmediately,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wp-scheduled-posts"] });
+      setScheduleDate("");
+      setScheduleTime("");
+      toast.success("Публикация запланирована!");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Cancel scheduled post
+  const cancelScheduled = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("wp_scheduled_posts" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wp-scheduled-posts"] });
+      toast.success("Запланированная публикация отменена");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   // Auto-fill SEO fields when article selected
   useEffect(() => {
     if (selectedArticleId) {
