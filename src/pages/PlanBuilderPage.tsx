@@ -411,6 +411,7 @@ export default function PlanBuilderPage() {
                 ]);
               }}
             />
+          </div>
 
           {/* Right: Article Structure */}
           <div className="space-y-4">
