@@ -1020,7 +1020,7 @@ export default function ArticlesPage() {
                           title="Удалить статью"
                           onClick={async (e) => {
                             e.stopPropagation();
-                            const { error } = await supabase.from("articles").delete().eq("id", a.id);
+                            const { error } = await supabase.functions.invoke("delete-content", { body: { type: "article", id: a.id } });
                             if (error) { console.error("Delete error:", error); toast.error("Ошибка удаления: " + error.message); return; }
                             queryClient.invalidateQueries({ queryKey: ["articles-list"] });
                             if (currentArticleId === a.id) {
