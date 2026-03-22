@@ -10,11 +10,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Get OpenRouter key from DB first, then fallback to env
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminForKey = createClient(supabaseUrl, serviceKey);
-    const { data: orKey } = await adminForKey.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
+    const admin = createClient(supabaseUrl, serviceKey);
+
+    // Get OpenRouter key from DB first, then fallback to env
+    const { data: orKey } = await admin.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
     const OPENROUTER_API_KEY = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
     if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
 
@@ -27,10 +28,6 @@ serve(async (req) => {
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
     const userId = payload.sub;
     if (!userId) throw new Error("Unauthorized");
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const admin = createClient(supabaseUrl, serviceKey);
 
     // Check PRO plan
     const { data: profile } = await admin.from("profiles").select("plan").eq("id", userId).single();
