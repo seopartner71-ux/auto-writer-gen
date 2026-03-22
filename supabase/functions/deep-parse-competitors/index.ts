@@ -658,6 +658,8 @@ TASK:
       tokens_used: tokensUsed,
     });
 
+    console.log(`Deep parse complete: ${parsedPages.length} pages, ${(entityAnalysis.entities || []).length} entities, score ready`);
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
