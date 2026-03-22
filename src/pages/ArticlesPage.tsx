@@ -796,6 +796,31 @@ export default function ArticlesPage() {
                     </p>
                   )}
                 </TabsContent>
+                <TabsContent value="html" className="mt-0">
+                  {content ? (
+                    <div className="relative">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2 z-10"
+                        onClick={() => {
+                          navigator.clipboard.writeText(markdownToHtml(content, title, metaDescription));
+                          toast.success("HTML скопирован");
+                        }}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Копировать
+                      </Button>
+                      <pre className="min-h-[500px] max-h-[700px] overflow-auto p-4 rounded-md bg-muted text-xs font-mono whitespace-pre-wrap break-all text-foreground">
+                        <code>{markdownToHtml(content, title, metaDescription)}</code>
+                      </pre>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm py-12 text-center">
+                      Нет контента для просмотра HTML
+                    </p>
+                  )}
+                </TabsContent>
               </CardContent>
             </Tabs>
           </Card>
