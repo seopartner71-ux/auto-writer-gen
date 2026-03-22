@@ -1178,6 +1178,8 @@ export default function ArticlesPage() {
           </Tabs>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
