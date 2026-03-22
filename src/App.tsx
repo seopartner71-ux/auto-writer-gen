@@ -27,6 +27,7 @@ const AuthorProfilesPage = lazy(() => import("@/pages/AuthorProfilesPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const PricingPage = lazy(() => import("@/pages/PricingPage"));
+const IndexingPage = lazy(() => import("@/pages/IndexingPage"));
 
 const queryClient = new QueryClient();
 
