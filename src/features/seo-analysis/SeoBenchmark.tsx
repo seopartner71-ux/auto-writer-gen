@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { fetchAndAnalyze, buildAnalysisContext, type DeepParseResult, type Entity } from "@/entities/competitor/analysisService";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +38,7 @@ interface BenchmarkMetric {
   status: "done" | "warning" | "error";
   statusLabel: string;
   weight: number;
-  score: number; // 0-100
+  score: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -87,6 +88,7 @@ const scoreGradient = (score: number) => {
 
 export function SeoBenchmark({ keywordId, content, title, metaDescription, onOptimize }: SeoBenchmarkProps) {
   const { session } = useAuth();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   const [result, setResult] = useState<DeepParseResult | null>(null);
@@ -95,15 +97,13 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
   const [showStructure, setShowStructure] = useState(false);
   const [showMeta, setShowMeta] = useState(false);
 
-  // Load benchmark data
   const loadBenchmark = useCallback(async () => {
     if (!session?.access_token) {
-      toast.error("Сессия истекла");
+      toast.error(t("bench.sessionExpired"));
       return;
     }
     setLoading(true);
     try {
-      // Get keyword for seed_keyword
       const { data: kw } = await supabase
         .from("keywords")
         .select("seed_keyword")
@@ -113,13 +113,13 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
 
       const data = await fetchAndAnalyze(keywordId, session.access_token, false);
       setResult(data);
-      toast.success(`Benchmark загружен (${data.benchmark.total_parsed} конкурентов)`);
+      toast.success(`${t("bench.loaded")} (${data.benchmark.total_parsed} ${t("bench.competitors")})`);
     } catch (e: any) {
-      toast.error(e.message || "Ошибка загрузки бенчмарка");
+      toast.error(e.message || t("bench.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [keywordId, session]);
+  }, [keywordId, session, t]);
 
   // ── Real-time metrics ──
   const metrics = useMemo((): BenchmarkMetric[] => {
@@ -134,94 +134,91 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
     const targetHeadings = bm.median_h2_count + bm.median_h3_count;
     const kwDensity = calcKeywordDensity(content, seedKeyword);
 
-    // LSI coverage
     const lsiTotal = [...result.must_use_phrases.map((p) => p.phrase), ...result.lsi_success_phrases];
     const lsiFound = lsiTotal.filter((p) => content.toLowerCase().includes(p.toLowerCase()));
     const lsiPercent = lsiTotal.length > 0 ? Math.round((lsiFound.length / lsiTotal.length) * 100) : 100;
 
-    // Entity coverage
     const entitiesTotal = result.entities.filter((e) => e.importance >= 5);
     const entitiesFound = entitiesTotal.filter((e) => content.toLowerCase().includes(e.name.toLowerCase()));
     const entityPercent = entitiesTotal.length > 0 ? Math.round((entitiesFound.length / entitiesTotal.length) * 100) : 100;
 
-    // Image count (estimate from markdown ![])
     const imgCount = (content.match(/!\[/g) || []).length;
     const hasVideo = /youtube|vimeo|rutube|видео|video/i.test(content);
 
     const m: BenchmarkMetric[] = [
       {
-        label: "Объем текста",
+        label: t("bench.wordCount"),
         icon: <Type className="h-3.5 w-3.5" />,
-        median: `${bm.median_word_count.toLocaleString()} слов`,
-        yours: `${wordCount.toLocaleString()} слов`,
+        median: `${bm.median_word_count.toLocaleString()} ${t("bench.words")}`,
+        yours: `${wordCount.toLocaleString()} ${t("bench.words")}`,
         status: wordCount >= bm.target_word_count ? "done" : wordCount >= bm.median_word_count * 0.7 ? "warning" : "error",
-        statusLabel: wordCount >= bm.target_word_count ? "✅ Отлично" : wordCount >= bm.median_word_count * 0.7 ? `⚠️ Нужно ещё ${bm.target_word_count - wordCount}` : `❌ Мало (цель: ${bm.target_word_count})`,
+        statusLabel: wordCount >= bm.target_word_count ? `✅ ${t("bench.statusExcellent")}` : wordCount >= bm.median_word_count * 0.7 ? `⚠️ ${t("bench.statusNeedMore")} ${bm.target_word_count - wordCount}` : `❌ ${t("bench.statusLow")} (${t("bench.target")}: ${bm.target_word_count})`,
         weight: 20,
         score: Math.min(100, (wordCount / bm.target_word_count) * 100),
       },
       {
-        label: "Заголовки (H2+H3)",
+        label: t("bench.headings"),
         icon: <ListTree className="h-3.5 w-3.5" />,
-        median: `${targetHeadings} шт.`,
-        yours: `${totalHeadings} шт.`,
+        median: `${targetHeadings} ${t("bench.pcs")}`,
+        yours: `${totalHeadings} ${t("bench.pcs")}`,
         status: totalHeadings >= targetHeadings ? "done" : totalHeadings >= targetHeadings * 0.6 ? "warning" : "error",
-        statusLabel: totalHeadings >= targetHeadings ? "✅ Done" : `⚠️ Нужно больше (+${targetHeadings - totalHeadings})`,
+        statusLabel: totalHeadings >= targetHeadings ? `✅ ${t("bench.statusDone")}` : `⚠️ ${t("bench.statusNeedMore")} (+${targetHeadings - totalHeadings})`,
         weight: 10,
         score: Math.min(100, (totalHeadings / Math.max(targetHeadings, 1)) * 100),
       },
       {
-        label: "Плотность ключа",
+        label: t("bench.kwDensity"),
         icon: <Hash className="h-3.5 w-3.5" />,
         median: `${bm.median_keyword_density}%`,
         yours: `${kwDensity}%`,
         status: kwDensity >= bm.median_keyword_density * 0.8 && kwDensity <= bm.median_keyword_density * 1.5 ? "done" : kwDensity > 0 ? "warning" : "error",
-        statusLabel: kwDensity >= bm.median_keyword_density * 0.8 ? "✅ В норме" : kwDensity > 0 ? "⚠️ Низкая" : "❌ Отсутствует",
+        statusLabel: kwDensity >= bm.median_keyword_density * 0.8 ? `✅ ${t("bench.statusInRange")}` : kwDensity > 0 ? `⚠️ ${t("bench.statusLowDensity")}` : `❌ ${t("bench.statusAbsent")}`,
         weight: 10,
         score: Math.min(100, (kwDensity / Math.max(bm.median_keyword_density, 0.1)) * 100),
       },
       {
-        label: "LSI-фразы",
+        label: t("bench.lsiPhrases"),
         icon: <Zap className="h-3.5 w-3.5" />,
-        median: `${lsiTotal.length} фраз`,
-        yours: `${lsiFound.length} из ${lsiTotal.length}`,
+        median: `${lsiTotal.length} ${t("bench.phrases")}`,
+        yours: `${lsiFound.length} ${t("bench.ofTotal")} ${lsiTotal.length}`,
         status: lsiPercent >= 70 ? "done" : lsiPercent >= 40 ? "warning" : "error",
-        statusLabel: lsiPercent >= 70 ? "✅ Хорошо" : `⚠️ Добавьте ещё ${lsiTotal.length - lsiFound.length}`,
+        statusLabel: lsiPercent >= 70 ? `✅ ${t("bench.statusGood")}` : `⚠️ ${t("bench.statusAddMore")} ${lsiTotal.length - lsiFound.length}`,
         weight: 20,
         score: lsiPercent,
       },
       {
-        label: "Entities (Сущности)",
+        label: t("bench.entities"),
         icon: <Globe className="h-3.5 w-3.5" />,
-        median: `${entitiesTotal.length} сущностей`,
-        yours: `${entityPercent}% охвата`,
+        median: `${entitiesTotal.length} ${t("bench.ofEntities")}`,
+        yours: `${entityPercent}% ${t("bench.coverage")}`,
         status: entityPercent >= 80 ? "done" : entityPercent >= 50 ? "warning" : "error",
-        statusLabel: entityPercent >= 80 ? "✅ Полный охват" : `❌ Пропущено ${entitiesTotal.length - entitiesFound.length}`,
+        statusLabel: entityPercent >= 80 ? `✅ ${t("bench.statusFullCoverage")}` : `❌ ${t("bench.statusMissed")} ${entitiesTotal.length - entitiesFound.length}`,
         weight: 30,
         score: entityPercent,
       },
       {
-        label: "Изображения",
+        label: t("bench.images"),
         icon: <Image className="h-3.5 w-3.5" />,
-        median: `${bm.median_img_count} шт.`,
-        yours: `${imgCount} шт.`,
+        median: `${bm.median_img_count} ${t("bench.pcs")}`,
+        yours: `${imgCount} ${t("bench.pcs")}`,
         status: imgCount >= bm.target_img_count ? "done" : imgCount > 0 ? "warning" : "error",
-        statusLabel: imgCount >= bm.target_img_count ? "✅ Done" : `⚠️ Добавьте медиа (+${bm.target_img_count - imgCount})`,
+        statusLabel: imgCount >= bm.target_img_count ? `✅ ${t("bench.statusDone")}` : `⚠️ ${t("bench.statusAddMedia")} (+${bm.target_img_count - imgCount})`,
         weight: 5,
         score: Math.min(100, (imgCount / Math.max(bm.target_img_count, 1)) * 100),
       },
       {
-        label: "Наличие Video",
+        label: t("bench.video"),
         icon: <Video className="h-3.5 w-3.5" />,
-        median: bm.video_percentage > 50 ? "Да" : "Опционально",
-        yours: hasVideo ? "Да" : "Нет",
+        median: bm.video_percentage > 50 ? t("bench.yes") : t("bench.optional"),
+        yours: hasVideo ? t("bench.yes") : t("bench.no"),
         status: hasVideo || bm.video_percentage <= 50 ? "done" : "error",
-        statusLabel: hasVideo ? "✅ Есть" : bm.video_percentage > 50 ? "❌ Рекомендуется" : "—",
+        statusLabel: hasVideo ? `✅ ${t("bench.statusHasVideo")}` : bm.video_percentage > 50 ? `❌ ${t("bench.statusRecommended")}` : "—",
         weight: 5,
         score: hasVideo ? 100 : bm.video_percentage > 50 ? 0 : 100,
       },
     ];
     return m;
-  }, [content, result, seedKeyword]);
+  }, [content, result, seedKeyword, t]);
 
   // ── Overall Score ──
   const overallScore = useMemo(() => {
@@ -250,11 +247,10 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
     const myTexts = myHeadings.map((h) => h.text.toLowerCase());
     return compHeadings.map((h) => ({
       ...h,
-      covered: myTexts.some((t) => {
+      covered: myTexts.some((txt) => {
         const compLower = h.text.toLowerCase();
-        // Fuzzy match: check if any significant words overlap
         const compWords = compLower.split(/\s+/).filter((w) => w.length > 3);
-        return compWords.some((w) => t.includes(w));
+        return compWords.some((w) => txt.includes(w));
       }),
     }));
   }, [content, result]);
@@ -264,45 +260,45 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
     const checks = [];
     const titleLen = title.length;
     checks.push({
-      label: "Title длина",
+      label: t("bench.titleLength"),
       value: `${titleLen}/60`,
       ok: titleLen >= 30 && titleLen <= 60,
-      hint: titleLen < 30 ? "Слишком коротко" : titleLen > 60 ? "Слишком длинно" : "OK",
+      hint: titleLen < 30 ? t("bench.tooShort") : titleLen > 60 ? t("bench.tooLong") : "OK",
     });
     const descLen = metaDescription.length;
     checks.push({
-      label: "Description длина",
+      label: t("bench.descLength"),
       value: `${descLen}/160`,
       ok: descLen >= 70 && descLen <= 160,
-      hint: descLen < 70 ? "Слишком коротко" : descLen > 160 ? "Слишком длинно" : "OK",
+      hint: descLen < 70 ? t("bench.tooShort") : descLen > 160 ? t("bench.tooLong") : "OK",
     });
     if (seedKeyword) {
       const kwInTitle = title.toLowerCase().includes(seedKeyword.toLowerCase());
       checks.push({
-        label: "Ключ в Title",
+        label: t("bench.kwInTitle"),
         value: kwInTitle ? "✅" : "❌",
         ok: kwInTitle,
-        hint: kwInTitle ? "Найден" : "Добавьте ключевое слово в заголовок",
+        hint: kwInTitle ? t("bench.kwFound") : t("bench.addKwToTitle"),
       });
       const firstParagraph = content.split("\n\n")[0] || "";
       const kwInFirst = firstParagraph.toLowerCase().includes(seedKeyword.toLowerCase());
       checks.push({
-        label: "Ключ в 1-м абзаце",
+        label: t("bench.kwInFirstP"),
         value: kwInFirst ? "✅" : "❌",
         ok: kwInFirst,
-        hint: kwInFirst ? "Найден" : "Упомяните ключевое слово в первом абзаце",
+        hint: kwInFirst ? t("bench.kwFound") : t("bench.mentionKwFirstP"),
       });
       const h1Match = content.match(/^#\s+(.+)$/m);
       const kwInH1 = h1Match ? h1Match[1].toLowerCase().includes(seedKeyword.toLowerCase()) : false;
       checks.push({
-        label: "Ключ в H1",
+        label: t("bench.kwInH1"),
         value: kwInH1 ? "✅" : "❌",
         ok: kwInH1,
-        hint: kwInH1 ? "Найден" : "Добавьте ключевое слово в H1",
+        hint: kwInH1 ? t("bench.kwFound") : t("bench.addKwToH1"),
       });
     }
     return checks;
-  }, [title, metaDescription, content, seedKeyword]);
+  }, [title, metaDescription, content, seedKeyword, t]);
 
   // ── Optimize handler ──
   const handleOptimize = useCallback(async () => {
@@ -312,21 +308,21 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
       const issues: string[] = [];
       for (const m of metrics) {
         if (m.status !== "done") {
-          issues.push(`${m.label}: текущее значение ${m.yours}, цель ${m.median}. ${m.statusLabel}`);
+          issues.push(`${m.label}: ${m.yours}, ${t("bench.target")} ${m.median}. ${m.statusLabel}`);
         }
       }
       if (entityCoverage.missing.length > 0) {
-        issues.push(`Пропущенные сущности: ${entityCoverage.missing.map((e) => e.name).join(", ")}`);
+        issues.push(`${t("bench.statusMissed")}: ${entityCoverage.missing.map((e) => e.name).join(", ")}`);
       }
 
-      const instructions = `Статья набрала ${overallScore} баллов из 100.\n\nПроблемные зоны:\n${issues.map((i) => `- ${i}`).join("\n")}\n\nДополни статью экспертными блоками, раскрывающими пропущенные сущности. Добавь LSI-фразы. Доведи объём до целевого. Сохрани стиль и тональность.`;
+      const instructions = `${t("bench.scorePoints")}: ${overallScore}/100.\n\n${t("bench.problemZones")}:\n${issues.map((i) => `- ${i}`).join("\n")}\n\nДополни статью экспертными блоками, раскрывающими пропущенные сущности. Добавь LSI-фразы. Доведи объём до целевого. Сохрани стиль и тональность.`;
 
       onOptimize(instructions);
-      toast.success("Инструкции для оптимизации переданы");
+      toast.success(t("bench.optimizeSent"));
     } finally {
       setOptimizing(false);
     }
-  }, [result, metrics, entityCoverage, overallScore, onOptimize]);
+  }, [result, metrics, entityCoverage, overallScore, onOptimize, t]);
 
   // ── Chart data ──
   const chartData = [
@@ -341,12 +337,12 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
-            SEO Benchmark
+            {t("bench.title")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-xs text-muted-foreground mb-3">
-            Загрузите данные конкурентов для сравнения в реальном времени
+            {t("bench.loadDesc")}
           </p>
           <Button
             onClick={loadBenchmark}
@@ -355,9 +351,9 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
             variant="outline"
           >
             {loading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />Загрузка...</>
+              <><Loader2 className="h-4 w-4 animate-spin" />{t("bench.loading")}</>
             ) : (
-              <><Target className="h-4 w-4" />Загрузить Benchmark</>
+              <><Target className="h-4 w-4" />{t("bench.loadBtn")}</>
             )}
           </Button>
         </CardContent>
@@ -372,7 +368,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
-            Content Health Score
+            {t("bench.healthScore")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -404,10 +400,10 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
             </div>
             <div className="flex-1 space-y-1">
               <p className={`text-sm font-semibold ${scoreColor(overallScore)}`}>
-                {overallScore >= 80 ? "Отлично!" : overallScore >= 50 ? "Нужна доработка" : "Критически мало"}
+                {overallScore >= 80 ? t("bench.excellent") : overallScore >= 50 ? t("bench.needsWork") : t("bench.critical")}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                Средневзвешенный балл по {metrics.length} параметрам
+                {t("bench.weightedScore")} {metrics.length} {t("bench.params")}
               </p>
               {onOptimize && overallScore < 90 && (
                 <Button
@@ -417,7 +413,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
                   className="gap-1.5 mt-1 h-7 text-xs"
                 >
                   {optimizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-                  Подтянуть до ТОПа
+                  {t("bench.optimizeBtn")}
                 </Button>
               )}
             </div>
@@ -430,17 +426,17 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            Сравнение с ТОП-10
+            {t("bench.compareTop")}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-[10px] pl-4">Параметр</TableHead>
-                <TableHead className="text-[10px] text-right">Медиана</TableHead>
-                <TableHead className="text-[10px] text-right">Ваша</TableHead>
-                <TableHead className="text-[10px] text-right pr-4">Статус</TableHead>
+                <TableHead className="text-[10px] pl-4">{t("bench.colParam")}</TableHead>
+                <TableHead className="text-[10px] text-right">{t("bench.colMedian")}</TableHead>
+                <TableHead className="text-[10px] text-right">{t("bench.colYours")}</TableHead>
+                <TableHead className="text-[10px] text-right pr-4">{t("bench.colStatus")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -469,7 +465,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
             <CollapsibleTrigger asChild>
               <CardTitle className="text-sm flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
                 <Globe className="h-4 w-4 text-primary" />
-                Entity Coverage
+                {t("bench.entityCoverage")}
                 <Badge variant="secondary" className="ml-auto text-[10px]">
                   {entityCoverage.found.length}/{entityCoverage.found.length + entityCoverage.missing.length}
                 </Badge>
@@ -481,14 +477,14 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
             <CardContent className="space-y-2">
               {entityCoverage.missing.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-medium text-destructive uppercase tracking-wider">Пропущены</p>
+                  <p className="text-[10px] font-medium text-destructive uppercase tracking-wider">{t("bench.missed")}</p>
                   <div className="flex flex-wrap gap-1">
                     {entityCoverage.missing.map((e, i) => (
                       <Badge
                         key={i}
                         variant="outline"
                         className="text-[10px] cursor-pointer bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20 transition-colors"
-                        title={`${e.type} | Важность: ${e.importance}/10. Нажмите для рекомендации`}
+                        title={`${e.type} | ${e.importance}/10`}
                       >
                         <XCircle className="h-2.5 w-2.5 mr-1" />
                         {e.name}
@@ -499,7 +495,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
               )}
               {entityCoverage.found.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-medium text-success uppercase tracking-wider">Найдены</p>
+                  <p className="text-[10px] font-medium text-success uppercase tracking-wider">{t("bench.found")}</p>
                   <div className="flex flex-wrap gap-1">
                     {entityCoverage.found.map((e, i) => (
                       <Badge
@@ -527,7 +523,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
               <CollapsibleTrigger asChild>
                 <CardTitle className="text-sm flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
                   <ListTree className="h-4 w-4 text-primary" />
-                  Карта структуры
+                  {t("bench.structureMap")}
                   {showStructure ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
                 </CardTitle>
               </CollapsibleTrigger>
@@ -563,7 +559,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
             <CollapsibleTrigger asChild>
               <CardTitle className="text-sm flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
                 <FileText className="h-4 w-4 text-primary" />
-                Metadata Health
+                {t("bench.metaHealth")}
                 {showMeta ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
               </CardTitle>
             </CollapsibleTrigger>
