@@ -408,27 +408,33 @@ serve(async (req) => {
       throw new Error("No SERP results found. Run Smart Research first.");
     }
 
-    // ── Parse each competitor page ──
+    // ── Parse each competitor page (parallel, max 7) ──
     const parsedPages: CompetitorAnalysis[] = [];
     const failedUrls: { url: string; reason: string }[] = [];
 
-    for (const sr of serpResults) {
-      if (!sr.url) continue;
-      console.log(`Fetching: ${sr.url}`);
-      const { html, error } = await fetchPage(sr.url);
+    const validSerps = serpResults.filter((sr: any) => sr.url).slice(0, 7);
+    console.log(`Fetching ${validSerps.length} pages in parallel...`);
+
+    const fetchResults = await Promise.allSettled(
+      validSerps.map(async (sr: any) => {
+        console.log(`Fetching: ${sr.url}`);
+        const { html, error } = await fetchPage(sr.url);
+        if (!html) return { sr, error: error || "unknown", html: null };
+        return { sr, html, error: null };
+      })
+    );
+
+    for (const result of fetchResults) {
+      if (result.status === "rejected") continue;
+      const { sr, html, error } = result.value;
       if (!html) {
         failedUrls.push({ url: sr.url, reason: error || "unknown" });
         continue;
       }
-
       const parsed = parseHTML(html, kw.seed_keyword);
-      const pageData: CompetitorAnalysis = {
-        url: sr.url,
-        position: sr.position || 0,
-        ...parsed,
-      };
-      parsedPages.push(pageData);
+      parsedPages.push({ url: sr.url, position: sr.position || 0, ...parsed });
     }
+    console.log(`Parsed ${parsedPages.length} pages, ${failedUrls.length} failed`);
 
     if (parsedPages.length === 0) {
       throw new Error(`Could not fetch any competitor pages. Errors: ${failedUrls.map((f) => `${f.url}(${f.reason})`).join(", ")}`);
