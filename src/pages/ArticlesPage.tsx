@@ -108,6 +108,26 @@ function markdownToPreviewHtml(md: string): string {
   return html;
 }
 
+function highlightHtml(code: string): string {
+  const esc = code
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+  return esc
+    // Comments <!-- ... -->
+    .replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span style="color:hsl(var(--muted-foreground))">$1</span>')
+    // Tags <tagname ...> and </tagname>
+    .replace(/(&lt;\/?)([\w-]+)/g, '<span style="color:hsl(210,80%,65%)">$1$2</span>')
+    // Attributes name=
+    .replace(/\s([\w-]+)(=)/g, ' <span style="color:hsl(30,80%,65%)">$1</span>$2')
+    // Attribute values "..."
+    .replace(/(&quot;)(.*?)(&quot;)/g, '<span style="color:hsl(120,50%,60%)">$1$2$3</span>')
+    // Closing >
+    .replace(/(&gt;)/g, '<span style="color:hsl(210,80%,65%)">$1</span>');
+}
+
 function markdownToHtml(md: string, title?: string, metaDesc?: string): string {
   let html = md
     // headings
@@ -812,7 +832,7 @@ export default function ArticlesPage() {
                         Копировать
                       </Button>
                       <pre className="min-h-[500px] max-h-[700px] overflow-auto p-4 rounded-md bg-muted text-xs font-mono whitespace-pre-wrap break-all text-foreground">
-                        <code>{markdownToHtml(content, title, metaDescription)}</code>
+                        <code dangerouslySetInnerHTML={{ __html: highlightHtml(markdownToHtml(content, title, metaDescription)) }} />
                       </pre>
                     </div>
                   ) : (
