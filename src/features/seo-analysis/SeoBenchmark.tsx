@@ -462,8 +462,8 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
             {t("bench.compareTop")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-hidden">
+          <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow>
                 <TableHead className="text-[10px] pl-4">{t("bench.colParam")}</TableHead>
