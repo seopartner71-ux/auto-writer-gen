@@ -96,6 +96,7 @@ export interface PlanConfig {
   hasJsonLdSchema: boolean;
   hasFullSerp: boolean;
   hasAntiAiCheck: boolean;
+  hasBulkMode: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
@@ -108,6 +109,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasJsonLdSchema: false,
     hasFullSerp: false,
     hasAntiAiCheck: false,
+    hasBulkMode: false,
   },
   basic: {
     maxGenerations: 30,
@@ -118,6 +120,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasJsonLdSchema: true,
     hasFullSerp: true,
     hasAntiAiCheck: false,
+    hasBulkMode: false,
   },
   pro: {
     maxGenerations: 100,
@@ -128,5 +131,6 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasJsonLdSchema: true,
     hasFullSerp: true,
     hasAntiAiCheck: true,
+    hasBulkMode: true,
   },
 };
