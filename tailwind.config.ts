@@ -64,6 +64,11 @@ export default {
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
         info: "hsl(var(--info))",
+        hero: {
+          bg: "#0B0A0F",
+          purple: "#A855F7",
+          muted: "#9CA3AF",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
