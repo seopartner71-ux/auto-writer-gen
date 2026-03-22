@@ -77,33 +77,7 @@ Generate:
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "return_schema",
-            description: "Return JSON-LD schema markup for Article and FAQ",
-            parameters: {
-              type: "object",
-              properties: {
-                article_schema: {
-                  type: "object",
-                  description: "Article JSON-LD schema with @context, @type, headline, description, datePublished, author",
-                },
-                faq_schema: {
-                  type: "object",
-                  description: "FAQPage JSON-LD schema with @context: https://schema.org, @type: FAQPage, mainEntity array of {\"@type\":\"Question\",\"name\":\"...\",\"acceptedAnswer\":{\"@type\":\"Answer\",\"text\":\"...\"}}. Must include ALL questions from the FAQ section. Return null only if no FAQ exists.",
-                },
-                faq_text_block: {
-                  type: "string",
-                  description: "Standalone FAQ section in Markdown format. Start with '## Часто задаваемые вопросы (FAQ)' then each Q&A as '### Question\\nAnswer paragraph'. Include 3-5 questions. Write in the same language as the article.",
-                },
-              },
-              required: ["article_schema", "faq_schema", "faq_text_block"],
-              additionalProperties: false,
-            },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "return_schema" } },
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -122,16 +96,20 @@ Generate:
     }
 
     const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    console.log("AI response status:", aiResponse.status);
+    const rawContent = aiData.choices?.[0]?.message?.content || "";
+    console.log("AI raw content length:", rawContent.length);
+    
     let result;
-    if (toolCall?.function?.arguments) {
-      result = JSON.parse(toolCall.function.arguments);
-    } else {
-      const c = aiData.choices?.[0]?.message?.content || "";
-      const m = c.match(/\{[\s\S]*\}/);
+    try {
+      result = JSON.parse(rawContent);
+    } catch {
+      const m = rawContent.match(/\{[\s\S]*\}/);
       if (m) result = JSON.parse(m[0]);
       else throw new Error("Failed to parse AI response");
     }
+    
+    console.log("Parsed keys:", Object.keys(result));
 
     await supabaseAdmin.from("usage_logs").insert({
       user_id: user.id,
