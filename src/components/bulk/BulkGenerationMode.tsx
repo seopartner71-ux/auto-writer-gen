@@ -385,6 +385,22 @@ export function BulkGenerationMode() {
                     Скачать всё (.md)
                   </Button>
                 )}
+                {activeJob.status !== "processing" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1.5 text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (confirm("Удалить задание и все связанные данные?")) {
+                        deleteJob.mutate(activeJob.id);
+                      }
+                    }}
+                    disabled={deleteJob.isPending}
+                  >
+                    {deleteJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Удалить
+                  </Button>
+                )}
                 {activeJob.status === "processing" && (
                   <Badge className="bg-primary/20 text-primary border-0 animate-pulse">
                     <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
