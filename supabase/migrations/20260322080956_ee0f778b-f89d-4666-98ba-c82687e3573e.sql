@@ -1,0 +1,1 @@
+ALTER TABLE public.serp_results ADD COLUMN IF NOT EXISTS deep_analysis jsonb DEFAULT NULL;
