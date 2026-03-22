@@ -109,8 +109,8 @@ export default function KeywordsPage() {
 
       {/* Search Form */}
       <div className="rounded-lg border border-border bg-card p-5">
-        <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto_auto]">
-          <div className="space-y-1.5">
+        <div className="flex flex-col gap-3">
+          <div className="space-y-1.5 max-w-xl">
             <Label className="text-xs text-muted-foreground">Ключевое слово</Label>
             <Input
               placeholder="Например: best project management tools"
@@ -119,9 +119,8 @@ export default function KeywordsPage() {
               onKeyDown={(e) => e.key === "Enter" && keyword.trim().length >= 2 && research.mutate()}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">ГЕО</Label>
-            <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto">
+          <div className="flex items-end gap-3 flex-wrap">
+            <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto self-center">
               <TabsList className="h-8 p-0.5">
                 <TabsTrigger value="country" className="text-xs px-2.5 h-7 gap-1">
                   <Globe className="h-3 w-3" /> Страна
@@ -131,33 +130,28 @@ export default function KeywordsPage() {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="flex gap-2">
-              <Select value={geo} onValueChange={(v) => { setGeo(v); setCity(""); }}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue />
+            <Select value={geo} onValueChange={(v) => { setGeo(v); setCity(""); }}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GEO_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {geoMode === "city" && (
+              <Select value={city} onValueChange={setCity}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Выберите город" />
                 </SelectTrigger>
                 <SelectContent>
-                  {GEO_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  {currentCities.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {geoMode === "city" && (
-                <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Выберите город" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentCities.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Язык</Label>
+            )}
             <Select value={language} onValueChange={setLanguage}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -168,11 +162,7 @@ export default function KeywordsPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">&nbsp;</Label>
             <Button
-              className="w-full"
               disabled={keyword.trim().length < 2 || research.isPending}
               onClick={() => research.mutate()}
             >
