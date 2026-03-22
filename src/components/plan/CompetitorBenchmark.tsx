@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { fetchAndAnalyze, type DeepParseResult, type Entity } from "@/entities/competitor/analysisService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,7 @@ const importanceColor = (imp: number) => {
 
 export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCopyStructure }: Props) {
   const { session } = useAuth();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DeepParseResult | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -44,16 +46,16 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
 
   const runDeepParse = async (forceRefresh = false) => {
     if (!session?.access_token) {
-      toast.error("Сессия истекла");
+      toast.error(t("bench.sessionExpired"));
       return;
     }
     setLoading(true);
     try {
       const data = await fetchAndAnalyze(keywordId, session.access_token, forceRefresh);
       setResult(data);
-      toast.success(`Проанализировано ${data.benchmark.total_parsed} конкурентов`);
+      toast.success(`${t("comp.analyzed")} ${data.benchmark.total_parsed} ${t("bench.competitors")}`);
     } catch (e: any) {
-      toast.error(e.message || "Ошибка анализа");
+      toast.error(e.message || t("comp.analysisError"));
     } finally {
       setLoading(false);
     }
@@ -65,18 +67,18 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Search className="h-4 w-4 text-primary" />
-            Глубокий анализ конкурентов
+            {t("comp.title")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-xs text-muted-foreground mb-3">
-            Парсинг HTML страниц: структура, контент, медиа, SEO, сущности, TF-IDF и LSI-анализ.
+            {t("comp.desc")}
           </p>
           <Button onClick={() => runDeepParse()} disabled={loading} className="gap-2 w-full">
             {loading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />Анализ страниц...</>
+              <><Loader2 className="h-4 w-4 animate-spin" />{t("comp.analyzing")}</>
             ) : (
-              <><Zap className="h-4 w-4" />Запустить глубокий парсинг</>
+              <><Zap className="h-4 w-4" />{t("comp.runParse")}</>
             )}
           </Button>
         </CardContent>
@@ -88,61 +90,60 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
 
   return (
     <div className="space-y-4">
-      {/* ── Benchmark Summary with Target ── */}
+      {/* ── Benchmark Summary ── */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
-            Медиана ТОПа
+            {t("comp.medianTop")}
             <Badge variant="secondary" className="ml-auto text-[10px]">
-              {bm.total_parsed} сайтов
+              {bm.total_parsed} {t("comp.sites")}
             </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Comparison table: Parameter | Median | Target */}
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-[10px]">Параметр</TableHead>
-                  <TableHead className="text-[10px] text-right">Медиана ТОПа</TableHead>
-                  <TableHead className="text-[10px] text-right text-primary">Твоя цель</TableHead>
+                  <TableHead className="text-[10px]">{t("comp.colParam")}</TableHead>
+                  <TableHead className="text-[10px] text-right">{t("comp.colMedianTop")}</TableHead>
+                  <TableHead className="text-[10px] text-right text-primary">{t("comp.colTarget")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell className="text-xs flex items-center gap-1.5"><Type className="h-3 w-3 text-muted-foreground" />Слов</TableCell>
+                  <TableCell className="text-xs flex items-center gap-1.5"><Type className="h-3 w-3 text-muted-foreground" />{t("comp.wordsLabel")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.median_word_count.toLocaleString()}</TableCell>
                   <TableCell className="text-xs text-right font-mono font-bold text-primary">{bm.target_word_count.toLocaleString()}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="text-xs flex items-center gap-1.5"><Image className="h-3 w-3 text-muted-foreground" />Картинок</TableCell>
+                  <TableCell className="text-xs flex items-center gap-1.5"><Image className="h-3 w-3 text-muted-foreground" />{t("comp.imagesLabel")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.median_img_count}</TableCell>
                   <TableCell className="text-xs text-right font-mono font-bold text-primary">{bm.target_img_count}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="text-xs flex items-center gap-1.5"><FileText className="h-3 w-3 text-muted-foreground" />Секций H2</TableCell>
+                  <TableCell className="text-xs flex items-center gap-1.5"><FileText className="h-3 w-3 text-muted-foreground" />{t("comp.h2Sections")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.median_h2_count}</TableCell>
                   <TableCell className="text-xs text-right font-mono font-bold text-primary">{bm.target_h2_count}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="text-xs flex items-center gap-1.5"><FileText className="h-3 w-3 text-muted-foreground" />Секций H3</TableCell>
+                  <TableCell className="text-xs flex items-center gap-1.5"><FileText className="h-3 w-3 text-muted-foreground" />{t("comp.h3Sections")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.median_h3_count}</TableCell>
                   <TableCell className="text-xs text-right font-mono text-muted-foreground">—</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="text-xs flex items-center gap-1.5"><Video className="h-3 w-3 text-muted-foreground" />С видео</TableCell>
+                  <TableCell className="text-xs flex items-center gap-1.5"><Video className="h-3 w-3 text-muted-foreground" />{t("comp.withVideo")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.video_percentage}%</TableCell>
-                  <TableCell className="text-xs text-right font-mono text-muted-foreground">{bm.video_percentage > 50 ? "Да" : "Опционально"}</TableCell>
+                  <TableCell className="text-xs text-right font-mono text-muted-foreground">{bm.video_percentage > 50 ? t("bench.yes") : t("bench.optional")}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="text-xs">Абзацев</TableCell>
+                  <TableCell className="text-xs">{t("comp.paragraphs")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.median_paragraph_count}</TableCell>
                   <TableCell className="text-xs text-right font-mono text-muted-foreground">—</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="text-xs">Плотность KW</TableCell>
+                  <TableCell className="text-xs">{t("comp.kwDensity")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.median_keyword_density}%</TableCell>
                   <TableCell className="text-xs text-right font-mono text-muted-foreground">{bm.median_keyword_density}%</TableCell>
                 </TableRow>
@@ -154,7 +155,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
             <div className="mt-2 flex items-start gap-1.5 text-[10px] text-warning">
               <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
               <span>
-                Не загружено: {bm.failed_urls.map((f) => `${new URL(f.url).hostname}(${f.reason})`).join(", ")}
+                {t("comp.notLoaded")}: {bm.failed_urls.map((f) => `${new URL(f.url).hostname}(${f.reason})`).join(", ")}
               </span>
             </div>
           )}
@@ -166,7 +167,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Globe className="h-4 w-4 text-primary" />
-            Облако Сущностей
+            {t("comp.entityCloud")}
             <Badge variant="secondary" className="ml-auto text-[10px]">{entities.length}</Badge>
           </CardTitle>
         </CardHeader>
@@ -180,7 +181,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                   variant="outline"
                   className={`text-xs cursor-pointer hover:scale-105 transition-transform ${importanceColor(e.importance)}`}
                   onClick={() => onAddEntity?.(e.name)}
-                  title={`${entityTypeIcons[e.type] || "❓"} ${e.type} | Важность: ${e.importance}/10${e.competitors_using ? ` | У ${e.competitors_using} конкурентов` : ""}\nНажмите чтобы добавить в ТЗ`}
+                  title={`${entityTypeIcons[e.type] || "❓"} ${e.type} | ${e.importance}/10${e.competitors_using ? ` | ${e.competitors_using}` : ""}`}
                 >
                   {entityTypeIcons[e.type] || "❓"} {e.name}
                   {e.importance >= 8 && <span className="ml-1 text-[9px] opacity-60">★</span>}
@@ -190,7 +191,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
 
           {must_use_phrases.length > 0 && (
             <div className="mt-3 space-y-1.5">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Обязательные фразы</p>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{t("comp.mandatoryPhrases")}</p>
               {must_use_phrases.map((p, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs">
                   <Badge variant="outline" className="text-[10px] font-mono shrink-0 bg-primary/5">{p.phrase}</Badge>
@@ -210,12 +211,12 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
               <CollapsibleTrigger asChild>
                 <CardTitle className="text-sm flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
                   <Zap className="h-4 w-4 text-success" />
-                  LSI-ключи успеха (ТОП-3)
+                  {t("comp.lsiSuccess")}
                   <Badge variant="secondary" className="ml-auto text-[10px]">{lsi_success_phrases.length}</Badge>
                   {showLsi ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                 </CardTitle>
               </CollapsibleTrigger>
-              <p className="text-[10px] text-muted-foreground mt-1">Фразы, которые есть у ТОП-3, но отсутствуют у остальных</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t("comp.lsiDesc")}</p>
             </CardHeader>
             <CollapsibleContent>
               <CardContent>
@@ -239,7 +240,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
             <CollapsibleTrigger asChild>
               <CardTitle className="text-sm flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
                 <ListTree className="h-4 w-4 text-primary" />
-                Структурная карта лидера
+                {t("comp.structureMap")}
                 {showHeadings ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
               </CardTitle>
             </CollapsibleTrigger>
@@ -254,11 +255,11 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                   className="h-6 text-[10px] px-2 gap-1"
                   onClick={() => {
                     onCopyStructure(bch.headings);
-                    toast.success("Структура скопирована в план");
+                    toast.success(t("comp.structureCopied"));
                   }}
                 >
                   <Copy className="h-3 w-3" />
-                  Скопировать структуру
+                  {t("comp.copyStructure")}
                 </Button>
               )}
             </div>
@@ -286,7 +287,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                         size="icon"
                         className="h-5 w-5 opacity-0 group-hover:opacity-100 shrink-0"
                         onClick={() => onAddHeading(h.text, h.level === 2 ? "h2" : "h3")}
-                        title="Добавить в план"
+                        title={t("comp.addToPlan")}
                       >
                         <ArrowRight className="h-3 w-3" />
                       </Button>
@@ -306,7 +307,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
             <CollapsibleTrigger asChild>
               <CardTitle className="text-sm flex items-center gap-2 cursor-pointer hover:text-primary transition-colors">
                 <BarChart3 className="h-4 w-4 text-primary" />
-                Детальная таблица
+                {t("comp.detailTable")}
                 {showTable ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
               </CardTitle>
             </CollapsibleTrigger>
@@ -319,7 +320,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                     <TableRow>
                       <TableHead className="text-[10px] w-8">#</TableHead>
                       <TableHead className="text-[10px]">URL</TableHead>
-                      <TableHead className="text-[10px] text-right">Слов</TableHead>
+                      <TableHead className="text-[10px] text-right">{t("comp.wordsLabel")}</TableHead>
                       <TableHead className="text-[10px] text-right">Img</TableHead>
                       <TableHead className="text-[10px] text-right">H2</TableHead>
                       <TableHead className="text-[10px] text-right">H3</TableHead>
@@ -344,10 +345,9 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                         <TableCell className="text-[10px] text-center">{c.video_presence ? "✅" : "—"}</TableCell>
                       </TableRow>
                     ))}
-                    {/* Median row */}
                     <TableRow className="bg-muted/50 font-semibold">
                       <TableCell className="text-[10px]">—</TableCell>
-                      <TableCell className="text-[10px]">Медиана</TableCell>
+                      <TableCell className="text-[10px]">{t("comp.median")}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono">{bm.median_word_count.toLocaleString()}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono">{bm.median_img_count}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono">{bm.median_h2_count}</TableCell>
@@ -355,10 +355,9 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                       <TableCell className="text-[10px] text-right font-mono">{bm.median_keyword_density}%</TableCell>
                       <TableCell className="text-[10px] text-center">{bm.video_percentage}%</TableCell>
                     </TableRow>
-                    {/* Target row */}
                     <TableRow className="bg-primary/5 font-bold">
                       <TableCell className="text-[10px]">🎯</TableCell>
-                      <TableCell className="text-[10px] text-primary">Цель</TableCell>
+                      <TableCell className="text-[10px] text-primary">{t("comp.targetLabel")}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono text-primary">{bm.target_word_count.toLocaleString()}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono text-primary">{bm.target_img_count}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono text-primary">{bm.target_h2_count}</TableCell>
@@ -377,7 +376,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
       {/* Re-run */}
       <Button variant="outline" onClick={() => runDeepParse(true)} disabled={loading} className="gap-2 w-full" size="sm">
         {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-        Пересканировать (без кэша)
+        {t("comp.rescan")}
       </Button>
     </div>
   );
