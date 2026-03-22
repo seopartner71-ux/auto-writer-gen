@@ -135,5 +135,6 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasFullSerp: true,
     hasAntiAiCheck: true,
     hasBulkMode: true,
+    hasWordPress: true,
   },
 };
