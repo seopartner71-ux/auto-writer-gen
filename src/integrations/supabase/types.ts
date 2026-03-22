@@ -315,6 +315,7 @@ export type Database = {
       serp_results: {
         Row: {
           analyzed_at: string | null
+          deep_analysis: Json | null
           headings: Json | null
           id: string
           keyword_id: string
@@ -326,6 +327,7 @@ export type Database = {
         }
         Insert: {
           analyzed_at?: string | null
+          deep_analysis?: Json | null
           headings?: Json | null
           id?: string
           keyword_id: string
@@ -337,6 +339,7 @@ export type Database = {
         }
         Update: {
           analyzed_at?: string | null
+          deep_analysis?: Json | null
           headings?: Json | null
           id?: string
           keyword_id?: string

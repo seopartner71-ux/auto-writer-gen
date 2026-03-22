@@ -15,6 +15,7 @@ import {
   ExternalLink, BarChart3, FileText
 } from "lucide-react";
 import { ExpertInsightsBlock } from "@/components/plan/ExpertInsightsBlock";
+import { CompetitorBenchmark } from "@/components/plan/CompetitorBenchmark";
 import { toast } from "sonner";
 
 interface InsightItem {
@@ -400,6 +401,20 @@ export default function PlanBuilderPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Deep Competitor Analysis */}
+            <CompetitorBenchmark
+              keywordId={selectedKeywordId}
+              onAddEntity={(entity) => {
+                toast.info(`Сущность "${entity}" добавлена в контекст`);
+              }}
+              onAddHeading={(text, level) => {
+                setOutline((prev) => [
+                  ...prev,
+                  { id: `comp-heading-${Date.now()}`, text, level },
+                ]);
+              }}
+            />
 
             {/* Expert Insights — Content Gap Analysis */}
             <ExpertInsightsBlock
