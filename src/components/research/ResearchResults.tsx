@@ -28,6 +28,25 @@ const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
   very_hard: { label: "Очень сложная", color: "bg-destructive/30 text-destructive" },
 };
 
+// Detect non-organic site types by domain patterns
+const SITE_TYPE_PATTERNS: { pattern: RegExp; label: string }[] = [
+  { pattern: /facebook\.com|instagram\.com|twitter\.com|x\.com|linkedin\.com|pinterest\.com|tiktok\.com|reddit\.com|vk\.com|t\.me/i, label: "Соцсеть" },
+  { pattern: /youtube\.com|youtu\.be|vimeo\.com|dailymotion\.com|rumble\.com/i, label: "Видеохостинг" },
+  { pattern: /tripadvisor\.|yelp\.|booking\.com|expedia\.|hotels\.com|airbnb\.|kayak\.|agoda\./i, label: "Агрегатор" },
+  { pattern: /wikipedia\.org|wikimedia\.org/i, label: "Вики" },
+  { pattern: /amazon\.|ebay\.|aliexpress\.|walmart\./i, label: "Маркетплейс" },
+  { pattern: /quora\.com|stackexchange\.com|stackoverflow\.com/i, label: "Q&A" },
+  { pattern: /maps\.google|google\.com\/maps/i, label: "Карты" },
+  { pattern: /news\.google|news\.yahoo/i, label: "Агрегатор новостей" },
+];
+
+function getSiteType(url: string): string | null {
+  for (const { pattern, label } of SITE_TYPE_PATTERNS) {
+    if (pattern.test(url)) return label;
+  }
+  return null;
+}
+
 export function ResearchResults({ data }: Props) {
   const navigate = useNavigate();
   const { analysis, competitors: initialCompetitors } = data;
@@ -99,17 +118,24 @@ export function ResearchResults({ data }: Props) {
                 <span className="text-xs font-mono text-muted-foreground w-5 shrink-0 pt-0.5">
                   #{c.position}
                 </span>
-                <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <a
                       href={c.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium hover:text-primary truncate flex items-center gap-1"
+                      className={`text-sm font-medium hover:text-primary truncate flex items-center gap-1 ${
+                        getSiteType(c.url) ? "text-destructive" : ""
+                      }`}
                     >
                       {c.title}
                       <ExternalLink className="h-3 w-3 shrink-0" />
                     </a>
+                    {getSiteType(c.url) && (
+                      <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-[10px] px-1.5 py-0 shrink-0">
+                        {getSiteType(c.url)}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                     {c.snippet}
