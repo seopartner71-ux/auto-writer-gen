@@ -639,46 +639,14 @@ TASK:
       })),
     };
 
-    // ── Save per-competitor deep analysis + cache ──
-    for (const sr of serpResults) {
-      const page = parsedPages.find((p) => p.url === sr.url);
-      if (!page) continue;
+    // ── Save cached result on first serp entry ──
+    if (serpResults.length > 0) {
       await supabaseAdmin
         .from("serp_results")
         .update({
-          deep_analysis: {
-            _cached_result: result, // cache the full result on first serp entry
-            structure: page.structure,
-            content: page.content,
-            media: page.media,
-            seo: page.seo,
-            parsed_at: new Date().toISOString(),
-          },
-          word_count: page.structure.word_count,
-          headings: { hierarchy: page.structure.h_tags },
+          deep_analysis: { _cached_result: result, parsed_at: new Date().toISOString() },
         })
-        .eq("id", sr.id);
-      // Only cache full result on first entry
-      break;
-    }
-    // Save remaining per-competitor data without full cache
-    for (const sr of serpResults.slice(1)) {
-      const page = parsedPages.find((p) => p.url === sr.url);
-      if (!page) continue;
-      await supabaseAdmin
-        .from("serp_results")
-        .update({
-          deep_analysis: {
-            structure: page.structure,
-            content: page.content,
-            media: page.media,
-            seo: page.seo,
-            parsed_at: new Date().toISOString(),
-          },
-          word_count: page.structure.word_count,
-          headings: { hierarchy: page.structure.h_tags },
-        })
-        .eq("id", sr.id);
+        .eq("id", serpResults[0].id);
     }
 
     // Log usage
