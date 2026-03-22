@@ -414,6 +414,16 @@ export default function PlanBuilderPage() {
                   { id: `comp-heading-${Date.now()}`, text, level },
                 ]);
               }}
+              onCopyStructure={(headings) => {
+                const newOutline: OutlineItem[] = headings
+                  .filter((h) => h.level === 2 || h.level === 3)
+                  .map((h, i) => ({
+                    id: `copy-${Date.now()}-${i}`,
+                    text: h.text,
+                    level: h.level === 2 ? "h2" : "h3",
+                  }));
+                setOutline(newOutline);
+              }}
             />
 
             {/* Expert Insights — Content Gap Analysis */}
