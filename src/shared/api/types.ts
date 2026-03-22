@@ -97,6 +97,7 @@ export interface PlanConfig {
   hasFullSerp: boolean;
   hasAntiAiCheck: boolean;
   hasBulkMode: boolean;
+  hasWordPress: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
