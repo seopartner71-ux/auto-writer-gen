@@ -246,7 +246,7 @@ export default function WordPressPage() {
   const limits = usePlanLimits();
 
   return (
-    <PlanGate allowed={limits.hasWordPress} featureName="WordPress интеграция" requiredPlan="PRO">
+    <PlanGate allowed={limits.limits.hasWordPress} featureName="WordPress интеграция" requiredPlan="PRO">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
