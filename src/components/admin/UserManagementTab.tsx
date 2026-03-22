@@ -1,13 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Save } from "lucide-react";
+import { Users, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/shared/hooks/useAuth";
 
 interface UserProfile {
   id: string;
@@ -15,6 +22,7 @@ interface UserProfile {
   full_name: string | null;
   plan: string;
   monthly_limit: number;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -23,11 +31,11 @@ interface UserUsage {
   total_tokens: number;
 }
 
-// Approx cost per 1K tokens
 const COST_PER_1K = 0.002;
 
 export function UserManagementTab() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editPlan, setEditPlan] = useState("");
   const [editLimit, setEditLimit] = useState("");
@@ -48,8 +56,6 @@ export function UserManagementTab() {
         .from("usage_logs")
         .select("user_id, tokens_used");
       if (error) throw error;
-
-      // Aggregate tokens per user
       const map = new Map<string, number>();
       for (const row of data) {
         map.set(row.user_id, (map.get(row.user_id) || 0) + (row.tokens_used || 0));
@@ -77,9 +83,39 @@ export function UserManagementTab() {
     onError: (e) => toast.error(e.message),
   });
 
-  const getUsage = (userId: string) => {
-    return usageData.find((u) => u.user_id === userId)?.total_tokens ?? 0;
-  };
+  const toggleActive = useMutation({
+    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_active: isActive })
+        .eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      toast.success("Статус обновлён");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deleteUser = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { user_id: userId },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      toast.success("Пользователь удалён");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const getUsage = (userId: string) =>
+    usageData.find((u) => u.user_id === userId)?.total_tokens ?? 0;
 
   if (isLoading) {
     return <div className="text-muted-foreground">Загрузка...</div>;
@@ -92,6 +128,9 @@ export function UserManagementTab() {
         <span className="text-sm text-muted-foreground">
           {profiles.length} пользователей
         </span>
+        <Badge variant="outline" className="text-xs">
+          {profiles.filter((p) => p.is_active).length} активных
+        </Badge>
       </div>
 
       <Card className="bg-card border-border">
@@ -100,8 +139,8 @@ export function UserManagementTab() {
             <TableHeader>
               <TableRow className="border-border">
                 <TableHead>Email</TableHead>
-                <TableHead>Роль</TableHead>
                 <TableHead>Тариф</TableHead>
+                <TableHead className="text-center">Активен</TableHead>
                 <TableHead className="text-right">Токены</TableHead>
                 <TableHead className="text-right">≈ $</TableHead>
                 <TableHead className="text-right">Лимит</TableHead>
@@ -115,13 +154,11 @@ export function UserManagementTab() {
                 const isEditing = editingUser === p.id;
 
                 return (
-                  <TableRow key={p.id} className="border-border">
+                  <TableRow
+                    key={p.id}
+                    className={`border-border ${!p.is_active ? "opacity-50" : ""}`}
+                  >
                     <TableCell className="font-mono text-xs">{p.email}</TableCell>
-                    <TableCell>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        user
-                      </span>
-                    </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Select value={editPlan} onValueChange={setEditPlan}>
@@ -129,6 +166,7 @@ export function UserManagementTab() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="free">Free</SelectItem>
                             <SelectItem value="basic">Basic</SelectItem>
                             <SelectItem value="pro">Pro</SelectItem>
                           </SelectContent>
@@ -138,6 +176,14 @@ export function UserManagementTab() {
                           {p.plan}
                         </span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={p.is_active}
+                        onCheckedChange={(checked) =>
+                          toggleActive.mutate({ userId: p.id, isActive: checked })
+                        }
+                      />
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
                       {tokens.toLocaleString()}
@@ -158,42 +204,70 @@ export function UserManagementTab() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {isEditing ? (
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              updateUser.mutate({
-                                userId: p.id,
-                                plan: editPlan,
-                                limit: parseInt(editLimit) || 30,
-                              })
-                            }
-                          >
-                            <Save className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditingUser(null)}
-                          >
-                            ✕
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditingUser(p.id);
-                            setEditPlan(p.plan);
-                            setEditLimit(String(p.monthly_limit));
-                          }}
-                        >
-                          Изменить
-                        </Button>
-                      )}
+                      <div className="flex gap-1">
+                        {isEditing ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                updateUser.mutate({
+                                  userId: p.id,
+                                  plan: editPlan,
+                                  limit: parseInt(editLimit) || 30,
+                                })
+                              }
+                            >
+                              <Save className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingUser(null)}
+                            >
+                              ✕
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingUser(p.id);
+                                setEditPlan(p.plan);
+                                setEditLimit(String(p.monthly_limit));
+                              }}
+                            >
+                              Изменить
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Удалить пользователя?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Пользователь <strong>{p.email}</strong> и все его данные будут удалены безвозвратно.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => deleteUser.mutate(p.id)}
+                                  >
+                                    Удалить
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
