@@ -24,6 +24,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
+                asChild
+                title="Поддержка"
+              >
+                <a href="https://t.me/sin0ptick" target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="h-4 w-4" />
+                </a>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setLang(lang === "ru" ? "en" : "ru")}
                 title={lang === "ru" ? "Switch to English" : "Переключить на русский"}
               >
