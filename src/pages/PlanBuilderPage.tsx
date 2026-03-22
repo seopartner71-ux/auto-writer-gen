@@ -14,6 +14,7 @@ import {
   Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
   ExternalLink, BarChart3, FileText
 } from "lucide-react";
+import { ExpertInsightsBlock } from "@/components/plan/ExpertInsightsBlock";
 import { toast } from "sonner";
 
 interface InsightItem {
@@ -399,6 +400,17 @@ export default function PlanBuilderPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Expert Insights — Content Gap Analysis */}
+            <ExpertInsightsBlock
+              keywordId={selectedKeywordId}
+              onAddToOutline={(text, level) => {
+                setOutline((prev) => [
+                  ...prev,
+                  { id: `gap-${Date.now()}`, text, level },
+                ]);
+              }}
+            />
           </div>
 
           {/* Right: Article Structure */}
