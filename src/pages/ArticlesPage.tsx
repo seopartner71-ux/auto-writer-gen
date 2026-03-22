@@ -392,6 +392,9 @@ export default function ArticlesPage() {
       generateSeoTitle(fullContent);
 
       toast.success("Статья сгенерирована");
+
+      // Auto-generate FAQ & JSON-LD schema (async, best-effort)
+      autoGenerateSchema(fullContent, title);
     } catch (e: any) {
       if (e.name === "AbortError") {
         toast.info("Генерация остановлена");
