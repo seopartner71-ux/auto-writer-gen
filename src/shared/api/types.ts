@@ -111,6 +111,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasFullSerp: false,
     hasAntiAiCheck: false,
     hasBulkMode: false,
+    hasWordPress: false,
   },
   basic: {
     maxGenerations: 30,
