@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/shared/api/supabase";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";
 import {
-  FileText, Search, BarChart3, Zap, TrendingUp, Hash,
+  FileText, Search, BarChart3, Zap, TrendingUp, Hash, Trash2,
   CheckCircle2, AlertCircle, Clock, BookOpen
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar,
   XAxis, YAxis, Tooltip, CartesianGrid
 } from "recharts";
+import { toast } from "sonner";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "hsl(var(--muted-foreground))",
@@ -26,6 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function DashboardPage() {
   const { profile } = useAuth();
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const plan = (profile?.plan ?? "basic") as "basic" | "pro";
   const limits = PLAN_LIMITS[plan];
 
@@ -304,8 +306,8 @@ export default function DashboardPage() {
             {stats.topKeywords.length > 0 ? (
               <div className="space-y-2">
                 {stats.topKeywords.map((kw: any) => (
-                  <div key={kw.id} className="flex items-center justify-between text-sm">
-                    <span className="font-medium truncate max-w-[60%]">{kw.seed_keyword}</span>
+                  <div key={kw.id} className="flex items-center justify-between text-sm group">
+                    <span className="font-medium truncate max-w-[50%]">{kw.seed_keyword}</span>
                     <div className="flex items-center gap-2">
                       {kw.intent && (
                         <Badge variant="outline" className="text-[10px]">{kw.intent}</Badge>
@@ -316,6 +318,19 @@ export default function DashboardPage() {
                       {kw.difficulty != null && (
                         <Progress value={kw.difficulty} className="w-12 h-1.5" />
                       )}
+                      <button
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                        title="Удалить"
+                        onClick={async () => {
+                          if (!confirm("Удалить это ключевое слово и связанные данные?")) return;
+                          const { error } = await supabase.from("keywords").delete().eq("id", kw.id);
+                          if (error) { toast.error("Ошибка удаления"); return; }
+                          queryClient.invalidateQueries({ queryKey: ["dashboard-keywords"] });
+                          toast.success("Ключевое слово удалено");
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -339,7 +354,7 @@ export default function DashboardPage() {
                   const words = a.content ? a.content.trim().split(/\s+/).length : 0;
                   const statusLabel = STATUS_LABELS[a.status] || a.status;
                   return (
-                    <div key={a.id} className="flex items-center justify-between text-sm">
+                    <div key={a.id} className="flex items-center justify-between text-sm group">
                       <span className="font-medium truncate max-w-[55%]">
                         {a.title || t("common.noTitle")}
                       </span>
@@ -348,6 +363,19 @@ export default function DashboardPage() {
                         <Badge variant={a.status === "published" ? "default" : "secondary"} className="text-[10px]">
                           {statusLabel}
                         </Badge>
+                        <button
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                          title="Удалить"
+                          onClick={async () => {
+                            if (!confirm("Удалить эту статью?")) return;
+                            const { error } = await supabase.from("articles").delete().eq("id", a.id);
+                            if (error) { toast.error("Ошибка удаления"); return; }
+                            queryClient.invalidateQueries({ queryKey: ["dashboard-articles"] });
+                            toast.success("Статья удалена");
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       </div>
                     </div>
                   );
