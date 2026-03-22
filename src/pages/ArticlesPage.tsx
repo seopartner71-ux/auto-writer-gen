@@ -163,6 +163,7 @@ export default function ArticlesPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
+  const [mode, setMode] = useState<"single" | "bulk">("single");
 
   // Data fetching
   const { data: keywords = [] } = useQuery({
