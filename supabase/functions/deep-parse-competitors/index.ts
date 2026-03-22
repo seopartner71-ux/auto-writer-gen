@@ -1,125 +1,184 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
+import { DOMParser, Element } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface ParsedPage {
+// ── Types ──────────────────────────────────────────────────────────────
+interface CompetitorAnalysis {
   url: string;
   position: number;
-  title_tag: string;
-  meta_description: string;
-  headings: { level: string; text: string }[];
-  word_count: number;
-  char_count: number;
-  paragraph_count: number;
-  avg_paragraph_length: number;
-  img_count: number;
-  video_presence: boolean;
-  keyword_density: number;
+  structure: {
+    h1: string;
+    h_tags: { level: number; text: string }[];
+    word_count: number;
+    char_count: number;
+    paragraph_count: number;
+    avg_paragraph_length: number;
+  };
+  content: {
+    keywords: { word: string; density: number; tf_idf: number }[];
+    lsi_phrases: string[];
+    entities: { name: string; type: string; importance: number }[];
+  };
+  media: {
+    images_count: number;
+    has_video: boolean;
+    video_links: string[];
+  };
+  seo: {
+    title: string;
+    description: string;
+    main_keyword_density: number;
+  };
   top_phrases: { phrase: string; count: number }[];
 }
 
-function parseHTML(html: string, seedKeyword: string): Omit<ParsedPage, "url" | "position"> {
+// ── Stop words ─────────────────────────────────────────────────────────
+const STOP_WORDS = new Set([
+  "the","a","an","is","are","was","were","be","been","being","have","has","had",
+  "do","does","did","will","would","could","should","may","might","can","shall",
+  "to","of","in","for","on","with","at","by","from","as","into","through",
+  "and","but","or","nor","not","so","yet","both","either","neither",
+  "this","that","these","those","it","its","they","them","their","we","our",
+  "i","me","my","you","your","he","she","his","her","him",
+  "what","which","who","whom","when","where","how","why",
+  "all","each","every","some","any","no","more","most","other","than",
+  "if","then","else","about","up","out","just","also","very","much","only",
+  // Russian
+  "и","в","не","на","с","что","как","это","а","к","по","из","за","для",
+  "но","то","же","или","он","она","они","мы","вы","от","до","при","его",
+  "её","их","был","была","было","были","быть","будет","может","так","все",
+  "уже","ещё","бы","ли","о","у","да","нет","если","только","ещё","тоже",
+  "более","менее","очень","этот","эта","эти","свой","свои","него","неё",
+]);
+
+// ── Boilerplate removal & main content extraction ──────────────────────
+function extractMainContent(doc: any): any {
+  // Step 1: Try <article> or <main> first
+  const article = doc.querySelector("article") || doc.querySelector("main") || doc.querySelector('[role="main"]');
+  if (article) return article;
+
+  // Step 2: Try common content selectors
+  const contentSelectors = [
+    ".post-content", ".entry-content", ".article-content", ".content-area",
+    "#content", "#main-content", ".main-content", ".post-body",
+    '[itemprop="articleBody"]', ".td-post-content", ".single-content",
+  ];
+  for (const sel of contentSelectors) {
+    const el = doc.querySelector(sel);
+    if (el) return el;
+  }
+
+  // Step 3: Fallback to body with boilerplate removed
+  return null;
+}
+
+function removeBoilerplate(doc: any): void {
+  const removeSelectors = [
+    "script", "style", "noscript", "svg", "iframe:not([src*='youtube']):not([src*='vimeo'])",
+    "nav", "header", "footer", "aside",
+    ".sidebar", ".widget", ".ad", ".advertisement", ".banner",
+    ".cookie", ".popup", ".modal", ".menu", ".breadcrumb",
+    '[role="navigation"]', '[role="banner"]', '[role="complementary"]',
+    ".social-share", ".share-buttons", ".related-posts", ".comments",
+    ".author-bio", "#comments", ".newsletter", ".signup-form",
+  ];
+  for (const sel of removeSelectors) {
+    try {
+      const els = doc.querySelectorAll(sel);
+      for (let i = 0; i < els.length; i++) {
+        els[i].remove();
+      }
+    } catch { /* ignore invalid selectors */ }
+  }
+}
+
+// ── HTML Parsing ───────────────────────────────────────────────────────
+function parseHTML(html: string, seedKeyword: string): Omit<CompetitorAnalysis, "url" | "position"> {
   const doc = new DOMParser().parseFromString(html, "text/html");
   if (!doc) {
-    return {
-      title_tag: "", meta_description: "", headings: [], word_count: 0, char_count: 0,
-      paragraph_count: 0, avg_paragraph_length: 0, img_count: 0, video_presence: false,
-      keyword_density: 0, top_phrases: [],
-    };
+    return emptyAnalysis();
   }
 
-  // Title
+  // SEO: title + meta before we modify DOM
   const titleEl = doc.querySelector("title");
-  const title_tag = titleEl?.textContent?.trim() || "";
-
-  // Meta description
+  const seoTitle = titleEl?.textContent?.trim() || "";
   const metaEl = doc.querySelector('meta[name="description"]');
-  const meta_description = metaEl?.getAttribute("content")?.trim() || "";
+  const seoDescription = metaEl?.getAttribute("content")?.trim() || "";
+
+  // Media counts (before boilerplate removal to count all images)
+  const allImages = doc.querySelectorAll("img");
+  const images_count = allImages.length;
+
+  // Video detection
+  const videoLinks: string[] = [];
+  const iframes = doc.querySelectorAll("iframe");
+  for (let i = 0; i < iframes.length; i++) {
+    const src = iframes[i].getAttribute("src") || "";
+    if (/youtube|vimeo|dailymotion|rutube|wistia/i.test(src)) {
+      videoLinks.push(src);
+    }
+  }
+  const hasVideoTag = doc.querySelectorAll("video").length > 0;
+  const has_video = videoLinks.length > 0 || hasVideoTag;
+
+  // Remove boilerplate
+  removeBoilerplate(doc);
+
+  // Try to extract main content area
+  const mainContent = extractMainContent(doc);
+  const contentRoot = mainContent || doc.querySelector("body");
+  if (!contentRoot) return emptyAnalysis();
 
   // Headings hierarchy
-  const headings: { level: string; text: string }[] = [];
-  const headingEls = doc.querySelectorAll("h1, h2, h3, h4, h5, h6");
+  const headingEls = contentRoot.querySelectorAll("h1, h2, h3, h4, h5, h6");
+  let h1Text = "";
+  const h_tags: { level: number; text: string }[] = [];
   for (let i = 0; i < headingEls.length; i++) {
     const el = headingEls[i];
-    headings.push({
-      level: el.tagName.toLowerCase(),
-      text: el.textContent?.trim() || "",
-    });
+    const level = parseInt(el.tagName.charAt(1));
+    const text = el.textContent?.trim() || "";
+    if (level === 1 && !h1Text) h1Text = text;
+    h_tags.push({ level, text });
   }
 
-  // Body text extraction
-  // Remove script and style elements
-  const scripts = doc.querySelectorAll("script, style, nav, header, footer, aside");
-  for (let i = 0; i < scripts.length; i++) {
-    scripts[i].remove();
-  }
-
-  const bodyEl = doc.querySelector("body");
-  const bodyText = bodyEl?.textContent?.replace(/\s+/g, " ").trim() || "";
-
-  // Word count & char count
-  const words = bodyText.split(/\s+/).filter((w) => w.length > 0);
+  // Text extraction
+  const bodyText = contentRoot.textContent?.replace(/\s+/g, " ").trim() || "";
+  const words = bodyText.split(/\s+/).filter((w: string) => w.length > 0);
   const word_count = words.length;
   const char_count = bodyText.length;
 
   // Paragraphs
-  const paragraphs = doc.querySelectorAll("p");
+  const paragraphs = contentRoot.querySelectorAll("p");
   const paragraph_count = paragraphs.length;
-  let totalParaLen = 0;
+  let totalParaWords = 0;
   for (let i = 0; i < paragraphs.length; i++) {
-    totalParaLen += (paragraphs[i].textContent?.trim().split(/\s+/).length || 0);
+    totalParaWords += (paragraphs[i].textContent?.trim().split(/\s+/).length || 0);
   }
-  const avg_paragraph_length = paragraph_count > 0 ? Math.round(totalParaLen / paragraph_count) : 0;
-
-  // Images
-  const img_count = doc.querySelectorAll("img").length;
-
-  // Video presence
-  const iframes = doc.querySelectorAll("iframe");
-  let video_presence = false;
-  for (let i = 0; i < iframes.length; i++) {
-    const src = iframes[i].getAttribute("src") || "";
-    if (/youtube|vimeo|dailymotion|rutube/i.test(src)) {
-      video_presence = true;
-      break;
-    }
-  }
-  if (!video_presence) {
-    video_presence = doc.querySelectorAll("video").length > 0;
-  }
+  const avg_paragraph_length = paragraph_count > 0 ? Math.round(totalParaWords / paragraph_count) : 0;
 
   // Keyword density
   const kwLower = seedKeyword.toLowerCase();
   const textLower = bodyText.toLowerCase();
-  const kwOccurrences = textLower.split(kwLower).length - 1;
-  const keyword_density = word_count > 0 ? Math.round((kwOccurrences / word_count) * 10000) / 100 : 0;
+  const kwRegex = new RegExp(kwLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  const kwMatches = textLower.match(kwRegex);
+  const kwOccurrences = kwMatches ? kwMatches.length : 0;
+  const main_keyword_density = word_count > 0 ? Math.round((kwOccurrences / word_count) * 10000) / 100 : 0;
 
-  // Top phrases (2-3 word n-grams)
-  const STOP_WORDS = new Set([
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
-    "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "shall",
-    "to", "of", "in", "for", "on", "with", "at", "by", "from", "as", "into", "through",
-    "and", "but", "or", "nor", "not", "so", "yet", "both", "either", "neither",
-    "this", "that", "these", "those", "it", "its", "they", "them", "their", "we", "our",
-    "i", "me", "my", "you", "your", "he", "she", "his", "her", "him",
-    "what", "which", "who", "whom", "when", "where", "how", "why",
-    "all", "each", "every", "some", "any", "no", "more", "most", "other", "than",
-    "if", "then", "else", "about", "up", "out", "just", "also", "very", "much",
-    // Russian stop words
-    "и", "в", "не", "на", "с", "что", "как", "это", "а", "к", "по", "из", "за", "для",
-    "но", "то", "же", "или", "он", "она", "они", "мы", "вы", "от", "до", "при", "его",
-    "её", "их", "был", "была", "было", "были", "быть", "будет", "может", "так", "все",
-    "уже", "ещё", "бы", "ли", "о", "у", "да", "нет", "если", "только",
-  ]);
-
+  // N-gram analysis (cleaned words → bigrams & trigrams)
   const cleanWords = words
-    .map((w) => w.toLowerCase().replace(/[^a-zа-яёА-ЯЁ0-9]/g, ""))
-    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+    .map((w: string) => w.toLowerCase().replace(/[^a-zа-яёА-ЯЁ0-9-]/g, ""))
+    .filter((w: string) => w.length > 2 && !STOP_WORDS.has(w));
+
+  // Single word frequency for keyword density analysis
+  const wordFreq: Record<string, number> = {};
+  for (const w of cleanWords) {
+    wordFreq[w] = (wordFreq[w] || 0) + 1;
+  }
 
   const phraseCounts: Record<string, number> = {};
   for (let i = 0; i < cleanWords.length - 1; i++) {
@@ -137,34 +196,154 @@ function parseHTML(html: string, seedKeyword: string): Omit<ParsedPage, "url" | 
     .slice(0, 30)
     .map(([phrase, count]) => ({ phrase, count }));
 
+  // Top single keywords with density
+  const topKeywords = Object.entries(wordFreq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 40)
+    .map(([word, count]) => ({
+      word,
+      density: Math.round((count / word_count) * 10000) / 100,
+      tf_idf: 0, // calculated later across all docs
+    }));
+
   return {
-    title_tag, meta_description, headings, word_count, char_count,
-    paragraph_count, avg_paragraph_length, img_count, video_presence,
-    keyword_density, top_phrases,
+    structure: { h1: h1Text, h_tags, word_count, char_count, paragraph_count, avg_paragraph_length },
+    content: { keywords: topKeywords, lsi_phrases: [], entities: [] },
+    media: { images_count, has_video, video_links: videoLinks },
+    seo: { title: seoTitle, description: seoDescription, main_keyword_density },
+    top_phrases,
   };
 }
 
-async function fetchPage(url: string): Promise<string | null> {
+function emptyAnalysis(): Omit<CompetitorAnalysis, "url" | "position"> {
+  return {
+    structure: { h1: "", h_tags: [], word_count: 0, char_count: 0, paragraph_count: 0, avg_paragraph_length: 0 },
+    content: { keywords: [], lsi_phrases: [], entities: [] },
+    media: { images_count: 0, has_video: false, video_links: [] },
+    seo: { title: "", description: "", main_keyword_density: 0 },
+    top_phrases: [],
+  };
+}
+
+// ── Fetch with error handling ──────────────────────────────────────────
+async function fetchPage(url: string): Promise<{ html: string | null; error?: string }> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; SEO-Analyzer/1.0)",
-        "Accept": "text/html",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
       },
+      redirect: "follow",
     });
     clearTimeout(timeout);
-    if (!resp.ok) return null;
+
+    if (resp.status === 403 || resp.status === 503) {
+      return { html: null, error: `blocked:${resp.status}` };
+    }
+    if (!resp.ok) return { html: null, error: `http:${resp.status}` };
+
     const ct = resp.headers.get("content-type") || "";
-    if (!ct.includes("text/html")) return null;
-    return await resp.text();
-  } catch {
-    return null;
+    if (!ct.includes("text/html") && !ct.includes("application/xhtml")) {
+      return { html: null, error: "not-html" };
+    }
+
+    const html = await resp.text();
+    // Check for Cloudflare/bot protection
+    if (html.includes("cf-browser-verification") || html.includes("challenge-platform")) {
+      return { html: null, error: "cloudflare" };
+    }
+    return { html };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "unknown";
+    return { html: null, error: msg.includes("abort") ? "timeout" : msg };
   }
 }
 
+// ── TF-IDF calculation across documents ────────────────────────────────
+function calculateTfIdf(pages: CompetitorAnalysis[]): {
+  tfidfPhrases: { phrase: string; total: number; docs: number; tfidf: number; commonality: number }[];
+  lsiSuccessPhrases: string[];
+} {
+  const N = pages.length;
+  
+  // Phrase-level TF-IDF
+  const globalPhrases: Record<string, { total: number; docs: number }> = {};
+  for (const page of pages) {
+    const seen = new Set<string>();
+    for (const { phrase, count } of page.top_phrases) {
+      if (!globalPhrases[phrase]) globalPhrases[phrase] = { total: 0, docs: 0 };
+      globalPhrases[phrase].total += count;
+      if (!seen.has(phrase)) {
+        globalPhrases[phrase].docs += 1;
+        seen.add(phrase);
+      }
+    }
+  }
+
+  const tfidfPhrases = Object.entries(globalPhrases)
+    .map(([phrase, { total, docs }]) => ({
+      phrase,
+      total,
+      docs,
+      tfidf: docs < N ? Math.round(total * Math.log(N / docs) * 100) / 100 : Math.round(total * 0.1 * 100) / 100,
+      commonality: Math.round((docs / N) * 100),
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 50);
+
+  // Word-level TF-IDF
+  const globalWords: Record<string, { total: number; docs: number }> = {};
+  for (const page of pages) {
+    const seen = new Set<string>();
+    for (const { word, density } of page.content.keywords) {
+      if (!globalWords[word]) globalWords[word] = { total: 0, docs: 0 };
+      globalWords[word].total += density;
+      if (!seen.has(word)) {
+        globalWords[word].docs += 1;
+        seen.add(word);
+      }
+    }
+  }
+
+  // Update TF-IDF scores on per-page keywords
+  for (const page of pages) {
+    for (const kw of page.content.keywords) {
+      const global = globalWords[kw.word];
+      if (global && global.docs < N) {
+        kw.tf_idf = Math.round(kw.density * Math.log(N / global.docs) * 100) / 100;
+      }
+    }
+  }
+
+  // LSI Success Phrases: phrases in TOP-3 but absent from rest
+  const top3 = pages.filter((p) => p.position <= 3);
+  const rest = pages.filter((p) => p.position > 3);
+
+  const top3Phrases = new Set<string>();
+  for (const page of top3) {
+    for (const { phrase } of page.top_phrases) {
+      top3Phrases.add(phrase);
+    }
+  }
+  const restPhrases = new Set<string>();
+  for (const page of rest) {
+    for (const { phrase } of page.top_phrases) {
+      restPhrases.add(phrase);
+    }
+  }
+
+  const lsiSuccessPhrases = [...top3Phrases]
+    .filter((p) => !restPhrases.has(p))
+    .slice(0, 20);
+
+  return { tfidfPhrases, lsiSuccessPhrases };
+}
+
+// ── Main handler ───────────────────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -187,8 +366,29 @@ serve(async (req) => {
     });
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const { keyword_id } = await req.json();
+    const { keyword_id, force_refresh } = await req.json();
     if (!keyword_id) throw new Error("keyword_id is required");
+
+    // ── Cache check ──
+    if (!force_refresh) {
+      const { data: existingSerp } = await supabase
+        .from("serp_results")
+        .select("deep_analysis")
+        .eq("keyword_id", keyword_id)
+        .not("deep_analysis", "is", null)
+        .limit(1);
+      
+      if (existingSerp && existingSerp.length > 0 && existingSerp[0].deep_analysis) {
+        // Check if cached analysis has the new format
+        const cached = existingSerp[0].deep_analysis as any;
+        if (cached._cached_result) {
+          console.log("Returning cached deep analysis");
+          return new Response(JSON.stringify(cached._cached_result), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
 
     // Get keyword
     const { data: kw, error: kwErr } = await supabase
@@ -209,67 +409,55 @@ serve(async (req) => {
       throw new Error("No SERP results found. Run Smart Research first.");
     }
 
-    // Parse each competitor page
-    const parsedPages: ParsedPage[] = [];
-    const failedUrls: string[] = [];
+    // ── Parse each competitor page ──
+    const parsedPages: CompetitorAnalysis[] = [];
+    const failedUrls: { url: string; reason: string }[] = [];
 
     for (const sr of serpResults) {
       if (!sr.url) continue;
       console.log(`Fetching: ${sr.url}`);
-      const html = await fetchPage(sr.url);
+      const { html, error } = await fetchPage(sr.url);
       if (!html) {
-        failedUrls.push(sr.url);
+        failedUrls.push({ url: sr.url, reason: error || "unknown" });
         continue;
       }
 
       const parsed = parseHTML(html, kw.seed_keyword);
-      const pageData: ParsedPage = {
+      const pageData: CompetitorAnalysis = {
         url: sr.url,
         position: sr.position || 0,
         ...parsed,
       };
       parsedPages.push(pageData);
-
-      // Save per-competitor deep analysis to serp_results
-      await supabaseAdmin
-        .from("serp_results")
-        .update({
-          deep_analysis: {
-            title_tag: parsed.title_tag,
-            meta_description: parsed.meta_description,
-            headings: parsed.headings,
-            char_count: parsed.char_count,
-            paragraph_count: parsed.paragraph_count,
-            avg_paragraph_length: parsed.avg_paragraph_length,
-            img_count: parsed.img_count,
-            video_presence: parsed.video_presence,
-            keyword_density: parsed.keyword_density,
-            top_phrases: parsed.top_phrases,
-          },
-          word_count: parsed.word_count,
-          headings: { hierarchy: parsed.headings },
-        })
-        .eq("id", sr.id);
     }
 
     if (parsedPages.length === 0) {
-      throw new Error("Could not fetch any competitor pages");
+      throw new Error(`Could not fetch any competitor pages. Errors: ${failedUrls.map((f) => `${f.url}(${f.reason})`).join(", ")}`);
     }
 
-    // Calculate aggregated benchmark
-    const wordCounts = parsedPages.map((p) => p.word_count).sort((a, b) => a - b);
-    const imgCounts = parsedPages.map((p) => p.img_count).sort((a, b) => a - b);
-    const h2Counts = parsedPages.map((p) => p.headings.filter((h) => h.level === "h2").length).sort((a, b) => a - b);
-    const h3Counts = parsedPages.map((p) => p.headings.filter((h) => h.level === "h3").length).sort((a, b) => a - b);
-    const paraCounts = parsedPages.map((p) => p.paragraph_count).sort((a, b) => a - b);
-    const densities = parsedPages.map((p) => p.keyword_density).sort((a, b) => a - b);
-    const videoCount = parsedPages.filter((p) => p.video_presence).length;
+    // ── TF-IDF & LSI analysis ──
+    const { tfidfPhrases, lsiSuccessPhrases } = calculateTfIdf(parsedPages);
 
+    // Update LSI phrases on each page
+    for (const page of parsedPages) {
+      page.content.lsi_phrases = lsiSuccessPhrases;
+    }
+
+    // ── Benchmark calculation ──
     const median = (arr: number[]) => {
-      if (arr.length === 0) return 0;
-      const mid = Math.floor(arr.length / 2);
-      return arr.length % 2 !== 0 ? arr[mid] : Math.round((arr[mid - 1] + arr[mid]) / 2);
+      const sorted = [...arr].sort((a, b) => a - b);
+      if (sorted.length === 0) return 0;
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
     };
+
+    const wordCounts = parsedPages.map((p) => p.structure.word_count);
+    const imgCounts = parsedPages.map((p) => p.media.images_count);
+    const h2Counts = parsedPages.map((p) => p.structure.h_tags.filter((h) => h.level === 2).length);
+    const h3Counts = parsedPages.map((p) => p.structure.h_tags.filter((h) => h.level === 3).length);
+    const paraCounts = parsedPages.map((p) => p.structure.paragraph_count);
+    const densities = parsedPages.map((p) => p.seo.main_keyword_density);
+    const videoCount = parsedPages.filter((p) => p.media.has_video).length;
 
     const benchmark = {
       total_parsed: parsedPages.length,
@@ -281,36 +469,12 @@ serve(async (req) => {
       median_paragraph_count: median(paraCounts),
       median_keyword_density: Math.round(median(densities) * 100) / 100,
       video_percentage: Math.round((videoCount / parsedPages.length) * 100),
+      target_word_count: Math.round(median(wordCounts) * 1.1), // +10%
+      target_img_count: Math.max(median(imgCounts), 3),
+      target_h2_count: Math.max(median(h2Counts), 5),
     };
 
-    // Aggregate all phrases across competitors for TF-IDF style analysis
-    const globalPhrases: Record<string, { total: number; docs: number }> = {};
-    for (const page of parsedPages) {
-      const seen = new Set<string>();
-      for (const { phrase, count } of page.top_phrases) {
-        if (!globalPhrases[phrase]) globalPhrases[phrase] = { total: 0, docs: 0 };
-        globalPhrases[phrase].total += count;
-        if (!seen.has(phrase)) {
-          globalPhrases[phrase].docs += 1;
-          seen.add(phrase);
-        }
-      }
-    }
-
-    // TF-IDF: phrases common across many docs but with high frequency
-    const N = parsedPages.length;
-    const tfidfPhrases = Object.entries(globalPhrases)
-      .map(([phrase, { total, docs }]) => ({
-        phrase,
-        total,
-        docs,
-        tfidf: Math.round(total * Math.log(N / docs) * 100) / 100,
-        commonality: Math.round((docs / N) * 100),
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 50);
-
-    // Use AI for entity extraction
+    // ── AI Entity Extraction ──
     const { data: assignment } = await supabaseAdmin
       .from("task_model_assignments")
       .select("model_key")
@@ -321,8 +485,9 @@ serve(async (req) => {
     const competitorTexts = parsedPages
       .slice(0, 5)
       .map((p) => {
-        const headingText = p.headings.map((h) => `${h.level}: ${h.text}`).join("\n");
-        return `--- Competitor #${p.position} (${p.url}) ---\nTitle: ${p.title_tag}\nHeadings:\n${headingText}\nTop phrases: ${p.top_phrases.slice(0, 15).map((ph) => ph.phrase).join(", ")}`;
+        const headingText = p.structure.h_tags.map((h) => `${"  ".repeat(h.level - 1)}H${h.level}: ${h.text}`).join("\n");
+        const topKw = p.content.keywords.slice(0, 10).map((k) => `${k.word}(${k.density}%)`).join(", ");
+        return `--- #${p.position} ${p.url} (${p.structure.word_count} words, ${p.media.images_count} imgs) ---\nTitle: ${p.seo.title}\nH1: ${p.structure.h1}\nHeadings:\n${headingText}\nTop keywords: ${topKw}`;
       })
       .join("\n\n");
 
@@ -337,19 +502,25 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an expert SEO entity analyst. Extract named entities and key concepts from competitor content that are essential for topical relevance. Return structured data via the provided tool. Write ALL output in the same language as the keyword.`,
+            content: `You are an expert SEO entity analyst specializing in E-E-A-T and topical authority. Analyze competitor content to extract entities Google associates with this topic, and LSI phrases critical for ranking. Return data via the provided tool. Write ALL output in the same language as the keyword.`,
           },
           {
             role: "user",
             content: `Keyword: "${kw.seed_keyword}"
 
-Competitor data:
+Competitor analysis data:
 ${competitorTexts}
 
-Top phrases across all competitors (by frequency):
-${tfidfPhrases.slice(0, 30).map((p) => `"${p.phrase}" (freq: ${p.total}, in ${p.docs}/${N} pages)`).join("\n")}
+TF-IDF top phrases (across ${parsedPages.length} competitors):
+${tfidfPhrases.slice(0, 25).map((p) => `"${p.phrase}" (freq:${p.total}, in ${p.docs}/${parsedPages.length} docs, commonality:${p.commonality}%)`).join("\n")}
 
-TASK: Extract entities that Google associates with this topic. Categorize them by type. Also identify the most important LSI phrases that should appear in a well-optimized article.`,
+LSI Success Phrases (found in TOP-3 only):
+${lsiSuccessPhrases.join(", ") || "None identified"}
+
+TASK: 
+1. Extract the 15-20 most important thematic entities that Google associates with "${kw.seed_keyword}". Rate their importance 1-10.
+2. Identify must-use LSI phrases for a well-optimized article.
+3. For each entity, specify how many competitors mention it.`,
           },
         ],
         tools: [{
@@ -366,9 +537,9 @@ TASK: Extract entities that Google associates with this topic. Categorize them b
                     type: "object",
                     properties: {
                       name: { type: "string" },
-                      type: { type: "string", enum: ["brand", "person", "location", "concept", "product", "organization", "event", "metric"] },
-                      importance: { type: "string", enum: ["critical", "high", "medium"] },
-                      competitors_using: { type: "number", description: "How many competitors mention this" },
+                      type: { type: "string", enum: ["brand", "person", "location", "concept", "product", "organization", "event", "metric", "technology", "term"] },
+                      importance: { type: "number", description: "1-10 scale" },
+                      competitors_using: { type: "number" },
                     },
                     required: ["name", "type", "importance"],
                   },
@@ -383,7 +554,6 @@ TASK: Extract entities that Google associates with this topic. Categorize them b
                     },
                     required: ["phrase", "reason"],
                   },
-                  description: "Essential phrases/terms that must appear in the article",
                 },
               },
               required: ["entities", "must_use_phrases"],
@@ -413,20 +583,98 @@ TASK: Extract entities that Google associates with this topic. Categorize them b
 
     const aiData = await aiResponse.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let entityAnalysis;
+    let entityAnalysis: { entities: any[]; must_use_phrases: any[] };
     if (toolCall?.function?.arguments) {
       entityAnalysis = JSON.parse(toolCall.function.arguments);
     } else {
       const content = aiData.choices?.[0]?.message?.content || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) entityAnalysis = JSON.parse(jsonMatch[0]);
-      else entityAnalysis = { entities: [], must_use_phrases: [] };
+      entityAnalysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { entities: [], must_use_phrases: [] };
     }
 
-    // Find the best competitor for heading tree (highest position with most headings)
+    // Merge AI entities into page content
+    for (const page of parsedPages) {
+      page.content.entities = (entityAnalysis.entities || []).map((e: any) => ({
+        name: e.name,
+        type: e.type,
+        importance: e.importance,
+      }));
+    }
+
+    // Best competitor for heading tree
     const bestCompetitor = parsedPages.reduce((best, curr) =>
-      curr.headings.length > best.headings.length ? curr : best
+      curr.structure.h_tags.length > best.structure.h_tags.length ? curr : best
     );
+
+    // ── Build result ──
+    const result = {
+      benchmark,
+      entities: entityAnalysis.entities || [],
+      must_use_phrases: entityAnalysis.must_use_phrases || [],
+      tfidf_phrases: tfidfPhrases,
+      lsi_success_phrases: lsiSuccessPhrases,
+      best_competitor_headings: {
+        url: bestCompetitor.url,
+        position: bestCompetitor.position,
+        title: bestCompetitor.seo.title,
+        h1: bestCompetitor.structure.h1,
+        headings: bestCompetitor.structure.h_tags,
+      },
+      per_competitor: parsedPages.map((p) => ({
+        url: p.url,
+        position: p.position,
+        word_count: p.structure.word_count,
+        img_count: p.media.images_count,
+        h2_count: p.structure.h_tags.filter((h) => h.level === 2).length,
+        h3_count: p.structure.h_tags.filter((h) => h.level === 3).length,
+        video_presence: p.media.has_video,
+        keyword_density: p.seo.main_keyword_density,
+        title_tag: p.seo.title,
+        meta_description: p.seo.description,
+      })),
+    };
+
+    // ── Save per-competitor deep analysis + cache ──
+    for (const sr of serpResults) {
+      const page = parsedPages.find((p) => p.url === sr.url);
+      if (!page) continue;
+      await supabaseAdmin
+        .from("serp_results")
+        .update({
+          deep_analysis: {
+            _cached_result: result, // cache the full result on first serp entry
+            structure: page.structure,
+            content: page.content,
+            media: page.media,
+            seo: page.seo,
+            parsed_at: new Date().toISOString(),
+          },
+          word_count: page.structure.word_count,
+          headings: { hierarchy: page.structure.h_tags },
+        })
+        .eq("id", sr.id);
+      // Only cache full result on first entry
+      break;
+    }
+    // Save remaining per-competitor data without full cache
+    for (const sr of serpResults.slice(1)) {
+      const page = parsedPages.find((p) => p.url === sr.url);
+      if (!page) continue;
+      await supabaseAdmin
+        .from("serp_results")
+        .update({
+          deep_analysis: {
+            structure: page.structure,
+            content: page.content,
+            media: page.media,
+            seo: page.seo,
+            parsed_at: new Date().toISOString(),
+          },
+          word_count: page.structure.word_count,
+          headings: { hierarchy: page.structure.h_tags },
+        })
+        .eq("id", sr.id);
+    }
 
     // Log usage
     const tokensUsed = aiData.usage?.total_tokens || 0;
@@ -436,31 +684,6 @@ TASK: Extract entities that Google associates with this topic. Categorize them b
       model_used: model,
       tokens_used: tokensUsed,
     });
-
-    const result = {
-      benchmark,
-      entities: entityAnalysis.entities || [],
-      must_use_phrases: entityAnalysis.must_use_phrases || [],
-      tfidf_phrases: tfidfPhrases,
-      best_competitor_headings: {
-        url: bestCompetitor.url,
-        position: bestCompetitor.position,
-        title: bestCompetitor.title_tag,
-        headings: bestCompetitor.headings,
-      },
-      per_competitor: parsedPages.map((p) => ({
-        url: p.url,
-        position: p.position,
-        word_count: p.word_count,
-        img_count: p.img_count,
-        h2_count: p.headings.filter((h) => h.level === "h2").length,
-        h3_count: p.headings.filter((h) => h.level === "h3").length,
-        video_presence: p.video_presence,
-        keyword_density: p.keyword_density,
-        title_tag: p.title_tag,
-        meta_description: p.meta_description,
-      })),
-    };
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
