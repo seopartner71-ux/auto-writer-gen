@@ -650,22 +650,66 @@ export default function WordPressPage() {
                     </div>
 
                     {/* Publish button */}
-                    <Button
-                      className="w-full gap-2 h-11"
-                      onClick={() => publishPost.mutate()}
-                      disabled={publishPost.isPending}
-                    >
-                      {publishPost.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                      {publishPost.isPending
-                        ? "Публикация..."
-                        : publishImmediately
-                          ? "Опубликовать в WordPress"
-                          : "Сохранить как черновик"}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 gap-2 h-11"
+                        onClick={() => publishPost.mutate()}
+                        disabled={publishPost.isPending}
+                      >
+                        {publishPost.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                        {publishPost.isPending
+                          ? "Публикация..."
+                          : publishImmediately
+                            ? "Опубликовать"
+                            : "Черновик"}
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    {/* Schedule section */}
+                    <div className="space-y-3 p-3 rounded-lg bg-muted/50 border border-border">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-medium">Запланировать публикацию</Label>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Дата</Label>
+                          <Input
+                            type="date"
+                            value={scheduleDate}
+                            onChange={(e) => setScheduleDate(e.target.value)}
+                            min={new Date().toISOString().split("T")[0]}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Время</Label>
+                          <Input
+                            type="time"
+                            value={scheduleTime}
+                            onChange={(e) => setScheduleTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => schedulePost.mutate()}
+                        disabled={!scheduleDate || !scheduleTime || schedulePost.isPending}
+                      >
+                        {schedulePost.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Calendar className="h-4 w-4" />
+                        )}
+                        Запланировать
+                      </Button>
+                    </div>
                   </>
                 )}
               </>
@@ -673,6 +717,95 @@ export default function WordPressPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Scheduled Posts List */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Запланированные публикации
+            {scheduledPosts.filter((p: any) => p.status === "pending").length > 0 && (
+              <Badge variant="secondary" className="ml-auto">
+                {scheduledPosts.filter((p: any) => p.status === "pending").length}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {scheduledLoading ? (
+            <div className="text-sm text-muted-foreground py-4 text-center">Загрузка...</div>
+          ) : scheduledPosts.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-8 text-center">
+              <Clock className="h-10 w-10 mx-auto mb-3 opacity-20" />
+              <p>Нет запланированных публикаций</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {scheduledPosts.map((sp: any) => (
+                <div
+                  key={sp.id}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border"
+                >
+                  <div className="shrink-0">
+                    {sp.status === "pending" && <Clock className="h-4 w-4 text-yellow-500" />}
+                    {sp.status === "processing" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                    {sp.status === "published" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                    {sp.status === "failed" && <AlertCircle className="h-4 w-4 text-destructive" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {sp.articles?.title || "Без названия"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {sp.wordpress_sites?.site_name || sp.wordpress_sites?.site_url} · {format(new Date(sp.scheduled_at), "dd.MM.yyyy HH:mm")}
+                    </p>
+                    {sp.status === "failed" && sp.error_message && (
+                      <p className="text-xs text-destructive mt-1 truncate">{sp.error_message}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge
+                      variant={
+                        sp.status === "published" ? "default" :
+                        sp.status === "failed" ? "destructive" :
+                        "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {sp.status === "pending" && "Ожидает"}
+                      {sp.status === "processing" && "Публикация..."}
+                      {sp.status === "published" && "Опубликовано"}
+                      {sp.status === "failed" && "Ошибка"}
+                    </Badge>
+                    {sp.status === "published" && sp.wp_post_url && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => window.open(sp.wp_post_url, "_blank")}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {sp.status === "pending" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (confirm("Отменить запланированную публикацию?")) cancelScheduled.mutate(sp.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
     </PlanGate>
   );
