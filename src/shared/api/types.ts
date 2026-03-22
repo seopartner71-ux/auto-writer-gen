@@ -8,6 +8,7 @@ export interface Profile {
   email: string | null;
   full_name: string | null;
   plan: Plan;
+  is_active: boolean;
   created_at: string;
 }
 
