@@ -13,7 +13,8 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+    console.log("Auth header present:", !!authHeader, "starts with Bearer:", authHeader?.startsWith("Bearer "));
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
 
     const token = authHeader.replace("Bearer ", "");
@@ -21,6 +22,7 @@ serve(async (req) => {
     if (!payloadB64) throw new Error("Unauthorized");
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
     const user = { id: payload.sub as string };
+    console.log("User ID extracted:", user.id);
     if (!user.id) throw new Error("Unauthorized");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
