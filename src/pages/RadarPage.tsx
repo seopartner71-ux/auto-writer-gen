@@ -134,7 +134,7 @@ export default function RadarPage() {
   const activeProject = projects.find((p: any) => p.id === selectedProjectId) || projects[0];
 
   // Fetch keywords for active project
-  const { data: keywords = [] } = useQuery({
+  const { data: keywords = [], refetch: refetchKeywords } = useQuery({
     queryKey: ["radar-keywords", activeProject?.id],
     queryFn: async () => {
       if (!activeProject) return [];
@@ -150,8 +150,9 @@ export default function RadarPage() {
   });
 
   // Fetch results
-  const { data: results = [] } = useQuery({
-    queryKey: ["radar-results", activeProject?.id],
+  const keywordIdsKey = keywords.map((k: any) => k.id).sort().join(",");
+  const { data: results = [], refetch: refetchResults } = useQuery({
+    queryKey: ["radar-results", activeProject?.id, keywordIdsKey],
     queryFn: async () => {
       if (!activeProject) return [];
       const kwIds = keywords.map((k: any) => k.id);
@@ -164,7 +165,7 @@ export default function RadarPage() {
       if (error) throw error;
       return data || [];
     },
-    enabled: keywords.length > 0,
+    enabled: !!activeProject && keywords.length > 0,
   });
 
   // Share of Model calculations
@@ -320,7 +321,9 @@ export default function RadarPage() {
       }
       return resp.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await refetchKeywords();
+      await refetchResults();
       queryClient.invalidateQueries({ queryKey: ["radar-results"] });
       queryClient.invalidateQueries({ queryKey: ["radar-keywords"] });
       toast.success("Проверка завершена");
