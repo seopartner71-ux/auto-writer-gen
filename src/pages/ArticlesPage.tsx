@@ -498,6 +498,7 @@ export default function ArticlesPage() {
             const parsed = JSON.parse(jsonStr);
             const delta = parsed.choices?.[0]?.delta?.content;
             if (delta) {
+              if (!fullContent) setStreamPhase("writing");
               fullContent += delta;
               setContent(fullContent);
             }
