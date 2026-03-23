@@ -364,6 +364,9 @@ serve(async (req) => {
       userPrompt = buildNewArticleUserPrompt(keyword, outlineStr, competitorStr, lsiStr, questionsStr);
     }
 
+    // Use author's temperature if set, otherwise default
+    const authorTemperature = authorData?.temperature ? Number(authorData.temperature) : 0.85;
+
     // Stream AI response
     const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -378,7 +381,7 @@ serve(async (req) => {
           { role: "user", content: userPrompt },
         ],
         stream: true,
-        temperature: 0.85,
+        temperature: authorTemperature,
       }),
     });
 
