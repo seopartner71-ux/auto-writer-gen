@@ -287,7 +287,7 @@ export function FaqManagementTab() {
                 </div>
 
                 <div>
-                  <Label className="text-xs">Содержание (поддерживается Markdown: # ## ### - > **bold**)</Label>
+                  <Label className="text-xs">{"Содержание (Markdown: # ## ### - > **bold**)"}</Label>
                   <Textarea
                     value={editingArticle.content || ""}
                     onChange={(e) => setEditingArticle({ ...editingArticle, content: e.target.value })}
