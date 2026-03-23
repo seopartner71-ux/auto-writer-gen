@@ -1364,6 +1364,43 @@ export default function ArticlesPage() {
       </div>
       </>
       )}
+
+      {/* Credits Modal */}
+      <Dialog open={showCreditsModal} onOpenChange={setShowCreditsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+              </div>
+              <div>
+                <DialogTitle>Недостаточно кредитов</DialogTitle>
+                <DialogDescription className="mt-1">
+                  У вас закончились кредиты на генерацию статей
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="rounded-lg bg-muted/50 p-4 text-center">
+              <p className="text-3xl font-bold text-destructive">0</p>
+              <p className="text-xs text-muted-foreground mt-1">кредитов осталось</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Каждая сгенерированная статья = 1 кредит. Перейдите на более высокий тариф или пополните баланс кредитов.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowCreditsModal(false)}>
+                Закрыть
+              </Button>
+              <Button className="flex-1" onClick={() => { setShowCreditsModal(false); navigate("/pricing"); }}>
+                <CreditCard className="h-4 w-4 mr-1.5" />
+                Пополнить
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
