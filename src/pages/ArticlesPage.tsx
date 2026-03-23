@@ -688,6 +688,9 @@ export default function ArticlesPage() {
       ) : (
       <>
 
+            <TabsContent value="human" className="mt-3">
+              <HumanScorePanel content={content} lsiKeywords={lsiKeywords} />
+            </TabsContent>
 
       {/* Configuration */}
       <div className="rounded-lg border border-border bg-card p-4">
