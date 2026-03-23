@@ -488,7 +488,7 @@ export default function RadarPage() {
                       key={d.model}
                       value={d.value}
                       label={d.label}
-                      color={d.value > 30 ? "hsl(var(--primary))" : d.value > 0 ? "hsl(var(--warning))" : "hsl(var(--muted-foreground))"}
+                      color={getRadialColor(d.value)}
                     />
                   ))}
                   <RadialChart
