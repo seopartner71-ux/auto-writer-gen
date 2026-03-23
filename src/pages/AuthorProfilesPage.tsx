@@ -309,15 +309,17 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
             <div>
               <CardTitle className="text-base">{author.name}</CardTitle>
               <div className="flex items-center gap-2 mt-1">
-                {author.niche && (
-                  <Badge variant="secondary" className="text-xs">
-                    {author.niche}
-                  </Badge>
+                {author.type === "preset" && (
+                  <Badge className="text-xs bg-primary/20 text-primary border-0">Встроенный</Badge>
                 )}
-                {toneLabel && (
-                  <Badge variant="outline" className="text-xs">
-                    {toneLabel}
-                  </Badge>
+                {author.description && author.type === "preset" && (
+                  <Badge variant="outline" className="text-xs">{author.description}</Badge>
+                )}
+                {author.niche && (
+                  <Badge variant="secondary" className="text-xs">{author.niche}</Badge>
+                )}
+                {toneLabel && author.type !== "preset" && (
+                  <Badge variant="outline" className="text-xs">{toneLabel}</Badge>
                 )}
                 {author.style_analysis && (
                   <Badge className="text-xs bg-primary/20 text-primary border-0">
