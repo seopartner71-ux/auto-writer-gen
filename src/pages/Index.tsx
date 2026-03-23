@@ -159,7 +159,7 @@ export default function Index() {
               <p className="text-sm font-medium text-hero-muted">SEO Benchmark</p>
               <p className="text-lg font-bold text-white">«Fitness retreats Arizona 2026»</p>
             </div>
-            <span className="rounded-full bg-green-500/20 px-3 py-1 text-xs font-semibold text-green-400">
+            <span className="rounded-full bg-purple-500/20 px-3 py-1 text-xs font-semibold text-purple-400">
               Анализ завершён
             </span>
           </div>

@@ -472,7 +472,7 @@ export default function WordPressPage() {
                     }`}
                     onClick={() => setSelectedSiteId(site.id)}
                   >
-                    <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${site.is_connected ? "bg-green-500" : "bg-red-500"}`} />
+                    <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${site.is_connected ? "bg-purple-500" : "bg-red-500"}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">
                         {site.site_name || site.site_url.replace(/https?:\/\//, "")}
@@ -749,7 +749,7 @@ export default function WordPressPage() {
                   <div className="shrink-0">
                     {sp.status === "pending" && <Clock className="h-4 w-4 text-yellow-500" />}
                     {sp.status === "processing" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                    {sp.status === "published" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                    {sp.status === "published" && <CheckCircle2 className="h-4 w-4 text-purple-500" />}
                     {sp.status === "failed" && <AlertCircle className="h-4 w-4 text-destructive" />}
                   </div>
                   <div className="flex-1 min-w-0">
