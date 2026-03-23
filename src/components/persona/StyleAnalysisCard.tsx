@@ -1,19 +1,20 @@
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface Props {
   analysis: Record<string, unknown>;
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  paragraph_length: "Длина абзацев",
-  avg_sentences_per_paragraph: "Предложений/абзац",
-  sentence_complexity: "Сложность предложений",
-  tone_description: "Описание тона",
-  metaphor_usage: "Метафоры",
-  emoji_frequency: "Эмодзи",
-  vocabulary_level: "Уровень словаря",
-  formality: "Формальность",
+const FIELD_KEYS: Record<string, string> = {
+  paragraph_length: "sa.paragraphLength",
+  avg_sentences_per_paragraph: "sa.sentencesPerParagraph",
+  sentence_complexity: "sa.sentenceComplexity",
+  tone_description: "sa.toneDescription",
+  metaphor_usage: "sa.metaphorUsage",
+  emoji_frequency: "sa.emojiFrequency",
+  vocabulary_level: "sa.vocabularyLevel",
+  formality: "sa.formality",
 };
 
 const VALUE_COLORS: Record<string, string> = {
@@ -37,15 +38,16 @@ const VALUE_COLORS: Record<string, string> = {
 };
 
 export function StyleAnalysisCard({ analysis }: Props) {
-  const mainFields = Object.entries(FIELD_LABELS);
+  const { t } = useI18n();
+  const mainFields = Object.entries(FIELD_KEYS);
   const devices = (analysis.stylistic_devices as string[]) || [];
 
   return (
     <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4">
-      <Label className="text-sm font-medium">Результат анализа стиля</Label>
+      <Label className="text-sm font-medium">{t("sa.resultTitle")}</Label>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {mainFields.map(([key, label]) => {
+        {mainFields.map(([key, i18nKey]) => {
           const value = analysis[key];
           if (value === undefined || value === null) return null;
 
@@ -54,7 +56,7 @@ export function StyleAnalysisCard({ analysis }: Props) {
 
           return (
             <div key={key} className="flex items-center justify-between rounded-md bg-background px-3 py-2">
-              <span className="text-xs text-muted-foreground">{label}</span>
+              <span className="text-xs text-muted-foreground">{t(i18nKey)}</span>
               {key === "tone_description" ? (
                 <span className="text-xs font-medium text-right max-w-[60%]">{strValue}</span>
               ) : key === "avg_sentences_per_paragraph" ? (
@@ -71,7 +73,7 @@ export function StyleAnalysisCard({ analysis }: Props) {
 
       {devices.length > 0 && (
         <div className="space-y-2">
-          <span className="text-xs text-muted-foreground">Стилистические приёмы</span>
+          <span className="text-xs text-muted-foreground">{t("sa.stylisticDevices")}</span>
           <div className="flex flex-wrap gap-1.5">
             {devices.map((d, i) => (
               <Badge key={i} variant="outline" className="text-xs">
