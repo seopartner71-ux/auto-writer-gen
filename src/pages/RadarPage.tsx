@@ -88,6 +88,8 @@ export default function RadarPage() {
     brand_mentioned: boolean; domain_linked: boolean;
     matched_snippets: string[]; status: string; keyword: string;
   } | null>(null);
+  const [responseOpen, setResponseOpen] = useState(false);
+  const responseRef = useRef<HTMLDivElement>(null);
 
   // Fetch projects
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
