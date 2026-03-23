@@ -910,7 +910,11 @@ export default function ArticlesPage() {
                 {isStreaming && (
                   <div className="flex items-center gap-2 mb-3 text-sm text-primary">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Генерация текста...</span>
+                    <span>
+                      {streamPhase === "thinking"
+                        ? `Модель думает... ${streamElapsed}с`
+                        : `Генерация текста... ${streamElapsed}с`}
+                    </span>
                   </div>
                 )}
                 <TabsContent value="edit" className="mt-0">
