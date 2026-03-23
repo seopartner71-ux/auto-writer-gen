@@ -12,9 +12,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Save, Trash2 } from "lucide-react";
+import { Users, Save, Trash2, Coins } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { AddCreditsDialog } from "./AddCreditsDialog";
 
 interface UserProfile {
   id: string;
