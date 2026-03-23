@@ -122,7 +122,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     maxAuthorProfiles: 5,
     maxProImages: 0,
     models: ["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash", "openai/gpt-5-nano"],
-    hasCalendar: true,
+    hasCalendar: false,
     hasUniquenessCheck: true,
     hasJsonLdSchema: true,
     hasFullSerp: true,
