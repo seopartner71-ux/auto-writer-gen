@@ -839,6 +839,41 @@ const translations: Record<string, Record<Lang, string>> = {
   "bench.loadingData": { ru: "Загрузка данных...", en: "Loading data..." },
   "bench.analyzingCompetitors": { ru: "Анализ конкурентов из ТОП-10...", en: "Analyzing TOP-10 competitors..." },
   "bench.aiExtracting": { ru: "AI извлекает сущности...", en: "AI extracting entities..." },
+
+  // PersonaSelector
+  "ps.authorStyle": { ru: "Стиль автора", en: "Author style" },
+  "ps.createOwn": { ru: "Создать свой", en: "Create custom" },
+  "ps.createStyle": { ru: "Создать свой стиль", en: "Create custom style" },
+  "ps.authorName": { ru: "Имя автора", en: "Author name" },
+  "ps.authorNamePlaceholder": { ru: "Например: Мой бренд-голос", en: "E.g.: My brand voice" },
+  "ps.instruction": { ru: "Инструкция (системный промпт)", en: "Instruction (system prompt)" },
+  "ps.instructionPlaceholder": { ru: "Опишите стиль: тон, лексику, длину предложений, характерные обороты...", en: "Describe the style: tone, vocabulary, sentence length, typical phrases..." },
+  "ps.sampleLabel": { ru: "Sample Text (необязательно)", en: "Sample Text (optional)" },
+  "ps.sampleHint": { ru: "Вставьте пример вашего текста — ИИ проанализирует стиль и дополнит инструкцию", en: "Paste a sample of your text — AI will analyze the style and enhance the instruction" },
+  "ps.samplePlaceholder": { ru: "Вставьте текст, написанный в нужном стиле (мин. 100 символов)...", en: "Paste text written in the desired style (min. 100 characters)..." },
+  "ps.analyzing": { ru: "Анализируем стиль...", en: "Analyzing style..." },
+  "ps.analyzeBtn": { ru: "Проанализировать стиль", en: "Analyze style" },
+  "ps.min100": { ru: "Вставьте хотя бы 100 символов текста для анализа", en: "Paste at least 100 characters of text for analysis" },
+  "ps.styleAdded": { ru: "Стиль проанализирован и добавлен в инструкцию", en: "Style analyzed and added to instruction" },
+  "ps.analyzeError": { ru: "Ошибка анализа стиля", en: "Style analysis error" },
+  "ps.enterName": { ru: "Введите имя автора", en: "Enter author name" },
+  "ps.enterInstruction": { ru: "Введите инструкцию", en: "Enter instruction" },
+  "ps.authorCreated": { ru: "Автор создан", en: "Author created" },
+  "ps.createError": { ru: "Ошибка создания", en: "Creation error" },
+  "ps.noStyle": { ru: "Без стиля", en: "No style" },
+  "ps.defaultCopywriter": { ru: "Стандартный SEO-копирайтер", en: "Standard SEO copywriter" },
+
+  // StyleAnalysisCard
+  "sa.resultTitle": { ru: "Результат анализа стиля", en: "Style analysis result" },
+  "sa.paragraphLength": { ru: "Длина абзацев", en: "Paragraph length" },
+  "sa.sentencesPerParagraph": { ru: "Предложений/абзац", en: "Sentences/paragraph" },
+  "sa.sentenceComplexity": { ru: "Сложность предложений", en: "Sentence complexity" },
+  "sa.toneDescription": { ru: "Описание тона", en: "Tone description" },
+  "sa.metaphorUsage": { ru: "Метафоры", en: "Metaphors" },
+  "sa.emojiFrequency": { ru: "Эмодзи", en: "Emoji" },
+  "sa.vocabularyLevel": { ru: "Уровень словаря", en: "Vocabulary level" },
+  "sa.formality": { ru: "Формальность", en: "Formality" },
+  "sa.stylisticDevices": { ru: "Стилистические приёмы", en: "Stylistic devices" },
 };
 
 interface I18nContextValue {

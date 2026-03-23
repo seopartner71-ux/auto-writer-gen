@@ -18,14 +18,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  ShieldAlert,
-  Heart,
-  Cpu,
-  Flame,
-  GraduationCap,
-  User,
+  ShieldAlert, Heart, Cpu, Flame, GraduationCap, User,
 };
 
 interface AuthorProfile {
@@ -47,6 +43,7 @@ interface PersonaSelectorProps {
 }
 
 export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelectorProps) {
+  const { t } = useI18n();
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newInstruction, setNewInstruction] = useState("");
@@ -60,7 +57,7 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
 
   const handleAnalyzeSample = useCallback(async () => {
     if (!sampleText || sampleText.length < 100) {
-      toast.error("Вставьте хотя бы 100 символов текста для анализа");
+      toast.error(t("ps.min100"));
       return;
     }
     setIsAnalyzing(true);
@@ -75,18 +72,18 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
             ? `${prev}\n\n${data.analysis.recommended_system_prompt}`
             : data.analysis.recommended_system_prompt
         );
-        toast.success("Стиль проанализирован и добавлен в инструкцию");
+        toast.success(t("ps.styleAdded"));
       }
     } catch (e: any) {
-      toast.error(e.message || "Ошибка анализа стиля");
+      toast.error(e.message || t("ps.analyzeError"));
     } finally {
       setIsAnalyzing(false);
     }
-  }, [sampleText]);
+  }, [sampleText, t]);
 
   const handleCreateAuthor = useCallback(async () => {
-    if (!newName.trim()) { toast.error("Введите имя автора"); return; }
-    if (!newInstruction.trim()) { toast.error("Введите инструкцию"); return; }
+    if (!newName.trim()) { toast.error(t("ps.enterName")); return; }
+    if (!newInstruction.trim()) { toast.error(t("ps.enterInstruction")); return; }
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -102,61 +99,61 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
       });
       if (error) throw error;
 
-      toast.success("Автор создан");
+      toast.success(t("ps.authorCreated"));
       setCreateOpen(false);
       setNewName("");
       setNewInstruction("");
       setSampleText("");
       queryClient.invalidateQueries({ queryKey: ["author-profiles-for-writer"] });
     } catch (e: any) {
-      toast.error(e.message || "Ошибка создания");
+      toast.error(e.message || t("ps.createError"));
     } finally {
       setIsSaving(false);
     }
-  }, [newName, newInstruction, queryClient]);
+  }, [newName, newInstruction, queryClient, t]);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">Стиль автора</Label>
+        <Label className="text-xs text-muted-foreground">{t("ps.authorStyle")}</Label>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1">
-              <Plus className="h-3 w-3" /> Создать свой
+              <Plus className="h-3 w-3" /> {t("ps.createOwn")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Создать свой стиль</DialogTitle>
+              <DialogTitle>{t("ps.createStyle")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label className="text-xs">Имя автора</Label>
+                <Label className="text-xs">{t("ps.authorName")}</Label>
                 <Input
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
-                  placeholder="Например: Мой бренд-голос"
+                  placeholder={t("ps.authorNamePlaceholder")}
                   className="mt-1"
                 />
               </div>
               <div>
-                <Label className="text-xs">Инструкция (системный промпт)</Label>
+                <Label className="text-xs">{t("ps.instruction")}</Label>
                 <Textarea
                   value={newInstruction}
                   onChange={e => setNewInstruction(e.target.value)}
-                  placeholder="Опишите стиль: тон, лексику, длину предложений, характерные обороты..."
+                  placeholder={t("ps.instructionPlaceholder")}
                   className="mt-1 min-h-[120px] font-mono text-xs"
                 />
               </div>
               <div>
-                <Label className="text-xs">Sample Text (необязательно)</Label>
+                <Label className="text-xs">{t("ps.sampleLabel")}</Label>
                 <p className="text-[10px] text-muted-foreground mb-1">
-                  Вставьте пример вашего текста — ИИ проанализирует стиль и дополнит инструкцию
+                  {t("ps.sampleHint")}
                 </p>
                 <Textarea
                   value={sampleText}
                   onChange={e => setSampleText(e.target.value)}
-                  placeholder="Вставьте текст, написанный в нужном стиле (мин. 100 символов)..."
+                  placeholder={t("ps.samplePlaceholder")}
                   className="mt-1 min-h-[100px] text-xs"
                 />
                 <Button
@@ -167,34 +164,31 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
                   onClick={handleAnalyzeSample}
                 >
                   {isAnalyzing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
-                  {isAnalyzing ? "Анализируем стиль..." : "Проанализировать стиль"}
+                  {isAnalyzing ? t("ps.analyzing") : t("ps.analyzeBtn")}
                 </Button>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Отмена</Button>
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>{t("common.cancel")}</Button>
               <Button onClick={handleCreateAuthor} disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
-                Создать
+                {t("common.create")}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Horizontal scrolling card grid */}
       <TooltipProvider delayDuration={300}>
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
-          {/* "No style" card */}
           <PersonaCard
-            name="Без стиля"
-            description="Стандартный SEO-копирайтер"
+            name={t("ps.noStyle")}
+            description={t("ps.defaultCopywriter")}
             icon="User"
             isActive={!selectedId || selectedId === "none"}
             onClick={() => onSelect("none")}
           />
 
-          {/* Preset cards */}
           {presets.map(a => (
             <PersonaCard
               key={a.id}
@@ -207,7 +201,6 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
             />
           ))}
 
-          {/* Custom cards */}
           {customs.map(a => (
             <PersonaCard
               key={a.id}
@@ -226,21 +219,10 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
 }
 
 function PersonaCard({
-  name,
-  description,
-  icon,
-  isActive,
-  onClick,
-  temperature,
-  isCustom,
+  name, description, icon, isActive, onClick, temperature, isCustom,
 }: {
-  name: string;
-  description: string;
-  icon: string;
-  isActive: boolean;
-  onClick: () => void;
-  temperature?: number;
-  isCustom?: boolean;
+  name: string; description: string; icon: string; isActive: boolean;
+  onClick: () => void; temperature?: number; isCustom?: boolean;
 }) {
   const Icon = ICON_MAP[icon] || User;
 
@@ -253,10 +235,7 @@ function PersonaCard({
             flex-shrink-0 flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all
             w-[100px] min-w-[100px] cursor-pointer text-center
             hover:border-primary/50 hover:bg-accent/50
-            ${isActive
-              ? "border-primary bg-primary/5 shadow-sm"
-              : "border-border bg-card"
-            }
+            ${isActive ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card"}
           `}
         >
           <div className={`
@@ -265,15 +244,9 @@ function PersonaCard({
           `}>
             <Icon className="h-4 w-4" />
           </div>
-          <span className="text-[11px] font-medium leading-tight line-clamp-2">
-            {name}
-          </span>
-          {isActive && (
-            <Check className="h-3 w-3 text-primary" />
-          )}
-          {isCustom && (
-            <Badge variant="outline" className="text-[8px] px-1 py-0">custom</Badge>
-          )}
+          <span className="text-[11px] font-medium leading-tight line-clamp-2">{name}</span>
+          {isActive && <Check className="h-3 w-3 text-primary" />}
+          {isCustom && <Badge variant="outline" className="text-[8px] px-1 py-0">custom</Badge>}
         </button>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="max-w-[220px]">
