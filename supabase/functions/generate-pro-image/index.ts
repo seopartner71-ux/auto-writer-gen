@@ -179,7 +179,7 @@ serve(async (req) => {
     if (!OPENROUTER_API_KEY) throw new Error("Ключ OpenRouter не настроен");
 
     const body = await req.json();
-    const { title, summary, style, keyword, mode, content } = body;
+    const { title, summary, style, keyword, mode, content, max_images } = body;
     if (!title) throw new Error("Title is required");
 
     const stylePrompt = STYLE_PRESETS[style] || STYLE_PRESETS["modern-tech"];
