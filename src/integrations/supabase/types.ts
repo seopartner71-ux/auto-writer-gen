@@ -453,6 +453,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string | null
+          credits_amount: number
           email: string | null
           full_name: string | null
           gsc_json_key: string | null
@@ -463,6 +464,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          credits_amount?: number
           email?: string | null
           full_name?: string | null
           gsc_json_key?: string | null
@@ -473,6 +475,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          credits_amount?: number
           email?: string | null
           full_name?: string | null
           gsc_json_key?: string | null
@@ -915,6 +918,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_credits: { Args: { p_user_id: string }; Returns: number }
+      deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

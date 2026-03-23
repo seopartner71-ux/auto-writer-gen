@@ -148,14 +148,16 @@ export function AppSidebar() {
 
       {!collapsed && (
         <SidebarFooter>
-          <div className="px-4 py-3 border-t border-sidebar-border">
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+          <div className="px-4 py-3 border-t border-sidebar-border space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{t("nav.plan")}</span>
               <span className="font-medium text-primary uppercase">{plan}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{t("nav.limit")}</span>
-              <span>{limits.maxGenerations} {t("nav.perMonth")}</span>
+              <span>Кредиты</span>
+              <span className={`font-bold ${(profile?.credits_amount ?? 0) > 0 ? "text-success" : "text-destructive"}`}>
+                {profile?.credits_amount ?? 0} статей
+              </span>
             </div>
           </div>
         </SidebarFooter>

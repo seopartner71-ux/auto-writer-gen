@@ -1,4 +1,4 @@
-import { Check, X, Zap, Crown, Sparkles } from "lucide-react";
+import { Check, X, Zap, Crown, Sparkles, CreditCard } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,19 +16,18 @@ const plans = [
     icon: Sparkles,
     description: "Для знакомства с платформой",
     badge: null,
+    credits: 5,
     features: [
-      { text: "5 генераций в месяц", included: true },
+      { text: "5 SEO-статей под ключ", included: true },
       { text: "Базовое исследование ключевых слов", included: true },
       { text: "1 профиль автора", included: true },
       { text: "Экспорт в HTML", included: true },
       { text: "Просмотр HTML-кода с подсветкой синтаксиса", included: true },
       { text: "SEO-аналитика (базовая)", included: true },
       { text: "AI модели: Gemini Flash Lite", included: true },
-      { text: "Планировщик календаря", included: false },
       { text: "Проверка уникальности", included: false },
       { text: "JSON-LD микроразметка", included: false },
       { text: "Публикация в WordPress", included: false },
-      { text: "Запланированные публикации в WP", included: false },
       { text: "Массовая генерация (Factory Mode)", included: false },
       { text: "Pro Visual Synthesis (AI-обложки)", included: false },
       { text: "Мгновенная индексация", included: false },
@@ -43,8 +42,9 @@ const plans = [
     icon: Zap,
     description: "Для контент-маркетологов и блогеров",
     badge: "Популярный",
+    credits: 30,
     features: [
-      { text: "30 генераций в месяц", included: true },
+      { text: "30 SEO-статей под ключ", included: true },
       { text: "Полное SERP-исследование", included: true },
       { text: "5 профилей авторов", included: true },
       { text: "Экспорт в HTML + Markdown", included: true },
@@ -54,7 +54,6 @@ const plans = [
       { text: "Проверка уникальности", included: true },
       { text: "JSON-LD микроразметка", included: true },
       { text: "Публикация в WordPress", included: true },
-      { text: "Запланированные публикации в WP", included: true },
       { text: "Массовая генерация (Factory Mode)", included: false },
       { text: "Pro Visual Synthesis (AI-обложки)", included: false },
       { text: "Мгновенная индексация", included: false },
@@ -69,8 +68,9 @@ const plans = [
     icon: Crown,
     description: "Для агентств и SEO-команд",
     badge: "Максимум",
+    credits: 100,
     features: [
-      { text: "100 генераций в месяц", included: true },
+      { text: "100 SEO-статей под ключ", included: true },
       { text: "Полное SERP + конкурентный анализ", included: true },
       { text: "Безлимитные профили авторов", included: true },
       { text: "Все форматы экспорта", included: true },
@@ -81,8 +81,6 @@ const plans = [
       { text: "Проверка уникальности + Anti-AI", included: true },
       { text: "JSON-LD + все типы разметки", included: true },
       { text: "Публикация в WordPress", included: true },
-      { text: "Запланированные публикации в WP", included: true },
-      { text: "Массовая генерация (Factory Mode)", included: true },
       { text: "Pro Visual Synthesis — 100 AI-обложек/мес", included: true },
       { text: "Мгновенная индексация", included: true },
       { text: "Приоритетная поддержка 24/7", included: true },
@@ -94,6 +92,7 @@ export default function PricingPage() {
   const { profile, user } = useAuth();
   const queryClient = useQueryClient();
   const currentPlan = profile?.plan ?? "free";
+  const currentCredits = profile?.credits_amount ?? 0;
 
   const handleSelectPlan = async (planId: string) => {
     if (!user) {
@@ -102,18 +101,19 @@ export default function PricingPage() {
     }
     if (planId === currentPlan) return;
 
+    const selectedPlan = plans.find(p => p.id === planId);
     const { error } = await supabase
       .from("profiles")
       .update({
         plan: planId,
-        monthly_limit: planId === "free" ? 5 : planId === "basic" ? 30 : 100,
+        credits_amount: selectedPlan?.credits ?? 0,
       })
       .eq("id", user.id);
 
     if (error) {
       toast.error("Ошибка смены тарифа");
     } else {
-      toast.success(`Тариф изменён на ${plans.find(p => p.id === planId)?.name}`);
+      toast.success(`Тариф изменён на ${selectedPlan?.name}. Начислено ${selectedPlan?.credits} кредитов.`);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
     }
   };
@@ -123,8 +123,26 @@ export default function PricingPage() {
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">Тарифные планы</h1>
         <p className="text-muted-foreground max-w-lg mx-auto">
-          Выберите подходящий тариф для создания SEO-оптимизированного контента с помощью AI
+          Выберите подходящий тариф. 1 кредит = 1 полноценная SEO-статья под ключ.
         </p>
+      </div>
+
+      {/* Current balance card */}
+      <div className="max-w-sm mx-auto">
+        <Card className="bg-card border-border">
+          <CardContent className="flex items-center justify-between py-4 px-5">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Ваш баланс</p>
+                <p className="text-lg font-bold">{currentCredits} кредитов</p>
+              </div>
+            </div>
+            <Badge variant="outline" className="uppercase">{currentPlan}</Badge>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto">
@@ -164,6 +182,11 @@ export default function PricingPage() {
                   <span className="text-4xl font-bold">{plan.price}</span>
                   <span className="text-sm text-muted-foreground ml-1">{plan.period}</span>
                 </div>
+                <div className="pt-2">
+                  <Badge variant="secondary" className="text-sm font-semibold px-3 py-1">
+                    {plan.credits} статей / мес
+                  </Badge>
+                </div>
               </CardHeader>
 
               <CardContent className="flex-1 flex flex-col">
@@ -197,8 +220,8 @@ export default function PricingPage() {
       </div>
 
       <div className="text-center text-xs text-muted-foreground max-w-lg mx-auto">
-        Все тарифы включают доступ к базовым функциям платформы.
-        Обновление тарифа вступает в силу немедленно.
+        1 кредит = 1 полноценная SEO-статья. Кредит списывается только после успешной генерации.
+        При смене тарифа кредиты обновляются.
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,9 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -216,6 +217,7 @@ ${body}
 
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
   const [mode, setMode] = useState<"single" | "bulk">("single");
@@ -309,6 +311,7 @@ export default function ArticlesPage() {
   const [schemaGenerating, setSchemaGenerating] = useState(false);
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -469,6 +472,12 @@ export default function ArticlesPage() {
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Unknown error" }));
+        if (resp.status === 402) {
+          setShowCreditsModal(true);
+          setIsStreaming(false);
+          setStreamPhase(null);
+          return;
+        }
         throw new Error(err.error || `HTTP ${resp.status}`);
       }
 
@@ -1355,6 +1364,43 @@ export default function ArticlesPage() {
       </div>
       </>
       )}
+
+      {/* Credits Modal */}
+      <Dialog open={showCreditsModal} onOpenChange={setShowCreditsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+              </div>
+              <div>
+                <DialogTitle>Недостаточно кредитов</DialogTitle>
+                <DialogDescription className="mt-1">
+                  У вас закончились кредиты на генерацию статей
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="rounded-lg bg-muted/50 p-4 text-center">
+              <p className="text-3xl font-bold text-destructive">0</p>
+              <p className="text-xs text-muted-foreground mt-1">кредитов осталось</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Каждая сгенерированная статья = 1 кредит. Перейдите на более высокий тариф или пополните баланс кредитов.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowCreditsModal(false)}>
+                Закрыть
+              </Button>
+              <Button className="flex-1" onClick={() => { setShowCreditsModal(false); navigate("/pricing"); }}>
+                <CreditCard className="h-4 w-4 mr-1.5" />
+                Пополнить
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
