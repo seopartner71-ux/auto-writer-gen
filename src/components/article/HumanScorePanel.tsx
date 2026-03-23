@@ -109,16 +109,16 @@ function computeAiProbability(text: string): { score: number; flags: string[] } 
   return { score: safety, flags };
 }
 
-function getBurstLabel(score: number): { label: string; color: string } {
-  if (score >= 70) return { label: "Отлично", color: "text-green-500" };
-  if (score >= 45) return { label: "Хорошо", color: "text-yellow-500" };
-  return { label: "Низкая", color: "text-red-500" };
+function getBurstLabel(score: number): { label: string; color: string; progressColor: string } {
+  if (score >= 70) return { label: "Отлично", color: "text-green-500", progressColor: "bg-green-500" };
+  if (score >= 45) return { label: "Хорошо", color: "text-yellow-500", progressColor: "bg-yellow-500" };
+  return { label: "Низкая", color: "text-red-500", progressColor: "bg-red-500" };
 }
 
-function getAiSafetyLabel(score: number): { label: string; color: string } {
-  if (score >= 75) return { label: "Безопасно", color: "text-green-500" };
-  if (score >= 50) return { label: "Средний риск", color: "text-yellow-500" };
-  return { label: "Высокий риск", color: "text-red-500" };
+function getAiSafetyLabel(score: number): { label: string; color: string; progressColor: string } {
+  if (score >= 75) return { label: "Безопасно", color: "text-green-500", progressColor: "bg-green-500" };
+  if (score >= 50) return { label: "Средний риск", color: "text-yellow-500", progressColor: "bg-yellow-500" };
+  return { label: "Высокий риск", color: "text-red-500", progressColor: "bg-red-500" };
 }
 
 export function HumanScorePanel({ content, lsiKeywords }: HumanScorePanelProps) {
@@ -170,7 +170,7 @@ export function HumanScorePanel({ content, lsiKeywords }: HumanScorePanelProps) 
               <span>Безопасность от детекторов</span>
               <span className={`font-bold ${aiLabel.color}`}>{aiProb.score}%</span>
             </div>
-            <Progress value={aiProb.score} className="h-2.5" />
+            <Progress value={aiProb.score} className="h-2.5" indicatorClassName={aiLabel.progressColor} />
           </div>
           <div className="space-y-1">
             {aiProb.flags.map((flag, i) => (
@@ -204,7 +204,7 @@ export function HumanScorePanel({ content, lsiKeywords }: HumanScorePanelProps) 
               <span>Разнообразие длины предложений</span>
               <span className="font-mono font-bold">{burstiness.score}%</span>
             </div>
-            <Progress value={burstiness.score} className="h-2.5" />
+            <Progress value={burstiness.score} className="h-2.5" indicatorClassName={burstLabel.progressColor} />
             <p className="text-[10px] text-muted-foreground mt-1">
               Чем выше — тем больше вариация (как у человека)
             </p>
@@ -216,7 +216,7 @@ export function HumanScorePanel({ content, lsiKeywords }: HumanScorePanelProps) 
               {burstiness.lengths.slice(0, 40).map((len, i) => {
                 const maxL = Math.max(...burstiness.lengths.slice(0, 40));
                 const h = maxL > 0 ? (len / maxL) * 100 : 0;
-                const color = len <= 5 ? "bg-blue-400" : len <= 15 ? "bg-primary" : "bg-orange-400";
+                const color = len <= 5 ? "bg-red-400" : len <= 15 ? "bg-yellow-400" : "bg-green-400";
                 return (
                   <div
                     key={i}
