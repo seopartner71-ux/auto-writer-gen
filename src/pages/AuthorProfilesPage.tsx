@@ -17,7 +17,7 @@ import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 
 interface AuthorProfile {
   id: string;
-  user_id: string;
+  user_id: string | null;
   name: string;
   niche: string | null;
   voice_tone: string | null;
@@ -26,6 +26,11 @@ interface AuthorProfile {
   system_prompt_override: string | null;
   style_analysis: Record<string, unknown> | null;
   created_at: string;
+  type?: string;
+  description?: string;
+  avatar_icon?: string;
+  system_instruction?: string;
+  temperature?: number;
 }
 
 const TONE_OPTIONS = [
@@ -304,15 +309,17 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
             <div>
               <CardTitle className="text-base">{author.name}</CardTitle>
               <div className="flex items-center gap-2 mt-1">
-                {author.niche && (
-                  <Badge variant="secondary" className="text-xs">
-                    {author.niche}
-                  </Badge>
+                {author.type === "preset" && (
+                  <Badge className="text-xs bg-primary/20 text-primary border-0">Встроенный</Badge>
                 )}
-                {toneLabel && (
-                  <Badge variant="outline" className="text-xs">
-                    {toneLabel}
-                  </Badge>
+                {author.description && author.type === "preset" && (
+                  <Badge variant="outline" className="text-xs">{author.description}</Badge>
+                )}
+                {author.niche && (
+                  <Badge variant="secondary" className="text-xs">{author.niche}</Badge>
+                )}
+                {toneLabel && author.type !== "preset" && (
+                  <Badge variant="outline" className="text-xs">{toneLabel}</Badge>
                 )}
                 {author.style_analysis && (
                   <Badge className="text-xs bg-primary/20 text-primary border-0">
@@ -333,111 +340,132 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
             <Button variant="ghost" size="icon" onClick={onToggle}>
               {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-destructive hover:text-destructive"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {author.type !== "preset" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:text-destructive"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
 
       {expanded && (
         <CardContent className="space-y-4 pt-0">
-          {/* Reference Text — the core style sample */}
-          <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-4">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              <Label className="text-sm font-semibold">Эталонный текст автора</Label>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Вставьте текст, написанный этим автором. ИИ будет копировать этот стиль при генерации статей.
-              Чем больше текста — тем точнее стиль.
-            </p>
-            <Textarea
-              placeholder="Вставьте сюда текст автора (статья, пост, эссе)... Минимум 200 символов для качественного результата."
-              rows={10}
-              value={referenceText}
-              onChange={(e) => {
-                setReferenceText(e.target.value);
-                setRefDirty(true);
-              }}
-              className="bg-background font-mono text-sm leading-relaxed"
-            />
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                {referenceText.length} символов
-                {referenceText.length > 0 && referenceText.length < 200 && (
-                  <span className="text-warning ml-1">(рекомендуется ≥200)</span>
-                )}
-                {referenceText.length >= 200 && (
-                  <span className="text-success ml-1">✓ достаточно для анализа</span>
-                )}
+          {/* System Instruction (for presets and custom with instruction) */}
+          {author.system_instruction && (
+            <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-4">
+              <Label className="text-sm font-semibold">Промпт стиля</Label>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-background rounded-md p-3">
+                {author.system_instruction}
               </p>
-              <div className="flex gap-2">
-                {refDirty && (
-                  <Button
-                    size="sm"
-                    onClick={() => saveReference.mutate()}
-                    disabled={saveReference.isPending}
-                  >
-                    {saveReference.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4 mr-1" />
-                    )}
-                    Сохранить текст
-                  </Button>
-                )}
-                {!refDirty && referenceText.length > 0 && (
-                  <span className="flex items-center text-xs text-success gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Сохранено
-                  </span>
-                )}
+              {author.temperature && (
+                <p className="text-xs text-muted-foreground">Temperature: {Number(author.temperature)}</p>
+              )}
+            </div>
+          )}
+
+          {/* Reference Text — only for custom authors */}
+          {author.type !== "preset" && (
+            <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-semibold">Эталонный текст автора</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Вставьте текст, написанный этим автором. ИИ будет копировать этот стиль при генерации статей.
+                Чем больше текста — тем точнее стиль.
+              </p>
+              <Textarea
+                placeholder="Вставьте сюда текст автора (статья, пост, эссе)... Минимум 200 символов для качественного результата."
+                rows={10}
+                value={referenceText}
+                onChange={(e) => {
+                  setReferenceText(e.target.value);
+                  setRefDirty(true);
+                }}
+                className="bg-background font-mono text-sm leading-relaxed"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {referenceText.length} символов
+                  {referenceText.length > 0 && referenceText.length < 200 && (
+                    <span className="text-warning ml-1">(рекомендуется ≥200)</span>
+                  )}
+                  {referenceText.length >= 200 && (
+                    <span className="text-success ml-1">✓ достаточно для анализа</span>
+                  )}
+                </p>
+                <div className="flex gap-2">
+                  {refDirty && (
+                    <Button
+                      size="sm"
+                      onClick={() => saveReference.mutate()}
+                      disabled={saveReference.isPending}
+                    >
+                      {saveReference.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-1" />
+                      )}
+                      Сохранить текст
+                    </Button>
+                  )}
+                  {!refDirty && referenceText.length > 0 && (
+                    <span className="flex items-center text-xs text-success gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Сохранено
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <Separator />
+          {author.type !== "preset" && (
+            <>
+              <Separator />
 
-          {/* Style Analysis Section */}
-          <div className="space-y-3 rounded-lg bg-muted/50 p-4">
-            <Label className="text-sm font-medium">Анализ стиля</Label>
-            <p className="text-xs text-muted-foreground">
-              Проанализируйте эталонный текст, чтобы извлечь параметры стиля автоматически.
-            </p>
-            <Textarea
-              placeholder="Вставьте текст-образец автора (минимум 50 символов)..."
-              rows={6}
-              value={analyzeText}
-              onChange={(e) => setAnalyzeText(e.target.value)}
-              className="bg-background"
-            />
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                {analyzeText.length} символов {analyzeText.length < 50 && analyzeText.length > 0 ? "(минимум 50)" : ""}
-              </p>
-              <Button
-                size="sm"
-                disabled={analyzeText.trim().length < 50 || isAnalyzing}
-                onClick={() => onAnalyze(analyzeText)}
-              >
-                {isAnalyzing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
-                )}
-                Analyze Style
-              </Button>
-            </div>
-          </div>
+              {/* Style Analysis Section */}
+              <div className="space-y-3 rounded-lg bg-muted/50 p-4">
+                <Label className="text-sm font-medium">Анализ стиля</Label>
+                <p className="text-xs text-muted-foreground">
+                  Проанализируйте эталонный текст, чтобы извлечь параметры стиля автоматически.
+                </p>
+                <Textarea
+                  placeholder="Вставьте текст-образец автора (минимум 50 символов)..."
+                  rows={6}
+                  value={analyzeText}
+                  onChange={(e) => setAnalyzeText(e.target.value)}
+                  className="bg-background"
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {analyzeText.length} символов {analyzeText.length < 50 && analyzeText.length > 0 ? "(минимум 50)" : ""}
+                  </p>
+                  <Button
+                    size="sm"
+                    disabled={analyzeText.trim().length < 50 || isAnalyzing}
+                    onClick={() => onAnalyze(analyzeText)}
+                  >
+                    {isAnalyzing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    Analyze Style
+                  </Button>
+                </div>
+              </div>
 
-          {/* Results */}
-          {author.style_analysis && (
-            <StyleAnalysisCard analysis={author.style_analysis as Record<string, unknown>} />
+              {/* Results */}
+              {author.style_analysis && (
+                <StyleAnalysisCard analysis={author.style_analysis as Record<string, unknown>} />
+              )}
+            </>
           )}
 
           {/* System Prompt Override */}
