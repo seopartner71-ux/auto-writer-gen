@@ -10,9 +10,7 @@ const corsHeaders = {
 // Models to check via OpenRouter
 const ALL_AI_MODELS = [
   { key: "gemini_flash", model: "google/gemini-2.5-flash", label: "Gemini Flash" },
-  { key: "gemini_pro", model: "google/gemini-2.5-pro", label: "Gemini Pro" },
-  { key: "chatgpt", model: "openai/gpt-4.1-nano", label: "ChatGPT Nano" },
-  { key: "chatgpt_mini", model: "openai/gpt-4.1-mini", label: "ChatGPT Mini" },
+  { key: "chatgpt", model: "openai/gpt-4.1-nano", label: "ChatGPT" },
   { key: "perplexity", model: "perplexity/sonar", label: "Perplexity" },
   { key: "claude", model: "anthropic/claude-sonnet-4", label: "Claude" },
 ];

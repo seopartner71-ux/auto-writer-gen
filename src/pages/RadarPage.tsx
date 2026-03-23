@@ -135,7 +135,7 @@ export default function RadarPage() {
 
   // Share of Model calculations
   const somData = useMemo(() => {
-    const models = ["gemini_flash", "gemini_pro", "chatgpt", "chatgpt_mini", "perplexity", "claude"];
+    const models = ["gemini_flash", "chatgpt", "perplexity", "claude"];
     return models.map(model => {
       const modelResults = results.filter((r: any) => r.model === model);
       if (modelResults.length === 0) return { model, label: MODEL_LABELS[model], value: 0 };
