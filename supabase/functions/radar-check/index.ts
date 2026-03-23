@@ -23,6 +23,27 @@ interface CheckResult {
   matched_snippets: string[];
 }
 
+async function saveRadarResult(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  payload: {
+    user_id: string;
+    keyword_id: string;
+    model: string;
+    status: CheckResult["status"];
+    brand_mentioned: boolean;
+    domain_linked: boolean;
+    competitor_domains: string[];
+    ai_response_text: string;
+    matched_snippets: string[];
+    checked_at: string;
+  },
+) {
+  const { error } = await supabaseAdmin.from("radar_results").insert(payload);
+  if (error) {
+    console.error(`Failed to save radar result for ${payload.model}:`, error);
+  }
+}
+
 function extractDomains(text: string): string[] {
   const urlRegex = /https?:\/\/([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
   const domains = new Set<string>();
@@ -159,6 +180,7 @@ serve(async (req) => {
     if (!kw) throw new Error("Keyword not found");
 
     const results: CheckResult[] = [];
+    const checkedAt = new Date().toISOString();
 
     // Query each AI model
     for (const aiModel of AI_MODELS) {
@@ -193,8 +215,7 @@ serve(async (req) => {
           matched_snippets: matched_snippets.slice(0, 5),
         });
 
-        // Save result
-        await supabaseAdmin.from("radar_results").insert({
+        await saveRadarResult(supabaseAdmin, {
           user_id: user.id,
           keyword_id,
           model: aiModel.key,
@@ -204,11 +225,11 @@ serve(async (req) => {
           competitor_domains: competitorDomains.slice(0, 10),
           ai_response_text: responseText.slice(0, 5000),
           matched_snippets: matched_snippets.slice(0, 5),
-          checked_at: new Date().toISOString(),
+          checked_at: checkedAt,
         });
       } catch (e) {
         console.error(`Error checking ${aiModel.key}:`, e);
-        results.push({
+        const errorResult = {
           model: aiModel.key,
           status: "opportunity",
           brand_mentioned: false,
@@ -216,6 +237,21 @@ serve(async (req) => {
           competitor_domains: [],
           ai_response_text: `Error: ${e instanceof Error ? e.message : "Unknown"}`,
           matched_snippets: [],
+        } satisfies CheckResult;
+
+        results.push(errorResult);
+
+        await saveRadarResult(supabaseAdmin, {
+          user_id: user.id,
+          keyword_id,
+          model: aiModel.key,
+          status: errorResult.status,
+          brand_mentioned: errorResult.brand_mentioned,
+          domain_linked: errorResult.domain_linked,
+          competitor_domains: errorResult.competitor_domains,
+          ai_response_text: errorResult.ai_response_text,
+          matched_snippets: errorResult.matched_snippets,
+          checked_at: checkedAt,
         });
       }
     }
@@ -223,11 +259,11 @@ serve(async (req) => {
     // Update last_checked_at
     await supabaseAdmin
       .from("radar_keywords")
-      .update({ last_checked_at: new Date().toISOString() })
+      .update({ last_checked_at: checkedAt })
       .eq("id", keyword_id);
 
     return new Response(
-      JSON.stringify({ results, checked_at: new Date().toISOString() }),
+      JSON.stringify({ results, checked_at: checkedAt }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
