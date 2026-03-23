@@ -288,19 +288,19 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
 
             {/* Multi-image for sections */}
             {content && (content.match(/^##\s+/gm) || []).length > 0 && (
-              <div className="relative group overflow-hidden rounded-xl border border-cyan-500/30 bg-card">
+              <div className="relative group overflow-hidden rounded-xl border border-purple-500/30 bg-card">
                 <button
                   onClick={handleGenerateMulti}
-                  className="w-full py-4 flex items-center justify-center gap-3 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all"
+                  className="w-full py-4 flex items-center justify-center gap-3 bg-purple-500/5 hover:bg-purple-500/10 transition-all"
                 >
-                  <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-400">
+                  <div className="p-2 rounded-full bg-purple-500/20 text-purple-400">
                     <Images className="w-4 h-4" />
                   </div>
                   <div className="text-left">
                     <span className="text-foreground font-medium text-sm block">
                       Иллюстрации для секций
                     </span>
-                    <span className="text-[10px] text-cyan-400/60">
+                    <span className="text-[10px] text-purple-400/60">
                       {Math.min((content.match(/^##\s+/gm) || []).length, 5)} изображений между H2
                     </span>
                   </div>
