@@ -110,7 +110,12 @@ export default function LoginPage() {
               {loading ? t("auth.logging") : t("auth.login")}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm text-muted-foreground">
+          <div className="mt-3 text-center">
+            <Link to="/forgot-password" className="text-sm text-muted-foreground hover:text-primary">
+              Забыли пароль?
+            </Link>
+          </div>
+          <div className="mt-2 text-center text-sm text-muted-foreground">
             {t("auth.noAccount")}{" "}
             <Link to="/register" className="text-primary hover:underline">
               {t("auth.register")}
