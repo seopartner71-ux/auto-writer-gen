@@ -15,28 +15,60 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find admin user by old email
-    const { data: { users }, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
+    const newEmail = "sinitsin3@yandex.ru";
+
+    // List users to find admin
+    const { data: { users }, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 100 });
     if (listErr) throw listErr;
 
     const adminUser = users.find(u => u.email === "admin@seoengine.test");
-    if (!adminUser) throw new Error("Admin user not found");
+    if (!adminUser) {
+      // Maybe already changed?
+      const existing = users.find(u => u.email === newEmail);
+      if (existing) {
+        return new Response(JSON.stringify({ success: true, message: "Email already updated" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ 
+        error: "Admin user not found", 
+        emails: users.map(u => u.email) 
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Update email in auth
-    const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(adminUser.id, {
-      email: "sinitsin3@yandex.ru",
+    // Check if new email already used by another user
+    const conflict = users.find(u => u.email === newEmail && u.id !== adminUser.id);
+    if (conflict) {
+      return new Response(JSON.stringify({ error: "Email already in use by another user" }), {
+        status: 409,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Update email
+    const { data: updated, error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(adminUser.id, {
+      email: newEmail,
       email_confirm: true,
     });
-    if (updateErr) throw updateErr;
+    if (updateErr) {
+      return new Response(JSON.stringify({ error: updateErr.message, details: JSON.stringify(updateErr) }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Update email in profiles
-    await supabaseAdmin.from("profiles").update({ email: "sinitsin3@yandex.ru" }).eq("id", adminUser.id);
+    // Update profiles table
+    await supabaseAdmin.from("profiles").update({ email: newEmail }).eq("id", adminUser.id);
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, updatedEmail: updated?.user?.email }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
+    const msg = e instanceof Error ? e.message : String(e);
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
