@@ -299,6 +299,8 @@ export default function ArticlesPage() {
   const [h1, setH1] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [streamPhase, setStreamPhase] = useState<"thinking" | "writing" | null>(null);
+  const [streamElapsed, setStreamElapsed] = useState(0);
   const [schemaJson, setSchemaJson] = useState<string>("");
   const [schemaCopied, setSchemaCopied] = useState(false);
   const [faqTextBlock, setFaqTextBlock] = useState<string>("");
