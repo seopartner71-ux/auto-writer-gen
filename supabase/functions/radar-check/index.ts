@@ -56,6 +56,64 @@ function extractDomains(text: string): string[] {
   return Array.from(domains);
 }
 
+function extractCompetitorBrands(text: string, ownBrand: string, ownDomain: string): string[] {
+  // Extract brand/company names mentioned as alternatives or competitors
+  const brands = new Set<string>();
+  const lower = text.toLowerCase();
+  const ownLower = ownBrand.toLowerCase();
+  const ownDomainBase = ownDomain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\.[a-z]{2,}$/, "");
+  
+  // Look for domain-like patterns (word.tld)
+  const domainPattern = /\b([a-zA-Z0-9][-a-zA-Z0-9]*\.(?:ru|com|net|org|io|co|de|fr|uk|pro|shop|store|online|site|info|biz))\b/gi;
+  let m;
+  while ((m = domainPattern.exec(text)) !== null) {
+    const d = m[1].toLowerCase();
+    if (!d.includes(ownDomainBase) && !d.includes(ownLower)) {
+      brands.add(d);
+    }
+  }
+  
+  // Look for competitor section patterns
+  const competitorPatterns = [
+    /(?:конкурент|альтернатив|аналог|также|другие бренды|другие производител)[а-яё]*[:\s]+([^\n.]+)/gi,
+    /(?:competitor|alternative|similar|also|other brands)[s]?[:\s]+([^\n.]+)/gi,
+  ];
+  for (const pattern of competitorPatterns) {
+    let pm;
+    while ((pm = pattern.exec(text)) !== null) {
+      const segment = pm[1];
+      // Extract capitalized words/brands from the segment
+      const brandNames = segment.match(/[A-ZА-Я][a-zа-яё]+(?:\s[A-ZА-Я][a-zа-яё]+)*/g) || [];
+      for (const name of brandNames) {
+        const nl = name.toLowerCase();
+        if (nl !== ownLower && nl !== ownDomainBase && nl.length > 2) {
+          brands.add(name);
+        }
+      }
+    }
+  }
+
+  // Extract any capitalized brand-like names mentioned near product context
+  const brandLike = text.match(/\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)*\b/g) || [];
+  const productKeywords = ["гель", "стир", "средств", "порош", "бренд", "производ", "product", "brand", "detergent", "gel"];
+  for (const name of brandLike) {
+    const nl = name.toLowerCase();
+    if (nl === ownLower || nl === ownDomainBase || nl.length < 3) continue;
+    // Check if this brand appears near product context
+    const idx = lower.indexOf(nl);
+    if (idx >= 0) {
+      const context = lower.slice(Math.max(0, idx - 100), idx + nl.length + 100);
+      if (productKeywords.some(pk => context.includes(pk))) {
+        brands.add(name);
+      }
+    }
+  }
+  
+  // Filter out common non-brand words
+  const stopWords = new Set(["the", "for", "and", "with", "this", "that", "from", "are", "was", "has", "have", "can", "will", "not", "all", "also", "может", "если", "при", "для", "или", "что", "как", "это", "все"]);
+  return Array.from(brands).filter(b => !stopWords.has(b.toLowerCase())).slice(0, 15);
+}
+
 function generateBrandVariants(brandName: string, domain: string): string[] {
   const variants = new Set<string>();
   const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
