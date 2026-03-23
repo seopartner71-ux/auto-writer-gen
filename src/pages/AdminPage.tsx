@@ -5,6 +5,7 @@ import { ModelRoutingTab } from "@/components/admin/ModelRoutingTab";
 import { HealthCheckTab } from "@/components/admin/HealthCheckTab";
 import { UserManagementTab } from "@/components/admin/UserManagementTab";
 import { UserContentTab } from "@/components/admin/UserContentTab";
+import { FaqManagementTab } from "@/components/admin/FaqManagementTab";
 
 export default function AdminPage() {
   return (
@@ -26,6 +27,7 @@ export default function AdminPage() {
           <TabsTrigger value="health">Health Check</TabsTrigger>
           <TabsTrigger value="users">Пользователи</TabsTrigger>
           <TabsTrigger value="content">Контент</TabsTrigger>
+          <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4">
@@ -46,6 +48,10 @@ export default function AdminPage() {
 
         <TabsContent value="content" className="mt-4">
           <UserContentTab />
+        </TabsContent>
+
+        <TabsContent value="wiki" className="mt-4">
+          <FaqManagementTab />
         </TabsContent>
       </Tabs>
     </div>
