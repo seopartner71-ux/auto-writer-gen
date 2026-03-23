@@ -16,7 +16,7 @@
     --popover: 220 16% 12%;
     --popover-foreground: 210 20% 92%;
 
-    --primary: 186 72% 48%;
+    --primary: 270 60% 60%;
     --primary-foreground: 220 18% 7%;
 
     --secondary: 220 14% 16%;
@@ -25,7 +25,7 @@
     --muted: 220 14% 14%;
     --muted-foreground: 215 12% 50%;
 
-    --accent: 172 60% 40%;
+    --accent: 270 50% 50%;
     --accent-foreground: 210 20% 95%;
 
     --destructive: 0 72% 55%;
@@ -33,20 +33,20 @@
 
     --border: 220 14% 18%;
     --input: 220 14% 18%;
-    --ring: 186 72% 48%;
+    --ring: 270 60% 60%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 220 18% 6%;
     --sidebar-foreground: 210 15% 70%;
-    --sidebar-primary: 186 72% 48%;
+    --sidebar-primary: 270 60% 60%;
     --sidebar-primary-foreground: 220 18% 7%;
     --sidebar-accent: 220 14% 12%;
     --sidebar-accent-foreground: 210 20% 92%;
     --sidebar-border: 220 14% 14%;
-    --sidebar-ring: 186 72% 48%;
+    --sidebar-ring: 270 60% 60%;
 
-    --success: 152 60% 45%;
+    --success: 270 60% 60%;
     --warning: 38 90% 55%;
     --info: 210 70% 55%;
   }
@@ -61,7 +61,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 18% 10%;
 
-    --primary: 186 72% 40%;
+    --primary: 270 60% 55%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 15% 93%;
@@ -70,7 +70,7 @@
     --muted: 210 15% 95%;
     --muted-foreground: 215 12% 45%;
 
-    --accent: 172 55% 35%;
+    --accent: 270 50% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 50%;
@@ -78,20 +78,20 @@
 
     --border: 210 15% 88%;
     --input: 210 15% 88%;
-    --ring: 186 72% 40%;
+    --ring: 270 60% 55%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 210 18% 96%;
     --sidebar-foreground: 220 14% 35%;
-    --sidebar-primary: 186 72% 40%;
+    --sidebar-primary: 270 60% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 15% 90%;
     --sidebar-accent-foreground: 220 18% 10%;
     --sidebar-border: 210 15% 88%;
-    --sidebar-ring: 186 72% 40%;
+    --sidebar-ring: 270 60% 55%;
 
-    --success: 152 60% 38%;
+    --success: 270 60% 55%;
     --warning: 38 85% 48%;
     --info: 210 70% 48%;
   }
