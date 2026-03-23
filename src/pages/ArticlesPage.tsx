@@ -950,20 +950,21 @@ export default function ArticlesPage() {
                 <TabsContent value="html" className="mt-0">
                   {content ? (
                     <div className="relative">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2 z-10"
-                        onClick={() => {
-                          navigator.clipboard.writeText(markdownToHtml(content, title, metaDescription));
-                          toast.success("HTML скопирован");
-                        }}
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Копировать
-                      </Button>
+                      <div className="flex items-center gap-2 absolute top-2 right-2 z-10">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(markdownToCleanHtml(content));
+                            toast.success("Чистый HTML скопирован — вставляйте в любую CMS");
+                          }}
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Копировать для CMS
+                        </Button>
+                      </div>
                       <pre className="min-h-[500px] max-h-[700px] overflow-auto p-4 rounded-md bg-muted text-xs font-mono whitespace-pre-wrap break-all text-foreground">
-                        <code dangerouslySetInnerHTML={{ __html: highlightHtml(markdownToHtml(content, title, metaDescription)) }} />
+                        <code dangerouslySetInnerHTML={{ __html: highlightHtml(markdownToCleanHtml(content)) }} />
                       </pre>
                     </div>
                   ) : (
