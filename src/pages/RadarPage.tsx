@@ -494,7 +494,7 @@ export default function RadarPage() {
                   <RadialChart
                     value={Math.round(overallCaptured)}
                     label="Общий"
-                    color="hsl(var(--primary))"
+                    color={getRadialColor(Math.round(overallCaptured))}
                   />
                 </div>
                 <Separator className="my-3" />
