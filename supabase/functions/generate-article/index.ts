@@ -293,9 +293,17 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Get user profile for tier
-    const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+    // Get user profile for tier and credits
+    const { data: profile } = await supabase.from("profiles").select("plan, credits_amount").eq("id", user.id).single();
     const userPlan = profile?.plan || "basic";
+    const credits = profile?.credits_amount ?? 0;
+
+    // Check credits before generation
+    if (credits <= 0) {
+      return new Response(JSON.stringify({ error: "Недостаточно кредитов. Пополните баланс." }), {
+        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Get model assignment
     const writerTask = userPlan === "pro" ? "writer_pro" : "writer_basic";
