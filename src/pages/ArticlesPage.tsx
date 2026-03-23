@@ -21,6 +21,7 @@ import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 import { PlanGate } from "@/shared/components/PlanGate";
 import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
+import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -674,6 +675,17 @@ export default function ArticlesPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Left: Editor */}
         <div className="space-y-4">
+          {/* Pro Image Cover Generator */}
+          <ProImageGenerator
+            title={title}
+            content={content}
+            keyword={selectedKeyword?.seed_keyword}
+            onImageGenerated={(url, alt, markdown) => {
+              // Prepend cover image to content
+              setContent(prev => `![${alt}](${url})\n\n${prev}`);
+            }}
+          />
+
           {/* Title & Meta */}
           <Card className="bg-card border-border">
             <CardContent className="pt-4 space-y-3">
