@@ -179,7 +179,7 @@ serve(async (req) => {
     if (!OPENROUTER_API_KEY) throw new Error("Ключ OpenRouter не настроен");
 
     const body = await req.json();
-    const { title, summary, style, keyword, mode, content } = body;
+    const { title, summary, style, keyword, mode, content, max_images } = body;
     if (!title) throw new Error("Title is required");
 
     const stylePrompt = STYLE_PRESETS[style] || STYLE_PRESETS["modern-tech"];
@@ -223,7 +223,7 @@ serve(async (req) => {
       }
 
       // Limit to 5 images max, check quota
-      const maxImages = Math.min(sections.length, 5);
+      const maxImages = Math.min(sections.length, max_images || 5);
       if (used + maxImages > 100) {
         return new Response(
           JSON.stringify({ error: `Недостаточно лимита. Нужно: ${maxImages}, осталось: ${100 - used}` }),

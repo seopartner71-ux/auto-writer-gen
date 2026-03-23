@@ -306,6 +306,69 @@ export default function ArticlesPage() {
     }
   }, [selectedKeyword]);
 
+  // Auto-generate and insert images into article content
+  const autoInsertImages = useCallback(async (articleContent: string) => {
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const token = s?.access_token;
+      if (!token) return;
+
+      // Check if user is Pro
+      const { data: profile } = await supabase.from("profiles").select("plan").eq("id", s.user?.id).single();
+      if (profile?.plan !== "pro") return;
+
+      // Check if article has H2 headings
+      const h2Count = (articleContent.match(/^##\s+/gm) || []).length;
+      if (h2Count === 0) return;
+
+      toast.info("Генерируем иллюстрации для статьи...");
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pro-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          title: selectedKeyword?.seed_keyword || "",
+          content: articleContent,
+          style: "modern-tech",
+          keyword: selectedKeyword?.seed_keyword || "",
+          mode: "multi",
+          max_images: 3,
+        }),
+      });
+
+      if (!resp.ok) return;
+
+      const data = await resp.json();
+      const images = data.images;
+
+      if (images?.length > 0) {
+        setContent(prev => {
+          let result = prev;
+          for (let i = images.length - 1; i >= 0; i--) {
+            const img = images[i];
+            const headingPattern = new RegExp(
+              `(^##\\s+${img.heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$)`,
+              'm'
+            );
+            const match = result.match(headingPattern);
+            if (match && match.index !== undefined) {
+              const insertPos = match.index + match[0].length;
+              result = result.slice(0, insertPos) + `\n\n![${img.alt}](${img.url})\n` + result.slice(insertPos);
+            }
+          }
+          return result;
+        });
+        toast.success(`Вставлено ${images.length} иллюстраций`);
+      }
+    } catch {
+      // Best-effort, don't block the flow
+    }
+  }, [selectedKeyword]);
+
   // LSI keyword check
   const lsiStatus = useMemo(() => {
     const lower = content.toLowerCase();
@@ -423,6 +486,9 @@ export default function ArticlesPage() {
 
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
+
+      // Auto-generate and insert images (async, best-effort, PRO only)
+      autoInsertImages(fullContent);
     } catch (e: any) {
       if (e.name === "AbortError") {
         toast.info("Генерация остановлена");
