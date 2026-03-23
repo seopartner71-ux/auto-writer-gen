@@ -26,7 +26,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { title, content, keyword, questions } = await req.json();
+    const { title, content, keyword, questions, lsi_keywords, mode } = await req.json();
     if (!content) throw new Error("Content is required");
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -38,21 +38,79 @@ serve(async (req) => {
       .single();
     const model = assignment?.model_key || "google/gemini-2.5-flash";
 
+    // Detect language from content
+    const isRussian = /[а-яё]/i.test(content.slice(0, 500));
+    const lang = isRussian ? "русском" : "English";
+
     // Extract existing FAQ section from content
-    const faqMatch = content.match(/##\s*(?:Часто задаваемые вопросы|FAQ|Вопросы и ответы)[\s\S]*/i);
+    const faqMatch = content.match(/##\s*(?:Часто задаваемые вопросы|FAQ|Вопросы и ответы|Frequently Asked Questions)[\s\S]*/i);
     const faqSection = faqMatch ? faqMatch[0] : "";
 
-    const systemPrompt = `You are an SEO schema markup and FAQ expert. Respond with a JSON object containing exactly three keys:
+    const isSerpDominance = mode === "serp-dominance";
+
+    // --- SYSTEM PROMPT ---
+    const systemPrompt = isSerpDominance
+      ? `### SYSTEM INSTRUCTION FOR SERPblueprint FAQ ENGINE v2.0 ###
+
+CONTEXT:
+You are the "Information Gain Engine" of SERPblueprint. Your goal is to generate a FAQ section that guarantees high visibility in Google SGE, AI Overviews, and featured snippets (2026 standards).
+
+TASK:
+Based on the provided article content, keyword, and People Also Ask data, generate 3-5 high-intent questions and expert answers, then wrap them in JSON-LD Schema.org FAQPage markup.
+
+CRITICAL REQUIREMENTS:
+1. **INFORMATION GAIN**: Every answer MUST contain a specific detail, statistic, expert insight, or unique perspective NOT commonly found in generic top-10 SERP results. Add "Information Gain" — data that supplements, not duplicates, what AI models already know.
+2. **SEMANTIC DENSITY (LSI 2.0)**: Naturally weave primary and secondary entities (LSI keywords) into answers to boost topical authority. The FAQ block should "fill semantic gaps" that the main article text didn't fully cover.
+3. **SGE-READY FORMATTING**: Each answer MUST follow the "Direct Answer First" pattern — start with a clear, direct answer (1 sentence), then provide a brief expert clarification. Google's AI Overviews prioritize this structure.
+4. **CONCISE EXPERTISE**: Answers must be 150-300 characters long — optimized for snippet boxes and AI citations.
+5. **E-E-A-T SIGNALS**: Frame answers as if written by a subject-matter expert. Use authoritative language, reference methodologies or data where appropriate.
+
+OUTPUT: Return a JSON object with exactly three keys:
+
+"article_schema": A complete Article JSON-LD: {"@context":"https://schema.org","@type":"Article","headline":"...","description":"...","datePublished":"${new Date().toISOString().split("T")[0]}","author":{"@type":"Person","name":"Author"},"keywords":"..."}
+
+"faq_schema": A complete FAQPage JSON-LD: {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"...","acceptedAnswer":{"@type":"Answer","text":"..."}}]}
+
+"faq_text_block": A Markdown string with the FAQ section formatted as:
+## ${isRussian ? "Часто задаваемые вопросы (FAQ)" : "Frequently Asked Questions (FAQ)"}
+### Question text
+Answer paragraph (Direct Answer First pattern).
+...
+
+ALL content must be in ${lang} language. NEVER return empty objects or placeholder text.`
+      : `You are an SEO schema markup and FAQ expert. Respond with a JSON object containing exactly three keys:
 
 "article_schema": A complete Article JSON-LD object: {"@context":"https://schema.org","@type":"Article","headline":"...","description":"...","datePublished":"${new Date().toISOString().split("T")[0]}","author":{"@type":"Person","name":"Author"}}
 
 "faq_schema": A complete FAQPage JSON-LD object: {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"question text","acceptedAnswer":{"@type":"Answer","text":"answer text"}}, ...]}. Generate 3-5 FAQ questions based on article content, keyword, and People Also Ask data.
 
-"faq_text_block": A Markdown string starting with "## Часто задаваемые вопросы (FAQ)" followed by "### Question" and answer paragraphs.
+"faq_text_block": A Markdown string starting with "## ${isRussian ? "Часто задаваемые вопросы (FAQ)" : "Frequently Asked Questions (FAQ)"}" followed by "### Question" and answer paragraphs.
 
-ALL fields must contain real data from the article. NEVER return empty objects. Write in the same language as the article.`;
+ALL fields must contain real data from the article. NEVER return empty objects. Write in ${lang} language.`;
 
-    const userPrompt = `Generate JSON-LD structured data and FAQ for this article:
+    // --- USER PROMPT ---
+    const lsiBlock = (lsi_keywords && lsi_keywords.length > 0)
+      ? `\nLSI/Secondary keywords to weave into answers: ${lsi_keywords.slice(0, 15).join(", ")}`
+      : "";
+
+    const userPrompt = isSerpDominance
+      ? `Generate SERP-Dominance FAQ with Information Gain and JSON-LD for this article:
+
+Title: ${title || "Untitled"}
+Primary Keyword: ${keyword || ""}
+People Also Ask questions: ${(questions || []).slice(0, 10).join("; ") || "None provided"}${lsiBlock}
+
+Article content (first 3000 chars):
+${content.slice(0, 3000)}
+
+${faqSection ? `\nEXISTING FAQ SECTION (improve, enhance with Information Gain, and expand):\n${faqSection.slice(0, 2000)}` : "\nNo existing FAQ — generate 3-5 high-intent questions with expert-level Information Gain answers."}
+
+REMEMBER:
+- Each answer must contain a UNIQUE insight not found in generic search results
+- Use "Direct Answer First" format: [Direct answer]. [Expert clarification with specific data/methodology].
+- Inject LSI keywords naturally to fill semantic gaps
+- Answers: 150-300 characters, optimized for featured snippets`
+      : `Generate JSON-LD structured data and FAQ for this article:
 
 Title: ${title || "Untitled"}
 Keyword: ${keyword || ""}
@@ -114,9 +172,30 @@ Generate:
     
     console.log("Parsed keys:", Object.keys(result));
 
+    // Schema 3.0 Validation: basic structure checks
+    if (result.faq_schema) {
+      const faq = result.faq_schema;
+      if (!faq["@context"]) faq["@context"] = "https://schema.org";
+      if (!faq["@type"]) faq["@type"] = "FAQPage";
+      if (Array.isArray(faq.mainEntity)) {
+        faq.mainEntity = faq.mainEntity.filter((q: any) =>
+          q && q["@type"] === "Question" && q.name && q.acceptedAnswer?.text
+        );
+      }
+    }
+
+    if (result.article_schema) {
+      const art = result.article_schema;
+      if (!art["@context"]) art["@context"] = "https://schema.org";
+      if (!art["@type"]) art["@type"] = "Article";
+    }
+
+    // Add mode indicator to response
+    result.mode = isSerpDominance ? "serp-dominance" : "standard";
+
     await supabaseAdmin.from("usage_logs").insert({
       user_id: user.id,
-      action: "generate_schema",
+      action: isSerpDominance ? "generate_schema_serp_dominance" : "generate_schema",
       model_used: model,
       tokens_used: aiData.usage?.total_tokens || 0,
     });
