@@ -78,7 +78,7 @@ async function generateVisualPrompt(
       messages: [
         {
           role: "system",
-          content: `You are an expert at creating image generation prompts. Convert the given context into a concise, vivid visual prompt in English. The prompt should describe a single compelling image. Do NOT include any text in the image. Output ONLY the visual description, nothing else.`,
+          content: `You are an expert at creating image generation prompts. Convert the given context into a concise, vivid visual prompt in English. The image MUST directly illustrate the specific topic described in the context — not a generic stock photo. Focus on the concrete subject matter. Do NOT include any text/words in the image. Output ONLY the visual description, nothing else.`,
         },
         {
           role: "user",
