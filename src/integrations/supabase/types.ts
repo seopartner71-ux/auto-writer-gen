@@ -136,39 +136,54 @@ export type Database = {
       }
       author_profiles: {
         Row: {
+          avatar_icon: string | null
           created_at: string | null
+          description: string | null
           id: string
           name: string
           niche: string | null
           stop_words: string[] | null
           style_analysis: Json | null
           style_examples: string | null
+          system_instruction: string | null
           system_prompt_override: string | null
-          user_id: string
+          temperature: number | null
+          type: string
+          user_id: string | null
           voice_tone: string | null
         }
         Insert: {
+          avatar_icon?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           name: string
           niche?: string | null
           stop_words?: string[] | null
           style_analysis?: Json | null
           style_examples?: string | null
+          system_instruction?: string | null
           system_prompt_override?: string | null
-          user_id: string
+          temperature?: number | null
+          type?: string
+          user_id?: string | null
           voice_tone?: string | null
         }
         Update: {
+          avatar_icon?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           name?: string
           niche?: string | null
           stop_words?: string[] | null
           style_analysis?: Json | null
           style_examples?: string | null
+          system_instruction?: string | null
           system_prompt_override?: string | null
-          user_id?: string
+          temperature?: number | null
+          type?: string
+          user_id?: string | null
           voice_tone?: string | null
         }
         Relationships: []
