@@ -299,6 +299,8 @@ export default function ArticlesPage() {
   const [h1, setH1] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [streamPhase, setStreamPhase] = useState<"thinking" | "writing" | null>(null);
+  const [streamElapsed, setStreamElapsed] = useState(0);
   const [schemaJson, setSchemaJson] = useState<string>("");
   const [schemaCopied, setSchemaCopied] = useState(false);
   const [faqTextBlock, setFaqTextBlock] = useState<string>("");
@@ -306,6 +308,14 @@ export default function ArticlesPage() {
   const [schemaGenerating, setSchemaGenerating] = useState(false);
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Timer for streaming elapsed seconds
+  useEffect(() => {
+    if (!isStreaming) { setStreamElapsed(0); return; }
+    const start = Date.now();
+    const interval = setInterval(() => setStreamElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(interval);
+  }, [isStreaming]);
 
   const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
@@ -423,6 +433,7 @@ export default function ArticlesPage() {
     }
 
     setIsStreaming(true);
+    setStreamPhase("thinking");
     setContent("");
     setSchemaJson("");
 
@@ -487,6 +498,7 @@ export default function ArticlesPage() {
             const parsed = JSON.parse(jsonStr);
             const delta = parsed.choices?.[0]?.delta?.content;
             if (delta) {
+              if (!fullContent) setStreamPhase("writing");
               fullContent += delta;
               setContent(fullContent);
             }
@@ -527,6 +539,7 @@ export default function ArticlesPage() {
       }
     } finally {
       setIsStreaming(false);
+      setStreamPhase(null);
       abortRef.current = null;
     }
   }, [selectedKeywordId, selectedAuthorId, outline, lsiKeywords]);
@@ -898,7 +911,11 @@ export default function ArticlesPage() {
                 {isStreaming && (
                   <div className="flex items-center gap-2 mb-3 text-sm text-primary">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Генерация текста...</span>
+                    <span>
+                      {streamPhase === "thinking"
+                        ? `Модель думает... ${streamElapsed}с`
+                        : `Генерация текста... ${streamElapsed}с`}
+                    </span>
                   </div>
                 )}
                 <TabsContent value="edit" className="mt-0">
@@ -1171,6 +1188,7 @@ export default function ArticlesPage() {
                   onOptimize={async ({ instructions, benchmarkContext }) => {
                     if (isStreaming) return;
                     setIsStreaming(true);
+                    setStreamPhase("thinking");
                     const prevContent = content;
                     setContent("");
                     const controller = new AbortController();
@@ -1227,7 +1245,7 @@ export default function ArticlesPage() {
                           try {
                             const parsed = JSON.parse(jsonStr);
                             const delta = parsed.choices?.[0]?.delta?.content;
-                            if (delta) { fullContent += delta; setContent(fullContent); }
+                            if (delta) { if (!fullContent) setStreamPhase("writing"); fullContent += delta; setContent(fullContent); }
                           } catch { buffer = line + "\n" + buffer; break; }
                         }
                       }
@@ -1240,6 +1258,7 @@ export default function ArticlesPage() {
                       else { toast.error(e.message); setContent(prevContent); }
                     } finally {
                       setIsStreaming(false);
+                      setStreamPhase(null);
                       abortRef.current = null;
                     }
                   }}
