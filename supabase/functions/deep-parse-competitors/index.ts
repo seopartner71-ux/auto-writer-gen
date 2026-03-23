@@ -225,41 +225,52 @@ function emptyAnalysis(): Omit<CompetitorAnalysis, "url" | "position"> {
   };
 }
 
-// ── Fetch with error handling ──────────────────────────────────────────
-async function fetchPage(url: string): Promise<{ html: string | null; error?: string }> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
-    const resp = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
-      },
-      redirect: "follow",
-    });
-    clearTimeout(timeout);
+// ── Fetch with error handling + retry ─────────────────────────────────
+async function fetchPage(url: string, retries = 1): Promise<{ html: string | null; error?: string }> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutMs = attempt === 0 ? 10000 : 15000; // 10s first, 15s retry
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      const resp = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+          "Accept-Encoding": "gzip, deflate",
+          "Cache-Control": "no-cache",
+        },
+        redirect: "follow",
+      });
+      clearTimeout(timeout);
 
-    if (resp.status === 403 || resp.status === 503) {
-      return { html: null, error: `blocked:${resp.status}` };
-    }
-    if (!resp.ok) return { html: null, error: `http:${resp.status}` };
+      if (resp.status === 403 || resp.status === 503) {
+        return { html: null, error: `blocked:${resp.status}` };
+      }
+      if (!resp.ok) return { html: null, error: `http:${resp.status}` };
 
-    const ct = resp.headers.get("content-type") || "";
-    if (!ct.includes("text/html") && !ct.includes("application/xhtml")) {
-      return { html: null, error: "not-html" };
-    }
+      const ct = resp.headers.get("content-type") || "";
+      if (!ct.includes("text/html") && !ct.includes("application/xhtml")) {
+        return { html: null, error: "not-html" };
+      }
 
-    const html = await resp.text();
-    if (html.includes("cf-browser-verification") || html.includes("challenge-platform")) {
-      return { html: null, error: "cloudflare" };
+      const html = await resp.text();
+      if (html.includes("cf-browser-verification") || html.includes("challenge-platform")) {
+        return { html: null, error: "cloudflare" };
+      }
+      return { html };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "unknown";
+      const isTimeout = msg.includes("abort") || msg.includes("timeout");
+      if (isTimeout && attempt < retries) {
+        console.log(`Retry ${attempt + 1} for ${url}`);
+        continue;
+      }
+      return { html: null, error: isTimeout ? "timeout" : msg };
     }
-    return { html };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "unknown";
-    return { html: null, error: msg.includes("abort") ? "timeout" : msg };
   }
+  return { html: null, error: "max-retries" };
 }
 
 // ── TF-IDF calculation across documents ────────────────────────────────
