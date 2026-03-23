@@ -30,6 +30,7 @@ const plans = [
       { text: "Публикация в WordPress", included: false },
       { text: "Запланированные публикации в WP", included: false },
       { text: "Массовая генерация (Factory Mode)", included: false },
+      { text: "Pro Visual Synthesis (AI-обложки)", included: false },
       { text: "Мгновенная индексация", included: false },
       { text: "Приоритетная поддержка", included: false },
     ],
