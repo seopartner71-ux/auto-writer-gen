@@ -308,6 +308,7 @@ export default function ArticlesPage() {
   const [faqCopied, setFaqCopied] = useState(false);
   const [schemaGenerating, setSchemaGenerating] = useState(false);
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
+  const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -1168,7 +1169,90 @@ export default function ArticlesPage() {
             </TabsContent>
 
             <TabsContent value="human" className="mt-3">
-              <HumanScorePanel content={content} lsiKeywords={lsiKeywords} />
+              <HumanScorePanel
+                content={content}
+                lsiKeywords={lsiKeywords}
+                isFixing={fixingIssue}
+                onFixIssue={async (issueKey, instruction) => {
+                  if (!selectedKeywordId || !content.trim()) {
+                    toast.error("Нет текста для исправления");
+                    return;
+                  }
+                  setFixingIssue(issueKey);
+                  setIsStreaming(true);
+                  setStreamPhase("thinking");
+                  const prevContent = content;
+                  setContent("");
+                  const controller = new AbortController();
+                  abortRef.current = controller;
+                  try {
+                    const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
+                    const token = freshSession?.access_token;
+                    if (refreshError || !token) throw new Error("Not authenticated");
+
+                    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
+                    const resp = await fetch(url, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                      },
+                      body: JSON.stringify({
+                        keyword_id: selectedKeywordId,
+                        author_profile_id: selectedAuthorId || null,
+                        outline,
+                        lsi_keywords: lsiKeywords,
+                        optimize_instructions: `ЗАДАЧА: Исправь ТОЛЬКО указанную проблему, сохрани весь остальной текст максимально близко к оригиналу.\n\n${instruction}\n\nВАЖНО: НЕ переписывай статью целиком. Измени только те части, которые нарушают указанное правило. Сохрани структуру, заголовки и объём.`,
+                        existing_content: prevContent,
+                      }),
+                      signal: controller.signal,
+                    });
+
+                    if (!resp.ok) {
+                      const err = await resp.json().catch(() => ({ error: "Unknown error" }));
+                      throw new Error(err.error || `HTTP ${resp.status}`);
+                    }
+                    if (!resp.body) throw new Error("No stream body");
+
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = "";
+                    let fullContent = "";
+
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+                      buffer += decoder.decode(value, { stream: true });
+                      let ni: number;
+                      while ((ni = buffer.indexOf("\n")) !== -1) {
+                        let line = buffer.slice(0, ni);
+                        buffer = buffer.slice(ni + 1);
+                        if (line.endsWith("\r")) line = line.slice(0, -1);
+                        if (line.startsWith(":") || line.trim() === "") continue;
+                        if (!line.startsWith("data: ")) continue;
+                        const jsonStr = line.slice(6).trim();
+                        if (jsonStr === "[DONE]") break;
+                        try {
+                          const parsed = JSON.parse(jsonStr);
+                          const delta = parsed.choices?.[0]?.delta?.content;
+                          if (delta) { if (!fullContent) setStreamPhase("writing"); fullContent += delta; setContent(fullContent); }
+                        } catch { buffer = line + "\n" + buffer; break; }
+                      }
+                    }
+
+                    toast.success("Проблема исправлена — проверьте Human Score");
+                  } catch (e: any) {
+                    if (e.name === "AbortError") { toast.info("Генерация остановлена"); }
+                    else { toast.error(e.message); setContent(prevContent); }
+                  } finally {
+                    setIsStreaming(false);
+                    setStreamPhase(null);
+                    setFixingIssue(null);
+                    abortRef.current = null;
+                  }
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="benchmark" className="mt-3">

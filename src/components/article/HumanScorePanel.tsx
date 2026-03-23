@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   CheckCircle2, Circle, Shield, Activity, Zap, Brain, AlertTriangle,
-  Plus, Search, ChevronDown, ChevronUp, Eye,
+  Plus, Search, ChevronDown, ChevronUp, Eye, Wrench, Loader2,
 } from "lucide-react";
 import {
   computeBurstiness, computeAiProbability, computePerplexity,
@@ -17,7 +17,18 @@ interface HumanScorePanelProps {
   content: string;
   lsiKeywords: string[];
   onHighlightStopWords?: (words: string[]) => void;
+  onFixIssue?: (issueKey: string, instruction: string) => void;
+  isFixing?: string | null;
 }
+
+const FIX_INSTRUCTIONS: Record<string, string> = {
+  "ai-cliches": "Найди и замени ВСЕ ИИ-клише и штампы (например: 'важно отметить', 'следует подчеркнуть', 'в заключение', 'необходимо учитывать', 'таким образом', 'комплексный подход') на живые, разговорные авторские обороты. Каждое заменённое выражение должно быть уникальным.",
+  "first-person": "Добавь в текст 3-5 высказываний от первого лица: 'Я считаю', 'По моему опыту', 'На мой взгляд', 'Мы видим', 'Меня удивило'. Вставь их в уже существующие абзацы естественно, не создавая новые разделы.",
+  "paragraph-variety": "Измени длину абзацев так, чтобы они были РАЗНЫМИ: один абзац — 1-2 предложения, следующий — 4-5, потом снова короткий. Не делай все абзацы одинаковой длины. Разбей длинные абзацы или объедини слишком короткие.",
+  "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции: один — с факта, второй — с вопроса, третий — с цитаты или примера, четвёртый — с личного мнения. Не используй одно и то же начальное слово дважды.",
+  "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% — длинными ветвистыми конструкциями (25-40 слов). Никогда не пиши 3+ предложения одинаковой длины подряд.",
+  "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями. Примеры: 'Но почему это важно?', 'Какой вывод мы можем сделать?', 'Задумывались ли вы, что...'",
+};
 
 function getTrafficColor(score: number, thresholds: [number, number] = [45, 70]) {
   if (score >= thresholds[1]) return { text: "text-green-500", bg: "bg-green-500", label: "Отлично" };
@@ -31,7 +42,15 @@ function getAiSafetyColor(score: number) {
   return { text: "text-red-500", bg: "bg-red-500", label: "Высокий риск" };
 }
 
-export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords }: HumanScorePanelProps) {
+const FLAG_TO_FIX_KEY: Record<string, string> = {
+  "Авторское «Я» / «Мы»": "first-person",
+  "Вариативность абзацев": "paragraph-variety",
+  "Разнообразие начал абзацев": "paragraph-starts",
+  "Burstiness": "burstiness",
+  "Риторические вопросы": "rhetorical",
+};
+
+export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, onFixIssue, isFixing }: HumanScorePanelProps) {
   const [customKeywords, setCustomKeywords] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState("");
   const [showStopWords, setShowStopWords] = useState(false);
@@ -59,7 +78,6 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords }: 
     });
   }, [content, allLsiKeywords]);
 
-  // Sort: unused first, then used
   const sortedLsi = useMemo(() =>
     [...lsiStatus].sort((a, b) => {
       if (a.found === b.found) return 0;
@@ -93,6 +111,9 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords }: 
     setStopWordsHighlighted(!stopWordsHighlighted);
   }, [stopWords, stopWordsHighlighted, onHighlightStopWords]);
 
+  const failedFlags = aiProb.flags.filter(f => !f.passed);
+  const hasFixableIssues = failedFlags.length > 0 || stopWords.length > 0;
+
   if (wordCount < 30) {
     return (
       <Card className="bg-card border-border">
@@ -108,6 +129,32 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords }: 
 
   return (
     <div className="space-y-4">
+      {/* ─── Quick Fix All Button ──────────────────────────────────── */}
+      {hasFixableIssues && onFixIssue && (
+        <Button
+          size="sm"
+          variant="default"
+          className="w-full gap-2"
+          disabled={!!isFixing}
+          onClick={() => {
+            const allInstructions: string[] = [];
+            if (stopWords.length > 0) allInstructions.push(FIX_INSTRUCTIONS["ai-cliches"]);
+            failedFlags.forEach(flag => {
+              const key = FLAG_TO_FIX_KEY[flag.label.replace(/ \(.*\)/, "")];
+              if (key && FIX_INSTRUCTIONS[key]) allInstructions.push(FIX_INSTRUCTIONS[key]);
+            });
+            onFixIssue("all", allInstructions.join("\n\n"));
+          }}
+        >
+          {isFixing === "all" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Wrench className="h-4 w-4" />
+          )}
+          Исправить все проблемы ({failedFlags.length + (stopWords.length > 0 ? 1 : 0)})
+        </Button>
+      )}
+
       {/* ─── 1. AI Probability ─────────────────────────────────────── */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-3">
@@ -128,18 +175,37 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords }: 
             <Progress value={aiProb.score} className="h-2.5" indicatorClassName={aiColor.bg} />
           </div>
           <div className="space-y-1">
-            {aiProb.flags.map((flag, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-[11px]">
-                {flag.passed ? (
-                  <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                ) : (
-                  <Circle className="h-3 w-3 text-red-500 shrink-0" />
-                )}
-                <span className={flag.passed ? "text-muted-foreground" : "text-red-400"}>
-                  {flag.label}
-                </span>
-              </div>
-            ))}
+            {aiProb.flags.map((flag, i) => {
+              const cleanLabel = flag.label.replace(/ \(.*\)/, "");
+              const fixKey = FLAG_TO_FIX_KEY[cleanLabel];
+              return (
+                <div key={i} className="flex items-center gap-1.5 text-[11px]">
+                  {flag.passed ? (
+                    <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                  ) : (
+                    <Circle className="h-3 w-3 text-red-500 shrink-0" />
+                  )}
+                  <span className={`flex-1 ${flag.passed ? "text-muted-foreground" : "text-red-400"}`}>
+                    {flag.label}
+                  </span>
+                  {!flag.passed && fixKey && onFixIssue && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 px-1.5 text-[10px] text-primary hover:text-primary/80"
+                      disabled={!!isFixing}
+                      onClick={() => onFixIssue(fixKey, FIX_INSTRUCTIONS[fixKey])}
+                    >
+                      {isFixing === fixKey ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Wrench className="h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -195,15 +261,33 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords }: 
             </p>
           ) : (
             <>
-              <Button
-                size="sm"
-                variant={stopWordsHighlighted ? "default" : "outline"}
-                className="w-full text-xs h-7"
-                onClick={handleToggleHighlight}
-              >
-                <Eye className="h-3 w-3 mr-1" />
-                {stopWordsHighlighted ? "Скрыть подсветку" : "Подсветить в тексте"}
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant={stopWordsHighlighted ? "default" : "outline"}
+                  className="flex-1 text-xs h-7"
+                  onClick={handleToggleHighlight}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  {stopWordsHighlighted ? "Скрыть подсветку" : "Подсветить в тексте"}
+                </Button>
+                {onFixIssue && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7 gap-1 text-primary border-primary/30"
+                    disabled={!!isFixing}
+                    onClick={() => onFixIssue("ai-cliches", FIX_INSTRUCTIONS["ai-cliches"])}
+                  >
+                    {isFixing === "ai-cliches" ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Wrench className="h-3 w-3" />
+                    )}
+                    Исправить
+                  </Button>
+                )}
+              </div>
               {showStopWords && (
                 <div className="space-y-1 max-h-[200px] overflow-y-auto">
                   {stopWords.map((sw, i) => (
