@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,14 +61,18 @@ export default function ResetPasswordPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md border-border bg-card">
-          <CardHeader className="text-center">
+          <CardHeader className="text-center space-y-2">
             <CardTitle>Восстановление пароля</CardTitle>
             <CardDescription>
-              Загрузка... Если ничего не происходит, попробуйте перейти по ссылке из письма заново.
+              Ссылка для сброса пароля недействительна или устарела. Запросите новую.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+            <Link to="/forgot-password">
+              <Button variant="outline" className="w-full">
+                Запросить новую ссылку
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
