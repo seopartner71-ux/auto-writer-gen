@@ -27,6 +27,7 @@ export default function AdminPage() {
           <TabsTrigger value="health">Health Check</TabsTrigger>
           <TabsTrigger value="users">Пользователи</TabsTrigger>
           <TabsTrigger value="content">Контент</TabsTrigger>
+          <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4">
