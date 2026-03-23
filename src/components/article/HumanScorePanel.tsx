@@ -170,7 +170,7 @@ export function HumanScorePanel({ content, lsiKeywords }: HumanScorePanelProps) 
               <span>Безопасность от детекторов</span>
               <span className={`font-bold ${aiLabel.color}`}>{aiProb.score}%</span>
             </div>
-            <Progress value={aiProb.score} className="h-2.5" />
+            <Progress value={aiProb.score} className="h-2.5" indicatorClassName={aiLabel.progressColor} />
           </div>
           <div className="space-y-1">
             {aiProb.flags.map((flag, i) => (
