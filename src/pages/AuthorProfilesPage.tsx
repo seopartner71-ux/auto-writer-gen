@@ -356,8 +356,21 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
 
       {expanded && (
         <CardContent className="space-y-4 pt-0">
-          {/* Reference Text — the core style sample */}
-          <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-4">
+          {/* System Instruction (for presets and custom with instruction) */}
+          {author.system_instruction && (
+            <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-4">
+              <Label className="text-sm font-semibold">Промпт стиля</Label>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-background rounded-md p-3">
+                {author.system_instruction}
+              </p>
+              {author.temperature && (
+                <p className="text-xs text-muted-foreground">Temperature: {Number(author.temperature)}</p>
+              )}
+            </div>
+          )}
+
+          {/* Reference Text — only for custom authors */}
+          {author.type !== "preset" && (
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-primary" />
               <Label className="text-sm font-semibold">Эталонный текст автора</Label>
