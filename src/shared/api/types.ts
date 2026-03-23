@@ -90,6 +90,7 @@ export interface UsageLog {
 export interface PlanConfig {
   maxGenerations: number;
   maxAuthorProfiles: number; // -1 = unlimited
+  maxProImages: number; // 0 = disabled
   models: string[];
   hasCalendar: boolean;
   hasUniquenessCheck: boolean;
@@ -98,6 +99,7 @@ export interface PlanConfig {
   hasAntiAiCheck: boolean;
   hasBulkMode: boolean;
   hasWordPress: boolean;
+  hasProImageGen: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
