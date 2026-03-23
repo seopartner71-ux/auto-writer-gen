@@ -21,6 +21,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.perMonth": { ru: "/ мес", en: "/ mo" },
   "nav.pricing": { ru: "Тарифы", en: "Pricing" },
   "nav.wordpress": { ru: "WordPress", en: "WordPress" },
+  "nav.wiki": { ru: "База знаний", en: "Knowledge Base" },
 
   // Common
   "common.save": { ru: "Сохранить", en: "Save" },

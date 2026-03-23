@@ -74,7 +74,7 @@ export function AppSidebar() {
     { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
     { title: "AI Radar", url: "/radar", icon: Radar },
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
-    { title: "База знаний", url: "/wiki", icon: BookMarked },
+    { title: t("nav.wiki"), url: "/wiki", icon: BookMarked },
   ];
 
   const settingsItems = [
