@@ -28,6 +28,9 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketMessage, setTicketMessage] = useState("");
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
 
   const { data: proImageCount = 0 } = useQuery({
     queryKey: ["pro-image-count"],
