@@ -87,7 +87,7 @@ function RadialChart({ value, label, color }: { value: number; label: string; co
           <circle cx="40" cy="40" r={radius} stroke="hsl(var(--muted))" strokeWidth="6" fill="none" />
           <motion.circle
             cx="40" cy="40" r={radius}
-            stroke={color}
+            stroke={color || getRadialColor(value)}
             strokeWidth="6"
             fill="none"
             strokeLinecap="round"
