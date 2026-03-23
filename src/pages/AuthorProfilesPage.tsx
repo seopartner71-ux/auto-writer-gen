@@ -425,43 +425,47 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
             </div>
           )}
 
-          <Separator />
+          {author.type !== "preset" && (
+            <>
+              <Separator />
 
-          {/* Style Analysis Section */}
-          <div className="space-y-3 rounded-lg bg-muted/50 p-4">
-            <Label className="text-sm font-medium">Анализ стиля</Label>
-            <p className="text-xs text-muted-foreground">
-              Проанализируйте эталонный текст, чтобы извлечь параметры стиля автоматически.
-            </p>
-            <Textarea
-              placeholder="Вставьте текст-образец автора (минимум 50 символов)..."
-              rows={6}
-              value={analyzeText}
-              onChange={(e) => setAnalyzeText(e.target.value)}
-              className="bg-background"
-            />
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                {analyzeText.length} символов {analyzeText.length < 50 && analyzeText.length > 0 ? "(минимум 50)" : ""}
-              </p>
-              <Button
-                size="sm"
-                disabled={analyzeText.trim().length < 50 || isAnalyzing}
-                onClick={() => onAnalyze(analyzeText)}
-              >
-                {isAnalyzing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
-                )}
-                Analyze Style
-              </Button>
-            </div>
-          </div>
+              {/* Style Analysis Section */}
+              <div className="space-y-3 rounded-lg bg-muted/50 p-4">
+                <Label className="text-sm font-medium">Анализ стиля</Label>
+                <p className="text-xs text-muted-foreground">
+                  Проанализируйте эталонный текст, чтобы извлечь параметры стиля автоматически.
+                </p>
+                <Textarea
+                  placeholder="Вставьте текст-образец автора (минимум 50 символов)..."
+                  rows={6}
+                  value={analyzeText}
+                  onChange={(e) => setAnalyzeText(e.target.value)}
+                  className="bg-background"
+                />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {analyzeText.length} символов {analyzeText.length < 50 && analyzeText.length > 0 ? "(минимум 50)" : ""}
+                  </p>
+                  <Button
+                    size="sm"
+                    disabled={analyzeText.trim().length < 50 || isAnalyzing}
+                    onClick={() => onAnalyze(analyzeText)}
+                  >
+                    {isAnalyzing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    Analyze Style
+                  </Button>
+                </div>
+              </div>
 
-          {/* Results */}
-          {author.style_analysis && (
-            <StyleAnalysisCard analysis={author.style_analysis as Record<string, unknown>} />
+              {/* Results */}
+              {author.style_analysis && (
+                <StyleAnalysisCard analysis={author.style_analysis as Record<string, unknown>} />
+              )}
+            </>
           )}
 
           {/* System Prompt Override */}
