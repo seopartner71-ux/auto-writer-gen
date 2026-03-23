@@ -350,7 +350,7 @@ export default function DashboardPage() {
             {stats.recentArticles.length > 0 ? (
               <div className="space-y-2">
                 {stats.recentArticles.map((a: any) => {
-                  const words = a.content ? a.content.trim().split(/\s+/).length : 0;
+                  const words = 0;
                   const statusLabel = STATUS_LABELS[a.status] || a.status;
                   return (
                     <div key={a.id} className="flex items-center justify-between text-sm group">
