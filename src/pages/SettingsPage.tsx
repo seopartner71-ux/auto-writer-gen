@@ -91,6 +91,30 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSubmitTicket = async () => {
+    if (!user) return;
+    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+      toast.error("Заполните тему и сообщение");
+      return;
+    }
+    setIsSubmittingTicket(true);
+    try {
+      const { error } = await supabase.from("support_tickets" as any).insert({
+        user_id: user.id,
+        subject: ticketSubject.trim(),
+        message: ticketMessage.trim(),
+      } as any);
+      if (error) throw error;
+      toast.success("Тикет отправлен! Мы ответим вам в ближайшее время.");
+      setTicketSubject("");
+      setTicketMessage("");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка при отправке тикета");
+    } finally {
+      setIsSubmittingTicket(false);
+    }
+  };
+
   const plan = profile?.plan ?? "basic";
 
   return (
