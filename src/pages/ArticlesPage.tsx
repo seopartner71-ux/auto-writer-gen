@@ -309,6 +309,7 @@ export default function ArticlesPage() {
   const [faqTextBlock, setFaqTextBlock] = useState<string>("");
   const [faqCopied, setFaqCopied] = useState(false);
   const [schemaGenerating, setSchemaGenerating] = useState(false);
+  const [faqMode, setFaqMode] = useState<"standard" | "serp-dominance">("serp-dominance");
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
@@ -614,6 +615,8 @@ export default function ArticlesPage() {
           content,
           keyword: selectedKeyword?.seed_keyword,
           questions: selectedKeyword?.questions || [],
+          lsi_keywords: lsiKeywords,
+          mode: faqMode,
         },
       });
       if (error) throw error;
@@ -654,6 +657,8 @@ export default function ArticlesPage() {
           content: articleContent,
           keyword: selectedKeyword?.seed_keyword,
           questions: selectedKeyword?.questions || [],
+          lsi_keywords: lsiKeywords,
+          mode: faqMode,
         },
       });
       if (error || data?.error) return;
@@ -877,6 +882,10 @@ export default function ArticlesPage() {
                       <Code2 className="h-3 w-3" />
                       HTML
                     </TabsTrigger>
+                    <TabsTrigger value="schema" className="text-xs gap-1.5 px-3">
+                      <Code2 className="h-3 w-3" />
+                      FAQ & Schema
+                    </TabsTrigger>
                   </TabsList>
                   <div className="flex gap-2">
                     <Button
@@ -1037,6 +1046,135 @@ export default function ArticlesPage() {
                       Нет контента для просмотра HTML
                     </p>
                   )}
+                </TabsContent>
+                <TabsContent value="schema" className="mt-0">
+                  <div className="space-y-4">
+                    {/* Mode Toggle */}
+                    <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex rounded-lg border border-border bg-background p-0.5">
+                          <button
+                            onClick={() => setFaqMode("standard")}
+                            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                              faqMode === "standard"
+                                ? "bg-primary text-primary-foreground font-medium"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            Standard FAQ
+                          </button>
+                          <button
+                            onClick={() => setFaqMode("serp-dominance")}
+                            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                              faqMode === "serp-dominance"
+                                ? "bg-primary text-primary-foreground font-medium"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            🚀 SERP-Dominance
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">
+                          {faqMode === "serp-dominance"
+                            ? "Information Gain + SGE-Ready + Entity Injection"
+                            : "Стандартные FAQ вопросы и ответы"}
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => generateSchema.mutate()}
+                        disabled={!content || generateSchema.isPending || schemaGenerating}
+                        className="gap-1.5"
+                      >
+                        {(generateSchema.isPending || schemaGenerating) ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Wand2 className="h-3 w-3" />
+                        )}
+                        {(generateSchema.isPending || schemaGenerating) ? "Генерация..." : "Сгенерировать FAQ"}
+                      </Button>
+                    </div>
+
+                    {/* FAQ Text Block */}
+                    {faqTextBlock && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold flex items-center gap-2">
+                            <BookOpen className="h-4 w-4 text-primary" />
+                            FAQ — Визуальный блок
+                            {faqMode === "serp-dominance" && (
+                              <Badge variant="secondary" className="text-[10px]">Information Gain</Badge>
+                            )}
+                          </h4>
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                // Insert FAQ block into article content
+                                setContent(prev => prev + "\n\n" + faqTextBlock);
+                                toast.success("FAQ блок добавлен в статью");
+                              }}
+                            >
+                              <FileText className="h-3 w-3 mr-1" />
+                              Вставить в статью
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(faqTextBlock, "faq")}
+                            >
+                              {faqCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                              {faqCopied ? "Скопировано" : "Копировать"}
+                            </Button>
+                          </div>
+                        </div>
+                        <div
+                          className="rounded-lg border border-border bg-background p-4 prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: markdownToPreviewHtml(faqTextBlock) }}
+                        />
+                      </div>
+                    )}
+
+                    {/* JSON-LD Schema Code */}
+                    {schemaJson && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold flex items-center gap-2">
+                            <Code2 className="h-4 w-4 text-primary" />
+                            JSON-LD Schema 3.0
+                            <Badge variant="outline" className="text-[10px]">Schema.org</Badge>
+                          </h4>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(schemaJson, "schema")}
+                          >
+                            {schemaCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                            {schemaCopied ? "Скопировано" : "Копировать <script>"}
+                          </Button>
+                        </div>
+                        <pre className="rounded-lg border border-border bg-muted p-4 text-xs font-mono whitespace-pre-wrap break-all max-h-[400px] overflow-auto text-foreground">
+                          <code dangerouslySetInnerHTML={{ __html: highlightHtml(`<script type="application/ld+json">\n${schemaJson}\n</script>`) }} />
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* Empty state */}
+                    {!faqTextBlock && !schemaJson && !generateSchema.isPending && !schemaGenerating && (
+                      <div className="py-12 text-center">
+                        <Code2 className="h-8 w-8 mx-auto text-muted-foreground/50 mb-3" />
+                        <p className="text-sm text-muted-foreground">
+                          Нажмите «Сгенерировать FAQ» для создания блока вопросов-ответов с микроразметкой JSON-LD
+                        </p>
+                        {faqMode === "serp-dominance" && (
+                          <p className="text-xs text-muted-foreground/70 mt-2">
+                            Режим SERP-Dominance: Information Gain + Dynamic Entity Injection + SGE-Ready formatting
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
               </CardContent>
             </Tabs>
