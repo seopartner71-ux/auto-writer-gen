@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Crown, Copy, Check, ImageIcon, X } from "lucide-react";
+import { Sparkles, Crown, Copy, Check, X, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,12 +14,14 @@ interface ProImageGeneratorProps {
   content: string;
   keyword?: string;
   onImageGenerated?: (url: string, alt: string, markdown: string) => void;
+  onMultiImagesGenerated?: (images: { heading: string; url: string; alt: string }[]) => void;
 }
 
-export function ProImageGenerator({ title, content, keyword, onImageGenerated }: ProImageGeneratorProps) {
+export function ProImageGenerator({ title, content, keyword, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
   const { isPro } = usePlanLimits();
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("modern-tech");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingMulti, setIsGeneratingMulti] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<{
     url: string;
     alt: string;
@@ -49,6 +51,13 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated }:
     );
   }
 
+  const getAuthToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("Не авторизован");
+    return token;
+  };
+
   const handleGenerate = async () => {
     if (!title) {
       toast.error("Заполните заголовок статьи");
@@ -59,9 +68,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated }:
     setGeneratedImage(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("Не авторизован");
+      const token = await getAuthToken();
 
       const summary = content
         ?.replace(/^#.+$/gm, "")
@@ -107,6 +114,60 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated }:
     }
   };
 
+  const handleGenerateMulti = async () => {
+    if (!title || !content) {
+      toast.error("Нужна статья с H2-секциями");
+      return;
+    }
+
+    // Quick check for H2 sections
+    const h2Count = (content.match(/^##\s+/gm) || []).length;
+    if (h2Count === 0) {
+      toast.error("В статье не найдены H2-заголовки (## ...)");
+      return;
+    }
+
+    setIsGeneratingMulti(true);
+    try {
+      const token = await getAuthToken();
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pro-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          title,
+          content,
+          style: selectedStyle,
+          keyword: keyword || title,
+          mode: "multi",
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Ошибка генерации" }));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      const { images, remaining } = data;
+
+      if (images?.length > 0) {
+        toast.success(`Сгенерировано ${images.length} иллюстраций! Осталось: ${remaining}`);
+        onMultiImagesGenerated?.(images);
+      } else {
+        toast.warning("Не удалось сгенерировать изображения");
+      }
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsGeneratingMulti(false);
+    }
+  };
+
   const copyMarkdown = () => {
     if (!generatedImage) return;
     navigator.clipboard.writeText(`![${generatedImage.alt}](${generatedImage.url})`);
@@ -115,11 +176,12 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated }:
     toast.success("Markdown скопирован");
   };
 
+  const isAnyGenerating = isGenerating || isGeneratingMulti;
+
   return (
     <div className="space-y-3">
-      {/* Generator Button / Skeleton Loader */}
       <AnimatePresence mode="wait">
-        {isGenerating ? (
+        {isAnyGenerating ? (
           <motion.div
             key="skeleton"
             initial={{ opacity: 0 }}
@@ -135,7 +197,9 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated }:
               >
                 <Sparkles className="w-6 h-6 text-purple-400" />
               </motion.div>
-              <span className="text-sm text-purple-300 font-medium">Синтезируем уникальный визуал...</span>
+              <span className="text-sm text-purple-300 font-medium">
+                {isGeneratingMulti ? "Генерируем иллюстрации для секций..." : "Синтезируем уникальный визуал..."}
+              </span>
               <div className="w-48 h-1 rounded-full bg-purple-500/20 overflow-hidden">
                 <motion.div
                   className="h-full bg-purple-500/60 rounded-full"
@@ -145,7 +209,6 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated }:
                 />
               </div>
             </div>
-            {/* Glow border effect */}
             <div className="absolute inset-0 pointer-events-none rounded-xl border border-purple-500/20 shadow-[0_0_15px_rgba(168,85,247,0.15)]" />
           </motion.div>
         ) : generatedImage ? (
@@ -201,31 +264,55 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated }:
           </motion.div>
         ) : (
           <motion.div
-            key="button"
+            key="buttons"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="relative group overflow-hidden rounded-xl border border-purple-500/30 bg-card"
+            className="space-y-2"
           >
-            <button
-              onClick={handleGenerate}
-              disabled={!title}
-              className="w-full py-8 flex flex-col items-center justify-center gap-2.5 bg-purple-500/5 hover:bg-purple-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="p-2.5 rounded-full bg-purple-500/20 text-purple-400 group-hover:scale-110 transition-transform">
-                <Sparkles className="w-6 h-6" />
+            {/* Single cover image */}
+            <div className="relative group overflow-hidden rounded-xl border border-purple-500/30 bg-card">
+              <button
+                onClick={handleGenerate}
+                disabled={!title}
+                className="w-full py-6 flex flex-col items-center justify-center gap-2 bg-purple-500/5 hover:bg-purple-500/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="p-2.5 rounded-full bg-purple-500/20 text-purple-400 group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <span className="text-foreground font-medium text-sm">Синтезировать Pro-обложку</span>
+                <span className="text-[10px] text-purple-400/60 uppercase tracking-widest">
+                  Powered by Flux AI
+                </span>
+              </button>
+            </div>
+
+            {/* Multi-image for sections */}
+            {content && (content.match(/^##\s+/gm) || []).length > 0 && (
+              <div className="relative group overflow-hidden rounded-xl border border-cyan-500/30 bg-card">
+                <button
+                  onClick={handleGenerateMulti}
+                  className="w-full py-4 flex items-center justify-center gap-3 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all"
+                >
+                  <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-400">
+                    <Images className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-foreground font-medium text-sm block">
+                      Иллюстрации для секций
+                    </span>
+                    <span className="text-[10px] text-cyan-400/60">
+                      {Math.min((content.match(/^##\s+/gm) || []).length, 5)} изображений между H2
+                    </span>
+                  </div>
+                </button>
               </div>
-              <span className="text-foreground font-medium text-sm">Синтезировать Pro-обложку</span>
-              <span className="text-[10px] text-purple-400/60 uppercase tracking-widest">
-                Powered by Flux AI
-              </span>
-            </button>
-            <div className="absolute inset-0 pointer-events-none border border-purple-500/20 rounded-xl" />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Style Presets */}
-      {!generatedImage && !isGenerating && (
+      {!generatedImage && !isAnyGenerating && (
         <StylePresets selected={selectedStyle} onSelect={setSelectedStyle} />
       )}
     </div>
