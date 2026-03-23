@@ -12,9 +12,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Save, Trash2 } from "lucide-react";
+import { Users, Save, Trash2, Coins } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { AddCreditsDialog } from "./AddCreditsDialog";
 
 interface UserProfile {
   id: string;
@@ -23,6 +24,7 @@ interface UserProfile {
   plan: string;
   monthly_limit: number;
   is_active: boolean;
+  credits_amount: number;
   created_at: string;
 }
 
@@ -39,6 +41,7 @@ export function UserManagementTab() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editPlan, setEditPlan] = useState("");
   const [editLimit, setEditLimit] = useState("");
+  const [creditsUser, setCreditsUser] = useState<{ id: string; email: string | null; credits_amount: number } | null>(null);
 
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ["admin-profiles"],
@@ -143,6 +146,7 @@ export function UserManagementTab() {
                 <TableHead className="text-center">Активен</TableHead>
                 <TableHead className="text-right">Токены</TableHead>
                 <TableHead className="text-right">≈ $</TableHead>
+                <TableHead className="text-right">Кредиты</TableHead>
                 <TableHead className="text-right">Лимит</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -190,6 +194,20 @@ export function UserManagementTab() {
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
                       ${cost}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="font-mono text-xs">{p.credits_amount}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-primary"
+                          title="Начислить кредиты"
+                          onClick={() => setCreditsUser({ id: p.id, email: p.email, credits_amount: p.credits_amount })}
+                        >
+                          <Coins className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {isEditing ? (
@@ -276,6 +294,11 @@ export function UserManagementTab() {
           </Table>
         </CardContent>
       </Card>
+      <AddCreditsDialog
+        open={!!creditsUser}
+        onOpenChange={(open) => !open && setCreditsUser(null)}
+        user={creditsUser}
+      />
     </div>
   );
 }
