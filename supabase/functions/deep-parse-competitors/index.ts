@@ -229,7 +229,7 @@ function emptyAnalysis(): Omit<CompetitorAnalysis, "url" | "position"> {
 async function fetchPage(url: string): Promise<{ html: string | null; error?: string }> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // reduced from 20s to 8s
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -410,11 +410,15 @@ serve(async (req) => {
       throw new Error("No SERP results found. Run Smart Research first.");
     }
 
-    // ── Parse each competitor page (parallel, max 7) ──
+    // ── Parse each competitor page (parallel, max 5, skip non-content URLs) ──
     const parsedPages: CompetitorAnalysis[] = [];
     const failedUrls: { url: string; reason: string }[] = [];
 
-    const validSerps = serpResults.filter((sr: any) => sr.url).slice(0, 7);
+    // Skip Pinterest, social media, and other non-article URLs
+    const skipDomains = ["pinterest.com", "instagram.com", "facebook.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "vk.com"];
+    const validSerps = serpResults
+      .filter((sr: any) => sr.url && !skipDomains.some(d => sr.url.includes(d)))
+      .slice(0, 5);
     console.log(`Fetching ${validSerps.length} pages in parallel...`);
 
     const fetchResults = await Promise.allSettled(
@@ -481,27 +485,37 @@ serve(async (req) => {
       target_h2_count: Math.max(median(h2Counts), 5),
     };
 
-    // ── AI Entity Extraction ──
+    // ── AI Entity Extraction (Lovable AI Gateway for speed) ──
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    
+    // Fallback: use OpenRouter if no Lovable AI key
     const { data: assignment } = await supabaseAdmin
       .from("task_model_assignments")
       .select("model_key")
       .eq("task_key", "researcher")
       .single();
-    const model = assignment?.model_key || "google/gemini-2.5-flash";
+
+    const useGateway = !!LOVABLE_API_KEY;
+    const model = useGateway ? "google/gemini-2.5-flash-lite" : (assignment?.model_key || "google/gemini-2.5-flash");
 
     const competitorTexts = parsedPages
-      .slice(0, 5)
+      .slice(0, 4)
       .map((p) => {
-        const headingText = p.structure.h_tags.map((h) => `${"  ".repeat(h.level - 1)}H${h.level}: ${h.text}`).join("\n");
-        const topKw = p.content.keywords.slice(0, 10).map((k) => `${k.word}(${k.density}%)`).join(", ");
-        return `--- #${p.position} ${p.url} (${p.structure.word_count} words, ${p.media.images_count} imgs) ---\nTitle: ${p.seo.title}\nH1: ${p.structure.h1}\nHeadings:\n${headingText}\nTop keywords: ${topKw}`;
+        const headingText = p.structure.h_tags.slice(0, 15).map((h) => `H${h.level}: ${h.text}`).join("\n");
+        const topKw = p.content.keywords.slice(0, 8).map((k) => `${k.word}(${k.density}%)`).join(", ");
+        return `--- #${p.position} (${p.structure.word_count}w) ---\nTitle: ${p.seo.title}\nH1: ${p.structure.h1}\nHeadings:\n${headingText}\nTop kw: ${topKw}`;
       })
       .join("\n\n");
 
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const aiUrl = useGateway
+      ? "https://ai.gateway.lovable.dev/v1/chat/completions"
+      : "https://openrouter.ai/api/v1/chat/completions";
+    const aiAuthKey = useGateway ? LOVABLE_API_KEY : OPENROUTER_API_KEY;
+
+    const aiResponse = await fetch(aiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${aiAuthKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
