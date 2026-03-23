@@ -1258,6 +1258,7 @@ export default function ArticlesPage() {
                       else { toast.error(e.message); setContent(prevContent); }
                     } finally {
                       setIsStreaming(false);
+                      setStreamPhase(null);
                       abortRef.current = null;
                     }
                   }}
