@@ -309,7 +309,14 @@ export default function ArticlesPage() {
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
+  // Timer for streaming elapsed seconds
+  useEffect(() => {
+    if (!isStreaming) { setStreamElapsed(0); return; }
+    const start = Date.now();
+    const interval = setInterval(() => setStreamElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(interval);
+  }, [isStreaming]);
+
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
 
   // Auto-generate SEO Title via AI
