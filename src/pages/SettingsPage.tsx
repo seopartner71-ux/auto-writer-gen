@@ -1,4 +1,4 @@
-import { Settings, Sun, Moon, ImageIcon } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -7,15 +7,27 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { useState } from "react";
 
 export default function SettingsPage() {
   const { user, profile } = useAuth();
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const { isPro, limits } = usePlanLimits();
+
+  // Profile editing state
+  const [fullName, setFullName] = useState(profile?.full_name ?? "");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Password change state
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const { data: proImageCount = 0 } = useQuery({
     queryKey: ["pro-image-count"],
@@ -38,6 +50,46 @@ export default function SettingsPage() {
   const proImageMax = limits.maxProImages;
   const proImagePercent = proImageMax > 0 ? Math.round((proImageCount / proImageMax) * 100) : 0;
 
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setIsSavingProfile(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName.trim() || null })
+        .eq("id", user.id);
+      if (error) throw error;
+      toast.success("Профиль обновлён");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка при сохранении");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error("Пароль должен быть не менее 6 символов");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Пароли не совпадают");
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Пароль изменён");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка при смене пароля");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -46,23 +98,81 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6 max-w-lg">
+        {/* Profile card with editing */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-lg">{t("settings.profile")}</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <User className="h-5 w-5" />
+              {t("settings.profile")}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t("settings.email")}</span>
-              <span>{user?.email}</span>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t("settings.email")}</Label>
+              <Input value={user?.email ?? ""} disabled className="bg-muted" />
+              <p className="text-xs text-muted-foreground">Email нельзя изменить</p>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t("settings.name")}</span>
-              <span>{profile?.full_name ?? "—"}</span>
+            <div className="space-y-2">
+              <Label>{t("settings.name")}</Label>
+              <Input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Ваше имя"
+              />
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">{t("settings.plan")}</span>
               <span className="text-primary uppercase font-medium">{profile?.plan ?? "basic"}</span>
             </div>
+            <Button
+              onClick={handleSaveProfile}
+              disabled={isSavingProfile}
+              size="sm"
+              className="w-full"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSavingProfile ? "Сохранение..." : "Сохранить профиль"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Password change card */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Смена пароля
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Новый пароль</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Минимум 6 символов"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Подтвердите пароль</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Повторите пароль"
+              />
+            </div>
+            <Button
+              onClick={handleChangePassword}
+              disabled={isChangingPassword || !newPassword}
+              size="sm"
+              variant="outline"
+              className="w-full"
+            >
+              <Lock className="h-4 w-4 mr-2" />
+              {isChangingPassword ? "Смена..." : "Сменить пароль"}
+            </Button>
           </CardContent>
         </Card>
 
