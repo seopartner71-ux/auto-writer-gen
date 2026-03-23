@@ -34,7 +34,16 @@ const IndexingPage = lazy(() => import("@/pages/IndexingPage"));
 const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
 const RadarPage = lazy(() => import("@/pages/RadarPage"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000, // 2 min — prevent refetch on every navigation
+      gcTime: 10 * 60 * 1000,   // 10 min — keep cache longer
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function PageLoader() {
   return (
