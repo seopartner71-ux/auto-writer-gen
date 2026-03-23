@@ -317,6 +317,7 @@ export default function ArticlesPage() {
     return () => clearInterval(interval);
   }, [isStreaming]);
 
+  const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
 
   // Auto-generate SEO Title via AI
