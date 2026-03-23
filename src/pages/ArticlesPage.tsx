@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import { PlanGate } from "@/shared/components/PlanGate";
 import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
+import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -686,8 +687,6 @@ export default function ArticlesPage() {
         <BulkGenerationMode />
       ) : (
       <>
-
-
       {/* Configuration */}
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
@@ -958,6 +957,10 @@ export default function ArticlesPage() {
                 <BarChart3 className="h-3 w-3" />
                 Dashboard
               </TabsTrigger>
+              <TabsTrigger value="human" className="text-xs gap-1 flex-1">
+                <Shield className="h-3 w-3" />
+                Human Score
+              </TabsTrigger>
               <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
                 <Target className="h-3 w-3" />
                 Benchmark
@@ -1122,6 +1125,10 @@ export default function ArticlesPage() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="human" className="mt-3">
+              <HumanScorePanel content={content} lsiKeywords={lsiKeywords} />
             </TabsContent>
 
             <TabsContent value="benchmark" className="mt-3">

@@ -6,6 +6,249 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ─── Stealth Prompt Builder (Block A + B + C) ───────────────────────────
+// SECURITY: This logic NEVER leaves the server. The frontend only sends
+// structured data (keyword_id, author_profile_id, outline, etc.).
+
+interface StealthPromptInput {
+  authorProfile: {
+    name?: string;
+    voice_tone?: string;
+    niche?: string;
+    style_analysis?: Record<string, any>;
+    style_examples?: string;
+    stop_words?: string[];
+    system_prompt_override?: string;
+  } | null;
+  serpData: { title: string; snippet: string; url: string }[];
+  lsiKeywords: string[];
+  userStructure: { text: string; level: string }[];
+  keyword: {
+    seed_keyword: string;
+    intent?: string;
+    difficulty?: number;
+    questions?: string[];
+  };
+  competitorTables?: any[];
+  competitorLists?: any[];
+  deepAnalysisContext?: string;
+}
+
+function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
+  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext } = input;
+  const isRussian = /[а-яё]/i.test(keyword.seed_keyword);
+
+  // ═══ BLOCK A: Author Context ═══
+  let blockA = "";
+  if (authorProfile) {
+    const parts: string[] = [];
+    parts.push(`Ты — ${authorProfile.name || "эксперт"}.`);
+    if (authorProfile.voice_tone) parts.push(`Твой стиль: ${authorProfile.voice_tone}. Ты ОБЯЗАН писать в этом стиле КАЖДОЕ предложение.`);
+    if (authorProfile.niche) parts.push(`Используй профессиональный сленг ниши "${authorProfile.niche}" естественно, как носитель.`);
+    
+    if (authorProfile.style_analysis) {
+      const sa = authorProfile.style_analysis;
+      if (sa.tone_description) parts.push(`СТИЛЬ ПИСЬМА: ${sa.tone_description}`);
+      if (sa.vocabulary_level) parts.push(`УРОВЕНЬ ЛЕКСИКИ: ${sa.vocabulary_level}`);
+      if (sa.paragraph_length) parts.push(`ДЛИНА АБЗАЦЕВ: ${sa.paragraph_length}`);
+      if (sa.sentence_style) parts.push(`СТИЛЬ ПРЕДЛОЖЕНИЙ: ${sa.sentence_style}`);
+      if (sa.metaphor_usage) parts.push(`МЕТАФОРЫ: ${sa.metaphor_usage}`);
+      if (sa.formality) parts.push(`ФОРМАЛЬНОСТЬ: ${sa.formality}`);
+      if (sa.emotional_tone) parts.push(`ЭМОЦИОНАЛЬНЫЙ ТОН: ${sa.emotional_tone}`);
+      if (sa.recommended_system_prompt) parts.push(`ДИРЕКТИВА СТИЛЯ: ${sa.recommended_system_prompt}`);
+    }
+    if (authorProfile.style_examples) {
+      parts.push(`ЭТАЛОННЫЙ ПРИМЕР (копируй этот стиль максимально близко):\n"${authorProfile.style_examples.slice(0, 1500)}"`);
+    }
+    if (authorProfile.stop_words?.length) parts.push(`ЗАПРЕЩЁННЫЕ СЛОВА (никогда не используй): ${authorProfile.stop_words.join(", ")}`);
+    if (authorProfile.system_prompt_override) parts.push(`ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ АВТОРА: ${authorProfile.system_prompt_override}`);
+    
+    blockA = `=== БЛОК А: КОНТЕКСТ АВТОРА (критически важно — строго следуй) ===\n${parts.join("\n")}\n=== КОНЕЦ БЛОКА А ===`;
+  }
+
+  // ═══ BLOCK B: Factology & Structure ═══
+  const outlineStr = (userStructure || [])
+    .map((o) => `${{ h1: "#", h2: "##", h3: "###" }[o.level] || "##"} ${o.text}`)
+    .join("\n");
+
+  const competitorStr = (serpData || [])
+    .map((r, i) => `${i + 1}. "${r.title}" — ${r.snippet || ""}`)
+    .join("\n");
+
+  const lsiStr = lsiKeywords.join(", ");
+  const questionsStr = (keyword.questions || []).join("\n- ");
+
+  let tablesListsInstructions = "";
+  if (competitorTables?.length) {
+    tablesListsInstructions += "\n\nТАБЛИЦЫ (по данным анализа конкурентов):\n";
+    competitorTables.forEach((t: any, i: number) => {
+      tablesListsInstructions += `${i + 1}. Таблица о "${t.topic}" с колонками: ${(t.columns || []).join(" | ")}\n`;
+    });
+    tablesListsInstructions += "Создай эти таблицы с реальными полезными данными. Используй Markdown-синтаксис.";
+  }
+  if (competitorLists?.length) {
+    tablesListsInstructions += "\n\nСПИСКИ (по данным анализа конкурентов):\n";
+    competitorLists.forEach((l: any, i: number) => {
+      tablesListsInstructions += `${i + 1}. ${l.type === "numbered" ? "Нумерованный" : l.type === "checklist" ? "Чеклист" : "Маркированный"} список о "${l.topic}"${l.estimated_items ? ` (~${l.estimated_items} пунктов)` : ""}\n`;
+    });
+    tablesListsInstructions += "Включи эти списки естественно в соответствующие разделы.";
+  }
+
+  const blockB = `=== БЛОК Б: ФАКТОЛОГИЯ И СТРУКТУРА ===
+Основывайся на данных из ТОП-выдачи:
+${competitorStr || "Нет данных конкурентов"}
+
+Вплети LSI-слова естественно: ${lsiStr || "Нет LSI"}
+
+Соблюдай структуру:
+${outlineStr || "Напиши комплексную статью по теме"}
+${tablesListsInstructions}
+${deepAnalysisContext ? `\nДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ИЗ DEEP ANALYSIS ТОП-10:\n${deepAnalysisContext}` : ""}
+=== КОНЕЦ БЛОКА Б ===`;
+
+  // ═══ BLOCK C: Stealth Instructions (Anti-AI Detection) ═══
+  // CRITICAL: These instructions NEVER leave the server
+  const blockC = `=== БЛОК В: STEALTH-ИНСТРУКЦИИ (МАКСИМАЛЬНЫЙ ПРИОРИТЕТ) ===
+
+ТЕХНИКА "Dynamic Burstiness":
+- Чередуй ОЧЕНЬ короткие предложения (3-5 слов) с длинными ветвистыми конструкциями (25-40 слов).
+- Минимум 30% предложений должны быть короче 8 слов. Минимум 20% — длиннее 25 слов.
+- Никогда не пиши 3+ предложения подряд одинаковой длины.
+
+ТЕХНИКА "High Perplexity":
+${isRussian
+  ? `- Замени предсказуемые связки на живые авторские обороты:
+  "таким образом" → "суть в том", "на деле мы видим", "смотрите сами"
+  "важно отметить" → "вот что цепляет", "тут есть нюанс", "обратите внимание на деталь"
+  "в заключение" → "что в итоге", "подведём черту", "если коротко"
+  "необходимо учитывать" → "нельзя забывать про", "упустишь это — получишь проблемы"
+  "следует подчеркнуть" → "ключевой момент здесь", "это принципиально"
+  "является" → "это", "по сути", "работает как"
+  "осуществлять" → "делать", "проводить", "заниматься"
+  "данный" → "этот", "такой"
+  "в рамках" → "внутри", "как часть"
+  "на сегодняшний день" → "сейчас", "прямо сейчас"
+  "комплексный подход" → "разносторонний взгляд", "подход с нескольких сторон"`
+  : `- Replace predictable connectors with authentic authorial phrases:
+  "in conclusion" → "bottom line", "here's the takeaway", "cutting to the chase"
+  "it's important to note" → "here's what matters", "don't miss this", "the key thing"
+  "furthermore" → "and here's the kicker", "on top of that", "what's more interesting"
+  "utilize" → "use", "tap into", "lean on"
+  "comprehensive" → "thorough", "all-encompassing", "deep-dive"
+  "leverage" → "take advantage of", "build on", "harness"
+  "streamline" → "simplify", "cut the fat", "make leaner"`}
+
+ЗАПРЕЩЁННЫЕ ПАТТЕРНЫ (нарушение = провал проверки):
+- НЕ используй списки из 5+ пунктов одинаковой длины. Варьируй: один пункт — 3 слова, другой — целое предложение.
+- НЕ пиши вывод в стиле "${isRussian ? "В заключение..." : "In conclusion..."}". Заверши мысль неожиданно.
+- НЕ начинай абзацы с одного и того же паттерна. Первый — с факта, второй — с вопроса, третий — с цитаты.
+- НЕ используй "Moreover", "Furthermore", "Additionally", "It's worth noting" или их русские аналоги.
+- НЕ пиши параграфы одинаковой длины. Один — 1-2 предложения, следующий — 4-5.
+
+ОБЯЗАТЕЛЬНЫЕ СТИЛИСТИЧЕСКИЕ ПРИЁМЫ:
+- Добавь 3-4 риторических вопроса в тело статьи (не в FAQ). Используй их для перехода между мыслями.
+- Вставь 2-3 вводных слова/фразы В СЕРЕДИНУ предложений, а не в начало (разбивая привычный порядок).
+- Добавь 1-2 момента лёгкой иронии или скептицизма — покажи, что автор думающий человек, а не машина.
+- Используй парентетические вставки (вот как эта) — 2-3 раза в статье.
+- Включи конкретные числа, даты, имена вместо абстрактных обобщений.
+
+ГОЛОС И ПОДАЧА:
+${isRussian
+  ? `- Используй разговорные выражения, идиомы ("Честно говоря", "Давайте разберёмся", "Вот в чём дело", "Знаете что?").
+- Включи личные мнения и субъективные оценки от первого лица ("Я считаю", "По моему опыту", "На мой взгляд", "Меня это удивило").
+- Активный залог доминирует. Пассив — максимум 10% предложений.
+- Эмоциональная вовлечённость: показывай энтузиазм, скептицизм, удивление где уместно.`
+  : `- Use colloquial expressions, idioms naturally.
+- Include personal opinions ("I believe", "In my experience", "From what I've seen", "This surprised me").
+- Active voice dominant. Passive — max 10% of sentences.
+- Show emotional engagement: enthusiasm, skepticism, surprise where appropriate.`}
+
+=== КОНЕЦ БЛОКА В ===`;
+
+  // ═══ Assemble System Prompt ═══
+  const systemPrompt = `Ты — экспертный SEO-копирайтер с уникальным авторским почерком.${authorProfile ? " Пиши КАК автор, описанный в Блоке А — каждое предложение должно звучать как его/её текст." : ""}
+
+${blockA}
+
+БАЗОВЫЕ ПРАВИЛА:
+- Следуй структуре заголовков из Блока Б
+- Естественно вплетай LSI-ключевые слова
+- Пиши на том же языке, что и ключевое слово
+- Формат — Markdown (# h1, ## h2, ### h3)
+- Включай таблицы сравнения и структурированные списки где конкуренты их используют
+- Используй Markdown-таблицы: | Колонка1 | Колонка2 | с разделителем |---|---|
+
+КРИТИЧЕСКОЕ ПРАВИЛО ЯЗЫКА: ВСЯ статья ДОЛЖНА быть на том же языке, что и ключевое слово "${keyword.seed_keyword}". ${isRussian ? "Ключевое слово на русском — пиши ВСЁ на русском." : "Write in the language of the keyword."}
+
+${blockC}
+
+FAQ (ОБЯЗАТЕЛЬНО):
+- В конце статьи добавь "${isRussian ? "## Часто задаваемые вопросы (FAQ)" : "## Frequently Asked Questions (FAQ)"}"
+- Минимум 5 вопросов и ответов
+- Формат: "### <Вопрос>\\n<Ответ 2-4 предложения>"
+- Оберни секцию комментарием <!-- FAQ Schema -->
+- FAQ на том же языке, что и статья`;
+
+  return { system: systemPrompt, user: "" }; // user prompt built separately
+}
+
+// ─── Optimization Mode User Prompt ──────────────────────────────────────
+function buildOptimizeUserPrompt(
+  keyword: any, lsiStr: string, questionsStr: string,
+  existingContent: string, optimizeInstructions: string, deepContext?: string
+): string {
+  return `КЛЮЧЕВОЕ СЛОВО: "${keyword.seed_keyword}"
+ИНТЕНТ: ${keyword.intent || "informational"}
+
+ТЕКУЩАЯ СТАТЬЯ (для улучшения):
+${existingContent}
+
+ИНСТРУКЦИИ ПО ОПТИМИЗАЦИИ (на основе сравнения с ТОП-10):
+${optimizeInstructions}
+
+БЕНЧМАРК ТОП-10:
+${deepContext || "Нет дополнительного контекста."}
+
+LSI-КЛЮЧИ:
+${lsiStr || "Нет"}
+
+ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
+${questionsStr ? `- ${questionsStr}` : "Нет"}
+
+ЗАДАЧА: Перепиши и расширь статью, исправив ВСЕ перечисленные проблемы. Сохрани хорошее, но используй данные бенчмарка ТОП-10 для:
+- добавления недостающих разделов и подтем;
+- добавления недостающих сущностей, терминов и LSI-фраз;
+- выравнивания глубины и полноты с лидерами ТОП-10;
+- улучшения полезности и экспертности.
+
+Верни ПОЛНУЮ улучшенную статью в Markdown.`;
+}
+
+function buildNewArticleUserPrompt(
+  keyword: any, outlineStr: string, competitorStr: string,
+  lsiStr: string, questionsStr: string
+): string {
+  return `КЛЮЧЕВОЕ СЛОВО: "${keyword.seed_keyword}"
+ИНТЕНТ: ${keyword.intent || "informational"}
+
+ПЛАН СТАТЬИ:
+${outlineStr || "Напиши комплексную статью по теме"}
+
+ДАННЫЕ КОНКУРЕНТОВ:
+${competitorStr || "Нет данных"}
+
+LSI-КЛЮЧИ:
+${lsiStr || "Нет"}
+
+ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
+${questionsStr ? `- ${questionsStr}` : "Нет"}
+
+РЕКОМЕНДУЕМЫЙ ОБЪЁМ: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} слов
+
+Напиши полную статью.`;
+}
+
+// ─── Main Handler ───────────────────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -31,29 +274,25 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // 1. Get user profile for tier
+    // Get user profile for tier
     const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
     const userPlan = profile?.plan || "basic";
 
-    // 2. Get model assignment based on tier
+    // Get model assignment
     const writerTask = userPlan === "pro" ? "writer_pro" : "writer_basic";
     const { data: assignment } = await supabaseAdmin
       .from("task_model_assignments")
       .select("model_key")
       .eq("task_key", writerTask)
       .single();
-
-    // Fallback models by tier
     const fallbackModel = userPlan === "pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash-lite";
     const model = assignment?.model_key || fallbackModel;
 
-    // 3. Get keyword data
+    // Get keyword
     const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
     if (!keyword) throw new Error("Keyword not found");
 
-    const isRussian = /[а-яё]/i.test(keyword.seed_keyword);
-
-    // 4. Get SERP results
+    // Get SERP results
     const { data: serpResults } = await supabase
       .from("serp_results")
       .select("title, snippet, url")
@@ -61,163 +300,54 @@ serve(async (req) => {
       .order("position", { ascending: true })
       .limit(10);
 
-    // 5. Get author profile if provided
-    let authorStyle = "";
+    // Get author profile
+    let authorData: any = null;
     if (author_profile_id) {
       const { data: author } = await supabase
         .from("author_profiles")
         .select("*")
         .eq("id", author_profile_id)
         .single();
-      if (author) {
-        const parts = [];
-        parts.push(`AUTHOR NAME: ${author.name}`);
-        if (author.voice_tone) parts.push(`TONE OF VOICE: ${author.voice_tone}. You MUST write the entire article in this exact tone.`);
-        if (author.niche) parts.push(`NICHE EXPERTISE: ${author.niche}. Use domain-specific terminology naturally.`);
-        if (author.style_analysis) {
-          const sa = author.style_analysis as any;
-          if (sa.tone_description) parts.push(`WRITING STYLE: ${sa.tone_description}`);
-          if (sa.vocabulary_level) parts.push(`VOCABULARY LEVEL: ${sa.vocabulary_level}`);
-          if (sa.paragraph_length) parts.push(`PARAGRAPH LENGTH: ${sa.paragraph_length}`);
-          if (sa.sentence_style) parts.push(`SENTENCE STYLE: ${sa.sentence_style}`);
-          if (sa.metaphor_usage) parts.push(`METAPHOR USAGE: ${sa.metaphor_usage}`);
-          if (sa.formality) parts.push(`FORMALITY: ${sa.formality}`);
-          if (sa.emotional_tone) parts.push(`EMOTIONAL TONE: ${sa.emotional_tone}`);
-          if (sa.recommended_system_prompt) parts.push(`STYLE DIRECTIVE: ${sa.recommended_system_prompt}`);
-        }
-        if (author.style_examples) parts.push(`REFERENCE WRITING SAMPLE (mimic this style closely):\n"${author.style_examples.slice(0, 1500)}"`);
-        if (author.stop_words?.length) parts.push(`FORBIDDEN WORDS (never use these): ${author.stop_words.join(", ")}`);
-        if (author.system_prompt_override) parts.push(`ADDITIONAL AUTHOR INSTRUCTIONS: ${author.system_prompt_override}`);
-        authorStyle = parts.join("\n");
-      }
+      authorData = author;
     }
 
-    // 6. Build outline string
+    // Build stealth prompt via server-side function
+    const stealthInput: StealthPromptInput = {
+      authorProfile: authorData,
+      serpData: (serpResults || []).map((r: any) => ({ title: r.title || "", snippet: r.snippet || "", url: r.url || "" })),
+      lsiKeywords: lsi_keywords || keyword.lsi_keywords || [],
+      userStructure: outline || [],
+      keyword: {
+        seed_keyword: keyword.seed_keyword,
+        intent: keyword.intent,
+        difficulty: keyword.difficulty,
+        questions: keyword.questions,
+      },
+      competitorTables: competitor_tables,
+      competitorLists: competitor_lists,
+      deepAnalysisContext: deep_analysis_context,
+    };
+
+    const { system: systemPrompt } = generateStealthPrompt(stealthInput);
+
+    // Build user prompt
+    const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
+    const questionsStr = (keyword.questions || []).join("\n- ");
     const outlineStr = (outline || [])
       .map((o: any) => `${{ h1: "#", h2: "##", h3: "###" }[o.level] || "##"} ${o.text}`)
       .join("\n");
-
-    // 7. Competitor analysis
     const competitorStr = (serpResults || [])
       .map((r: any, i: number) => `${i + 1}. "${r.title}" — ${r.snippet || ""}`)
       .join("\n");
 
-    const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
-    const questionsStr = (keyword.questions || []).join("\n- ");
-
-    // Build tables/lists instructions
-    let tablesListsInstructions = "";
-    if (competitor_tables?.length) {
-      tablesListsInstructions += "\n\nTABLES TO INCLUDE (based on competitor analysis):\n";
-      competitor_tables.forEach((t: any, i: number) => {
-        tablesListsInstructions += `${i + 1}. Table about "${t.topic}" with columns: ${(t.columns || []).join(" | ")}\n`;
-      });
-      tablesListsInstructions += "Create these tables with real, useful data filled in. Use Markdown table syntax.";
-    }
-    if (competitor_lists?.length) {
-      tablesListsInstructions += "\n\nLISTS TO INCLUDE (based on competitor analysis):\n";
-      competitor_lists.forEach((l: any, i: number) => {
-        tablesListsInstructions += `${i + 1}. ${l.type === "numbered" ? "Numbered" : l.type === "checklist" ? "Checklist" : "Bullet"} list about "${l.topic}"${l.estimated_items ? ` (~${l.estimated_items} items)` : ""}\n`;
-      });
-      tablesListsInstructions += "Include these lists naturally within the relevant sections.";
-    }
-
-    const systemPrompt = `You are an expert SEO content writer.${authorStyle ? ` You are writing AS the author described below — adopt their voice, tone, vocabulary, and style throughout the ENTIRE article. Every sentence must sound like this author wrote it.` : ""}
-
-${authorStyle ? `\n=== AUTHOR PERSONA (CRITICAL — follow strictly) ===\n${authorStyle}\n=== END AUTHOR PERSONA ===\n` : ""}
-RULES:
-- Follow the exact heading structure provided
-- Naturally incorporate LSI keywords throughout the text
-- Write in the same language as the keyword and headings
-- Include transition phrases between sections
-- Make content informative, engaging, and original
-- Aim for the recommended word count
-- Format the article in Markdown (# for h1, ## for h2, ### for h3)
-- IMPORTANT: Include comparison tables, feature tables, and structured lists where competitors use them. Tables and lists improve readability and SEO ranking.
-- Use Markdown table syntax: | Column1 | Column2 | with header separator |---|---|
-- Use bullet lists (- item), numbered lists (1. item), or checklists where appropriate
-${authorStyle ? "- CRITICAL: Maintain the author's unique voice and style in EVERY paragraph. Do NOT fall into generic AI writing patterns." : ""}
-${tablesListsInstructions}
-${deep_analysis_context ? `\n${deep_analysis_context}` : ""}
-
-CRITICAL LANGUAGE RULE: The ENTIRE article MUST be written in the SAME language as the keyword "${keyword.seed_keyword}". ${isRussian ? "The keyword is in Russian — write everything in Russian." : "The keyword is NOT in Russian — write in the language of the keyword. Do NOT write in Russian."}
-
-ANTI-AI DETECTION (CRITICAL — follow strictly):
-- Write like a real human expert, NOT like an AI. Vary sentence length dramatically: mix very short punchy sentences with longer complex ones.
-${isRussian 
-  ? `- Use colloquial expressions, idioms, and informal transitions naturally ("Честно говоря", "Давайте разберёмся", "Вот в чём дело").
-- Include personal opinions, subjective judgments, and first-person perspective ("Я считаю", "По моему опыту", "На мой взгляд").
-- Avoid these AI giveaway patterns: "В заключение", "Важно отметить", "Следует подчеркнуть", "Необходимо учитывать", "В современном мире", "Данный", "Является", "Осуществлять", "В рамках", "На сегодняшний день", "Комплексный подход".`
-  : `- Use colloquial expressions, idioms, and informal transitions natural to the keyword's language.
-- Include personal opinions, subjective judgments, and first-person perspective ("I believe", "In my experience", "From what I've seen").
-- Avoid these AI giveaway patterns: "In conclusion", "It's important to note", "It should be emphasized", "It's worth mentioning", "In today's world", "comprehensive", "utilize", "leverage", "streamline".`}
-- Add imperfections: occasional rhetorical questions, parenthetical asides (like this one), dashes — for emphasis.
-- NEVER start paragraphs with the same word pattern. NEVER use formulaic transitions like "Furthermore", "Moreover", "Additionally", "It's worth noting".
-- Use concrete examples, numbers, anecdotes instead of abstract generalizations.
-- Vary paragraph length: some 1-2 sentences, others 4-5. Real writers are inconsistent.
-- Use active voice predominantly. Avoid passive constructions and nominalized verbs.
-- Write with emotional engagement — show enthusiasm, skepticism, surprise where appropriate.
-
-FAQ SECTION (MANDATORY):
-- At the end of the article, add a section "${isRussian ? "## Часто задаваемые вопросы (FAQ)" : "## Frequently Asked Questions (FAQ)"}"
-- Include at least 5 questions and answers
-- Use the provided user questions as a base, and add more relevant questions
-- Format each Q&A as: "### <Question>\\n<Answer paragraph>"
-- Answers should be 2-4 sentences, concise and informative
-- Add structured data hint: wrap the FAQ section with a comment <!-- FAQ Schema -->
-- The FAQ must be in the SAME language as the keyword and the article`;
-
     let userPrompt: string;
-
     if (optimize_instructions && existing_content) {
-      // Optimization mode: rewrite existing article based on benchmark gaps
-      userPrompt = `KEYWORD: "${keyword.seed_keyword}"
-INTENT: ${keyword.intent || "informational"}
-
-CURRENT ARTICLE (to be improved):
-${existing_content}
-
-OPTIMIZATION INSTRUCTIONS (based on TOP-10 benchmark comparison):
-${optimize_instructions}
-
-TOP-10 BENCHMARK DATA (apply these recommendations directly when rewriting):
-${deep_analysis_context || "No additional TOP-10 benchmark context provided."}
-
-LSI KEYWORDS TO INCLUDE:
-${lsiStr || "None"}
-
-USER QUESTIONS TO ANSWER:
-${questionsStr ? `- ${questionsStr}` : "None"}
-
-TASK: Rewrite and expand the article above to fix ALL listed problems. Keep the existing good parts, but explicitly use the TOP-10 comparison data to:
-- add missing sections and subtopics that leaders cover;
-- add missing entities, related terms, and LSI phrases from the benchmark;
-- align article depth, structure, and completeness with TOP-10 patterns;
-- improve usefulness, specificity, and expert detail where competitors are stronger.
-
-Do not just mention the recommendations — implement them in the rewritten article. Maintain the same language, tone, and style. Output the FULL improved article in Markdown.`;
+      userPrompt = buildOptimizeUserPrompt(keyword, lsiStr, questionsStr, existing_content, optimize_instructions, deep_analysis_context);
     } else {
-      userPrompt = `KEYWORD: "${keyword.seed_keyword}"
-INTENT: ${keyword.intent || "informational"}
-
-ARTICLE OUTLINE:
-${outlineStr || "Write a comprehensive article about this keyword"}
-
-COMPETITOR INSIGHTS:
-${competitorStr || "No competitor data"}
-
-LSI KEYWORDS TO INCLUDE:
-${lsiStr || "None"}
-
-USER QUESTIONS TO ANSWER:
-${questionsStr ? `- ${questionsStr}` : "None"}
-
-RECOMMENDED WORD COUNT: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} words
-
-Write the full article now.`;
+      userPrompt = buildNewArticleUserPrompt(keyword, outlineStr, competitorStr, lsiStr, questionsStr);
     }
 
-    // 8. Stream AI response
+    // Stream AI response
     const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -231,6 +361,7 @@ Write the full article now.`;
           { role: "user", content: userPrompt },
         ],
         stream: true,
+        temperature: 0.85,
       }),
     });
 
@@ -250,15 +381,14 @@ Write the full article now.`;
       throw new Error(`AI gateway error: ${aiResponse.status}`);
     }
 
-    // Log usage (estimate tokens for streaming)
+    // Log usage
     supabaseAdmin.from("usage_logs").insert({
       user_id: user.id,
       action: "generate_article",
       model_used: model,
-      tokens_used: 0, // updated later if needed
+      tokens_used: 0,
     }).then(() => {});
 
-    // Stream response back
     return new Response(aiResponse.body, {
       headers: {
         ...corsHeaders,
