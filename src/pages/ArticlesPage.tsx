@@ -23,6 +23,7 @@ import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
+import { PersonaSelector } from "@/components/article/PersonaSelector";
 
 // Readability helpers
 function countWords(text: string): number {
