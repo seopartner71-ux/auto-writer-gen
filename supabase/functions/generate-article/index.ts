@@ -19,6 +19,9 @@ interface StealthPromptInput {
     style_examples?: string;
     stop_words?: string[];
     system_prompt_override?: string;
+    system_instruction?: string;
+    type?: string;
+    temperature?: number;
   } | null;
   serpData: { title: string; snippet: string; url: string }[];
   lsiKeywords: string[];
