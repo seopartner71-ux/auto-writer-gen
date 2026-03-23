@@ -868,7 +868,7 @@ export default function ArticlesPage() {
                       size="sm"
                       disabled={!content}
                       onClick={() => {
-                        const html = markdownToHtml(content, title, metaDescription);
+                        const html = markdownToFullHtml(content, title, metaDescription);
                         const blob = new Blob([html], { type: "text/html;charset=utf-8" });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
