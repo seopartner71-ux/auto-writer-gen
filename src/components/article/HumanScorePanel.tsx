@@ -109,16 +109,16 @@ function computeAiProbability(text: string): { score: number; flags: string[] } 
   return { score: safety, flags };
 }
 
-function getBurstLabel(score: number): { label: string; color: string } {
-  if (score >= 70) return { label: "Отлично", color: "text-green-500" };
-  if (score >= 45) return { label: "Хорошо", color: "text-yellow-500" };
-  return { label: "Низкая", color: "text-red-500" };
+function getBurstLabel(score: number): { label: string; color: string; progressColor: string } {
+  if (score >= 70) return { label: "Отлично", color: "text-green-500", progressColor: "bg-green-500" };
+  if (score >= 45) return { label: "Хорошо", color: "text-yellow-500", progressColor: "bg-yellow-500" };
+  return { label: "Низкая", color: "text-red-500", progressColor: "bg-red-500" };
 }
 
-function getAiSafetyLabel(score: number): { label: string; color: string } {
-  if (score >= 75) return { label: "Безопасно", color: "text-green-500" };
-  if (score >= 50) return { label: "Средний риск", color: "text-yellow-500" };
-  return { label: "Высокий риск", color: "text-red-500" };
+function getAiSafetyLabel(score: number): { label: string; color: string; progressColor: string } {
+  if (score >= 75) return { label: "Безопасно", color: "text-green-500", progressColor: "bg-green-500" };
+  if (score >= 50) return { label: "Средний риск", color: "text-yellow-500", progressColor: "bg-yellow-500" };
+  return { label: "Высокий риск", color: "text-red-500", progressColor: "bg-red-500" };
 }
 
 export function HumanScorePanel({ content, lsiKeywords }: HumanScorePanelProps) {
