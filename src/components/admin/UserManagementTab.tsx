@@ -293,6 +293,11 @@ export function UserManagementTab() {
           </Table>
         </CardContent>
       </Card>
+      <AddCreditsDialog
+        open={!!creditsUser}
+        onOpenChange={(open) => !open && setCreditsUser(null)}
+        user={creditsUser}
+      />
     </div>
   );
 }

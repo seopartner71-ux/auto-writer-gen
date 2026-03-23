@@ -41,6 +41,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               >
                 <span className="text-xs font-bold uppercase">{lang}</span>
               </Button>
+              <NotificationBell />
               <Button variant="ghost" size="icon" onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"}>
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
