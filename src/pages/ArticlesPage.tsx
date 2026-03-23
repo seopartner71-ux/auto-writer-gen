@@ -749,22 +749,6 @@ export default function ArticlesPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Профиль автора</Label>
-            <Select value={selectedAuthorId} onValueChange={setSelectedAuthorId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Без стиля" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Без стиля</SelectItem>
-                {authorProfiles.map((a: any) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name} {a.niche ? `(${a.niche})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">&nbsp;</Label>
             {isStreaming ? (
               <Button variant="destructive" onClick={handleStop} className="w-full">
@@ -782,6 +766,13 @@ export default function ArticlesPage() {
             )}
           </div>
         </div>
+
+        {/* Persona Selector */}
+        <PersonaSelector
+          authors={authorProfiles}
+          selectedId={selectedAuthorId}
+          onSelect={setSelectedAuthorId}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
