@@ -42,7 +42,9 @@ export default function DashboardPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("articles")
-        .select("id, title, content, status, seo_score, keyword_id, created_at, updated_at");
+        .select("id, title, status, seo_score, keyword_id, created_at, updated_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
       return data || [];
     },
   });
