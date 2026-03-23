@@ -14,6 +14,8 @@ import { Loader2 } from "lucide-react";
 // Eagerly loaded (core pages)
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import DashboardPage from "@/pages/DashboardPage";
 import KeywordsPage from "@/pages/KeywordsPage";
 import NotFound from "@/pages/NotFound";
