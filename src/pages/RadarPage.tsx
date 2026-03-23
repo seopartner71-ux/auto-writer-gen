@@ -321,7 +321,9 @@ export default function RadarPage() {
       }
       return resp.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await refetchKeywords();
+      await refetchResults();
       queryClient.invalidateQueries({ queryKey: ["radar-results"] });
       queryClient.invalidateQueries({ queryKey: ["radar-keywords"] });
       toast.success("Проверка завершена");
