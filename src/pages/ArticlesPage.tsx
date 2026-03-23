@@ -433,6 +433,7 @@ export default function ArticlesPage() {
     }
 
     setIsStreaming(true);
+    setStreamPhase("thinking");
     setContent("");
     setSchemaJson("");
 
