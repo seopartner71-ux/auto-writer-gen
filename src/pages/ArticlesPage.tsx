@@ -333,7 +333,7 @@ export default function ArticlesPage() {
         body: JSON.stringify({
           title: selectedKeyword?.seed_keyword || "",
           content: articleContent,
-          style: "modern-tech",
+          style: "photorealistic",
           keyword: selectedKeyword?.seed_keyword || "",
           mode: "multi",
           max_images: 3,
