@@ -792,9 +792,9 @@ export default function RadarPage() {
                 {actualBrand ? "Упомянут в ответе" : "Не упомянут"}
               </p>
             </div>
-            <div className={`p-3 rounded-lg border ${viewResponseData?.domain_linked ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+            <div className={`p-3 rounded-lg border ${actualDomain ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
               <div className="flex items-center gap-2 mb-1">
-                {viewResponseData?.domain_linked ? (
+                {actualDomain ? (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 ) : (
                   <XCircle className="h-4 w-4 text-red-500" />
@@ -802,10 +802,12 @@ export default function RadarPage() {
                 <span className="text-sm font-medium">Домен</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {viewResponseData?.domain_linked ? "Ссылка найдена" : "Ссылка не найдена"}
+                {actualDomain ? "Ссылка найдена" : "Ссылка не найдена"}
               </p>
             </div>
           </div>
+            );
+          })()}
 
           {/* Matched snippets */}
           {viewResponseData?.matched_snippets && viewResponseData.matched_snippets.length > 0 && (
