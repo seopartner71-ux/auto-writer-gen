@@ -106,6 +106,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
   free: {
     maxGenerations: 5,
     maxAuthorProfiles: 1,
+    maxProImages: 0,
     models: ["google/gemini-2.5-flash-lite"],
     hasCalendar: false,
     hasUniquenessCheck: false,
@@ -114,10 +115,12 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasAntiAiCheck: false,
     hasBulkMode: false,
     hasWordPress: false,
+    hasProImageGen: false,
   },
   basic: {
     maxGenerations: 30,
     maxAuthorProfiles: 5,
+    maxProImages: 0,
     models: ["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash", "openai/gpt-5-nano"],
     hasCalendar: true,
     hasUniquenessCheck: true,
@@ -126,10 +129,12 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasAntiAiCheck: false,
     hasBulkMode: false,
     hasWordPress: false,
+    hasProImageGen: false,
   },
   pro: {
     maxGenerations: 100,
     maxAuthorProfiles: -1,
+    maxProImages: 100,
     models: ["google/gemini-2.5-pro", "openai/gpt-5", "google/gemini-2.5-flash", "google/gemini-2.5-flash-lite", "openai/gpt-5-nano"],
     hasCalendar: true,
     hasUniquenessCheck: true,
@@ -138,5 +143,6 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasAntiAiCheck: true,
     hasBulkMode: true,
     hasWordPress: true,
+    hasProImageGen: true,
   },
 };
