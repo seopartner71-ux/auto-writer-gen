@@ -145,6 +145,7 @@ export function UserManagementTab() {
                 <TableHead className="text-center">Активен</TableHead>
                 <TableHead className="text-right">Токены</TableHead>
                 <TableHead className="text-right">≈ $</TableHead>
+                <TableHead className="text-right">Кредиты</TableHead>
                 <TableHead className="text-right">Лимит</TableHead>
                 <TableHead></TableHead>
               </TableRow>
