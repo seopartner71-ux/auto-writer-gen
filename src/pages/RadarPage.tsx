@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Radar as RadarIcon, Plus, Loader2, Search, TrendingUp, TrendingDown,
   Eye, ExternalLink, Trash2, RefreshCw, Shield, AlertTriangle,
-  Sparkles, Globe, ChevronRight, ArrowUpRight, Minus
+  Sparkles, Globe, ChevronRight, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -82,7 +83,11 @@ export default function RadarPage() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkKeywords, setBulkKeywords] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [viewResponseData, setViewResponseData] = useState<{ model: string; text: string; date: string } | null>(null);
+  const [viewResponseData, setViewResponseData] = useState<{
+    model: string; text: string; date: string;
+    brand_mentioned: boolean; domain_linked: boolean;
+    matched_snippets: string[]; status: string; keyword: string;
+  } | null>(null);
 
   // Fetch projects
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
@@ -602,6 +607,11 @@ export default function RadarPage() {
                                     model: MODEL_LABELS[r.model] || r.model,
                                     text: r.ai_response_text || "",
                                     date: new Date(r.checked_at).toLocaleString("ru"),
+                                    brand_mentioned: r.brand_mentioned || false,
+                                    domain_linked: r.domain_linked || false,
+                                    matched_snippets: r.matched_snippets || [],
+                                    status: r.status || "opportunity",
+                                    keyword: kw.keyword,
                                   })}
                                   className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 ${sc?.color || ""}`}
                                 >
@@ -716,10 +726,70 @@ export default function RadarPage() {
               Ответ {viewResponseData?.model}
               <span className="text-xs text-muted-foreground font-normal ml-2">{viewResponseData?.date}</span>
             </DialogTitle>
+            <DialogDescription>
+              Запрос: <span className="font-medium text-foreground">{viewResponseData?.keyword}</span>
+            </DialogDescription>
           </DialogHeader>
-          <div className="mt-2 p-4 rounded-lg bg-muted/30 border border-border text-sm leading-relaxed whitespace-pre-wrap">
-            {viewResponseData?.text || "Нет данных"}
+
+          {/* Status summary cards */}
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className={`p-3 rounded-lg border ${viewResponseData?.brand_mentioned ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+              <div className="flex items-center gap-2 mb-1">
+                {viewResponseData?.brand_mentioned ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-500" />
+                )}
+                <span className="text-sm font-medium">Бренд</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {viewResponseData?.brand_mentioned ? "Упомянут в ответе" : "Не упомянут"}
+              </p>
+            </div>
+            <div className={`p-3 rounded-lg border ${viewResponseData?.domain_linked ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+              <div className="flex items-center gap-2 mb-1">
+                {viewResponseData?.domain_linked ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-red-500" />
+                )}
+                <span className="text-sm font-medium">Домен</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {viewResponseData?.domain_linked ? "Ссылка найдена" : "Ссылка не найдена"}
+              </p>
+            </div>
           </div>
+
+          {/* Matched snippets */}
+          {viewResponseData?.matched_snippets && viewResponseData.matched_snippets.length > 0 && (
+            <div className="mt-3">
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <Search className="h-3.5 w-3.5" />
+                Найденные упоминания
+              </h4>
+              <div className="space-y-2">
+                {viewResponseData.matched_snippets.map((s, i) => (
+                  <div key={i} className="p-2.5 rounded-md bg-primary/5 border border-primary/20 text-xs leading-relaxed">
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Collapsible raw response */}
+          <Collapsible className="mt-3">
+            <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+              <ChevronDown className="h-3.5 w-3.5" />
+              Показать полный ответ ИИ
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 p-4 rounded-lg bg-muted/30 border border-border text-xs leading-relaxed whitespace-pre-wrap max-h-[40vh] overflow-y-auto">
+                {viewResponseData?.text || "Нет данных"}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </DialogContent>
       </Dialog>
     </div>
