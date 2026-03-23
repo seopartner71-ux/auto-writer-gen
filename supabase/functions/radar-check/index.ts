@@ -7,19 +7,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Models to check via Lovable AI Gateway
-const AI_MODELS = [
-  { key: "gemini", model: "google/gemini-2.5-flash", label: "Gemini" },
-  { key: "chatgpt", model: "openai/gpt-5-nano", label: "ChatGPT" },
-];
-// All available models via Lovable AI Gateway
+// Models to check via OpenRouter
 const ALL_AI_MODELS = [
   { key: "gemini_flash", model: "google/gemini-2.5-flash", label: "Gemini Flash" },
   { key: "gemini_pro", model: "google/gemini-2.5-pro", label: "Gemini Pro" },
-  { key: "gemini_flash_lite", model: "google/gemini-2.5-flash-lite", label: "Gemini Lite" },
-  { key: "chatgpt", model: "openai/gpt-5-nano", label: "ChatGPT Nano" },
-  { key: "chatgpt_mini", model: "openai/gpt-5-mini", label: "ChatGPT Mini" },
-  { key: "chatgpt_pro", model: "openai/gpt-5", label: "ChatGPT Pro" },
+  { key: "chatgpt", model: "openai/gpt-4.1-nano", label: "ChatGPT Nano" },
+  { key: "chatgpt_mini", model: "openai/gpt-4.1-mini", label: "ChatGPT Mini" },
+  { key: "perplexity", model: "perplexity/sonar", label: "Perplexity" },
+  { key: "claude", model: "anthropic/claude-sonnet-4", label: "Claude" },
 ];
 
 interface CheckResult {
@@ -108,7 +103,7 @@ async function queryAIModel(
   keyword: string,
   brandName: string,
 ): Promise<string> {
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -147,8 +142,10 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    // Get OpenRouter key from DB first, then fallback to env
+    const { data: orKey } = await supabaseAdmin.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
+    const OPENROUTER_API_KEY = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
 
     const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
@@ -195,7 +192,7 @@ serve(async (req) => {
     for (const aiModel of ALL_AI_MODELS) {
       try {
         const responseText = await queryAIModel(
-          LOVABLE_API_KEY,
+          OPENROUTER_API_KEY,
           aiModel.model,
           kw.keyword,
           project.brand_name,
