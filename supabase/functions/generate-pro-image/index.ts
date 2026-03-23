@@ -176,7 +176,7 @@ serve(async (req) => {
     const { title, summary, style, keyword, mode, content, max_images } = body;
     if (!title) throw new Error("Title is required");
 
-    const stylePrompt = STYLE_PRESETS[style] || STYLE_PRESETS["modern-tech"];
+    const stylePrompt = STYLE_PRESETS[style] || STYLE_PRESETS["photorealistic"];
 
     // Check plan
     const { data: profile } = await supabaseAdmin
