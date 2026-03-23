@@ -429,17 +429,27 @@ serve(async (req) => {
     const skipDomains = ["pinterest.com", "instagram.com", "facebook.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "vk.com"];
     const validSerps = serpResults
       .filter((sr: any) => sr.url && !skipDomains.some(d => sr.url.includes(d)))
-      .slice(0, 5);
+      .slice(0, 7);
     console.log(`Fetching ${validSerps.length} pages in parallel...`);
 
-    const fetchResults = await Promise.allSettled(
-      validSerps.map(async (sr: any) => {
-        console.log(`Fetching: ${sr.url}`);
-        const { html, error } = await fetchPage(sr.url);
-        if (!html) return { sr, error: error || "unknown", html: null };
-        return { sr, html, error: null };
-      })
-    );
+    // Fetch in two batches to reduce simultaneous connections
+    const batch1 = validSerps.slice(0, 3);
+    const batch2 = validSerps.slice(3);
+
+    const processBatch = async (batch: any[]) => {
+      return Promise.allSettled(
+        batch.map(async (sr: any) => {
+          console.log(`Fetching: ${sr.url}`);
+          const { html, error } = await fetchPage(sr.url);
+          if (!html) return { sr, error: error || "unknown", html: null };
+          return { sr, html, error: null };
+        })
+      );
+    };
+
+    const results1 = await processBatch(batch1);
+    const results2 = batch2.length > 0 ? await processBatch(batch2) : [];
+    const fetchResults = [...results1, ...results2];
 
     for (const result of fetchResults) {
       if (result.status === "rejected") continue;
