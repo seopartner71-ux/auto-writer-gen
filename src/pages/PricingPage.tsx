@@ -65,7 +65,7 @@ const plans = [
   {
     id: "pro" as const,
     name: "Pro",
-    price: "7 900",
+    price: "12 400",
     period: "₽/мес",
     icon: Crown,
     description: "Для агентств и SEO-команд",
