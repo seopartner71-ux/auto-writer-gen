@@ -6,17 +6,18 @@ import { HealthCheckTab } from "@/components/admin/HealthCheckTab";
 import { UserManagementTab } from "@/components/admin/UserManagementTab";
 import { UserContentTab } from "@/components/admin/UserContentTab";
 import { FaqManagementTab } from "@/components/admin/FaqManagementTab";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Админ-панель</h1>
-          <p className="text-sm text-muted-foreground">
-            Управление ключами, моделями и пользователями
-          </p>
+          <h1 className="text-2xl font-semibold">{t("admin.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("admin.subtitle")}</p>
         </div>
       </div>
 
@@ -25,34 +26,17 @@ export default function AdminPage() {
           <TabsTrigger value="vault">API Vault</TabsTrigger>
           <TabsTrigger value="routing">Model Routing</TabsTrigger>
           <TabsTrigger value="health">Health Check</TabsTrigger>
-          <TabsTrigger value="users">Пользователи</TabsTrigger>
-          <TabsTrigger value="content">Контент</TabsTrigger>
+          <TabsTrigger value="users">{t("admin.users")}</TabsTrigger>
+          <TabsTrigger value="content">{t("admin.content")}</TabsTrigger>
           <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="vault" className="mt-4">
-          <ApiVaultTab />
-        </TabsContent>
-
-        <TabsContent value="routing" className="mt-4">
-          <ModelRoutingTab />
-        </TabsContent>
-
-        <TabsContent value="health" className="mt-4">
-          <HealthCheckTab />
-        </TabsContent>
-
-        <TabsContent value="users" className="mt-4">
-          <UserManagementTab />
-        </TabsContent>
-
-        <TabsContent value="content" className="mt-4">
-          <UserContentTab />
-        </TabsContent>
-
-        <TabsContent value="wiki" className="mt-4">
-          <FaqManagementTab />
-        </TabsContent>
+        <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
+        <TabsContent value="routing" className="mt-4"><ModelRoutingTab /></TabsContent>
+        <TabsContent value="health" className="mt-4"><HealthCheckTab /></TabsContent>
+        <TabsContent value="users" className="mt-4"><UserManagementTab /></TabsContent>
+        <TabsContent value="content" className="mt-4"><UserContentTab /></TabsContent>
+        <TabsContent value="wiki" className="mt-4"><FaqManagementTab /></TabsContent>
       </Tabs>
     </div>
   );
