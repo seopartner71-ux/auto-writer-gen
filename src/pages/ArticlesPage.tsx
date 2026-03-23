@@ -1127,6 +1127,10 @@ export default function ArticlesPage() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="human" className="mt-3">
+              <HumanScorePanel content={content} lsiKeywords={lsiKeywords} />
+            </TabsContent>
+
             <TabsContent value="benchmark" className="mt-3">
               {selectedKeywordId ? (
                 <SeoBenchmark
