@@ -148,7 +148,7 @@ Write the full article now.`;
             title,
             content,
             meta_description: metaDesc,
-            status: "draft",
+            status: "published",
           })
           .select("id")
           .single();

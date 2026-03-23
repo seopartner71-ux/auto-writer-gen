@@ -203,7 +203,7 @@ Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
           title: articleTitle,
           content: articleContent,
           meta_description: metaDesc,
-          status: "draft",
+          status: "published",
         }).select("id").single();
 
         // 5. Mark item done
