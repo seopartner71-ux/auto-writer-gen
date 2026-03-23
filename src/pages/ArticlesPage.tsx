@@ -312,6 +312,7 @@ export default function ArticlesPage() {
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [textCopied, setTextCopied] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
