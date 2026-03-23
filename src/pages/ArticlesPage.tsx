@@ -486,6 +486,9 @@ export default function ArticlesPage() {
 
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
+
+      // Auto-generate and insert images (async, best-effort, PRO only)
+      autoInsertImages(fullContent);
     } catch (e: any) {
       if (e.name === "AbortError") {
         toast.info("Генерация остановлена");
