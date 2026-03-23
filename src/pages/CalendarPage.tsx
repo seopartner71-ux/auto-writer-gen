@@ -158,7 +158,7 @@ export default function CalendarPage() {
             <p className="text-sm text-muted-foreground">Планировщик генерации контента</p>
           </div>
         </div>
-        <PlanGate allowed={false} featureName="Планировщик календаря" requiredPlan="Базовый">
+        <PlanGate allowed={false} featureName="Планировщик" requiredPlan="PRO">
           <div />
         </PlanGate>
       </div>
