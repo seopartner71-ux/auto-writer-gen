@@ -9,6 +9,7 @@ export interface Profile {
   full_name: string | null;
   plan: Plan;
   is_active: boolean;
+  credits_amount: number;
   created_at: string;
 }
 

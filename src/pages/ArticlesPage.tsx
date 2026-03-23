@@ -469,6 +469,11 @@ export default function ArticlesPage() {
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Unknown error" }));
+        if (resp.status === 402) {
+          setShowCreditsModal(true);
+          setIsGenerating(false);
+          return;
+        }
         throw new Error(err.error || `HTTP ${resp.status}`);
       }
 
