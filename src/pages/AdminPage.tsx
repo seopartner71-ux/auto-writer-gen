@@ -49,6 +49,10 @@ export default function AdminPage() {
         <TabsContent value="content" className="mt-4">
           <UserContentTab />
         </TabsContent>
+
+        <TabsContent value="wiki" className="mt-4">
+          <FaqManagementTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
