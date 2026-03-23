@@ -580,7 +580,7 @@ export default function ArticlesPage() {
           wordCount,
           lsiCoverage: lsiKeywords.length > 0 ? Math.round((lsiFoundCount / lsiKeywords.length) * 100) : 0,
         },
-        status: "draft",
+        status: "published",
       };
 
       if (currentArticleId) {
