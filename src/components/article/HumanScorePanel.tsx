@@ -204,7 +204,7 @@ export function HumanScorePanel({ content, lsiKeywords }: HumanScorePanelProps) 
               <span>Разнообразие длины предложений</span>
               <span className="font-mono font-bold">{burstiness.score}%</span>
             </div>
-            <Progress value={burstiness.score} className="h-2.5" />
+            <Progress value={burstiness.score} className="h-2.5" indicatorClassName={burstLabel.progressColor} />
             <p className="text-[10px] text-muted-foreground mt-1">
               Чем выше — тем больше вариация (как у человека)
             </p>
