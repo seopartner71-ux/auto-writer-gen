@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 import { PlanGate } from "@/shared/components/PlanGate";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ interface Article {
 }
 
 export default function WordPressPage() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [newUrl, setNewUrl] = useState("");
@@ -52,7 +54,6 @@ export default function WordPressPage() {
   const [newAppPassword, setNewAppPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Publish state
   const [selectedSiteId, setSelectedSiteId] = useState("");
   const [selectedArticleId, setSelectedArticleId] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
@@ -64,7 +65,6 @@ export default function WordPressPage() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
 
-  // Fetch WP sites
   const { data: sites = [], isLoading: sitesLoading } = useQuery({
     queryKey: ["wp-sites"],
     queryFn: async () => {
@@ -77,7 +77,6 @@ export default function WordPressPage() {
     },
   });
 
-  // Fetch user articles
   const { data: articles = [] } = useQuery({
     queryKey: ["wp-articles"],
     queryFn: async () => {
@@ -91,7 +90,6 @@ export default function WordPressPage() {
     },
   });
 
-  // Fetch categories for selected site
   const { data: categories = [], isLoading: catsLoading, refetch: refetchCats } = useQuery({
     queryKey: ["wp-categories", selectedSiteId],
     queryFn: async () => {
@@ -106,7 +104,6 @@ export default function WordPressPage() {
     enabled: !!selectedSiteId,
   });
 
-  // Fetch scheduled posts
   const { data: scheduledPosts = [], isLoading: scheduledLoading } = useQuery({
     queryKey: ["wp-scheduled-posts"],
     queryFn: async () => {
@@ -119,15 +116,14 @@ export default function WordPressPage() {
     },
   });
 
-  // Schedule post mutation
   const schedulePost = useMutation({
     mutationFn: async () => {
-      if (!selectedSiteId) throw new Error("Выберите сайт");
-      if (!selectedArticleId) throw new Error("Выберите статью");
-      if (!scheduleDate || !scheduleTime) throw new Error("Укажите дату и время");
+      if (!selectedSiteId) throw new Error(t("wp.selectSiteError"));
+      if (!selectedArticleId) throw new Error(t("wp.selectArticleError"));
+      if (!scheduleDate || !scheduleTime) throw new Error(t("wp.specifyDateTime"));
 
       const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`);
-      if (scheduledAt <= new Date()) throw new Error("Дата должна быть в будущем");
+      if (scheduledAt <= new Date()) throw new Error(t("wp.futureDate"));
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -150,12 +146,11 @@ export default function WordPressPage() {
       queryClient.invalidateQueries({ queryKey: ["wp-scheduled-posts"] });
       setScheduleDate("");
       setScheduleTime("");
-      toast.success("Публикация запланирована!");
+      toast.success(t("wp.scheduledSuccess"));
     },
     onError: (e) => toast.error(e.message),
   });
 
-  // Cancel scheduled post
   const cancelScheduled = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("wp_scheduled_posts" as any).delete().eq("id", id);
@@ -163,12 +158,11 @@ export default function WordPressPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wp-scheduled-posts"] });
-      toast.success("Запланированная публикация отменена");
+      toast.success(t("wp.scheduledCancelled"));
     },
     onError: (e) => toast.error(e.message),
   });
 
-  // Auto-fill SEO fields when article selected
   useEffect(() => {
     if (selectedArticleId) {
       const art = articles.find((a) => a.id === selectedArticleId);
@@ -179,14 +173,13 @@ export default function WordPressPage() {
     }
   }, [selectedArticleId, articles]);
 
-  // Add site
   const addSite = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const url = newUrl.replace(/\/+$/, "");
-      if (!url.startsWith("http")) throw new Error("URL должен начинаться с http:// или https://");
+      if (!url.startsWith("http")) throw new Error(t("wp.urlMustHttp"));
 
       const { error } = await supabase.from("wordpress_sites").insert({
         user_id: user.id,
@@ -202,12 +195,11 @@ export default function WordPressPage() {
       setNewUrl("");
       setNewUsername("");
       setNewAppPassword("");
-      toast.success("Сайт добавлен");
+      toast.success(t("wp.siteAdded"));
     },
     onError: (e) => toast.error(e.message),
   });
 
-  // Test connection
   const testConnection = useMutation({
     mutationFn: async (siteId: string) => {
       const { data, error } = await supabase.functions.invoke("wordpress-proxy", {
@@ -219,12 +211,11 @@ export default function WordPressPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["wp-sites"] });
-      toast.success(`Подключено: ${data.user}`);
+      toast.success(`${t("wp.connected")}: ${data.user}`);
     },
-    onError: (e) => toast.error(`Ошибка подключения: ${e.message}`),
+    onError: (e) => toast.error(`${t("wp.connectionError")}: ${e.message}`),
   });
 
-  // Delete site
   const deleteSite = useMutation({
     mutationFn: async (siteId: string) => {
       const { error } = await supabase.from("wordpress_sites").delete().eq("id", siteId);
@@ -233,61 +224,40 @@ export default function WordPressPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wp-sites"] });
       if (selectedSiteId) setSelectedSiteId("");
-      toast.success("Сайт удалён");
+      toast.success(t("wp.siteDeleted"));
     },
     onError: (e) => toast.error(e.message),
   });
 
-  // Publish article
   const publishPost = useMutation({
     mutationFn: async () => {
-      if (!selectedSiteId) throw new Error("Выберите сайт");
-      if (!selectedArticleId) throw new Error("Выберите статью");
+      if (!selectedSiteId) throw new Error(t("wp.selectSiteError"));
+      if (!selectedArticleId) throw new Error(t("wp.selectArticleError"));
 
       const article = articles.find((a) => a.id === selectedArticleId);
-      if (!article?.content) throw new Error("У статьи нет контента");
+      if (!article?.content) throw new Error(t("wp.noContent"));
 
-      // Convert markdown tables to HTML tables
       const convertMarkdownTables = (text: string): string => {
         const lines = text.split("\n");
         const result: string[] = [];
         let i = 0;
-
         while (i < lines.length) {
           const line = lines[i].trim();
-          // Detect table: line starts/ends with | and next line is separator (|---|...)
           if (
             line.startsWith("|") &&
             line.endsWith("|") &&
             i + 1 < lines.length &&
             /^\|[\s:-]+\|/.test(lines[i + 1].trim())
           ) {
-            // Parse header
-            const headerCells = line
-              .slice(1, -1)
-              .split("|")
-              .map((c) => c.trim());
-            const headerRow = headerCells
-              .map((c) => `<th>${c}</th>`)
-              .join("");
-
-            // Skip separator line
+            const headerCells = line.slice(1, -1).split("|").map((c) => c.trim());
+            const headerRow = headerCells.map((c) => `<th>${c}</th>`).join("");
             i += 2;
-
-            // Parse body rows
             const bodyRows: string[] = [];
             while (i < lines.length && lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|")) {
-              const cells = lines[i]
-                .trim()
-                .slice(1, -1)
-                .split("|")
-                .map((c) => c.trim());
-              bodyRows.push(
-                `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`
-              );
+              const cells = lines[i].trim().slice(1, -1).split("|").map((c) => c.trim());
+              bodyRows.push(`<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`);
               i++;
             }
-
             result.push(
               `<!-- wp:table -->\n<figure class="wp-block-table"><table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows.join("")}</tbody></table></figure>\n<!-- /wp:table -->`
             );
@@ -299,7 +269,6 @@ export default function WordPressPage() {
         return result.join("\n");
       };
 
-      // First convert tables, then other markdown
       let htmlContent = convertMarkdownTables(article.content)
         .replace(/^### (.+)$/gm, "<!-- wp:heading {\"level\":3} -->\n<h3>$1</h3>\n<!-- /wp:heading -->")
         .replace(/^## (.+)$/gm, "<!-- wp:heading -->\n<h2>$1</h2>\n<!-- /wp:heading -->")
@@ -310,7 +279,6 @@ export default function WordPressPage() {
         .replace(/(<li>.+<\/li>\n?)+/g, (m) => `<!-- wp:list -->\n<ul>${m}</ul>\n<!-- /wp:list -->`)
         .replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
 
-      // Wrap remaining plain text paragraphs
       htmlContent = htmlContent
         .split("\n\n")
         .map((block) => {
@@ -322,23 +290,15 @@ export default function WordPressPage() {
         .filter(Boolean)
         .join("\n\n");
 
-      const tags = tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
-      // Create tag IDs (WP creates them if they don't exist)
+      const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
       let tagIds: number[] = [];
-      if (tags.length > 0) {
-        // For simplicity, pass tag names as-is; WP won't accept names directly
-        // We'd need to create tags first, but let's keep it simple for now
-      }
+      if (tags.length > 0) {}
 
       const { data, error } = await supabase.functions.invoke("wordpress-proxy", {
         body: {
           action: "create_post",
           site_id: selectedSiteId,
-          title: article.title || "Без названия",
+          title: article.title || t("wp.noTitle"),
           content: htmlContent,
           excerpt: article.meta_description || "",
           status: publishImmediately ? "publish" : "draft",
@@ -355,72 +315,58 @@ export default function WordPressPage() {
     },
     onSuccess: (data) => {
       toast.success(
-        publishImmediately ? "Статья опубликована!" : "Черновик сохранён в WordPress!",
+        publishImmediately ? t("wp.articlePublished") : t("wp.draftSaved"),
         {
           action: {
-            label: "Открыть в WP",
+            label: t("wp.openInWp"),
             onClick: () => window.open(data.edit_url, "_blank"),
           },
         }
       );
     },
-    onError: (e) => toast.error(`Ошибка публикации: ${e.message}`),
+    onError: (e) => toast.error(`${t("wp.publishError")}: ${e.message}`),
   });
 
   const selectedArticle = articles.find((a) => a.id === selectedArticleId);
-
   const limits = usePlanLimits();
 
   return (
-    <PlanGate allowed={limits.limits.hasWordPress} featureName="WordPress интеграция" requiredPlan="PRO">
+    <PlanGate allowed={limits.limits.hasWordPress} featureName={t("wp.integration")} requiredPlan="PRO">
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <Globe className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-2xl font-semibold">WordPress</h1>
-          <p className="text-sm text-muted-foreground">
-            Публикация статей на ваши WordPress-сайты в один клик
-          </p>
+          <p className="text-sm text-muted-foreground">{t("wp.subtitle")}</p>
         </div>
         <Badge variant="outline" className="ml-auto text-primary border-primary">PRO</Badge>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-        {/* Left: Sites */}
         <div className="space-y-4">
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center justify-between">
-                <span>Подключённые сайты</span>
+                <span>{t("wp.connectedSites")}</span>
                 <Button size="sm" variant="outline" onClick={() => setShowAddForm(!showAddForm)} className="gap-1.5">
                   <Plus className="h-3.5 w-3.5" />
-                  Добавить
+                  {t("wp.add")}
                 </Button>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Add form */}
               {showAddForm && (
                 <div className="space-y-3 p-4 rounded-lg bg-muted/50 border border-border">
                   <div className="space-y-1.5">
-                    <Label className="text-xs">URL сайта</Label>
-                    <Input
-                      placeholder="https://example.com"
-                      value={newUrl}
-                      onChange={(e) => setNewUrl(e.target.value)}
-                    />
+                    <Label className="text-xs">{t("wp.siteUrl")}</Label>
+                    <Input placeholder="https://example.com" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Логин WordPress</Label>
-                    <Input
-                      placeholder="admin"
-                      value={newUsername}
-                      onChange={(e) => setNewUsername(e.target.value)}
-                    />
+                    <Label className="text-xs">{t("wp.login")}</Label>
+                    <Input placeholder="admin" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Пароль приложения</Label>
+                    <Label className="text-xs">{t("wp.appPassword")}</Label>
                     <div className="flex gap-2">
                       <Input
                         type={showPassword ? "text" : "password"}
@@ -432,81 +378,45 @@ export default function WordPressPage() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Создайте в WP: Пользователи → Профиль → Пароли приложений
-                    </p>
+                    <p className="text-[10px] text-muted-foreground">{t("wp.appPasswordHint")}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      disabled={!newUrl || !newUsername || !newAppPassword || addSite.isPending}
-                      onClick={() => addSite.mutate()}
-                    >
+                    <Button size="sm" disabled={!newUrl || !newUsername || !newAppPassword || addSite.isPending} onClick={() => addSite.mutate()}>
                       {addSite.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
-                      Сохранить
+                      {t("wp.save")}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>
-                      Отмена
-                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>{t("wp.cancel")}</Button>
                   </div>
                 </div>
               )}
 
-              {/* Sites list */}
               {sitesLoading ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">Загрузка...</div>
+                <div className="text-sm text-muted-foreground py-4 text-center">{t("wp.loading")}</div>
               ) : sites.length === 0 && !showAddForm ? (
                 <div className="text-sm text-muted-foreground py-8 text-center">
                   <Globe className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                  <p>Нет подключённых сайтов</p>
-                  <p className="text-xs mt-1">Нажмите «Добавить» чтобы подключить WordPress</p>
+                  <p>{t("wp.noSites")}</p>
+                  <p className="text-xs mt-1">{t("wp.noSitesHint")}</p>
                 </div>
               ) : (
                 sites.map((site) => (
                   <div
                     key={site.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                      selectedSiteId === site.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/30"
+                      selectedSiteId === site.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                     }`}
                     onClick={() => setSelectedSiteId(site.id)}
                   >
                     <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${site.is_connected ? "bg-purple-500" : "bg-red-500"}`} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {site.site_name || site.site_url.replace(/https?:\/\//, "")}
-                      </p>
+                      <p className="text-sm font-medium truncate">{site.site_name || site.site_url.replace(/https?:\/\//, "")}</p>
                       <p className="text-xs text-muted-foreground truncate">{site.site_url}</p>
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          testConnection.mutate(site.id);
-                        }}
-                        disabled={testConnection.isPending}
-                        title="Проверить подключение"
-                      >
-                        {testConnection.isPending ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3.5 w-3.5" />
-                        )}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); testConnection.mutate(site.id); }} disabled={testConnection.isPending} title={t("wp.checkConnection")}>
+                        {testConnection.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm("Удалить подключение?")) deleteSite.mutate(site.id);
-                        }}
-                        title="Удалить"
-                      >
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(t("wp.deleteConnection"))) deleteSite.mutate(site.id); }} title={t("common.delete")}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -517,34 +427,28 @@ export default function WordPressPage() {
           </Card>
         </div>
 
-        {/* Right: Publish Panel */}
         <Card className="bg-card border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <Send className="h-4 w-4 text-primary" />
-              Публикация
+              {t("wp.publish")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {!selectedSiteId ? (
               <div className="text-sm text-muted-foreground py-12 text-center">
                 <Send className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                <p>Выберите сайт для публикации</p>
+                <p>{t("wp.selectSite")}</p>
               </div>
             ) : (
               <>
-                {/* Article select */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Статья</Label>
+                  <Label className="text-xs">{t("wp.article")}</Label>
                   <Select value={selectedArticleId} onValueChange={setSelectedArticleId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите статью..." />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("wp.selectArticle")} /></SelectTrigger>
                     <SelectContent>
                       {articles.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.title || "Без названия"}
-                        </SelectItem>
+                        <SelectItem key={a.id} value={a.id}>{a.title || t("wp.noTitle")}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -553,59 +457,36 @@ export default function WordPressPage() {
                 {selectedArticleId && (
                   <>
                     <Separator />
-
-                    {/* Category */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs">Категория</Label>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 text-xs"
-                          onClick={() => refetchCats()}
-                          disabled={catsLoading}
-                        >
+                        <Label className="text-xs">{t("wp.category")}</Label>
+                        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => refetchCats()} disabled={catsLoading}>
                           {catsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                         </Button>
                       </div>
-                      <Select
-                        value={selectedCategories[0]?.toString() || ""}
-                        onValueChange={(v) => setSelectedCategories(v ? [parseInt(v)] : [])}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={catsLoading ? "Загрузка..." : "Без категории"} />
-                        </SelectTrigger>
+                      <Select value={selectedCategories[0]?.toString() || ""} onValueChange={(v) => setSelectedCategories(v ? [parseInt(v)] : [])}>
+                        <SelectTrigger><SelectValue placeholder={catsLoading ? t("wp.loading") : t("wp.noCategory")} /></SelectTrigger>
                         <SelectContent>
                           {categories.map((c) => (
-                            <SelectItem key={c.id} value={c.id.toString()}>
-                              {c.name} ({c.count})
-                            </SelectItem>
+                            <SelectItem key={c.id} value={c.id.toString()}>{c.name} ({c.count})</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    {/* Tags */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Теги (через запятую)</Label>
-                      <Input
-                        placeholder="seo, контент, продвижение"
-                        value={tagsInput}
-                        onChange={(e) => setTagsInput(e.target.value)}
-                      />
+                      <Label className="text-xs">{t("wp.tags")}</Label>
+                      <Input placeholder="seo, content, marketing" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
                     </div>
 
                     <Separator />
 
-                    {/* SEO Plugin */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs">SEO-плагин</Label>
+                      <Label className="text-xs">{t("wp.seoPlugin")}</Label>
                       <Select value={seoPlugin} onValueChange={(v) => setSeoPlugin(v as any)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">Не использовать</SelectItem>
+                          <SelectItem value="none">{t("wp.noPlugin")}</SelectItem>
                           <SelectItem value="rank_math">Rank Math</SelectItem>
                           <SelectItem value="yoast">Yoast SEO</SelectItem>
                         </SelectContent>
@@ -616,98 +497,56 @@ export default function WordPressPage() {
                       <div className="space-y-3 p-3 rounded-lg bg-muted/50">
                         <div className="space-y-1.5">
                           <Label className="text-xs">Meta Title</Label>
-                          <Input
-                            value={customTitle}
-                            onChange={(e) => setCustomTitle(e.target.value)}
-                            placeholder="SEO-заголовок"
-                          />
-                          <p className="text-[10px] text-muted-foreground">{customTitle.length}/60 символов</p>
+                          <Input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder={t("wp.seoTitle")} />
+                          <p className="text-[10px] text-muted-foreground">{customTitle.length}/60 {t("wp.chars")}</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs">Meta Description</Label>
-                          <Textarea
-                            value={customDescription}
-                            onChange={(e) => setCustomDescription(e.target.value)}
-                            placeholder="SEO-описание"
-                            rows={2}
-                          />
-                          <p className="text-[10px] text-muted-foreground">{customDescription.length}/160 символов</p>
+                          <Textarea value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} placeholder={t("wp.seoDesc")} rows={2} />
+                          <p className="text-[10px] text-muted-foreground">{customDescription.length}/160 {t("wp.chars")}</p>
                         </div>
                       </div>
                     )}
 
                     <Separator />
 
-                    {/* Publish toggle */}
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label className="text-sm">Опубликовать немедленно</Label>
+                        <Label className="text-sm">{t("wp.publishNow")}</Label>
                         <p className="text-xs text-muted-foreground">
-                          {publishImmediately ? "Пост будет опубликован сразу" : "Пост будет сохранён как черновик"}
+                          {publishImmediately ? t("wp.publishNowDesc") : t("wp.draftDesc")}
                         </p>
                       </div>
                       <Switch checked={publishImmediately} onCheckedChange={setPublishImmediately} />
                     </div>
 
-                    {/* Publish button */}
                     <div className="flex gap-2">
-                      <Button
-                        className="flex-1 gap-2 h-11"
-                        onClick={() => publishPost.mutate()}
-                        disabled={publishPost.isPending}
-                      >
-                        {publishPost.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                        {publishPost.isPending
-                          ? "Публикация..."
-                          : publishImmediately
-                            ? "Опубликовать"
-                            : "Черновик"}
+                      <Button className="flex-1 gap-2 h-11" onClick={() => publishPost.mutate()} disabled={publishPost.isPending}>
+                        {publishPost.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        {publishPost.isPending ? t("wp.publishing") : publishImmediately ? t("wp.publishBtn") : t("wp.draftBtn")}
                       </Button>
                     </div>
 
                     <Separator />
 
-                    {/* Schedule section */}
                     <div className="space-y-3 p-3 rounded-lg bg-muted/50 border border-border">
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-primary" />
-                        <Label className="text-sm font-medium">Запланировать публикацию</Label>
+                        <Label className="text-sm font-medium">{t("wp.schedulePublish")}</Label>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                          <Label className="text-xs">Дата</Label>
-                          <Input
-                            type="date"
-                            value={scheduleDate}
-                            onChange={(e) => setScheduleDate(e.target.value)}
-                            min={new Date().toISOString().split("T")[0]}
-                          />
+                          <Label className="text-xs">{t("wp.date")}</Label>
+                          <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} min={new Date().toISOString().split("T")[0]} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Время</Label>
-                          <Input
-                            type="time"
-                            value={scheduleTime}
-                            onChange={(e) => setScheduleTime(e.target.value)}
-                          />
+                          <Label className="text-xs">{t("wp.time")}</Label>
+                          <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        className="w-full gap-2"
-                        onClick={() => schedulePost.mutate()}
-                        disabled={!scheduleDate || !scheduleTime || schedulePost.isPending}
-                      >
-                        {schedulePost.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Calendar className="h-4 w-4" />
-                        )}
-                        Запланировать
+                      <Button variant="outline" className="w-full gap-2" onClick={() => schedulePost.mutate()} disabled={!scheduleDate || !scheduleTime || schedulePost.isPending}>
+                        {schedulePost.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
+                        {t("wp.schedule")}
                       </Button>
                     </div>
                   </>
@@ -718,12 +557,11 @@ export default function WordPressPage() {
         </Card>
       </div>
 
-      {/* Scheduled Posts List */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" />
-            Запланированные публикации
+            {t("wp.scheduledPosts")}
             {scheduledPosts.filter((p: any) => p.status === "pending").length > 0 && (
               <Badge variant="secondary" className="ml-auto">
                 {scheduledPosts.filter((p: any) => p.status === "pending").length}
@@ -733,19 +571,16 @@ export default function WordPressPage() {
         </CardHeader>
         <CardContent>
           {scheduledLoading ? (
-            <div className="text-sm text-muted-foreground py-4 text-center">Загрузка...</div>
+            <div className="text-sm text-muted-foreground py-4 text-center">{t("wp.loading")}</div>
           ) : scheduledPosts.length === 0 ? (
             <div className="text-sm text-muted-foreground py-8 text-center">
               <Clock className="h-10 w-10 mx-auto mb-3 opacity-20" />
-              <p>Нет запланированных публикаций</p>
+              <p>{t("wp.noScheduled")}</p>
             </div>
           ) : (
             <div className="space-y-2">
               {scheduledPosts.map((sp: any) => (
-                <div
-                  key={sp.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border"
-                >
+                <div key={sp.id} className="flex items-center gap-3 p-3 rounded-lg border border-border">
                   <div className="shrink-0">
                     {sp.status === "pending" && <Clock className="h-4 w-4 text-yellow-500" />}
                     {sp.status === "processing" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
@@ -753,9 +588,7 @@ export default function WordPressPage() {
                     {sp.status === "failed" && <AlertCircle className="h-4 w-4 text-destructive" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {sp.articles?.title || "Без названия"}
-                    </p>
+                    <p className="text-sm font-medium truncate">{sp.articles?.title || t("wp.noTitle")}</p>
                     <p className="text-xs text-muted-foreground">
                       {sp.wordpress_sites?.site_name || sp.wordpress_sites?.site_url} · {format(new Date(sp.scheduled_at), "dd.MM.yyyy HH:mm")}
                     </p>
@@ -764,38 +597,19 @@ export default function WordPressPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Badge
-                      variant={
-                        sp.status === "published" ? "default" :
-                        sp.status === "failed" ? "destructive" :
-                        "secondary"
-                      }
-                      className="text-xs"
-                    >
-                      {sp.status === "pending" && "Ожидает"}
-                      {sp.status === "processing" && "Публикация..."}
-                      {sp.status === "published" && "Опубликовано"}
-                      {sp.status === "failed" && "Ошибка"}
+                    <Badge variant={sp.status === "published" ? "default" : sp.status === "failed" ? "destructive" : "secondary"} className="text-xs">
+                      {sp.status === "pending" && t("wp.statusPending")}
+                      {sp.status === "processing" && t("wp.statusPublishing")}
+                      {sp.status === "published" && t("wp.statusPublished")}
+                      {sp.status === "failed" && t("wp.statusFailed")}
                     </Badge>
                     {sp.status === "published" && sp.wp_post_url && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => window.open(sp.wp_post_url, "_blank")}
-                      >
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => window.open(sp.wp_post_url, "_blank")}>
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
                     )}
                     {sp.status === "pending" && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (confirm("Отменить запланированную публикацию?")) cancelScheduled.mutate(sp.id);
-                        }}
-                      >
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { if (confirm(t("wp.cancelScheduled"))) cancelScheduled.mutate(sp.id); }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}
