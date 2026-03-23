@@ -5,6 +5,7 @@ import { ModelRoutingTab } from "@/components/admin/ModelRoutingTab";
 import { HealthCheckTab } from "@/components/admin/HealthCheckTab";
 import { UserManagementTab } from "@/components/admin/UserManagementTab";
 import { UserContentTab } from "@/components/admin/UserContentTab";
+import { FaqManagementTab } from "@/components/admin/FaqManagementTab";
 
 export default function AdminPage() {
   return (
