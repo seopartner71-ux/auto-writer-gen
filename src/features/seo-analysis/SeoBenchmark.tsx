@@ -90,6 +90,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
   const { session } = useAuth();
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<string>("");
   const [optimizing, setOptimizing] = useState(false);
   const [result, setResult] = useState<DeepParseResult | null>(null);
   const [seedKeyword, setSeedKeyword] = useState("");
@@ -103,6 +104,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
       return;
     }
     setLoading(true);
+    setLoadingPhase("Загрузка данных...");
     try {
       const { data: kw } = await supabase
         .from("keywords")
@@ -111,13 +113,17 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
         .single();
       if (kw) setSeedKeyword(kw.seed_keyword);
 
+      setLoadingPhase("Анализ конкурентов из ТОП-10...");
+      const timer = setTimeout(() => setLoadingPhase("AI извлекает сущности..."), 8000);
       const data = await fetchAndAnalyze(keywordId, session.access_token, false);
+      clearTimeout(timer);
       setResult(data);
       toast.success(`${t("bench.loaded")} (${data.benchmark.total_parsed} ${t("bench.competitors")})`);
     } catch (e: any) {
       toast.error(e.message || t("bench.loadError"));
     } finally {
       setLoading(false);
+      setLoadingPhase("");
     }
   }, [keywordId, session, t]);
 
