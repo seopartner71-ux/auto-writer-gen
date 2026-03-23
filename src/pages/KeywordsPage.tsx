@@ -21,6 +21,7 @@ const GEO_OPTIONS = [
   { value: "in", label: "🇮🇳 Индия", cities: ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata"] },
   { value: "jp", label: "🇯🇵 Япония", cities: ["Tokyo", "Osaka", "Yokohama", "Nagoya", "Kyoto", "Fukuoka"] },
   { value: "es", label: "🇪🇸 Испания", cities: ["Madrid", "Barcelona", "Valencia", "Seville", "Málaga", "Bilbao"] },
+  { value: "co", label: "🇨🇴 Колумбия", cities: ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga"] },
 ];
 
 const LANG_OPTIONS = [
@@ -29,6 +30,7 @@ const LANG_OPTIONS = [
   { value: "de", label: "Deutsch" },
   { value: "fr", label: "Français" },
   { value: "es", label: "Español" },
+  { value: "es-CO", label: "Español (Colombia)" },
   { value: "pt", label: "Português" },
   { value: "ja", label: "日本語" },
   { value: "uk", label: "Українська" },
