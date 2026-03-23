@@ -41,9 +41,9 @@ export default function SettingsPage() {
     try {
       await queryClient.invalidateQueries();
       queryClient.clear();
-      toast.success("Кеш очищен! Все данные будут загружены заново.");
+      toast.success(t("settings.cacheCleared"));
     } catch {
-      toast.error("Ошибка при очистке кеша");
+      toast.error("Error");
     } finally {
       setTimeout(() => setIsClearingCache(false), 1000);
     }
@@ -77,9 +77,9 @@ export default function SettingsPage() {
         .update({ full_name: fullName.trim() || null })
         .eq("id", user.id);
       if (error) throw error;
-      toast.success("Профиль обновлён");
+      toast.success(t("settings.profileUpdated"));
     } catch (e: any) {
-      toast.error(e.message || "Ошибка при сохранении");
+      toast.error(e.message || "Error");
     } finally {
       setIsSavingProfile(false);
     }
@@ -87,22 +87,22 @@ export default function SettingsPage() {
 
   const handleChangePassword = async () => {
     if (newPassword.length < 6) {
-      toast.error("Пароль должен быть не менее 6 символов");
+      toast.error(t("settings.passwordMin6"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("Пароли не совпадают");
+      toast.error(t("settings.passwordsNoMatch"));
       return;
     }
     setIsChangingPassword(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast.success("Пароль изменён");
+      toast.success(t("settings.passwordChanged"));
       setNewPassword("");
       setConfirmPassword("");
     } catch (e: any) {
-      toast.error(e.message || "Ошибка при смене пароля");
+      toast.error(e.message || "Error");
     } finally {
       setIsChangingPassword(false);
     }
@@ -111,7 +111,7 @@ export default function SettingsPage() {
   const handleSubmitTicket = async () => {
     if (!user) return;
     if (!ticketSubject.trim() || !ticketMessage.trim()) {
-      toast.error("Заполните тему и сообщение");
+      toast.error(t("settings.fillFields"));
       return;
     }
     setIsSubmittingTicket(true);
@@ -122,11 +122,11 @@ export default function SettingsPage() {
         message: ticketMessage.trim(),
       } as any);
       if (error) throw error;
-      toast.success("Тикет отправлен! Мы ответим вам в ближайшее время.");
+      toast.success(t("settings.ticketSent"));
       setTicketSubject("");
       setTicketMessage("");
     } catch (e: any) {
-      toast.error(e.message || "Ошибка при отправке тикета");
+      toast.error(e.message || "Error");
     } finally {
       setIsSubmittingTicket(false);
     }
@@ -136,7 +136,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
-      {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-1">
           <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -144,16 +143,13 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
-            <p className="text-sm text-muted-foreground">Управление аккаунтом и настройками</p>
+            <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
           </div>
         </div>
       </div>
 
-      {/* Two-column grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left column */}
         <div className="space-y-6">
-          {/* Profile */}
           <Card className="bg-card border-border overflow-hidden">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
@@ -161,10 +157,7 @@ export default function SettingsPage() {
                   <User className="h-4 w-4 text-primary" />
                   {t("settings.profile")}
                 </CardTitle>
-                <Badge
-                  variant="outline"
-                  className="uppercase text-[10px] font-semibold tracking-wider border-primary/30 text-primary"
-                >
+                <Badge variant="outline" className="uppercase text-[10px] font-semibold tracking-wider border-primary/30 text-primary">
                   {plan}
                 </Badge>
               </div>
@@ -176,72 +169,41 @@ export default function SettingsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">{t("settings.name")}</Label>
-                <Input
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Ваше имя"
-                  className="text-sm"
-                />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t("settings.namePlaceholder")} className="text-sm" />
               </div>
-              <Button
-                onClick={handleSaveProfile}
-                disabled={isSavingProfile}
-                size="sm"
-                className="w-full mt-2"
-              >
+              <Button onClick={handleSaveProfile} disabled={isSavingProfile} size="sm" className="w-full mt-2">
                 <Save className="h-4 w-4 mr-2" />
-                {isSavingProfile ? "Сохранение..." : "Сохранить"}
+                {isSavingProfile ? t("settings.saving") : t("settings.save")}
               </Button>
             </CardContent>
           </Card>
 
-          {/* Password */}
           <Card className="bg-card border-border overflow-hidden">
             <CardHeader className="pb-4">
               <CardTitle className="text-base flex items-center gap-2">
                 <Lock className="h-4 w-4 text-primary" />
-                Безопасность
+                {t("settings.security")}
               </CardTitle>
-              <CardDescription className="text-xs">Смена пароля аккаунта</CardDescription>
+              <CardDescription className="text-xs">{t("settings.changePassword")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Новый пароль</Label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Минимум 6 символов"
-                  className="text-sm"
-                />
+                <Label className="text-xs text-muted-foreground">{t("settings.newPassword")}</Label>
+                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder={t("settings.passwordPlaceholder")} className="text-sm" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Подтвердите пароль</Label>
-                <Input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Повторите пароль"
-                  className="text-sm"
-                />
+                <Label className="text-xs text-muted-foreground">{t("settings.confirmPassword")}</Label>
+                <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t("settings.repeatPassword")} className="text-sm" />
               </div>
-              <Button
-                onClick={handleChangePassword}
-                disabled={isChangingPassword || !newPassword}
-                size="sm"
-                variant="outline"
-                className="w-full"
-              >
+              <Button onClick={handleChangePassword} disabled={isChangingPassword || !newPassword} size="sm" variant="outline" className="w-full">
                 <Lock className="h-4 w-4 mr-2" />
-                {isChangingPassword ? "Смена..." : "Сменить пароль"}
+                {isChangingPassword ? t("settings.changingPassword") : t("settings.changePasswordBtn")}
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right column */}
         <div className="space-y-6">
-          {/* Appearance */}
           <Card className="bg-card border-border overflow-hidden">
             <CardHeader className="pb-4">
               <CardTitle className="text-base flex items-center gap-2">
@@ -253,46 +215,24 @@ export default function SettingsPage() {
               <div className="space-y-2.5">
                 <Label className="text-xs text-muted-foreground">{t("settings.theme")}</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setTheme("dark")}
-                    className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${
-                      theme === "dark"
-                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                        : "border-border hover:border-muted-foreground/30"
-                    }`}
-                  >
+                  <button onClick={() => setTheme("dark")} className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${theme === "dark" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-muted-foreground/30"}`}>
                     <Moon className={`h-5 w-5 ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className={`text-xs font-medium ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`}>
-                      {t("settings.darkTheme")}
-                    </span>
+                    <span className={`text-xs font-medium ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`}>{t("settings.darkTheme")}</span>
                   </button>
-                  <button
-                    onClick={() => setTheme("light")}
-                    className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${
-                      theme === "light"
-                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                        : "border-border hover:border-muted-foreground/30"
-                    }`}
-                  >
+                  <button onClick={() => setTheme("light")} className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${theme === "light" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-muted-foreground/30"}`}>
                     <Sun className={`h-5 w-5 ${theme === "light" ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className={`text-xs font-medium ${theme === "light" ? "text-primary" : "text-muted-foreground"}`}>
-                      {t("settings.lightTheme")}
-                    </span>
+                    <span className={`text-xs font-medium ${theme === "light" ? "text-primary" : "text-muted-foreground"}`}>{t("settings.lightTheme")}</span>
                   </button>
                 </div>
               </div>
-
               <Separator />
-
               <div className="space-y-2.5">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Languages className="h-3.5 w-3.5" />
                   {t("settings.language")}
                 </Label>
                 <Select value={lang} onValueChange={(v) => setLang(v as "ru" | "en")}>
-                  <SelectTrigger className="text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ru">🇷🇺 Русский</SelectItem>
                     <SelectItem value="en">🇬🇧 English</SelectItem>
@@ -302,7 +242,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Pro usage */}
           {isPro && (
             <Card className="bg-card border-primary/15 overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
@@ -311,16 +250,16 @@ export default function SettingsPage() {
                   <ImageIcon className="h-4 w-4 text-primary" />
                   Pro Visual Synthesis
                 </CardTitle>
-                <CardDescription className="text-xs">Лимит генерации изображений</CardDescription>
+                <CardDescription className="text-xs">{t("settings.proImageLimit")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-end justify-between">
                   <div>
                     <p className="text-2xl font-bold text-foreground">{proImageCount}</p>
-                    <p className="text-xs text-muted-foreground">из {proImageMax} генераций</p>
+                    <p className="text-xs text-muted-foreground">{t("bench.ofTotal")} {proImageMax} {t("settings.ofGenerations")}</p>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Осталось {Math.max(0, proImageMax - proImageCount)}
+                    {t("settings.remaining")} {Math.max(0, proImageMax - proImageCount)}
                   </span>
                 </div>
                 <Progress value={proImagePercent} className="h-2" />
@@ -328,51 +267,37 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {/* Cache */}
           <Card className="bg-card border-border overflow-hidden">
             <CardHeader className="pb-4">
               <CardTitle className="text-base flex items-center gap-2">
                 <RefreshCw className="h-4 w-4 text-primary" />
-                Кеш сервиса
+                {t("settings.cache")}
               </CardTitle>
-              <CardDescription className="text-xs">
-                Очистить локальный кеш для загрузки актуальных данных
-              </CardDescription>
+              <CardDescription className="text-xs">{t("settings.cacheDesc")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                onClick={handleClearCache}
-                disabled={isClearingCache}
-                size="sm"
-                variant="outline"
-                className="w-full"
-              >
+              <Button onClick={handleClearCache} disabled={isClearingCache} size="sm" variant="outline" className="w-full">
                 <RefreshCw className={`h-4 w-4 mr-2 ${isClearingCache ? "animate-spin" : ""}`} />
-                {isClearingCache ? "Очистка..." : "Очистить кеш"}
+                {isClearingCache ? t("settings.clearing") : t("settings.clearCache")}
               </Button>
             </CardContent>
           </Card>
 
-          {/* Account info */}
           <Card className="bg-card border-border overflow-hidden">
             <CardContent className="pt-5 pb-4">
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Аккаунт создан</span>
+                  <span className="text-muted-foreground">{t("settings.accountCreated")}</span>
                   <span className="text-foreground">
                     {profile?.created_at
-                      ? new Date(profile.created_at).toLocaleDateString("ru-RU", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })
-                      : "—"}
+                      ? new Date(profile.created_at).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "long", year: "numeric" })
+                      : "-"}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Лимит генераций</span>
-                  <span className="text-foreground font-medium">{limits.maxGenerations} / мес</span>
+                  <span className="text-muted-foreground">{t("settings.genLimit")}</span>
+                  <span className="text-foreground font-medium">{limits.maxGenerations} {t("settings.perMonth")}</span>
                 </div>
               </div>
             </CardContent>
@@ -380,49 +305,28 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Support ticket - full width */}
       <Card className="bg-card border-border overflow-hidden">
         <CardHeader className="pb-4">
           <CardTitle className="text-base flex items-center gap-2">
             <LifeBuoy className="h-4 w-4 text-primary" />
-            Поддержка
+            {t("settings.support")}
           </CardTitle>
-          <CardDescription className="text-xs">
-            Опишите вашу проблему или предложение — мы ответим в ближайшее время
-          </CardDescription>
+          <CardDescription className="text-xs">{t("settings.supportDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Тема</Label>
-            <Input
-              value={ticketSubject}
-              onChange={(e) => setTicketSubject(e.target.value)}
-              placeholder="Кратко опишите тему обращения"
-              className="text-sm"
-              maxLength={200}
-            />
+            <Label className="text-xs text-muted-foreground">{t("settings.subject")}</Label>
+            <Input value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder={t("settings.subjectPlaceholder")} className="text-sm" maxLength={200} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Сообщение</Label>
-            <Textarea
-              value={ticketMessage}
-              onChange={(e) => setTicketMessage(e.target.value)}
-              placeholder="Подробно опишите вашу проблему или предложение..."
-              className="text-sm min-h-[120px] resize-y"
-              maxLength={2000}
-            />
+            <Label className="text-xs text-muted-foreground">{t("settings.message")}</Label>
+            <Textarea value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} placeholder={t("settings.messagePlaceholder")} className="text-sm min-h-[120px] resize-y" maxLength={2000} />
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {ticketMessage.length}/2000
-            </span>
-            <Button
-              onClick={handleSubmitTicket}
-              disabled={isSubmittingTicket || !ticketSubject.trim() || !ticketMessage.trim()}
-              size="sm"
-            >
+            <span className="text-xs text-muted-foreground">{ticketMessage.length}/2000</span>
+            <Button onClick={handleSubmitTicket} disabled={isSubmittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} size="sm">
               <Send className="h-4 w-4 mr-2" />
-              {isSubmittingTicket ? "Отправка..." : "Отправить тикет"}
+              {isSubmittingTicket ? t("settings.sending") : t("settings.sendTicket")}
             </Button>
           </div>
         </CardContent>

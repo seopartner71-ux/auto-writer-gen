@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,42 +19,24 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setIsRecovery(true);
-      }
+      if (event === "PASSWORD_RECOVERY") setIsRecovery(true);
     });
-
-    // Check if hash contains type=recovery
     const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      setIsRecovery(true);
-    }
-
+    if (hash.includes("type=recovery")) setIsRecovery(true);
     return () => subscription.unsubscribe();
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error("Пароль должен быть не менее 6 символов");
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error("Пароли не совпадают");
-      return;
-    }
-
+    if (password.length < 6) { toast.error(t("settings.passwordMin6")); return; }
+    if (password !== confirmPassword) { toast.error(t("settings.passwordsNoMatch")); return; }
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
-
-    if (error) {
-      toast.error(error.message);
-    } else {
+    if (error) { toast.error(error.message); } else {
       setDone(true);
-      toast.success("Пароль успешно изменён");
+      toast.success(t("reset.success"));
       setTimeout(() => navigate("/dashboard"), 2000);
     }
   };
@@ -62,16 +46,12 @@ export default function ResetPasswordPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md border-border bg-card">
           <CardHeader className="text-center space-y-2">
-            <CardTitle>Восстановление пароля</CardTitle>
-            <CardDescription>
-              Ссылка для сброса пароля недействительна или устарела. Запросите новую.
-            </CardDescription>
+            <CardTitle>{t("reset.recovery")}</CardTitle>
+            <CardDescription>{t("reset.invalidLink")}</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
             <Link to="/forgot-password">
-              <Button variant="outline" className="w-full">
-                Запросить новую ссылку
-              </Button>
+              <Button variant="outline" className="w-full">{t("reset.requestNew")}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -84,11 +64,9 @@ export default function ResetPasswordPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md border-border bg-card">
           <CardHeader className="text-center">
-            <div className="flex justify-center mb-2">
-              <CheckCircle className="h-12 w-12 text-green-500" />
-            </div>
-            <CardTitle>Пароль изменён</CardTitle>
-            <CardDescription>Перенаправление...</CardDescription>
+            <div className="flex justify-center mb-2"><CheckCircle className="h-12 w-12 text-green-500" /></div>
+            <CardTitle>{t("reset.changed")}</CardTitle>
+            <CardDescription>{t("reset.redirecting")}</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -104,42 +82,21 @@ export default function ResetPasswordPage() {
               <KeyRound className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle>Новый пароль</CardTitle>
-          <CardDescription>Введите новый пароль для вашего аккаунта</CardDescription>
+          <CardTitle>{t("reset.title")}</CardTitle>
+          <CardDescription>{t("reset.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleReset} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password">Новый пароль</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Минимум 6 символов"
-                required
-              />
+              <Label htmlFor="password">{t("reset.newPassword")}</Label>
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("reset.placeholder")} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Подтвердите пароль</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Повторите пароль"
-                required
-              />
+              <Label htmlFor="confirmPassword">{t("reset.confirmPassword")}</Label>
+              <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t("reset.repeatPlaceholder")} required />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Сохранение...
-                </>
-              ) : (
-                "Сохранить новый пароль"
-              )}
+              {loading ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("reset.saving")}</>) : t("reset.saveBtn")}
             </Button>
           </form>
         </CardContent>
