@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,6 +39,33 @@ const MODEL_LABELS: Record<string, string> = {
   perplexity: "Perplexity",
   claude: "Claude",
 };
+
+function escapeHtml(text: string) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function highlightBrand(text: string, brandName: string, domain: string): string {
+  let html = escapeHtml(text);
+  const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/^www\./, "").toLowerCase();
+  const domainBase = cleanDomain.replace(/\.[a-z]{2,}$/, "");
+  
+  const terms = new Set<string>();
+  if (brandName) terms.add(brandName.toLowerCase());
+  if (cleanDomain) terms.add(cleanDomain);
+  if (domainBase) terms.add(domainBase);
+  if (domainBase.length >= 4) {
+    for (let i = 2; i <= domainBase.length - 2; i++) {
+      terms.add(domainBase.slice(0, i) + " " + domainBase.slice(i));
+    }
+  }
+  
+  const sorted = Array.from(terms).filter(t => t.length >= 3).sort((a, b) => b.length - a.length);
+  for (const term of sorted) {
+    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+    html = html.replace(regex, `<mark class="bg-purple-500/30 text-purple-300 rounded px-0.5">$1</mark>`);
+  }
+  return html;
+}
 
 // Radial chart component
 function RadialChart({ value, label, color }: { value: number; label: string; color: string }) {
@@ -88,6 +115,8 @@ export default function RadarPage() {
     brand_mentioned: boolean; domain_linked: boolean;
     matched_snippets: string[]; status: string; keyword: string;
   } | null>(null);
+  const [responseOpen, setResponseOpen] = useState(false);
+  const responseRef = useRef<HTMLDivElement>(null);
 
   // Fetch projects
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
@@ -770,24 +799,60 @@ export default function RadarPage() {
               </h4>
               <div className="space-y-2">
                 {viewResponseData.matched_snippets.map((s, i) => (
-                  <div key={i} className="p-2.5 rounded-md bg-primary/5 border border-primary/20 text-xs leading-relaxed">
-                    {s}
-                  </div>
+                  <button
+                    key={i}
+                    className="w-full text-left p-2.5 rounded-md bg-primary/5 border border-primary/20 text-xs leading-relaxed hover:bg-primary/10 transition-colors cursor-pointer"
+                    onClick={() => {
+                      // Open the full response and scroll to the snippet
+                      setResponseOpen(true);
+                      setTimeout(() => {
+                        const el = responseRef.current;
+                        if (!el) return;
+                        const cleanSnippet = s.replace(/^\[Data Nugget\]\s*/, "").slice(0, 40);
+                        const idx = el.textContent?.toLowerCase().indexOf(cleanSnippet.toLowerCase()) ?? -1;
+                        if (idx >= 0) {
+                          // Find the highlighted mark element
+                          const marks = el.querySelectorAll("mark");
+                          for (const mark of marks) {
+                            if (mark.textContent?.toLowerCase().includes(cleanSnippet.slice(0, 20).toLowerCase())) {
+                              mark.scrollIntoView({ behavior: "smooth", block: "center" });
+                              mark.classList.add("ring-2", "ring-primary");
+                              setTimeout(() => mark.classList.remove("ring-2", "ring-primary"), 2000);
+                              break;
+                            }
+                          }
+                        }
+                      }, 150);
+                    }}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <ArrowUpRight className="h-3 w-3 text-primary shrink-0" />
+                      {s}
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Collapsible raw response */}
-          <Collapsible className="mt-3">
+          {/* Collapsible raw response with brand highlighting */}
+          <Collapsible open={responseOpen} onOpenChange={setResponseOpen} className="mt-3">
             <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
               <ChevronDown className="h-3.5 w-3.5" />
               Показать полный ответ ИИ
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div className="mt-2 p-4 rounded-lg bg-muted/30 border border-border text-xs leading-relaxed whitespace-pre-wrap max-h-[40vh] overflow-y-auto">
-                {viewResponseData?.text || "Нет данных"}
-              </div>
+              <div
+                ref={responseRef}
+                className="mt-2 p-4 rounded-lg bg-muted/30 border border-border text-xs leading-relaxed whitespace-pre-wrap max-h-[40vh] overflow-y-auto"
+                dangerouslySetInnerHTML={{
+                  __html: highlightBrand(
+                    viewResponseData?.text || "Нет данных",
+                    activeProject?.brand_name || "",
+                    activeProject?.domain || "",
+                  ),
+                }}
+              />
             </CollapsibleContent>
           </Collapsible>
         </DialogContent>
