@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Zap, TrendingUp, FileText, Clock } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LandingStats } from "@/components/landing/LandingStats";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -16,14 +17,13 @@ const stagger = {
 
 export default function Index() {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <LandingNav />
 
-      {/* Hero */}
       <section className="relative flex flex-col items-center justify-center pt-32 pb-20 overflow-hidden">
-        {/* Ambient glow */}
         <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-primary/15 blur-[160px]" />
 
         <motion.div
@@ -36,9 +36,9 @@ export default function Index() {
             variants={fadeUp}
             className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[1.05]"
           >
-            Engineering Your{" "}
+            {t("landing.headlinePart1")}{" "}
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-violet-500 to-purple-400">
-              Search Dominance
+              {t("landing.headlinePart2")}
             </span>
           </motion.h1>
 
@@ -46,8 +46,7 @@ export default function Index() {
             variants={fadeUp}
             className="mx-auto mt-6 max-w-2xl text-lg sm:text-xl text-muted-foreground leading-relaxed"
           >
-            A professional ecosystem for designing and synthesizing high-performance content.
-            In the era of Google SGE and AI answers, we give you the blueprint for success.
+            {t("landing.subtitle")}
           </motion.p>
 
           <motion.div variants={fadeUp} className="mt-10">
@@ -55,13 +54,12 @@ export default function Index() {
               onClick={() => navigate("/register")}
               className="group inline-flex items-center gap-2 rounded-full bg-primary px-8 py-4 text-base font-semibold text-primary-foreground shadow-[0_0_24px_hsl(var(--primary)/0.4)] transition-all duration-300 hover:scale-[1.04] hover:shadow-[0_0_36px_hsl(var(--primary)/0.6)] active:scale-[0.98]"
             >
-              Start Building
+              {t("landing.startBuilding")}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
           </motion.div>
         </motion.div>
 
-        {/* Stats */}
         <LandingStats />
       </section>
     </div>
