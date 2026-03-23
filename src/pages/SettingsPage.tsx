@@ -1,4 +1,4 @@
-import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, LifeBuoy, Send } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -27,6 +28,9 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketMessage, setTicketMessage] = useState("");
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
 
   const { data: proImageCount = 0 } = useQuery({
     queryKey: ["pro-image-count"],
@@ -84,6 +88,30 @@ export default function SettingsPage() {
       toast.error(e.message || "Ошибка при смене пароля");
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+  const handleSubmitTicket = async () => {
+    if (!user) return;
+    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+      toast.error("Заполните тему и сообщение");
+      return;
+    }
+    setIsSubmittingTicket(true);
+    try {
+      const { error } = await supabase.from("support_tickets" as any).insert({
+        user_id: user.id,
+        subject: ticketSubject.trim(),
+        message: ticketMessage.trim(),
+      } as any);
+      if (error) throw error;
+      toast.success("Тикет отправлен! Мы ответим вам в ближайшее время.");
+      setTicketSubject("");
+      setTicketMessage("");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка при отправке тикета");
+    } finally {
+      setIsSubmittingTicket(false);
     }
   };
 
@@ -309,6 +337,54 @@ export default function SettingsPage() {
           </Card>
         </div>
       </div>
+
+      {/* Support ticket - full width */}
+      <Card className="bg-card border-border overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <LifeBuoy className="h-4 w-4 text-primary" />
+            Поддержка
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Опишите вашу проблему или предложение — мы ответим в ближайшее время
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Тема</Label>
+            <Input
+              value={ticketSubject}
+              onChange={(e) => setTicketSubject(e.target.value)}
+              placeholder="Кратко опишите тему обращения"
+              className="text-sm"
+              maxLength={200}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Сообщение</Label>
+            <Textarea
+              value={ticketMessage}
+              onChange={(e) => setTicketMessage(e.target.value)}
+              placeholder="Подробно опишите вашу проблему или предложение..."
+              className="text-sm min-h-[120px] resize-y"
+              maxLength={2000}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {ticketMessage.length}/2000
+            </span>
+            <Button
+              onClick={handleSubmitTicket}
+              disabled={isSubmittingTicket || !ticketSubject.trim() || !ticketMessage.trim()}
+              size="sm"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {isSubmittingTicket ? "Отправка..." : "Отправить тикет"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
