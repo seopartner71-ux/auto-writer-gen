@@ -12,6 +12,15 @@ const AI_MODELS = [
   { key: "gemini", model: "google/gemini-2.5-flash", label: "Gemini" },
   { key: "chatgpt", model: "openai/gpt-5-nano", label: "ChatGPT" },
 ];
+// All available models via Lovable AI Gateway
+const ALL_AI_MODELS = [
+  { key: "gemini_flash", model: "google/gemini-2.5-flash", label: "Gemini Flash" },
+  { key: "gemini_pro", model: "google/gemini-2.5-pro", label: "Gemini Pro" },
+  { key: "gemini_flash_lite", model: "google/gemini-2.5-flash-lite", label: "Gemini Lite" },
+  { key: "chatgpt", model: "openai/gpt-5-nano", label: "ChatGPT Nano" },
+  { key: "chatgpt_mini", model: "openai/gpt-5-mini", label: "ChatGPT Mini" },
+  { key: "chatgpt_pro", model: "openai/gpt-5", label: "ChatGPT Pro" },
+];
 
 interface CheckResult {
   model: string;
@@ -183,7 +192,7 @@ serve(async (req) => {
     const checkedAt = new Date().toISOString();
 
     // Query each AI model
-    for (const aiModel of AI_MODELS) {
+    for (const aiModel of ALL_AI_MODELS) {
       try {
         const responseText = await queryAIModel(
           LOVABLE_API_KEY,
