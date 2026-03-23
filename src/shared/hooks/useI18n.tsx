@@ -519,6 +519,16 @@ const translations: Record<string, Record<Lang, string>> = {
   "indexing.colProvider": { ru: "Провайдер", en: "Provider" },
   "indexing.colStatus": { ru: "Статус", en: "Status" },
   "indexing.colMessage": { ru: "Ответ", en: "Response" },
+
+  // Landing
+  "landing.headlinePart1": { ru: "Синтезируйте SEO-контент, который", en: "Engineering Your" },
+  "landing.headlinePart2": { ru: "доминирует в ТОП-3", en: "Search Dominance" },
+  "landing.subtitle": { ru: "Профессиональная экосистема для проектирования и синтеза высокоэффективного контента. В эпоху Google SGE и AI-ответов мы даём вам чертёж успеха.", en: "A professional ecosystem for designing and synthesizing high-performance content. In the era of Google SGE and AI answers, we give you the blueprint for success." },
+  "landing.startBuilding": { ru: "Начать синтез", en: "Start Building" },
+  "landing.getStarted": { ru: "Начать", en: "Get Started" },
+  "landing.statRanking": { ru: "Рост позиций (средн.)", en: "Avg. ranking improvement" },
+  "landing.statArticles": { ru: "Статей сгенерировано", en: "Articles generated" },
+  "landing.statTime": { ru: "Среднее время публикации", en: "Avg. time to publish" },
 };
 
 interface I18nContextValue {
