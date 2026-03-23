@@ -397,6 +397,124 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_keywords: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          keyword: string
+          last_checked_at: string | null
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          keyword: string
+          last_checked_at?: string | null
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          keyword?: string
+          last_checked_at?: string | null
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_keywords_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radar_projects: {
+        Row: {
+          brand_name: string
+          created_at: string | null
+          data_nuggets: string[] | null
+          domain: string
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string | null
+          data_nuggets?: string[] | null
+          domain: string
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string | null
+          data_nuggets?: string[] | null
+          domain?: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      radar_results: {
+        Row: {
+          ai_response_text: string | null
+          brand_mentioned: boolean | null
+          checked_at: string | null
+          competitor_domains: string[] | null
+          domain_linked: boolean | null
+          id: string
+          keyword_id: string
+          matched_snippets: string[] | null
+          model: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          ai_response_text?: string | null
+          brand_mentioned?: boolean | null
+          checked_at?: string | null
+          competitor_domains?: string[] | null
+          domain_linked?: boolean | null
+          id?: string
+          keyword_id: string
+          matched_snippets?: string[] | null
+          model: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          ai_response_text?: string | null
+          brand_mentioned?: boolean | null
+          checked_at?: string | null
+          competitor_domains?: string[] | null
+          domain_linked?: boolean | null
+          id?: string
+          keyword_id?: string
+          matched_snippets?: string[] | null
+          model?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_results_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "radar_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduled_generations: {
         Row: {
           article_id: string | null
