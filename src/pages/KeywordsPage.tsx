@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/shared/api/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,17 +12,17 @@ import { ResearchResults } from "@/components/research/ResearchResults";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const GEO_OPTIONS = [
-  { value: "us", label: "🇺🇸 США", cities: ["New York", "Los Angeles", "Chicago", "Houston", "Miami", "San Francisco", "Seattle", "Boston"] },
-  { value: "gb", label: "🇬🇧 Великобритания", cities: ["London", "Manchester", "Birmingham", "Leeds", "Edinburgh", "Glasgow"] },
-  { value: "de", label: "🇩🇪 Германия", cities: ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart"] },
-  { value: "fr", label: "🇫🇷 Франция", cities: ["Paris", "Lyon", "Marseille", "Toulouse", "Nice", "Bordeaux"] },
-  { value: "ru", label: "🇷🇺 Россия", cities: ["Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань", "Краснодар"] },
-  { value: "ua", label: "🇺🇦 Украина", cities: ["Київ", "Харків", "Одеса", "Дніпро", "Львів", "Запоріжжя"] },
-  { value: "br", label: "🇧🇷 Бразилия", cities: ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador", "Curitiba"] },
-  { value: "in", label: "🇮🇳 Индия", cities: ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata"] },
-  { value: "jp", label: "🇯🇵 Япония", cities: ["Tokyo", "Osaka", "Yokohama", "Nagoya", "Kyoto", "Fukuoka"] },
-  { value: "es", label: "🇪🇸 Испания", cities: ["Madrid", "Barcelona", "Valencia", "Seville", "Málaga", "Bilbao"] },
-  { value: "co", label: "🇨🇴 Колумбия", cities: ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga"] },
+  { value: "us", labelKey: "geo.us", cities: ["New York", "Los Angeles", "Chicago", "Houston", "Miami", "San Francisco", "Seattle", "Boston"] },
+  { value: "gb", labelKey: "geo.gb", cities: ["London", "Manchester", "Birmingham", "Leeds", "Edinburgh", "Glasgow"] },
+  { value: "de", labelKey: "geo.de", cities: ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart"] },
+  { value: "fr", labelKey: "geo.fr", cities: ["Paris", "Lyon", "Marseille", "Toulouse", "Nice", "Bordeaux"] },
+  { value: "ru", labelKey: "geo.ru", cities: ["Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург", "Казань", "Краснодар"] },
+  { value: "ua", labelKey: "geo.ua", cities: ["Київ", "Харків", "Одеса", "Дніпро", "Львів", "Запоріжжя"] },
+  { value: "br", labelKey: "geo.br", cities: ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador", "Curitiba"] },
+  { value: "in", labelKey: "geo.in", cities: ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata"] },
+  { value: "jp", labelKey: "geo.jp", cities: ["Tokyo", "Osaka", "Yokohama", "Nagoya", "Kyoto", "Fukuoka"] },
+  { value: "es", labelKey: "geo.es", cities: ["Madrid", "Barcelona", "Valencia", "Seville", "Málaga", "Bilbao"] },
+  { value: "co", labelKey: "geo.co", cities: ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga"] },
 ];
 
 const LANG_OPTIONS = [
@@ -70,6 +71,7 @@ export interface ResearchData {
 }
 
 export default function KeywordsPage() {
+  const { t } = useI18n();
   const [keyword, setKeyword] = useState("");
   const [geo, setGeo] = useState("ru");
   const [geoMode, setGeoMode] = useState<"country" | "city">("country");
@@ -92,7 +94,7 @@ export default function KeywordsPage() {
     },
     onSuccess: (data) => {
       setResults(data);
-      toast.success(`Анализ завершён (${data.model_used})`);
+      toast.success(`${t("keywords.analysisComplete")} (${data.model_used})`);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -102,9 +104,9 @@ export default function KeywordsPage() {
       <div className="flex items-center gap-3">
         <Search className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Smart Research</h1>
+          <h1 className="text-2xl font-semibold">{t("keywords.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Анализ выдачи Google и интеллектуальная обработка конкурентов
+            {t("keywords.subtitle")}
           </p>
         </div>
       </div>
@@ -113,9 +115,9 @@ export default function KeywordsPage() {
       <div className="rounded-lg border border-border bg-card p-5">
         <div className="flex flex-col gap-3">
           <div className="space-y-1.5 max-w-xl">
-            <Label className="text-xs text-muted-foreground">Ключевое слово</Label>
+            <Label className="text-xs text-muted-foreground">{t("keywords.keyword")}</Label>
             <Input
-              placeholder="Например: best project management tools"
+              placeholder={t("keywords.keywordPlaceholder")}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && keyword.trim().length >= 2 && research.mutate()}
@@ -125,10 +127,10 @@ export default function KeywordsPage() {
             <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto self-center">
               <TabsList className="h-8 p-0.5">
                 <TabsTrigger value="country" className="text-xs px-2.5 h-7 gap-1">
-                  <Globe className="h-3 w-3" /> Страна
+                  <Globe className="h-3 w-3" /> {t("geo.country")}
                 </TabsTrigger>
                 <TabsTrigger value="city" className="text-xs px-2.5 h-7 gap-1">
-                  <MapPin className="h-3 w-3" /> Город
+                  <MapPin className="h-3 w-3" /> {t("geo.city")}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -138,14 +140,14 @@ export default function KeywordsPage() {
               </SelectTrigger>
               <SelectContent>
                 {GEO_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {geoMode === "city" && (
               <Select value={city} onValueChange={setCity}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Выберите город" />
+                  <SelectValue placeholder={t("geo.selectCity")} />
                 </SelectTrigger>
                 <SelectContent>
                   {currentCities.map((c) => (
@@ -173,7 +175,7 @@ export default function KeywordsPage() {
               ) : (
                 <Globe className="h-4 w-4 mr-2" />
               )}
-              {research.isPending ? "Анализ..." : "Исследовать"}
+              {research.isPending ? t("keywords.analyzing") : t("keywords.research")}
             </Button>
           </div>
         </div>
@@ -183,8 +185,8 @@ export default function KeywordsPage() {
       {research.isPending && (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-          <p className="text-sm">Поиск в Google и анализ конкурентов...</p>
-          <p className="text-xs mt-1">Это может занять 15-30 секунд</p>
+          <p className="text-sm">{t("keywords.searching")}</p>
+          <p className="text-xs mt-1">{t("keywords.searchTime")}</p>
         </div>
       )}
 
@@ -195,8 +197,8 @@ export default function KeywordsPage() {
       {!results && !research.isPending && (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <Search className="h-14 w-14 opacity-20 mb-4" />
-          <p className="text-sm">Введите ключевое слово для начала исследования</p>
-          <p className="text-xs mt-1">Мы проанализируем ТОП-10 Google и найдём Content Gaps</p>
+          <p className="text-sm">{t("keywords.enterKeyword")}</p>
+          <p className="text-xs mt-1">{t("keywords.weWillAnalyze")}</p>
         </div>
       )}
     </div>

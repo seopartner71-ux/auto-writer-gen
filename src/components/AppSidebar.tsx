@@ -186,9 +186,9 @@ export function AppSidebar() {
               <span className="font-medium text-primary uppercase">{plan}</span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Кредиты</span>
+              <span>{t("sidebar.credits")}</span>
               <span className={`font-bold ${(profile?.credits_amount ?? 0) > 0 ? "text-success" : "text-destructive"}`}>
-                {profile?.credits_amount ?? 0} статей
+                {profile?.credits_amount ?? 0} {t("sidebar.articles")}
               </span>
             </div>
           </div>

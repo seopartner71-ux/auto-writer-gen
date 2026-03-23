@@ -26,11 +26,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 size="sm"
                 asChild
-                title="Поддержка"
+                title={t("header.support")}
               >
                 <a href="https://t.me/sin0ptick" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
                   <MessageCircle className="h-4 w-4" />
-                  <span className="text-xs">Поддержка</span>
+                  <span className="text-xs">{t("header.support")}</span>
                 </a>
               </Button>
               <Button
