@@ -390,7 +390,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
             variant="outline"
           >
             {loading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />{t("bench.loading")}</>
+              <><Loader2 className="h-4 w-4 animate-spin" />{loadingPhase || t("bench.loading")}</>
             ) : (
               <><Target className="h-4 w-4" />{t("bench.loadBtn")}</>
             )}
