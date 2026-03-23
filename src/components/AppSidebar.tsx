@@ -45,6 +45,7 @@ export function AppSidebar() {
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
+    { title: "AI Radar", url: "/radar", icon: Radar },
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
   ];
 
