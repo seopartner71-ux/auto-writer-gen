@@ -90,6 +90,7 @@ function markdownToPreviewHtml(md: string): string {
     .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-img" style="max-width:100%;height:auto;border-radius:8px;margin:1rem 0" />')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="md-link">$1</a>')
     .replace(/^[-*]\s+(.+)$/gm, '<li class="md-ul-li">$1</li>')
     .replace(/^\d+\.\s+(.+)$/gm, '<li class="md-ol-li">$1</li>');
@@ -142,6 +143,8 @@ function markdownToHtml(md: string, title?: string, metaDesc?: string): string {
     .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    // images (must be before links)
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;height:auto;border-radius:8px;margin:1rem 0" />')
     // unordered lists
     .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
     // ordered lists
