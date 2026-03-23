@@ -883,6 +883,30 @@ export default function ArticlesPage() {
                       variant="outline"
                       size="sm"
                       disabled={!content}
+                      onClick={async () => {
+                        const plain = content
+                          .replace(/^#{1,6}\s+/gm, "")
+                          .replace(/\*\*(.+?)\*\*/g, "$1")
+                          .replace(/\*(.+?)\*/g, "$1")
+                          .replace(/!\[([^\]]*)\]\([^)]+\)/g, "")
+                          .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+                          .replace(/\|/g, " ")
+                          .replace(/[-:]+\|/g, "")
+                          .replace(/\n{3,}/g, "\n\n")
+                          .trim();
+                        await navigator.clipboard.writeText(plain);
+                        setTextCopied(true);
+                        toast.success("Текст скопирован");
+                        setTimeout(() => setTextCopied(false), 2000);
+                      }}
+                    >
+                      {textCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                      {textCopied ? "Скопировано" : "Копировать"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!content}
                       onClick={() => {
                         const html = markdownToFullHtml(content, title, metaDescription);
                         const blob = new Blob([html], { type: "text/html;charset=utf-8" });
@@ -897,6 +921,26 @@ export default function ArticlesPage() {
                     >
                       <Download className="h-3 w-3 mr-1" />
                       HTML
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!content}
+                      onClick={() => {
+                        const html = markdownToCleanHtml(content);
+                        const fullHtml = `<html><head><meta charset="utf-8"><title>${title || "Article"}</title></head><body>${html}</body></html>`;
+                        const blob = new Blob(['\ufeff', fullHtml], { type: "application/msword;charset=utf-8" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.doc`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success("Файл .doc скачан — откройте в Google Docs");
+                      }}
+                    >
+                      <FileText className="h-3 w-3 mr-1" />
+                      Google Docs
                     </Button>
                     <Button
                       variant="outline"
