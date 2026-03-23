@@ -67,8 +67,15 @@ function highlightBrand(text: string, brandName: string, domain: string): string
   return html;
 }
 
+function getRadialColor(value: number): string {
+  if (value >= 60) return "#22c55e"; // green
+  if (value >= 30) return "#eab308"; // yellow
+  if (value > 0) return "#ef4444";   // red
+  return "hsl(var(--muted-foreground))";
+}
+
 // Radial chart component
-function RadialChart({ value, label, color }: { value: number; label: string; color: string }) {
+function RadialChart({ value, label, color }: { value: number; label: string; color?: string }) {
   const radius = 36;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (value / 100) * circumference;
