@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { lang, setLang } = useI18n();
+  const { lang, setLang, t } = useI18n();
 
   return (
     <SidebarProvider>
