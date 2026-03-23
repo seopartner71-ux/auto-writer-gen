@@ -109,6 +109,7 @@ const App = () => (
                   <Route path="/indexing" element={<IndexingPage />} />
                   <Route path="/wordpress" element={<WordPressPage />} />
                   <Route path="/radar" element={<RadarPage />} />
+                  <Route path="/wiki" element={<WikiPage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>
