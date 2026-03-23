@@ -317,10 +317,10 @@ serve(async (req) => {
       .order("position", { ascending: true })
       .limit(10);
 
-    // Get author profile
+    // Get author profile (use admin client for presets which have null user_id)
     let authorData: any = null;
     if (author_profile_id) {
-      const { data: author } = await supabase
+      const { data: author } = await supabaseAdmin
         .from("author_profiles")
         .select("*")
         .eq("id", author_profile_id)
