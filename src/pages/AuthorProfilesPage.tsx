@@ -371,57 +371,59 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
 
           {/* Reference Text — only for custom authors */}
           {author.type !== "preset" && (
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" />
-              <Label className="text-sm font-semibold">Эталонный текст автора</Label>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Вставьте текст, написанный этим автором. ИИ будет копировать этот стиль при генерации статей.
-              Чем больше текста — тем точнее стиль.
-            </p>
-            <Textarea
-              placeholder="Вставьте сюда текст автора (статья, пост, эссе)... Минимум 200 символов для качественного результата."
-              rows={10}
-              value={referenceText}
-              onChange={(e) => {
-                setReferenceText(e.target.value);
-                setRefDirty(true);
-              }}
-              className="bg-background font-mono text-sm leading-relaxed"
-            />
-            <div className="flex items-center justify-between">
+            <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-semibold">Эталонный текст автора</Label>
+              </div>
               <p className="text-xs text-muted-foreground">
-                {referenceText.length} символов
-                {referenceText.length > 0 && referenceText.length < 200 && (
-                  <span className="text-warning ml-1">(рекомендуется ≥200)</span>
-                )}
-                {referenceText.length >= 200 && (
-                  <span className="text-success ml-1">✓ достаточно для анализа</span>
-                )}
+                Вставьте текст, написанный этим автором. ИИ будет копировать этот стиль при генерации статей.
+                Чем больше текста — тем точнее стиль.
               </p>
-              <div className="flex gap-2">
-                {refDirty && (
-                  <Button
-                    size="sm"
-                    onClick={() => saveReference.mutate()}
-                    disabled={saveReference.isPending}
-                  >
-                    {saveReference.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4 mr-1" />
-                    )}
-                    Сохранить текст
-                  </Button>
-                )}
-                {!refDirty && referenceText.length > 0 && (
-                  <span className="flex items-center text-xs text-success gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Сохранено
-                  </span>
-                )}
+              <Textarea
+                placeholder="Вставьте сюда текст автора (статья, пост, эссе)... Минимум 200 символов для качественного результата."
+                rows={10}
+                value={referenceText}
+                onChange={(e) => {
+                  setReferenceText(e.target.value);
+                  setRefDirty(true);
+                }}
+                className="bg-background font-mono text-sm leading-relaxed"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {referenceText.length} символов
+                  {referenceText.length > 0 && referenceText.length < 200 && (
+                    <span className="text-warning ml-1">(рекомендуется ≥200)</span>
+                  )}
+                  {referenceText.length >= 200 && (
+                    <span className="text-success ml-1">✓ достаточно для анализа</span>
+                  )}
+                </p>
+                <div className="flex gap-2">
+                  {refDirty && (
+                    <Button
+                      size="sm"
+                      onClick={() => saveReference.mutate()}
+                      disabled={saveReference.isPending}
+                    >
+                      {saveReference.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-1" />
+                      )}
+                      Сохранить текст
+                    </Button>
+                  )}
+                  {!refDirty && referenceText.length > 0 && (
+                    <span className="flex items-center text-xs text-success gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Сохранено
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <Separator />
 
