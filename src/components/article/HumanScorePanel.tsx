@@ -216,7 +216,7 @@ export function HumanScorePanel({ content, lsiKeywords }: HumanScorePanelProps) 
               {burstiness.lengths.slice(0, 40).map((len, i) => {
                 const maxL = Math.max(...burstiness.lengths.slice(0, 40));
                 const h = maxL > 0 ? (len / maxL) * 100 : 0;
-                const color = len <= 5 ? "bg-blue-400" : len <= 15 ? "bg-primary" : "bg-orange-400";
+                const color = len <= 5 ? "bg-red-400" : len <= 15 ? "bg-yellow-400" : "bg-green-400";
                 return (
                   <div
                     key={i}
