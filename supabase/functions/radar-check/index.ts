@@ -286,9 +286,13 @@ serve(async (req) => {
           project.brand_name,
         );
 
-        const allDomains = extractDomains(responseText);
+        const urlDomains = extractDomains(responseText);
+        const brandCompetitors = extractCompetitorBrands(responseText, project.brand_name, project.domain);
         const projectDomain = project.domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
-        const competitorDomains = allDomains.filter(d => !d.includes(projectDomain));
+        const competitorDomains = [
+          ...urlDomains.filter(d => !d.includes(projectDomain)),
+          ...brandCompetitors,
+        ].filter((v, i, a) => a.indexOf(v) === i); // unique
 
         const { brand_mentioned, domain_linked, matched_snippets } = checkBrandMention(
           responseText,
