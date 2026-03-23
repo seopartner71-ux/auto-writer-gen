@@ -217,6 +217,7 @@ ${body}
 
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
   const [mode, setMode] = useState<"single" | "bulk">("single");
