@@ -229,7 +229,7 @@ function emptyAnalysis(): Omit<CompetitorAnalysis, "url" | "position"> {
 async function fetchPage(url: string): Promise<{ html: string | null; error?: string }> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // reduced from 20s to 8s
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
     const resp = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -410,11 +410,15 @@ serve(async (req) => {
       throw new Error("No SERP results found. Run Smart Research first.");
     }
 
-    // ── Parse each competitor page (parallel, max 7) ──
+    // ── Parse each competitor page (parallel, max 5, skip non-content URLs) ──
     const parsedPages: CompetitorAnalysis[] = [];
     const failedUrls: { url: string; reason: string }[] = [];
 
-    const validSerps = serpResults.filter((sr: any) => sr.url).slice(0, 7);
+    // Skip Pinterest, social media, and other non-article URLs
+    const skipDomains = ["pinterest.com", "instagram.com", "facebook.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "vk.com"];
+    const validSerps = serpResults
+      .filter((sr: any) => sr.url && !skipDomains.some(d => sr.url.includes(d)))
+      .slice(0, 5);
     console.log(`Fetching ${validSerps.length} pages in parallel...`);
 
     const fetchResults = await Promise.allSettled(
