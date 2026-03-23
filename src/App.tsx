@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,7 +34,16 @@ const IndexingPage = lazy(() => import("@/pages/IndexingPage"));
 const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
 const RadarPage = lazy(() => import("@/pages/RadarPage"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function PageLoader() {
   return (
@@ -44,12 +53,25 @@ function PageLoader() {
   );
 }
 
-function ProtectedLayout({ children }: { children: React.ReactNode }) {
+/** Shared layout — mounts once, children swap via <Outlet /> */
+function ProtectedAppLayout() {
   return (
     <ProtectedRoute>
       <AppLayout>
         <Suspense fallback={<PageLoader />}>
-          {children}
+          <Outlet />
+        </Suspense>
+      </AppLayout>
+    </ProtectedRoute>
+  );
+}
+
+function AdminLayout() {
+  return (
+    <ProtectedRoute requiredRole="admin">
+      <AppLayout>
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
         </Suspense>
       </AppLayout>
     </ProtectedRoute>
@@ -72,31 +94,25 @@ const App = () => (
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-                <Route path="/dashboard" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
-                <Route path="/keywords" element={<ProtectedLayout><KeywordsPage /></ProtectedLayout>} />
-                <Route path="/plan-builder" element={<ProtectedLayout><PlanBuilderPage /></ProtectedLayout>} />
-                <Route path="/articles" element={<ProtectedLayout><ArticlesPage /></ProtectedLayout>} />
-                <Route path="/calendar" element={<ProtectedLayout><CalendarPage /></ProtectedLayout>} />
-                <Route path="/analytics" element={<ProtectedLayout><AnalyticsPage /></ProtectedLayout>} />
-                <Route path="/author-profiles" element={<ProtectedLayout><AuthorProfilesPage /></ProtectedLayout>} />
-                <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
-                <Route path="/pricing" element={<ProtectedLayout><PricingPage /></ProtectedLayout>} />
-                <Route path="/indexing" element={<ProtectedLayout><IndexingPage /></ProtectedLayout>} />
-                <Route path="/wordpress" element={<ProtectedLayout><WordPressPage /></ProtectedLayout>} />
-                <Route path="/radar" element={<ProtectedLayout><RadarPage /></ProtectedLayout>} />
+                {/* All protected pages share one layout instance */}
+                <Route element={<ProtectedAppLayout />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/keywords" element={<KeywordsPage />} />
+                  <Route path="/plan-builder" element={<PlanBuilderPage />} />
+                  <Route path="/articles" element={<ArticlesPage />} />
+                  <Route path="/calendar" element={<CalendarPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/author-profiles" element={<AuthorProfilesPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/pricing" element={<PricingPage />} />
+                  <Route path="/indexing" element={<IndexingPage />} />
+                  <Route path="/wordpress" element={<WordPressPage />} />
+                  <Route path="/radar" element={<RadarPage />} />
+                </Route>
 
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute requiredRole="admin">
-                      <AppLayout>
-                        <Suspense fallback={<PageLoader />}>
-                          <AdminPage />
-                        </Suspense>
-                      </AppLayout>
-                    </ProtectedRoute>
-                  }
-                />
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin" element={<AdminPage />} />
+                </Route>
 
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -42,7 +42,9 @@ export default function DashboardPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("articles")
-        .select("id, title, content, status, seo_score, keyword_id, created_at, updated_at");
+        .select("id, title, status, seo_score, keyword_id, created_at, updated_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
       return data || [];
     },
   });
@@ -86,11 +88,8 @@ export default function DashboardPage() {
       ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
       : null;
 
-    const wordCounts = articles.map((a: any) =>
-      a.content ? a.content.trim().split(/\s+/).length : 0
-    );
-    const totalWords = wordCounts.reduce((a: number, b: number) => a + b, 0);
-    const avgWords = totalArticles ? Math.round(totalWords / totalArticles) : 0;
+    const totalWords = 0;
+    const avgWords = 0;
 
     const totalTokens = usageLogs.reduce(
       (sum: number, l: any) => sum + (l.tokens_used || 0),
@@ -351,7 +350,7 @@ export default function DashboardPage() {
             {stats.recentArticles.length > 0 ? (
               <div className="space-y-2">
                 {stats.recentArticles.map((a: any) => {
-                  const words = a.content ? a.content.trim().split(/\s+/).length : 0;
+                  const words = 0;
                   const statusLabel = STATUS_LABELS[a.status] || a.status;
                   return (
                     <div key={a.id} className="flex items-center justify-between text-sm group">
