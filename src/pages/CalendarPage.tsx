@@ -154,7 +154,7 @@ export default function CalendarPage() {
         <div className="flex items-center gap-3">
           <CalendarDays className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold">Календарь</h1>
+            <h1 className="text-2xl font-semibold">Планировщик</h1>
             <p className="text-sm text-muted-foreground">Планировщик генерации контента</p>
           </div>
         </div>
