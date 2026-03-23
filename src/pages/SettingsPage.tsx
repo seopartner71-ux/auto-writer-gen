@@ -1,4 +1,4 @@
-import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, LifeBuoy, Send } from "lucide-react";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
