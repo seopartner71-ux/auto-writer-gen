@@ -29,6 +29,7 @@ const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const PricingPage = lazy(() => import("@/pages/PricingPage"));
 const IndexingPage = lazy(() => import("@/pages/IndexingPage"));
 const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
+const RadarPage = lazy(() => import("@/pages/RadarPage"));
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => (
                 <Route path="/pricing" element={<ProtectedLayout><PricingPage /></ProtectedLayout>} />
                 <Route path="/indexing" element={<ProtectedLayout><IndexingPage /></ProtectedLayout>} />
                 <Route path="/wordpress" element={<ProtectedLayout><WordPressPage /></ProtectedLayout>} />
+                <Route path="/radar" element={<ProtectedLayout><RadarPage /></ProtectedLayout>} />
 
                 <Route
                   path="/admin"
