@@ -411,6 +411,9 @@ serve(async (req) => {
       throw new Error(`AI gateway error: ${aiResponse.status}`);
     }
 
+    // Deduct credit after successful generation start
+    await supabaseAdmin.rpc("deduct_credit", { p_user_id: user.id });
+
     // Log usage
     supabaseAdmin.from("usage_logs").insert({
       user_id: user.id,
