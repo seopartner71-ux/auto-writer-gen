@@ -78,7 +78,7 @@ async function generateVisualPrompt(
       messages: [
         {
           role: "system",
-          content: `You are an expert at creating image generation prompts. Convert the given context into a concise, vivid visual prompt in English. The prompt should describe a single compelling image. Do NOT include any text in the image. Output ONLY the visual description, nothing else.`,
+          content: `You are an expert at creating image generation prompts. Convert the given context into a concise, vivid visual prompt in English. The image MUST directly illustrate the specific topic described in the context — not a generic stock photo. Focus on the concrete subject matter. Do NOT include any text/words in the image. Output ONLY the visual description, nothing else.`,
         },
         {
           role: "user",
@@ -222,21 +222,31 @@ serve(async (req) => {
         );
       }
 
-      // Limit to 5 images max, check quota
-      const maxImages = Math.min(sections.length, max_images || 5);
-      if (used + maxImages > 100) {
+      // Pick evenly distributed sections, skip FAQ
+      const nonFaqSections = sections.filter(s => 
+        !s.heading.toLowerCase().includes("faq") && 
+        !s.heading.toLowerCase().includes("часто задаваемые")
+      );
+      const pool = nonFaqSections.length > 0 ? nonFaqSections : sections;
+      const desiredCount = Math.min(pool.length, max_images || 3);
+      if (used + desiredCount > 100) {
         return new Response(
-          JSON.stringify({ error: `Недостаточно лимита. Нужно: ${maxImages}, осталось: ${100 - used}` }),
+          JSON.stringify({ error: `Недостаточно лимита. Нужно: ${desiredCount}, осталось: ${100 - used}` }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const selectedSections = sections.slice(0, maxImages);
+      // Evenly spread across article
+      const step = Math.max(1, Math.floor(pool.length / desiredCount));
+      const selectedSections: typeof sections = [];
+      for (let i = 0; selectedSections.length < desiredCount && i < pool.length; i += step) {
+        selectedSections.push(pool[i]);
+      }
       const images: { heading: string; url: string; alt: string; filename: string }[] = [];
 
       // Process sections sequentially to avoid rate limits
       for (const section of selectedSections) {
-        const context = `Article: "${title}". Section: "${section.heading}". Content: ${section.text}`;
+        const context = `Article topic: "${title}". This section is titled: "${section.heading}". Section content summary: ${section.text}. Generate an image that directly illustrates the concept described in the section heading "${section.heading}".`;
         const visualPrompt = await generateVisualPrompt(OPENROUTER_API_KEY, context, stylePrompt);
         console.log(`Visual prompt for "${section.heading}":`, visualPrompt);
 
