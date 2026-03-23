@@ -18,6 +18,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 import { PlanGate } from "@/shared/components/PlanGate";
 import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
@@ -52,10 +53,10 @@ function fleschScore(text: string): number {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function readabilityLabel(score: number): { label: string; color: string } {
-  if (score >= 70) return { label: "Легко", color: "text-success" };
-  if (score >= 50) return { label: "Средне", color: "text-warning" };
-  return { label: "Сложно", color: "text-destructive" };
+function readabilityLabel(score: number, t: (k: string) => string): { label: string; color: string } {
+  if (score >= 70) return { label: t("articles.readEasy"), color: "text-success" };
+  if (score >= 50) return { label: t("articles.readMedium"), color: "text-warning" };
+  return { label: t("articles.readHard"), color: "text-destructive" };
 }
 
 function markdownToPreviewHtml(md: string): string {
@@ -220,6 +221,7 @@ export default function ArticlesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
+  const { t } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
 
   // Data fetching
@@ -288,7 +290,7 @@ export default function ArticlesPage() {
       if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
       // Clear the param so it doesn't reload on re-render
       setSearchParams({}, { replace: true });
-      toast.info("Статья загружена для редактирования");
+      toast.info(t("articles.articleLoaded"));
     };
     loadArticle();
   }, [searchParams]);
@@ -430,12 +432,12 @@ export default function ArticlesPage() {
   // SEO metrics
   const wordCount = useMemo(() => countWords(content), [content]);
   const readability = useMemo(() => fleschScore(content), [content]);
-  const readInfo = readabilityLabel(readability);
+  const readInfo = readabilityLabel(readability, t);
 
   // Stream article generation
   const handleGenerate = useCallback(async () => {
     if (!selectedKeywordId) {
-      toast.error("Выберите ключевое слово");
+      toast.error(t("articles.selectKeyword"));
       return;
     }
 
@@ -537,7 +539,7 @@ export default function ArticlesPage() {
       // Auto-generate SEO Title via AI (async, best-effort)
       generateSeoTitle(fullContent);
 
-      toast.success("Статья сгенерирована");
+      toast.success(t("articles.articleGenerated"));
 
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
@@ -546,7 +548,7 @@ export default function ArticlesPage() {
       autoInsertImages(fullContent);
     } catch (e: any) {
       if (e.name === "AbortError") {
-        toast.info("Генерация остановлена");
+        toast.info(t("articles.genStopped"));
       } else {
         toast.error(e.message);
       }
@@ -601,7 +603,7 @@ export default function ArticlesPage() {
     onSuccess: (id) => {
       setCurrentArticleId(id);
       queryClient.invalidateQueries({ queryKey: ["articles-list"] });
-      toast.success("Статья сохранена");
+      toast.success(t("articles.articleSaved"));
     },
     onError: (e) => toast.error(e.message),
   });
@@ -708,10 +710,8 @@ export default function ArticlesPage() {
       <div className="flex items-center gap-3">
         <FileText className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">AI Writer</h1>
-          <p className="text-sm text-muted-foreground">
-            Генератор SEO-контента с динамическим выбором модели
-          </p>
+          <h1 className="text-2xl font-semibold">{t("articles.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("articles.subtitle")}</p>
         </div>
         <div className="ml-auto flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-1">
           <Button
@@ -728,7 +728,7 @@ export default function ArticlesPage() {
             size="sm"
             onClick={() => {
               if (!limits.hasBulkMode) {
-                toast.error("Factory Mode доступен только на тарифе PRO");
+                toast.error("Factory Mode - PRO only");
                 return;
               }
               setMode("bulk");
@@ -750,10 +750,10 @@ export default function ArticlesPage() {
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Ключевое слово</Label>
+            <Label className="text-xs text-muted-foreground">{t("articles.keyword")}</Label>
             <Select value={selectedKeywordId} onValueChange={setSelectedKeywordId}>
               <SelectTrigger>
-                <SelectValue placeholder="Выберите..." />
+                <SelectValue placeholder={t("common.select")} />
               </SelectTrigger>
               <SelectContent>
                 {keywords.map((k: any) => (
@@ -768,7 +768,7 @@ export default function ArticlesPage() {
             <Label className="text-xs text-muted-foreground">&nbsp;</Label>
             {isStreaming ? (
               <Button variant="destructive" onClick={handleStop} className="w-full">
-                Остановить
+                {t("articles.stop")}
               </Button>
             ) : (
               <Button
@@ -830,20 +830,20 @@ export default function ArticlesPage() {
           <Card className="bg-card border-border">
             <CardContent className="pt-4 space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Title (SEO-заголовок страницы)</Label>
+                <Label className="text-xs text-muted-foreground">Title (SEO)</Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="SEO Title (до 60 символов)..."
+                  placeholder={t("articles.titlePlaceholder")}
                   maxLength={70}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">H1 (заголовок на странице)</Label>
+                <Label className="text-xs text-muted-foreground">{t("articles.h1Title")}</Label>
                 <Input
                   value={h1}
                   onChange={(e) => setH1(e.target.value)}
-                  placeholder="Заголовок H1 статьи..."
+                  placeholder={t("articles.h1Title")}
                   className="text-lg font-semibold"
                 />
               </div>
@@ -857,7 +857,7 @@ export default function ArticlesPage() {
                 <Input
                   value={metaDescription}
                   onChange={(e) => setMetaDescription(e.target.value)}
-                  placeholder="SEO описание страницы..."
+                  placeholder={t("articles.metaPlaceholder")}
                   maxLength={160}
                 />
               </div>
@@ -872,11 +872,11 @@ export default function ArticlesPage() {
                   <TabsList className="h-8">
                     <TabsTrigger value="edit" className="text-xs gap-1.5 px-3">
                       <Pencil className="h-3 w-3" />
-                      Редактор
+                      {t("articles.editor")}
                     </TabsTrigger>
                     <TabsTrigger value="preview" className="text-xs gap-1.5 px-3">
                       <Eye className="h-3 w-3" />
-                      Предпросмотр
+                      {t("articles.preview")}
                     </TabsTrigger>
                     <TabsTrigger value="html" className="text-xs gap-1.5 px-3">
                       <Code2 className="h-3 w-3" />
@@ -905,12 +905,12 @@ export default function ArticlesPage() {
                           .trim();
                         await navigator.clipboard.writeText(plain);
                         setTextCopied(true);
-                        toast.success("Текст скопирован");
+                        toast.success(t("common.copied"));
                         setTimeout(() => setTextCopied(false), 2000);
                       }}
                     >
                       {textCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                      {textCopied ? "Скопировано" : "Копировать"}
+                      {textCopied ? t("common.copied") : t("common.copy")}
                     </Button>
                     <Button
                       variant="outline"
@@ -925,7 +925,7 @@ export default function ArticlesPage() {
                         a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.html`;
                         a.click();
                         URL.revokeObjectURL(url);
-                        toast.success("HTML файл скачан");
+                        toast.success(t("articles.htmlDownloaded"));
                       }}
                     >
                       <Download className="h-3 w-3 mr-1" />
@@ -958,7 +958,7 @@ export default function ArticlesPage() {
                       disabled={!content || saveArticle.isPending}
                     >
                       <Save className="h-3 w-3 mr-1" />
-                      {saveArticle.isPending ? "..." : "Сохранить"}
+                      {saveArticle.isPending ? "..." : t("common.save")}
                     </Button>
                   </div>
                 </CardTitle>
@@ -969,8 +969,8 @@ export default function ArticlesPage() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>
                       {streamPhase === "thinking"
-                        ? `Модель думает... ${streamElapsed}с`
-                        : `Генерация текста... ${streamElapsed}с`}
+                        ? `${t("articles.generating")} ${streamElapsed}s`
+                        : `${t("articles.generating")} ${streamElapsed}s`}
                     </span>
                   </div>
                 )}
@@ -978,7 +978,7 @@ export default function ArticlesPage() {
                   <Textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Нажмите Generate для создания контента или введите текст вручную..."
+                    placeholder={t("articles.editorPlaceholder")}
                     className="min-h-[500px] font-mono text-sm leading-relaxed resize-y"
                   />
                 </TabsContent>
@@ -1017,7 +1017,7 @@ export default function ArticlesPage() {
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm py-12 text-center">
-                      Нет контента для предпросмотра
+                      {t("articles.noContent")}
                     </p>
                   )}
                 </TabsContent>
@@ -1030,11 +1030,11 @@ export default function ArticlesPage() {
                           size="sm"
                           onClick={() => {
                             navigator.clipboard.writeText(markdownToCleanHtml(content));
-                            toast.success("Чистый HTML скопирован — вставляйте в любую CMS");
+                            toast.success(t("common.copied"));
                           }}
                         >
                           <Copy className="h-3 w-3 mr-1" />
-                          Копировать для CMS
+                          {t("common.copy")} HTML
                         </Button>
                       </div>
                       <pre className="min-h-[500px] max-h-[700px] overflow-auto p-4 rounded-md bg-muted text-xs font-mono whitespace-pre-wrap break-all text-foreground">
@@ -1043,7 +1043,7 @@ export default function ArticlesPage() {
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm py-12 text-center">
-                      Нет контента для просмотра HTML
+                      {t("articles.noContent")}
                     </p>
                   )}
                 </TabsContent>
@@ -1091,7 +1091,7 @@ export default function ArticlesPage() {
                         ) : (
                           <Wand2 className="h-3 w-3" />
                         )}
-                        {(generateSchema.isPending || schemaGenerating) ? "Генерация..." : "Сгенерировать FAQ"}
+                        {(generateSchema.isPending || schemaGenerating) ? t("common.loading") : "Generate FAQ"}
                       </Button>
                     </div>
 
@@ -1113,7 +1113,7 @@ export default function ArticlesPage() {
                               onClick={() => copyToClipboard(faqTextBlock, "faq")}
                             >
                               {faqCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                              {faqCopied ? "Скопировано" : "Копировать"}
+                              {faqCopied ? t("common.copied") : t("common.copy")}
                             </Button>
                           </div>
                         </div>
@@ -1139,7 +1139,7 @@ export default function ArticlesPage() {
                             onClick={() => copyToClipboard(schemaJson, "schema")}
                           >
                             {schemaCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                            {schemaCopied ? "Скопировано" : "Копировать <script>"}
+                            {schemaCopied ? t("common.copied") : `${t("common.copy")} <script>`}
                           </Button>
                         </div>
                         <pre className="rounded-lg border border-border bg-muted p-4 text-xs font-mono whitespace-pre-wrap break-all max-h-[400px] overflow-auto text-foreground">
@@ -1153,7 +1153,7 @@ export default function ArticlesPage() {
                       <div className="py-12 text-center">
                         <Code2 className="h-8 w-8 mx-auto text-muted-foreground/50 mb-3" />
                         <p className="text-sm text-muted-foreground">
-                          Нажмите «Сгенерировать FAQ» для создания блока вопросов-ответов с микроразметкой JSON-LD
+                          Click "Generate FAQ" to create a Q&A block with JSON-LD schema markup
                         </p>
                         {faqMode === "serp-dominance" && (
                           <p className="text-xs text-muted-foreground/70 mt-2">
@@ -1200,21 +1200,21 @@ export default function ArticlesPage() {
                 <CardContent className="space-y-4">
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Слова</span>
+                      <span>{t("articles.wordsLabel")}</span>
                       <span className="font-mono">{wordCount.toLocaleString()}</span>
                     </div>
                     <Progress
                       value={Math.min(100, (wordCount / 2000) * 100)}
                       className="h-2"
                     />
-                    <p className="text-[10px] text-muted-foreground mt-1">Рекомендовано: 1500-2500</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">{t("articles.recommended")}</p>
                   </div>
 
                   <Separator />
 
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Читаемость</span>
+                      <span>{t("articles.readability")}</span>
                       <span className={`font-semibold ${readInfo.color}`}>
                         {readability} — {readInfo.label}
                       </span>
@@ -1227,7 +1227,7 @@ export default function ArticlesPage() {
 
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>LSI покрытие</span>
+                      <span>{t("articles.lsiCoverage")}</span>
                       <span className="font-mono">
                         {lsiFoundCount}/{lsiKeywords.length}
                       </span>
@@ -1245,7 +1245,7 @@ export default function ArticlesPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Hash className="h-4 w-4 text-primary" />
-                    LSI-ключевые слова
+                    {t("articles.lsiKeywords")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1271,7 +1271,7 @@ export default function ArticlesPage() {
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground text-center py-4">
-                      Выберите ключевое слово для отображения LSI
+                       {t("articles.selectForLsi")}
                     </p>
                   )}
                 </CardContent>
@@ -1282,7 +1282,7 @@ export default function ArticlesPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Сохранённые статьи
+                    {t("articles.savedArticles")}
                     <Badge variant="secondary" className="ml-auto text-[10px]">
                       {savedArticles.length}
                     </Badge>
@@ -1314,7 +1314,7 @@ export default function ArticlesPage() {
                             }
                           }}
                         >
-                          <span className="font-medium">{a.title || "Без названия"}</span>
+                          <span className="font-medium">{a.title || t("common.noTitle")}</span>
                           <span className="text-muted-foreground ml-1">({a.status})</span>
                         </button>
                         <button
@@ -1322,8 +1322,8 @@ export default function ArticlesPage() {
                           title="Удалить статью"
                           onClick={async (e) => {
                             e.stopPropagation();
-                            const { error } = await supabase.functions.invoke("delete-content", { body: { type: "article", id: a.id } });
-                            if (error) { console.error("Delete error:", error); toast.error("Ошибка удаления: " + error.message); return; }
+                             const { error } = await supabase.functions.invoke("delete-content", { body: { type: "article", id: a.id } });
+                             if (error) { console.error("Delete error:", error); toast.error(error.message); return; }
                             queryClient.invalidateQueries({ queryKey: ["articles-list"] });
                             if (currentArticleId === a.id) {
                               setCurrentArticleId(null);
@@ -1331,7 +1331,7 @@ export default function ArticlesPage() {
                               setContent("");
                               setMetaDescription("");
                             }
-                            toast.success("Статья удалена");
+                            toast.success(t("common.delete"));
                           }}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -1341,7 +1341,7 @@ export default function ArticlesPage() {
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground text-center py-2">
-                      Нет сохранённых статей
+                       {t("articles.noSaved")}
                     </p>
                   )}
                 </CardContent>
@@ -1355,7 +1355,7 @@ export default function ArticlesPage() {
                 isFixing={fixingIssue}
                 onFixIssue={async (issueKey, instruction) => {
                   if (!selectedKeywordId || !content.trim()) {
-                    toast.error("Нет текста для исправления");
+                    toast.error("No content to fix");
                     return;
                   }
                   setFixingIssue(issueKey);
@@ -1421,9 +1421,9 @@ export default function ArticlesPage() {
                       }
                     }
 
-                    toast.success("Проблема исправлена — проверьте Human Score");
+                    toast.success("Issue fixed - check Human Score");
                   } catch (e: any) {
-                    if (e.name === "AbortError") { toast.info("Генерация остановлена"); }
+                     if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
                     else { toast.error(e.message); setContent(prevContent); }
                   } finally {
                     setIsStreaming(false);
@@ -1509,9 +1509,9 @@ export default function ArticlesPage() {
 
                       // Auto-generate SEO Title via AI
                       generateSeoTitle(fullContent);
-                      toast.success("Статья оптимизирована по бенчмарку ТОП-10");
+                      toast.success("Article optimized against TOP-10 benchmark");
                     } catch (e: any) {
-                      if (e.name === "AbortError") { toast.info("Генерация остановлена"); }
+                      if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
                       else { toast.error(e.message); setContent(prevContent); }
                     } finally {
                       setIsStreaming(false);
@@ -1523,9 +1523,9 @@ export default function ArticlesPage() {
               ) : (
                 <Card className="bg-card border-border">
                   <CardContent className="py-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      Выберите ключевое слово для сравнения с конкурентами
-                    </p>
+                     <p className="text-sm text-muted-foreground">
+                       {t("articles.selectKeyword")}
+                     </p>
                   </CardContent>
                 </Card>
               )}
@@ -1545,28 +1545,28 @@ export default function ArticlesPage() {
                 <AlertTriangle className="h-6 w-6 text-destructive" />
               </div>
               <div>
-                <DialogTitle>Недостаточно кредитов</DialogTitle>
-                <DialogDescription className="mt-1">
-                  У вас закончились кредиты на генерацию статей
-                </DialogDescription>
+                 <DialogTitle>{t("articles.noCreditsTitle") || "Not enough credits"}</DialogTitle>
+                 <DialogDescription className="mt-1">
+                   {t("articles.noCreditsDesc") || "You have run out of article generation credits"}
+                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="rounded-lg bg-muted/50 p-4 text-center">
               <p className="text-3xl font-bold text-destructive">0</p>
-              <p className="text-xs text-muted-foreground mt-1">кредитов осталось</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("pricing.credits")}</p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Каждая сгенерированная статья = 1 кредит. Перейдите на более высокий тариф или пополните баланс кредитов.
-            </p>
+             <p className="text-sm text-muted-foreground">
+               {t("pricing.creditNote")}
+             </p>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowCreditsModal(false)}>
-                Закрыть
+               <Button variant="outline" className="flex-1" onClick={() => setShowCreditsModal(false)}>
+                 {t("common.close")}
               </Button>
               <Button className="flex-1" onClick={() => { setShowCreditsModal(false); navigate("/pricing"); }}>
                 <CreditCard className="h-4 w-4 mr-1.5" />
-                Пополнить
+                {t("nav.pricing")}
               </Button>
             </div>
           </div>

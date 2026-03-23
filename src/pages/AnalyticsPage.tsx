@@ -34,11 +34,6 @@ function fleschScore(t: string) {
   const syllables = t.split(/\s+/).reduce((s, w) => s + countSyllables(w), 0);
   return Math.max(0, Math.min(100, Math.round(206.835 - 1.015 * (words / sentences) - 84.6 * (syllables / words))));
 }
-function readabilityLabel(s: number) {
-  if (s >= 70) return { label: "Легко читается", color: "text-success" };
-  if (s >= 50) return { label: "Средняя сложность", color: "text-warning" };
-  return { label: "Сложный текст", color: "text-destructive" };
-}
 
 function keywordDensity(text: string, keyword: string) {
   if (!keyword || !text) return 0;
@@ -64,7 +59,6 @@ function uniqueSentences(text: string): number {
 }
 
 function waterLevel(text: string): number {
-  // "водность" — stopwords ratio
   const stopwords = new Set([
     "и", "в", "на", "с", "по", "для", "из", "к", "от", "за", "до", "о", "об", "при",
     "не", "но", "а", "что", "как", "это", "так", "же", "уже", "ещё", "еще", "бы",
@@ -155,11 +149,16 @@ export default function AnalyticsPage() {
   // Metrics
   const words = useMemo(() => countWords(content), [content]);
   const readability = useMemo(() => fleschScore(content), [content]);
-  const readInfo = readabilityLabel(readability);
   const density = useMemo(() => keywordDensity(content, seedKeyword), [content, seedKeyword]);
   const headings = useMemo(() => headingStructure(content), [content]);
   const uniqueness = useMemo(() => uniqueSentences(content), [content]);
   const water = useMemo(() => waterLevel(content), [content]);
+
+  const readInfo = (() => {
+    if (readability >= 70) return { label: t("analytics.easy"), color: "text-success" };
+    if (readability >= 50) return { label: t("analytics.medium"), color: "text-warning" };
+    return { label: t("analytics.hard"), color: "text-destructive" };
+  })();
 
   const lsiStatus = useMemo(() => {
     const lower = content.toLowerCase();
@@ -177,55 +176,34 @@ export default function AnalyticsPage() {
   const seoScore = useMemo(() => {
     if (!content) return 0;
     let score = 0;
-    // Word count (max 20)
-    if (words >= 1500) score += 20;
-    else if (words >= 800) score += 10;
-    else if (words >= 300) score += 5;
-    // Readability (max 15)
-    if (readability >= 60) score += 15;
-    else if (readability >= 40) score += 10;
-    else score += 5;
-    // Keyword density (max 15) — ideal 1-3%
-    if (density >= 0.5 && density <= 3) score += 15;
-    else if (density > 0 && density < 5) score += 8;
-    // Headings (max 15)
+    if (words >= 1500) score += 20; else if (words >= 800) score += 10; else if (words >= 300) score += 5;
+    if (readability >= 60) score += 15; else if (readability >= 40) score += 10; else score += 5;
+    if (density >= 0.5 && density <= 3) score += 15; else if (density > 0 && density < 5) score += 8;
     if (headings.h1 === 1) score += 5;
     if (headings.h2 >= 3) score += 5;
     if (headings.h3 >= 2) score += 5;
-    // LSI (max 15)
-    if (lsiCoverage >= 70) score += 15;
-    else if (lsiCoverage >= 40) score += 10;
-    else if (lsiCoverage > 0) score += 5;
-    // Meta (max 10)
+    if (lsiCoverage >= 70) score += 15; else if (lsiCoverage >= 40) score += 10; else if (lsiCoverage > 0) score += 5;
     if (titleLen >= 30 && titleLen <= 60) score += 5;
     if (metaLen >= 120 && metaLen <= 160) score += 5;
-    // Uniqueness (max 10)
-    if (uniqueness >= 90) score += 10;
-    else if (uniqueness >= 70) score += 5;
+    if (uniqueness >= 90) score += 10; else if (uniqueness >= 70) score += 5;
     return Math.min(100, score);
   }, [words, readability, density, headings, lsiCoverage, titleLen, metaLen, uniqueness, content]);
 
   const seoColor = seoScore >= 80 ? "text-success" : seoScore >= 50 ? "text-warning" : "text-destructive";
-  const seoLabel = seoScore >= 80 ? "Отлично" : seoScore >= 50 ? "Нормально" : "Слабо";
+  const seoLabel = seoScore >= 80 ? t("analytics.excellent") : seoScore >= 50 ? t("analytics.normal") : t("analytics.weak");
 
   // Global stats
   const totalArticles = articles.length;
   const totalWords = articles.reduce((s: number, a: any) => s + countWords(a.content || ""), 0);
   const totalTokens = usageLogs.reduce((s: number, l: any) => s + (l.tokens_used || 0), 0);
-  const avgSeo = totalArticles > 0
-    ? Math.round(articles.reduce((s: number, a: any) => {
-        const sc = a.seo_score as any;
-        return s + (sc?.readability || 0);
-      }, 0) / totalArticles)
-    : 0;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <BarChart3 className="h-6 w-6 text-primary" />
         <div>
-          <h1 className="text-2xl font-semibold">Аналитика</h1>
-          <p className="text-sm text-muted-foreground">SEO-аудит статей и общая статистика</p>
+          <h1 className="text-2xl font-semibold">{t("analytics.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("analytics.subtitle")}</p>
         </div>
       </div>
 
@@ -233,26 +211,26 @@ export default function AnalyticsPage() {
       <div className="grid gap-3 sm:grid-cols-4">
         <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground mb-1">Всего статей</div>
+            <div className="text-xs text-muted-foreground mb-1">{t("analytics.totalArticles")}</div>
             <span className="text-2xl font-bold">{totalArticles}</span>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground mb-1">Общий объём</div>
+            <div className="text-xs text-muted-foreground mb-1">{t("analytics.totalVolume")}</div>
             <span className="text-2xl font-bold">{totalWords.toLocaleString()}</span>
-            <span className="text-xs text-muted-foreground ml-1">слов</span>
+            <span className="text-xs text-muted-foreground ml-1">{t("common.words")}</span>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground mb-1">AI токены</div>
+            <div className="text-xs text-muted-foreground mb-1">{t("analytics.aiTokens")}</div>
             <span className="text-2xl font-bold">{totalTokens.toLocaleString()}</span>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground mb-1">Запросы</div>
+            <div className="text-xs text-muted-foreground mb-1">{t("analytics.requests")}</div>
             <span className="text-2xl font-bold">{usageLogs.length}</span>
           </CardContent>
         </Card>
@@ -262,15 +240,15 @@ export default function AnalyticsPage() {
       <Card className="bg-card border-border">
         <CardContent className="pt-4">
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">Выберите статью для анализа</label>
+            <label className="text-xs text-muted-foreground">{t("analytics.selectArticle")}</label>
             <Select value={selectedArticleId} onValueChange={setSelectedArticleId}>
               <SelectTrigger>
-                <SelectValue placeholder="Выберите статью..." />
+                <SelectValue placeholder={t("analytics.selectPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {articles.map((a: any) => (
                   <SelectItem key={a.id} value={a.id}>
-                    {a.title || "Без названия"} ({a.status})
+                    {a.title || t("common.noTitle")} ({a.status})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -299,29 +277,17 @@ export default function AnalyticsPage() {
                 </div>
                 <div className="flex-1">
                   <h2 className="text-lg font-semibold">SEO Score: <span className={seoColor}>{seoLabel}</span></h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Оценка на основе объёма, читаемости, плотности ключей, структуры и мета-данных
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">{t("analytics.scoreDesc")}</p>
                   {seoScore < 60 && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="mt-3 gap-2"
-                      onClick={() => navigate(`/articles?edit=${article.id}`)}
-                    >
+                    <Button size="sm" variant="destructive" className="mt-3 gap-2" onClick={() => navigate(`/articles?edit=${article.id}`)}>
                       <Pencil className="h-3.5 w-3.5" />
-                      Редактировать статью
+                      {t("analytics.editArticle")}
                     </Button>
                   )}
                   {seoScore >= 60 && seoScore < 80 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-3 gap-2 border-warning text-warning hover:bg-warning/10"
-                      onClick={() => navigate(`/articles?edit=${article.id}`)}
-                    >
+                    <Button size="sm" variant="outline" className="mt-3 gap-2 border-warning text-warning hover:bg-warning/10" onClick={() => navigate(`/articles?edit=${article.id}`)}>
                       <Pencil className="h-3.5 w-3.5" />
-                      Улучшить статью
+                      {t("analytics.improveArticle")}
                     </Button>
                   )}
                 </div>
@@ -335,31 +301,14 @@ export default function AnalyticsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-primary" />
-                  Контент-метрики
+                  {t("analytics.contentMetrics")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <MetricRow label="Слова" value={words.toLocaleString()} target="1500–2500" pct={Math.min(100, (words / 2000) * 100)} />
-                <MetricRow
-                  label="Читаемость (Flesch)"
-                  value={`${readability} — ${readInfo.label}`}
-                  valueClass={readInfo.color}
-                  pct={readability}
-                />
-                <MetricRow
-                  label="Водность"
-                  value={`${water}%`}
-                  target="< 60%"
-                  valueClass={water > 60 ? "text-destructive" : water > 40 ? "text-warning" : "text-success"}
-                  pct={water}
-                />
-                <MetricRow
-                  label="Уникальность предложений"
-                  value={`${uniqueness}%`}
-                  target="> 85%"
-                  valueClass={uniqueness >= 85 ? "text-success" : uniqueness >= 70 ? "text-warning" : "text-destructive"}
-                  pct={uniqueness}
-                />
+                <MetricRow label={t("analytics.wordsLabel")} value={words.toLocaleString()} target="1500-2500" pct={Math.min(100, (words / 2000) * 100)} />
+                <MetricRow label={t("analytics.readability")} value={`${readability} - ${readInfo.label}`} valueClass={readInfo.color} pct={readability} />
+                <MetricRow label={t("analytics.waterLevel")} value={`${water}%`} target="< 60%" valueClass={water > 60 ? "text-destructive" : water > 40 ? "text-warning" : "text-success"} pct={water} />
+                <MetricRow label={t("analytics.uniqueness")} value={`${uniqueness}%`} target="> 85%" valueClass={uniqueness >= 85 ? "text-success" : uniqueness >= 70 ? "text-warning" : "text-destructive"} pct={uniqueness} />
               </CardContent>
             </Card>
 
@@ -368,33 +317,27 @@ export default function AnalyticsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Target className="h-4 w-4 text-primary" />
-                  SEO-метрики
+                  {t("analytics.seoMetrics")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {seedKeyword ? (
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Маркерный запрос</span>
+                      <span>{t("analytics.markerQuery")}</span>
                       <Badge variant="outline" className="text-[10px] font-mono">{seedKeyword}</Badge>
                     </div>
-                    <MetricRow
-                      label="Плотность ключа"
-                      value={`${density}%`}
-                      target="1–3%"
-                      valueClass={density >= 0.5 && density <= 3 ? "text-success" : density > 3 ? "text-destructive" : "text-warning"}
-                      pct={Math.min(100, density * 20)}
-                    />
+                    <MetricRow label={t("analytics.keywordDensity")} value={`${density}%`} target="1-3%" valueClass={density >= 0.5 && density <= 3 ? "text-success" : density > 3 ? "text-destructive" : "text-warning"} pct={Math.min(100, density * 20)} />
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Нет привязанного ключевого слова</p>
+                  <p className="text-xs text-muted-foreground">{t("analytics.noLinkedKeyword")}</p>
                 )}
 
                 <Separator />
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Структура заголовков</span>
+                    <span>{t("analytics.headingStructure")}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <HeadingBadge level="H1" count={headings.h1} ideal={1} />
@@ -408,16 +351,12 @@ export default function AnalyticsPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Title</span>
-                    <span className={titleLen >= 30 && titleLen <= 60 ? "text-success" : "text-warning"}>
-                      {titleLen}/60
-                    </span>
+                    <span className={titleLen >= 30 && titleLen <= 60 ? "text-success" : "text-warning"}>{titleLen}/60</span>
                   </div>
                   <Progress value={Math.min(100, (titleLen / 60) * 100)} className="h-1.5" />
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Meta Description</span>
-                    <span className={metaLen >= 120 && metaLen <= 160 ? "text-success" : "text-warning"}>
-                      {metaLen}/160
-                    </span>
+                    <span className={metaLen >= 120 && metaLen <= 160 ? "text-success" : "text-warning"}>{metaLen}/160</span>
                   </div>
                   <Progress value={Math.min(100, (metaLen / 160) * 100)} className="h-1.5" />
                 </div>
@@ -431,7 +370,7 @@ export default function AnalyticsPage() {
               <CardTitle className="text-sm flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <Hash className="h-4 w-4 text-primary" />
-                  LSI-покрытие
+                  {t("analytics.lsiCoverage")}
                 </span>
                 <Badge variant="secondary" className="text-[10px]">
                   {lsiStatus.filter(s => s.found).length}/{lsiKeywords.length} ({lsiCoverage}%)
@@ -442,22 +381,14 @@ export default function AnalyticsPage() {
               {lsiStatus.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {lsiStatus.map((item, i) => (
-                    <Badge
-                      key={i}
-                      variant={item.found ? "default" : "outline"}
-                      className={`text-xs font-mono ${
-                        item.found ? "bg-success/20 text-success border-success/30" : "text-muted-foreground"
-                      }`}
-                    >
+                    <Badge key={i} variant={item.found ? "default" : "outline"} className={`text-xs font-mono ${item.found ? "bg-success/20 text-success border-success/30" : "text-muted-foreground"}`}>
                       {item.found ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Circle className="h-3 w-3 mr-1" />}
                       {item.keyword}
                     </Badge>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-4">
-                  Нет LSI-ключевых слов для этой статьи
-                </p>
+                <p className="text-xs text-muted-foreground text-center py-4">{t("analytics.noLsiKeywords")}</p>
               )}
             </CardContent>
           </Card>
@@ -467,25 +398,25 @@ export default function AnalyticsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Award className="h-4 w-4 text-primary" />
-                SEO-чеклист
+                {t("analytics.seoChecklist")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <CheckItem ok={headings.h1 === 1} text="Один H1 заголовок" />
-              <CheckItem ok={headings.h2 >= 3} text="Минимум 3 подзаголовка H2" />
-              <CheckItem ok={words >= 1500} text={`Объём >= 1500 слов (${words})`} />
-              <CheckItem ok={density >= 0.5 && density <= 3} text={`Плотность ключа 1-3% (${density}%)`} />
-              <CheckItem ok={readability >= 50} text={`Читаемость >= 50 (${readability})`} />
-              <CheckItem ok={titleLen >= 30 && titleLen <= 60} text={`Title 30-60 символов (${titleLen})`} />
-              <CheckItem ok={metaLen >= 120 && metaLen <= 160} text={`Meta Description 120-160 символов (${metaLen})`} />
-              <CheckItem ok={lsiCoverage >= 50} text={`LSI-покрытие >= 50% (${lsiCoverage}%)`} />
-              <CheckItem ok={uniqueness >= 85} text={`Уникальность >= 85% (${uniqueness}%)`} />
-              <CheckItem ok={water <= 60} text={`Водность <= 60% (${water}%)`} />
+              <CheckItem ok={headings.h1 === 1} text={`H1 = 1`} />
+              <CheckItem ok={headings.h2 >= 3} text={`H2 >= 3 (${headings.h2})`} />
+              <CheckItem ok={words >= 1500} text={`${t("analytics.wordsLabel")} >= 1500 (${words})`} />
+              <CheckItem ok={density >= 0.5 && density <= 3} text={`${t("analytics.keywordDensity")} 1-3% (${density}%)`} />
+              <CheckItem ok={readability >= 50} text={`${t("analytics.readability")} >= 50 (${readability})`} />
+              <CheckItem ok={titleLen >= 30 && titleLen <= 60} text={`Title 30-60 (${titleLen})`} />
+              <CheckItem ok={metaLen >= 120 && metaLen <= 160} text={`Meta Desc 120-160 (${metaLen})`} />
+              <CheckItem ok={lsiCoverage >= 50} text={`${t("analytics.lsiCoverage")} >= 50% (${lsiCoverage}%)`} />
+              <CheckItem ok={uniqueness >= 85} text={`${t("analytics.uniqueness")} >= 85% (${uniqueness}%)`} />
+              <CheckItem ok={water <= 60} text={`${t("analytics.waterLevel")} <= 60% (${water}%)`} />
             </CardContent>
           </Card>
 
           {/* AI Uniqueness Check */}
-          <PlanGate allowed={limits.hasUniquenessCheck} featureName="Проверка уникальности AI" requiredPlan="Базовый">
+          <PlanGate allowed={limits.hasUniquenessCheck} featureName={t("analytics.uniquenessCheck")} requiredPlan="Базовый">
           <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center justify-between">
@@ -493,17 +424,8 @@ export default function AnalyticsPage() {
                   <ShieldCheck className="h-4 w-4 text-primary" />
                   {t("analytics.uniquenessCheck")}
                 </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!content || checkUniqueness.isPending}
-                  onClick={() => checkUniqueness.mutate(content)}
-                >
-                  {checkUniqueness.isPending ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <Bot className="h-3 w-3 mr-1" />
-                  )}
+                <Button size="sm" variant="outline" disabled={!content || checkUniqueness.isPending} onClick={() => checkUniqueness.mutate(content)}>
+                  {checkUniqueness.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Bot className="h-3 w-3 mr-1" />}
                   {checkUniqueness.isPending ? t("analytics.checking") : t("analytics.checkUniqueness")}
                 </Button>
               </CardTitle>
@@ -513,66 +435,45 @@ export default function AnalyticsPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-3 rounded-lg bg-muted/50">
-                      <div className="text-2xl font-bold" style={{
-                        color: uniquenessResult.overall_score >= 70
-                          ? "hsl(var(--success))"
-                          : uniquenessResult.overall_score >= 40
-                          ? "hsl(var(--warning))"
-                          : "hsl(var(--destructive))"
-                      }}>
+                      <div className="text-2xl font-bold" style={{ color: uniquenessResult.overall_score >= 70 ? "hsl(var(--success))" : uniquenessResult.overall_score >= 40 ? "hsl(var(--warning))" : "hsl(var(--destructive))" }}>
                         {uniquenessResult.overall_score}%
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">{t("analytics.uniqueness")}</div>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-muted/50">
-                      <div className="text-2xl font-bold" style={{
-                        color: uniquenessResult.ai_probability <= 30
-                          ? "hsl(var(--success))"
-                          : uniquenessResult.ai_probability <= 60
-                          ? "hsl(var(--warning))"
-                          : "hsl(var(--destructive))"
-                      }}>
+                      <div className="text-2xl font-bold" style={{ color: uniquenessResult.ai_probability <= 30 ? "hsl(var(--success))" : uniquenessResult.ai_probability <= 60 ? "hsl(var(--warning))" : "hsl(var(--destructive))" }}>
                         {uniquenessResult.ai_probability}%
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">AI Detection</div>
                     </div>
                   </div>
-
                   {uniquenessResult.cliche_phrases?.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1.5">Клише и шаблоны:</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5">Cliches:</p>
                       <div className="flex flex-wrap gap-1">
                         {uniquenessResult.cliche_phrases.map((p: string, i: number) => (
-                          <Badge key={i} variant="outline" className="text-[10px] text-destructive border-destructive/30">
-                            {p}
-                          </Badge>
+                          <Badge key={i} variant="outline" className="text-[10px] text-destructive border-destructive/30">{p}</Badge>
                         ))}
                       </div>
                     </div>
                   )}
-
                   {uniquenessResult.unique_elements?.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1.5">Уникальные элементы:</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5">Unique elements:</p>
                       <div className="flex flex-wrap gap-1">
                         {uniquenessResult.unique_elements.map((p: string, i: number) => (
-                          <Badge key={i} variant="outline" className="text-[10px] text-success border-success/30">
-                            {p}
-                          </Badge>
+                          <Badge key={i} variant="outline" className="text-[10px] text-success border-success/30">{p}</Badge>
                         ))}
                       </div>
                     </div>
                   )}
-
                   {uniquenessResult.recommendation && (
-                    <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-                      💡 {uniquenessResult.recommendation}
-                    </p>
+                    <p className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">💡 {uniquenessResult.recommendation}</p>
                   )}
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground text-center py-4">
-                  Нажмите «{t("analytics.checkUniqueness")}» для AI-анализа уникальности текста
+                  {t("analytics.checkUniqueness")}
                 </p>
               )}
             </CardContent>
@@ -582,8 +483,8 @@ export default function AnalyticsPage() {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <Search className="h-14 w-14 opacity-20 mb-4" />
-          <p className="text-sm">Выберите статью для SEO-аудита</p>
-          <p className="text-xs mt-1">Все метрики рассчитываются автоматически</p>
+          <p className="text-sm">{t("analytics.selectForAudit")}</p>
+          <p className="text-xs mt-1">{t("analytics.autoCalculated")}</p>
         </div>
       )}
     </div>
@@ -598,7 +499,7 @@ function MetricRow({ label, value, target, pct, valueClass }: {
     <div>
       <div className="flex justify-between text-xs text-muted-foreground mb-1">
         <span>{label}</span>
-        <span className={valueClass || "font-mono"}>{value}{target ? ` (цель: ${target})` : ""}</span>
+        <span className={valueClass || "font-mono"}>{value}{target ? ` (${target})` : ""}</span>
       </div>
       <Progress value={pct} className="h-1.5" />
     </div>
@@ -618,11 +519,7 @@ function HeadingBadge({ level, count, ideal }: { level: string; count: number; i
 function CheckItem({ ok, text }: { ok: boolean; text: string }) {
   return (
     <div className={`flex items-center gap-2 text-sm rounded-md px-3 py-2 ${ok ? "bg-success/5" : "bg-destructive/5"}`}>
-      {ok ? (
-        <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
-      ) : (
-        <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-      )}
+      {ok ? <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> : <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
       <span className={ok ? "text-foreground" : "text-destructive"}>{text}</span>
     </div>
   );
