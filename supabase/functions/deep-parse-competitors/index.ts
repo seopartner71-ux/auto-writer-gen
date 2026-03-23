@@ -677,15 +677,6 @@ serve(async (req) => {
         .eq("id", serpResults[0].id);
     }
 
-    // Log usage
-    const tokensUsed = aiData.usage?.total_tokens || 0;
-    await supabaseAdmin.from("usage_logs").insert({
-      user_id: userId,
-      action: "deep_parse_competitors",
-      model_used: model,
-      tokens_used: tokensUsed,
-    });
-
     console.log(`Deep parse complete: ${parsedPages.length} pages, ${(entityAnalysis.entities || []).length} entities, score ready`);
 
     return new Response(JSON.stringify(result), {
