@@ -23,6 +23,7 @@ import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
+import { PersonaSelector } from "@/components/article/PersonaSelector";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -748,22 +749,6 @@ export default function ArticlesPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Профиль автора</Label>
-            <Select value={selectedAuthorId} onValueChange={setSelectedAuthorId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Без стиля" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Без стиля</SelectItem>
-                {authorProfiles.map((a: any) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name} {a.niche ? `(${a.niche})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">&nbsp;</Label>
             {isStreaming ? (
               <Button variant="destructive" onClick={handleStop} className="w-full">
@@ -781,6 +766,13 @@ export default function ArticlesPage() {
             )}
           </div>
         </div>
+
+        {/* Persona Selector */}
+        <PersonaSelector
+          authors={authorProfiles}
+          selectedId={selectedAuthorId}
+          onSelect={setSelectedAuthorId}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -941,8 +933,9 @@ export default function ArticlesPage() {
                             <div>
                               <p className="text-sm font-semibold">{author.name}</p>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                {author.niche && <span>{author.niche}</span>}
-                                {author.voice_tone && (
+                                {author.description && <span>{author.description}</span>}
+                                {!author.description && author.niche && <span>{author.niche}</span>}
+                                {!author.description && author.voice_tone && (
                                   <>
                                     <span>•</span>
                                     <span>{author.voice_tone}</span>

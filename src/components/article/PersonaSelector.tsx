@@ -1,0 +1,288 @@
+import { useState, useCallback } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  ShieldAlert, Heart, Cpu, Flame, GraduationCap,
+  Plus, User, Loader2, X, Check,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  ShieldAlert,
+  Heart,
+  Cpu,
+  Flame,
+  GraduationCap,
+  User,
+};
+
+interface AuthorProfile {
+  id: string;
+  name: string;
+  type?: string;
+  description?: string;
+  avatar_icon?: string;
+  system_instruction?: string;
+  voice_tone?: string;
+  niche?: string;
+  temperature?: number;
+}
+
+interface PersonaSelectorProps {
+  authors: AuthorProfile[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}
+
+export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelectorProps) {
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newInstruction, setNewInstruction] = useState("");
+  const [sampleText, setSampleText] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
+
+  const presets = authors.filter(a => a.type === "preset");
+  const customs = authors.filter(a => a.type !== "preset");
+
+  const handleAnalyzeSample = useCallback(async () => {
+    if (!sampleText || sampleText.length < 100) {
+      toast.error("Вставьте хотя бы 100 символов текста для анализа");
+      return;
+    }
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-style", {
+        body: { text: sampleText },
+      });
+      if (error) throw error;
+      if (data?.analysis?.recommended_system_prompt) {
+        setNewInstruction(prev =>
+          prev
+            ? `${prev}\n\n${data.analysis.recommended_system_prompt}`
+            : data.analysis.recommended_system_prompt
+        );
+        toast.success("Стиль проанализирован и добавлен в инструкцию");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка анализа стиля");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [sampleText]);
+
+  const handleCreateAuthor = useCallback(async () => {
+    if (!newName.trim()) { toast.error("Введите имя автора"); return; }
+    if (!newInstruction.trim()) { toast.error("Введите инструкцию"); return; }
+    setIsSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("author_profiles").insert({
+        name: newName.trim(),
+        type: "custom",
+        system_instruction: newInstruction.trim(),
+        user_id: user.id,
+        description: newInstruction.trim().slice(0, 100),
+        avatar_icon: "User",
+      });
+      if (error) throw error;
+
+      toast.success("Автор создан");
+      setCreateOpen(false);
+      setNewName("");
+      setNewInstruction("");
+      setSampleText("");
+      queryClient.invalidateQueries({ queryKey: ["author-profiles-for-writer"] });
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка создания");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [newName, newInstruction, queryClient]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-muted-foreground">Стиль автора</Label>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1">
+              <Plus className="h-3 w-3" /> Создать свой
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Создать свой стиль</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs">Имя автора</Label>
+                <Input
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  placeholder="Например: Мой бренд-голос"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Инструкция (системный промпт)</Label>
+                <Textarea
+                  value={newInstruction}
+                  onChange={e => setNewInstruction(e.target.value)}
+                  placeholder="Опишите стиль: тон, лексику, длину предложений, характерные обороты..."
+                  className="mt-1 min-h-[120px] font-mono text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Sample Text (необязательно)</Label>
+                <p className="text-[10px] text-muted-foreground mb-1">
+                  Вставьте пример вашего текста — ИИ проанализирует стиль и дополнит инструкцию
+                </p>
+                <Textarea
+                  value={sampleText}
+                  onChange={e => setSampleText(e.target.value)}
+                  placeholder="Вставьте текст, написанный в нужном стиле (мин. 100 символов)..."
+                  className="mt-1 min-h-[100px] text-xs"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 w-full text-xs"
+                  disabled={isAnalyzing || sampleText.length < 100}
+                  onClick={handleAnalyzeSample}
+                >
+                  {isAnalyzing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                  {isAnalyzing ? "Анализируем стиль..." : "Проанализировать стиль"}
+                </Button>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>Отмена</Button>
+              <Button onClick={handleCreateAuthor} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                Создать
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Horizontal scrolling card grid */}
+      <TooltipProvider delayDuration={300}>
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+          {/* "No style" card */}
+          <PersonaCard
+            name="Без стиля"
+            description="Стандартный SEO-копирайтер"
+            icon="User"
+            isActive={!selectedId || selectedId === "none"}
+            onClick={() => onSelect("none")}
+          />
+
+          {/* Preset cards */}
+          {presets.map(a => (
+            <PersonaCard
+              key={a.id}
+              name={a.name}
+              description={a.description || ""}
+              icon={a.avatar_icon || "User"}
+              isActive={selectedId === a.id}
+              onClick={() => onSelect(a.id)}
+              temperature={a.temperature}
+            />
+          ))}
+
+          {/* Custom cards */}
+          {customs.map(a => (
+            <PersonaCard
+              key={a.id}
+              name={a.name}
+              description={a.description || a.voice_tone || ""}
+              icon={a.avatar_icon || "User"}
+              isActive={selectedId === a.id}
+              onClick={() => onSelect(a.id)}
+              isCustom
+            />
+          ))}
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+}
+
+function PersonaCard({
+  name,
+  description,
+  icon,
+  isActive,
+  onClick,
+  temperature,
+  isCustom,
+}: {
+  name: string;
+  description: string;
+  icon: string;
+  isActive: boolean;
+  onClick: () => void;
+  temperature?: number;
+  isCustom?: boolean;
+}) {
+  const Icon = ICON_MAP[icon] || User;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={onClick}
+          className={`
+            flex-shrink-0 flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all
+            w-[100px] min-w-[100px] cursor-pointer text-center
+            hover:border-primary/50 hover:bg-accent/50
+            ${isActive
+              ? "border-primary bg-primary/5 shadow-sm"
+              : "border-border bg-card"
+            }
+          `}
+        >
+          <div className={`
+            flex items-center justify-center h-9 w-9 rounded-full transition-colors
+            ${isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}
+          `}>
+            <Icon className="h-4 w-4" />
+          </div>
+          <span className="text-[11px] font-medium leading-tight line-clamp-2">
+            {name}
+          </span>
+          {isActive && (
+            <Check className="h-3 w-3 text-primary" />
+          )}
+          {isCustom && (
+            <Badge variant="outline" className="text-[8px] px-1 py-0">custom</Badge>
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-[220px]">
+        <p className="text-xs font-semibold mb-1">{name}</p>
+        <p className="text-[10px] text-muted-foreground">{description}</p>
+        {temperature && (
+          <p className="text-[10px] mt-1 text-muted-foreground">Temperature: {temperature}</p>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  );
+}

@@ -19,6 +19,9 @@ interface StealthPromptInput {
     style_examples?: string;
     stop_words?: string[];
     system_prompt_override?: string;
+    system_instruction?: string;
+    type?: string;
+    temperature?: number;
   } | null;
   serpData: { title: string; snippet: string; url: string }[];
   lsiKeywords: string[];
@@ -42,27 +45,37 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
   let blockA = "";
   if (authorProfile) {
     const parts: string[] = [];
-    parts.push(`Ты — ${authorProfile.name || "эксперт"}.`);
-    if (authorProfile.voice_tone) parts.push(`Твой стиль: ${authorProfile.voice_tone}. Ты ОБЯЗАН писать в этом стиле КАЖДОЕ предложение.`);
-    if (authorProfile.niche) parts.push(`Используй профессиональный сленг ниши "${authorProfile.niche}" естественно, как носитель.`);
-    
-    if (authorProfile.style_analysis) {
-      const sa = authorProfile.style_analysis;
-      if (sa.tone_description) parts.push(`СТИЛЬ ПИСЬМА: ${sa.tone_description}`);
-      if (sa.vocabulary_level) parts.push(`УРОВЕНЬ ЛЕКСИКИ: ${sa.vocabulary_level}`);
-      if (sa.paragraph_length) parts.push(`ДЛИНА АБЗАЦЕВ: ${sa.paragraph_length}`);
-      if (sa.sentence_style) parts.push(`СТИЛЬ ПРЕДЛОЖЕНИЙ: ${sa.sentence_style}`);
-      if (sa.metaphor_usage) parts.push(`МЕТАФОРЫ: ${sa.metaphor_usage}`);
-      if (sa.formality) parts.push(`ФОРМАЛЬНОСТЬ: ${sa.formality}`);
-      if (sa.emotional_tone) parts.push(`ЭМОЦИОНАЛЬНЫЙ ТОН: ${sa.emotional_tone}`);
-      if (sa.recommended_system_prompt) parts.push(`ДИРЕКТИВА СТИЛЯ: ${sa.recommended_system_prompt}`);
+
+    // For preset authors: use system_instruction directly as the core directive
+    if (authorProfile.type === "preset" && authorProfile.system_instruction) {
+      parts.push(`ГЛАВНАЯ ДИРЕКТИВА АВТОРА:\n${authorProfile.system_instruction}`);
+    } else {
+      // Custom author: build from individual fields
+      parts.push(`Ты — ${authorProfile.name || "эксперт"}.`);
+      if (authorProfile.voice_tone) parts.push(`Твой стиль: ${authorProfile.voice_tone}. Ты ОБЯЗАН писать в этом стиле КАЖДОЕ предложение.`);
+      if (authorProfile.niche) parts.push(`Используй профессиональный сленг ниши "${authorProfile.niche}" естественно, как носитель.`);
+
+      if (authorProfile.style_analysis) {
+        const sa = authorProfile.style_analysis;
+        if (sa.tone_description) parts.push(`СТИЛЬ ПИСЬМА: ${sa.tone_description}`);
+        if (sa.vocabulary_level) parts.push(`УРОВЕНЬ ЛЕКСИКИ: ${sa.vocabulary_level}`);
+        if (sa.paragraph_length) parts.push(`ДЛИНА АБЗАЦЕВ: ${sa.paragraph_length}`);
+        if (sa.sentence_style) parts.push(`СТИЛЬ ПРЕДЛОЖЕНИЙ: ${sa.sentence_style}`);
+        if (sa.metaphor_usage) parts.push(`МЕТАФОРЫ: ${sa.metaphor_usage}`);
+        if (sa.formality) parts.push(`ФОРМАЛЬНОСТЬ: ${sa.formality}`);
+        if (sa.emotional_tone) parts.push(`ЭМОЦИОНАЛЬНЫЙ ТОН: ${sa.emotional_tone}`);
+        if (sa.recommended_system_prompt) parts.push(`ДИРЕКТИВА СТИЛЯ: ${sa.recommended_system_prompt}`);
+      }
+      if (authorProfile.style_examples) {
+        parts.push(`ЭТАЛОННЫЙ ПРИМЕР (копируй этот стиль максимально близко):\n"${authorProfile.style_examples.slice(0, 1500)}"`);
+      }
+      // Also apply system_instruction for custom authors if they defined one
+      if (authorProfile.system_instruction) parts.push(`СИСТЕМНАЯ ИНСТРУКЦИЯ АВТОРА: ${authorProfile.system_instruction}`);
     }
-    if (authorProfile.style_examples) {
-      parts.push(`ЭТАЛОННЫЙ ПРИМЕР (копируй этот стиль максимально близко):\n"${authorProfile.style_examples.slice(0, 1500)}"`);
-    }
+
     if (authorProfile.stop_words?.length) parts.push(`ЗАПРЕЩЁННЫЕ СЛОВА (никогда не используй): ${authorProfile.stop_words.join(", ")}`);
     if (authorProfile.system_prompt_override) parts.push(`ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ АВТОРА: ${authorProfile.system_prompt_override}`);
-    
+
     blockA = `=== БЛОК А: КОНТЕКСТ АВТОРА (критически важно — строго следуй) ===\n${parts.join("\n")}\n=== КОНЕЦ БЛОКА А ===`;
   }
 
@@ -162,6 +175,10 @@ ${isRussian
 - Include personal opinions ("I believe", "In my experience", "From what I've seen", "This surprised me").
 - Active voice dominant. Passive — max 10% of sentences.
 - Show emotional engagement: enthusiasm, skepticism, surprise where appropriate.`}
+
+РАНДОМИЗАЦИЯ (обязательно):
+- Случайным образом измени порядок двух любых аргументов в тексте, чтобы избежать шаблонности.
+- Каждый раз начинай статью по-разному: иногда с факта, иногда с вопроса, иногда с цитаты.
 
 === КОНЕЦ БЛОКА В ===`;
 
@@ -300,10 +317,10 @@ serve(async (req) => {
       .order("position", { ascending: true })
       .limit(10);
 
-    // Get author profile
+    // Get author profile (use admin client for presets which have null user_id)
     let authorData: any = null;
     if (author_profile_id) {
-      const { data: author } = await supabase
+      const { data: author } = await supabaseAdmin
         .from("author_profiles")
         .select("*")
         .eq("id", author_profile_id)
@@ -347,6 +364,9 @@ serve(async (req) => {
       userPrompt = buildNewArticleUserPrompt(keyword, outlineStr, competitorStr, lsiStr, questionsStr);
     }
 
+    // Use author's temperature if set, otherwise default
+    const authorTemperature = authorData?.temperature ? Number(authorData.temperature) : 0.85;
+
     // Stream AI response
     const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -361,7 +381,7 @@ serve(async (req) => {
           { role: "user", content: userPrompt },
         ],
         stream: true,
-        temperature: 0.85,
+        temperature: authorTemperature,
       }),
     });
 
