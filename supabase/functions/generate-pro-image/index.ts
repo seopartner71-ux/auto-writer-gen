@@ -223,7 +223,7 @@ serve(async (req) => {
       }
 
       // Limit to 5 images max, check quota
-      const maxImages = Math.min(sections.length, 5);
+      const maxImages = Math.min(sections.length, max_images || 5);
       if (used + maxImages > 100) {
         return new Response(
           JSON.stringify({ error: `Недостаточно лимита. Нужно: ${maxImages}, осталось: ${100 - used}` }),
