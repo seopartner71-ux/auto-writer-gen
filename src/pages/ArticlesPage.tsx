@@ -933,8 +933,9 @@ export default function ArticlesPage() {
                             <div>
                               <p className="text-sm font-semibold">{author.name}</p>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                {author.niche && <span>{author.niche}</span>}
-                                {author.voice_tone && (
+                                {author.description && <span>{author.description}</span>}
+                                {!author.description && author.niche && <span>{author.niche}</span>}
+                                {!author.description && author.voice_tone && (
                                   <>
                                     <span>•</span>
                                     <span>{author.voice_tone}</span>
