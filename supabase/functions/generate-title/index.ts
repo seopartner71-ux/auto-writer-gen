@@ -50,12 +50,23 @@ serve(async (req) => {
 1. Title (тег <title>) — до 60 символов, ключевое слово ближе к началу, без кавычек, без кликбейта, привлекательный
 2. H1 (заголовок на странице) — до 80 символов, более развёрнутый и читабельный чем Title, может отличаться формулировкой но сохранять ключевое слово
 Проанализируй Title конкурентов из ТОП-10 и создай заголовки, которые выделяются на их фоне.
+
+КРИТИЧЕСКИЕ ПРАВИЛА ОФОРМЛЕНИЯ:
+- Заглавная буква ТОЛЬКО в начале заголовка и в именах собственных (названия брендов, городов, имена людей и т.д.). НЕ пиши Каждое Слово С Большой Буквы.
+- Используй дефис "-" вместо тире "—". Пример: "Цветы в интерьере - как преобразить каждую комнату"
+- Не используй длинное тире (—), только короткий дефис (-)
+
 На русском языке.
 Верни JSON: {"title": "...", "h1": "..."} — без пояснений, только JSON.`
       : `You are an SEO title expert. Generate:
 1. Title (meta title tag) — max 60 chars, keyword near beginning, no quotes, no clickbait, click-worthy
 2. H1 (page heading) — max 80 chars, more descriptive and readable than Title, may differ in phrasing but keep the keyword
 Analyze competitor titles from TOP-10 and create titles that stand out while matching search intent.
+
+CRITICAL FORMATTING RULES:
+- Use sentence case: capitalize only the first word and proper nouns (brand names, cities, people names). Do NOT Title Case Every Word.
+- Use hyphen "-" instead of em dash "—".
+
 In the same language as the content.
 Return JSON: {"title": "...", "h1": "..."} — no explanations, only JSON.`;
 
