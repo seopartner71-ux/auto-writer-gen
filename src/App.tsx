@@ -19,6 +19,7 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import DashboardPage from "@/pages/DashboardPage";
 import KeywordsPage from "@/pages/KeywordsPage";
 import NotFound from "@/pages/NotFound";
+import Index from "@/pages/Index";
 
 // Lazy loaded (heavy / less frequent pages)
 const PlanBuilderPage = lazy(() => import("@/pages/PlanBuilderPage"));
@@ -65,7 +66,7 @@ const App = () => (
           <BrowserRouter>
             <AuthProvider>
               <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/" element={<Index />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
