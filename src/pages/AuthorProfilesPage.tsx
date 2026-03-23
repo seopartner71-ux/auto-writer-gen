@@ -17,7 +17,7 @@ import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 
 interface AuthorProfile {
   id: string;
-  user_id: string;
+  user_id: string | null;
   name: string;
   niche: string | null;
   voice_tone: string | null;
@@ -26,6 +26,11 @@ interface AuthorProfile {
   system_prompt_override: string | null;
   style_analysis: Record<string, unknown> | null;
   created_at: string;
+  type?: string;
+  description?: string;
+  avatar_icon?: string;
+  system_instruction?: string;
+  temperature?: number;
 }
 
 const TONE_OPTIONS = [
