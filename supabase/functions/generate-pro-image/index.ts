@@ -55,16 +55,24 @@ serve(async (req) => {
     const userId = payload.sub;
     if (!userId) throw new Error("Invalid token");
 
-    // Check API keys
-    const FAL_AI_API_KEY = Deno.env.get("FAL_AI_API_KEY");
-    if (!FAL_AI_API_KEY) throw new Error("FAL_AI_API_KEY is not configured");
-
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Read API keys from admin vault (api_keys table)
+    const { data: apiKeys, error: keysError } = await supabaseAdmin
+      .from("api_keys")
+      .select("provider, api_key")
+      .in("provider", ["fal_ai", "openrouter"]);
+
+    if (keysError) throw new Error("Failed to read API keys from vault");
+
+    const keyMap = Object.fromEntries((apiKeys || []).map((k: any) => [k.provider, k.api_key]));
+    const FAL_AI_API_KEY = keyMap["fal_ai"];
+    if (!FAL_AI_API_KEY) throw new Error("Ключ Fal.ai не настроен в админ-панели (API Vault)");
+
+    const OPENROUTER_API_KEY = keyMap["openrouter"] || Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("Ключ OpenRouter не настроен");
 
     const { title, summary, style, keyword } = await req.json();
     if (!title) throw new Error("Title is required");
