@@ -1187,6 +1187,7 @@ export default function ArticlesPage() {
                   onOptimize={async ({ instructions, benchmarkContext }) => {
                     if (isStreaming) return;
                     setIsStreaming(true);
+                    setStreamPhase("thinking");
                     const prevContent = content;
                     setContent("");
                     const controller = new AbortController();
