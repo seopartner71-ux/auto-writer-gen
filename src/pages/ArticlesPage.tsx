@@ -295,8 +295,9 @@ export default function ArticlesPage() {
         body: JSON.stringify({ keyword, content: articleContent }),
       });
       if (!resp.ok) return;
-      const { title: seoTitle } = await resp.json();
-      if (seoTitle) setTitle(seoTitle);
+      const data = await resp.json();
+      if (data.title) setTitle(data.title);
+      if (data.h1) setH1(data.h1);
     } catch {
       // Title generation is best-effort; fallback to H1
     }

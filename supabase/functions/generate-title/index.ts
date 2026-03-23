@@ -46,22 +46,18 @@ serve(async (req) => {
     const isRu = lang === "ru" || /[а-яё]/i.test(snippet.slice(0, 200));
 
     const systemPrompt = isRu
-      ? `Ты — эксперт по SEO-заголовкам. Сгенерируй один идеальный Title (тег <title>) для статьи. Правила:
-- Длина строго до 60 символов
-- Ключевое слово как можно ближе к началу
-- Без кавычек, без кликбейта
-- Привлекательный, информативный, побуждающий к клику
-- Проанализируй Title конкурентов из ТОП-10 и создай Title, который выделяется на их фоне и при этом соответствует поисковому интенту
-- На русском языке
-Верни ТОЛЬКО текст Title, без пояснений.`
-      : `You are an SEO title expert. Generate one perfect Title tag for the article. Rules:
-- Maximum 60 characters
-- Primary keyword near the beginning
-- No quotes, no clickbait
-- Informative and click-worthy
-- Analyze competitor titles from TOP-10 and create a title that stands out while matching search intent
-- In the same language as the content
-Return ONLY the title text, no explanations.`;
+      ? `Ты — эксперт по SEO-заголовкам. Сгенерируй:
+1. Title (тег <title>) — до 60 символов, ключевое слово ближе к началу, без кавычек, без кликбейта, привлекательный
+2. H1 (заголовок на странице) — до 80 символов, более развёрнутый и читабельный чем Title, может отличаться формулировкой но сохранять ключевое слово
+Проанализируй Title конкурентов из ТОП-10 и создай заголовки, которые выделяются на их фоне.
+На русском языке.
+Верни JSON: {"title": "...", "h1": "..."} — без пояснений, только JSON.`
+      : `You are an SEO title expert. Generate:
+1. Title (meta title tag) — max 60 chars, keyword near beginning, no quotes, no clickbait, click-worthy
+2. H1 (page heading) — max 80 chars, more descriptive and readable than Title, may differ in phrasing but keep the keyword
+Analyze competitor titles from TOP-10 and create titles that stand out while matching search intent.
+In the same language as the content.
+Return JSON: {"title": "...", "h1": "..."} — no explanations, only JSON.`;
 
     const competitorBlock = competitorTitles.length > 0
       ? `\nCompetitor Titles (TOP-10):\n${competitorTitles.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n`
@@ -72,7 +68,7 @@ ${competitorBlock}
 Article excerpt:
 ${snippet}
 
-Generate the Title:`;
+Generate Title and H1:`;
 
     const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -104,9 +100,23 @@ Generate the Title:`;
     }
 
     const aiData = await aiResponse.json();
-    const title = (aiData.choices?.[0]?.message?.content || "").trim().replace(/^["']|["']$/g, "").slice(0, 60);
+    const raw = (aiData.choices?.[0]?.message?.content || "").trim();
+    
+    // Parse JSON response, with fallback
+    let titleResult = "";
+    let h1Result = "";
+    try {
+      const cleaned = raw.replace(/```json\s*|\s*```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      titleResult = (parsed.title || "").replace(/^["']|["']$/g, "").slice(0, 60);
+      h1Result = (parsed.h1 || "").replace(/^["']|["']$/g, "").slice(0, 80);
+    } catch {
+      // Fallback: treat entire response as title
+      titleResult = raw.replace(/^["']|["']$/g, "").slice(0, 60);
+      h1Result = "";
+    }
 
-    return new Response(JSON.stringify({ title }), {
+    return new Response(JSON.stringify({ title: titleResult, h1: h1Result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
