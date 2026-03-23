@@ -539,6 +539,7 @@ export default function ArticlesPage() {
       }
     } finally {
       setIsStreaming(false);
+      setStreamPhase(null);
       abortRef.current = null;
     }
   }, [selectedKeywordId, selectedAuthorId, outline, lsiKeywords]);
