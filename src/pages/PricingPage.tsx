@@ -51,7 +51,6 @@ const plans = [
       { text: "Просмотр HTML-кода с подсветкой синтаксиса", included: true },
       { text: "SEO-аналитика (расширенная)", included: true },
       { text: "AI модели: Gemini Flash + GPT-5 Nano", included: true },
-      { text: "Планировщик календаря", included: true },
       { text: "Проверка уникальности", included: true },
       { text: "JSON-LD микроразметка", included: true },
       { text: "Публикация в WordPress", included: true },
