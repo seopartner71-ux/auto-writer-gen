@@ -35,7 +35,7 @@ export default function Index() {
         >
           <motion.h1
             variants={fadeUp}
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tight leading-[1.05]"
+            className={`font-extrabold tracking-tight leading-[1.05] ${lang === "ru" ? "text-4xl sm:text-5xl md:text-6xl lg:text-7xl" : "text-5xl sm:text-6xl md:text-7xl lg:text-8xl"}`}
           >
             {t("landing.headlinePart1")}{" "}
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-violet-500 to-purple-400">
