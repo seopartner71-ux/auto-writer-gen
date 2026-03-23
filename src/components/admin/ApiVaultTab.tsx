@@ -14,6 +14,7 @@ const PROVIDERS = [
   { key: "anthropic", label: "Anthropic", placeholder: "sk-ant-..." },
   { key: "gemini", label: "Google Gemini", placeholder: "AIza..." },
   { key: "serper", label: "Serper.dev", placeholder: "your-serper-key" },
+  { key: "fal_ai", label: "Fal.ai", placeholder: "your-fal-ai-key" },
 ];
 
 interface ApiKey {
