@@ -40,6 +40,33 @@ const MODEL_LABELS: Record<string, string> = {
   claude: "Claude",
 };
 
+function escapeHtml(text: string) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function highlightBrand(text: string, brandName: string, domain: string): string {
+  let html = escapeHtml(text);
+  const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/^www\./, "").toLowerCase();
+  const domainBase = cleanDomain.replace(/\.[a-z]{2,}$/, "");
+  
+  const terms = new Set<string>();
+  if (brandName) terms.add(brandName.toLowerCase());
+  if (cleanDomain) terms.add(cleanDomain);
+  if (domainBase) terms.add(domainBase);
+  if (domainBase.length >= 4) {
+    for (let i = 2; i <= domainBase.length - 2; i++) {
+      terms.add(domainBase.slice(0, i) + " " + domainBase.slice(i));
+    }
+  }
+  
+  const sorted = Array.from(terms).filter(t => t.length >= 3).sort((a, b) => b.length - a.length);
+  for (const term of sorted) {
+    const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+    html = html.replace(regex, `<mark class="bg-purple-500/30 text-purple-300 rounded px-0.5">$1</mark>`);
+  }
+  return html;
+}
+
 // Radial chart component
 function RadialChart({ value, label, color }: { value: number; label: string; color: string }) {
   const radius = 36;
