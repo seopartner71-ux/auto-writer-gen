@@ -684,6 +684,27 @@ export default function ArticlesPage() {
               // Prepend cover image to content
               setContent(prev => `![${alt}](${url})\n\n${prev}`);
             }}
+            onMultiImagesGenerated={(images) => {
+              // Insert images after their corresponding H2 headings
+              setContent(prev => {
+                let result = prev;
+                // Process in reverse order to preserve line positions
+                for (let i = images.length - 1; i >= 0; i--) {
+                  const img = images[i];
+                  const headingPattern = new RegExp(
+                    `(^##\\s+${img.heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$)`,
+                    'm'
+                  );
+                  const match = result.match(headingPattern);
+                  if (match && match.index !== undefined) {
+                    const insertPos = match.index + match[0].length;
+                    const markdown = `\n\n![${img.alt}](${img.url})\n`;
+                    result = result.slice(0, insertPos) + markdown + result.slice(insertPos);
+                  }
+                }
+                return result;
+              });
+            }}
           />
 
           {/* Title & Meta */}
