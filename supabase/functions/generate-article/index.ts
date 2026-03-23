@@ -45,27 +45,37 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
   let blockA = "";
   if (authorProfile) {
     const parts: string[] = [];
-    parts.push(`Ты — ${authorProfile.name || "эксперт"}.`);
-    if (authorProfile.voice_tone) parts.push(`Твой стиль: ${authorProfile.voice_tone}. Ты ОБЯЗАН писать в этом стиле КАЖДОЕ предложение.`);
-    if (authorProfile.niche) parts.push(`Используй профессиональный сленг ниши "${authorProfile.niche}" естественно, как носитель.`);
-    
-    if (authorProfile.style_analysis) {
-      const sa = authorProfile.style_analysis;
-      if (sa.tone_description) parts.push(`СТИЛЬ ПИСЬМА: ${sa.tone_description}`);
-      if (sa.vocabulary_level) parts.push(`УРОВЕНЬ ЛЕКСИКИ: ${sa.vocabulary_level}`);
-      if (sa.paragraph_length) parts.push(`ДЛИНА АБЗАЦЕВ: ${sa.paragraph_length}`);
-      if (sa.sentence_style) parts.push(`СТИЛЬ ПРЕДЛОЖЕНИЙ: ${sa.sentence_style}`);
-      if (sa.metaphor_usage) parts.push(`МЕТАФОРЫ: ${sa.metaphor_usage}`);
-      if (sa.formality) parts.push(`ФОРМАЛЬНОСТЬ: ${sa.formality}`);
-      if (sa.emotional_tone) parts.push(`ЭМОЦИОНАЛЬНЫЙ ТОН: ${sa.emotional_tone}`);
-      if (sa.recommended_system_prompt) parts.push(`ДИРЕКТИВА СТИЛЯ: ${sa.recommended_system_prompt}`);
+
+    // For preset authors: use system_instruction directly as the core directive
+    if (authorProfile.type === "preset" && authorProfile.system_instruction) {
+      parts.push(`ГЛАВНАЯ ДИРЕКТИВА АВТОРА:\n${authorProfile.system_instruction}`);
+    } else {
+      // Custom author: build from individual fields
+      parts.push(`Ты — ${authorProfile.name || "эксперт"}.`);
+      if (authorProfile.voice_tone) parts.push(`Твой стиль: ${authorProfile.voice_tone}. Ты ОБЯЗАН писать в этом стиле КАЖДОЕ предложение.`);
+      if (authorProfile.niche) parts.push(`Используй профессиональный сленг ниши "${authorProfile.niche}" естественно, как носитель.`);
+
+      if (authorProfile.style_analysis) {
+        const sa = authorProfile.style_analysis;
+        if (sa.tone_description) parts.push(`СТИЛЬ ПИСЬМА: ${sa.tone_description}`);
+        if (sa.vocabulary_level) parts.push(`УРОВЕНЬ ЛЕКСИКИ: ${sa.vocabulary_level}`);
+        if (sa.paragraph_length) parts.push(`ДЛИНА АБЗАЦЕВ: ${sa.paragraph_length}`);
+        if (sa.sentence_style) parts.push(`СТИЛЬ ПРЕДЛОЖЕНИЙ: ${sa.sentence_style}`);
+        if (sa.metaphor_usage) parts.push(`МЕТАФОРЫ: ${sa.metaphor_usage}`);
+        if (sa.formality) parts.push(`ФОРМАЛЬНОСТЬ: ${sa.formality}`);
+        if (sa.emotional_tone) parts.push(`ЭМОЦИОНАЛЬНЫЙ ТОН: ${sa.emotional_tone}`);
+        if (sa.recommended_system_prompt) parts.push(`ДИРЕКТИВА СТИЛЯ: ${sa.recommended_system_prompt}`);
+      }
+      if (authorProfile.style_examples) {
+        parts.push(`ЭТАЛОННЫЙ ПРИМЕР (копируй этот стиль максимально близко):\n"${authorProfile.style_examples.slice(0, 1500)}"`);
+      }
+      // Also apply system_instruction for custom authors if they defined one
+      if (authorProfile.system_instruction) parts.push(`СИСТЕМНАЯ ИНСТРУКЦИЯ АВТОРА: ${authorProfile.system_instruction}`);
     }
-    if (authorProfile.style_examples) {
-      parts.push(`ЭТАЛОННЫЙ ПРИМЕР (копируй этот стиль максимально близко):\n"${authorProfile.style_examples.slice(0, 1500)}"`);
-    }
+
     if (authorProfile.stop_words?.length) parts.push(`ЗАПРЕЩЁННЫЕ СЛОВА (никогда не используй): ${authorProfile.stop_words.join(", ")}`);
     if (authorProfile.system_prompt_override) parts.push(`ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ АВТОРА: ${authorProfile.system_prompt_override}`);
-    
+
     blockA = `=== БЛОК А: КОНТЕКСТ АВТОРА (критически важно — строго следуй) ===\n${parts.join("\n")}\n=== КОНЕЦ БЛОКА А ===`;
   }
 
