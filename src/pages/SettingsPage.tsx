@@ -337,6 +337,54 @@ export default function SettingsPage() {
           </Card>
         </div>
       </div>
+
+      {/* Support ticket - full width */}
+      <Card className="bg-card border-border overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <LifeBuoy className="h-4 w-4 text-primary" />
+            Поддержка
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Опишите вашу проблему или предложение — мы ответим в ближайшее время
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Тема</Label>
+            <Input
+              value={ticketSubject}
+              onChange={(e) => setTicketSubject(e.target.value)}
+              placeholder="Кратко опишите тему обращения"
+              className="text-sm"
+              maxLength={200}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Сообщение</Label>
+            <Textarea
+              value={ticketMessage}
+              onChange={(e) => setTicketMessage(e.target.value)}
+              placeholder="Подробно опишите вашу проблему или предложение..."
+              className="text-sm min-h-[120px] resize-y"
+              maxLength={2000}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {ticketMessage.length}/2000
+            </span>
+            <Button
+              onClick={handleSubmitTicket}
+              disabled={isSubmittingTicket || !ticketSubject.trim() || !ticketMessage.trim()}
+              size="sm"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {isSubmittingTicket ? "Отправка..." : "Отправить тикет"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
