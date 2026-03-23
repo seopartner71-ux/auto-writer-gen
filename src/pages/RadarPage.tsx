@@ -82,7 +82,11 @@ export default function RadarPage() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkKeywords, setBulkKeywords] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [viewResponseData, setViewResponseData] = useState<{ model: string; text: string; date: string } | null>(null);
+  const [viewResponseData, setViewResponseData] = useState<{
+    model: string; text: string; date: string;
+    brand_mentioned: boolean; domain_linked: boolean;
+    matched_snippets: string[]; status: string; keyword: string;
+  } | null>(null);
 
   // Fetch projects
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
