@@ -15,6 +15,12 @@ import {
   Eye, ExternalLink, Trash2, RefreshCw, Shield, AlertTriangle,
   Sparkles, Globe, ChevronRight, ArrowUpRight, Minus
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 import { PlanGate } from "@/shared/components/PlanGate";
@@ -73,6 +79,8 @@ export default function RadarPage() {
   const [newDomain, setNewDomain] = useState("");
   const [newNuggets, setNewNuggets] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkKeywords, setBulkKeywords] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [viewResponseData, setViewResponseData] = useState<{ model: string; text: string; date: string } | null>(null);
 
@@ -229,17 +237,30 @@ export default function RadarPage() {
       const session = await supabase.auth.getSession();
       const userId = session.data.session?.user?.id;
       if (!userId || !activeProject) throw new Error("Not authenticated");
-      const { error } = await supabase.from("radar_keywords").insert({
+
+      const keywordsToAdd = bulkMode
+        ? bulkKeywords.split("\n").map(k => k.trim()).filter(k => k.length > 0).slice(0, 30)
+        : [newKeyword.trim()].filter(k => k.length > 0);
+
+      if (keywordsToAdd.length === 0) throw new Error("Нет запросов для добавления");
+      if (keywordsToAdd.length > 30) throw new Error("Максимум 30 запросов за раз");
+
+      const rows = keywordsToAdd.map(keyword => ({
         user_id: userId,
         project_id: activeProject.id,
-        keyword: newKeyword,
-      });
+        keyword,
+      }));
+
+      const { error } = await supabase.from("radar_keywords").insert(rows);
       if (error) throw error;
+      return keywordsToAdd.length;
     },
-    onSuccess: () => {
+    onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ["radar-keywords"] });
       setNewKeyword("");
-      toast.success("Запрос добавлен");
+      setBulkKeywords("");
+      setBulkMode(false);
+      toast.success(`Добавлено запросов: ${count}`);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -269,6 +290,31 @@ export default function RadarPage() {
       queryClient.invalidateQueries({ queryKey: ["radar-results"] });
       queryClient.invalidateQueries({ queryKey: ["radar-keywords"] });
       toast.success("Проверка завершена");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deleteProject = useMutation({
+    mutationFn: async (projectId: string) => {
+      // Delete keywords & results first (cascade not set up)
+      const { data: kwData } = await supabase
+        .from("radar_keywords")
+        .select("id")
+        .eq("project_id", projectId);
+      const kwIds = (kwData || []).map((k: any) => k.id);
+      if (kwIds.length > 0) {
+        await supabase.from("radar_results").delete().in("keyword_id", kwIds);
+        await supabase.from("radar_keywords").delete().eq("project_id", projectId);
+      }
+      const { error } = await supabase.from("radar_projects").delete().eq("id", projectId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["radar-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["radar-keywords"] });
+      queryClient.invalidateQueries({ queryKey: ["radar-results"] });
+      setSelectedProjectId(null);
+      toast.success("Проект удалён");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -326,7 +372,7 @@ export default function RadarPage() {
       </div>
 
       {/* Project selector */}
-      {projects.length > 1 && (
+      {projects.length >= 1 && (
         <div className="flex gap-2 flex-wrap">
           {projects.map((p: any) => (
             <Button
@@ -339,6 +385,34 @@ export default function RadarPage() {
               {p.brand_name}
             </Button>
           ))}
+          {activeProject && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive gap-1">
+                  <Trash2 className="h-3 w-3" />
+                  Удалить проект
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Удалить проект «{activeProject.brand_name}»?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Все ключевые слова и результаты проверок будут удалены. Это действие нельзя отменить.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteProject.mutate(activeProject.id)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleteProject.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Удалить
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       )}
 
@@ -429,22 +503,63 @@ export default function RadarPage() {
           {/* Add keyword */}
           <Card className="bg-card border-border">
             <CardContent className="pt-4">
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Введите поисковый запрос для мониторинга..."
-                    value={newKeyword}
-                    onChange={(e) => setNewKeyword(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && newKeyword.trim() && addKeyword.mutate()}
-                  />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">
+                    {bulkMode ? `Массовое добавление (до 30 запросов, по одному на строку)` : "Добавить запрос"}
+                  </Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() => setBulkMode(!bulkMode)}
+                  >
+                    {bulkMode ? "Одиночный режим" : "Массовое добавление"}
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => addKeyword.mutate()}
-                  disabled={!newKeyword.trim() || addKeyword.isPending}
-                >
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Добавить
-                </Button>
+                {bulkMode ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder={"лучший CRM для малого бизнеса\nкак выбрать CRM систему\nCRM для интернет-магазина\n..."}
+                      value={bulkKeywords}
+                      onChange={(e) => setBulkKeywords(e.target.value)}
+                      rows={6}
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {bulkKeywords.split("\n").filter(k => k.trim()).length} / 30 запросов
+                      </span>
+                      <Button
+                        onClick={() => addKeyword.mutate()}
+                        disabled={!bulkKeywords.trim() || addKeyword.isPending}
+                        size="sm"
+                      >
+                        {addKeyword.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Добавить все
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Введите поисковый запрос для мониторинга..."
+                        value={newKeyword}
+                        onChange={(e) => setNewKeyword(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && newKeyword.trim() && addKeyword.mutate()}
+                      />
+                    </div>
+                    <Button
+                      onClick={() => addKeyword.mutate()}
+                      disabled={!newKeyword.trim() || addKeyword.isPending}
+                    >
+                      {addKeyword.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Добавить
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
