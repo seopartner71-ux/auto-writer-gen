@@ -1110,18 +1110,6 @@ export default function ArticlesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                // Insert FAQ block into article content
-                                setContent(prev => prev + "\n\n" + faqTextBlock);
-                                toast.success("FAQ блок добавлен в статью");
-                              }}
-                            >
-                              <FileText className="h-3 w-3 mr-1" />
-                              Вставить в статью
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
                               onClick={() => copyToClipboard(faqTextBlock, "faq")}
                             >
                               {faqCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
