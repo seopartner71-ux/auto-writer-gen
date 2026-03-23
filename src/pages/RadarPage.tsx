@@ -9,11 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Radar as RadarIcon, Plus, Loader2, Search, TrendingUp, TrendingDown,
   Eye, ExternalLink, Trash2, RefreshCw, Shield, AlertTriangle,
-  Sparkles, Globe, ChevronRight, ArrowUpRight, Minus
+  Sparkles, Globe, ChevronRight, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
