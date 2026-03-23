@@ -35,11 +35,10 @@ const STATUS_CONFIG = {
 const MODEL_LABELS: Record<string, string> = {
   gemini_flash: "Gemini Flash",
   gemini_pro: "Gemini Pro",
-  gemini_flash_lite: "Gemini Lite",
   chatgpt: "ChatGPT",
   chatgpt_mini: "ChatGPT Mini",
-  chatgpt_pro: "ChatGPT Pro",
-  gemini: "Gemini",
+  perplexity: "Perplexity",
+  claude: "Claude",
 };
 
 // Radial chart component
@@ -138,7 +137,7 @@ export default function RadarPage() {
 
   // Share of Model calculations
   const somData = useMemo(() => {
-    const models = ["gemini_flash", "gemini_pro", "gemini_flash_lite", "chatgpt", "chatgpt_mini", "chatgpt_pro"];
+    const models = ["gemini_flash", "gemini_pro", "chatgpt", "chatgpt_mini", "perplexity", "claude"];
     return models.map(model => {
       const modelResults = results.filter((r: any) => r.model === model);
       if (modelResults.length === 0) return { model, label: MODEL_LABELS[model], value: 0 };
