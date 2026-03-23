@@ -19,6 +19,7 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import DashboardPage from "@/pages/DashboardPage";
 import KeywordsPage from "@/pages/KeywordsPage";
 import NotFound from "@/pages/NotFound";
+import Index from "@/pages/Index";
 
 // Lazy loaded (heavy / less frequent pages)
 const PlanBuilderPage = lazy(() => import("@/pages/PlanBuilderPage"));
