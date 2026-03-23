@@ -19,7 +19,7 @@ interface ProImageGeneratorProps {
 
 export function ProImageGenerator({ title, content, keyword, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
   const { isPro } = usePlanLimits();
-  const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("modern-tech");
+  const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("photorealistic");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMulti, setIsGeneratingMulti] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<{

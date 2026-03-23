@@ -8,14 +8,8 @@ const corsHeaders = {
 };
 
 const STYLE_PRESETS: Record<string, string> = {
-  "modern-tech":
-    "Professional 3D render, minimalist design, clean geometric shapes, purple and cyan neon accent lighting, dark background, high resolution, 8k, studio lighting",
   photorealistic:
     "Professional business photograph, high-end DSLR camera, natural lighting, shallow depth of field, crisp details, corporate business style, clean modern composition, realistic textures, no text or watermarks, editorial quality, 8k resolution",
-  "minimalist-vector":
-    "Flat vector illustration, clean minimalist style, pastel color palette, simple geometric shapes, modern infographic style, white background, no shadows",
-  "abstract-art":
-    "Abstract digital art, flowing gradients, metaphorical imagery, vibrant colors, artistic composition, premium quality, conceptual visualization, 4k",
 };
 
 function transliterate(text: string): string {
@@ -182,7 +176,7 @@ serve(async (req) => {
     const { title, summary, style, keyword, mode, content, max_images } = body;
     if (!title) throw new Error("Title is required");
 
-    const stylePrompt = STYLE_PRESETS[style] || STYLE_PRESETS["modern-tech"];
+    const stylePrompt = STYLE_PRESETS[style] || STYLE_PRESETS["photorealistic"];
 
     // Check plan
     const { data: profile } = await supabaseAdmin
