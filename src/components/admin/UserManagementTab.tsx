@@ -195,6 +195,20 @@ export function UserManagementTab() {
                       ${cost}
                     </TableCell>
                     <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="font-mono text-xs">{p.credits_amount}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-primary"
+                          title="Начислить кредиты"
+                          onClick={() => setCreditsUser({ id: p.id, email: p.email, credits_amount: p.credits_amount })}
+                        >
+                          <Coins className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
                       {isEditing ? (
                         <Input
                           type="number"
