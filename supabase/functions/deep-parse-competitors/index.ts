@@ -506,132 +506,123 @@ serve(async (req) => {
       target_h2_count: Math.max(median(h2Counts), 5),
     };
 
-    // ── AI Entity Extraction (Lovable AI Gateway for speed) ──
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    // ── AI Entity Extraction (with timeout fallback) ──
+    let entityAnalysis: { entities: any[]; must_use_phrases: any[] } = { entities: [], must_use_phrases: [] };
     
-    // Fallback: use OpenRouter if no Lovable AI key
-    const { data: assignment } = await supabaseAdmin
-      .from("task_model_assignments")
-      .select("model_key")
-      .eq("task_key", "researcher")
-      .single();
+    try {
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      const { data: assignment } = await supabaseAdmin
+        .from("task_model_assignments")
+        .select("model_key")
+        .eq("task_key", "researcher")
+        .single();
 
-    const useGateway = !!LOVABLE_API_KEY;
-    const model = useGateway ? "google/gemini-2.5-flash-lite" : (assignment?.model_key || "google/gemini-2.5-flash");
+      const useGateway = !!LOVABLE_API_KEY;
+      const model = useGateway ? "google/gemini-2.5-flash-lite" : (assignment?.model_key || "google/gemini-2.5-flash");
 
-    const competitorTexts = parsedPages
-      .slice(0, 4)
-      .map((p) => {
-        const headingText = p.structure.h_tags.slice(0, 15).map((h) => `H${h.level}: ${h.text}`).join("\n");
-        const topKw = p.content.keywords.slice(0, 8).map((k) => `${k.word}(${k.density}%)`).join(", ");
-        return `--- #${p.position} (${p.structure.word_count}w) ---\nTitle: ${p.seo.title}\nH1: ${p.structure.h1}\nHeadings:\n${headingText}\nTop kw: ${topKw}`;
-      })
-      .join("\n\n");
+      const competitorTexts = parsedPages
+        .slice(0, 3)
+        .map((p) => {
+          const headingText = p.structure.h_tags.slice(0, 10).map((h) => `H${h.level}: ${h.text}`).join("\n");
+          const topKw = p.content.keywords.slice(0, 6).map((k) => `${k.word}(${k.density}%)`).join(", ");
+          return `--- #${p.position} (${p.structure.word_count}w) ---\nH1: ${p.structure.h1}\nHeadings:\n${headingText}\nTop kw: ${topKw}`;
+        })
+        .join("\n\n");
 
-    const aiUrl = useGateway
-      ? "https://ai.gateway.lovable.dev/v1/chat/completions"
-      : "https://openrouter.ai/api/v1/chat/completions";
-    const aiAuthKey = useGateway ? LOVABLE_API_KEY : OPENROUTER_API_KEY;
+      const aiUrl = useGateway
+        ? "https://ai.gateway.lovable.dev/v1/chat/completions"
+        : "https://openrouter.ai/api/v1/chat/completions";
+      const aiAuthKey = useGateway ? LOVABLE_API_KEY : OPENROUTER_API_KEY;
 
-    const aiResponse = await fetch(aiUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${aiAuthKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert SEO entity analyst specializing in E-E-A-T and topical authority. Analyze competitor content to extract entities Google associates with this topic, and LSI phrases critical for ranking. Return data via the provided tool. Write ALL output in the same language as the keyword.`,
-          },
-          {
-            role: "user",
-            content: `Keyword: "${kw.seed_keyword}"
+      const aiController = new AbortController();
+      const aiTimeout = setTimeout(() => aiController.abort(), 25000); // 25s max for AI
 
-Competitor analysis data:
-${competitorTexts}
-
-TF-IDF top phrases (across ${parsedPages.length} competitors):
-${tfidfPhrases.slice(0, 25).map((p) => `"${p.phrase}" (freq:${p.total}, in ${p.docs}/${parsedPages.length} docs, commonality:${p.commonality}%)`).join("\n")}
-
-LSI Success Phrases (found in TOP-3 only):
-${lsiSuccessPhrases.join(", ") || "None identified"}
-
-TASK: 
-1. Extract the 15-20 most important thematic entities that Google associates with "${kw.seed_keyword}". Rate their importance 1-10.
-2. Identify must-use LSI phrases for a well-optimized article.
-3. For each entity, specify how many competitors mention it.`,
-          },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "return_entity_analysis",
-            description: "Return entity and concept analysis",
-            parameters: {
-              type: "object",
-              properties: {
-                entities: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      name: { type: "string" },
-                      type: { type: "string", enum: ["brand", "person", "location", "concept", "product", "organization", "event", "metric", "technology", "term"] },
-                      importance: { type: "number", description: "1-10 scale" },
-                      competitors_using: { type: "number" },
-                    },
-                    required: ["name", "type", "importance"],
-                  },
-                },
-                must_use_phrases: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      phrase: { type: "string" },
-                      reason: { type: "string" },
-                    },
-                    required: ["phrase", "reason"],
-                  },
-                },
-              },
-              required: ["entities", "must_use_phrases"],
-              additionalProperties: false,
+      const aiResponse = await fetch(aiUrl, {
+        method: "POST",
+        signal: aiController.signal,
+        headers: {
+          Authorization: `Bearer ${aiAuthKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: `You are an SEO entity analyst. Extract entities and LSI phrases from competitor data. Return data via the provided tool. Write ALL output in the same language as the keyword.`,
             },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "return_entity_analysis" } },
-      }),
-    });
+            {
+              role: "user",
+              content: `Keyword: "${kw.seed_keyword}"\n\nCompetitors:\n${competitorTexts}\n\nTF-IDF phrases:\n${tfidfPhrases.slice(0, 15).map((p) => `"${p.phrase}" (${p.docs}/${parsedPages.length} docs)`).join("\n")}\n\nExtract 10-15 important entities (importance 1-10) and must-use LSI phrases.`,
+            },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "return_entity_analysis",
+              description: "Return entity and concept analysis",
+              parameters: {
+                type: "object",
+                properties: {
+                  entities: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string" },
+                        type: { type: "string", enum: ["brand", "person", "location", "concept", "product", "organization", "event", "metric", "technology", "term"] },
+                        importance: { type: "number" },
+                      },
+                      required: ["name", "type", "importance"],
+                    },
+                  },
+                  must_use_phrases: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        phrase: { type: "string" },
+                        reason: { type: "string" },
+                      },
+                      required: ["phrase", "reason"],
+                    },
+                  },
+                },
+                required: ["entities", "must_use_phrases"],
+                additionalProperties: false,
+              },
+            },
+          }],
+          tool_choice: { type: "function", function: { name: "return_entity_analysis" } },
+        }),
+      });
+      clearTimeout(aiTimeout);
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, try again later" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errText);
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
-    }
+      if (aiResponse.ok) {
+        const aiData = await aiResponse.json();
+        const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+        if (toolCall?.function?.arguments) {
+          entityAnalysis = JSON.parse(toolCall.function.arguments);
+        } else {
+          const content = aiData.choices?.[0]?.message?.content || "";
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) entityAnalysis = JSON.parse(jsonMatch[0]);
+        }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let entityAnalysis: { entities: any[]; must_use_phrases: any[] };
-    if (toolCall?.function?.arguments) {
-      entityAnalysis = JSON.parse(toolCall.function.arguments);
-    } else {
-      const content = aiData.choices?.[0]?.message?.content || "";
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      entityAnalysis = jsonMatch ? JSON.parse(jsonMatch[0]) : { entities: [], must_use_phrases: [] };
+        // Log usage
+        const tokensUsed = aiData.usage?.total_tokens || 0;
+        await supabaseAdmin.from("usage_logs").insert({
+          user_id: userId,
+          action: "deep_parse_competitors",
+          model_used: model,
+          tokens_used: tokensUsed,
+        });
+      } else {
+        console.error("AI response not ok:", aiResponse.status);
+        await aiResponse.text(); // consume body
+      }
+    } catch (aiErr) {
+      console.error("AI entity extraction failed (using fallback):", aiErr instanceof Error ? aiErr.message : aiErr);
     }
 
     // Merge AI entities into page content
@@ -685,15 +676,6 @@ TASK:
         })
         .eq("id", serpResults[0].id);
     }
-
-    // Log usage
-    const tokensUsed = aiData.usage?.total_tokens || 0;
-    await supabaseAdmin.from("usage_logs").insert({
-      user_id: userId,
-      action: "deep_parse_competitors",
-      model_used: model,
-      tokens_used: tokensUsed,
-    });
 
     console.log(`Deep parse complete: ${parsedPages.length} pages, ${(entityAnalysis.entities || []).length} entities, score ready`);
 
