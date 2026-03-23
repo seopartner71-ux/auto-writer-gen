@@ -529,6 +529,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "landing.statRanking": { ru: "Рост позиций (средн.)", en: "Avg. ranking improvement" },
   "landing.statArticles": { ru: "Статей сгенерировано", en: "Articles generated" },
   "landing.statTime": { ru: "Среднее время публикации", en: "Avg. time to publish" },
+  "landing.copyright": { ru: "Все права защищены.", en: "All rights reserved." },
 };
 
 interface I18nContextValue {
