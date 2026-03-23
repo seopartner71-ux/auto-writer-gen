@@ -821,8 +821,8 @@ export default function RadarPage() {
                 dangerouslySetInnerHTML={{
                   __html: highlightBrand(
                     viewResponseData?.text || "Нет данных",
-                    selectedProject?.brand_name || "",
-                    selectedProject?.domain || "",
+                    activeProject?.brand_name || "",
+                    activeProject?.domain || "",
                   ),
                 }}
               />
