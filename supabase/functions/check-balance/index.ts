@@ -33,15 +33,24 @@ serve(async (req) => {
       .single();
     if (!role) throw new Error("Unauthorized: admin only");
 
-    // Get all API keys
+    // Get API keys from DB
     const { data: keys } = await supabaseAdmin
       .from("api_keys")
       .select("provider, api_key")
       .eq("is_valid", true);
 
+    // Also check env for OpenRouter key (edge functions use env as fallback)
+    const dbProviders = new Set((keys || []).map((k: any) => k.provider));
+    const allKeys: { provider: string; api_key: string }[] = [...(keys || [])];
+
+    if (!dbProviders.has("openrouter")) {
+      const envKey = Deno.env.get("OPENROUTER_API_KEY");
+      if (envKey) allKeys.push({ provider: "openrouter", api_key: envKey });
+    }
+
     const balances: Record<string, { balance: string; limit: string; usage: string; raw?: any }> = {};
 
-    for (const key of keys || []) {
+    for (const key of allKeys) {
       try {
         if (key.provider === "openrouter") {
           const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
@@ -54,20 +63,23 @@ serve(async (req) => {
             const usage = d.usage ?? 0;
             const remaining = limit !== null ? (limit - usage) : null;
             balances["openrouter"] = {
-              balance: remaining !== null ? `$${(remaining / 100).toFixed(2)}` : "Unlimited",
-              limit: limit !== null ? `$${(limit / 100).toFixed(2)}` : "No limit",
-              usage: `$${(usage / 100).toFixed(2)}`,
+              balance: remaining !== null ? `$${remaining.toFixed(2)}` : "Unlimited",
+              limit: limit !== null ? `$${limit.toFixed(2)}` : "No limit",
+              usage: `$${usage.toFixed(2)}`,
               raw: d,
             };
+          } else {
+            const errText = await res.text();
+            console.error("OpenRouter balance check failed:", res.status, errText);
+            balances["openrouter"] = { balance: "Error", limit: "—", usage: "—" };
           }
         }
 
         if (key.provider === "fal_ai") {
-          // Fal.ai doesn't have a public balance API, skip
           balances["fal_ai"] = {
             balance: "N/A",
             limit: "N/A",
-            usage: "N/A",
+            usage: "Проверьте на fal.ai",
           };
         }
       } catch (e) {
