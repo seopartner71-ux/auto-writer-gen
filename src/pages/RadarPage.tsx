@@ -606,6 +606,11 @@ export default function RadarPage() {
                                     model: MODEL_LABELS[r.model] || r.model,
                                     text: r.ai_response_text || "",
                                     date: new Date(r.checked_at).toLocaleString("ru"),
+                                    brand_mentioned: r.brand_mentioned || false,
+                                    domain_linked: r.domain_linked || false,
+                                    matched_snippets: r.matched_snippets || [],
+                                    status: r.status || "opportunity",
+                                    keyword: kw.keyword,
                                   })}
                                   className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 ${sc?.color || ""}`}
                                 >
