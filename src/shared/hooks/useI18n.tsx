@@ -8,7 +8,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "nav.keywords": { ru: "Ключевые слова", en: "Keywords" },
   "nav.planBuilder": { ru: "Структура статьи", en: "Article Structure" },
   "nav.articles": { ru: "Статьи", en: "Articles" },
-  "nav.calendar": { ru: "Календарь", en: "Calendar" },
+  "nav.calendar": { ru: "Планировщик", en: "Planner" },
   "nav.analytics": { ru: "Аналитика", en: "Analytics" },
   "nav.authorProfiles": { ru: "Профили авторов", en: "Author Profiles" },
   "nav.settings": { ru: "Настройки", en: "Settings" },
