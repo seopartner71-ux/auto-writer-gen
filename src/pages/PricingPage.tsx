@@ -84,6 +84,7 @@ const plans = [
       { text: "Публикация в WordPress", included: true },
       { text: "Запланированные публикации в WP", included: true },
       { text: "Массовая генерация (Factory Mode)", included: true },
+      { text: "Pro Visual Synthesis — 100 AI-обложек/мес", included: true },
       { text: "Мгновенная индексация", included: true },
       { text: "Приоритетная поддержка 24/7", included: true },
     ],
