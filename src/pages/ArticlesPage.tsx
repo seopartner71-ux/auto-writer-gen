@@ -672,7 +672,7 @@ export default function ArticlesPage() {
     } finally {
       setSchemaGenerating(false);
     }
-  }, [selectedKeyword, limits.hasJsonLdSchema]);
+  }, [selectedKeyword, limits.hasJsonLdSchema, faqMode, lsiKeywords]);
 
   // Auto-fill fields when keyword changes
   useEffect(() => {
