@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LandingStats } from "@/components/landing/LandingStats";
+import { LandingFooter } from "@/components/landing/LandingFooter";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 const fadeUp = {
