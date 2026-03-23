@@ -71,10 +71,10 @@ export interface ResearchData {
 
 export default function KeywordsPage() {
   const [keyword, setKeyword] = useState("");
-  const [geo, setGeo] = useState("us");
+  const [geo, setGeo] = useState("ru");
   const [geoMode, setGeoMode] = useState<"country" | "city">("country");
   const [city, setCity] = useState("");
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState("ru");
   const [results, setResults] = useState<ResearchData | null>(null);
 
   const currentCities = useMemo(() => {
