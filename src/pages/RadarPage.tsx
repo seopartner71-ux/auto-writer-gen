@@ -34,9 +34,7 @@ const STATUS_CONFIG = {
 
 const MODEL_LABELS: Record<string, string> = {
   gemini_flash: "Gemini Flash",
-  gemini_pro: "Gemini Pro",
   chatgpt: "ChatGPT",
-  chatgpt_mini: "ChatGPT Mini",
   perplexity: "Perplexity",
   claude: "Claude",
 };
