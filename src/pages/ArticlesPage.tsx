@@ -131,35 +131,61 @@ function highlightHtml(code: string): string {
     .replace(/(&gt;)/g, '<span style="color:hsl(210,80%,65%)">$1</span>');
 }
 
-function markdownToHtml(md: string, title?: string, metaDesc?: string): string {
-  let html = md
-    // headings
+function markdownToCleanHtml(md: string): string {
+  // Handle tables first
+  let html = md.replace(
+    /(?:^|\n)((?:\|.+\|\s*\n)+)/g,
+    (_, tableBlock: string) => {
+      const rows = tableBlock.trim().split("\n").filter(Boolean);
+      if (rows.length < 2) return tableBlock;
+      const headerCells = rows[0].split("|").filter(c => c.trim());
+      const isSep = /^[\s|:-]+$/.test(rows[1]);
+      const dataRows = isSep ? rows.slice(2) : rows.slice(1);
+      let table = "<table><thead><tr>";
+      headerCells.forEach(c => { table += `<th>${c.trim()}</th>`; });
+      table += "</tr></thead><tbody>";
+      dataRows.forEach(row => {
+        const cells = row.split("|").filter(c => c.trim());
+        table += "<tr>";
+        cells.forEach(c => { table += `<td>${c.trim()}</td>`; });
+        table += "</tr>";
+      });
+      table += "</tbody></table>";
+      return "\n" + table + "\n";
+    }
+  );
+
+  html = html
     .replace(/^######\s+(.+)$/gm, "<h6>$1</h6>")
     .replace(/^#####\s+(.+)$/gm, "<h5>$1</h5>")
     .replace(/^####\s+(.+)$/gm, "<h4>$1</h4>")
     .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
     .replace(/^##\s+(.+)$/gm, "<h2>$1</h2>")
     .replace(/^#\s+(.+)$/gm, "<h1>$1</h1>")
-    // bold & italic
     .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    // images (must be before links)
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;height:auto;border-radius:8px;margin:1rem 0" />')
-    // unordered lists
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;height:auto;" />')
     .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
-    // ordered lists
     .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
-    // links
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    // line breaks → paragraphs
     .replace(/\n{2,}/g, "\n</p>\n<p>\n")
     .replace(/\n/g, "<br>\n");
 
-  // Wrap consecutive <li> in <ul>
   html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, "<ul>$1</ul>");
   html = `<p>${html}</p>`;
 
+  // Clean empty paragraphs
+  html = html.replace(/<p>\s*<\/p>/g, "");
+  html = html.replace(/<p>\s*(<h[1-6]|<ul|<ol|<table)/g, "$1");
+  html = html.replace(/(<\/h[1-6]>|<\/ul>|<\/ol>|<\/table>)\s*<\/p>/g, "$1");
+  html = html.replace(/<p>\s*<br>\s*<\/p>/g, "");
+
+  return html.trim();
+}
+
+function markdownToFullHtml(md: string, title?: string, metaDesc?: string): string {
+  const body = markdownToCleanHtml(md);
   return `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -175,10 +201,13 @@ function markdownToHtml(md: string, title?: string, metaDesc?: string): string {
     ul { padding-left: 1.5rem; }
     a { color: #2563eb; }
     strong { font-weight: 600; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #e5e5e5; padding: .5rem .75rem; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
   </style>
 </head>
 <body>
-${html}
+${body}
 </body>
 </html>`;
 }
@@ -839,7 +868,7 @@ export default function ArticlesPage() {
                       size="sm"
                       disabled={!content}
                       onClick={() => {
-                        const html = markdownToHtml(content, title, metaDescription);
+                        const html = markdownToFullHtml(content, title, metaDescription);
                         const blob = new Blob([html], { type: "text/html;charset=utf-8" });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
@@ -921,20 +950,21 @@ export default function ArticlesPage() {
                 <TabsContent value="html" className="mt-0">
                   {content ? (
                     <div className="relative">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2 z-10"
-                        onClick={() => {
-                          navigator.clipboard.writeText(markdownToHtml(content, title, metaDescription));
-                          toast.success("HTML скопирован");
-                        }}
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Копировать
-                      </Button>
+                      <div className="flex items-center gap-2 absolute top-2 right-2 z-10">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(markdownToCleanHtml(content));
+                            toast.success("Чистый HTML скопирован — вставляйте в любую CMS");
+                          }}
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Копировать для CMS
+                        </Button>
+                      </div>
                       <pre className="min-h-[500px] max-h-[700px] overflow-auto p-4 rounded-md bg-muted text-xs font-mono whitespace-pre-wrap break-all text-foreground">
-                        <code dangerouslySetInnerHTML={{ __html: highlightHtml(markdownToHtml(content, title, metaDescription)) }} />
+                        <code dangerouslySetInnerHTML={{ __html: highlightHtml(markdownToCleanHtml(content)) }} />
                       </pre>
                     </div>
                   ) : (
