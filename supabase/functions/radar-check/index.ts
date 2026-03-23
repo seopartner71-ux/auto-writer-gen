@@ -56,25 +56,57 @@ function extractDomains(text: string): string[] {
   return Array.from(domains);
 }
 
+function generateBrandVariants(brandName: string, domain: string): string[] {
+  const variants = new Set<string>();
+  const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
+  
+  // Original brand name
+  variants.add(brandName.toLowerCase());
+  
+  // Domain without TLD (e.g. "revacare.ru" -> "revacare")
+  const domainBase = cleanDomain.replace(/\.[a-z]{2,}$/, "");
+  variants.add(domainBase);
+  
+  // Split camelCase/domain into words: "revacare" -> "reva care"
+  const withSpaces = domainBase.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+  if (withSpaces !== domainBase) variants.add(withSpaces);
+  
+  // Try common splits: "revacare" -> try splitting at each position
+  if (domainBase.length >= 4 && !domainBase.includes(" ")) {
+    for (let i = 2; i <= domainBase.length - 2; i++) {
+      const candidate = domainBase.slice(0, i) + " " + domainBase.slice(i);
+      variants.add(candidate);
+    }
+  }
+  
+  // Brand with/without hyphens and spaces
+  variants.add(brandName.toLowerCase().replace(/[-\s]/g, ""));
+  variants.add(brandName.toLowerCase().replace(/-/g, " "));
+  
+  return Array.from(variants).filter(v => v.length >= 3);
+}
+
 function checkBrandMention(text: string, brandName: string, domain: string, dataNuggets: string[]): {
   brand_mentioned: boolean;
   domain_linked: boolean;
   matched_snippets: string[];
 } {
   const lower = text.toLowerCase();
-  const brandLower = brandName.toLowerCase();
-  const domainLower = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
-
-  const brand_mentioned = lower.includes(brandLower);
-  const domain_linked = lower.includes(domainLower);
+  const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
+  
+  // Generate all brand name variants to check
+  const brandVariants = generateBrandVariants(brandName, domain);
+  
+  const brand_mentioned = brandVariants.some(v => lower.includes(v));
+  const domain_linked = lower.includes(cleanDomain);
 
   const matched_snippets: string[] = [];
 
-  // Find sentences mentioning the brand
+  // Find sentences mentioning any brand variant
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
   for (const sentence of sentences) {
     const sLower = sentence.toLowerCase();
-    if (sLower.includes(brandLower) || sLower.includes(domainLower)) {
+    if (brandVariants.some(v => sLower.includes(v)) || sLower.includes(cleanDomain)) {
       matched_snippets.push(sentence.trim());
     }
   }
