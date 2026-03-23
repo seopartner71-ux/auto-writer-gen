@@ -1,6 +1,6 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useTransition, useDeferredValue, useCallback } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,11 +17,11 @@ import RegisterPage from "@/pages/RegisterPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import DashboardPage from "@/pages/DashboardPage";
-import KeywordsPage from "@/pages/KeywordsPage";
 import NotFound from "@/pages/NotFound";
 import Index from "@/pages/Index";
 
 // Lazy loaded (heavy / less frequent pages)
+const KeywordsPage = lazy(() => import("@/pages/KeywordsPage"));
 const PlanBuilderPage = lazy(() => import("@/pages/PlanBuilderPage"));
 const ArticlesPage = lazy(() => import("@/pages/ArticlesPage"));
 const CalendarPage = lazy(() => import("@/pages/CalendarPage"));
