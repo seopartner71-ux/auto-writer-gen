@@ -16,6 +16,7 @@ import {
   Sparkles, Globe, ChevronRight, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
