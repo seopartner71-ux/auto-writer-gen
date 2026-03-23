@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 
 export default function SettingsPage() {
   const { user, profile } = useAuth();
@@ -31,6 +33,21 @@ export default function SettingsPage() {
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketMessage, setTicketMessage] = useState("");
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleClearCache = async () => {
+    setIsClearingCache(true);
+    try {
+      await queryClient.invalidateQueries();
+      queryClient.clear();
+      toast.success("Кеш очищен! Все данные будут загружены заново.");
+    } catch {
+      toast.error("Ошибка при очистке кеша");
+    } finally {
+      setTimeout(() => setIsClearingCache(false), 1000);
+    }
+  };
 
   const { data: proImageCount = 0 } = useQuery({
     queryKey: ["pro-image-count"],
@@ -310,6 +327,31 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Cache */}
+          <Card className="bg-card border-border overflow-hidden">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-primary" />
+                Кеш сервиса
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Очистить локальный кеш для загрузки актуальных данных
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={handleClearCache}
+                disabled={isClearingCache}
+                size="sm"
+                variant="outline"
+                className="w-full"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isClearingCache ? "animate-spin" : ""}`} />
+                {isClearingCache ? "Очистка..." : "Очистить кеш"}
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Account info */}
           <Card className="bg-card border-border overflow-hidden">
