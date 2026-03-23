@@ -11,7 +11,7 @@ export function LandingNav() {
       <div className="container mx-auto flex items-center justify-between px-4 h-14">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
           <Hexagon className="h-5 w-5 text-primary" />
-          <span className="text-lg font-bold">SERPblueprint</span>
+          <span className="text-xl font-brand tracking-tight">SERP<span className="gradient-text">blueprint</span></span>
         </div>
 
         <div className="flex items-center gap-3">
