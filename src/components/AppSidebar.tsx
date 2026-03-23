@@ -34,11 +34,15 @@ import {
 } from "@/components/ui/sidebar";
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { role, profile } = useAuth();
   const { t } = useI18n();
+
+  const handleNavClick = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   const mainItems = [
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
