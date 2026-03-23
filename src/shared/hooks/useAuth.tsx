@@ -36,11 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Fetch profile and role in parallel
     const [profileRes, roleRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).single(),
-      supabase.from("user_roles").select("role").eq("user_id", userId).single(),
+      supabase.from("user_roles").select("role").eq("user_id", userId),
     ]);
 
     setProfile(profileRes.data as Profile | null);
-    setRole((roleRes.data?.role as AppRole) ?? "user");
+    const roles = (roleRes.data ?? []).map((r: any) => r.role as AppRole);
+    setRole(roles.includes("admin") ? "admin" : roles[0] ?? "user");
   }, []);
 
   useEffect(() => {
