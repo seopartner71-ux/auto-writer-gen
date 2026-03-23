@@ -18,7 +18,7 @@ const stagger = {
 
 export default function Index() {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
