@@ -35,7 +35,7 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; cl
   queued: { label: "В очереди", icon: FileText, className: "bg-muted text-muted-foreground" },
   researching: { label: "Researching", icon: Search, className: "bg-info/20 text-info" },
   writing: { label: "Writing", icon: Pencil, className: "bg-primary/20 text-primary" },
-  done: { label: "Done", icon: CheckCircle2, className: "bg-green-500/20 text-green-400" },
+  done: { label: "Done", icon: CheckCircle2, className: "bg-purple-500/20 text-purple-400" },
   error: { label: "Error", icon: AlertTriangle, className: "bg-destructive/20 text-destructive" },
 };
 
