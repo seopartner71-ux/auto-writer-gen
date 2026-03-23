@@ -760,11 +760,28 @@ export default function RadarPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Status summary cards */}
+          {/* Status summary cards - client-side recheck */}
+          {(() => {
+            const text = (viewResponseData?.text || "").toLowerCase();
+            const brandName = activeProject?.brand_name || "";
+            const domain = activeProject?.domain || "";
+            const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
+            const domainBase = cleanDomain.replace(/\.[a-z]{2,}$/, "");
+            const variants: string[] = [];
+            if (brandName) variants.push(brandName.toLowerCase());
+            if (domainBase) variants.push(domainBase);
+            if (domainBase.length >= 4) {
+              for (let i = 2; i <= domainBase.length - 2; i++) {
+                variants.push(domainBase.slice(0, i) + " " + domainBase.slice(i));
+              }
+            }
+            const actualBrand = variants.some(v => text.includes(v));
+            const actualDomain = text.includes(cleanDomain);
+            return (
           <div className="grid grid-cols-2 gap-3 mt-3">
-            <div className={`p-3 rounded-lg border ${viewResponseData?.brand_mentioned ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+            <div className={`p-3 rounded-lg border ${actualBrand ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
               <div className="flex items-center gap-2 mb-1">
-                {viewResponseData?.brand_mentioned ? (
+                {actualBrand ? (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 ) : (
                   <XCircle className="h-4 w-4 text-red-500" />
@@ -772,7 +789,7 @@ export default function RadarPage() {
                 <span className="text-sm font-medium">Бренд</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {viewResponseData?.brand_mentioned ? "Упомянут в ответе" : "Не упомянут"}
+                {actualBrand ? "Упомянут в ответе" : "Не упомянут"}
               </p>
             </div>
             <div className={`p-3 rounded-lg border ${viewResponseData?.domain_linked ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
