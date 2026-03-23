@@ -1244,7 +1244,7 @@ export default function ArticlesPage() {
                           try {
                             const parsed = JSON.parse(jsonStr);
                             const delta = parsed.choices?.[0]?.delta?.content;
-                            if (delta) { fullContent += delta; setContent(fullContent); }
+                            if (delta) { if (!fullContent) setStreamPhase("writing"); fullContent += delta; setContent(fullContent); }
                           } catch { buffer = line + "\n" + buffer; break; }
                         }
                       }
