@@ -959,6 +959,10 @@ export default function ArticlesPage() {
                 <BarChart3 className="h-3 w-3" />
                 Dashboard
               </TabsTrigger>
+              <TabsTrigger value="human" className="text-xs gap-1 flex-1">
+                <Shield className="h-3 w-3" />
+                Human Score
+              </TabsTrigger>
               <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
                 <Target className="h-3 w-3" />
                 Benchmark
