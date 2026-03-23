@@ -687,11 +687,6 @@ export default function ArticlesPage() {
         <BulkGenerationMode />
       ) : (
       <>
-
-            <TabsContent value="human" className="mt-3">
-              <HumanScorePanel content={content} lsiKeywords={lsiKeywords} />
-            </TabsContent>
-
       {/* Configuration */}
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
