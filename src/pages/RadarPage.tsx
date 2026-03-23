@@ -67,8 +67,15 @@ function highlightBrand(text: string, brandName: string, domain: string): string
   return html;
 }
 
+function getRadialColor(value: number): string {
+  if (value >= 60) return "#22c55e"; // green
+  if (value >= 30) return "#eab308"; // yellow
+  if (value > 0) return "#ef4444";   // red
+  return "hsl(var(--muted-foreground))";
+}
+
 // Radial chart component
-function RadialChart({ value, label, color }: { value: number; label: string; color: string }) {
+function RadialChart({ value, label, color }: { value: number; label: string; color?: string }) {
   const radius = 36;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (value / 100) * circumference;
@@ -80,7 +87,7 @@ function RadialChart({ value, label, color }: { value: number; label: string; co
           <circle cx="40" cy="40" r={radius} stroke="hsl(var(--muted))" strokeWidth="6" fill="none" />
           <motion.circle
             cx="40" cy="40" r={radius}
-            stroke={color}
+            stroke={color || getRadialColor(value)}
             strokeWidth="6"
             fill="none"
             strokeLinecap="round"
@@ -481,13 +488,13 @@ export default function RadarPage() {
                       key={d.model}
                       value={d.value}
                       label={d.label}
-                      color={d.value > 30 ? "hsl(var(--primary))" : d.value > 0 ? "hsl(var(--warning))" : "hsl(var(--muted-foreground))"}
+                      color={getRadialColor(d.value)}
                     />
                   ))}
                   <RadialChart
                     value={Math.round(overallCaptured)}
                     label="Общий"
-                    color="hsl(var(--primary))"
+                    color={getRadialColor(Math.round(overallCaptured))}
                   />
                 </div>
                 <Separator className="my-3" />
