@@ -176,6 +176,10 @@ ${isRussian
 - Active voice dominant. Passive — max 10% of sentences.
 - Show emotional engagement: enthusiasm, skepticism, surprise where appropriate.`}
 
+РАНДОМИЗАЦИЯ (обязательно):
+- Случайным образом измени порядок двух любых аргументов в тексте, чтобы избежать шаблонности.
+- Каждый раз начинай статью по-разному: иногда с факта, иногда с вопроса, иногда с цитаты.
+
 === КОНЕЦ БЛОКА В ===`;
 
   // ═══ Assemble System Prompt ═══
