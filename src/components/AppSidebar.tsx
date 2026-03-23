@@ -32,6 +32,24 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useCallback } from "react";
+
+// Prefetch route chunks on hover
+const routePrefetchMap: Record<string, () => void> = {
+  "/keywords": () => import("@/pages/KeywordsPage"),
+  "/plan-builder": () => import("@/pages/PlanBuilderPage"),
+  "/articles": () => import("@/pages/ArticlesPage"),
+  "/calendar": () => import("@/pages/CalendarPage"),
+  "/analytics": () => import("@/pages/AnalyticsPage"),
+  "/author-profiles": () => import("@/pages/AuthorProfilesPage"),
+  "/settings": () => import("@/pages/SettingsPage"),
+  "/pricing": () => import("@/pages/PricingPage"),
+  "/indexing": () => import("@/pages/IndexingPage"),
+  "/wordpress": () => import("@/pages/WordPressPage"),
+  "/radar": () => import("@/pages/RadarPage"),
+  "/wiki": () => import("@/pages/WikiPage"),
+  "/admin": () => import("@/pages/AdminPage"),
+};
 
 export function AppSidebar() {
   const { state, setOpenMobile, isMobile } = useSidebar();
@@ -43,6 +61,10 @@ export function AppSidebar() {
   const handleNavClick = () => {
     if (isMobile) setOpenMobile(false);
   };
+
+  const handlePrefetch = useCallback((url: string) => {
+    routePrefetchMap[url]?.();
+  }, []);
 
   const mainItems = [
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
