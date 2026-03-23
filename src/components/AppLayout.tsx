@@ -5,6 +5,7 @@ import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";
 import { LogOut, Sun, Moon, MessageCircle } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
