@@ -18,7 +18,7 @@ export default function PricingPage() {
 
   const plans = [
     {
-      id: "free" as const, name: "Free", price: "0 ₽", period: t("pricing.perMonth"), icon: Sparkles,
+      id: "free" as const, name: "Free", price: isEn ? "$0" : "0 ₽", period: t("pricing.perMonth"), icon: Sparkles,
       description: t("pricing.freeDesc"), badge: null, credits: 5,
       features: [
         { text: t("pricing.f.gens5"), included: true },
