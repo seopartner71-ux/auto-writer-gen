@@ -46,7 +46,10 @@ serve(async (req) => {
     // 1. Google Indexing API (if GSC key configured)
     if (profile.gsc_json_key) {
       try {
-        const keyData = JSON.parse(profile.gsc_json_key);
+        // Decrypt GSC key
+        const { data: decryptedKey, error: decErr } = await admin.rpc("decrypt_sensitive", { ciphertext: profile.gsc_json_key });
+        const rawKey = decErr ? profile.gsc_json_key : (decryptedKey ?? profile.gsc_json_key);
+        const keyData = JSON.parse(rawKey);
         const token = await getGoogleAccessToken(keyData);
 
         const googleResp = await fetch(

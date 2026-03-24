@@ -42,7 +42,10 @@ serve(async (req) => {
         const article = post.articles;
         if (!site || !article) throw new Error("Missing site or article data");
 
-        const wpAuth = btoa(`${site.username}:${site.app_password}`);
+        // Decrypt app_password
+        const { data: decryptedPw, error: decErr } = await admin.rpc("decrypt_sensitive", { ciphertext: site.app_password });
+        const plainPassword = decErr ? site.app_password : (decryptedPw ?? site.app_password);
+        const wpAuth = btoa(`${site.username}:${plainPassword}`);
         const baseUrl = site.site_url.replace(/\/+$/, "");
 
         // Convert content (basic markdown to HTML)
