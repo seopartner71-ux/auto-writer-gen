@@ -1,12 +1,12 @@
 import { useState, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -114,70 +114,7 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">{t("ps.authorStyle")}</Label>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 gap-1">
-              <Plus className="h-3 w-3" /> {t("ps.createOwn")}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{t("ps.createStyle")}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-xs">{t("ps.authorName")}</Label>
-                <Input
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  placeholder={t("ps.authorNamePlaceholder")}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">{t("ps.instruction")}</Label>
-                <Textarea
-                  value={newInstruction}
-                  onChange={e => setNewInstruction(e.target.value)}
-                  placeholder={t("ps.instructionPlaceholder")}
-                  className="mt-1 min-h-[120px] font-mono text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">{t("ps.sampleLabel")}</Label>
-                <p className="text-[10px] text-muted-foreground mb-1">
-                  {t("ps.sampleHint")}
-                </p>
-                <Textarea
-                  value={sampleText}
-                  onChange={e => setSampleText(e.target.value)}
-                  placeholder={t("ps.samplePlaceholder")}
-                  className="mt-1 min-h-[100px] text-xs"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 w-full text-xs"
-                  disabled={isAnalyzing || sampleText.length < 100}
-                  onClick={handleAnalyzeSample}
-                >
-                  {isAnalyzing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
-                  {isAnalyzing ? t("ps.analyzing") : t("ps.analyzeBtn")}
-                </Button>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>{t("common.cancel")}</Button>
-              <Button onClick={handleCreateAuthor} disabled={isSaving}>
-                {isSaving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
-                {t("common.create")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <Label className="text-xs text-muted-foreground">{t("ps.authorStyle")}</Label>
 
       <TooltipProvider delayDuration={300}>
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
@@ -212,8 +149,76 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
               isCustom
             />
           ))}
+
+          {/* Add card */}
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex-shrink-0 flex flex-col items-center justify-center gap-1.5 p-3 rounded-lg border-2 border-dashed border-muted-foreground/30 transition-all w-[100px] min-w-[100px] cursor-pointer text-center hover:border-primary/50 hover:bg-accent/50"
+          >
+            <div className="flex items-center justify-center h-9 w-9 rounded-full bg-muted text-muted-foreground">
+              <Plus className="h-4 w-4" />
+            </div>
+            <span className="text-[11px] font-medium leading-tight text-muted-foreground">{t("ps.createOwn")}</span>
+          </button>
         </div>
       </TooltipProvider>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("ps.createStyle")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">{t("ps.authorName")}</Label>
+              <Input
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder={t("ps.authorNamePlaceholder")}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">{t("ps.instruction")}</Label>
+              <Textarea
+                value={newInstruction}
+                onChange={e => setNewInstruction(e.target.value)}
+                placeholder={t("ps.instructionPlaceholder")}
+                className="mt-1 min-h-[120px] font-mono text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">{t("ps.sampleLabel")}</Label>
+              <p className="text-[10px] text-muted-foreground mb-1">
+                {t("ps.sampleHint")}
+              </p>
+              <Textarea
+                value={sampleText}
+                onChange={e => setSampleText(e.target.value)}
+                placeholder={t("ps.samplePlaceholder")}
+                className="mt-1 min-h-[100px] text-xs"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 w-full text-xs"
+                disabled={isAnalyzing || sampleText.length < 100}
+                onClick={handleAnalyzeSample}
+              >
+                {isAnalyzing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                {isAnalyzing ? t("ps.analyzing") : t("ps.analyzeBtn")}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>{t("common.cancel")}</Button>
+            <Button onClick={handleCreateAuthor} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+              {t("common.create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
