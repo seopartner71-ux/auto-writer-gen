@@ -14,8 +14,9 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send
 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -317,6 +318,7 @@ export default function ArticlesPage() {
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
+  const [publishingTo, setPublishingTo] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -961,6 +963,79 @@ export default function ArticlesPage() {
                       <Save className="h-3 w-3 mr-1" />
                       {saveArticle.isPending ? "..." : t("common.save")}
                     </Button>
+
+                    {/* Blog platform publish buttons */}
+                    {currentArticleId && content && (
+                      <>
+                        <Separator orientation="vertical" className="h-6 mx-1" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={publishingTo !== null}
+                          onClick={async () => {
+                            setPublishingTo("telegraph");
+                            try {
+                              const { data, error } = await supabase.functions.invoke("publish-telegraph", {
+                                body: { article_id: currentArticleId, author_name: authorProfiles.find((a: any) => a.id === selectedAuthorId)?.name || "Author" },
+                              });
+                              if (error || !data?.success) throw new Error(data?.error || "Ошибка публикации");
+                              toast.success("Опубликовано в Telegra.ph!", { description: data.url, action: { label: "Открыть", onClick: () => window.open(data.url, "_blank") } });
+                            } catch (e: any) {
+                              toast.error(e.message || "Ошибка Telegra.ph");
+                            } finally {
+                              setPublishingTo(null);
+                            }
+                          }}
+                        >
+                          {publishingTo === "telegraph" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+                          Telegra.ph
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={publishingTo !== null}
+                          onClick={async () => {
+                            setPublishingTo("ghost");
+                            try {
+                              const { data, error } = await supabase.functions.invoke("publish-ghost", {
+                                body: { article_id: currentArticleId },
+                              });
+                              if (error || !data?.success) throw new Error(data?.error || "Ошибка публикации");
+                              toast.success("Черновик создан в Ghost!", { description: data.url, action: { label: "Открыть", onClick: () => window.open(data.url, "_blank") } });
+                            } catch (e: any) {
+                              toast.error(e.message || "Ошибка Ghost");
+                            } finally {
+                              setPublishingTo(null);
+                            }
+                          }}
+                        >
+                          {publishingTo === "ghost" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+                          Ghost
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={publishingTo !== null}
+                          onClick={async () => {
+                            setPublishingTo("medium");
+                            try {
+                              const { data, error } = await supabase.functions.invoke("publish-medium", {
+                                body: { article_id: currentArticleId },
+                              });
+                              if (error || !data?.success) throw new Error(data?.error || "Ошибка публикации");
+                              toast.success("Черновик создан в Medium!", { description: data.url, action: { label: "Открыть", onClick: () => window.open(data.url, "_blank") } });
+                            } catch (e: any) {
+                              toast.error(e.message || "Ошибка Medium");
+                            } finally {
+                              setPublishingTo(null);
+                            }
+                          }}
+                        >
+                          {publishingTo === "medium" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+                          Medium
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </CardTitle>
               </CardHeader>
