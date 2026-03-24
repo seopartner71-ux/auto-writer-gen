@@ -966,7 +966,7 @@ export default function ArticlesPage() {
                     </Button>
 
                     {/* Blog platform publish buttons — PRO only */}
-                    {currentArticleId && content && limits.isPro && (
+                    {currentArticleId && content && limits.hasProImageGen && (
                       <>
                         <Separator orientation="vertical" className="h-6 mx-1" />
                         <Button
