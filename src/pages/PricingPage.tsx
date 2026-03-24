@@ -1,4 +1,5 @@
-import { Check, X, Zap, Crown, Sparkles, CreditCard } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 
 export default function PricingPage() {
   const { profile, user } = useAuth();
@@ -15,11 +17,43 @@ export default function PricingPage() {
   const currentPlan = profile?.plan ?? "free";
   const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Verify checkout on return from Polar
+  useEffect(() => {
+    const checkoutId = searchParams.get("checkout_id");
+    if (!checkoutId || !user) return;
+
+    const verifyCheckout = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("polar-checkout", {
+          body: { action: "verify", checkoutId },
+        });
+
+        if (error) throw error;
+
+        if (data?.status === "succeeded") {
+          toast.success(isEn ? "Payment successful! Your plan has been upgraded." : "Оплата прошла успешно! Ваш тариф обновлён.");
+          queryClient.invalidateQueries({ queryKey: ["profile"] });
+        } else if (data?.status === "failed") {
+          toast.error(isEn ? "Payment failed. Please try again." : "Оплата не прошла. Попробуйте снова.");
+        }
+      } catch (err) {
+        console.error("Checkout verification error:", err);
+      }
+
+      // Clean up URL
+      setSearchParams({});
+    };
+
+    verifyCheckout();
+  }, [searchParams, user]);
 
   const plans = [
     {
       id: "free" as const, name: "Free", price: isEn ? "$0" : "0 ₽", period: t("pricing.perMonth"), icon: Sparkles,
-      description: t("pricing.freeDesc"), badge: null, credits: 5,
+      description: t("pricing.freeDesc"), badge: null, credits: 5, polarProductId: null,
       features: [
         { text: t("pricing.f.gens5"), included: true },
         { text: t("pricing.f.basicResearch"), included: true },
@@ -35,7 +69,7 @@ export default function PricingPage() {
     },
     {
       id: "basic" as const, name: t("pricing.basicName"), price: isEn ? "$59" : "4 900 ₽", period: t("pricing.perMonth"), icon: Zap,
-      description: t("pricing.basicDesc"), badge: t("pricing.popular"), credits: 30,
+      description: t("pricing.basicDesc"), badge: t("pricing.popular"), credits: 30, polarProductId: null as string | null,
       features: [
         { text: t("pricing.f.gens30"), included: true },
         { text: t("pricing.f.fullSerp"), included: true },
@@ -51,7 +85,7 @@ export default function PricingPage() {
     },
     {
       id: "pro" as const, name: "Pro", price: isEn ? "$169" : "12 400 ₽", period: t("pricing.perMonth"), icon: Crown,
-      description: t("pricing.proDesc"), badge: t("pricing.maximum"), credits: 100,
+      description: t("pricing.proDesc"), badge: t("pricing.maximum"), credits: 100, polarProductId: null as string | null,
       features: [
         { text: t("pricing.f.gens100"), included: true },
         { text: t("pricing.f.fullSerpComp"), included: true },
@@ -68,14 +102,62 @@ export default function PricingPage() {
   ];
 
   const handleSelectPlan = async (planId: string) => {
-    if (!user) { toast.error(t("pricing.loginRequired")); return; }
+    if (!user) {
+      toast.error(t("pricing.loginRequired"));
+      return;
+    }
     if (planId === currentPlan) return;
+
     const selectedPlan = plans.find(p => p.id === planId);
-    const { error } = await supabase.from("profiles").update({ plan: planId, credits_amount: selectedPlan?.credits ?? 0 }).eq("id", user.id);
-    if (error) { toast.error(t("pricing.changeFailed")); }
-    else {
-      toast.success(`${t("pricing.planChanged")} ${selectedPlan?.name}. ${t("pricing.creditsGranted")} ${selectedPlan?.credits} ${t("pricing.credits")}.`);
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
+
+    // Free plan — just update directly
+    if (planId === "free") {
+      const { error } = await supabase.from("profiles").update({ plan: planId, credits_amount: 5 }).eq("id", user.id);
+      if (error) {
+        toast.error(t("pricing.changeFailed"));
+      } else {
+        toast.success(`${t("pricing.planChanged")} Free.`);
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+      }
+      return;
+    }
+
+    // Paid plans — redirect to Polar checkout
+    if (!selectedPlan?.polarProductId) {
+      toast.error(
+        isEn
+          ? "Polar product not configured yet. Please contact support."
+          : "Продукт Polar ещё не настроен. Обратитесь в поддержку."
+      );
+      return;
+    }
+
+    setLoadingPlan(planId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("polar-checkout", {
+        body: {
+          action: "create",
+          productId: selectedPlan.polarProductId,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      toast.error(
+        isEn
+          ? "Failed to create checkout. Please try again."
+          : "Не удалось создать сессию оплаты. Попробуйте снова."
+      );
+    } finally {
+      setLoadingPlan(null);
     }
   };
 
@@ -106,6 +188,7 @@ export default function PricingPage() {
           const isCurrentPlan = currentPlan === plan.id;
           const Icon = plan.icon;
           const isPopular = plan.badge === t("pricing.popular");
+          const isLoading = loadingPlan === plan.id;
           return (
             <Card key={plan.id} className={`relative bg-card border-border flex flex-col ${isPopular ? "border-primary shadow-lg shadow-primary/10 scale-[1.02]" : ""}`}>
               {plan.badge && (
@@ -127,7 +210,13 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" variant={isCurrentPlan ? "secondary" : isPopular ? "default" : "outline"} disabled={isCurrentPlan} onClick={() => handleSelectPlan(plan.id)}>
+                <Button
+                  className="w-full"
+                  variant={isCurrentPlan ? "secondary" : isPopular ? "default" : "outline"}
+                  disabled={isCurrentPlan || isLoading}
+                  onClick={() => handleSelectPlan(plan.id)}
+                >
+                  {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {isCurrentPlan ? t("pricing.currentPlan") : t("pricing.selectPlan")}
                 </Button>
               </CardContent>
