@@ -36,6 +36,8 @@ const MODEL_SPEED_INFO: Record<string, { speed: "fast" | "medium" | "slow"; note
   "openai/gpt-5-mini": { speed: "medium", note: "Средняя, ~1-2 мин. Хорошее качество за разумную цену." },
   "openai/gpt-5-nano": { speed: "fast", note: "Быстрая, ~20-40с. Экономичная для массовой генерации." },
   "openai/gpt-5.2": { speed: "slow", note: "Медленная, ~3-5 мин. Улучшенные рассуждения." },
+  "anthropic/claude-opus-4": { speed: "slow", note: "Медленная, ~3-6 мин. Максимальное качество текста, лучшая стилистика." },
+  "anthropic/claude-sonnet-4": { speed: "medium", note: "Средняя, ~1-2 мин. Отличное качество за разумное время." },
 };
 
 function SpeedBadge({ speed }: { speed: "fast" | "medium" | "slow" }) {
