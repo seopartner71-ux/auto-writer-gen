@@ -49,6 +49,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/wordpress": () => import("@/pages/WordPressPage"),
   "/radar": () => import("@/pages/RadarPage"),
   "/wiki": () => import("@/pages/WikiPage"),
+  "/integrations": () => import("@/pages/IntegrationsPage"),
   "/admin": () => import("@/pages/AdminPage"),
 };
 
