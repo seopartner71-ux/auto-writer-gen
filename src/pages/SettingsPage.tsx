@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 
@@ -39,7 +39,6 @@ export default function SettingsPage() {
   const [ghostApiKey, setGhostApiKey] = useState("");
   const [mediumToken, setMediumToken] = useState("");
   const [isSavingIntegrations, setIsSavingIntegrations] = useState(false);
-  const queryClient = useQueryClient();
 
   // Load integration settings
   useEffect(() => {
