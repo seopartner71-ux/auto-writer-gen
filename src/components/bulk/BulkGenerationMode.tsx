@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Upload, Loader2, Factory, Play, Download, CheckCircle2,
-  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus
+  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus, Pause, RotateCcw
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -97,6 +97,27 @@ export function BulkGenerationMode() {
 
   const startProcessing = useMutation({
     mutationFn: async (jobId: string) => { const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } }); if (error) throw error; if (data?.error) throw new Error(data.error); return data; },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] }); toast.success(t("bulk.processingComplete")); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const pauseJob = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase.from("bulk_jobs").update({ status: "paused" }).eq("id", jobId);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); toast.success("Генерация поставлена на паузу"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const resumeJob = useMutation({
+    mutationFn: async (jobId: string) => {
+      await supabase.from("bulk_jobs").update({ status: "processing" }).eq("id", jobId);
+      const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] }); toast.success(t("bulk.processingComplete")); },
     onError: (e) => toast.error(e.message),
   });
