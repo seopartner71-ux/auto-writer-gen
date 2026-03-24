@@ -74,45 +74,160 @@ export type Database = {
         }
         Relationships: []
       }
-      articles: {
+      article_metrics: {
         Row: {
-          author_profile_id: string | null
-          content: string | null
+          article_id: string
+          character_count: number | null
+          content_score: number | null
+          h2_count: number | null
+          h3_count: number | null
+          id: string
+          images_count: number | null
+          is_description_optimal: boolean | null
+          is_title_optimal: boolean | null
+          keyword_density: number | null
+          lsi_covered_count: number | null
+          reading_time_minutes: number | null
+          schema_json: Json | null
+          updated_at: string | null
+          word_count: number | null
+        }
+        Insert: {
+          article_id: string
+          character_count?: number | null
+          content_score?: number | null
+          h2_count?: number | null
+          h3_count?: number | null
+          id?: string
+          images_count?: number | null
+          is_description_optimal?: boolean | null
+          is_title_optimal?: boolean | null
+          keyword_density?: number | null
+          lsi_covered_count?: number | null
+          reading_time_minutes?: number | null
+          schema_json?: Json | null
+          updated_at?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          article_id?: string
+          character_count?: number | null
+          content_score?: number | null
+          h2_count?: number | null
+          h3_count?: number | null
+          id?: string
+          images_count?: number | null
+          is_description_optimal?: boolean | null
+          is_title_optimal?: boolean | null
+          keyword_density?: number | null
+          lsi_covered_count?: number | null
+          reading_time_minutes?: number | null
+          schema_json?: Json | null
+          updated_at?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_metrics_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      article_versions: {
+        Row: {
+          article_id: string
+          content: string
           created_at: string | null
           id: string
+        }
+        Insert: {
+          article_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          article_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_versions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      articles: {
+        Row: {
+          ai_content_gap: Json | null
+          author_profile_id: string | null
+          cluster_id: string | null
+          content: string | null
+          created_at: string | null
+          geo: string | null
+          id: string
+          is_public: boolean | null
           keyword_id: string | null
+          language: string | null
+          lsi_keywords: Json | null
           meta_description: string | null
           scheduled_at: string | null
           seo_score: Json | null
+          share_token: string | null
           status: string | null
+          suggested_outline: Json | null
           title: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          ai_content_gap?: Json | null
           author_profile_id?: string | null
+          cluster_id?: string | null
           content?: string | null
           created_at?: string | null
+          geo?: string | null
           id?: string
+          is_public?: boolean | null
           keyword_id?: string | null
+          language?: string | null
+          lsi_keywords?: Json | null
           meta_description?: string | null
           scheduled_at?: string | null
           seo_score?: Json | null
+          share_token?: string | null
           status?: string | null
+          suggested_outline?: Json | null
           title?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          ai_content_gap?: Json | null
           author_profile_id?: string | null
+          cluster_id?: string | null
           content?: string | null
           created_at?: string | null
+          geo?: string | null
           id?: string
+          is_public?: boolean | null
           keyword_id?: string | null
+          language?: string | null
+          lsi_keywords?: Json | null
           meta_description?: string | null
           scheduled_at?: string | null
           seo_score?: Json | null
+          share_token?: string | null
           status?: string | null
+          suggested_outline?: Json | null
           title?: string | null
           updated_at?: string | null
           user_id?: string
@@ -123,6 +238,13 @@ export type Database = {
             columns: ["author_profile_id"]
             isOneToOne: false
             referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "articles_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "clusters"
             referencedColumns: ["id"]
           },
           {
@@ -283,6 +405,80 @@ export type Database = {
             columns: ["author_profile_id"]
             isOneToOne: false
             referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clusters: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      competitors: {
+        Row: {
+          article_id: string
+          created_at: string | null
+          domain: string
+          h2_count: number | null
+          id: string
+          is_selected: boolean | null
+          meta_description: string | null
+          title: string | null
+          type: string | null
+          url: string
+          word_count: number | null
+        }
+        Insert: {
+          article_id: string
+          created_at?: string | null
+          domain: string
+          h2_count?: number | null
+          id?: string
+          is_selected?: boolean | null
+          meta_description?: string | null
+          title?: string | null
+          type?: string | null
+          url: string
+          word_count?: number | null
+        }
+        Update: {
+          article_id?: string
+          created_at?: string | null
+          domain?: string
+          h2_count?: number | null
+          id?: string
+          is_selected?: boolean | null
+          meta_description?: string | null
+          title?: string | null
+          type?: string | null
+          url?: string
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitors_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
             referencedColumns: ["id"]
           },
         ]
@@ -477,8 +673,41 @@ export type Database = {
         }
         Relationships: []
       }
+      paa_questions: {
+        Row: {
+          answer_snippet: string | null
+          article_id: string
+          created_at: string | null
+          id: string
+          question: string
+        }
+        Insert: {
+          answer_snippet?: string | null
+          article_id: string
+          created_at?: string | null
+          id?: string
+          question: string
+        }
+        Update: {
+          answer_snippet?: string | null
+          article_id?: string
+          created_at?: string | null
+          id?: string
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paa_questions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string | null
           credits_amount: number
           email: string | null
@@ -488,8 +717,11 @@ export type Database = {
           is_active: boolean
           monthly_limit: number | null
           plan: string | null
+          preferred_language: string | null
+          theme_preference: string | null
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string | null
           credits_amount?: number
           email?: string | null
@@ -499,8 +731,11 @@ export type Database = {
           is_active?: boolean
           monthly_limit?: number | null
           plan?: string | null
+          preferred_language?: string | null
+          theme_preference?: string | null
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string | null
           credits_amount?: number
           email?: string | null
@@ -510,6 +745,8 @@ export type Database = {
           is_active?: boolean
           monthly_limit?: number | null
           plan?: string | null
+          preferred_language?: string | null
+          theme_preference?: string | null
         }
         Relationships: []
       }
@@ -829,6 +1066,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_stats: {
+        Row: {
+          average_content_score: number | null
+          last_activity_at: string | null
+          total_articles_created: number | null
+          total_words_generated: number | null
+          user_id: string
+        }
+        Insert: {
+          average_content_score?: number | null
+          last_activity_at?: string | null
+          total_articles_created?: number | null
+          total_words_generated?: number | null
+          user_id: string
+        }
+        Update: {
+          average_content_score?: number | null
+          last_activity_at?: string | null
+          total_articles_created?: number | null
+          total_words_generated?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       wordpress_sites: {
         Row: {
           app_password: string
@@ -966,6 +1227,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      article_status: "research" | "outline" | "generating" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1094,6 +1356,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      article_status: ["research", "outline", "generating", "completed"],
     },
   },
 } as const
