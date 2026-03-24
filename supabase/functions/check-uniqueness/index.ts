@@ -24,9 +24,9 @@ serve(async (req) => {
     const OPENROUTER_API_KEY = await getOpenRouterKey();
 
     const { content } = await req.json();
-    if (!content || content.length < 100) {
-      throw new Error("Content too short for analysis");
-    }
+    if (!content || typeof content !== "string") throw new Error("Content is required");
+    if (content.length > 50000) throw new Error("Content too long (max 50k chars)");
+    if (content.length < 100) throw new Error("Content too short for analysis");
 
     // Take first ~3000 chars for analysis
     const sample = content.slice(0, 3000);

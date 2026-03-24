@@ -33,7 +33,24 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { keyword_id, existing_outline, serp_titles, questions, lsi_keywords } = await req.json();
+    const body = await req.json();
+    const { keyword_id, existing_outline, serp_titles, questions, lsi_keywords } = body;
+
+    // Input validation
+    if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
+    if (serp_titles && !Array.isArray(serp_titles)) throw new Error("Invalid serp_titles");
+    if (questions && !Array.isArray(questions)) throw new Error("Invalid questions");
+    if (lsi_keywords && !Array.isArray(lsi_keywords)) throw new Error("Invalid lsi_keywords");
+
+    // Rate limiting: max 20 outlines per hour
+    const { data: rateLimitOk } = await supabaseAdmin.rpc("check_rate_limit", {
+      p_user_id: user.id, p_action: "generate_outline", p_max_requests: 20, p_window_minutes: 60,
+    });
+    if (rateLimitOk === false) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Get keyword info
     const { data: keyword, error: kwError } = await supabase

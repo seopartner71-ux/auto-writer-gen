@@ -255,7 +255,18 @@ serve(async (req) => {
     const body = await req.json();
     const { keyword_id, project_id } = body;
 
-    if (!keyword_id) throw new Error("keyword_id is required");
+    if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
+    if (!project_id || typeof project_id !== "string") throw new Error("project_id is required");
+
+    // Rate limiting: max 20 radar checks per hour
+    const { data: rateLimitOk } = await supabaseAdmin.rpc("check_rate_limit", {
+      p_user_id: user.id, p_action: "radar_check", p_max_requests: 20, p_window_minutes: 60,
+    });
+    if (rateLimitOk === false) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Get project
     const { data: project } = await supabaseUser

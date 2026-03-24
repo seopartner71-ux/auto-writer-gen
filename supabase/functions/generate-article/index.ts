@@ -304,8 +304,31 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content } = await req.json();
-    if (!keyword_id) throw new Error("keyword_id is required");
+    const body = await req.json();
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content } = body;
+    if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
+
+    // Input sanitization: validate types and lengths
+    if (outline && !Array.isArray(outline)) throw new Error("Invalid outline format");
+    if (lsi_keywords && !Array.isArray(lsi_keywords)) throw new Error("Invalid lsi_keywords format");
+    if (optimize_instructions && typeof optimize_instructions !== "string") throw new Error("Invalid optimize_instructions");
+    if (optimize_instructions && optimize_instructions.length > 10000) throw new Error("optimize_instructions too long");
+    if (existing_content && typeof existing_content !== "string") throw new Error("Invalid existing_content");
+    if (existing_content && existing_content.length > 100000) throw new Error("existing_content too long (max 100k chars)");
+    if (deep_analysis_context && typeof deep_analysis_context === "string" && deep_analysis_context.length > 50000) throw new Error("deep_analysis_context too long");
+
+    // Per-user rate limiting: max 10 article generations per hour
+    const { data: rateLimitOk } = await supabaseAdmin0.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_action: "generate_article",
+      p_max_requests: 10,
+      p_window_minutes: 60,
+    });
+    if (rateLimitOk === false) {
+      return new Response(JSON.stringify({ error: "Превышен лимит генераций. Попробуйте позже." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 

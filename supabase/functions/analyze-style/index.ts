@@ -35,6 +35,12 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    if (sample_text.length > 20000) {
+      return new Response(
+        JSON.stringify({ error: "Текст-образец слишком длинный (макс. 20 000 символов)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Get researcher model from task assignments
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
