@@ -528,6 +528,13 @@ export default function ArticlesPage() {
 
       // Auto-fill title and meta from generated content
 
+      // Sanitize: strip all HTML tags and inline styles from generated markdown
+      fullContent = fullContent
+        .replace(/<[^>]*style="[^"]*"[^>]*>/gi, "") // remove tags with style attr
+        .replace(/<\/?(span|div|p|br|ul|ol|li|strong|em|a|h[1-6]|img|figure|figcaption|blockquote|code|pre|table|thead|tbody|tr|td|th|hr|sup|sub|del|ins|mark|small|b|i|u|s|abbr|cite|dfn|kbd|q|ruby|rt|rp|samp|var|wbr|details|summary|time|data|output|progress|meter|section|article|aside|header|footer|nav|main|dialog|template|slot)\b[^>]*>/gi, "")
+        .replace(/<!\-\-[^]*?\-\->/g, (m) => m.includes("FAQ Schema") ? m : "") // keep FAQ comment only
+        .replace(/style="[^"]*"/gi, "");
+
       // Auto-generate meta description from first paragraph
       const paragraphs = fullContent
         .replace(/^#.+$/gm, "")
