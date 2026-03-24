@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ interface PlanGateProps {
   requiredPlan?: string;
 }
 
-export function PlanGate({ children, allowed, featureName, requiredPlan = "Basic" }: PlanGateProps) {
+export const PlanGate = forwardRef<HTMLDivElement, PlanGateProps>(function PlanGate({ children, allowed, featureName, requiredPlan = "Basic" }, ref) {
   const navigate = useNavigate();
   const { t } = useI18n();
 
@@ -35,4 +36,4 @@ export function PlanGate({ children, allowed, featureName, requiredPlan = "Basic
       </CardContent>
     </Card>
   );
-}
+});
