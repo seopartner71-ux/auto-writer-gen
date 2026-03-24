@@ -1,45 +1,24 @@
 
+## Fix: Ошибка создания структуры статьи
 
-## Проблема
+### Проблема
+Функция `generate-outline` падает с ошибкой **"Cannot access 'supabaseAdmin' before initialization"**. Переменная `supabaseAdmin` используется на строке 46 для rate-limiting, но объявляется только на строке 64.
 
-Два Supabase-клиента в проекте. `src/shared/api/supabase.ts` — дубликат, который не имеет типизации. Это может привести к несовместимостям и затрудняет автокомплит.
+### Также: ошибки сборки фронтенда
+Файл `bun.lock` повреждён (вероятно после предыдущего изменения), из-за чего зависимости не устанавливаются и приложение не запускается.
 
-## План: Унифицировать на один клиент
+### План исправления
 
-### Шаг 1. Заменить все импорты
+**1. Исправить `generate-outline/index.ts`**
+- Переименовать `supabaseAdmin0` (строка 13) в `supabaseAdmin` и убрать дублирующее объявление на строке 64
+- Это устранит ошибку temporal dead zone
 
-В 15 файлах заменить:
-```typescript
-// Было:
-import { supabase } from "@/shared/api/supabase";
-// Стало:
-import { supabase } from "@/integrations/supabase/client";
-```
+**2. Восстановить `bun.lock`**
+- Удалить повреждённый `bun.lock` и пересоздать его, чтобы зависимости установились корректно
 
-Файлы для замены:
-- `src/shared/hooks/useAuth.tsx`
-- `src/pages/KeywordsPage.tsx`
-- `src/pages/CalendarPage.tsx`
-- `src/pages/DashboardPage.tsx`
-- `src/pages/PricingPage.tsx`
-- `src/pages/AuthorProfilesPage.tsx`
-- `src/pages/PlanBuilderPage.tsx`
-- `src/pages/AnalyticsPage.tsx`
-- `src/entities/competitor/analysisService.ts`
-- `src/components/admin/UserManagementTab.tsx`
-- `src/components/admin/ModelRoutingTab.tsx`
-- `src/components/admin/ApiVaultTab.tsx`
-- `src/components/admin/HealthCheckTab.tsx`
-- `src/components/admin/UserContentTab.tsx`
-- `src/components/plan/ExpertInsightsBlock.tsx`
+### Технические детали
 
-### Шаг 2. Удалить дубликат
-
-Удалить файл `src/shared/api/supabase.ts`.
-
-### Результат
-
-- Единый типизированный клиент
-- Автокомплит по таблицам и колонкам
-- Нет дублирования кода
-
+В `generate-outline/index.ts`:
+- Строка 13: `supabaseAdmin0` → `supabaseAdmin` (уже создаёт клиент с SERVICE_ROLE_KEY)
+- Строка 64: удалить дублирующее `const supabaseAdmin = createClient(...)` 
+- Строки 65-69 продолжат использовать `supabaseAdmin` без изменений
