@@ -35,6 +35,22 @@ export default function PricingPage() {
     },
   });
 
+  // Fetch subscription plans from DB
+  const { data: dbPlans } = useQuery({
+    queryKey: ["subscription-plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .order("monthly_article_limit");
+      if (error) throw error;
+      return data as Array<{
+        id: string; name: string; price_rub: number | null; price_usd: number | null;
+        monthly_article_limit: number; description_ru: string | null; description_en: string | null;
+      }>;
+    },
+  });
+
   const basicProductId = polarSettings?.polar_basic_product_id ?? null;
   const proProductId = polarSettings?.polar_pro_product_id ?? null;
 
