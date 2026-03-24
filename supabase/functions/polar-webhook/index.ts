@@ -53,15 +53,21 @@ serve(async (req) => {
 
     // Verify webhook signature
     const webhookSecret = Deno.env.get("POLAR_WEBHOOK_SECRET");
-    if (webhookSecret) {
-      const isValid = verifyWebhookSignature(body, req.headers, webhookSecret);
-      if (!isValid) {
-        console.error("Invalid webhook signature");
-        return new Response(JSON.stringify({ error: "Invalid signature" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (!webhookSecret) {
+      console.error("POLAR_WEBHOOK_SECRET not configured — rejecting webhook");
+      return new Response(JSON.stringify({ error: "Webhook secret not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const isValid = verifyWebhookSignature(body, req.headers, webhookSecret);
+    if (!isValid) {
+      console.error("Invalid webhook signature — rejecting request");
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const event = JSON.parse(body);
