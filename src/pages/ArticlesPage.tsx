@@ -965,8 +965,8 @@ export default function ArticlesPage() {
                       {saveArticle.isPending ? "..." : t("common.save")}
                     </Button>
 
-                    {/* Blog platform publish buttons */}
-                    {currentArticleId && content && (
+                    {/* Blog platform publish buttons — PRO only */}
+                    {currentArticleId && content && limits.hasProImageGen && (
                       <>
                         <Separator orientation="vertical" className="h-6 mx-1" />
                         <Button

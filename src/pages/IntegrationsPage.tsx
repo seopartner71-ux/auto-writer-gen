@@ -10,10 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Save, ExternalLink, Globe, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
 
 export default function IntegrationsPage() {
   const { user } = useAuth();
   const { t } = useI18n();
+  const { limits } = usePlanLimits();
 
   const [ghostUrl, setGhostUrl] = useState("");
   const [ghostApiKey, setGhostApiKey] = useState("");
@@ -91,6 +94,7 @@ export default function IntegrationsPage() {
   ];
 
   return (
+    <PlanGate allowed={limits.hasProImageGen} featureName="Интеграции" requiredPlan="PRO">
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
         <div className="flex items-center gap-3 mb-1">
@@ -205,5 +209,6 @@ export default function IntegrationsPage() {
         {isSaving ? "Сохранение..." : "Сохранить интеграции"}
       </Button>
     </div>
+    </PlanGate>
   );
 }
