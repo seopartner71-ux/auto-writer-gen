@@ -13,7 +13,7 @@ function verifyWebhookSignature(body: string, headers: Headers, secret: string):
   const webhookSignature = headers.get("webhook-signature");
 
   if (!webhookId || !webhookTimestamp || !webhookSignature) {
-    console.error("Missing webhook headers");
+    console.error("Missing webhook headers:", { webhookId: !!webhookId, webhookTimestamp: !!webhookTimestamp, webhookSignature: !!webhookSignature });
     return false;
   }
 
@@ -21,15 +21,17 @@ function verifyWebhookSignature(body: string, headers: Headers, secret: string):
   const now = Math.floor(Date.now() / 1000);
   const ts = parseInt(webhookTimestamp, 10);
   if (Math.abs(now - ts) > 300) {
-    console.error("Webhook timestamp too old");
+    console.error("Webhook timestamp too old:", { now, ts, diff: Math.abs(now - ts) });
     return false;
   }
 
-  // Standard Webhooks: secret must be base64-encoded
-  const secretBytes = Uint8Array.from(atob(btoa(secret)), c => c.charCodeAt(0));
+  // Standard Webhooks spec: the secret must be base64-encoded before use.
+  // Polar provides it as a plain UTF-8 string, so we encode it ourselves.
+  const base64Secret = btoa(secret);
+  const secretKey = Buffer.from(base64Secret, "base64");
 
   const signedContent = `${webhookId}.${webhookTimestamp}.${body}`;
-  const hmac = createHmac("sha256", Buffer.from(secret, "utf-8"));
+  const hmac = createHmac("sha256", secretKey);
   hmac.update(signedContent);
   const expectedSignature = hmac.digest("base64");
 
@@ -51,15 +53,21 @@ serve(async (req) => {
 
     // Verify webhook signature
     const webhookSecret = Deno.env.get("POLAR_WEBHOOK_SECRET");
-    if (webhookSecret) {
-      const isValid = verifyWebhookSignature(body, req.headers, webhookSecret);
-      if (!isValid) {
-        console.error("Invalid webhook signature");
-        return new Response(JSON.stringify({ error: "Invalid signature" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (!webhookSecret) {
+      console.error("POLAR_WEBHOOK_SECRET not configured — rejecting webhook");
+      return new Response(JSON.stringify({ error: "Webhook secret not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const isValid = verifyWebhookSignature(body, req.headers, webhookSecret);
+    if (!isValid) {
+      console.error("Invalid webhook signature — rejecting request");
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const event = JSON.parse(body);
