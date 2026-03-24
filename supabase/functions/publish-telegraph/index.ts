@@ -65,9 +65,10 @@ function markdownToTelegraphNodes(md: string): TNode[] {
     }
 
     // Headings - Telegraph supports h3 and h4 only
-    if (trimmed.startsWith("# ")) {
-      const level = trimmed.match(/^(#{1,6})\s/)?.[1].length || 1;
-      const text = trimmed.replace(/^#{1,6}\s+/, "");
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
       // H1/H2 → h3, H3+ → h4
       const tag = level <= 2 ? "h3" : "h4";
       nodes.push({ tag, children: inlineFormat(text) });
