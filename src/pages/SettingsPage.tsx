@@ -309,7 +309,7 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground">Включить/отключить генерацию Pro-обложек</p>
                   </div>
                   <Switch
-                    checked={localStorage.getItem("pro_image_enabled") !== "false"}
+                    checked={localStorage.getItem("pro_image_enabled") === "true"}
                     onCheckedChange={(checked) => {
                       localStorage.setItem("pro_image_enabled", String(checked));
                       toast.success(checked ? "Генерация изображений включена" : "Генерация изображений отключена");
