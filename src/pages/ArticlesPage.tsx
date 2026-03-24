@@ -707,7 +707,7 @@ export default function ArticlesPage() {
   }, [selectedKeywordId]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Mode Switcher */}
       <div className="flex items-center gap-3">
         <FileText className="h-6 w-6 text-primary" />
