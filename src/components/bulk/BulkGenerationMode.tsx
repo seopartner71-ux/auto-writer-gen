@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Upload, Loader2, Factory, Play, Download, CheckCircle2,
-  AlertTriangle, Search, Pencil, FileText, Trash2, X
+  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ export function BulkGenerationMode() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [manualInput, setManualInput] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
@@ -160,6 +162,41 @@ export function BulkGenerationMode() {
               {t("bulk.startSynthesis")} ({keywords.length})
             </Button>
           </div>
+
+          {/* Manual keyword input */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Или введите запросы вручную (каждый с новой строки)</Label>
+            <div className="flex gap-2">
+              <Textarea
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                placeholder={"как выбрать ноутбук\nлучшие смартфоны 2026\nсравнение iphone и samsung"}
+                className="text-sm min-h-[80px] resize-y"
+                rows={3}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 self-end gap-1.5"
+                disabled={!manualInput.trim()}
+                onClick={() => {
+                  const lines = manualInput
+                    .split(/[\n\r]+/)
+                    .map((l) => l.trim())
+                    .filter((l) => l.length >= 2);
+                  if (lines.length === 0) return;
+                  const merged = [...new Set([...keywords, ...lines])].slice(0, 100);
+                  setKeywords(merged);
+                  setManualInput("");
+                  toast.success(`Добавлено ${lines.length} запросов`);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Добавить
+              </Button>
+            </div>
+          </div>
+
           {keywords.length > 0 && (
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
               {keywords.map((kw, i) => (
