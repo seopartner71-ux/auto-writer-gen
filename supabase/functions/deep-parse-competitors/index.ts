@@ -430,6 +430,16 @@ serve(async (req) => {
     const validSerps = serpResults
       .filter((sr: any) => sr.url && !skipDomains.some(d => sr.url.includes(d)))
       .slice(0, 7);
+    
+    if (validSerps.length === 0) {
+      const skippedCount = serpResults.filter((sr: any) => sr.url).length;
+      return new Response(JSON.stringify({
+        error: `Все ${skippedCount} результатов SERP - это видео или соцсети (YouTube, Facebook и т.д.), которые невозможно проанализировать. Попробуйте другое ключевое слово с текстовыми статьями в выдаче.`,
+      }), {
+        status: 422,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.log(`Fetching ${validSerps.length} pages in parallel...`);
 
     // Fetch in two batches to reduce simultaneous connections
