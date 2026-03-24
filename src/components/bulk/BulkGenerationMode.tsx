@@ -24,6 +24,7 @@ export function BulkGenerationMode() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [manualInput, setManualInput] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
