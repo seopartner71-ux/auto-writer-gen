@@ -39,20 +39,26 @@ serve(async (req) => {
 
       const appUrl = req.headers.get("origin") || "https://id-preview--bbbb80ab-81d3-4691-9752-0fba6c202665.lovable.app";
 
+      const checkoutBody: Record<string, unknown> = {
+        product_id: productId,
+        success_url: `${appUrl}/pricing?checkout_id={CHECKOUT_ID}`,
+        metadata: {
+          user_id: user.id,
+        },
+      };
+
+      // Only include customer_email if it looks like a real email domain
+      if (user.email && !user.email.endsWith(".test") && !user.email.endsWith(".local")) {
+        checkoutBody.customer_email = user.email;
+      }
+
       const response = await fetch("https://api.polar.sh/v1/checkouts/", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${POLAR_ACCESS_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          products: [productId],
-          success_url: `${appUrl}/pricing?checkout_id={CHECKOUT_ID}`,
-          customer_email: user.email,
-          metadata: {
-            user_id: user.id,
-          },
-        }),
+        body: JSON.stringify(checkoutBody),
       });
 
       const checkout = await response.json();
