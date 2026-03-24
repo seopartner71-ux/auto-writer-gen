@@ -1249,7 +1249,9 @@ export type Database = {
         Returns: Json
       }
       check_credits: { Args: { p_user_id: string }; Returns: number }
+      decrypt_sensitive: { Args: { ciphertext: string }; Returns: string }
       deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
+      encrypt_sensitive: { Args: { plaintext: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
