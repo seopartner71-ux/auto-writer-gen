@@ -1027,30 +1027,39 @@ export type Database = {
           can_use_clusters: boolean | null
           can_use_paa: boolean | null
           created_at: string | null
+          description_en: string | null
+          description_ru: string | null
           id: string
           monthly_article_limit: number
           name: string
           price_rub: number | null
+          price_usd: number | null
         }
         Insert: {
           can_export_html?: boolean | null
           can_use_clusters?: boolean | null
           can_use_paa?: boolean | null
           created_at?: string | null
+          description_en?: string | null
+          description_ru?: string | null
           id: string
           monthly_article_limit: number
           name: string
           price_rub?: number | null
+          price_usd?: number | null
         }
         Update: {
           can_export_html?: boolean | null
           can_use_clusters?: boolean | null
           can_use_paa?: boolean | null
           created_at?: string | null
+          description_en?: string | null
+          description_ru?: string | null
           id?: string
           monthly_article_limit?: number
           name?: string
           price_rub?: number | null
+          price_usd?: number | null
         }
         Relationships: []
       }
