@@ -162,6 +162,41 @@ export function BulkGenerationMode() {
               {t("bulk.startSynthesis")} ({keywords.length})
             </Button>
           </div>
+
+          {/* Manual keyword input */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Или введите запросы вручную (каждый с новой строки)</Label>
+            <div className="flex gap-2">
+              <Textarea
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                placeholder={"как выбрать ноутбук\nлучшие смартфоны 2026\nсравнение iphone и samsung"}
+                className="text-sm min-h-[80px] resize-y"
+                rows={3}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 self-end gap-1.5"
+                disabled={!manualInput.trim()}
+                onClick={() => {
+                  const lines = manualInput
+                    .split(/[\n\r]+/)
+                    .map((l) => l.trim())
+                    .filter((l) => l.length >= 2);
+                  if (lines.length === 0) return;
+                  const merged = [...new Set([...keywords, ...lines])].slice(0, 100);
+                  setKeywords(merged);
+                  setManualInput("");
+                  toast.success(`Добавлено ${lines.length} запросов`);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Добавить
+              </Button>
+            </div>
+          </div>
+
           {keywords.length > 0 && (
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
               {keywords.map((kw, i) => (
