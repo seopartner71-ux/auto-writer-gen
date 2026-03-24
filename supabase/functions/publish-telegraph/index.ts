@@ -5,35 +5,153 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface TelegraphNode {
+interface TNode {
   tag?: string;
-  children?: (TelegraphNode | string)[];
+  attrs?: Record<string, string>;
+  children?: (TNode | string)[];
 }
 
-function markdownToTelegraphNodes(md: string): TelegraphNode[] {
-  const nodes: TelegraphNode[] = [];
-  const lines = md.split("\n");
+function inlineFormat(text: string): (TNode | string)[] {
+  const result: (TNode | string)[] = [];
+  // Process bold, italic, links, inline code
+  const regex = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[([^\]]+)\]\(([^)]+)\)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    if (trimmed.startsWith("### ")) {
-      nodes.push({ tag: "h4", children: [trimmed.slice(4)] });
-    } else if (trimmed.startsWith("## ")) {
-      nodes.push({ tag: "h3", children: [trimmed.slice(3)] });
-    } else if (trimmed.startsWith("# ")) {
-      nodes.push({ tag: "h3", children: [trimmed.slice(2)] });
-    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-      nodes.push({ tag: "li", children: [trimmed.slice(2)] });
-    } else if (trimmed.startsWith("```") || trimmed.startsWith("---")) {
-      continue;
-    } else {
-      const text = trimmed
-        .replace(/\*\*(.+?)\*\*/g, "$1")
-        .replace(/\*(.+?)\*/g, "$1");
-      nodes.push({ tag: "p", children: [text] });
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      result.push(text.slice(lastIndex, match.index));
     }
+    if (match[1]) {
+      result.push({ tag: "strong", children: [match[1]] });
+    } else if (match[2]) {
+      result.push({ tag: "em", children: [match[2]] });
+    } else if (match[3]) {
+      result.push({ tag: "code", children: [match[3]] });
+    } else if (match[4] && match[5]) {
+      result.push({ tag: "a", attrs: { href: match[5] }, children: [match[4]] });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    result.push(text.slice(lastIndex));
+  }
+
+  return result.length > 0 ? result : [text];
+}
+
+function markdownToTelegraphNodes(md: string): TNode[] {
+  const nodes: TNode[] = [];
+  const lines = md.split("\n");
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines, code fences, horizontal rules
+    if (!trimmed || trimmed === "---" || trimmed === "```") {
+      i++;
+      continue;
+    }
+
+    // Skip code block content
+    if (trimmed.startsWith("```")) {
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith("```")) i++;
+      i++;
+      continue;
+    }
+
+    // Headings - Telegraph supports h3 and h4 only
+    if (trimmed.startsWith("# ")) {
+      const level = trimmed.match(/^(#{1,6})\s/)?.[1].length || 1;
+      const text = trimmed.replace(/^#{1,6}\s+/, "");
+      // H1/H2 → h3, H3+ → h4
+      const tag = level <= 2 ? "h3" : "h4";
+      nodes.push({ tag, children: inlineFormat(text) });
+      i++;
+      continue;
+    }
+
+    // Blockquote
+    if (trimmed.startsWith("> ")) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("> ")) {
+        quoteLines.push(lines[i].trim().slice(2));
+        i++;
+      }
+      nodes.push({ tag: "blockquote", children: [{ tag: "p", children: inlineFormat(quoteLines.join(" ")) }] });
+      continue;
+    }
+
+    // Unordered list
+    if (/^[-*]\s/.test(trimmed)) {
+      const items: TNode[] = [];
+      while (i < lines.length && /^\s*[-*]\s/.test(lines[i])) {
+        const itemText = lines[i].trim().replace(/^[-*]\s+/, "");
+        items.push({ tag: "li", children: inlineFormat(itemText) });
+        i++;
+      }
+      nodes.push({ tag: "ul", children: items });
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+\.\s/.test(trimmed)) {
+      const items: TNode[] = [];
+      while (i < lines.length && /^\s*\d+\.\s/.test(lines[i])) {
+        const itemText = lines[i].trim().replace(/^\d+\.\s+/, "");
+        items.push({ tag: "li", children: inlineFormat(itemText) });
+        i++;
+      }
+      nodes.push({ tag: "ol", children: items });
+      continue;
+    }
+
+    // Table - convert to formatted text since Telegraph doesn't support tables
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      const tableRows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        const row = lines[i].trim();
+        // Skip separator rows
+        if (/^[\s|:-]+$/.test(row)) {
+          i++;
+          continue;
+        }
+        const cells = row.split("|").filter(c => c.trim()).map(c => c.trim());
+        tableRows.push(cells);
+        i++;
+      }
+      if (tableRows.length > 0) {
+        // Header as bold
+        const headerRow = tableRows[0];
+        nodes.push({ tag: "p", children: [{ tag: "strong", children: [headerRow.join(" | ")] }] });
+        // Data rows
+        for (let r = 1; r < tableRows.length; r++) {
+          nodes.push({ tag: "p", children: [tableRows[r].join(" | ")] });
+        }
+        // Add spacing
+        nodes.push({ tag: "br" });
+      }
+      continue;
+    }
+
+    // Image
+    const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
+    if (imgMatch) {
+      nodes.push({ tag: "img", attrs: { src: imgMatch[2] }, children: [] });
+      if (imgMatch[1]) {
+        nodes.push({ tag: "figcaption", children: [imgMatch[1]] });
+      }
+      i++;
+      continue;
+    }
+
+    // Regular paragraph
+    nodes.push({ tag: "p", children: inlineFormat(trimmed) });
+    i++;
   }
 
   return nodes;
