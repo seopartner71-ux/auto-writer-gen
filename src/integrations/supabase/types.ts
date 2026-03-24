@@ -868,6 +868,30 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          action: string
+          id: string
+          request_count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          action: string
+          id?: string
+          request_count?: number
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          request_count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       scheduled_generations: {
         Row: {
           article_id: string | null
@@ -1249,6 +1273,16 @@ export type Database = {
         Returns: Json
       }
       check_credits: { Args: { p_user_id: string }; Returns: number }
+      check_rate_limit: {
+        Args: {
+          p_action: string
+          p_max_requests?: number
+          p_user_id: string
+          p_window_minutes?: number
+        }
+        Returns: boolean
+      }
+      cleanup_rate_limits: { Args: never; Returns: undefined }
       decrypt_sensitive: { Args: { ciphertext: string }; Returns: string }
       deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
       encrypt_sensitive: { Args: { plaintext: string }; Returns: string }
