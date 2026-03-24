@@ -49,9 +49,16 @@ export default function IndexingPage() {
     try {
       // Validate JSON
       JSON.parse(gscKey);
+
+      // Encrypt GSC key server-side before saving
+      const { data: encData, error: encErr } = await supabase.functions.invoke("encrypt-field", {
+        body: { value: gscKey.trim() },
+      });
+      if (encErr || encData?.error) throw new Error(encData?.error || "Encryption failed");
+
       const { error } = await supabase
         .from("profiles")
-        .update({ gsc_json_key: gscKey.trim() } as any)
+        .update({ gsc_json_key: encData.encrypted } as any)
         .eq("id", user!.id);
       if (error) throw error;
       toast.success(t("indexing.keySaved"));

@@ -181,11 +181,17 @@ export default function WordPressPage() {
       const url = newUrl.replace(/\/+$/, "");
       if (!url.startsWith("http")) throw new Error(t("wp.urlMustHttp"));
 
+      // Encrypt app_password server-side before saving
+      const { data: encData, error: encErr } = await supabase.functions.invoke("encrypt-field", {
+        body: { value: newAppPassword },
+      });
+      if (encErr || encData?.error) throw new Error(encData?.error || "Encryption failed");
+
       const { error } = await supabase.from("wordpress_sites").insert({
         user_id: user.id,
         site_url: url,
         username: newUsername,
-        app_password: newAppPassword,
+        app_password: encData.encrypted,
       });
       if (error) throw error;
     },
