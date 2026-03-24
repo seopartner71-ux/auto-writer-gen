@@ -10,10 +10,10 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export default function PricingPage() {
   const { profile, user } = useAuth();
-  const { t, language } = useI18n();
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const currentPlan = profile?.plan ?? "free";
-  const isEn = language === "en";
+  const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
 
   const plans = [
