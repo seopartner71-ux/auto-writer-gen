@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import DOMPurify from "dompurify";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -613,7 +614,7 @@ export default function RadarPage() {
               <ChevronDown className="h-3.5 w-3.5" />{t("radar.showFullResponse")}
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div ref={responseRef} className="mt-2 p-4 rounded-lg bg-muted/30 border border-border text-xs leading-relaxed whitespace-pre-wrap max-h-[40vh] overflow-y-auto" dangerouslySetInnerHTML={{ __html: highlightBrand(viewResponseData?.text || t("radar.noData"), activeProject?.brand_name || "", activeProject?.domain || "") }} />
+              <div ref={responseRef} className="mt-2 p-4 rounded-lg bg-muted/30 border border-border text-xs leading-relaxed whitespace-pre-wrap max-h-[40vh] overflow-y-auto" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlightBrand(viewResponseData?.text || t("radar.noData"), activeProject?.brand_name || "", activeProject?.domain || "")) }} />
             </CollapsibleContent>
           </Collapsible>
         </DialogContent>

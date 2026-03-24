@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import DOMPurify from "dompurify";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -1012,7 +1013,7 @@ export default function ArticlesPage() {
                       })()}
                       <div
                         className="article-preview prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: markdownToPreviewHtml(content) }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToPreviewHtml(content)) }}
                       />
                     </div>
                   ) : (
@@ -1038,7 +1039,7 @@ export default function ArticlesPage() {
                         </Button>
                       </div>
                       <pre className="min-h-[500px] max-h-[700px] overflow-auto p-4 rounded-md bg-muted text-xs font-mono whitespace-pre-wrap break-all text-foreground">
-                        <code dangerouslySetInnerHTML={{ __html: highlightHtml(markdownToCleanHtml(content)) }} />
+                        <code dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlightHtml(markdownToCleanHtml(content))) }} />
                       </pre>
                     </div>
                   ) : (
@@ -1119,7 +1120,7 @@ export default function ArticlesPage() {
                         </div>
                         <div
                           className="rounded-lg border border-border bg-background p-4 prose prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{ __html: markdownToPreviewHtml(faqTextBlock) }}
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToPreviewHtml(faqTextBlock)) }}
                         />
                       </div>
                     )}
@@ -1143,7 +1144,7 @@ export default function ArticlesPage() {
                           </Button>
                         </div>
                         <pre className="rounded-lg border border-border bg-muted p-4 text-xs font-mono whitespace-pre-wrap break-all max-h-[400px] overflow-auto text-foreground">
-                          <code dangerouslySetInnerHTML={{ __html: highlightHtml(`<script type="application/ld+json">\n${schemaJson}\n</script>`) }} />
+                          <code dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlightHtml(`<script type="application/ld+json">\n${schemaJson}\n</script>`)) }} />
                         </pre>
                       </div>
                     )}
