@@ -36,4 +36,4 @@ export const PlanGate = forwardRef<HTMLDivElement, PlanGateProps>(function PlanG
       </CardContent>
     </Card>
   );
-}
+});
