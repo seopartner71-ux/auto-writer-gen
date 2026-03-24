@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Save, ExternalLink, Globe, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
 
 export default function IntegrationsPage() {
   const { user } = useAuth();
