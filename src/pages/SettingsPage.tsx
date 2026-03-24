@@ -1,4 +1,4 @@
-import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, LifeBuoy, Send } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, LifeBuoy, Send, Globe, ExternalLink } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 
@@ -35,6 +35,55 @@ export default function SettingsPage() {
   const [ticketMessage, setTicketMessage] = useState("");
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
+  const [ghostUrl, setGhostUrl] = useState("");
+  const [ghostApiKey, setGhostApiKey] = useState("");
+  const [mediumToken, setMediumToken] = useState("");
+  const [isSavingIntegrations, setIsSavingIntegrations] = useState(false);
+
+  // Load integration settings
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name ?? "");
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("ghost_url, ghost_api_key, medium_token")
+        .eq("id", user.id)
+        .single();
+      if (data) {
+        setGhostUrl((data as any).ghost_url || "");
+        setGhostApiKey((data as any).ghost_api_key || "");
+        setMediumToken((data as any).medium_token || "");
+      }
+    };
+    load();
+  }, [user]);
+
+  const handleSaveIntegrations = async () => {
+    if (!user) return;
+    setIsSavingIntegrations(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          ghost_url: ghostUrl.trim() || null,
+          ghost_api_key: ghostApiKey.trim() || null,
+          medium_token: mediumToken.trim() || null,
+        } as any)
+        .eq("id", user.id);
+      if (error) throw error;
+      toast.success("Интеграции сохранены");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка");
+    } finally {
+      setIsSavingIntegrations(false);
+    }
+  };
   const queryClient = useQueryClient();
 
   const handleClearCache = async () => {
@@ -319,6 +368,60 @@ export default function SettingsPage() {
           </Card>
         </div>
       </div>
+
+      <Card className="bg-card border-border overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="h-4 w-4 text-primary" />
+            Интеграции с блог-платформами
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Настройте подключение к Ghost и Medium для публикации статей. Telegra.ph работает без настройки.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px]">Ghost</Badge>
+              <a href="https://ghost.org/docs/admin-api/" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                Документация <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Ghost URL</Label>
+                <Input value={ghostUrl} onChange={(e) => setGhostUrl(e.target.value)} placeholder="https://myblog.ghost.io" className="text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Admin API Key</Label>
+                <Input value={ghostApiKey} onChange={(e) => setGhostApiKey(e.target.value)} placeholder="id:secret" className="text-sm font-mono" type="password" />
+              </div>
+            </div>
+          </div>
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px]">Medium</Badge>
+              <a href="https://medium.com/me/settings/security" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                Получить токен <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Integration Token</Label>
+              <Input value={mediumToken} onChange={(e) => setMediumToken(e.target.value)} placeholder="Вставьте токен из настроек Medium" className="text-sm font-mono" type="password" />
+            </div>
+          </div>
+          <Separator />
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-[10px]">Telegra.ph</Badge>
+            <span className="text-xs text-muted-foreground">Работает без настройки — публикация в один клик</span>
+          </div>
+          <Button onClick={handleSaveIntegrations} disabled={isSavingIntegrations} size="sm" className="w-full">
+            <Save className="h-4 w-4 mr-2" />
+            {isSavingIntegrations ? "Сохранение..." : "Сохранить интеграции"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card className="bg-card border-border overflow-hidden">
         <CardHeader className="pb-4">

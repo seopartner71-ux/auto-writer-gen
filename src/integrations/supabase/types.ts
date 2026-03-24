@@ -736,9 +736,12 @@ export type Database = {
           credits_amount: number
           email: string | null
           full_name: string | null
+          ghost_api_key: string | null
+          ghost_url: string | null
           gsc_json_key: string | null
           id: string
           is_active: boolean
+          medium_token: string | null
           monthly_limit: number | null
           plan: string | null
           preferred_language: string | null
@@ -750,9 +753,12 @@ export type Database = {
           credits_amount?: number
           email?: string | null
           full_name?: string | null
+          ghost_api_key?: string | null
+          ghost_url?: string | null
           gsc_json_key?: string | null
           id: string
           is_active?: boolean
+          medium_token?: string | null
           monthly_limit?: number | null
           plan?: string | null
           preferred_language?: string | null
@@ -764,9 +770,12 @@ export type Database = {
           credits_amount?: number
           email?: string | null
           full_name?: string | null
+          ghost_api_key?: string | null
+          ghost_url?: string | null
           gsc_json_key?: string | null
           id?: string
           is_active?: boolean
+          medium_token?: string | null
           monthly_limit?: number | null
           plan?: string | null
           preferred_language?: string | null
