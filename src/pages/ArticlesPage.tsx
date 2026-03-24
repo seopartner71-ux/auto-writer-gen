@@ -880,8 +880,8 @@ export default function ArticlesPage() {
           <Card className="bg-card border-border">
             <Tabs defaultValue="edit">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
                   <TabsList className="h-8">
                     <TabsTrigger value="edit" className="text-xs gap-1.5 px-3">
                       <Pencil className="h-3 w-3" />
@@ -900,8 +900,7 @@ export default function ArticlesPage() {
                       FAQ & Schema
                     </TabsTrigger>
                   </TabsList>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+                  <Separator orientation="vertical" className="h-6 hidden sm:block" />
                     <Button
                       variant="outline"
                       size="sm"
