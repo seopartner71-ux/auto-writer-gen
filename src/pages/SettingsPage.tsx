@@ -35,6 +35,56 @@ export default function SettingsPage() {
   const [ticketMessage, setTicketMessage] = useState("");
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
+  const [ghostUrl, setGhostUrl] = useState("");
+  const [ghostApiKey, setGhostApiKey] = useState("");
+  const [mediumToken, setMediumToken] = useState("");
+  const [isSavingIntegrations, setIsSavingIntegrations] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Load integration settings
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name ?? "");
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("ghost_url, ghost_api_key, medium_token")
+        .eq("id", user.id)
+        .single();
+      if (data) {
+        setGhostUrl((data as any).ghost_url || "");
+        setGhostApiKey((data as any).ghost_api_key || "");
+        setMediumToken((data as any).medium_token || "");
+      }
+    };
+    load();
+  }, [user]);
+
+  const handleSaveIntegrations = async () => {
+    if (!user) return;
+    setIsSavingIntegrations(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          ghost_url: ghostUrl.trim() || null,
+          ghost_api_key: ghostApiKey.trim() || null,
+          medium_token: mediumToken.trim() || null,
+        } as any)
+        .eq("id", user.id);
+      if (error) throw error;
+      toast.success("Интеграции сохранены");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка");
+    } finally {
+      setIsSavingIntegrations(false);
+    }
+  };
   const queryClient = useQueryClient();
 
   const handleClearCache = async () => {
