@@ -85,7 +85,7 @@ export default function PricingPage() {
     },
     {
       id: "pro" as const, name: "Pro", price: isEn ? "$169" : "12 400 ₽", period: t("pricing.perMonth"), icon: Crown,
-      description: t("pricing.proDesc"), badge: t("pricing.maximum"), credits: 100, polarProductId: null as string | null,
+      description: t("pricing.proDesc"), badge: t("pricing.maximum"), credits: 100, polarProductId: "04d93830-5940-41d0-8d51-0204713bff08",
       features: [
         { text: t("pricing.f.gens100"), included: true },
         { text: t("pricing.f.fullSerpComp"), included: true },
