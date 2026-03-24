@@ -96,6 +96,21 @@ export default function DashboardPage() {
       0
     );
 
+    // Publication stats by platform
+    const publishCounts: Record<string, number> = {
+      telegraph: 0,
+      ghost: 0,
+      medium: 0,
+      wordpress: 0,
+    };
+    usageLogs.forEach((l: any) => {
+      if (l.action === "publish_telegraph") publishCounts.telegraph++;
+      else if (l.action === "publish_ghost") publishCounts.ghost++;
+      else if (l.action === "publish_medium") publishCounts.medium++;
+      else if (l.action === "publish_wordpress") publishCounts.wordpress++;
+    });
+    const totalPublished = publishCounts.telegraph + publishCounts.ghost + publishCounts.medium + publishCounts.wordpress;
+
     const statusMap: Record<string, number> = {};
     articles.forEach((a: any) => {
       const st = a.status || "draft";
@@ -140,6 +155,8 @@ export default function DashboardPage() {
       topKeywords,
       recentArticles,
       weeklyData,
+      publishCounts,
+      totalPublished,
     };
   }, [articles, keywords, usageLogs, t]);
 
