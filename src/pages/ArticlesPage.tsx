@@ -360,6 +360,9 @@ export default function ArticlesPage() {
   // Auto-generate and insert images into article content
   const autoInsertImages = useCallback(async (articleContent: string) => {
     try {
+      // Check if image generation is enabled
+      if (localStorage.getItem("pro_image_enabled") !== "true") return;
+
       const { data: { session: s } } = await supabase.auth.getSession();
       const token = s?.access_token;
       if (!token) return;
