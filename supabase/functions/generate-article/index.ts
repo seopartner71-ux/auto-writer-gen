@@ -306,6 +306,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content } = body;
+    console.log("[generate-article] author_profile_id received:", author_profile_id);
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
     // Input sanitization: validate types and lengths
@@ -368,13 +369,20 @@ serve(async (req) => {
 
     // Get author profile (use admin client for presets which have null user_id)
     let authorData: any = null;
-    if (author_profile_id) {
-      const { data: author } = await supabaseAdmin
+    if (author_profile_id && author_profile_id !== "none") {
+      const { data: author, error: authorErr } = await supabaseAdmin
         .from("author_profiles")
         .select("*")
         .eq("id", author_profile_id)
         .single();
-      authorData = author;
+      if (authorErr) {
+        console.warn("[generate-article] Author profile not found:", author_profile_id, authorErr.message);
+      } else {
+        authorData = author;
+        console.log("[generate-article] Using author:", author.name, "| type:", author.type, "| has system_instruction:", !!author.system_instruction);
+      }
+    } else {
+      console.log("[generate-article] No author selected, using default style");
     }
 
     // Build stealth prompt via server-side function
