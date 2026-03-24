@@ -707,7 +707,7 @@ export default function ArticlesPage() {
   }, [selectedKeywordId]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Mode Switcher */}
       <div className="flex items-center gap-3">
         <FileText className="h-6 w-6 text-primary" />
@@ -870,7 +870,8 @@ export default function ArticlesPage() {
           <Card className="bg-card border-border">
             <Tabs defaultValue="edit">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center justify-between">
+                <CardTitle className="text-sm flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
                   <TabsList className="h-8">
                     <TabsTrigger value="edit" className="text-xs gap-1.5 px-3">
                       <Pencil className="h-3 w-3" />
@@ -889,7 +890,8 @@ export default function ArticlesPage() {
                       FAQ & Schema
                     </TabsTrigger>
                   </TabsList>
-                  <div className="flex gap-2">
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
