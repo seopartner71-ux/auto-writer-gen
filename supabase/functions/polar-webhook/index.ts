@@ -1,10 +1,45 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createHmac } from "node:crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, webhook-id, webhook-timestamp, webhook-signature",
 };
+
+function verifyWebhookSignature(body: string, headers: Headers, secret: string): boolean {
+  const webhookId = headers.get("webhook-id");
+  const webhookTimestamp = headers.get("webhook-timestamp");
+  const webhookSignature = headers.get("webhook-signature");
+
+  if (!webhookId || !webhookTimestamp || !webhookSignature) {
+    console.error("Missing webhook headers");
+    return false;
+  }
+
+  // Check timestamp is not too old (5 min tolerance)
+  const now = Math.floor(Date.now() / 1000);
+  const ts = parseInt(webhookTimestamp, 10);
+  if (Math.abs(now - ts) > 300) {
+    console.error("Webhook timestamp too old");
+    return false;
+  }
+
+  // Standard Webhooks: secret must be base64-encoded
+  const secretBytes = Uint8Array.from(atob(btoa(secret)), c => c.charCodeAt(0));
+
+  const signedContent = `${webhookId}.${webhookTimestamp}.${body}`;
+  const hmac = createHmac("sha256", Buffer.from(secret, "utf-8"));
+  hmac.update(signedContent);
+  const expectedSignature = hmac.digest("base64");
+
+  // webhook-signature can contain multiple signatures separated by spaces
+  const signatures = webhookSignature.split(" ");
+  return signatures.some(sig => {
+    const sigValue = sig.startsWith("v1,") ? sig.slice(3) : sig;
+    return sigValue === expectedSignature;
+  });
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,8 +48,21 @@ serve(async (req) => {
 
   try {
     const body = await req.text();
-    const event = JSON.parse(body);
 
+    // Verify webhook signature
+    const webhookSecret = Deno.env.get("POLAR_WEBHOOK_SECRET");
+    if (webhookSecret) {
+      const isValid = verifyWebhookSignature(body, req.headers, webhookSecret);
+      if (!isValid) {
+        console.error("Invalid webhook signature");
+        return new Response(JSON.stringify({ error: "Invalid signature" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    const event = JSON.parse(body);
     console.log("Polar webhook event:", event.type);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -33,7 +81,6 @@ serve(async (req) => {
         });
       }
 
-      // Determine which plan was purchased based on product
       const productName = checkout.product?.name?.toLowerCase() ?? "";
       let plan = "basic";
       let credits = 30;
@@ -41,14 +88,10 @@ serve(async (req) => {
       if (productName.includes("pro")) {
         plan = "pro";
         credits = 100;
-      } else if (productName.includes("basic")) {
-        plan = "basic";
-        credits = 30;
       }
 
       console.log(`Upgrading user ${userId} to plan: ${plan}, credits: ${credits}`);
 
-      // Update user profile
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ plan, credits_amount: credits })
@@ -59,7 +102,6 @@ serve(async (req) => {
         throw updateError;
       }
 
-      // Send notification
       await supabase.from("notifications").insert({
         user_id: userId,
         title: "Подписка оформлена! 🎉",
@@ -76,7 +118,7 @@ serve(async (req) => {
 
       if (userId) {
         console.log(`Downgrading user ${userId} to free plan`);
-        
+
         await supabase
           .from("profiles")
           .update({ plan: "free", credits_amount: 5 })
