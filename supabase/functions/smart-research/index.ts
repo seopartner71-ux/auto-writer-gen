@@ -105,8 +105,9 @@ serve(async (req) => {
       throw new Error(`Failed to save keyword: ${kwError.message}`);
     }
 
-    // 4. Save SERP results
-    const serpEntries = organicResults.slice(0, 10).map((r: any, i: number) => ({
+    // 4. Save SERP results (filter out video/social media URLs that can't be parsed)
+    const SKIP_DOMAINS = ["youtube.com", "youtu.be", "facebook.com", "instagram.com", "tiktok.com", "vk.com", "twitter.com", "x.com", "pinterest.com", "reddit.com"];
+    const allSerpEntries = organicResults.slice(0, 20).map((r: any, i: number) => ({
       keyword_id: keywordRow.id,
       position: i + 1,
       url: r.link || null,
@@ -115,6 +116,15 @@ serve(async (req) => {
       word_count: null,
       headings: r.sitelinks ? { sitelinks: r.sitelinks } : null,
     }));
+    // Keep non-skippable URLs, fall back to all if none remain
+    const textEntries = allSerpEntries.filter((e: any) => {
+      if (!e.url) return false;
+      try {
+        const host = new URL(e.url).hostname.replace("www.", "");
+        return !SKIP_DOMAINS.some(d => host.includes(d));
+      } catch { return true; }
+    });
+    const serpEntries = textEntries.length > 0 ? textEntries.slice(0, 10) : allSerpEntries.slice(0, 10);
 
     if (serpEntries.length > 0) {
       await supabase.from("serp_results").insert(serpEntries);
