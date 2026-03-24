@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { supabase } from "@/shared/api/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";

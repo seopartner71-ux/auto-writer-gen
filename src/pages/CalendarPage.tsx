@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/shared/api/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 import { ru, enUS } from "date-fns/locale";

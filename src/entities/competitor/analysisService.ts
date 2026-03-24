@@ -1,4 +1,4 @@
-import { supabase } from "@/shared/api/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 // ── Types ──────────────────────────────────────────────────────────────
 export interface CompetitorAnalysis {

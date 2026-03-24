@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/shared/api/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";

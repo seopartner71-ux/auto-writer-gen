@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { supabase } from "@/shared/api/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
