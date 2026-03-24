@@ -147,7 +147,8 @@ export function BulkGenerationMode() {
 
   const activeJob = bulkJobs.find((j) => j.id === activeJobId);
   const progressPercent = activeJob ? Math.round((activeJob.completed_items / Math.max(activeJob.total_items, 1)) * 100) : 0;
-  const isProcessing = activeJob?.status === "processing" || startProcessing.isPending;
+  const isProcessing = activeJob?.status === "processing" || startProcessing.isPending || resumeJob.isPending;
+  const isPaused = activeJob?.status === "paused";
 
   return (
     <div className="space-y-6">
