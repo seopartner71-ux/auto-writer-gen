@@ -1,9 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sign } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 function markdownToHtml(md: string): string {
@@ -18,9 +17,45 @@ function markdownToHtml(md: string): string {
   return `<p>${html}</p>`;
 }
 
+// Base64url encode
+function b64url(data: Uint8Array): string {
+  return btoa(String.fromCharCode(...data))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function strToB64url(str: string): string {
+  return b64url(new TextEncoder().encode(str));
+}
+
+async function createGhostJwt(apiKey: string): Promise<string> {
+  const [id, secret] = apiKey.split(":");
+  if (!id || !secret) throw new Error("Неверный формат Ghost API ключа (ожидается id:secret)");
+
+  const keyBytes = new Uint8Array(secret.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const iat = Math.floor(Date.now() / 1000);
+  const header = strToB64url(JSON.stringify({ alg: "HS256", typ: "JWT", kid: id }));
+  const payload = strToB64url(JSON.stringify({ iat, exp: iat + 300, aud: "/admin/" }));
+  const signInput = `${header}.${payload}`;
+
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signInput));
+  const sig = b64url(new Uint8Array(signature));
+
+  return `${header}.${payload}.${sig}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -43,7 +78,6 @@ Deno.serve(async (req) => {
       throw new Error("article_id is required");
     }
 
-    // Get profile with Ghost credentials
     const { data: profile } = await admin
       .from("profiles")
       .select("ghost_url, ghost_api_key")
@@ -51,10 +85,9 @@ Deno.serve(async (req) => {
       .single();
 
     if (!profile?.ghost_url || !profile?.ghost_api_key) {
-      throw new Error("Ghost не настроен. Добавьте URL и API-ключ в настройках.");
+      throw new Error("Ghost не настроен. Добавьте URL и API-ключ в Интеграциях.");
     }
 
-    // Get article
     const { data: article } = await admin
       .from("articles")
       .select("title, content, meta_description")
@@ -64,26 +97,7 @@ Deno.serve(async (req) => {
 
     if (!article) throw new Error("Статья не найдена");
 
-    // Create Ghost Admin API JWT
-    const [id, secret] = profile.ghost_api_key.split(":");
-    if (!id || !secret) throw new Error("Неверный формат Ghost API ключа (ожидается id:secret)");
-
-    const keyBytes = new Uint8Array(secret.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)));
-    const key = await crypto.subtle.importKey(
-      "raw",
-      keyBytes,
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"]
-    );
-
-    const iat = Math.floor(Date.now() / 1000);
-    const header = { alg: "HS256", typ: "JWT", kid: id };
-    const payload = { iat, exp: iat + 300, aud: "/admin/" };
-
-    const jwt = await sign(payload, key, header.alg);
-
-    // Publish to Ghost
+    const jwt = await createGhostJwt(profile.ghost_api_key);
     const ghostUrl = profile.ghost_url.replace(/\/$/, "");
     const htmlContent = markdownToHtml(article.content || "");
 
@@ -94,14 +108,12 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        posts: [
-          {
-            title: article.title || "Untitled",
-            html: htmlContent,
-            meta_description: article.meta_description || "",
-            status: "draft",
-          },
-        ],
+        posts: [{
+          title: article.title || "Untitled",
+          html: htmlContent,
+          meta_description: article.meta_description || "",
+          status: "draft",
+        }],
       }),
     });
 

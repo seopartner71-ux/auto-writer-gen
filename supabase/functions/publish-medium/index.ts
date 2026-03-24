@@ -2,12 +2,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -29,7 +29,6 @@ Deno.serve(async (req) => {
       throw new Error("article_id is required");
     }
 
-    // Get profile with Medium token
     const { data: profile } = await admin
       .from("profiles")
       .select("medium_token")
@@ -37,10 +36,9 @@ Deno.serve(async (req) => {
       .single();
 
     if (!profile?.medium_token) {
-      throw new Error("Medium не настроен. Добавьте Integration Token в настройках.");
+      throw new Error("Medium не настроен. Добавьте Integration Token в Интеграциях.");
     }
 
-    // Get article
     const { data: article } = await admin
       .from("articles")
       .select("title, content, meta_description")
@@ -50,12 +48,12 @@ Deno.serve(async (req) => {
 
     if (!article) throw new Error("Статья не найдена");
 
-    // Get Medium user ID
     const meRes = await fetch("https://api.medium.com/v1/me", {
       headers: { Authorization: `Bearer ${profile.medium_token}` },
     });
 
     if (!meRes.ok) {
+      await meRes.text();
       throw new Error(`Medium auth failed [${meRes.status}]. Проверьте токен.`);
     }
 
@@ -63,7 +61,6 @@ Deno.serve(async (req) => {
     const userId = meData.data?.id;
     if (!userId) throw new Error("Не удалось получить ID пользователя Medium");
 
-    // Publish post
     const postRes = await fetch(`https://api.medium.com/v1/users/${userId}/posts`, {
       method: "POST",
       headers: {
