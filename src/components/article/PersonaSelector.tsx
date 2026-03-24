@@ -236,8 +236,7 @@ function PersonaCard({
         <button
           onClick={onClick}
           className={`
-            flex-shrink-0 flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all
-            w-[100px] min-w-[100px] cursor-pointer text-center
+            flex min-h-[112px] w-full flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-center transition-all
             hover:border-primary/50 hover:bg-accent/50
             ${isActive ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card"}
           `}
