@@ -238,7 +238,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts row */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("dashboard.articleStatuses")}</CardTitle>
@@ -268,6 +268,34 @@ export default function DashboardPage() {
             ) : (
               <p className="text-xs text-muted-foreground text-center py-6">{t("common.noData")}</p>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Publishing stats */}
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Send className="h-4 w-4" /> Публикации
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold mb-3">{stats.totalPublished}</div>
+            <div className="space-y-2">
+              {[
+                { label: "Telegra.ph", count: stats.publishCounts.telegraph, icon: Globe, color: "text-blue-400" },
+                { label: "WordPress", count: stats.publishCounts.wordpress, icon: Newspaper, color: "text-sky-400" },
+                { label: "Ghost", count: stats.publishCounts.ghost, icon: PenTool, color: "text-green-400" },
+                { label: "Medium", count: stats.publishCounts.medium, icon: BookOpen, color: "text-emerald-400" },
+              ].map((p) => (
+                <div key={p.label} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <p.icon className={`h-3.5 w-3.5 ${p.color}`} />
+                    <span className="text-muted-foreground">{p.label}</span>
+                  </div>
+                  <span className="font-semibold">{p.count}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
