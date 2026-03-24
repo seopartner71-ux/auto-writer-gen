@@ -48,7 +48,7 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
 
     // For preset authors: use system_instruction directly as the core directive
     if (authorProfile.type === "preset" && authorProfile.system_instruction) {
-      parts.push(`ГЛАВНАЯ ДИРЕКТИВА АВТОРА:\n${authorProfile.system_instruction}`);
+      parts.push(`ГЛАВНАЯ ДИРЕКТИВА АВТОРА (НАИВЫСШИЙ ПРИОРИТЕТ - перекрывает любые другие правила ниже):\n${authorProfile.system_instruction}`);
     } else {
       // Custom author: build from individual fields
       parts.push(`Ты - ${authorProfile.name || "эксперт"}.`);
@@ -69,8 +69,8 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
       if (authorProfile.style_examples) {
         parts.push(`ЭТАЛОННЫЙ ПРИМЕР (копируй этот стиль максимально близко):\n"${authorProfile.style_examples.slice(0, 1500)}"`);
       }
-      // Also apply system_instruction for custom authors if they defined one
-      if (authorProfile.system_instruction) parts.push(`СИСТЕМНАЯ ИНСТРУКЦИЯ АВТОРА: ${authorProfile.system_instruction}`);
+      // system_instruction for custom authors has HIGHEST priority
+      if (authorProfile.system_instruction) parts.push(`СИСТЕМНАЯ ИНСТРУКЦИЯ АВТОРА (НАИВЫСШИЙ ПРИОРИТЕТ - если конфликтует с базовыми правилами, следуй инструкции автора):\n${authorProfile.system_instruction}`);
     }
 
     if (authorProfile.stop_words?.length) parts.push(`ЗАПРЕЩЁННЫЕ СЛОВА (никогда не используй): ${authorProfile.stop_words.join(", ")}`);
@@ -183,7 +183,12 @@ ${isRussian
 === КОНЕЦ БЛОКА В ===`;
 
   // ═══ Assemble System Prompt ═══
-  const systemPrompt = `Ты - экспертный SEO-копирайтер с уникальным авторским почерком.${authorProfile ? " Пиши КАК автор, описанный в Блоке А - каждое предложение должно звучать как его/её текст." : ""}
+  // Check if author's instructions explicitly forbid tables
+  const authorForbidsTables = authorProfile?.system_instruction?.toLowerCase().includes("запрещено писать таблиц") ||
+    authorProfile?.system_instruction?.toLowerCase().includes("без таблиц") ||
+    authorProfile?.system_instruction?.toLowerCase().includes("no tables");
+
+  const systemPrompt = `Ты - экспертный SEO-копирайтер с уникальным авторским почерком.${authorProfile ? " Пиши КАК автор, описанный в Блоке А - каждое предложение должно звучать как его/её текст. Инструкции автора имеют НАИВЫСШИЙ приоритет и перекрывают любые базовые правила ниже." : ""}
 
 ${blockA}
 
@@ -207,8 +212,10 @@ ${blockA}
 - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать HTML-теги с атрибутом style. Никаких inline-стилей (style="..."). Никаких <span>, <p>, <div> с цветами или стилями.
 - Весь вывод - ТОЛЬКО чистый Markdown без HTML-разметки. Единственное исключение - комментарий <!-- FAQ Schema -->.
 
-ОБЯЗАТЕЛЬНЫЕ ЭЛЕМЕНТЫ ФОРМАТИРОВАНИЯ (включай в КАЖДУЮ статью):
-- ТАБЛИЦЫ: Минимум 1-2 сравнительные таблицы с реальными данными. Используй Markdown: | Колонка1 | Колонка2 | с разделителем |---|---|
+ОБЯЗАТЕЛЬНЫЕ ЭЛЕМЕНТЫ ФОРМАТИРОВАНИЯ (включай в КАЖДУЮ статью${authorProfile ? ", ЕСЛИ они не противоречат инструкциям автора из Блока А" : ""}):
+${authorForbidsTables
+  ? "- ТАБЛИЦЫ: ЗАПРЕЩЕНЫ инструкцией автора. НЕ включай таблицы в текст."
+  : "- ТАБЛИЦЫ: Минимум 1-2 сравнительные таблицы с реальными данными. Используй Markdown: | Колонка1 | Колонка2 | с разделителем |---|---|"}
 - СПИСКИ: Минимум 2-3 маркированных или нумерованных списка в разных разделах. Варьируй типы (буллеты, нумерация, чеклисты).
 - ЦИТАТЫ: Минимум 1-2 экспертных цитаты или важных выделений через Markdown blockquote (> текст цитаты). Используй для ключевых инсайтов, статистики или экспертных мнений.
 - Эти элементы должны быть распределены естественно по тексту, а не сконцентрированы в одном месте.
