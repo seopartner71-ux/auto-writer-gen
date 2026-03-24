@@ -112,7 +112,7 @@ export function PlanManagementTab() {
                     <Label className="text-xs">Цена USD</Label>
                     <Input
                       type="number"
-                      value={getVal(plan, "price_usd") ?? 0}
+                      value={String(getVal(plan, "price_usd") ?? 0)}
                       onChange={(e) => setField(plan.id, "price_usd", Number(e.target.value))}
                     />
                   </div>
@@ -120,7 +120,7 @@ export function PlanManagementTab() {
                     <Label className="text-xs">Цена RUB</Label>
                     <Input
                       type="number"
-                      value={getVal(plan, "price_rub") ?? 0}
+                      value={String(getVal(plan, "price_rub") ?? 0)}
                       onChange={(e) => setField(plan.id, "price_rub", Number(e.target.value))}
                     />
                   </div>
@@ -130,7 +130,7 @@ export function PlanManagementTab() {
                   <Label className="text-xs">Лимит статей / мес.</Label>
                   <Input
                     type="number"
-                    value={getVal(plan, "monthly_article_limit") ?? 0}
+                    value={String(getVal(plan, "monthly_article_limit") ?? 0)}
                     onChange={(e) => setField(plan.id, "monthly_article_limit", Number(e.target.value))}
                   />
                 </div>
