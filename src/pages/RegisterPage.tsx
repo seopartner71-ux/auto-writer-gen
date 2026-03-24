@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { KeyRound, Loader2 } from "lucide-react";
+import { Hexagon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -57,7 +57,7 @@ export default function RegisterPage() {
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-              <KeyRound className="h-6 w-6 text-primary" />
+              <Hexagon className="h-6 w-6 text-primary" />
             </div>
           </div>
           <CardTitle className="text-2xl gradient-text">SERPblueprint <sup className="text-xs text-muted-foreground font-normal">v2.0</sup></CardTitle>
