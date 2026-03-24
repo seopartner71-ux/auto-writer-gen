@@ -44,9 +44,10 @@ export default function PricingPage() {
         .select("*")
         .order("monthly_article_limit");
       if (error) throw error;
-      return data as Array<{
+      return data as unknown as Array<{
         id: string; name: string; price_rub: number | null; price_usd: number | null;
         monthly_article_limit: number; description_ru: string | null; description_en: string | null;
+        features: Array<{ text_ru: string; text_en: string; included: boolean }> | null;
       }>;
     },
   });
