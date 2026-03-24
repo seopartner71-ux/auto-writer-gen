@@ -159,6 +159,19 @@ Analyze these results and identify:
 
 IMPORTANT: Write ALL output text in ${langName}.`;
 
+    // Per-user rate limiting: max 30 research requests per hour
+    const { data: rateLimitOk } = await supabaseAdmin0.rpc("check_rate_limit", {
+      p_user_id: userId,
+      p_action: "smart_research",
+      p_max_requests: 30,
+      p_window_minutes: 60,
+    });
+    if (rateLimitOk === false) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // 7. Call AI
     const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
