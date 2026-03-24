@@ -184,6 +184,30 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
 
   return (
     <div className="space-y-3">
+      {/* Toggle for Pro users */}
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3 text-primary" />
+          Pro Visual Synthesis
+        </Label>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">{localEnabled ? "Вкл" : "Выкл"}</span>
+          <Switch
+            checked={localEnabled}
+            onCheckedChange={setLocalEnabled}
+          />
+        </div>
+      </div>
+
+      {!localEnabled ? (
+        <Card className="border-dashed border-border bg-card">
+          <CardContent className="flex flex-col items-center justify-center py-6 text-center space-y-2">
+            <EyeOff className="h-5 w-5 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Генерация изображений отключена</p>
+          </CardContent>
+        </Card>
+      ) : (
+      <>
       <AnimatePresence mode="wait">
         {isAnyGenerating ? (
           <motion.div
