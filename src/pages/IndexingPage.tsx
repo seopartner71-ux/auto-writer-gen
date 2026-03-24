@@ -1,4 +1,4 @@
-import { useState, forwardRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Send, Key, CheckCircle2, XCircle, Clock, Loader2, Upload, Zap } from "lucide-react";
 import { toast } from "sonner";
 
-function IndexingPage() {
+export default function IndexingPage() {
   const { user, profile } = useAuth();
   const { t } = useI18n();
   const { isPro } = usePlanLimits();
@@ -237,5 +237,3 @@ function IndexingPage() {
     </div>
   );
 }
-
-export default forwardRef(IndexingPage);
