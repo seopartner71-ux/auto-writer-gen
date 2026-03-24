@@ -69,7 +69,7 @@ export default function PricingPage() {
     },
     {
       id: "basic" as const, name: t("pricing.basicName"), price: isEn ? "$59" : "4 900 ₽", period: t("pricing.perMonth"), icon: Zap,
-      description: t("pricing.basicDesc"), badge: t("pricing.popular"), credits: 30, polarProductId: null as string | null,
+      description: t("pricing.basicDesc"), badge: t("pricing.popular"), credits: 30, polarProductId: "9b2d1bf3-565e-4e56-bd02-e52b008694d1",
       features: [
         { text: t("pricing.f.gens30"), included: true },
         { text: t("pricing.f.fullSerp"), included: true },
