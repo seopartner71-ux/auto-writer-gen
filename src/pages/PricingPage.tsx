@@ -34,7 +34,7 @@ export default function PricingPage() {
       ],
     },
     {
-      id: "basic" as const, name: t("pricing.basicName"), price: "4 900", period: t("pricing.perMonth"), icon: Zap,
+      id: "basic" as const, name: t("pricing.basicName"), price: isEn ? "$59" : "4 900 ₽", period: t("pricing.perMonth"), icon: Zap,
       description: t("pricing.basicDesc"), badge: t("pricing.popular"), credits: 30,
       features: [
         { text: t("pricing.f.gens30"), included: true },
@@ -50,7 +50,7 @@ export default function PricingPage() {
       ],
     },
     {
-      id: "pro" as const, name: "Pro", price: "12 400", period: t("pricing.perMonth"), icon: Crown,
+      id: "pro" as const, name: "Pro", price: isEn ? "$169" : "12 400 ₽", period: t("pricing.perMonth"), icon: Crown,
       description: t("pricing.proDesc"), badge: t("pricing.maximum"), credits: 100,
       features: [
         { text: t("pricing.f.gens100"), included: true },
