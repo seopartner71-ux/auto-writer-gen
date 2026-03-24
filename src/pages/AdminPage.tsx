@@ -6,6 +6,7 @@ import { HealthCheckTab } from "@/components/admin/HealthCheckTab";
 import { UserManagementTab } from "@/components/admin/UserManagementTab";
 import { UserContentTab } from "@/components/admin/UserContentTab";
 import { FaqManagementTab } from "@/components/admin/FaqManagementTab";
+import { PolarSettingsTab } from "@/components/admin/PolarSettingsTab";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -22,13 +23,14 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="vault" className="w-full">
-        <TabsList className="bg-muted border border-border">
+        <TabsList className="bg-muted border border-border flex-wrap">
           <TabsTrigger value="vault">API Vault</TabsTrigger>
           <TabsTrigger value="routing">Model Routing</TabsTrigger>
           <TabsTrigger value="health">Health Check</TabsTrigger>
           <TabsTrigger value="users">{t("admin.users")}</TabsTrigger>
           <TabsTrigger value="content">{t("admin.content")}</TabsTrigger>
           <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
+          <TabsTrigger value="polar">Polar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
@@ -37,6 +39,7 @@ export default function AdminPage() {
         <TabsContent value="users" className="mt-4"><UserManagementTab /></TabsContent>
         <TabsContent value="content" className="mt-4"><UserContentTab /></TabsContent>
         <TabsContent value="wiki" className="mt-4"><FaqManagementTab /></TabsContent>
+        <TabsContent value="polar" className="mt-4"><PolarSettingsTab /></TabsContent>
       </Tabs>
     </div>
   );
