@@ -343,6 +343,8 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
       {!generatedImage && !isAnyGenerating && (
         <StylePresets selected={selectedStyle} onSelect={setSelectedStyle} />
       )}
+      </>
+      )}
     </div>
   );
 }
