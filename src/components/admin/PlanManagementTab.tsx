@@ -41,7 +41,7 @@ export function PlanManagementTab() {
         .select("*")
         .order("monthly_article_limit");
       if (error) throw error;
-      return data as Plan[];
+      return data as unknown as Plan[];
     },
   });
 
