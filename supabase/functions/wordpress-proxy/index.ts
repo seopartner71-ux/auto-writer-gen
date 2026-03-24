@@ -161,6 +161,12 @@ serve(async (req) => {
           edit_url: `${baseUrl}/wp-admin/post.php?post=${post.id}&action=edit`,
           status: post.status,
         };
+
+        // Log publish action
+        await admin.from("usage_logs").insert({
+          user_id: userId,
+          action: "publish_wordpress",
+        });
         break;
       }
 

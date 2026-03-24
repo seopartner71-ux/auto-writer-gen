@@ -6,7 +6,7 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";
 import {
   FileText, Search, BarChart3, Zap, TrendingUp, Hash, Trash2,
-  CheckCircle2, AlertCircle, Clock, BookOpen
+  CheckCircle2, AlertCircle, Clock, BookOpen, Send, Globe, Newspaper, PenTool
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +96,21 @@ export default function DashboardPage() {
       0
     );
 
+    // Publication stats by platform
+    const publishCounts: Record<string, number> = {
+      telegraph: 0,
+      ghost: 0,
+      medium: 0,
+      wordpress: 0,
+    };
+    usageLogs.forEach((l: any) => {
+      if (l.action === "publish_telegraph") publishCounts.telegraph++;
+      else if (l.action === "publish_ghost") publishCounts.ghost++;
+      else if (l.action === "publish_medium") publishCounts.medium++;
+      else if (l.action === "publish_wordpress") publishCounts.wordpress++;
+    });
+    const totalPublished = publishCounts.telegraph + publishCounts.ghost + publishCounts.medium + publishCounts.wordpress;
+
     const statusMap: Record<string, number> = {};
     articles.forEach((a: any) => {
       const st = a.status || "draft";
@@ -140,6 +155,8 @@ export default function DashboardPage() {
       topKeywords,
       recentArticles,
       weeklyData,
+      publishCounts,
+      totalPublished,
     };
   }, [articles, keywords, usageLogs, t]);
 
@@ -221,7 +238,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts row */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("dashboard.articleStatuses")}</CardTitle>
@@ -251,6 +268,34 @@ export default function DashboardPage() {
             ) : (
               <p className="text-xs text-muted-foreground text-center py-6">{t("common.noData")}</p>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Publishing stats */}
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Send className="h-4 w-4" /> Публикации
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold mb-3">{stats.totalPublished}</div>
+            <div className="space-y-2">
+              {[
+                { label: "Telegra.ph", count: stats.publishCounts.telegraph, icon: Globe, color: "text-blue-400" },
+                { label: "WordPress", count: stats.publishCounts.wordpress, icon: Newspaper, color: "text-sky-400" },
+                { label: "Ghost", count: stats.publishCounts.ghost, icon: PenTool, color: "text-green-400" },
+                { label: "Medium", count: stats.publishCounts.medium, icon: BookOpen, color: "text-emerald-400" },
+              ].map((p) => (
+                <div key={p.label} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <p.icon className={`h-3.5 w-3.5 ${p.color}`} />
+                    <span className="text-muted-foreground">{p.label}</span>
+                  </div>
+                  <span className="font-semibold">{p.count}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 

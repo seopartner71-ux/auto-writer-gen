@@ -235,6 +235,12 @@ Deno.serve(async (req) => {
       throw new Error(`Telegraph error: ${pageData.error || "Unknown"}`);
     }
 
+    // Log publish action
+    await admin.from("usage_logs").insert({
+      user_id: user.id,
+      action: "publish_telegraph",
+    });
+
     return new Response(JSON.stringify({
       success: true,
       url: pageData.result.url,
