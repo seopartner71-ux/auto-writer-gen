@@ -117,7 +117,7 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
       <Label className="text-xs text-muted-foreground">{t("ps.authorStyle")}</Label>
 
       <TooltipProvider delayDuration={300}>
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           <PersonaCard
             name={t("ps.noStyle")}
             description={t("ps.defaultCopywriter")}
@@ -150,12 +150,11 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
             />
           ))}
 
-          {/* Add card */}
           <button
             onClick={() => setCreateOpen(true)}
-            className="flex-shrink-0 flex flex-col items-center justify-center gap-1.5 p-3 rounded-lg border-2 border-dashed border-muted-foreground/30 transition-all w-[100px] min-w-[100px] cursor-pointer text-center hover:border-primary/50 hover:bg-accent/50"
+            className="flex min-h-[112px] w-full flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-muted-foreground/30 p-3 text-center transition-all hover:border-primary/50 hover:bg-accent/50"
           >
-            <div className="flex items-center justify-center h-9 w-9 rounded-full bg-muted text-muted-foreground">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <Plus className="h-4 w-4" />
             </div>
             <span className="text-[11px] font-medium leading-tight text-muted-foreground">{t("ps.createOwn")}</span>
