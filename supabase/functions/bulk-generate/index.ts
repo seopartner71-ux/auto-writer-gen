@@ -90,6 +90,13 @@ serve(async (req) => {
 
     // Process items sequentially
     for (const item of items) {
+      // Check if job was paused
+      const { data: jobCheck } = await admin.from("bulk_jobs").select("status").eq("id", bulk_job_id).single();
+      if (jobCheck?.status === "paused") {
+        console.log("Job paused, stopping processing");
+        break;
+      }
+
       try {
         // 1. Update status to researching
         await admin.from("bulk_job_items").update({ status: "researching" }).eq("id", item.id);
