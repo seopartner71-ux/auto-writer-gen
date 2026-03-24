@@ -6,7 +6,7 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";
 import {
   FileText, Search, BarChart3, Zap, TrendingUp, Hash, Trash2,
-  CheckCircle2, AlertCircle, Clock, BookOpen
+  CheckCircle2, AlertCircle, Clock, BookOpen, Send, Globe, Newspaper, PenTool
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
