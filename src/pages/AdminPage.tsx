@@ -7,6 +7,7 @@ import { UserManagementTab } from "@/components/admin/UserManagementTab";
 import { UserContentTab } from "@/components/admin/UserContentTab";
 import { FaqManagementTab } from "@/components/admin/FaqManagementTab";
 import { PolarSettingsTab } from "@/components/admin/PolarSettingsTab";
+import { PlanManagementTab } from "@/components/admin/PlanManagementTab";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
