@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Crown, Copy, Check, X, Images } from "lucide-react";
+import { Sparkles, Crown, Copy, Check, X, Images, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -20,6 +22,8 @@ interface ProImageGeneratorProps {
 export function ProImageGenerator({ title, content, keyword, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
   const { isPro } = usePlanLimits();
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("photorealistic");
+  const globalEnabled = localStorage.getItem("pro_image_enabled") !== "false";
+  const [localEnabled, setLocalEnabled] = useState(globalEnabled);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMulti, setIsGeneratingMulti] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<{
