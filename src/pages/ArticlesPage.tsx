@@ -881,26 +881,26 @@ export default function ArticlesPage() {
             <Tabs defaultValue="edit">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">
-                  <div className="flex items-center gap-2 flex-wrap">
-                  <TabsList className="h-8">
-                    <TabsTrigger value="edit" className="text-xs gap-1.5 px-3">
+                  <div className="flex items-center gap-3">
+                  <TabsList className="h-8 shrink-0">
+                    <TabsTrigger value="edit" className="text-xs gap-1 px-2.5">
                       <Pencil className="h-3 w-3" />
                       {t("articles.editor")}
                     </TabsTrigger>
-                    <TabsTrigger value="preview" className="text-xs gap-1.5 px-3">
+                    <TabsTrigger value="preview" className="text-xs gap-1 px-2.5">
                       <Eye className="h-3 w-3" />
                       {t("articles.preview")}
                     </TabsTrigger>
-                    <TabsTrigger value="html" className="text-xs gap-1.5 px-3">
+                    <TabsTrigger value="html" className="text-xs gap-1 px-2.5">
                       <Code2 className="h-3 w-3" />
                       HTML
                     </TabsTrigger>
-                    <TabsTrigger value="schema" className="text-xs gap-1.5 px-3">
+                    <TabsTrigger value="schema" className="text-xs gap-1 px-2.5">
                       <Code2 className="h-3 w-3" />
                       FAQ & Schema
                     </TabsTrigger>
                   </TabsList>
-                  <Separator orientation="vertical" className="h-6 hidden sm:block" />
+                  <Separator orientation="vertical" className="h-5" />
                     <Button
                       variant="outline"
                       size="sm"
@@ -977,7 +977,7 @@ export default function ArticlesPage() {
                     {/* Blog platform publish buttons — PRO only */}
                     {currentArticleId && content && limits.hasProImageGen && (
                       <>
-                        <Separator orientation="vertical" className="h-6 mx-1" />
+                        <Separator orientation="vertical" className="h-5" />
                         <Button
                           variant="outline"
                           size="sm"
