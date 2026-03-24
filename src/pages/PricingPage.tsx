@@ -7,7 +7,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
 export default function PricingPage() {
@@ -19,6 +19,24 @@ export default function PricingPage() {
   const currentCredits = profile?.credits_amount ?? 0;
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Fetch Polar product IDs from app_settings
+  const { data: polarSettings } = useQuery({
+    queryKey: ["app-settings", "polar"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("key, value")
+        .in("key", ["polar_basic_product_id", "polar_pro_product_id"]);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((s: { key: string; value: string }) => (map[s.key] = s.value));
+      return map;
+    },
+  });
+
+  const basicProductId = polarSettings?.polar_basic_product_id ?? null;
+  const proProductId = polarSettings?.polar_pro_product_id ?? null;
 
   // Verify checkout on return from Polar
   useEffect(() => {
@@ -43,7 +61,6 @@ export default function PricingPage() {
         console.error("Checkout verification error:", err);
       }
 
-      // Clean up URL
       setSearchParams({});
     };
 
@@ -53,7 +70,7 @@ export default function PricingPage() {
   const plans = [
     {
       id: "free" as const, name: "Free", price: isEn ? "$0" : "0 ₽", period: t("pricing.perMonth"), icon: Sparkles,
-      description: t("pricing.freeDesc"), badge: null, credits: 5, polarProductId: null,
+      description: t("pricing.freeDesc"), badge: null, credits: 5, polarProductId: null as string | null,
       features: [
         { text: t("pricing.f.gens5"), included: true },
         { text: t("pricing.f.basicResearch"), included: true },
@@ -69,7 +86,7 @@ export default function PricingPage() {
     },
     {
       id: "basic" as const, name: t("pricing.basicName"), price: isEn ? "$59" : "4 900 ₽", period: t("pricing.perMonth"), icon: Zap,
-      description: t("pricing.basicDesc"), badge: t("pricing.popular"), credits: 30, polarProductId: "9b2d1bf3-565e-4e56-bd02-e52b008694d1",
+      description: t("pricing.basicDesc"), badge: t("pricing.popular"), credits: 30, polarProductId: basicProductId,
       features: [
         { text: t("pricing.f.gens30"), included: true },
         { text: t("pricing.f.fullSerp"), included: true },
@@ -85,7 +102,7 @@ export default function PricingPage() {
     },
     {
       id: "pro" as const, name: "Pro", price: isEn ? "$169" : "12 400 ₽", period: t("pricing.perMonth"), icon: Crown,
-      description: t("pricing.proDesc"), badge: t("pricing.maximum"), credits: 100, polarProductId: "04d93830-5940-41d0-8d51-0204713bff08",
+      description: t("pricing.proDesc"), badge: t("pricing.maximum"), credits: 100, polarProductId: proProductId,
       features: [
         { text: t("pricing.f.gens100"), included: true },
         { text: t("pricing.f.fullSerpComp"), included: true },
@@ -126,8 +143,8 @@ export default function PricingPage() {
     if (!selectedPlan?.polarProductId) {
       toast.error(
         isEn
-          ? "Polar product not configured yet. Please contact support."
-          : "Продукт Polar ещё не настроен. Обратитесь в поддержку."
+          ? "Payment not configured yet. Please contact the administrator."
+          : "Оплата ещё не настроена. Обратитесь к администратору."
       );
       return;
     }
