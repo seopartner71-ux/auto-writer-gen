@@ -1,0 +1,1 @@
+UPDATE subscription_plans SET monthly_article_limit = 5 WHERE id = 'free';

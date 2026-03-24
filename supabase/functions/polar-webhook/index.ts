@@ -92,17 +92,19 @@ serve(async (req) => {
       const productName = checkout.product?.name?.toLowerCase() ?? "";
       let plan = "basic";
       let credits = 30;
+      let monthlyLimit = 30;
 
       if (productName.includes("pro")) {
         plan = "pro";
         credits = 100;
+        monthlyLimit = 100;
       }
 
-      console.log(`Upgrading user ${userId} to plan: ${plan}, credits: ${credits}`);
+      console.log(`Upgrading user ${userId} to plan: ${plan}, credits: ${credits}, monthly_limit: ${monthlyLimit}`);
 
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ plan, credits_amount: credits })
+        .update({ plan, credits_amount: credits, monthly_limit: monthlyLimit })
         .eq("id", userId);
 
       if (updateError) {
@@ -129,7 +131,7 @@ serve(async (req) => {
 
         await supabase
           .from("profiles")
-          .update({ plan: "free", credits_amount: 5 })
+          .update({ plan: "free", credits_amount: 5, monthly_limit: 5 })
           .eq("id", userId);
 
         await supabase.from("notifications").insert({

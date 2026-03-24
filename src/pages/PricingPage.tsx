@@ -129,7 +129,7 @@ export default function PricingPage() {
 
     // Free plan — just update directly
     if (planId === "free") {
-      const { error } = await supabase.from("profiles").update({ plan: planId, credits_amount: 5 }).eq("id", user.id);
+      const { error } = await supabase.from("profiles").update({ plan: planId, credits_amount: 5, monthly_limit: 5 }).eq("id", user.id);
       if (error) {
         toast.error(t("pricing.changeFailed"));
       } else {
