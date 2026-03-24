@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Upload, Loader2, Factory, Play, Download, CheckCircle2,
-  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus
+  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus, Pause, RotateCcw
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -101,6 +101,27 @@ export function BulkGenerationMode() {
     onError: (e) => toast.error(e.message),
   });
 
+  const pauseJob = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase.from("bulk_jobs").update({ status: "paused" }).eq("id", jobId);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); toast.success("Генерация поставлена на паузу"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const resumeJob = useMutation({
+    mutationFn: async (jobId: string) => {
+      await supabase.from("bulk_jobs").update({ status: "processing" }).eq("id", jobId);
+      const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] }); toast.success(t("bulk.processingComplete")); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const deleteJob = useMutation({
     mutationFn: async (jobId: string) => { await supabase.from("bulk_job_items").delete().eq("bulk_job_id", jobId); const { error: jobErr } = await supabase.from("bulk_jobs").delete().eq("id", jobId); if (jobErr) throw jobErr; },
     onSuccess: (_, deletedJobId) => { if (activeJobId === deletedJobId) setActiveJobId(null); queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); queryClient.invalidateQueries({ queryKey: ["bulk-job-items"] }); toast.success(t("bulk.jobDeleted")); },
@@ -126,7 +147,8 @@ export function BulkGenerationMode() {
 
   const activeJob = bulkJobs.find((j) => j.id === activeJobId);
   const progressPercent = activeJob ? Math.round((activeJob.completed_items / Math.max(activeJob.total_items, 1)) * 100) : 0;
-  const isProcessing = activeJob?.status === "processing" || startProcessing.isPending;
+  const isProcessing = activeJob?.status === "processing" || startProcessing.isPending || resumeJob.isPending;
+  const isPaused = activeJob?.status === "paused";
 
   return (
     <div className="space-y-6">
@@ -226,12 +248,25 @@ export function BulkGenerationMode() {
               <CardTitle className="text-lg">{t("bulk.progress")}: {activeJob.completed_items} / {activeJob.total_items}</CardTitle>
               <div className="flex items-center gap-2">
                 {activeJob.status === "completed" && <Button size="sm" variant="outline" onClick={handleDownloadAll} className="gap-1.5"><Download className="h-4 w-4" />{t("bulk.downloadAll")}</Button>}
-                {activeJob.status !== "processing" && (
+                {activeJob.status === "processing" && (
+                  <Button size="sm" variant="outline" onClick={() => pauseJob.mutate(activeJob.id)} disabled={pauseJob.isPending} className="gap-1.5">
+                    {pauseJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
+                    Пауза
+                  </Button>
+                )}
+                {isPaused && (
+                  <Button size="sm" variant="default" onClick={() => resumeJob.mutate(activeJob.id)} disabled={resumeJob.isPending} className="gap-1.5">
+                    {resumeJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    Возобновить
+                  </Button>
+                )}
+                {(activeJob.status !== "processing") && (
                   <Button size="sm" variant="ghost" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => { if (confirm(t("bulk.deleteConfirm"))) deleteJob.mutate(activeJob.id); }} disabled={deleteJob.isPending}>
                     {deleteJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}{t("bulk.delete")}
                   </Button>
                 )}
                 {activeJob.status === "processing" && <Badge className="bg-primary/20 text-primary border-0 animate-pulse"><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />{t("bulk.processing")}</Badge>}
+                {isPaused && <Badge variant="outline" className="border-yellow-500/30 text-yellow-500">На паузе</Badge>}
               </div>
             </div>
           </CardHeader>
