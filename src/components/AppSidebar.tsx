@@ -8,7 +8,7 @@ import {
   UserPen,
   Settings,
   ShieldCheck,
-  KeyRound,
+  Hexagon,
   CreditCard,
   Zap,
   Globe,
@@ -96,7 +96,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         <div className="flex items-center gap-2 px-4 py-2">
-          <KeyRound className="h-6 w-6 text-primary shrink-0" />
+          <Hexagon className="h-6 w-6 text-primary shrink-0" />
           {!collapsed && (
             <span className="text-lg font-brand tracking-tight">SERP<span className="gradient-text">blueprint</span> <sup className="text-[10px] text-muted-foreground font-sans">v2.0</sup></span>
           )}
