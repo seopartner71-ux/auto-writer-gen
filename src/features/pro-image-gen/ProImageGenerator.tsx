@@ -22,7 +22,7 @@ interface ProImageGeneratorProps {
 export function ProImageGenerator({ title, content, keyword, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
   const { isPro } = usePlanLimits();
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("photorealistic");
-  const globalEnabled = localStorage.getItem("pro_image_enabled") !== "false";
+  const globalEnabled = localStorage.getItem("pro_image_enabled") === "true";
   const [localEnabled, setLocalEnabled] = useState(globalEnabled);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMulti, setIsGeneratingMulti] = useState(false);
