@@ -224,6 +224,9 @@ Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
         completedCount++;
         await admin.from("bulk_jobs").update({ completed_items: completedCount }).eq("id", bulk_job_id);
       }
+
+      // Pause 5 seconds between items to avoid rate limits
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
 
     // Update job status
