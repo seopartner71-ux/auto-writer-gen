@@ -237,3 +237,5 @@ function IndexingPage() {
     </div>
   );
 }
+
+export default forwardRef(IndexingPage);
