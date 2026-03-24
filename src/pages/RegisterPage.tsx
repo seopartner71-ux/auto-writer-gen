@@ -38,7 +38,14 @@ export default function RegisterPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      const ruErrors: Record<string, string> = {
+        "Password is known to be weak and easy to guess, please choose a different one.": "Пароль слишком простой и легко угадывается. Пожалуйста, выберите другой.",
+        "User already registered": "Пользователь с таким email уже зарегистрирован.",
+        "Password should be at least 6 characters.": "Пароль должен быть не менее 6 символов.",
+        "Unable to validate email address: invalid format": "Неверный формат email адреса.",
+        "Signup requires a valid password": "Необходимо указать пароль.",
+      };
+      toast.error(ruErrors[error.message] || error.message);
     } else {
       toast.success("Вы успешно зарегистрированы! Проверьте вашу почту для подтверждения аккаунта.", { duration: 8000 });
       navigate("/login");
