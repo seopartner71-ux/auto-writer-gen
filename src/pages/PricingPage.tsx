@@ -83,10 +83,25 @@ export default function PricingPage() {
     verifyCheckout();
   }, [searchParams, user]);
 
+  const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
+
+  const fmtPrice = (id: string, fallbackUsd: number, fallbackRub: string) => {
+    const db = getDbPlan(id);
+    if (isEn) return `$${db?.price_usd ?? fallbackUsd}`;
+    return db?.price_rub != null ? `${db.price_rub.toLocaleString("ru-RU")} ₽` : fallbackRub;
+  };
+
+  const fmtDesc = (id: string, fallback: string) => {
+    const db = getDbPlan(id);
+    return (isEn ? db?.description_en : db?.description_ru) || fallback;
+  };
+
+  const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
+
   const plans = [
     {
-      id: "free" as const, name: "Free", price: isEn ? "$0" : "0 ₽", period: t("pricing.perMonth"), icon: Sparkles,
-      description: t("pricing.freeDesc"), badge: null, credits: 5, polarProductId: null as string | null,
+      id: "free" as const, name: "Free", price: fmtPrice("free", 0, "0 ₽"), period: t("pricing.perMonth"), icon: Sparkles,
+      description: fmtDesc("free", t("pricing.freeDesc")), badge: null, credits: fmtCredits("free", 5), polarProductId: null as string | null,
       features: [
         { text: t("pricing.f.gens5"), included: true },
         { text: t("pricing.f.basicResearch"), included: true },
@@ -101,8 +116,8 @@ export default function PricingPage() {
       ],
     },
     {
-      id: "basic" as const, name: t("pricing.basicName"), price: isEn ? "$59" : "4 900 ₽", period: t("pricing.perMonth"), icon: Zap,
-      description: t("pricing.basicDesc"), badge: t("pricing.popular"), credits: 30, polarProductId: basicProductId,
+      id: "basic" as const, name: t("pricing.basicName"), price: fmtPrice("basic", 59, "4 900 ₽"), period: t("pricing.perMonth"), icon: Zap,
+      description: fmtDesc("basic", t("pricing.basicDesc")), badge: t("pricing.popular"), credits: fmtCredits("basic", 30), polarProductId: basicProductId,
       features: [
         { text: t("pricing.f.gens30"), included: true },
         { text: t("pricing.f.fullSerp"), included: true },
@@ -117,8 +132,8 @@ export default function PricingPage() {
       ],
     },
     {
-      id: "pro" as const, name: "Pro", price: isEn ? "$169" : "12 400 ₽", period: t("pricing.perMonth"), icon: Crown,
-      description: t("pricing.proDesc"), badge: t("pricing.maximum"), credits: 100, polarProductId: proProductId,
+      id: "pro" as const, name: "Pro", price: fmtPrice("pro", 169, "12 400 ₽"), period: t("pricing.perMonth"), icon: Crown,
+      description: fmtDesc("pro", t("pricing.proDesc")), badge: t("pricing.maximum"), credits: fmtCredits("pro", 100), polarProductId: proProductId,
       features: [
         { text: t("pricing.f.gens100"), included: true },
         { text: t("pricing.f.fullSerpComp"), included: true },
