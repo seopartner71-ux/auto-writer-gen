@@ -125,6 +125,12 @@ Deno.serve(async (req) => {
     const result = await ghostRes.json();
     const postUrl = result.posts?.[0]?.url || "";
 
+    // Log publish action
+    await admin.from("usage_logs").insert({
+      user_id: user.id,
+      action: "publish_ghost",
+    });
+
     return new Response(JSON.stringify({ success: true, url: postUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
