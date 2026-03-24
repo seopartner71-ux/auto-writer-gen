@@ -1,4 +1,5 @@
 import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, LifeBuoy, Send } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -253,6 +254,20 @@ export default function SettingsPage() {
                 <CardDescription className="text-xs">{t("settings.proImageLimit")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Генерация изображений</Label>
+                    <p className="text-xs text-muted-foreground">Включить/отключить генерацию Pro-обложек</p>
+                  </div>
+                  <Switch
+                    checked={localStorage.getItem("pro_image_enabled") !== "false"}
+                    onCheckedChange={(checked) => {
+                      localStorage.setItem("pro_image_enabled", String(checked));
+                      toast.success(checked ? "Генерация изображений включена" : "Генерация изображений отключена");
+                    }}
+                  />
+                </div>
+                <Separator />
                 <div className="flex items-end justify-between">
                   <div>
                     <p className="text-2xl font-bold text-foreground">{proImageCount}</p>
