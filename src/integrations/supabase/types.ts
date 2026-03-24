@@ -973,6 +973,39 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          can_export_html: boolean | null
+          can_use_clusters: boolean | null
+          can_use_paa: boolean | null
+          created_at: string | null
+          id: string
+          monthly_article_limit: number
+          name: string
+          price_rub: number | null
+        }
+        Insert: {
+          can_export_html?: boolean | null
+          can_use_clusters?: boolean | null
+          can_use_paa?: boolean | null
+          created_at?: string | null
+          id: string
+          monthly_article_limit: number
+          name: string
+          price_rub?: number | null
+        }
+        Update: {
+          can_export_html?: boolean | null
+          can_use_clusters?: boolean | null
+          can_use_paa?: boolean | null
+          created_at?: string | null
+          id?: string
+          monthly_article_limit?: number
+          name?: string
+          price_rub?: number | null
+        }
+        Relationships: []
+      }
       support_tickets: {
         Row: {
           created_at: string | null
