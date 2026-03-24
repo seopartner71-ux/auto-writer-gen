@@ -48,7 +48,7 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
 
     // For preset authors: use system_instruction directly as the core directive
     if (authorProfile.type === "preset" && authorProfile.system_instruction) {
-      parts.push(`ГЛАВНАЯ ДИРЕКТИВА АВТОРА:\n${authorProfile.system_instruction}`);
+      parts.push(`ГЛАВНАЯ ДИРЕКТИВА АВТОРА (НАИВЫСШИЙ ПРИОРИТЕТ - перекрывает любые другие правила ниже):\n${authorProfile.system_instruction}`);
     } else {
       // Custom author: build from individual fields
       parts.push(`Ты - ${authorProfile.name || "эксперт"}.`);
@@ -69,8 +69,8 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
       if (authorProfile.style_examples) {
         parts.push(`ЭТАЛОННЫЙ ПРИМЕР (копируй этот стиль максимально близко):\n"${authorProfile.style_examples.slice(0, 1500)}"`);
       }
-      // Also apply system_instruction for custom authors if they defined one
-      if (authorProfile.system_instruction) parts.push(`СИСТЕМНАЯ ИНСТРУКЦИЯ АВТОРА: ${authorProfile.system_instruction}`);
+      // system_instruction for custom authors has HIGHEST priority
+      if (authorProfile.system_instruction) parts.push(`СИСТЕМНАЯ ИНСТРУКЦИЯ АВТОРА (НАИВЫСШИЙ ПРИОРИТЕТ - если конфликтует с базовыми правилами, следуй инструкции автора):\n${authorProfile.system_instruction}`);
     }
 
     if (authorProfile.stop_words?.length) parts.push(`ЗАПРЕЩЁННЫЕ СЛОВА (никогда не используй): ${authorProfile.stop_words.join(", ")}`);
