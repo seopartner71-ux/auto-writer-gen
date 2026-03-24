@@ -467,7 +467,7 @@ export default function ArticlesPage() {
         },
         body: JSON.stringify({
           keyword_id: selectedKeywordId,
-          author_profile_id: selectedAuthorId || null,
+          author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
           outline,
           lsi_keywords: lsiKeywords,
           competitor_tables: (selectedKeyword as any)?.competitor_tables || [],
@@ -1457,7 +1457,7 @@ export default function ArticlesPage() {
                       },
                       body: JSON.stringify({
                         keyword_id: selectedKeywordId,
-                        author_profile_id: selectedAuthorId || null,
+                        author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
                         outline,
                         lsi_keywords: lsiKeywords,
                         optimize_instructions: `ЗАДАЧА: Исправь ТОЛЬКО указанную проблему, сохрани весь остальной текст максимально близко к оригиналу.\n\n${instruction}\n\nВАЖНО: НЕ переписывай статью целиком. Измени только те части, которые нарушают указанное правило. Сохрани структуру, заголовки и объём.`,
@@ -1540,9 +1540,9 @@ export default function ArticlesPage() {
                           Authorization: `Bearer ${token}`,
                           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
                         },
-                        body: JSON.stringify({
-                          keyword_id: selectedKeywordId,
-                          author_profile_id: selectedAuthorId || null,
+                      body: JSON.stringify({
+                        keyword_id: selectedKeywordId,
+                        author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
                           outline,
                           lsi_keywords: lsiKeywords,
                           optimize_instructions: instructions,
