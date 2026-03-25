@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Upload, Loader2, Factory, Play, Download, CheckCircle2,
-  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus, Pause, RotateCcw
+  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus, Pause, RotateCcw, Globe
 } from "lucide-react";
 import { toast } from "sonner";
 
