@@ -1,13 +1,21 @@
 
+# Remove Medium Integration
 
-## Перенос кнопки "Создать свой" в ряд с карточками авторов
+## Changes
 
-### Что делаем
-Перемещаем кнопку "+ Создать свой" из заголовка секции в горизонтальный ряд карточек авторов — она станет последней карточкой в списке, визуально оформленной как кнопка добавления (пунктирная рамка, иконка "+").
+### 1. `src/pages/IntegrationsPage.tsx`
+- Remove `mediumToken` state variable
+- Remove Medium from `platforms` array
+- Remove Medium token from data loading (`useEffect`)
+- Remove `medium_token` from `handleSave` update call
+- Remove the Medium settings Card (lines 174-194)
+- Change grid from `md:grid-cols-3` to `md:grid-cols-2` (only Telegra.ph + Ghost remain)
 
-### Изменения в `src/components/article/PersonaSelector.tsx`
+### 2. `src/pages/ArticlesPage.tsx`
+- Remove Medium publish button from the article editor toolbar
 
-1. **Убрать кнопку из заголовка** (строки 119-179) — вынести `Dialog` из `div.flex.justify-between`, оставить только `Label`
-2. **Добавить кнопку-карточку в конец списка** (после строки 216) — внутри `flex gap-2` ряда добавить кнопку в стиле карточки персоны (100px, пунктирная рамка, иконка Plus, текст "Создать свой"), которая открывает тот же `Dialog`
-3. `Dialog` останется на том же уровне, управляется через `createOpen` state
+### 3. `supabase/functions/publish-medium/index.ts`
+- Delete the edge function (or leave as dead code — deleting is cleaner)
 
+### 4. `src/pages/DashboardPage.tsx`
+- Remove Medium from publication statistics tracking display
