@@ -20,7 +20,7 @@ export default function IntegrationsPage() {
 
   const [ghostUrl, setGhostUrl] = useState("");
   const [ghostApiKey, setGhostApiKey] = useState("");
-  const [mediumToken, setMediumToken] = useState("");
+  
   const [isSaving, setIsSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -35,7 +35,6 @@ export default function IntegrationsPage() {
       if (data) {
         setGhostUrl((data as any).ghost_url || "");
         setGhostApiKey((data as any).ghost_api_key || "");
-        setMediumToken((data as any).medium_token || "");
       }
       setLoaded(true);
     };
@@ -51,7 +50,6 @@ export default function IntegrationsPage() {
         .update({
           ghost_url: ghostUrl.trim() || null,
           ghost_api_key: ghostApiKey.trim() || null,
-          medium_token: mediumToken.trim() || null,
         } as any)
         .eq("id", user.id);
       if (error) throw error;
@@ -82,15 +80,6 @@ export default function IntegrationsPage() {
       docUrl: "https://ghost.org/docs/admin-api/",
       docLabel: "Документация Ghost",
     },
-    {
-      name: "Medium",
-      badge: mediumToken ? "success" as const : "outline" as const,
-      status: mediumToken ? "Настроено" : "Требует настройки",
-      description: "Крупнейшая блог-платформа. Статьи публикуются как черновики через Integration Token.",
-      configured: !!mediumToken,
-      docUrl: "https://medium.com/me/settings/security",
-      docLabel: "Получить токен",
-    },
   ];
 
   return (
@@ -109,7 +98,7 @@ export default function IntegrationsPage() {
       </div>
 
       {/* Status overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {platforms.map((p) => (
           <Card key={p.name} className={`bg-card border-border overflow-hidden ${p.configured ? "border-primary/20" : ""}`}>
             {p.configured && <div className="h-0.5 bg-primary/60" />}
@@ -171,27 +160,6 @@ export default function IntegrationsPage() {
         </CardContent>
       </Card>
 
-      {/* Medium settings */}
-      <Card className="bg-card border-border overflow-hidden">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base">Настройка Medium</CardTitle>
-          <CardDescription className="text-xs">
-            Перейдите в Settings → Security and apps → Integration tokens, создайте токен и вставьте его сюда.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Integration Token</Label>
-            <Input
-              value={mediumToken}
-              onChange={(e) => setMediumToken(e.target.value)}
-              placeholder="Вставьте токен из настроек Medium"
-              className="text-sm font-mono"
-              type="password"
-            />
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Telegra.ph info */}
       <Card className="bg-card border-primary/15 overflow-hidden">
