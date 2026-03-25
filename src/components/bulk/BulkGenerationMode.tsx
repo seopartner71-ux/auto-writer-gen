@@ -338,7 +338,7 @@ export function BulkGenerationMode() {
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>{t("bulk.keyword")}</TableHead>
                     <TableHead className="w-32">{t("bulk.status")}</TableHead>
-                    <TableHead className="w-20">{t("bulk.actions")}</TableHead>
+                    <TableHead className="w-40 text-right">{t("bulk.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -350,7 +350,53 @@ export function BulkGenerationMode() {
                         <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
                         <TableCell className="font-medium text-sm">{item.seed_keyword}{item.error_message && <p className="text-xs text-destructive mt-0.5">{item.error_message}</p>}</TableCell>
                         <TableCell><Badge variant="secondary" className={`gap-1 ${cfg.className}`}><Icon className="h-3 w-3" />{cfg.label}</Badge></TableCell>
-                        <TableCell>{item.status === "done" && item.article_id && <Button size="sm" variant="ghost" onClick={() => window.location.href = `/articles?edit=${item.article_id}`}><Pencil className="h-3.5 w-3.5" /></Button>}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {item.status === "done" && item.article_id && (
+                              <>
+                                <Button size="sm" variant="ghost" onClick={() => window.location.href = `/articles?edit=${item.article_id}`} title="Редактировать">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                {wpSites.length > 0 && (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button size="sm" variant="ghost" title="Опубликовать в WordPress" disabled={publishToWp.isPending && publishingItemId === item.id}>
+                                        {publishToWp.isPending && publishingItemId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-48 p-1" align="end">
+                                      <p className="text-xs text-muted-foreground px-2 py-1.5">Выберите блог:</p>
+                                      {wpSites.map((site: any) => (
+                                        <Button
+                                          key={site.id}
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-full justify-start text-xs"
+                                          onClick={() => {
+                                            setPublishingItemId(item.id);
+                                            publishToWp.mutate({ articleId: item.article_id!, siteId: site.id });
+                                          }}
+                                        >
+                                          {site.site_name || site.site_url}
+                                        </Button>
+                                      ))}
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                              </>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => { if (confirm("Удалить статью и запись?")) deleteArticle.mutate(item); }}
+                              disabled={deleteArticle.isPending && deletingItemId === item.id}
+                              title="Удалить"
+                            >
+                              {deleteArticle.isPending && deletingItemId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
