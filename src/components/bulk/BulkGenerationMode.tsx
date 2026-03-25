@@ -29,6 +29,8 @@ export function BulkGenerationMode() {
   const [manualInput, setManualInput] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [publishingItemId, setPublishingItemId] = useState<string | null>(null);
 
   const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; className: string }> = {
     queued: { label: t("bulk.inQueue"), icon: FileText, className: "bg-muted text-muted-foreground" },
