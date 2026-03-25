@@ -140,8 +140,54 @@ export function BulkGenerationMode() {
     onSuccess: (_, deletedJobId) => { if (activeJobId === deletedJobId) setActiveJobId(null); queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); queryClient.invalidateQueries({ queryKey: ["bulk-job-items"] }); toast.success(t("bulk.jobDeleted")); },
     onError: (e) => toast.error(`${t("bulk.deleteError")}: ${e.message}`),
   });
+  const deleteArticle = useMutation({
+    mutationFn: async (item: BulkJobItem) => {
+      if (item.article_id) {
+        const { error } = await supabase.from("articles").delete().eq("id", item.article_id);
+        if (error) throw error;
+      }
+      const { error: itemErr } = await supabase.from("bulk_job_items").delete().eq("id", item.id);
+      if (itemErr) throw itemErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] });
+      queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
+      setDeletingItemId(null);
+      toast.success("Статья удалена");
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
-  const handleDownloadAll = useCallback(async () => {
+  const publishToWp = useMutation({
+    mutationFn: async ({ articleId, siteId }: { articleId: string; siteId: string }) => {
+      const { data: article } = await supabase.from("articles").select("title, content, meta_description").eq("id", articleId).single();
+      if (!article) throw new Error("Статья не найдена");
+      const { data, error } = await supabase.functions.invoke("wordpress-proxy", {
+        body: {
+          action: "create_post",
+          site_id: siteId,
+          title: article.title || "Untitled",
+          content: article.content || "",
+          status: "draft",
+          meta_title: article.title || "",
+          meta_description: article.meta_description || "",
+        },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Ошибка публикации");
+      return data;
+    },
+    onSuccess: (data) => {
+      setPublishingItemId(null);
+      const url = data?.post_url || data?.url;
+      toast.success("Черновик создан в WordPress!", {
+        description: url,
+        action: url ? { label: "Открыть", onClick: () => window.open(url, "_blank") } : undefined,
+      });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+
     if (!activeJobId) return;
     const doneItems = jobItems.filter((i) => i.status === "done" && i.article_id);
     if (doneItems.length === 0) { toast.error(t("bulk.noArticlesReady")); return; }
