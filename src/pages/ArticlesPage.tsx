@@ -1022,28 +1022,6 @@ export default function ArticlesPage() {
                           {publishingTo === "ghost" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
                           Ghost
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={publishingTo !== null}
-                          onClick={async () => {
-                            setPublishingTo("medium");
-                            try {
-                              const { data, error } = await supabase.functions.invoke("publish-medium", {
-                                body: { article_id: currentArticleId },
-                              });
-                              if (error || !data?.success) throw new Error(data?.error || "Ошибка публикации");
-                              toast.success("Черновик создан в Medium!", { description: data.url, action: { label: "Открыть", onClick: () => window.open(data.url, "_blank") } });
-                            } catch (e: any) {
-                              toast.error(e.message || "Ошибка Medium");
-                            } finally {
-                              setPublishingTo(null);
-                            }
-                          }}
-                        >
-                          {publishingTo === "medium" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
-                          Medium
-                        </Button>
                       </>
                     )}
                   </div>

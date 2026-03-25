@@ -100,16 +100,14 @@ export default function DashboardPage() {
     const publishCounts: Record<string, number> = {
       telegraph: 0,
       ghost: 0,
-      medium: 0,
       wordpress: 0,
     };
     usageLogs.forEach((l: any) => {
       if (l.action === "publish_telegraph") publishCounts.telegraph++;
       else if (l.action === "publish_ghost") publishCounts.ghost++;
-      else if (l.action === "publish_medium") publishCounts.medium++;
       else if (l.action === "publish_wordpress") publishCounts.wordpress++;
     });
-    const totalPublished = publishCounts.telegraph + publishCounts.ghost + publishCounts.medium + publishCounts.wordpress;
+    const totalPublished = publishCounts.telegraph + publishCounts.ghost + publishCounts.wordpress;
 
     const statusMap: Record<string, number> = {};
     articles.forEach((a: any) => {
@@ -285,7 +283,6 @@ export default function DashboardPage() {
                 { label: "Telegra.ph", count: stats.publishCounts.telegraph, icon: Globe, color: "text-blue-400" },
                 { label: "WordPress", count: stats.publishCounts.wordpress, icon: Newspaper, color: "text-sky-400" },
                 { label: "Ghost", count: stats.publishCounts.ghost, icon: PenTool, color: "text-green-400" },
-                { label: "Medium", count: stats.publishCounts.medium, icon: BookOpen, color: "text-emerald-400" },
               ].map((p) => (
                 <div key={p.label} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
