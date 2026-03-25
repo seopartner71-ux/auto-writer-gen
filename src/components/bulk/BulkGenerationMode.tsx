@@ -56,6 +56,15 @@ export function BulkGenerationMode() {
     enabled: !!activeJobId,
   });
 
+  const { data: wpSites = [] } = useQuery({
+    queryKey: ["wp-sites-bulk"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("wordpress_sites").select("id, site_name, site_url, is_connected").order("created_at");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   useEffect(() => { if (!activeJobId && bulkJobs.length > 0) { const active = bulkJobs.find((j) => j.status === "processing") || bulkJobs[0]; setActiveJobId(active.id); } }, [bulkJobs, activeJobId]);
 
   useEffect(() => {
