@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Upload, Loader2, Factory, Play, Download, CheckCircle2,
-  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus, Pause, RotateCcw
+  AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus, Pause, RotateCcw, Globe
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +29,8 @@ export function BulkGenerationMode() {
   const [manualInput, setManualInput] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [publishingItemId, setPublishingItemId] = useState<string | null>(null);
 
   const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; className: string }> = {
     queued: { label: t("bulk.inQueue"), icon: FileText, className: "bg-muted text-muted-foreground" },
@@ -50,6 +54,15 @@ export function BulkGenerationMode() {
     queryKey: ["bulk-job-items", activeJobId],
     queryFn: async () => { if (!activeJobId) return []; const { data, error } = await supabase.from("bulk_job_items").select("*").eq("bulk_job_id", activeJobId).order("created_at", { ascending: true }); if (error) throw error; return data as BulkJobItem[]; },
     enabled: !!activeJobId,
+  });
+
+  const { data: wpSites = [] } = useQuery({
+    queryKey: ["wp-sites-bulk"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("wordpress_sites").select("id, site_name, site_url, is_connected").order("created_at");
+      if (error) throw error;
+      return data || [];
+    },
   });
 
   useEffect(() => { if (!activeJobId && bulkJobs.length > 0) { const active = bulkJobs.find((j) => j.status === "processing") || bulkJobs[0]; setActiveJobId(active.id); } }, [bulkJobs, activeJobId]);
@@ -126,6 +139,52 @@ export function BulkGenerationMode() {
     mutationFn: async (jobId: string) => { await supabase.from("bulk_job_items").delete().eq("bulk_job_id", jobId); const { error: jobErr } = await supabase.from("bulk_jobs").delete().eq("id", jobId); if (jobErr) throw jobErr; },
     onSuccess: (_, deletedJobId) => { if (activeJobId === deletedJobId) setActiveJobId(null); queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); queryClient.invalidateQueries({ queryKey: ["bulk-job-items"] }); toast.success(t("bulk.jobDeleted")); },
     onError: (e) => toast.error(`${t("bulk.deleteError")}: ${e.message}`),
+  });
+  const deleteArticle = useMutation({
+    mutationFn: async (item: BulkJobItem) => {
+      if (item.article_id) {
+        const { error } = await supabase.from("articles").delete().eq("id", item.article_id);
+        if (error) throw error;
+      }
+      const { error: itemErr } = await supabase.from("bulk_job_items").delete().eq("id", item.id);
+      if (itemErr) throw itemErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] });
+      queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
+      setDeletingItemId(null);
+      toast.success("Статья удалена");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const publishToWp = useMutation({
+    mutationFn: async ({ articleId, siteId }: { articleId: string; siteId: string }) => {
+      const { data: article } = await supabase.from("articles").select("title, content, meta_description").eq("id", articleId).single();
+      if (!article) throw new Error("Статья не найдена");
+      const { data, error } = await supabase.functions.invoke("wordpress-proxy", {
+        body: {
+          action: "create_post",
+          site_id: siteId,
+          title: article.title || "Untitled",
+          content: article.content || "",
+          status: "draft",
+          meta_title: article.title || "",
+          meta_description: article.meta_description || "",
+        },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Ошибка публикации");
+      return data;
+    },
+    onSuccess: (data) => {
+      setPublishingItemId(null);
+      const url = data?.post_url || data?.url;
+      toast.success("Черновик создан в WordPress!", {
+        description: url,
+        action: url ? { label: "Открыть", onClick: () => window.open(url, "_blank") } : undefined,
+      });
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   const handleDownloadAll = useCallback(async () => {
@@ -279,7 +338,7 @@ export function BulkGenerationMode() {
                     <TableHead className="w-8">#</TableHead>
                     <TableHead>{t("bulk.keyword")}</TableHead>
                     <TableHead className="w-32">{t("bulk.status")}</TableHead>
-                    <TableHead className="w-20">{t("bulk.actions")}</TableHead>
+                    <TableHead className="w-40 text-right">{t("bulk.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -291,7 +350,53 @@ export function BulkGenerationMode() {
                         <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
                         <TableCell className="font-medium text-sm">{item.seed_keyword}{item.error_message && <p className="text-xs text-destructive mt-0.5">{item.error_message}</p>}</TableCell>
                         <TableCell><Badge variant="secondary" className={`gap-1 ${cfg.className}`}><Icon className="h-3 w-3" />{cfg.label}</Badge></TableCell>
-                        <TableCell>{item.status === "done" && item.article_id && <Button size="sm" variant="ghost" onClick={() => window.location.href = `/articles?edit=${item.article_id}`}><Pencil className="h-3.5 w-3.5" /></Button>}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {item.status === "done" && item.article_id && (
+                              <>
+                                <Button size="sm" variant="ghost" onClick={() => window.location.href = `/articles?edit=${item.article_id}`} title="Редактировать">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                {wpSites.length > 0 && (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button size="sm" variant="ghost" title="Опубликовать в WordPress" disabled={publishToWp.isPending && publishingItemId === item.id}>
+                                        {publishToWp.isPending && publishingItemId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-48 p-1" align="end">
+                                      <p className="text-xs text-muted-foreground px-2 py-1.5">Выберите блог:</p>
+                                      {wpSites.map((site: any) => (
+                                        <Button
+                                          key={site.id}
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-full justify-start text-xs"
+                                          onClick={() => {
+                                            setPublishingItemId(item.id);
+                                            publishToWp.mutate({ articleId: item.article_id!, siteId: site.id });
+                                          }}
+                                        >
+                                          {site.site_name || site.site_url}
+                                        </Button>
+                                      ))}
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                              </>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => { if (confirm("Удалить статью и запись?")) deleteArticle.mutate(item); }}
+                              disabled={deleteArticle.isPending && deletingItemId === item.id}
+                              title="Удалить"
+                            >
+                              {deleteArticle.isPending && deletingItemId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
