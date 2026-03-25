@@ -187,7 +187,7 @@ export function BulkGenerationMode() {
     onError: (e) => toast.error(e.message),
   });
 
-
+  const handleDownloadAll = useCallback(async () => {
     if (!activeJobId) return;
     const doneItems = jobItems.filter((i) => i.status === "done" && i.article_id);
     if (doneItems.length === 0) { toast.error(t("bulk.noArticlesReady")); return; }
