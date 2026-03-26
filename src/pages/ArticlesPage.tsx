@@ -1648,6 +1648,14 @@ export default function ArticlesPage() {
                 </Card>
               )}
             </TabsContent>
+
+            <TabsContent value="miralinks" className="mt-3">
+              <MiralinksWidget
+                content={content}
+                title={title}
+                metaDescription={metaDescription}
+              />
+            </TabsContent>
           </Tabs>
         </div>
       </div>
