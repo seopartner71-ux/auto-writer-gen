@@ -157,6 +157,7 @@ export default function PricingPage() {
         { text: t("pricing.f.bulkGen"), included: true },
         { text: t("pricing.f.uniquenessAntiAi"), included: true },
         { text: t("pricing.f.allSchema"), included: true },
+        { text: t("pricing.f.miralinks"), included: true },
         { text: t("pricing.f.support247"), included: true },
       ]),
     },
