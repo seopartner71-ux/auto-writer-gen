@@ -143,6 +143,8 @@ export function UserManagementTab() {
             <TableHeader>
               <TableRow className="border-border">
                 <TableHead>Email</TableHead>
+                <TableHead>Имя</TableHead>
+                <TableHead>Регистрация</TableHead>
                 <TableHead>Тариф</TableHead>
                 <TableHead className="text-center">Активен</TableHead>
                 <TableHead className="text-right">Токены</TableHead>
