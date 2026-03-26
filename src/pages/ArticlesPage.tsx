@@ -1300,6 +1300,10 @@ export default function ArticlesPage() {
                 <Target className="h-3 w-3" />
                 Benchmark
               </TabsTrigger>
+              <TabsTrigger value="miralinks" className="text-xs gap-1 flex-1">
+                <Link2 className="h-3 w-3" />
+                Miralinks
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="dashboard" className="mt-3 space-y-4">
