@@ -59,6 +59,13 @@ serve(async (req) => {
         `📋 Тема: ${subject}\n` +
         `💬 ${(message || '').substring(0, 500)}\n` +
         `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
+    } else if (type === 'low_balance_alert') {
+      const { provider, balance, usage, limit } = data;
+      text = `⚠️ <b>Низкий баланс ${provider}!</b>\n\n` +
+        `💰 Остаток: ${balance}\n` +
+        `📊 Использовано: ${usage}\n` +
+        `🔒 Лимит: ${limit}\n` +
+        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
     } else {
       text = `ℹ️ ${type}: ${JSON.stringify(data)}`;
     }

@@ -138,7 +138,9 @@ export function ApiVaultTab() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Object.entries(balances).map(([provider, data]) => {
                 const providerInfo = PROVIDERS.find((p) => p.key === provider);
-                const isLow = data.balance.startsWith("$") && parseFloat(data.balance.replace("$", "")) < 5;
+                const isUnlimited = data.balance === "Unlimited";
+                const numericBalance = data.balance.startsWith("$") ? parseFloat(data.balance.replace("$", "")) : null;
+                const isLow = numericBalance !== null && numericBalance < 5;
                 return (
                   <div
                     key={provider}
@@ -146,13 +148,14 @@ export function ApiVaultTab() {
                   >
                     <div>
                       <p className="text-xs text-muted-foreground">{providerInfo?.label || provider}</p>
-                      <p className={`text-lg font-bold ${isLow ? "text-destructive" : "text-foreground"}`}>
+                      <p className={`text-lg font-bold ${isLow ? "text-destructive" : isUnlimited ? "text-success" : "text-foreground"}`}>
                         {data.balance}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] text-muted-foreground">Использовано</p>
                       <p className="text-xs text-muted-foreground">{data.usage}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Лимит: {data.limit}</p>
                       {isLow && (
                         <Badge variant="destructive" className="mt-1 text-[10px] px-1.5 py-0">
                           Мало!
