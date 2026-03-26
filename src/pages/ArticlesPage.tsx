@@ -1656,6 +1656,11 @@ export default function ArticlesPage() {
                 content={content}
                 title={title}
                 metaDescription={metaDescription}
+                isMiralinksProfile={!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile)}
+                links={miralinksLinks}
+                onLinksChange={setMiralinksLinks}
+                followRules={miralinksFollowRules}
+                onFollowRulesChange={setMiralinksFollowRules}
               />
             </TabsContent>
           </Tabs>
