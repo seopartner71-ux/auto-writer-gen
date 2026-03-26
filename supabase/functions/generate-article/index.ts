@@ -22,6 +22,7 @@ interface StealthPromptInput {
     system_instruction?: string;
     type?: string;
     temperature?: number;
+    is_miralinks_profile?: boolean;
   } | null;
   serpData: { title: string; snippet: string; url: string }[];
   lsiKeywords: string[];
@@ -35,6 +36,7 @@ interface StealthPromptInput {
   competitorTables?: any[];
   competitorLists?: any[];
   deepAnalysisContext?: string;
+  miralinksLinks?: { url: string; anchor: string }[];
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
@@ -77,6 +79,43 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
     if (authorProfile.system_prompt_override) parts.push(`ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ АВТОРА: ${authorProfile.system_prompt_override}`);
 
     blockA = `=== БЛОК А: КОНТЕКСТ АВТОРА (критически важно - строго следуй) ===\n${parts.join("\n")}\n=== КОНЕЦ БЛОКА А ===`;
+  }
+
+  // ═══ MIRALINKS BLOCK (hardcoded rules for Miralinks profiles) ═══
+  let blockMiralinks = "";
+  if (authorProfile?.is_miralinks_profile) {
+    const linksInstructions = (input.miralinksLinks || [])
+      .filter(l => l.url && l.anchor)
+      .map((l, i) => `Ссылка ${i + 1}: URL="${l.url}", Анкор="${l.anchor}"`)
+      .join("\n");
+
+    blockMiralinks = `=== БЛОК MIRALINKS: ПРАВИЛА БИРЖИ ССЫЛОК (АБСОЛЮТНЫЙ ПРИОРИТЕТ) ===
+
+РАЗМЕЩЕНИЕ ССЫЛОК:
+${linksInstructions ? `Вставь следующие ссылки в текст:\n${linksInstructions}\n` : ""}
+- Проанализируй количество абзацев. Распредели ссылки равномерно по тексту.
+- КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО вставлять ссылки в ПЕРВЫЙ и в ПОСЛЕДНИЙ абзацы текста.
+- Каждая ссылка должна быть органично вписана в контекст предложения.
+- Формат ссылки: [Текст анкора](URL) - используй Markdown.
+- Анкор должен выглядеть как естественная часть предложения, а не как рекламная вставка.
+
+ОБЪЁМ КОНТЕНТА:
+- Минимальный объём статьи - 2500 знаков без пробелов.
+- Если фактов не хватает, раскрой тему глубже, используя данные из анализа конкурентов.
+- Оптимальный объём: 3000-5000 знаков.
+
+ИЗОБРАЖЕНИЯ:
+- Вставь в текст 2-3 изображения.
+- Формат: ![ALT-текст с LSI-ключами](PLACEHOLDER_IMAGE_URL)
+- ALT-текст ОБЯЗАТЕЛЬНО должен содержать LSI-ключевые слова статьи.
+- Размести изображения равномерно по тексту, не в начале и не в конце.
+
+ТОН И СТИЛЬ:
+- Информационный, экспертный стиль. Как в авторитетном отраслевом журнале.
+- ЗАПРЕЩЕНО: агрессивные продажи, маркетинговые штампы, призывы "купить/заказать прямо сейчас".
+- Статья должна быть полезной и решать реальную проблему читателя.
+
+=== КОНЕЦ БЛОКА MIRALINKS ===`;
   }
 
   // ═══ BLOCK B: Factology & Structure ═══
@@ -191,6 +230,8 @@ ${isRussian
   const systemPrompt = `Ты - экспертный SEO-копирайтер с уникальным авторским почерком.${authorProfile ? " Пиши КАК автор, описанный в Блоке А - каждое предложение должно звучать как его/её текст. Инструкции автора имеют НАИВЫСШИЙ приоритет и перекрывают любые базовые правила ниже." : ""}
 
 ${blockA}
+
+${blockMiralinks}
 
 БАЗОВЫЕ ПРАВИЛА:
 - Следуй структуре заголовков из Блока Б
@@ -315,7 +356,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links } = body;
     console.log("[generate-article] author_profile_id received:", author_profile_id);
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
@@ -410,6 +451,7 @@ serve(async (req) => {
       competitorTables: competitor_tables,
       competitorLists: competitor_lists,
       deepAnalysisContext: deep_analysis_context,
+      miralinksLinks: miralinks_links,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);

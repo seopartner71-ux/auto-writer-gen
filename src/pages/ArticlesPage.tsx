@@ -27,7 +27,7 @@ import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
-import { MiralinksWidget } from "@/components/article/MiralinksWidget";
+import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -368,6 +368,8 @@ export default function ArticlesPage() {
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
   const [publishingTo, setPublishingTo] = useState<string | null>(null);
+  const [miralinksLinks, setMiralinksLinks] = useState<MiralinksLink[]>([{ url: "", anchor: "" }]);
+  const [miralinksFollowRules, setMiralinksFollowRules] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -525,6 +527,7 @@ export default function ArticlesPage() {
           lsi_keywords: lsiKeywords,
           competitor_tables: (selectedKeyword as any)?.competitor_tables || [],
           competitor_lists: (selectedKeyword as any)?.competitor_lists || [],
+          miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
         }),
         signal: controller.signal,
       });
@@ -1654,6 +1657,11 @@ export default function ArticlesPage() {
                 content={content}
                 title={title}
                 metaDescription={metaDescription}
+                isMiralinksProfile={!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile)}
+                links={miralinksLinks}
+                onLinksChange={setMiralinksLinks}
+                followRules={miralinksFollowRules}
+                onFollowRulesChange={setMiralinksFollowRules}
               />
             </TabsContent>
           </Tabs>

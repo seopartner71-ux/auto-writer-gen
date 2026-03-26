@@ -1,14 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Link2, ClipboardCopy, ShieldCheck, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, XCircle, Link2, ClipboardCopy, ShieldCheck, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-interface LinkPair {
+export interface MiralinksLink {
   url: string;
   anchor: string;
 }
@@ -17,29 +17,41 @@ interface MiralinksWidgetProps {
   content: string;
   title: string;
   metaDescription: string;
+  isMiralinksProfile: boolean;
+  links: MiralinksLink[];
+  onLinksChange: (links: MiralinksLink[]) => void;
+  followRules: boolean;
+  onFollowRulesChange: (v: boolean) => void;
 }
 
 interface CheckResult {
+  key: string;
   label: string;
   passed: boolean;
   detail: string;
 }
 
-export function MiralinksWidget({ content, title, metaDescription }: MiralinksWidgetProps) {
-  const [links, setLinks] = useState<LinkPair[]>([{ url: "", anchor: "" }]);
-  const [followRules, setFollowRules] = useState(true);
+export function MiralinksWidget({
+  content, title, metaDescription, isMiralinksProfile,
+  links, onLinksChange, followRules, onFollowRulesChange,
+}: MiralinksWidgetProps) {
   const [showResults, setShowResults] = useState(false);
 
-  const updateLink = (index: number, field: keyof LinkPair, value: string) => {
-    setLinks((prev) => prev.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
+  // Auto-show results when Miralinks profile is active
+  useEffect(() => {
+    if (isMiralinksProfile && content.trim()) setShowResults(true);
+  }, [isMiralinksProfile, content]);
+
+  const updateLink = (index: number, field: keyof MiralinksLink, value: string) => {
+    onLinksChange(links.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
   };
 
   const addLink = () => {
-    if (links.length < 3) setLinks((prev) => [...prev, { url: "", anchor: "" }]);
+    if (links.length < 3) onLinksChange([...links, { url: "", anchor: "" }]);
   };
 
   const removeLink = (index: number) => {
-    if (links.length > 1) setLinks((prev) => prev.filter((_, i) => i !== index));
+    if (links.length > 1) onLinksChange(links.filter((_, i) => i !== index));
   };
 
   const plainText = useMemo(() => {
@@ -52,67 +64,84 @@ export function MiralinksWidget({ content, title, metaDescription }: MiralinksWi
   }, [content]);
 
   const charCount = plainText.replace(/\s/g, "").length;
-  const imageCount = (content.match(/!\[.*?\]\(.*?\)/g) || []).length;
+  const imageMatches = content.match(/!\[([^\]]*)\]\(([^)]+)\)/g) || [];
+  const imageCount = imageMatches.length;
+
+  // Check images have alt text with content
+  const imagesWithAlt = imageMatches.filter(m => {
+    const alt = m.match(/!\[([^\]]*)\]/)?.[1];
+    return alt && alt.trim().length > 0;
+  }).length;
+
+  // Check if links are NOT in first/last paragraph
+  const paragraphs = useMemo(() => {
+    return content.split(/\n\n+/).filter(p => p.trim() && !p.trim().startsWith("#"));
+  }, [content]);
+
+  const linksInFirstParagraph = useMemo(() => {
+    if (paragraphs.length === 0) return false;
+    return /\[([^\]]+)\]\(https?:\/\//.test(paragraphs[0]);
+  }, [paragraphs]);
+
+  const linksInLastParagraph = useMemo(() => {
+    if (paragraphs.length < 2) return false;
+    return /\[([^\]]+)\]\(https?:\/\//.test(paragraphs[paragraphs.length - 1]);
+  }, [paragraphs]);
 
   const checks = useMemo<CheckResult[]>(() => {
     const results: CheckResult[] = [];
 
-    // 1. Length > 2000 chars
+    // 1. No links in first paragraph
     results.push({
+      key: "no_link_first",
+      label: "Нет ссылок в 1-м абзаце",
+      passed: !linksInFirstParagraph,
+      detail: linksInFirstParagraph ? "Найдена ссылка!" : "OK",
+    });
+
+    // 2. Length > 2000 chars
+    results.push({
+      key: "length",
       label: "Длина > 2000 знаков",
       passed: charCount >= 2000,
       detail: `${charCount.toLocaleString()} зн.`,
     });
 
-    // 2. Min 2-3 images
+    // 3. Min 2+ images with alt
     results.push({
-      label: "Минимум 2-3 изображения",
-      passed: imageCount >= 2,
-      detail: `${imageCount} изобр.`,
+      key: "images",
+      label: "2+ изображений с Alt",
+      passed: imagesWithAlt >= 2,
+      detail: `${imagesWithAlt} из ${imageCount} изобр.`,
     });
-
-    // 3. Links in center of text (not in first/last paragraph)
-    const filledLinks = links.filter((l) => l.url.trim() && l.anchor.trim());
-    if (filledLinks.length === 0) {
-      results.push({
-        label: "Ссылки в центре текста",
-        passed: false,
-        detail: "Нет ссылок",
-      });
-    } else {
-      // Check if followRules is on — links should avoid first/last paragraphs
-      results.push({
-        label: "Ссылки в центре текста",
-        passed: followRules,
-        detail: followRules ? "Правило активно" : "Правило отключено",
-      });
-    }
 
     // 4. Title and Description
     const hasTitle = title.trim().length > 0;
     const hasDesc = metaDescription.trim().length > 0;
     results.push({
-      label: "Наличие Title и Description",
+      key: "meta",
+      label: "Title и Description",
       passed: hasTitle && hasDesc,
-      detail: !hasTitle && !hasDesc
-        ? "Нет Title и Description"
-        : !hasTitle
-        ? "Нет Title"
-        : !hasDesc
-        ? "Нет Description"
-        : "OK",
+      detail: !hasTitle && !hasDesc ? "Нет обоих" : !hasTitle ? "Нет Title" : !hasDesc ? "Нет Description" : "OK",
+    });
+
+    // 5. No links in last paragraph
+    results.push({
+      key: "no_link_last",
+      label: "Нет ссылок в последнем абзаце",
+      passed: !linksInLastParagraph,
+      detail: linksInLastParagraph ? "Найдена ссылка!" : "OK",
     });
 
     return results;
-  }, [charCount, imageCount, links, followRules, title, metaDescription]);
+  }, [charCount, imagesWithAlt, imageCount, linksInFirstParagraph, linksInLastParagraph, title, metaDescription]);
 
-  const allPassed = checks.every((c) => c.passed);
+  const passedCount = checks.filter(c => c.passed).length;
+  const allPassed = passedCount === checks.length;
 
   const handleCopyForMiralinks = () => {
-    // Build clean HTML with links injected
     let html = content;
 
-    // Simple markdown to clean HTML for Miralinks
     html = html
       .replace(/^######\s+(.+)$/gm, "<h6>$1</h6>")
       .replace(/^#####\s+(.+)$/gm, "<h5>$1</h5>")
@@ -128,7 +157,6 @@ export function MiralinksWidget({ content, title, metaDescription }: MiralinksWi
       .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
       .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>");
 
-    // Wrap paragraphs
     html = html
       .split("\n\n")
       .map((block) => {
@@ -140,7 +168,6 @@ export function MiralinksWidget({ content, title, metaDescription }: MiralinksWi
       .filter(Boolean)
       .join("\n");
 
-    // Prepend Title + Description
     const meta = `<!-- Title: ${title} -->\n<!-- Description: ${metaDescription} -->\n\n`;
     const finalHtml = meta + html;
 
@@ -155,6 +182,11 @@ export function MiralinksWidget({ content, title, metaDescription }: MiralinksWi
         <CardTitle className="text-sm flex items-center gap-2">
           <Link2 className="h-4 w-4 text-primary" />
           Miralinks Integration
+          {isMiralinksProfile && (
+            <Badge variant="default" className="text-[10px] h-5 ml-auto">
+              Активен
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -202,7 +234,7 @@ export function MiralinksWidget({ content, title, metaDescription }: MiralinksWi
           <Checkbox
             id="miralinks-rules"
             checked={followRules}
-            onCheckedChange={(v) => setFollowRules(!!v)}
+            onCheckedChange={(v) => onFollowRulesChange(!!v)}
           />
           <Label htmlFor="miralinks-rules" className="text-xs cursor-pointer leading-tight">
             Соблюдать правила модерации
@@ -220,23 +252,23 @@ export function MiralinksWidget({ content, title, metaDescription }: MiralinksWi
           onClick={() => setShowResults(true)}
         >
           <ShieldCheck className="h-3.5 w-3.5" />
-          Проверить на соответствие правилам
+          Проверить на соответствие
         </Button>
 
-        {/* Results */}
+        {/* Real-time compliance checklist */}
         {showResults && (
           <div className="space-y-2 rounded-md border border-border p-3 bg-muted/20">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium">Результаты проверки</span>
+              <span className="text-xs font-medium">Miralinks Compliance</span>
               <Badge
                 variant={allPassed ? "default" : "destructive"}
                 className="text-[10px] h-5"
               >
-                {allPassed ? "Готово" : "Есть замечания"}
+                {passedCount}/{checks.length}
               </Badge>
             </div>
-            {checks.map((check, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
+            {checks.map((check) => (
+              <div key={check.key} className="flex items-center gap-2 text-xs">
                 {check.passed ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
                 ) : (
@@ -248,6 +280,12 @@ export function MiralinksWidget({ content, title, metaDescription }: MiralinksWi
                 <span className="ml-auto text-muted-foreground text-[10px]">{check.detail}</span>
               </div>
             ))}
+            {!allPassed && isMiralinksProfile && (
+              <div className="flex items-start gap-1.5 mt-2 p-2 rounded bg-destructive/10 text-[10px] text-destructive">
+                <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>Статья не пройдёт модерацию Miralinks. Исправьте замечания перед публикацией.</span>
+              </div>
+            )}
           </div>
         )}
 
