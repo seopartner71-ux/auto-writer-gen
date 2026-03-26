@@ -1,12 +1,14 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Link2, ClipboardCopy, ShieldCheck, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, XCircle, Link2, ClipboardCopy, ShieldCheck, Plus, Trash2, AlertTriangle, Download, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink, ImageRun, AlignmentType, LevelFormat } from "docx";
+import { saveAs } from "file-saver";
 
 export interface MiralinksLink {
   url: string;
@@ -31,13 +33,214 @@ interface CheckResult {
   detail: string;
 }
 
+// ─── Markdown → Clean HTML (no classes, inline styles) ───
+function markdownToMiralinksHtml(md: string): string {
+  // Tables
+  let html = md.replace(
+    /(?:^|\n)((?:\|.+\|\s*\n)+)/g,
+    (_, tableBlock: string) => {
+      const rows = tableBlock.trim().split("\n").filter(Boolean);
+      if (rows.length < 2) return tableBlock;
+      const headerCells = rows[0].split("|").filter(c => c.trim());
+      const isSep = /^[\s|:-]+$/.test(rows[1]);
+      const dataRows = isSep ? rows.slice(2) : rows.slice(1);
+      let table = "<table><thead><tr>";
+      headerCells.forEach(c => { table += `<th>${c.trim()}</th>`; });
+      table += "</tr></thead><tbody>";
+      dataRows.forEach(row => {
+        const cells = row.split("|").filter(c => c.trim());
+        table += "<tr>";
+        cells.forEach(c => { table += `<td>${c.trim()}</td>`; });
+        table += "</tr>";
+      });
+      table += "</tbody></table>";
+      return "\n" + table + "\n";
+    }
+  );
+
+  const lines = html.split("\n");
+  const result: string[] = [];
+  let inList = false;
+  let listType = "";
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (inList) { result.push(listType === "ul" ? "</ul>" : "</ol>"); inList = false; }
+      continue;
+    }
+    // Headings
+    const hMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (hMatch) {
+      if (inList) { result.push(listType === "ul" ? "</ul>" : "</ol>"); inList = false; }
+      const level = hMatch[1].length;
+      result.push(`<h${level}>${inlineFormat(hMatch[2])}</h${level}>`);
+      continue;
+    }
+    // Unordered list
+    const ulMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+    if (ulMatch) {
+      if (!inList || listType !== "ul") {
+        if (inList) result.push(listType === "ul" ? "</ul>" : "</ol>");
+        result.push("<ul>"); inList = true; listType = "ul";
+      }
+      result.push(`<li>${inlineFormat(ulMatch[1])}</li>`);
+      continue;
+    }
+    // Ordered list
+    const olMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (olMatch) {
+      if (!inList || listType !== "ol") {
+        if (inList) result.push(listType === "ul" ? "</ul>" : "</ol>");
+        result.push("<ol>"); inList = true; listType = "ol";
+      }
+      result.push(`<li>${inlineFormat(olMatch[1])}</li>`);
+      continue;
+    }
+    // Skip raw HTML (tables etc.)
+    if (/^<(table|ul|ol|\/table|\/ul|\/ol)/.test(trimmed)) {
+      if (inList) { result.push(listType === "ul" ? "</ul>" : "</ol>"); inList = false; }
+      result.push(trimmed);
+      continue;
+    }
+    // Paragraph
+    if (inList) { result.push(listType === "ul" ? "</ul>" : "</ol>"); inList = false; }
+    result.push(`<p>${inlineFormat(trimmed)}</p>`);
+  }
+  if (inList) result.push(listType === "ul" ? "</ul>" : "</ol>");
+
+  return result.join("\n");
+}
+
+function inlineFormat(text: string): string {
+  return text
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+}
+
+// ─── Markdown → DOCX ───
+async function generateDocx(md: string, title: string, metaDesc: string): Promise<void> {
+  const lines = md.split("\n");
+  const children: Paragraph[] = [];
+
+  // Title paragraph
+  if (title) {
+    children.push(new Paragraph({
+      heading: HeadingLevel.TITLE,
+      children: [new TextRun({ text: title, bold: true, size: 32 })],
+    }));
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Headings
+    const hMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (hMatch) {
+      const levelMap: Record<number, typeof HeadingLevel[keyof typeof HeadingLevel]> = {
+        1: HeadingLevel.HEADING_1,
+        2: HeadingLevel.HEADING_2,
+        3: HeadingLevel.HEADING_3,
+      };
+      children.push(new Paragraph({
+        heading: levelMap[hMatch[1].length] || HeadingLevel.HEADING_3,
+        children: [new TextRun({ text: hMatch[2], bold: true })],
+      }));
+      continue;
+    }
+
+    // Images — add as text reference
+    const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imgMatch) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: `[Изображение: ${imgMatch[1] || "image"}]`, italics: true, color: "666666" })],
+      }));
+      children.push(new Paragraph({
+        children: [new TextRun({ text: imgMatch[2], color: "0066CC", size: 18 })],
+      }));
+      continue;
+    }
+
+    // Lists
+    const ulMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+    if (ulMatch) {
+      children.push(new Paragraph({
+        bullet: { level: 0 },
+        children: parseInlineRuns(ulMatch[1]),
+      }));
+      continue;
+    }
+
+    const olMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (olMatch) {
+      children.push(new Paragraph({
+        children: parseInlineRuns(olMatch[1]),
+        indent: { left: 720 },
+      }));
+      continue;
+    }
+
+    // Regular paragraph
+    children.push(new Paragraph({
+      children: parseInlineRuns(trimmed),
+      spacing: { after: 120 },
+    }));
+  }
+
+  const doc = new Document({
+    styles: {
+      default: { document: { run: { font: "Arial", size: 24 } } },
+    },
+    sections: [{
+      properties: {
+        page: {
+          size: { width: 12240, height: 15840 },
+          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+        },
+      },
+      children,
+    }],
+  });
+
+  const buffer = await Packer.toBlob(doc);
+  saveAs(buffer, `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.docx`);
+}
+
+function parseInlineRuns(text: string): (TextRun | ExternalHyperlink)[] {
+  const runs: (TextRun | ExternalHyperlink)[] = [];
+  // Split by links and bold/italic
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g);
+
+  for (const part of parts) {
+    if (!part) continue;
+    const boldMatch = part.match(/^\*\*(.+)\*\*$/);
+    if (boldMatch) { runs.push(new TextRun({ text: boldMatch[1], bold: true })); continue; }
+    const italicMatch = part.match(/^\*(.+)\*$/);
+    if (italicMatch) { runs.push(new TextRun({ text: italicMatch[1], italics: true })); continue; }
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      runs.push(new ExternalHyperlink({
+        children: [new TextRun({ text: linkMatch[1], style: "Hyperlink" })],
+        link: linkMatch[2],
+      }));
+      continue;
+    }
+    runs.push(new TextRun(part));
+  }
+  return runs;
+}
+
 export function MiralinksWidget({
   content, title, metaDescription, isMiralinksProfile,
   links, onLinksChange, followRules, onFollowRulesChange,
 }: MiralinksWidgetProps) {
   const [showResults, setShowResults] = useState(false);
+  const [titleCopied, setTitleCopied] = useState(false);
+  const [descCopied, setDescCopied] = useState(false);
 
-  // Auto-show results when Miralinks profile is active
   useEffect(() => {
     if (isMiralinksProfile && content.trim()) setShowResults(true);
   }, [isMiralinksProfile, content]);
@@ -45,181 +248,86 @@ export function MiralinksWidget({
   const updateLink = (index: number, field: keyof MiralinksLink, value: string) => {
     onLinksChange(links.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
   };
+  const addLink = () => { if (links.length < 3) onLinksChange([...links, { url: "", anchor: "" }]); };
+  const removeLink = (index: number) => { if (links.length > 1) onLinksChange(links.filter((_, i) => i !== index)); };
 
-  const addLink = () => {
-    if (links.length < 3) onLinksChange([...links, { url: "", anchor: "" }]);
-  };
-
-  const removeLink = (index: number) => {
-    if (links.length > 1) onLinksChange(links.filter((_, i) => i !== index));
-  };
-
-  const plainText = useMemo(() => {
-    return content
-      .replace(/^#{1,6}\s+/gm, "")
-      .replace(/\*\*(.+?)\*\*/g, "$1")
-      .replace(/\*(.+?)\*/g, "$1")
-      .replace(/!\[.*?\]\(.*?\)/g, "")
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
-  }, [content]);
+  const plainText = useMemo(() => content
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1")
+    .replace(/!\[.*?\]\(.*?\)/g, "").replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1"), [content]);
 
   const charCount = plainText.replace(/\s/g, "").length;
   const imageMatches = content.match(/!\[([^\]]*)\]\(([^)]+)\)/g) || [];
   const imageCount = imageMatches.length;
-
-  // Check images have alt text with content
   const imagesWithAlt = imageMatches.filter(m => {
     const alt = m.match(/!\[([^\]]*)\]/)?.[1];
     return alt && alt.trim().length > 0;
   }).length;
 
-  // Check if links are NOT in first/last paragraph
-  const paragraphs = useMemo(() => {
-    return content.split(/\n\n+/).filter(p => p.trim() && !p.trim().startsWith("#"));
-  }, [content]);
+  const paragraphs = useMemo(() => content.split(/\n\n+/).filter(p => p.trim() && !p.trim().startsWith("#")), [content]);
+  const linksInFirstParagraph = useMemo(() => paragraphs.length > 0 && /\[([^\]]+)\]\(https?:\/\//.test(paragraphs[0]), [paragraphs]);
+  const linksInLastParagraph = useMemo(() => paragraphs.length > 1 && /\[([^\]]+)\]\(https?:\/\//.test(paragraphs[paragraphs.length - 1]), [paragraphs]);
 
-  const linksInFirstParagraph = useMemo(() => {
-    if (paragraphs.length === 0) return false;
-    return /\[([^\]]+)\]\(https?:\/\//.test(paragraphs[0]);
-  }, [paragraphs]);
-
-  const linksInLastParagraph = useMemo(() => {
-    if (paragraphs.length < 2) return false;
-    return /\[([^\]]+)\]\(https?:\/\//.test(paragraphs[paragraphs.length - 1]);
-  }, [paragraphs]);
-
-  const checks = useMemo<CheckResult[]>(() => {
-    const results: CheckResult[] = [];
-
-    // 1. No links in first paragraph
-    results.push({
-      key: "no_link_first",
-      label: "Нет ссылок в 1-м абзаце",
-      passed: !linksInFirstParagraph,
-      detail: linksInFirstParagraph ? "Найдена ссылка!" : "OK",
-    });
-
-    // 2. Length > 2000 chars
-    results.push({
-      key: "length",
-      label: "Длина > 2000 знаков",
-      passed: charCount >= 2000,
-      detail: `${charCount.toLocaleString()} зн.`,
-    });
-
-    // 3. Min 2+ images with alt
-    results.push({
-      key: "images",
-      label: "2+ изображений с Alt",
-      passed: imagesWithAlt >= 2,
-      detail: `${imagesWithAlt} из ${imageCount} изобр.`,
-    });
-
-    // 4. Title and Description
-    const hasTitle = title.trim().length > 0;
-    const hasDesc = metaDescription.trim().length > 0;
-    results.push({
-      key: "meta",
-      label: "Title и Description",
-      passed: hasTitle && hasDesc,
-      detail: !hasTitle && !hasDesc ? "Нет обоих" : !hasTitle ? "Нет Title" : !hasDesc ? "Нет Description" : "OK",
-    });
-
-    // 5. No links in last paragraph
-    results.push({
-      key: "no_link_last",
-      label: "Нет ссылок в последнем абзаце",
-      passed: !linksInLastParagraph,
-      detail: linksInLastParagraph ? "Найдена ссылка!" : "OK",
-    });
-
-    return results;
-  }, [charCount, imagesWithAlt, imageCount, linksInFirstParagraph, linksInLastParagraph, title, metaDescription]);
+  const checks = useMemo<CheckResult[]>(() => [
+    { key: "no_link_first", label: "Нет ссылок в 1-м абзаце", passed: !linksInFirstParagraph, detail: linksInFirstParagraph ? "Найдена ссылка!" : "OK" },
+    { key: "length", label: "Длина > 2000 знаков", passed: charCount >= 2000, detail: `${charCount.toLocaleString()} зн.` },
+    { key: "images", label: "2+ изображений с Alt", passed: imagesWithAlt >= 2, detail: `${imagesWithAlt} из ${imageCount} изобр.` },
+    { key: "meta", label: "Title и Description", passed: title.trim().length > 0 && metaDescription.trim().length > 0, detail: !title.trim() && !metaDescription.trim() ? "Нет обоих" : !title.trim() ? "Нет Title" : !metaDescription.trim() ? "Нет Description" : "OK" },
+    { key: "no_link_last", label: "Нет ссылок в последнем абзаце", passed: !linksInLastParagraph, detail: linksInLastParagraph ? "Найдена ссылка!" : "OK" },
+  ], [charCount, imagesWithAlt, imageCount, linksInFirstParagraph, linksInLastParagraph, title, metaDescription]);
 
   const passedCount = checks.filter(c => c.passed).length;
   const allPassed = passedCount === checks.length;
 
-  const handleCopyForMiralinks = () => {
-    let html = content;
+  const handleCopyHtml = useCallback(() => {
+    const html = markdownToMiralinksHtml(content);
+    navigator.clipboard.writeText(html).then(() => toast.success("Чистый HTML скопирован для Miralinks"));
+  }, [content]);
 
-    html = html
-      .replace(/^######\s+(.+)$/gm, "<h6>$1</h6>")
-      .replace(/^#####\s+(.+)$/gm, "<h5>$1</h5>")
-      .replace(/^####\s+(.+)$/gm, "<h4>$1</h4>")
-      .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
-      .replace(/^##\s+(.+)$/gm, "<h2>$1</h2>")
-      .replace(/^#\s+(.+)$/gm, "<h1>$1</h1>")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-      .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
-      .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
-      .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>");
+  const handleDownloadDocx = useCallback(async () => {
+    try {
+      await generateDocx(content, title, metaDescription);
+      toast.success("Файл .docx скачан");
+    } catch (e) {
+      toast.error("Ошибка генерации .docx");
+      console.error(e);
+    }
+  }, [content, title, metaDescription]);
 
-    html = html
-      .split("\n\n")
-      .map((block) => {
-        const trimmed = block.trim();
-        if (!trimmed) return "";
-        if (/^<(h[1-6]|ul|ol|table|blockquote|li|img)/.test(trimmed)) return trimmed;
-        return `<p>${trimmed}</p>`;
-      })
-      .filter(Boolean)
-      .join("\n");
-
-    const meta = `<!-- Title: ${title} -->\n<!-- Description: ${metaDescription} -->\n\n`;
-    const finalHtml = meta + html;
-
-    navigator.clipboard.writeText(finalHtml).then(() => {
-      toast.success("HTML скопирован для Miralinks");
-    });
-  };
+  const copyField = useCallback((text: string, field: "title" | "desc") => {
+    navigator.clipboard.writeText(text);
+    if (field === "title") { setTitleCopied(true); setTimeout(() => setTitleCopied(false), 2000); }
+    else { setDescCopied(true); setTimeout(() => setDescCopied(false), 2000); }
+    toast.success("Скопировано");
+  }, []);
 
   return (
     <Card className="bg-card border-border">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Link2 className="h-4 w-4 text-primary" />
           Miralinks Integration
           {isMiralinksProfile && (
-            <Badge variant="default" className="text-[10px] h-5 ml-auto">
-              Активен
-            </Badge>
+            <Badge variant="default" className="text-[10px] h-5 ml-auto">Активен</Badge>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {/* Link pairs */}
-        <div className="space-y-3">
-          <Label className="text-xs text-muted-foreground font-medium">Ссылки и анкоры</Label>
+        <div className="space-y-2">
+          <Label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Ссылки и анкоры</Label>
           {links.map((link, i) => (
-            <div key={i} className="space-y-1.5 rounded-md border border-border p-2.5 bg-muted/30">
+            <div key={i} className="space-y-1 rounded-md border border-border p-2 bg-muted/30">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Ссылка {i + 1}
-                </span>
+                <span className="text-[10px] font-medium text-muted-foreground">Ссылка {i + 1}</span>
                 {links.length > 1 && (
-                  <button
-                    onClick={() => removeLink(i)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                  >
+                  <button onClick={() => removeLink(i)} className="text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 )}
               </div>
-              <Input
-                placeholder="https://example.com/page"
-                value={link.url}
-                onChange={(e) => updateLink(i, "url", e.target.value)}
-                className="h-7 text-xs"
-              />
-              <Input
-                placeholder="Текст анкора"
-                value={link.anchor}
-                onChange={(e) => updateLink(i, "anchor", e.target.value)}
-                className="h-7 text-xs"
-              />
+              <Input placeholder="https://example.com/page" value={link.url} onChange={(e) => updateLink(i, "url", e.target.value)} className="h-7 text-xs" />
+              <Input placeholder="Текст анкора" value={link.anchor} onChange={(e) => updateLink(i, "anchor", e.target.value)} className="h-7 text-xs" />
             </div>
           ))}
           {links.length < 3 && (
@@ -229,76 +337,86 @@ export function MiralinksWidget({
           )}
         </div>
 
-        {/* Follow rules checkbox */}
-        <div className="flex items-center gap-2 rounded-md border border-border p-2.5 bg-muted/30">
-          <Checkbox
-            id="miralinks-rules"
-            checked={followRules}
-            onCheckedChange={(v) => onFollowRulesChange(!!v)}
-          />
+        {/* Follow rules */}
+        <div className="flex items-center gap-2 rounded-md border border-border p-2 bg-muted/30">
+          <Checkbox id="miralinks-rules" checked={followRules} onCheckedChange={(v) => onFollowRulesChange(!!v)} />
           <Label htmlFor="miralinks-rules" className="text-xs cursor-pointer leading-tight">
             Соблюдать правила модерации
-            <span className="block text-[10px] text-muted-foreground mt-0.5">
-              Ссылки не в первом и последнем абзацах
-            </span>
+            <span className="block text-[10px] text-muted-foreground mt-0.5">Ссылки не в первом и последнем абзацах</span>
           </Label>
         </div>
 
         {/* Check button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full gap-1.5"
-          onClick={() => setShowResults(true)}
-        >
+        <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => setShowResults(true)}>
           <ShieldCheck className="h-3.5 w-3.5" />
           Проверить на соответствие
         </Button>
 
-        {/* Real-time compliance checklist */}
+        {/* Compliance checklist */}
         {showResults && (
-          <div className="space-y-2 rounded-md border border-border p-3 bg-muted/20">
+          <div className="space-y-1.5 rounded-md border border-border p-2.5 bg-muted/20">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium">Miralinks Compliance</span>
-              <Badge
-                variant={allPassed ? "default" : "destructive"}
-                className="text-[10px] h-5"
-              >
+              <Badge variant={allPassed ? "default" : "destructive"} className="text-[10px] h-5">
                 {passedCount}/{checks.length}
               </Badge>
             </div>
             {checks.map((check) => (
               <div key={check.key} className="flex items-center gap-2 text-xs">
-                {check.passed ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                ) : (
-                  <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                )}
-                <span className={check.passed ? "text-foreground" : "text-destructive"}>
-                  {check.label}
-                </span>
+                {check.passed ? <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" /> : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />}
+                <span className={check.passed ? "text-foreground" : "text-destructive"}>{check.label}</span>
                 <span className="ml-auto text-muted-foreground text-[10px]">{check.detail}</span>
               </div>
             ))}
             {!allPassed && isMiralinksProfile && (
-              <div className="flex items-start gap-1.5 mt-2 p-2 rounded bg-destructive/10 text-[10px] text-destructive">
+              <div className="flex items-start gap-1.5 mt-1.5 p-2 rounded bg-destructive/10 text-[10px] text-destructive">
                 <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                <span>Статья не пройдёт модерацию Miralinks. Исправьте замечания перед публикацией.</span>
+                <span>Статья не пройдёт модерацию Miralinks. Исправьте замечания.</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Copy button */}
-        <Button
-          size="sm"
-          className="w-full gap-1.5"
-          onClick={handleCopyForMiralinks}
-          disabled={!content.trim()}
-        >
-          <ClipboardCopy className="h-3.5 w-3.5" />
-          Копировать для Miralinks
-        </Button>
+        {/* Meta Data for copy */}
+        {(title || metaDescription) && (
+          <div className="space-y-1.5 rounded-md border border-border p-2.5 bg-muted/20">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Meta Data</span>
+            {title && (
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground">Title</p>
+                  <p className="text-xs truncate">{title}</p>
+                </div>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => copyField(title, "title")}>
+                  {titleCopied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                </Button>
+              </div>
+            )}
+            {metaDescription && (
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground">Description</p>
+                  <p className="text-xs truncate">{metaDescription}</p>
+                </div>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => copyField(metaDescription, "desc")}>
+                  {descCopied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Export buttons */}
+        <div className="grid grid-cols-2 gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={handleCopyHtml} disabled={!content.trim()}>
+            <ClipboardCopy className="h-3.5 w-3.5" />
+            Copy HTML
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={handleDownloadDocx} disabled={!content.trim()}>
+            <Download className="h-3.5 w-3.5" />
+            .docx
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
