@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Users, Save, Trash2, Coins } from "lucide-react";
+import { format } from "date-fns";
 import { useState } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { AddCreditsDialog } from "./AddCreditsDialog";
@@ -142,6 +143,8 @@ export function UserManagementTab() {
             <TableHeader>
               <TableRow className="border-border">
                 <TableHead>Email</TableHead>
+                <TableHead>Имя</TableHead>
+                <TableHead>Регистрация</TableHead>
                 <TableHead>Тариф</TableHead>
                 <TableHead className="text-center">Активен</TableHead>
                 <TableHead className="text-right">Токены</TableHead>
@@ -163,6 +166,10 @@ export function UserManagementTab() {
                     className={`border-border ${!p.is_active ? "opacity-50" : ""}`}
                   >
                     <TableCell className="font-mono text-xs">{p.email}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{p.full_name || '—'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {p.created_at ? format(new Date(p.created_at), 'dd.MM.yyyy') : '—'}
+                    </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Select value={editPlan} onValueChange={setEditPlan}>
