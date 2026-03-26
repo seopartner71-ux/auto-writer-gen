@@ -2,15 +2,13 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Trash2, MessageSquareReply, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Trash2, Send, ChevronDown, ChevronUp, User, ShieldCheck } from "lucide-react";
 
 const statusOptions = [
   { value: "open", label: "Открыт" },
@@ -26,7 +24,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 
 export function SupportManagementTab() {
   const queryClient = useQueryClient();
-  const [replyTicket, setReplyTicket] = useState<any | null>(null);
+  const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -38,7 +36,6 @@ export function SupportManagementTab() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-
       if (!data || data.length === 0) return [];
 
       const userIds = [...new Set(data.map((t) => t.user_id))];
@@ -52,57 +49,66 @@ export function SupportManagementTab() {
     },
   });
 
+  const { data: messages = [] } = useQuery({
+    queryKey: ["admin-ticket-messages", expandedTicket],
+    queryFn: async () => {
+      if (!expandedTicket) return [];
+      const { data, error } = await supabase
+        .from("ticket_messages")
+        .select("*")
+        .eq("ticket_id", expandedTicket)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!expandedTicket,
+  });
+
   const handleStatusChange = async (ticketId: string, status: string) => {
-    const { error } = await supabase
-      .from("support_tickets")
-      .update({ status })
-      .eq("id", ticketId);
-    if (error) {
-      toast.error("Ошибка: " + error.message);
-    } else {
+    const { error } = await supabase.from("support_tickets").update({ status }).eq("id", ticketId);
+    if (error) toast.error("Ошибка: " + error.message);
+    else {
       toast.success("Статус обновлён");
       queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
     }
   };
 
   const handleDelete = async (ticketId: string) => {
-    if (!confirm("Удалить этот тикет?")) return;
-    const { error } = await supabase
-      .from("support_tickets")
-      .delete()
-      .eq("id", ticketId);
-    if (error) {
-      toast.error("Ошибка: " + error.message);
-    } else {
+    if (!confirm("Удалить этот тикет и все сообщения?")) return;
+    const { error } = await supabase.from("support_tickets").delete().eq("id", ticketId);
+    if (error) toast.error("Ошибка: " + error.message);
+    else {
       toast.success("Тикет удалён");
+      if (expandedTicket === ticketId) setExpandedTicket(null);
       queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
     }
   };
 
-  const handleReply = async () => {
-    if (!replyTicket || !replyText.trim()) return;
+  const handleReply = async (ticket: any) => {
+    if (!replyText.trim()) return;
     setSending(true);
     try {
-      const { error } = await supabase
-        .from("support_tickets")
-        .update({
-          admin_reply: replyText.trim(),
-          replied_at: new Date().toISOString(),
-          status: "resolved",
-        })
-        .eq("id", replyTicket.id);
+      // Insert admin message into thread
+      const { error } = await supabase.from("ticket_messages").insert({
+        ticket_id: ticket.id,
+        sender_role: "admin",
+        message: replyText.trim(),
+      });
       if (error) throw error;
+
+      // Update ticket status
+      await supabase.from("support_tickets").update({ status: "in_progress" }).eq("id", ticket.id);
 
       // Send in-app notification to user
       await supabase.from("notifications").insert({
-        user_id: replyTicket.user_id,
+        user_id: ticket.user_id,
         title: "Ответ на ваш запрос 💬",
-        message: `Тема: ${replyTicket.subject}\n\nОтвет: ${replyText.trim()}`,
+        message: `Тема: ${ticket.subject}\n\nОтвет: ${replyText.trim()}`,
       });
 
       toast.success("Ответ отправлен");
-      setReplyTicket(null);
       setReplyText("");
+      queryClient.invalidateQueries({ queryKey: ["admin-ticket-messages", ticket.id] });
       queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
     } catch (err: any) {
       toast.error("Ошибка: " + err.message);
@@ -114,110 +120,107 @@ export function SupportManagementTab() {
   if (isLoading) return <p className="text-sm text-muted-foreground p-4">Загрузка...</p>;
 
   return (
-    <>
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Дата</TableHead>
-                <TableHead>Пользователь</TableHead>
-                <TableHead>Тема</TableHead>
-                <TableHead>Сообщение</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead className="text-right">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tickets.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    Нет обращений
-                  </TableCell>
-                </TableRow>
-              ) : (
-                tickets.map((ticket: any) => {
-                  const cfg = statusConfig[ticket.status] ?? statusConfig.open;
-                  return (
-                    <TableRow key={ticket.id}>
-                      <TableCell className="text-xs whitespace-nowrap">
-                        {format(new Date(ticket.created_at), "dd.MM.yy HH:mm")}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        <div>{ticket.profile?.full_name || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{ticket.profile?.email}</div>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium max-w-[200px] truncate">{ticket.subject}</TableCell>
-                      <TableCell className="text-sm max-w-[300px] truncate">{ticket.message}</TableCell>
-                      <TableCell>
-                        <Select value={ticket.status} onValueChange={(v) => handleStatusChange(ticket.id, v)}>
-                          <SelectTrigger className="w-[130px] h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {statusOptions.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Ответить"
-                          onClick={() => { setReplyTicket(ticket); setReplyText(ticket.admin_reply ?? ""); }}
-                        >
-                          <MessageSquareReply className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Удалить"
-                          onClick={() => handleDelete(ticket.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+    <div className="space-y-3">
+      {tickets.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">Нет обращений</p>
+      ) : (
+        tickets.map((ticket: any) => {
+          const cfg = statusConfig[ticket.status] ?? statusConfig.open;
+          const isExpanded = expandedTicket === ticket.id;
 
-      {/* Reply dialog */}
-      <Dialog open={!!replyTicket} onOpenChange={(open) => { if (!open) setReplyTicket(null); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Ответить на запрос</DialogTitle>
-          </DialogHeader>
-          {replyTicket && (
-            <div className="space-y-3">
-              <div className="text-sm">
-                <span className="text-muted-foreground">Тема:</span>{" "}
-                <span className="font-medium">{replyTicket.subject}</span>
-              </div>
-              <div className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap">{replyTicket.message}</div>
-              <Textarea
-                placeholder="Введите ответ..."
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                rows={4}
-                maxLength={2000}
-              />
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReplyTicket(null)}>Отмена</Button>
-            <Button onClick={handleReply} disabled={sending || !replyText.trim()}>
-              {sending ? "Отправка..." : "Отправить ответ"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          return (
+            <Card key={ticket.id}>
+              <button
+                type="button"
+                className="w-full p-4 flex items-start justify-between gap-3 text-left hover:bg-muted/30 transition-colors"
+                onClick={() => { setExpandedTicket(isExpanded ? null : ticket.id); setReplyText(""); }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-medium text-sm">{ticket.subject}</h3>
+                    <Badge variant={cfg.variant} className="text-xs">{cfg.label}</Badge>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    <span>{ticket.profile?.full_name || "—"}</span>
+                    <span>{ticket.profile?.email}</span>
+                    <span>{format(new Date(ticket.created_at), "dd.MM.yy HH:mm")}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Select value={ticket.status} onValueChange={(v) => { handleStatusChange(ticket.id, v); }}>
+                    <SelectTrigger className="w-[120px] h-7 text-xs" onClick={(e) => e.stopPropagation()}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Удалить" onClick={(e) => { e.stopPropagation(); handleDelete(ticket.id); }}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                  {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+
+              {isExpanded && (
+                <CardContent className="border-t pt-3 space-y-3">
+                  {/* Original message */}
+                  <div className="bg-muted/50 rounded-md p-3 text-sm">
+                    <span className="text-xs font-medium text-muted-foreground">Исходный запрос:</span>
+                    <p className="mt-1 whitespace-pre-wrap">{ticket.message}</p>
+                  </div>
+
+                  {/* Conversation thread */}
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {messages.map((msg: any) => (
+                      <div key={msg.id} className={`flex ${msg.sender_role === "admin" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[80%] rounded-lg p-3 ${msg.sender_role === "admin" ? "bg-primary/10" : "bg-muted"}`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            {msg.sender_role === "admin" ? (
+                              <ShieldCheck className="h-3 w-3 text-primary" />
+                            ) : (
+                              <User className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            <span className="text-xs font-medium">
+                              {msg.sender_role === "admin" ? "Вы (админ)" : ticket.profile?.full_name || ticket.profile?.email || "Пользователь"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(msg.created_at), "dd.MM HH:mm")}
+                            </span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Reply input */}
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Написать ответ..."
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      rows={2}
+                      maxLength={2000}
+                      className="flex-1"
+                    />
+                    <Button
+                      size="icon"
+                      className="shrink-0 self-end"
+                      disabled={sending || !replyText.trim()}
+                      onClick={() => handleReply(ticket)}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          );
+        })
+      )}
+    </div>
   );
 }
