@@ -382,6 +382,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "pricing.f.bulkGen": { ru: "Планировщик + массовая генерация", en: "Planner + bulk generation" },
   "pricing.f.uniquenessAntiAi": { ru: "Проверка уникальности + Anti-AI", en: "Uniqueness check + Anti-AI" },
   "pricing.f.allSchema": { ru: "JSON-LD + все типы разметки", en: "JSON-LD + all schema types" },
+  "pricing.f.miralinks": { ru: "Miralinks Integration (биржа ссылок)", en: "Miralinks Integration (link exchange)" },
   "pricing.f.support247": { ru: "Приоритетная поддержка 24/7", en: "Priority support 24/7" },
 
   // Admin
