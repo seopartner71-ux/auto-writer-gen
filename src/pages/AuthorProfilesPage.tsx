@@ -98,7 +98,24 @@ export default function AuthorProfilesPage() {
     onError: (e) => toast.error(e.message),
   });
 
-  const resetForm = () => { setName(""); setNiche(""); setVoiceTone(""); setSampleText(""); };
+   const resetForm = () => { setName(""); setNiche(""); setVoiceTone(""); setSampleText(""); };
+
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const resetMiralinks = useMutation({
+    mutationFn: async (id: string) => {
+      setResettingId(id);
+      const { error } = await supabase.from("author_profiles").update({
+        voice_tone: MIRALINKS_DEFAULTS.voice_tone,
+        system_instruction: MIRALINKS_DEFAULTS.system_instruction,
+        temperature: MIRALINKS_DEFAULTS.temperature,
+        niche: MIRALINKS_DEFAULTS.niche,
+        description: MIRALINKS_DEFAULTS.description,
+      }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success("Профиль Miralinks сброшен к эталонным настройкам"); setResettingId(null); },
+    onError: (e) => { toast.error(e.message); setResettingId(null); },
+  });
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
