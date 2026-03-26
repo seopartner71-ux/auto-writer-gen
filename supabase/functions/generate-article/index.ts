@@ -356,7 +356,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links } = body;
     console.log("[generate-article] author_profile_id received:", author_profile_id);
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
