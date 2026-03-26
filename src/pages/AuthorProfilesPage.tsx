@@ -225,10 +225,17 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                 {toneLabel && author.type !== "preset" && <Badge variant="outline" className="text-xs">{toneLabel}</Badge>}
                 {author.style_analysis && <Badge className="text-xs bg-primary/20 text-primary border-0"><Sparkles className="h-3 w-3 mr-1" />{t("authorPage.styleAnalyzed")}</Badge>}
                 {author.style_examples && <Badge className="text-xs bg-success/20 text-success border-0"><FileText className="h-3 w-3 mr-1" />{t("authorPage.referenceText")}</Badge>}
+                {author.is_miralinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />Miralinks Expert</Badge>}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {onResetMiralinks && (
+              <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={onResetMiralinks} disabled={isResetting}>
+                {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                Сброс
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={onToggle}>{expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</Button>
             {author.type !== "preset" && <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>}
           </div>
