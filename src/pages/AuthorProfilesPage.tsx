@@ -177,7 +177,8 @@ export default function AuthorProfilesPage() {
         <div className="grid gap-4">
           {authors.map((author) => (
             <AuthorCard key={author.id} author={author} expanded={expandedId === author.id} onToggle={() => setExpandedId(expandedId === author.id ? null : author.id)}
-              onDelete={() => deleteAuthor.mutate(author.id)} onAnalyze={(text) => analyzeStyle.mutate({ id: author.id, text })} isAnalyzing={analyzeStyle.isPending} t={t} toneOptions={TONE_OPTIONS} />
+              onDelete={() => deleteAuthor.mutate(author.id)} onAnalyze={(text) => analyzeStyle.mutate({ id: author.id, text })} isAnalyzing={analyzeStyle.isPending} t={t} toneOptions={TONE_OPTIONS}
+              onResetMiralinks={author.is_miralinks_profile ? () => resetMiralinks.mutate(author.id) : undefined} isResetting={resettingId === author.id} />
           ))}
         </div>
       )}
