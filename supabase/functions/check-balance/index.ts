@@ -20,7 +20,6 @@ serve(async (req) => {
     const userId = payload.sub as string;
     if (!userId) throw new Error("Unauthorized");
 
-    // Check admin role
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -33,13 +32,11 @@ serve(async (req) => {
       .single();
     if (!role) throw new Error("Unauthorized: admin only");
 
-    // Get API keys from DB
     const { data: keys } = await supabaseAdmin
       .from("api_keys")
       .select("provider, api_key")
       .eq("is_valid", true);
 
-    // Also check env for OpenRouter key (edge functions use env as fallback)
     const dbProviders = new Set((keys || []).map((k: any) => k.provider));
     const allKeys: { provider: string; api_key: string }[] = [...(keys || [])];
 
@@ -62,12 +59,40 @@ serve(async (req) => {
             const limit = d.limit ?? null;
             const usage = d.usage ?? 0;
             const remaining = limit !== null ? (limit - usage) : null;
+            const isUnlimited = limit === null;
+            
             balances["openrouter"] = {
-              balance: remaining !== null ? `$${remaining.toFixed(2)}` : "Unlimited",
-              limit: limit !== null ? `$${limit.toFixed(2)}` : "No limit",
+              balance: isUnlimited ? "Unlimited" : `$${remaining!.toFixed(2)}`,
+              limit: isUnlimited ? "Без лимита" : `$${limit!.toFixed(2)}`,
               usage: `$${usage.toFixed(2)}`,
               raw: d,
             };
+
+            // Send Telegram alert if balance < $2 (only for limited keys)
+            if (!isUnlimited && remaining !== null && remaining < 2) {
+              try {
+                const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+                const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+                await fetch(`${supabaseUrl}/functions/v1/telegram-notify`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${serviceKey}`,
+                  },
+                  body: JSON.stringify({
+                    type: "low_balance_alert",
+                    data: {
+                      provider: "OpenRouter",
+                      balance: `$${remaining.toFixed(2)}`,
+                      usage: `$${usage.toFixed(2)}`,
+                      limit: `$${limit!.toFixed(2)}`,
+                    },
+                  }),
+                });
+              } catch (tgErr) {
+                console.error("Failed to send low balance Telegram alert:", tgErr);
+              }
+            }
           } else {
             const errText = await res.text();
             console.error("OpenRouter balance check failed:", res.status, errText);
@@ -84,11 +109,7 @@ serve(async (req) => {
         }
       } catch (e) {
         console.error(`Balance check failed for ${key.provider}:`, e);
-        balances[key.provider] = {
-          balance: "Error",
-          limit: "—",
-          usage: "—",
-        };
+        balances[key.provider] = { balance: "Error", limit: "—", usage: "—" };
       }
     }
 
