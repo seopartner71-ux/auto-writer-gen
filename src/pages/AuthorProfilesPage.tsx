@@ -193,7 +193,7 @@ interface AuthorCardProps {
   onResetMiralinks?: () => void; isResetting?: boolean;
 }
 
-function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions }: AuthorCardProps) {
+function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions, onResetMiralinks, isResetting }: AuthorCardProps) {
   const queryClient = useQueryClient();
   const [analyzeText, setAnalyzeText] = useState(author.style_examples || "");
   const [referenceText, setReferenceText] = useState(author.style_examples || "");
