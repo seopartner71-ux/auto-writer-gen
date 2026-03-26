@@ -166,6 +166,10 @@ export function UserManagementTab() {
                     className={`border-border ${!p.is_active ? "opacity-50" : ""}`}
                   >
                     <TableCell className="font-mono text-xs">{p.email}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{p.full_name || '—'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {p.created_at ? format(new Date(p.created_at), 'dd.MM.yyyy') : '—'}
+                    </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Select value={editPlan} onValueChange={setEditPlan}>
