@@ -35,6 +35,7 @@ const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
 const RadarPage = lazy(() => import("@/pages/RadarPage"));
 const WikiPage = lazy(() => import("@/pages/WikiPage"));
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
+const SupportPage = lazy(() => import("@/pages/SupportPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -112,6 +113,7 @@ const App = () => (
                   <Route path="/radar" element={<RadarPage />} />
                   <Route path="/wiki" element={<WikiPage />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
+                  <Route path="/support" element={<SupportPage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>

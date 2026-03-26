@@ -15,6 +15,7 @@ import {
   Radar,
   BookMarked,
   Plug,
+  LifeBuoy,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -50,6 +51,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/radar": () => import("@/pages/RadarPage"),
   "/wiki": () => import("@/pages/WikiPage"),
   "/integrations": () => import("@/pages/IntegrationsPage"),
+  "/support": () => import("@/pages/SupportPage"),
   "/admin": () => import("@/pages/AdminPage"),
 };
 
@@ -86,6 +88,7 @@ export function AppSidebar() {
     { title: t("nav.indexing"), url: "/indexing", icon: Zap },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
+    { title: "Поддержка", url: "/support", icon: LifeBuoy },
   ];
 
   const adminItems = [
