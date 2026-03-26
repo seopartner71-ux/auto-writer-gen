@@ -187,6 +187,7 @@ export interface PlanConfig {
   hasBulkMode: boolean;
   hasWordPress: boolean;
   hasProImageGen: boolean;
+  hasMiralinks: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
@@ -203,6 +204,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasBulkMode: false,
     hasWordPress: false,
     hasProImageGen: false,
+    hasMiralinks: false,
   },
   basic: {
     maxGenerations: 30,
@@ -217,6 +219,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasBulkMode: false,
     hasWordPress: false,
     hasProImageGen: false,
+    hasMiralinks: false,
   },
   pro: {
     maxGenerations: 100,
@@ -231,5 +234,6 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasBulkMode: true,
     hasWordPress: true,
     hasProImageGen: true,
+    hasMiralinks: true,
   },
 };
