@@ -53,6 +53,15 @@ export function UserManagementTab() {
     },
   });
 
+  const { data: statsData = [] } = useQuery({
+    queryKey: ["admin-user-stats"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_stats").select("user_id, last_activity_at");
+      if (error) throw error;
+      return data as { user_id: string; last_activity_at: string | null }[];
+    },
+  });
+
   const { data: usageData = [] } = useQuery({
     queryKey: ["admin-usage"],
     queryFn: async () => {
@@ -121,6 +130,11 @@ export function UserManagementTab() {
   const getUsage = (userId: string) =>
     usageData.find((u) => u.user_id === userId)?.total_tokens ?? 0;
 
+  const getLastActivity = (userId: string) => {
+    const stat = statsData.find((s) => s.user_id === userId);
+    return stat?.last_activity_at ? format(new Date(stat.last_activity_at), 'dd.MM.yyyy HH:mm') : '—';
+  };
+
   if (isLoading) {
     return <div className="text-muted-foreground">Загрузка...</div>;
   }
@@ -145,6 +159,7 @@ export function UserManagementTab() {
                 <TableHead>Email</TableHead>
                 <TableHead>Имя</TableHead>
                 <TableHead>Регистрация</TableHead>
+                <TableHead>Активность</TableHead>
                 <TableHead>Тариф</TableHead>
                 <TableHead className="text-center">Активен</TableHead>
                 <TableHead className="text-right">Токены</TableHead>
@@ -169,6 +184,9 @@ export function UserManagementTab() {
                     <TableCell className="text-xs text-muted-foreground">{p.full_name || '—'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {p.created_at ? format(new Date(p.created_at), 'dd.MM.yyyy') : '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {getLastActivity(p.id)}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
