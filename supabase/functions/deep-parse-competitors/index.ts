@@ -432,11 +432,32 @@ serve(async (req) => {
       .slice(0, 7);
     
     if (validSerps.length === 0) {
-      const skippedCount = serpResults.filter((sr: any) => sr.url).length;
-      return new Response(JSON.stringify({
-        error: `Все ${skippedCount} результатов SERP - это видео или соцсети (YouTube, Facebook и т.д.), которые невозможно проанализировать. Попробуйте другое ключевое слово с текстовыми статьями в выдаче.`,
-      }), {
-        status: 422,
+      // Return empty benchmark instead of error — let the UI handle gracefully
+      const emptyResult = {
+        benchmark: {
+          total_parsed: 0,
+          failed_urls: [],
+          median_word_count: 0,
+          median_img_count: 0,
+          median_h2_count: 0,
+          median_h3_count: 0,
+          median_paragraph_count: 0,
+          median_keyword_density: 0,
+          video_percentage: 0,
+          target_word_count: 2500,
+          target_img_count: 3,
+          target_h2_count: 6,
+        },
+        entities: [],
+        must_use_phrases: [],
+        tfidf_phrases: [],
+        lsi_success_phrases: [],
+        best_competitor_headings: null,
+        per_competitor: [],
+        warning: "Все результаты SERP — видео или соцсети. Используются значения по умолчанию.",
+      };
+      return new Response(JSON.stringify(emptyResult), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
