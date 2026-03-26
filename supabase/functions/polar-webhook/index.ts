@@ -118,6 +118,29 @@ serve(async (req) => {
         message: `Ваш тариф обновлён до ${plan.toUpperCase()}. Начислено ${credits} кредитов.`,
       });
 
+      // Send Telegram notification about purchase
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("id", userId)
+        .single();
+
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/telegram-notify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({
+            type: "purchase",
+            data: { email: userProfile?.email || userId, plan, credits },
+          }),
+        });
+      } catch (tgErr) {
+        console.error("Telegram notify failed (non-critical):", tgErr);
+      }
+
       console.log(`User ${userId} upgraded successfully`);
     }
 
