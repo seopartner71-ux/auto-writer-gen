@@ -632,7 +632,7 @@ export default function ArticlesPage() {
       setStreamPhase(null);
       abortRef.current = null;
     }
-  }, [selectedKeywordId, selectedAuthorId, outline, lsiKeywords]);
+  }, [selectedKeywordId, selectedAuthorId, outline, lsiKeywords, miralinksLinks, authorProfiles]);
 
   const handleStop = () => abortRef.current?.abort();
 
