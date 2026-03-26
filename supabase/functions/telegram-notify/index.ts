@@ -45,6 +45,20 @@ serve(async (req) => {
         `👤 Имя: ${full_name || 'Не указано'}\n` +
         `📧 Email: ${email}\n` +
         `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
+    } else if (type === 'new_support_ticket') {
+      const { email, subject, message } = data;
+      text = `🎫 <b>Новый запрос в поддержку</b>\n\n` +
+        `📧 От: ${email || 'Не указано'}\n` +
+        `📋 Тема: ${subject}\n` +
+        `💬 ${(message || '').substring(0, 500)}\n` +
+        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
+    } else if (type === 'support_user_reply') {
+      const { email, subject, message } = data;
+      text = `💬 <b>Ответ пользователя в тикете</b>\n\n` +
+        `📧 От: ${email || 'Не указано'}\n` +
+        `📋 Тема: ${subject}\n` +
+        `💬 ${(message || '').substring(0, 500)}\n` +
+        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
     } else {
       text = `ℹ️ ${type}: ${JSON.stringify(data)}`;
     }
