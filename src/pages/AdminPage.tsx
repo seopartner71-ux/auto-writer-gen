@@ -8,6 +8,7 @@ import { UserContentTab } from "@/components/admin/UserContentTab";
 import { FaqManagementTab } from "@/components/admin/FaqManagementTab";
 import { PolarSettingsTab } from "@/components/admin/PolarSettingsTab";
 import { PlanManagementTab } from "@/components/admin/PlanManagementTab";
+import { SupportManagementTab } from "@/components/admin/SupportManagementTab";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -33,6 +34,7 @@ export default function AdminPage() {
           <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
           <TabsTrigger value="plans">Тарифы</TabsTrigger>
           <TabsTrigger value="polar">Polar</TabsTrigger>
+          <TabsTrigger value="support">Поддержка</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
@@ -43,6 +45,7 @@ export default function AdminPage() {
         <TabsContent value="wiki" className="mt-4"><FaqManagementTab /></TabsContent>
         <TabsContent value="plans" className="mt-4"><PlanManagementTab /></TabsContent>
         <TabsContent value="polar" className="mt-4"><PolarSettingsTab /></TabsContent>
+        <TabsContent value="support" className="mt-4"><SupportManagementTab /></TabsContent>
       </Tabs>
     </div>
   );
