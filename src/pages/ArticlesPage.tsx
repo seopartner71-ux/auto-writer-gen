@@ -1676,16 +1676,18 @@ export default function ArticlesPage() {
             </TabsContent>
 
             <TabsContent value="miralinks" className="mt-3">
-              <MiralinksWidget
-                content={content}
-                title={title}
-                metaDescription={metaDescription}
-                isMiralinksProfile={!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile)}
-                links={miralinksLinks}
-                onLinksChange={setMiralinksLinks}
-                followRules={miralinksFollowRules}
-                onFollowRulesChange={setMiralinksFollowRules}
-              />
+              <PlanGate allowed={limits.hasMiralinks} featureName="Miralinks Integration" requiredPlan="PRO">
+                <MiralinksWidget
+                  content={content}
+                  title={title}
+                  metaDescription={metaDescription}
+                  isMiralinksProfile={!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile)}
+                  links={miralinksLinks}
+                  onLinksChange={setMiralinksLinks}
+                  followRules={miralinksFollowRules}
+                  onFollowRulesChange={setMiralinksFollowRules}
+                />
+              </PlanGate>
             </TabsContent>
           </Tabs>
         </div>

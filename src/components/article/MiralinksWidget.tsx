@@ -268,13 +268,19 @@ export function MiralinksWidget({
   const linksInFirstParagraph = useMemo(() => paragraphs.length > 0 && /\[([^\]]+)\]\(https?:\/\//.test(paragraphs[0]), [paragraphs]);
   const linksInLastParagraph = useMemo(() => paragraphs.length > 1 && /\[([^\]]+)\]\(https?:\/\//.test(paragraphs[paragraphs.length - 1]), [paragraphs]);
 
+  const titleLen = title.trim().length;
+  const descLen = metaDescription.trim().length;
+  const titleOk = titleLen >= 50 && titleLen <= 60;
+  const descOk = descLen >= 120 && descLen <= 160;
+
   const checks = useMemo<CheckResult[]>(() => [
     { key: "no_link_first", label: "Нет ссылок в 1-м абзаце", passed: !linksInFirstParagraph, detail: linksInFirstParagraph ? "Найдена ссылка!" : "OK" },
     { key: "length", label: "Длина > 2000 знаков", passed: charCount >= 2000, detail: `${charCount.toLocaleString()} зн.` },
     { key: "images", label: "2+ изображений с Alt", passed: imagesWithAlt >= 2, detail: `${imagesWithAlt} из ${imageCount} изобр.` },
-    { key: "meta", label: "Title и Description", passed: title.trim().length > 0 && metaDescription.trim().length > 0, detail: !title.trim() && !metaDescription.trim() ? "Нет обоих" : !title.trim() ? "Нет Title" : !metaDescription.trim() ? "Нет Description" : "OK" },
+    { key: "title_seo", label: "Title (50-60 символов)", passed: titleOk, detail: titleLen > 0 ? `${titleLen} сим.` : "Нет Title" },
+    { key: "desc_seo", label: "Description (120-160 символов)", passed: descOk, detail: descLen > 0 ? `${descLen} сим.` : "Нет Description" },
     { key: "no_link_last", label: "Нет ссылок в последнем абзаце", passed: !linksInLastParagraph, detail: linksInLastParagraph ? "Найдена ссылка!" : "OK" },
-  ], [charCount, imagesWithAlt, imageCount, linksInFirstParagraph, linksInLastParagraph, title, metaDescription]);
+  ], [charCount, imagesWithAlt, imageCount, linksInFirstParagraph, linksInLastParagraph, titleLen, titleOk, descLen, descOk]);
 
   const passedCount = checks.filter(c => c.passed).length;
   const allPassed = passedCount === checks.length;
