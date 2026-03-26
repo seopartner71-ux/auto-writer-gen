@@ -136,56 +136,110 @@ function highlightHtml(code: string): string {
 }
 
 function markdownToCleanHtml(md: string): string {
-  // Handle tables first
-  let html = md.replace(
-    /(?:^|\n)((?:\|.+\|\s*\n)+)/g,
-    (_, tableBlock: string) => {
-      const rows = tableBlock.trim().split("\n").filter(Boolean);
-      if (rows.length < 2) return tableBlock;
-      const headerCells = rows[0].split("|").filter(c => c.trim());
-      const isSep = /^[\s|:-]+$/.test(rows[1]);
-      const dataRows = isSep ? rows.slice(2) : rows.slice(1);
-      let table = "<table><thead><tr>";
-      headerCells.forEach(c => { table += `<th>${c.trim()}</th>`; });
-      table += "</tr></thead><tbody>";
-      dataRows.forEach(row => {
-        const cells = row.split("|").filter(c => c.trim());
-        table += "<tr>";
-        cells.forEach(c => { table += `<td>${c.trim()}</td>`; });
-        table += "</tr>";
-      });
-      table += "</tbody></table>";
-      return "\n" + table + "\n";
-    }
-  );
+  const lines = md.split("\n");
+  const result: string[] = [];
+  let i = 0;
 
-  html = html
-    .replace(/^######\s+(.+)$/gm, "<h6>$1</h6>")
-    .replace(/^#####\s+(.+)$/gm, "<h5>$1</h5>")
-    .replace(/^####\s+(.+)$/gm, "<h4>$1</h4>")
-    .replace(/^###\s+(.+)$/gm, "<h3>$1</h3>")
-    .replace(/^##\s+(.+)$/gm, "<h2>$1</h2>")
-    .replace(/^#\s+(.+)$/gm, "<h1>$1</h1>")
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Empty line
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // Table block
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      const tableRows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|")) {
+        const row = lines[i].trim();
+        if (/^[\s|:-]+$/.test(row)) { i++; continue; }
+        const cells = row.split("|").slice(1, -1).map(c => c.trim());
+        tableRows.push(cells);
+        i++;
+      }
+      if (tableRows.length > 0) {
+        let table = '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%"><thead><tr>';
+        tableRows[0].forEach(c => { table += `<th style="border:1px solid #ccc;padding:8px;background:#f5f5f5;text-align:left">${inlineMd(c)}</th>`; });
+        table += "</tr></thead><tbody>";
+        for (let r = 1; r < tableRows.length; r++) {
+          table += "<tr>";
+          tableRows[r].forEach(c => { table += `<td style="border:1px solid #ccc;padding:8px">${inlineMd(c)}</td>`; });
+          table += "</tr>";
+        }
+        table += "</tbody></table>";
+        result.push(table);
+      }
+      continue;
+    }
+
+    // Headings
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      result.push(`<h${level}>${inlineMd(headingMatch[2])}</h${level}>`);
+      i++;
+      continue;
+    }
+
+    // Unordered list
+    if (/^[-*]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+        items.push(`<li>${inlineMd(lines[i].trim().replace(/^[-*]\s+/, ""))}</li>`);
+        i++;
+      }
+      result.push(`<ul>${items.join("")}</ul>`);
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+        items.push(`<li>${inlineMd(lines[i].trim().replace(/^\d+\.\s+/, ""))}</li>`);
+        i++;
+      }
+      result.push(`<ol>${items.join("")}</ol>`);
+      continue;
+    }
+
+    // Blockquote
+    if (trimmed.startsWith("> ")) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("> ")) {
+        quoteLines.push(lines[i].trim().slice(2));
+        i++;
+      }
+      result.push(`<blockquote style="border-left:3px solid #ccc;padding-left:12px;margin:12px 0;color:#555">${quoteLines.map(l => `<p>${inlineMd(l)}</p>`).join("")}</blockquote>`);
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      result.push("<hr>");
+      i++;
+      continue;
+    }
+
+    // Regular paragraph
+    result.push(`<p>${inlineMd(trimmed)}</p>`);
+    i++;
+  }
+
+  return result.join("\n");
+}
+
+function inlineMd(text: string): string {
+  return text
     .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code>$1</code>")
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;height:auto;" />')
-    .replace(/^[-*]\s+(.+)$/gm, "<li>$1</li>")
-    .replace(/^\d+\.\s+(.+)$/gm, "<li>$1</li>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    .replace(/\n{2,}/g, "\n</p>\n<p>\n")
-    .replace(/\n/g, "<br>\n");
-
-  html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, "<ul>$1</ul>");
-  html = `<p>${html}</p>`;
-
-  // Clean empty paragraphs
-  html = html.replace(/<p>\s*<\/p>/g, "");
-  html = html.replace(/<p>\s*(<h[1-6]|<ul|<ol|<table)/g, "$1");
-  html = html.replace(/(<\/h[1-6]>|<\/ul>|<\/ol>|<\/table>)\s*<\/p>/g, "$1");
-  html = html.replace(/<p>\s*<br>\s*<\/p>/g, "");
-
-  return html.trim();
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 }
 
 function markdownToFullHtml(md: string, title?: string, metaDesc?: string): string {
@@ -906,17 +960,17 @@ export default function ArticlesPage() {
                       size="sm"
                       disabled={!content}
                       onClick={async () => {
-                        const plain = content
-                          .replace(/^#{1,6}\s+/gm, "")
-                          .replace(/\*\*(.+?)\*\*/g, "$1")
-                          .replace(/\*(.+?)\*/g, "$1")
-                          .replace(/!\[([^\]]*)\]\([^)]+\)/g, "")
-                          .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-                          .replace(/\|/g, " ")
-                          .replace(/[-:]+\|/g, "")
-                          .replace(/\n{3,}/g, "\n\n")
-                          .trim();
-                        await navigator.clipboard.writeText(plain);
+                        const html = markdownToCleanHtml(content);
+                        try {
+                          await navigator.clipboard.write([
+                            new ClipboardItem({
+                              "text/html": new Blob([html], { type: "text/html" }),
+                              "text/plain": new Blob([content], { type: "text/plain" }),
+                            }),
+                          ]);
+                        } catch {
+                          await navigator.clipboard.writeText(content);
+                        }
                         setTextCopied(true);
                         toast.success(t("common.copied"));
                         setTimeout(() => setTextCopied(false), 2000);
