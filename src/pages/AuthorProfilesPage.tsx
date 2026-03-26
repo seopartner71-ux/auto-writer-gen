@@ -11,16 +11,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2 } from "lucide-react";
+import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2, RotateCcw, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+
+const MIRALINKS_DEFAULTS = {
+  voice_tone: "expert",
+  system_instruction: `Ты — SEO-копирайтер для биржи Miralinks. Строгие правила:
+1. Тон: информационный, экспертный, без агрессивных продаж.
+2. Структура: обязательно H1, H2-H3, маркированные списки.
+3. Размещение ссылок: равномерно по тексту. ЗАПРЕЩЕНО в первом и последнем абзацах.
+4. Минимальный объём: 2500 знаков.
+5. Изображения: 2-3 шт. с alt-тегами на основе LSI-ключей.`,
+  temperature: 0.7,
+  niche: "Miralinks / Линкбилдинг",
+  description: "Профиль для биржи Miralinks с жёсткими правилами модерации",
+};
 
 interface AuthorProfile {
   id: string; user_id: string | null; name: string; niche: string | null; voice_tone: string | null;
   style_examples: string | null; stop_words: string[] | null; system_prompt_override: string | null;
   style_analysis: Record<string, unknown> | null; created_at: string; type?: string; description?: string;
-  avatar_icon?: string; system_instruction?: string; temperature?: number;
+  avatar_icon?: string; system_instruction?: string; temperature?: number; is_miralinks_profile?: boolean;
 }
 
 export default function AuthorProfilesPage() {
@@ -85,7 +98,24 @@ export default function AuthorProfilesPage() {
     onError: (e) => toast.error(e.message),
   });
 
-  const resetForm = () => { setName(""); setNiche(""); setVoiceTone(""); setSampleText(""); };
+   const resetForm = () => { setName(""); setNiche(""); setVoiceTone(""); setSampleText(""); };
+
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const resetMiralinks = useMutation({
+    mutationFn: async (id: string) => {
+      setResettingId(id);
+      const { error } = await supabase.from("author_profiles").update({
+        voice_tone: MIRALINKS_DEFAULTS.voice_tone,
+        system_instruction: MIRALINKS_DEFAULTS.system_instruction,
+        temperature: MIRALINKS_DEFAULTS.temperature,
+        niche: MIRALINKS_DEFAULTS.niche,
+        description: MIRALINKS_DEFAULTS.description,
+      }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success("Профиль Miralinks сброшен к эталонным настройкам"); setResettingId(null); },
+    onError: (e) => { toast.error(e.message); setResettingId(null); },
+  });
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
@@ -147,7 +177,8 @@ export default function AuthorProfilesPage() {
         <div className="grid gap-4">
           {authors.map((author) => (
             <AuthorCard key={author.id} author={author} expanded={expandedId === author.id} onToggle={() => setExpandedId(expandedId === author.id ? null : author.id)}
-              onDelete={() => deleteAuthor.mutate(author.id)} onAnalyze={(text) => analyzeStyle.mutate({ id: author.id, text })} isAnalyzing={analyzeStyle.isPending} t={t} toneOptions={TONE_OPTIONS} />
+              onDelete={() => deleteAuthor.mutate(author.id)} onAnalyze={(text) => analyzeStyle.mutate({ id: author.id, text })} isAnalyzing={analyzeStyle.isPending} t={t} toneOptions={TONE_OPTIONS}
+              onResetMiralinks={author.is_miralinks_profile ? () => resetMiralinks.mutate(author.id) : undefined} isResetting={resettingId === author.id} />
           ))}
         </div>
       )}
@@ -159,9 +190,10 @@ interface AuthorCardProps {
   author: AuthorProfile; expanded: boolean; onToggle: () => void; onDelete: () => void;
   onAnalyze: (text: string) => void; isAnalyzing: boolean; t: (k: string) => string;
   toneOptions: { value: string; label: string }[];
+  onResetMiralinks?: () => void; isResetting?: boolean;
 }
 
-function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions }: AuthorCardProps) {
+function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions, onResetMiralinks, isResetting }: AuthorCardProps) {
   const queryClient = useQueryClient();
   const [analyzeText, setAnalyzeText] = useState(author.style_examples || "");
   const [referenceText, setReferenceText] = useState(author.style_examples || "");
@@ -193,10 +225,17 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                 {toneLabel && author.type !== "preset" && <Badge variant="outline" className="text-xs">{toneLabel}</Badge>}
                 {author.style_analysis && <Badge className="text-xs bg-primary/20 text-primary border-0"><Sparkles className="h-3 w-3 mr-1" />{t("authorPage.styleAnalyzed")}</Badge>}
                 {author.style_examples && <Badge className="text-xs bg-success/20 text-success border-0"><FileText className="h-3 w-3 mr-1" />{t("authorPage.referenceText")}</Badge>}
+                {author.is_miralinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />Miralinks Expert</Badge>}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {onResetMiralinks && (
+              <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={onResetMiralinks} disabled={isResetting}>
+                {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                Сброс
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={onToggle}>{expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</Button>
             {author.type !== "preset" && <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>}
           </div>
