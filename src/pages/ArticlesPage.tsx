@@ -498,6 +498,16 @@ export default function ArticlesPage() {
       return;
     }
 
+    // Validate Miralinks links if Miralinks profile is selected
+    const isMiralinks = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile;
+    if (isMiralinks) {
+      const filledLinks = miralinksLinks.filter(l => l.url.trim() && l.anchor.trim());
+      if (filledLinks.length === 0) {
+        toast.error("Заполните минимум одну ссылку (URL + Анкор) в виджете Miralinks");
+        return;
+      }
+    }
+
     setIsStreaming(true);
     setStreamPhase("thinking");
     setContent("");
