@@ -527,6 +527,7 @@ export default function ArticlesPage() {
           lsi_keywords: lsiKeywords,
           competitor_tables: (selectedKeyword as any)?.competitor_tables || [],
           competitor_lists: (selectedKeyword as any)?.competitor_lists || [],
+          miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
         }),
         signal: controller.signal,
       });
