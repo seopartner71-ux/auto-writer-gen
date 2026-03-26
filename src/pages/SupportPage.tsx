@@ -146,6 +146,17 @@ export default function SupportPage() {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">{ticket.message}</p>
+                    {(ticket as any).admin_reply && (
+                      <div className="bg-primary/5 border border-primary/20 rounded-md p-3 mt-2">
+                        <p className="text-xs font-medium text-primary mb-1">Ответ поддержки:</p>
+                        <p className="text-sm whitespace-pre-wrap">{(ticket as any).admin_reply}</p>
+                        {(ticket as any).replied_at && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date((ticket as any).replied_at).toLocaleString("ru-RU")}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {new Date(ticket.created_at!).toLocaleString("ru-RU")}
                     </p>
