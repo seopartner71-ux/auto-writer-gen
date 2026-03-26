@@ -198,6 +198,8 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
   const [analyzeText, setAnalyzeText] = useState(author.style_examples || "");
   const [referenceText, setReferenceText] = useState(author.style_examples || "");
   const [refDirty, setRefDirty] = useState(false);
+  const [editInstruction, setEditInstruction] = useState(author.system_instruction || "");
+  const [instructionDirty, setInstructionDirty] = useState(false);
 
   const saveReference = useMutation({
     mutationFn: async () => {
@@ -207,6 +209,20 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); setRefDirty(false); toast.success(t("authorPage.refSaved")); },
     onError: (e) => toast.error(e.message),
   });
+
+  const saveInstruction = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("author_profiles").update({ system_instruction: editInstruction.trim() || null }).eq("id", author.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); setInstructionDirty(false); toast.success("Промпт сохранён"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const handleResetInstruction = () => {
+    setEditInstruction(MIRALINKS_DEFAULTS.system_instruction);
+    setInstructionDirty(true);
+  };
 
   const toneLabel = toneOptions.find((tt) => tt.value === author.voice_tone)?.label || author.voice_tone;
 
@@ -231,7 +247,7 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
           </div>
           <div className="flex items-center gap-1">
             {onResetMiralinks && (
-              <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={onResetMiralinks} disabled={isResetting}>
+              <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={() => { onResetMiralinks(); handleResetInstruction(); }} disabled={isResetting}>
                 {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
                 Сброс
               </Button>
@@ -244,13 +260,46 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
 
       {expanded && (
         <CardContent className="space-y-4 pt-0">
-          {author.system_instruction && (
+          {/* Editable system instruction for Miralinks profiles */}
+          {author.is_miralinks_profile ? (
+            <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">{t("authorPage.stylePrompt")}</Label>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={handleResetInstruction}>
+                    <RotateCcw className="h-3 w-3" />
+                    По умолчанию
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                value={editInstruction}
+                onChange={(e) => { setEditInstruction(e.target.value); setInstructionDirty(true); }}
+                rows={8}
+                className="bg-background font-mono text-sm leading-relaxed"
+                placeholder="Системный промпт для генерации..."
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{editInstruction.length} зн.</p>
+                <div className="flex gap-2">
+                  {instructionDirty && (
+                    <Button size="sm" onClick={() => saveInstruction.mutate()} disabled={saveInstruction.isPending}>
+                      {saveInstruction.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                      Сохранить
+                    </Button>
+                  )}
+                  {!instructionDirty && <span className="flex items-center text-xs text-success gap-1"><CheckCircle2 className="h-3 w-3" />Сохранено</span>}
+                </div>
+              </div>
+              {author.temperature && <p className="text-xs text-muted-foreground">Temperature: {Number(author.temperature)}</p>}
+            </div>
+          ) : author.system_instruction ? (
             <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-4">
               <Label className="text-sm font-semibold">{t("authorPage.stylePrompt")}</Label>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap font-mono bg-background rounded-md p-3">{author.system_instruction}</p>
               {author.temperature && <p className="text-xs text-muted-foreground">Temperature: {Number(author.temperature)}</p>}
             </div>
-          )}
+          ) : null}
 
           {author.type !== "preset" && (
             <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-4">
