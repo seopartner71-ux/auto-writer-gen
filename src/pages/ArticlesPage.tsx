@@ -27,6 +27,7 @@ import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
+import { MiralinksWidget } from "@/components/article/MiralinksWidget";
 
 // Readability helpers
 function countWords(text: string): number {
