@@ -11,16 +11,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2 } from "lucide-react";
+import { UserPen, Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Save, FileText, CheckCircle2, RotateCcw, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { StyleAnalysisCard } from "@/components/persona/StyleAnalysisCard";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+
+const MIRALINKS_DEFAULTS = {
+  voice_tone: "expert",
+  system_instruction: `Ты — SEO-копирайтер для биржи Miralinks. Строгие правила:
+1. Тон: информационный, экспертный, без агрессивных продаж.
+2. Структура: обязательно H1, H2-H3, маркированные списки.
+3. Размещение ссылок: равномерно по тексту. ЗАПРЕЩЕНО в первом и последнем абзацах.
+4. Минимальный объём: 2500 знаков.
+5. Изображения: 2-3 шт. с alt-тегами на основе LSI-ключей.`,
+  temperature: 0.7,
+  niche: "Miralinks / Линкбилдинг",
+  description: "Профиль для биржи Miralinks с жёсткими правилами модерации",
+};
 
 interface AuthorProfile {
   id: string; user_id: string | null; name: string; niche: string | null; voice_tone: string | null;
   style_examples: string | null; stop_words: string[] | null; system_prompt_override: string | null;
   style_analysis: Record<string, unknown> | null; created_at: string; type?: string; description?: string;
-  avatar_icon?: string; system_instruction?: string; temperature?: number;
+  avatar_icon?: string; system_instruction?: string; temperature?: number; is_miralinks_profile?: boolean;
 }
 
 export default function AuthorProfilesPage() {
