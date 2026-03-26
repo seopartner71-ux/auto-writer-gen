@@ -286,6 +286,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          is_miralinks_profile: boolean
           name: string
           niche: string | null
           stop_words: string[] | null
@@ -303,6 +304,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_miralinks_profile?: boolean
           name: string
           niche?: string | null
           stop_words?: string[] | null
@@ -320,6 +322,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_miralinks_profile?: boolean
           name?: string
           niche?: string | null
           stop_words?: string[] | null
