@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -27,6 +27,7 @@ import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
+import { MiralinksWidget } from "@/components/article/MiralinksWidget";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -1299,6 +1300,10 @@ export default function ArticlesPage() {
                 <Target className="h-3 w-3" />
                 Benchmark
               </TabsTrigger>
+              <TabsTrigger value="miralinks" className="text-xs gap-1 flex-1">
+                <Link2 className="h-3 w-3" />
+                Miralinks
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="dashboard" className="mt-3 space-y-4">
@@ -1642,6 +1647,14 @@ export default function ArticlesPage() {
                   </CardContent>
                 </Card>
               )}
+            </TabsContent>
+
+            <TabsContent value="miralinks" className="mt-3">
+              <MiralinksWidget
+                content={content}
+                title={title}
+                metaDescription={metaDescription}
+              />
             </TabsContent>
           </Tabs>
         </div>
