@@ -619,7 +619,12 @@ export default function ArticlesPage() {
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
 
-      // Auto-generate and insert images (async, best-effort, PRO only)
+      // Auto-generate and insert images
+      // For Miralinks profiles: force image generation regardless of setting
+      const isMiralinksProfile = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile;
+      if (isMiralinksProfile) {
+        localStorage.setItem("pro_image_enabled", "true");
+      }
       autoInsertImages(fullContent);
     } catch (e: any) {
       if (e.name === "AbortError") {
