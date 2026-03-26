@@ -1300,14 +1300,15 @@ export default function ArticlesPage() {
                 <Shield className="h-3 w-3" />
                 Human Score
               </TabsTrigger>
-              <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
-                <Target className="h-3 w-3" />
-                Benchmark
-              </TabsTrigger>
-              {!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile) && (
+              {!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile) ? (
                 <TabsTrigger value="miralinks" className="text-xs gap-1 flex-1">
                   <Link2 className="h-3 w-3" />
                   Miralinks
+                </TabsTrigger>
+              ) : (
+                <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
+                  <Target className="h-3 w-3" />
+                  Benchmark
                 </TabsTrigger>
               )}
             </TabsList>
