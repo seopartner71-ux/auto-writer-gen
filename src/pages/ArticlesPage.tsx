@@ -891,39 +891,40 @@ export default function ArticlesPage() {
             }}
           />
 
-          {/* Title & Meta */}
+          {/* Title & Meta — compact */}
           <Card className="bg-card border-border">
-            <CardContent className="pt-4 space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Title (SEO)</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder={t("articles.titlePlaceholder")}
-                  maxLength={70}
-                />
+            <CardContent className="pt-3 pb-3 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] text-muted-foreground">Title (SEO)</Label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder={t("articles.titlePlaceholder")}
+                    maxLength={70}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] text-muted-foreground">{t("articles.h1Title")}</Label>
+                  <Input
+                    value={h1}
+                    onChange={(e) => setH1(e.target.value)}
+                    placeholder={t("articles.h1Title")}
+                    className="h-8 text-sm font-semibold"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">{t("articles.h1Title")}</Label>
-                <Input
-                  value={h1}
-                  onChange={(e) => setH1(e.target.value)}
-                  placeholder={t("articles.h1Title")}
-                  className="text-lg font-semibold"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Meta Description
-                  <span className="ml-2 text-muted-foreground/60">
-                    ({metaDescription.length}/160)
-                  </span>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground">
+                  Meta Description <span className="text-muted-foreground/60">({metaDescription.length}/160)</span>
                 </Label>
                 <Input
                   value={metaDescription}
                   onChange={(e) => setMetaDescription(e.target.value)}
                   placeholder={t("articles.metaPlaceholder")}
                   maxLength={160}
+                  className="h-8 text-sm"
                 />
               </div>
             </CardContent>
