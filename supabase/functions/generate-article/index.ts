@@ -315,8 +315,18 @@ ${questionsStr ? `- ${questionsStr}` : "Нет"}
 
 function buildNewArticleUserPrompt(
   keyword: any, outlineStr: string, competitorStr: string,
-  lsiStr: string, questionsStr: string
+  lsiStr: string, questionsStr: string,
+  miralinksLinks?: { url: string; anchor: string }[]
 ): string {
+  const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
+  const linksBlock = activeLinks.length > 0
+    ? `\nОБЯЗАТЕЛЬНЫЕ ССЫЛКИ ДЛЯ ВСТАВКИ В ТЕКСТ:
+${activeLinks.map((l, i) => `${i + 1}. Вставь ссылку [${l.anchor}](${l.url}) — органично впиши в текст статьи. Анкор "${l.anchor}" должен быть частью предложения.`).join("\n")}
+- КАЖДАЯ ссылка ОБЯЗАНА присутствовать в финальном тексте в формате Markdown: [анкор](url)
+- НЕ ставь ссылки в первый и последний абзацы.
+- Распредели ссылки равномерно по центральной части статьи.\n`
+    : "";
+
   return `КЛЮЧЕВОЕ СЛОВО: "${keyword.seed_keyword}"
 ИНТЕНТ: ${keyword.intent || "informational"}
 
@@ -331,7 +341,7 @@ ${lsiStr || "Нет"}
 
 ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
 ${questionsStr ? `- ${questionsStr}` : "Нет"}
-
+${linksBlock}
 РЕКОМЕНДУЕМЫЙ ОБЪЁМ: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} слов
 
 ВАЖНО: Статья ОБЯЗАТЕЛЬНО должна начинаться с заголовка H1 (# Заголовок). H1 должен содержать ключевое слово и быть первой строкой вывода.
