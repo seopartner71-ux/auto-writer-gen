@@ -451,6 +451,7 @@ serve(async (req) => {
       competitorTables: competitor_tables,
       competitorLists: competitor_lists,
       deepAnalysisContext: deep_analysis_context,
+      miralinksLinks: miralinks_links,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
