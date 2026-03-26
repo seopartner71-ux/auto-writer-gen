@@ -218,3 +218,9 @@
 .article-preview em {
   font-style: italic;
 }
+
+/* HTML syntax highlighting (visual only, not in copied content) */
+.html-comment { color: hsl(var(--muted-foreground)); }
+.html-tag { color: hsl(210 80% 65%); }
+.html-attr { color: hsl(30 80% 65%); }
+.html-val { color: hsl(120 50% 60%); }

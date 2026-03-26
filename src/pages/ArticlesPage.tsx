@@ -123,16 +123,11 @@ function highlightHtml(code: string): string {
     .replace(/"/g, "&quot;");
 
   return esc
-    // Comments <!-- ... -->
-    .replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span style="color:hsl(var(--muted-foreground))">$1</span>')
-    // Tags <tagname ...> and </tagname>
-    .replace(/(&lt;\/?)([\w-]+)/g, '<span style="color:hsl(210,80%,65%)">$1$2</span>')
-    // Attributes name=
-    .replace(/\s([\w-]+)(=)/g, ' <span style="color:hsl(30,80%,65%)">$1</span>$2')
-    // Attribute values "..."
-    .replace(/(&quot;)(.*?)(&quot;)/g, '<span style="color:hsl(120,50%,60%)">$1$2$3</span>')
-    // Closing >
-    .replace(/(&gt;)/g, '<span style="color:hsl(210,80%,65%)">$1</span>');
+    .replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="html-comment">$1</span>')
+    .replace(/(&lt;\/?)([\w-]+)/g, '<span class="html-tag">$1$2</span>')
+    .replace(/\s([\w-]+)(=)/g, ' <span class="html-attr">$1</span>$2')
+    .replace(/(&quot;)(.*?)(&quot;)/g, '<span class="html-val">$1$2$3</span>')
+    .replace(/(&gt;)/g, '<span class="html-tag">$1</span>');
 }
 
 function markdownToCleanHtml(md: string): string {
