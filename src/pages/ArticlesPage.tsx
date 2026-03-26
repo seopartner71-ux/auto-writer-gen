@@ -368,6 +368,8 @@ export default function ArticlesPage() {
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
   const [publishingTo, setPublishingTo] = useState<string | null>(null);
+  const [miralinksLinks, setMiralinksLinks] = useState<MiralinksLink[]>([{ url: "", anchor: "" }]);
+  const [miralinksFollowRules, setMiralinksFollowRules] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
