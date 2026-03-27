@@ -642,9 +642,10 @@ export default function ArticlesPage() {
       autoGenerateSchema(fullContent, title);
 
       // Auto-generate and insert images
-      // For Miralinks profiles: force image generation regardless of setting
+      // For Miralinks/GoGetLinks profiles: force image generation regardless of setting
       const isMiralinksProfile = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile;
-      if (isMiralinksProfile) {
+      const isGoGetLinksProfile = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile;
+      if (isMiralinksProfile || isGoGetLinksProfile) {
         localStorage.setItem("pro_image_enabled", "true");
       }
       autoInsertImages(fullContent);
