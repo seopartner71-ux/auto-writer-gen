@@ -513,13 +513,25 @@ serve(async (req) => {
     const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
     if (!keyword) throw new Error("Keyword not found");
 
-    // Get SERP results
+    // Get SERP results (include deep_analysis for entities)
     const { data: serpResults } = await supabase
       .from("serp_results")
-      .select("title, snippet, url")
+      .select("title, snippet, url, deep_analysis")
       .eq("keyword_id", keyword_id)
       .order("position", { ascending: true })
       .limit(10);
+
+    // Extract entities from deep_analysis across all SERP results
+    const allEntities: string[] = [];
+    (serpResults || []).forEach((r: any) => {
+      if (r.deep_analysis?.entities) {
+        r.deep_analysis.entities.forEach((e: any) => {
+          const name = typeof e === "string" ? e : e?.name || e?.entity;
+          if (name && !allEntities.includes(name)) allEntities.push(name);
+        });
+      }
+    });
+
 
     // Get author profile (use admin client for presets which have null user_id)
     let authorData: any = null;
