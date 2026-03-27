@@ -152,7 +152,7 @@ export default function SettingsPage() {
     }
   };
 
-  const plan = profile?.plan ?? "basic";
+  const plan = currentPlan;
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
