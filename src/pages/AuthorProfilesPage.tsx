@@ -48,7 +48,8 @@ interface AuthorProfile {
   id: string; user_id: string | null; name: string; niche: string | null; voice_tone: string | null;
   style_examples: string | null; stop_words: string[] | null; system_prompt_override: string | null;
   style_analysis: Record<string, unknown> | null; created_at: string; type?: string; description?: string;
-  avatar_icon?: string; system_instruction?: string; temperature?: number; is_miralinks_profile?: boolean;
+  avatar_icon?: string; system_instruction?: string; temperature?: number;
+  is_miralinks_profile?: boolean; is_gogetlinks_profile?: boolean;
 }
 
 export default function AuthorProfilesPage() {
@@ -129,6 +130,22 @@ export default function AuthorProfilesPage() {
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success("Профиль Miralinks сброшен к эталонным настройкам"); setResettingId(null); },
+    onError: (e) => { toast.error(e.message); setResettingId(null); },
+  });
+
+  const resetGoGetLinks = useMutation({
+    mutationFn: async (id: string) => {
+      setResettingId(id);
+      const { error } = await supabase.from("author_profiles").update({
+        voice_tone: GOGETLINKS_DEFAULTS.voice_tone,
+        system_instruction: GOGETLINKS_DEFAULTS.system_instruction,
+        temperature: GOGETLINKS_DEFAULTS.temperature,
+        niche: GOGETLINKS_DEFAULTS.niche,
+        description: GOGETLINKS_DEFAULTS.description,
+      }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success("Профиль GoGetLinks сброшен к эталонным настройкам"); setResettingId(null); },
     onError: (e) => { toast.error(e.message); setResettingId(null); },
   });
 
