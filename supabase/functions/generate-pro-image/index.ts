@@ -178,14 +178,23 @@ serve(async (req) => {
 
     const stylePrompt = STYLE_PRESETS[style] || STYLE_PRESETS["photorealistic"];
 
-    // Check plan
+    // Check if user is admin (admins bypass all limits)
+    const { data: adminRole } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    const isAdmin = !!adminRole;
+
+    // Check plan (skip for admins)
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("plan")
       .eq("id", userId)
       .single();
 
-    if (profile?.plan !== "pro") {
+    if (!isAdmin && profile?.plan !== "pro") {
       return new Response(
         JSON.stringify({ error: "Pro Image Generation доступна только на тарифе PRO" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
