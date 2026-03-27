@@ -381,12 +381,15 @@ ${questionsStr ? `- ${questionsStr}` : "Нет"}
 function buildNewArticleUserPrompt(
   keyword: any, outlineStr: string, competitorStr: string,
   lsiStr: string, questionsStr: string,
-  miralinksLinks?: { url: string; anchor: string }[]
+  miralinksLinks?: { url: string; anchor: string }[],
+  gogetlinksLinks?: { url: string; anchor: string }[]
 ): string {
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
-  const linksBlock = activeLinks.length > 0
+  const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
+  const allLinks = [...activeLinks, ...activeGGLLinks];
+  const linksBlock = allLinks.length > 0
     ? `\n⚠️ ОБЯЗАТЕЛЬНЫЕ ССЫЛКИ КЛИЕНТА (КРИТИЧЕСКИ ВАЖНО — НЕ ИГНОРИРОВАТЬ):
-${activeLinks.map((l, i) => `${i + 1}. ВСТАВЬ В ТЕКСТ РОВНО ТАК: [${l.anchor}](${l.url})`).join("\n")}
+${allLinks.map((l, i) => `${i + 1}. ВСТАВЬ В ТЕКСТ РОВНО ТАК: [${l.anchor}](${l.url})`).join("\n")}
 - Используй ТОЧНО эти URL и анкоры. НЕ ПРИДУМЫВАЙ и НЕ ЗАМЕНЯЙ URL на другие.
 - КАЖДАЯ ссылка из списка выше ОБЯЗАНА присутствовать в финальном тексте.
 - Впиши анкор как естественную часть предложения.
