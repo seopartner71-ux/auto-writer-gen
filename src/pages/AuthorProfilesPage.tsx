@@ -302,8 +302,8 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
 
       {expanded && (
         <CardContent className="space-y-4 pt-0">
-          {/* Editable system instruction for Miralinks profiles */}
-          {author.is_miralinks_profile ? (
+          {/* Editable system instruction for Miralinks/GoGetLinks profiles */}
+          {(author.is_miralinks_profile || author.is_gogetlinks_profile) ? (
             <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-4">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">{t("authorPage.stylePrompt")}</Label>
