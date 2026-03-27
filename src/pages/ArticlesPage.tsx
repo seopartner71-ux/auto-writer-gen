@@ -1343,6 +1343,11 @@ export default function ArticlesPage() {
                   <Link2 className="h-3 w-3" />
                   Miralinks
                 </TabsTrigger>
+              ) : !!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile) ? (
+                <TabsTrigger value="gogetlinks" className="text-xs gap-1 flex-1">
+                  <Link2 className="h-3 w-3" />
+                  GoGetLinks
+                </TabsTrigger>
               ) : (
                 <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
                   <Target className="h-3 w-3" />
@@ -1705,6 +1710,21 @@ export default function ArticlesPage() {
                   onLinksChange={setMiralinksLinks}
                   followRules={miralinksFollowRules}
                   onFollowRulesChange={setMiralinksFollowRules}
+                />
+              </PlanGate>
+            </TabsContent>
+
+            <TabsContent value="gogetlinks" className="mt-3">
+              <PlanGate allowed={limits.hasGoGetLinks} featureName="GoGetLinks Integration" requiredPlan="PRO">
+                <GoGetLinksWidget
+                  content={content}
+                  title={title}
+                  metaDescription={metaDescription}
+                  isGoGetLinksProfile={!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile)}
+                  links={gogetlinksLinks}
+                  onLinksChange={setGogetlinksLinks}
+                  followRules={gogetlinksFollowRules}
+                  onFollowRulesChange={setGogetlinksFollowRules}
                 />
               </PlanGate>
             </TabsContent>
