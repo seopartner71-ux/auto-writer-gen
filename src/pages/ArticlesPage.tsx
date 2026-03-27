@@ -559,6 +559,7 @@ export default function ArticlesPage() {
           competitor_tables: (selectedKeyword as any)?.competitor_tables || [],
           competitor_lists: (selectedKeyword as any)?.competitor_lists || [],
           miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
+          gogetlinks_links: gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
         }),
         signal: controller.signal,
       });
