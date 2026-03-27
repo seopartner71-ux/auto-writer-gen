@@ -518,14 +518,7 @@ serve(async (req) => {
     const userPlan = profile?.plan || "basic";
     const credits = profile?.credits_amount ?? 0;
 
-    // Check if user is admin (admins have unlimited generations)
-    const { data: adminRole } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-    const isAdmin = !!adminRole;
+    // isAdmin already checked above
 
     // Check credits before generation (skip for admins)
     if (!isAdmin && credits <= 0) {
