@@ -80,6 +80,24 @@ export default function IntegrationsPage() {
       docUrl: "https://ghost.org/docs/admin-api/",
       docLabel: "Документация Ghost",
     },
+    {
+      name: "Miralinks",
+      badge: "success" as const,
+      status: "Встроено",
+      description: "Биржа ссылок. Выберите профиль 'Miralinks Expert' при генерации — статья будет соответствовать требованиям модерации.",
+      configured: true,
+      docUrl: "https://miralinks.ru",
+      docLabel: "miralinks.ru",
+    },
+    {
+      name: "GoGetLinks",
+      badge: "success" as const,
+      status: "Встроено",
+      description: "Биржа контекстных ссылок. Выберите профиль 'GoGetLinks Expert' при генерации — статья будет соответствовать требованиям.",
+      configured: true,
+      docUrl: "https://gogetlinks.net",
+      docLabel: "gogetlinks.net",
+    },
   ];
 
   return (
