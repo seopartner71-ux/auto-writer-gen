@@ -483,8 +483,17 @@ serve(async (req) => {
     const userPlan = profile?.plan || "basic";
     const credits = profile?.credits_amount ?? 0;
 
-    // Check credits before generation
-    if (credits <= 0) {
+    // Check if user is admin (admins have unlimited generations)
+    const { data: adminRole } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    const isAdmin = !!adminRole;
+
+    // Check credits before generation (skip for admins)
+    if (!isAdmin && credits <= 0) {
       return new Response(JSON.stringify({ error: "Недостаточно кредитов. Пополните баланс." }), {
         status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -605,8 +614,10 @@ serve(async (req) => {
       throw new Error(`AI gateway error: ${aiResponse.status}`);
     }
 
-    // Deduct credit after successful generation start
-    await supabaseAdmin.rpc("deduct_credit", { p_user_id: user.id });
+    // Deduct credit after successful generation start (skip for admins)
+    if (!isAdmin) {
+      await supabaseAdmin.rpc("deduct_credit", { p_user_id: user.id });
+    }
 
     // Log usage
     supabaseAdmin.from("usage_logs").insert({
