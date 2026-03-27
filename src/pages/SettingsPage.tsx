@@ -4,7 +4,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
