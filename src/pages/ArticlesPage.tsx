@@ -515,6 +515,20 @@ export default function ArticlesPage() {
       }
     }
 
+    // Validate GoGetLinks links if GoGetLinks profile is selected
+    const isGoGetLinks = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile;
+    if (isGoGetLinks) {
+      if (!limits.hasGoGetLinks) {
+        toast.error("GoGetLinks Integration доступна только на тарифе PRO");
+        return;
+      }
+      const filledLinks = gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim());
+      if (filledLinks.length === 0) {
+        toast.error("Заполните минимум одну ссылку (URL + Анкор) в виджете GoGetLinks");
+        return;
+      }
+    }
+
     setIsStreaming(true);
     setStreamPhase("thinking");
     setContent("");
