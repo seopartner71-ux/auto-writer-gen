@@ -391,13 +391,18 @@ serve(async (req) => {
         .limit(1);
       
       if (existingSerp && existingSerp.length > 0 && existingSerp[0].deep_analysis) {
-        // Check if cached analysis has the new format
         const cached = existingSerp[0].deep_analysis as any;
         if (cached._cached_result) {
-          console.log("Returning cached deep analysis");
-          return new Response(JSON.stringify(cached._cached_result), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          // Invalidate cache if entities are empty — re-run extraction
+          const cachedEntities = cached._cached_result?.entities || [];
+          if (cachedEntities.length > 0) {
+            console.log("Returning cached deep analysis");
+            return new Response(JSON.stringify(cached._cached_result), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          } else {
+            console.log("Cached result has 0 entities — re-running analysis");
+          }
         }
       }
     }
