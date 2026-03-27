@@ -437,7 +437,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links } = body;
     console.log("[generate-article] author_profile_id received:", author_profile_id);
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
@@ -533,6 +533,7 @@ serve(async (req) => {
       competitorLists: competitor_lists,
       deepAnalysisContext: deep_analysis_context,
       miralinksLinks: miralinks_links,
+      gogetlinksLinks: gogetlinks_links,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
@@ -551,7 +552,7 @@ serve(async (req) => {
     if (optimize_instructions && existing_content) {
       userPrompt = buildOptimizeUserPrompt(keyword, lsiStr, questionsStr, existing_content, optimize_instructions, deep_analysis_context);
     } else {
-      userPrompt = buildNewArticleUserPrompt(keyword, outlineStr, competitorStr, lsiStr, questionsStr, miralinks_links);
+      userPrompt = buildNewArticleUserPrompt(keyword, outlineStr, competitorStr, lsiStr, questionsStr, miralinks_links, gogetlinks_links);
     }
 
     // Use author's temperature if set, otherwise default
