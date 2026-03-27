@@ -610,7 +610,13 @@ serve(async (req) => {
     if (optimize_instructions && existing_content) {
       userPrompt = buildOptimizeUserPrompt(keyword, lsiStr, questionsStr, existing_content, optimize_instructions, deep_analysis_context);
     } else {
-      userPrompt = buildNewArticleUserPrompt(keyword, outlineStr, competitorStr, lsiStr, questionsStr, miralinks_links, gogetlinks_links);
+      userPrompt = buildNewArticleUserPrompt(
+        keyword, outlineStr, competitorStr, lsiStr, questionsStr,
+        miralinks_links, gogetlinks_links,
+        keyword.must_cover_topics || [],
+        keyword.content_gaps || [],
+        allEntities
+      );
     }
 
     // Use author's temperature if set, otherwise default
