@@ -331,7 +331,7 @@ export default function SettingsPage() {
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("settings.genLimit")}</span>
-                  <span className="text-foreground font-medium">{limits.maxGenerations} {t("settings.perMonth")}</span>
+                  <span className="text-foreground font-medium">{planLimit ?? limits.maxGenerations} {t("settings.perMonth")}</span>
                 </div>
               </div>
             </CardContent>
