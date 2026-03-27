@@ -29,6 +29,21 @@ const MIRALINKS_DEFAULTS = {
   description: "Профиль для биржи Miralinks с жёсткими правилами модерации",
 };
 
+const GOGETLINKS_DEFAULTS = {
+  voice_tone: "expert",
+  system_instruction: `Ты — SEO-копирайтер для биржи GoGetLinks. Строгие правила:
+1. Тон: информационный, экспертный, естественный язык.
+2. Структура: обязательно H1, H2-H3, маркированные списки.
+3. Контекстные ссылки: естественно вписаны в текст. ЗАПРЕЩЕНО в первом и последнем абзацах.
+4. Минимальный объём: 300 слов (2000+ знаков).
+5. Уникальность: текст должен быть полностью уникальным.
+6. Изображения: 1-3 шт. с alt-тегами.
+7. Анкоры: естественные, без спамных коммерческих фраз.`,
+  temperature: 0.7,
+  niche: "GoGetLinks / Линкбилдинг",
+  description: "Профиль для биржи GoGetLinks с правилами контекстных ссылок",
+};
+
 interface AuthorProfile {
   id: string; user_id: string | null; name: string; niche: string | null; voice_tone: string | null;
   style_examples: string | null; stop_words: string[] | null; system_prompt_override: string | null;
