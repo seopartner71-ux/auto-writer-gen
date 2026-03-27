@@ -68,13 +68,6 @@ export default function SettingsPage() {
       return data?.monthly_article_limit ?? limits.maxGenerations;
     },
   });
-        .from("subscription_plans")
-        .select("monthly_article_limit")
-        .eq("id", plan)
-        .single();
-      return data?.monthly_article_limit ?? limits.maxGenerations;
-    },
-  });
 
   const { data: proImageCount = 0 } = useQuery({
     queryKey: ["pro-image-count"],
