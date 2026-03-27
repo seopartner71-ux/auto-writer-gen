@@ -286,6 +286,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          is_gogetlinks_profile: boolean
           is_miralinks_profile: boolean
           name: string
           niche: string | null
@@ -304,6 +305,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_gogetlinks_profile?: boolean
           is_miralinks_profile?: boolean
           name: string
           niche?: string | null
@@ -322,6 +324,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_gogetlinks_profile?: boolean
           is_miralinks_profile?: boolean
           name?: string
           niche?: string | null

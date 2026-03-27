@@ -1,0 +1,1 @@
+ALTER TABLE public.author_profiles ADD COLUMN IF NOT EXISTS is_gogetlinks_profile boolean NOT NULL DEFAULT false;
