@@ -391,13 +391,18 @@ serve(async (req) => {
         .limit(1);
       
       if (existingSerp && existingSerp.length > 0 && existingSerp[0].deep_analysis) {
-        // Check if cached analysis has the new format
         const cached = existingSerp[0].deep_analysis as any;
         if (cached._cached_result) {
-          console.log("Returning cached deep analysis");
-          return new Response(JSON.stringify(cached._cached_result), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          // Invalidate cache if entities are empty — re-run extraction
+          const cachedEntities = cached._cached_result?.entities || [];
+          if (cachedEntities.length > 0) {
+            console.log("Returning cached deep analysis");
+            return new Response(JSON.stringify(cached._cached_result), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          } else {
+            console.log("Cached result has 0 entities — re-running analysis");
+          }
         }
       }
     }
@@ -580,64 +585,66 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `You are an SEO entity analyst. Extract entities and LSI phrases from competitor data. Return data via the provided tool. Write ALL output in the same language as the keyword.`,
+              content: `You are an SEO entity analyst. Extract entities and must-use phrases from competitor data. 
+IMPORTANT: Return ONLY valid JSON (no markdown, no backticks, no explanation). The JSON must have this exact structure:
+{
+  "entities": [{"name": "...", "type": "brand|person|location|concept|product|organization|event|metric|technology|term", "importance": 1-10}],
+  "must_use_phrases": [{"phrase": "...", "reason": "..."}]
+}
+Write entity names and phrases in the SAME language as the keyword.`,
             },
             {
               role: "user",
-              content: `Keyword: "${kw.seed_keyword}"\n\nCompetitors:\n${competitorTexts}\n\nTF-IDF phrases:\n${tfidfPhrases.slice(0, 15).map((p) => `"${p.phrase}" (${p.docs}/${parsedPages.length} docs)`).join("\n")}\n\nExtract 10-15 important entities (importance 1-10) and must-use LSI phrases.`,
+              content: `Keyword: "${kw.seed_keyword}"
+
+Competitors:
+${competitorTexts}
+
+TF-IDF phrases:
+${tfidfPhrases.slice(0, 15).map((p) => `"${p.phrase}" (${p.docs}/${parsedPages.length} docs)`).join("\n")}
+
+Extract 10-15 important entities (importance 1-10) and 5-10 must-use LSI phrases. Return ONLY JSON.`,
             },
           ],
-          tools: [{
-            type: "function",
-            function: {
-              name: "return_entity_analysis",
-              description: "Return entity and concept analysis",
-              parameters: {
-                type: "object",
-                properties: {
-                  entities: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        name: { type: "string" },
-                        type: { type: "string", enum: ["brand", "person", "location", "concept", "product", "organization", "event", "metric", "technology", "term"] },
-                        importance: { type: "number" },
-                      },
-                      required: ["name", "type", "importance"],
-                    },
-                  },
-                  must_use_phrases: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        phrase: { type: "string" },
-                        reason: { type: "string" },
-                      },
-                      required: ["phrase", "reason"],
-                    },
-                  },
-                },
-                required: ["entities", "must_use_phrases"],
-                additionalProperties: false,
-              },
-            },
-          }],
-          tool_choice: { type: "function", function: { name: "return_entity_analysis" } },
+          temperature: 0.1,
+          max_tokens: 2000,
         }),
       });
       clearTimeout(aiTimeout);
 
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
+        
+        // Try tool_calls first (OpenRouter/OpenAI format)
         const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
         if (toolCall?.function?.arguments) {
-          entityAnalysis = JSON.parse(toolCall.function.arguments);
-        } else {
+          try {
+            entityAnalysis = JSON.parse(toolCall.function.arguments);
+            console.log(`Entities extracted via tool_calls: ${entityAnalysis.entities?.length || 0}`);
+          } catch (parseErr) {
+            console.error("Failed to parse tool_calls:", parseErr);
+          }
+        }
+        
+        // Fallback: parse JSON from content (works with Gemini/Gateway)
+        if (!entityAnalysis.entities?.length) {
           const content = aiData.choices?.[0]?.message?.content || "";
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) entityAnalysis = JSON.parse(jsonMatch[0]);
+          // Strip markdown code fences if present
+          const cleaned = content.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
+          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (parsed.entities?.length) {
+                entityAnalysis = parsed;
+                console.log(`Entities extracted via content parsing: ${entityAnalysis.entities.length}`);
+              }
+            } catch (parseErr) {
+              console.error("Failed to parse content JSON:", parseErr, "Content:", cleaned.slice(0, 200));
+            }
+          } else {
+            console.error("No JSON found in AI response content:", content.slice(0, 300));
+          }
         }
 
         // Log usage
@@ -649,8 +656,8 @@ serve(async (req) => {
           tokens_used: tokensUsed,
         });
       } else {
-        console.error("AI response not ok:", aiResponse.status);
-        await aiResponse.text(); // consume body
+        const errText = await aiResponse.text();
+        console.error("AI response not ok:", aiResponse.status, errText.slice(0, 200));
       }
     } catch (aiErr) {
       console.error("AI entity extraction failed (using fallback):", aiErr instanceof Error ? aiErr.message : aiErr);
