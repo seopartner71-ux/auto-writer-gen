@@ -56,6 +56,18 @@ export default function SettingsPage() {
     }
   };
 
+  const { data: planLimit } = useQuery({
+    queryKey: ["subscription-plan-limit", plan],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("subscription_plans")
+        .select("monthly_article_limit")
+        .eq("id", plan)
+        .single();
+      return data?.monthly_article_limit ?? limits.maxGenerations;
+    },
+  });
+
   const { data: proImageCount = 0 } = useQuery({
     queryKey: ["pro-image-count"],
     queryFn: async () => {
