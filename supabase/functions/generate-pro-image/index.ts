@@ -232,7 +232,7 @@ serve(async (req) => {
       );
       const pool = nonFaqSections.length > 0 ? nonFaqSections : sections;
       const desiredCount = Math.min(pool.length, max_images || 3);
-      if (used + desiredCount > 100) {
+      if (!isAdmin && used + desiredCount > 100) {
         return new Response(
           JSON.stringify({ error: `Недостаточно лимита. Нужно: ${desiredCount}, осталось: ${100 - used}` }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
