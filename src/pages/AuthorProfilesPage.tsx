@@ -153,7 +153,7 @@ export default function AuthorProfilesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <UserPen className="h-6 w-6 text-primary" />
           <div>
@@ -161,39 +161,73 @@ export default function AuthorProfilesPage() {
             <p className="text-sm text-muted-foreground">{t("persona.subtitle")}</p>
           </div>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" />{t("persona.newAuthor")}</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>{t("persona.createProfile")}</DialogTitle></DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label>{t("persona.authorName")}</Label>
-                <Input placeholder={t("persona.authorNamePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="flex items-center gap-2 flex-wrap">
+          {!authors.some(a => a.is_miralinks_profile) && limits.hasMiralinks && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) { toast.error("Not authenticated"); return; }
+              const { error } = await supabase.from("author_profiles").insert({
+                user_id: user.id, name: "Miralinks Expert", type: "custom",
+                is_miralinks_profile: true, is_gogetlinks_profile: false,
+                ...MIRALINKS_DEFAULTS,
+              });
+              if (error) { toast.error(error.message); return; }
+              queryClient.invalidateQueries({ queryKey: ["author-profiles"] });
+              toast.success("Профиль Miralinks Expert создан");
+            }}>
+              <Link2 className="h-3.5 w-3.5" />Miralinks Expert
+            </Button>
+          )}
+          {!authors.some(a => a.is_gogetlinks_profile) && limits.hasGoGetLinks && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) { toast.error("Not authenticated"); return; }
+              const { error } = await supabase.from("author_profiles").insert({
+                user_id: user.id, name: "GoGetLinks Expert", type: "custom",
+                is_gogetlinks_profile: true, is_miralinks_profile: false,
+                ...GOGETLINKS_DEFAULTS,
+              });
+              if (error) { toast.error(error.message); return; }
+              queryClient.invalidateQueries({ queryKey: ["author-profiles"] });
+              toast.success("Профиль GoGetLinks Expert создан");
+            }}>
+              <Link2 className="h-3.5 w-3.5" />GoGetLinks Expert
+            </Button>
+          )}
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" />{t("persona.newAuthor")}</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle>{t("persona.createProfile")}</DialogTitle></DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>{t("persona.authorName")}</Label>
+                  <Input placeholder={t("persona.authorNamePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("persona.niche")}</Label>
+                  <Input placeholder={t("persona.nichePlaceholder")} value={niche} onChange={(e) => setNiche(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("persona.toneOfVoice")}</Label>
+                  <Select value={voiceTone} onValueChange={setVoiceTone}>
+                    <SelectTrigger><SelectValue placeholder={t("persona.selectTone")} /></SelectTrigger>
+                    <SelectContent>{TONE_OPTIONS.map((tt) => (<SelectItem key={tt.value} value={tt.value}>{tt.label}</SelectItem>))}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("persona.sampleText")}</Label>
+                  <Textarea placeholder={t("persona.samplePlaceholder")} rows={5} value={sampleText} onChange={(e) => setSampleText(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">{t("persona.canAnalyzeLater")}</p>
+                </div>
+                <Button className="w-full" disabled={!name.trim() || createAuthor.isPending} onClick={() => createAuthor.mutate()}>
+                  {createAuthor.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}{t("common.create")}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label>{t("persona.niche")}</Label>
-                <Input placeholder={t("persona.nichePlaceholder")} value={niche} onChange={(e) => setNiche(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("persona.toneOfVoice")}</Label>
-                <Select value={voiceTone} onValueChange={setVoiceTone}>
-                  <SelectTrigger><SelectValue placeholder={t("persona.selectTone")} /></SelectTrigger>
-                  <SelectContent>{TONE_OPTIONS.map((tt) => (<SelectItem key={tt.value} value={tt.value}>{tt.label}</SelectItem>))}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t("persona.sampleText")}</Label>
-                <Textarea placeholder={t("persona.samplePlaceholder")} rows={5} value={sampleText} onChange={(e) => setSampleText(e.target.value)} />
-                <p className="text-xs text-muted-foreground">{t("persona.canAnalyzeLater")}</p>
-              </div>
-              <Button className="w-full" disabled={!name.trim() || createAuthor.isPending} onClick={() => createAuthor.mutate()}>
-                {createAuthor.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}{t("common.create")}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {authors.length === 0 ? (
