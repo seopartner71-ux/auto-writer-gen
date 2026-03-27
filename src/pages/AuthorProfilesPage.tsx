@@ -198,35 +198,36 @@ export default function AuthorProfilesPage() {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" />{t("persona.newAuthor")}</Button>
             </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>{t("persona.createProfile")}</DialogTitle></DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label>{t("persona.authorName")}</Label>
-                <Input placeholder={t("persona.authorNamePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle>{t("persona.createProfile")}</DialogTitle></DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>{t("persona.authorName")}</Label>
+                  <Input placeholder={t("persona.authorNamePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("persona.niche")}</Label>
+                  <Input placeholder={t("persona.nichePlaceholder")} value={niche} onChange={(e) => setNiche(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("persona.toneOfVoice")}</Label>
+                  <Select value={voiceTone} onValueChange={setVoiceTone}>
+                    <SelectTrigger><SelectValue placeholder={t("persona.selectTone")} /></SelectTrigger>
+                    <SelectContent>{TONE_OPTIONS.map((tt) => (<SelectItem key={tt.value} value={tt.value}>{tt.label}</SelectItem>))}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("persona.sampleText")}</Label>
+                  <Textarea placeholder={t("persona.samplePlaceholder")} rows={5} value={sampleText} onChange={(e) => setSampleText(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">{t("persona.canAnalyzeLater")}</p>
+                </div>
+                <Button className="w-full" disabled={!name.trim() || createAuthor.isPending} onClick={() => createAuthor.mutate()}>
+                  {createAuthor.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}{t("common.create")}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label>{t("persona.niche")}</Label>
-                <Input placeholder={t("persona.nichePlaceholder")} value={niche} onChange={(e) => setNiche(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("persona.toneOfVoice")}</Label>
-                <Select value={voiceTone} onValueChange={setVoiceTone}>
-                  <SelectTrigger><SelectValue placeholder={t("persona.selectTone")} /></SelectTrigger>
-                  <SelectContent>{TONE_OPTIONS.map((tt) => (<SelectItem key={tt.value} value={tt.value}>{tt.label}</SelectItem>))}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t("persona.sampleText")}</Label>
-                <Textarea placeholder={t("persona.samplePlaceholder")} rows={5} value={sampleText} onChange={(e) => setSampleText(e.target.value)} />
-                <p className="text-xs text-muted-foreground">{t("persona.canAnalyzeLater")}</p>
-              </div>
-              <Button className="w-full" disabled={!name.trim() || createAuthor.isPending} onClick={() => createAuthor.mutate()}>
-                {createAuthor.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}{t("common.create")}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {authors.length === 0 ? (
