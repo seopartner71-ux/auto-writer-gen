@@ -487,17 +487,28 @@ serve(async (req) => {
     if (existing_content && existing_content.length > 100000) throw new Error("existing_content too long (max 100k chars)");
     if (deep_analysis_context && typeof deep_analysis_context === "string" && deep_analysis_context.length > 50000) throw new Error("deep_analysis_context too long");
 
-    // Per-user rate limiting: max 10 article generations per hour
-    const { data: rateLimitOk } = await supabaseAdmin0.rpc("check_rate_limit", {
-      p_user_id: user.id,
-      p_action: "generate_article",
-      p_max_requests: 10,
-      p_window_minutes: 60,
-    });
-    if (rateLimitOk === false) {
-      return new Response(JSON.stringify({ error: "Превышен лимит генераций. Попробуйте позже." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Check if user is admin early (admins bypass all limits)
+    const { data: adminRoleEarly } = await supabaseAdmin0
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    const isAdmin = !!adminRoleEarly;
+
+    // Per-user rate limiting: max 10 article generations per hour (skip for admins)
+    if (!isAdmin) {
+      const { data: rateLimitOk } = await supabaseAdmin0.rpc("check_rate_limit", {
+        p_user_id: user.id,
+        p_action: "generate_article",
+        p_max_requests: 10,
+        p_window_minutes: 60,
       });
+      if (rateLimitOk === false) {
+        return new Response(JSON.stringify({ error: "Превышен лимит генераций. Попробуйте позже." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -507,14 +518,7 @@ serve(async (req) => {
     const userPlan = profile?.plan || "basic";
     const credits = profile?.credits_amount ?? 0;
 
-    // Check if user is admin (admins have unlimited generations)
-    const { data: adminRole } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-    const isAdmin = !!adminRole;
+    // isAdmin already checked above
 
     // Check credits before generation (skip for admins)
     if (!isAdmin && credits <= 0) {
