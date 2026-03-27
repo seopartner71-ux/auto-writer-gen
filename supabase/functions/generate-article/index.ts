@@ -23,6 +23,7 @@ interface StealthPromptInput {
     type?: string;
     temperature?: number;
     is_miralinks_profile?: boolean;
+    is_gogetlinks_profile?: boolean;
   } | null;
   serpData: { title: string; snippet: string; url: string }[];
   lsiKeywords: string[];
@@ -37,6 +38,7 @@ interface StealthPromptInput {
   competitorLists?: any[];
   deepAnalysisContext?: string;
   miralinksLinks?: { url: string; anchor: string }[];
+  gogetlinksLinks?: { url: string; anchor: string }[];
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
