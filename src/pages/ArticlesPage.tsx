@@ -28,6 +28,7 @@ import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
+import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -370,6 +371,8 @@ export default function ArticlesPage() {
   const [publishingTo, setPublishingTo] = useState<string | null>(null);
   const [miralinksLinks, setMiralinksLinks] = useState<MiralinksLink[]>([{ url: "", anchor: "" }]);
   const [miralinksFollowRules, setMiralinksFollowRules] = useState(true);
+  const [gogetlinksLinks, setGogetlinksLinks] = useState<GoGetLinksLink[]>([{ url: "", anchor: "" }]);
+  const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds

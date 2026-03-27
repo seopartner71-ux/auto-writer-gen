@@ -188,6 +188,7 @@ export interface PlanConfig {
   hasWordPress: boolean;
   hasProImageGen: boolean;
   hasMiralinks: boolean;
+  hasGoGetLinks: boolean;
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
