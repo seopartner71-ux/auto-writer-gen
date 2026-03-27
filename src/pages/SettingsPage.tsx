@@ -4,7 +4,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+
 import { RefreshCw } from "lucide-react";
 
 export default function SettingsPage() {
@@ -55,6 +55,19 @@ export default function SettingsPage() {
       setTimeout(() => setIsClearingCache(false), 1000);
     }
   };
+
+  const currentPlan = profile?.plan ?? "basic";
+  const { data: planLimit } = useQuery({
+    queryKey: ["subscription-plan-limit", currentPlan],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("subscription_plans")
+        .select("monthly_article_limit")
+        .eq("id", currentPlan)
+        .single();
+      return data?.monthly_article_limit ?? limits.maxGenerations;
+    },
+  });
 
   const { data: proImageCount = 0 } = useQuery({
     queryKey: ["pro-image-count"],
@@ -139,7 +152,7 @@ export default function SettingsPage() {
     }
   };
 
-  const plan = profile?.plan ?? "basic";
+  const plan = currentPlan;
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -318,7 +331,7 @@ export default function SettingsPage() {
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("settings.genLimit")}</span>
-                  <span className="text-foreground font-medium">{limits.maxGenerations} {t("settings.perMonth")}</span>
+                  <span className="text-foreground font-medium">{planLimit ?? limits.maxGenerations} {t("settings.perMonth")}</span>
                 </div>
               </div>
             </CardContent>
