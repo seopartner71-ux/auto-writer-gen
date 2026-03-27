@@ -254,7 +254,8 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
   });
 
   const handleResetInstruction = () => {
-    setEditInstruction(MIRALINKS_DEFAULTS.system_instruction);
+    const defaults = author.is_gogetlinks_profile ? GOGETLINKS_DEFAULTS : MIRALINKS_DEFAULTS;
+    setEditInstruction(defaults.system_instruction);
     setInstructionDirty(true);
   };
 
@@ -276,12 +277,19 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                 {author.style_analysis && <Badge className="text-xs bg-primary/20 text-primary border-0"><Sparkles className="h-3 w-3 mr-1" />{t("authorPage.styleAnalyzed")}</Badge>}
                 {author.style_examples && <Badge className="text-xs bg-success/20 text-success border-0"><FileText className="h-3 w-3 mr-1" />{t("authorPage.referenceText")}</Badge>}
                 {author.is_miralinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />Miralinks Expert</Badge>}
+                {author.is_gogetlinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />GoGetLinks Expert</Badge>}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
             {onResetMiralinks && (
               <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={() => { onResetMiralinks(); handleResetInstruction(); }} disabled={isResetting}>
+                {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                Сброс
+              </Button>
+            )}
+            {onResetGoGetLinks && (
+              <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={() => { onResetGoGetLinks(); handleResetInstruction(); }} disabled={isResetting}>
                 {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
                 Сброс
               </Button>
