@@ -28,6 +28,7 @@ import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
+import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -370,6 +371,8 @@ export default function ArticlesPage() {
   const [publishingTo, setPublishingTo] = useState<string | null>(null);
   const [miralinksLinks, setMiralinksLinks] = useState<MiralinksLink[]>([{ url: "", anchor: "" }]);
   const [miralinksFollowRules, setMiralinksFollowRules] = useState(true);
+  const [gogetlinksLinks, setGogetlinksLinks] = useState<GoGetLinksLink[]>([{ url: "", anchor: "" }]);
+  const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -512,6 +515,20 @@ export default function ArticlesPage() {
       }
     }
 
+    // Validate GoGetLinks links if GoGetLinks profile is selected
+    const isGoGetLinks = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile;
+    if (isGoGetLinks) {
+      if (!limits.hasGoGetLinks) {
+        toast.error("GoGetLinks Integration доступна только на тарифе PRO");
+        return;
+      }
+      const filledLinks = gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim());
+      if (filledLinks.length === 0) {
+        toast.error("Заполните минимум одну ссылку (URL + Анкор) в виджете GoGetLinks");
+        return;
+      }
+    }
+
     setIsStreaming(true);
     setStreamPhase("thinking");
     setContent("");
@@ -542,6 +559,7 @@ export default function ArticlesPage() {
           competitor_tables: (selectedKeyword as any)?.competitor_tables || [],
           competitor_lists: (selectedKeyword as any)?.competitor_lists || [],
           miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
+          gogetlinks_links: gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
         }),
         signal: controller.signal,
       });
@@ -624,9 +642,10 @@ export default function ArticlesPage() {
       autoGenerateSchema(fullContent, title);
 
       // Auto-generate and insert images
-      // For Miralinks profiles: force image generation regardless of setting
+      // For Miralinks/GoGetLinks profiles: force image generation regardless of setting
       const isMiralinksProfile = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile;
-      if (isMiralinksProfile) {
+      const isGoGetLinksProfile = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile;
+      if (isMiralinksProfile || isGoGetLinksProfile) {
         localStorage.setItem("pro_image_enabled", "true");
       }
       autoInsertImages(fullContent);
@@ -1324,6 +1343,11 @@ export default function ArticlesPage() {
                   <Link2 className="h-3 w-3" />
                   Miralinks
                 </TabsTrigger>
+              ) : !!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile) ? (
+                <TabsTrigger value="gogetlinks" className="text-xs gap-1 flex-1">
+                  <Link2 className="h-3 w-3" />
+                  GoGetLinks
+                </TabsTrigger>
               ) : (
                 <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
                   <Target className="h-3 w-3" />
@@ -1686,6 +1710,21 @@ export default function ArticlesPage() {
                   onLinksChange={setMiralinksLinks}
                   followRules={miralinksFollowRules}
                   onFollowRulesChange={setMiralinksFollowRules}
+                />
+              </PlanGate>
+            </TabsContent>
+
+            <TabsContent value="gogetlinks" className="mt-3">
+              <PlanGate allowed={limits.hasGoGetLinks} featureName="GoGetLinks Integration" requiredPlan="PRO">
+                <GoGetLinksWidget
+                  content={content}
+                  title={title}
+                  metaDescription={metaDescription}
+                  isGoGetLinksProfile={!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile)}
+                  links={gogetlinksLinks}
+                  onLinksChange={setGogetlinksLinks}
+                  followRules={gogetlinksFollowRules}
+                  onFollowRulesChange={setGogetlinksFollowRules}
                 />
               </PlanGate>
             </TabsContent>

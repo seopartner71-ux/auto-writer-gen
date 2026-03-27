@@ -23,6 +23,7 @@ interface StealthPromptInput {
     type?: string;
     temperature?: number;
     is_miralinks_profile?: boolean;
+    is_gogetlinks_profile?: boolean;
   } | null;
   serpData: { title: string; snippet: string; url: string }[];
   lsiKeywords: string[];
@@ -37,6 +38,7 @@ interface StealthPromptInput {
   competitorLists?: any[];
   deepAnalysisContext?: string;
   miralinksLinks?: { url: string; anchor: string }[];
+  gogetlinksLinks?: { url: string; anchor: string }[];
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
@@ -140,7 +142,51 @@ SEO TITLE И META DESCRIPTION (ОБЯЗАТЕЛЬНО):
 === КОНЕЦ БЛОКА MIRALINKS ===`;
   }
 
-  // ═══ BLOCK B: Factology & Structure ═══
+  // ═══ GOGETLINKS BLOCK ═══
+  let blockGoGetLinks = "";
+  const activeGGLLinks = (input.gogetlinksLinks || []).filter(l => l.url && l.anchor);
+
+  if (authorProfile?.is_gogetlinks_profile || activeGGLLinks.length > 0) {
+    const linksInstructions = activeGGLLinks
+      .map((l, i) => `Ссылка ${i + 1}: Точный URL="${l.url}", Точный текст анкора="${l.anchor}". В статье ОБЯЗАН появиться Markdown: [${l.anchor}](${l.url})`)
+      .join("\n");
+
+    blockGoGetLinks = `=== БЛОК GOGETLINKS: КОНТЕКСТНЫЕ ССЫЛКИ (АБСОЛЮТНЫЙ ПРИОРИТЕТ) ===
+
+ССЫЛКИ КЛИЕНТА (ВСТАВИТЬ В ТОЧНОСТИ КАК УКАЗАНО):
+${linksInstructions || "Ссылки не предоставлены"}
+
+ПРАВИЛА РАЗМЕЩЕНИЯ ССЫЛОК (GoGetLinks):
+- Используй ТОЧНО ТЕ URL и анкоры, которые указаны выше. НЕ ПРИДУМЫВАЙ свои ссылки.
+- Формат: [точный анкор](точный URL)
+- Ссылки должны быть КОНТЕКСТНЫМИ — органично вписаны в текст.
+- ЗАПРЕЩЕНО ставить ссылки в ПЕРВОМ и ПОСЛЕДНЕМ абзацах.
+- Анкоры должны быть естественными, без спамных коммерческих фраз.
+- Окружи каждую ссылку релевантным контекстом (минимум 2-3 предложения вокруг).
+- Распредели ссылки равномерно по центральной части текста (20%-80%).
+
+ОБЪЁМ КОНТЕНТА:
+- Минимум 300 слов (2000+ знаков без пробелов).
+- Оптимальный объём: 2000-4000 знаков.
+- Текст должен быть полностью уникальным.
+
+ИЗОБРАЖЕНИЯ:
+- 1-3 изображения с alt-тегами.
+- Формат: ![ALT-текст](${supabaseUrl}/storage/v1/object/public/article-images/placeholder.jpg)
+- Размести равномерно по тексту.
+
+ТОН И СТИЛЬ:
+- Информационный, экспертный, естественный язык.
+- ЗАПРЕЩЕНО: агрессивные продажи, спамные фразы, переоптимизация.
+
+SEO TITLE И META DESCRIPTION (ОБЯЗАТЕЛЬНО):
+- Title: 50-70 символов, содержит ключевое слово.
+- Meta Description: 120-160 символов, уникальное описание.
+- Title НЕ должен совпадать с H1.
+
+=== КОНЕЦ БЛОКА GOGETLINKS ===`;
+  }
+
   const outlineStr = (userStructure || [])
     .map((o) => `${{ h1: "#", h2: "##", h3: "###" }[o.level] || "##"} ${o.text}`)
     .join("\n");
@@ -255,6 +301,8 @@ ${blockA}
 
 ${blockMiralinks}
 
+${blockGoGetLinks}
+
 БАЗОВЫЕ ПРАВИЛА:
 - Следуй структуре заголовков из Блока Б
 - Естественно вплетай LSI-ключевые слова
@@ -333,12 +381,15 @@ ${questionsStr ? `- ${questionsStr}` : "Нет"}
 function buildNewArticleUserPrompt(
   keyword: any, outlineStr: string, competitorStr: string,
   lsiStr: string, questionsStr: string,
-  miralinksLinks?: { url: string; anchor: string }[]
+  miralinksLinks?: { url: string; anchor: string }[],
+  gogetlinksLinks?: { url: string; anchor: string }[]
 ): string {
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
-  const linksBlock = activeLinks.length > 0
+  const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
+  const allLinks = [...activeLinks, ...activeGGLLinks];
+  const linksBlock = allLinks.length > 0
     ? `\n⚠️ ОБЯЗАТЕЛЬНЫЕ ССЫЛКИ КЛИЕНТА (КРИТИЧЕСКИ ВАЖНО — НЕ ИГНОРИРОВАТЬ):
-${activeLinks.map((l, i) => `${i + 1}. ВСТАВЬ В ТЕКСТ РОВНО ТАК: [${l.anchor}](${l.url})`).join("\n")}
+${allLinks.map((l, i) => `${i + 1}. ВСТАВЬ В ТЕКСТ РОВНО ТАК: [${l.anchor}](${l.url})`).join("\n")}
 - Используй ТОЧНО эти URL и анкоры. НЕ ПРИДУМЫВАЙ и НЕ ЗАМЕНЯЙ URL на другие.
 - КАЖДАЯ ссылка из списка выше ОБЯЗАНА присутствовать в финальном тексте.
 - Впиши анкор как естественную часть предложения.
@@ -389,7 +440,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links } = body;
     console.log("[generate-article] author_profile_id received:", author_profile_id);
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
@@ -485,6 +536,7 @@ serve(async (req) => {
       competitorLists: competitor_lists,
       deepAnalysisContext: deep_analysis_context,
       miralinksLinks: miralinks_links,
+      gogetlinksLinks: gogetlinks_links,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
@@ -503,7 +555,7 @@ serve(async (req) => {
     if (optimize_instructions && existing_content) {
       userPrompt = buildOptimizeUserPrompt(keyword, lsiStr, questionsStr, existing_content, optimize_instructions, deep_analysis_context);
     } else {
-      userPrompt = buildNewArticleUserPrompt(keyword, outlineStr, competitorStr, lsiStr, questionsStr, miralinks_links);
+      userPrompt = buildNewArticleUserPrompt(keyword, outlineStr, competitorStr, lsiStr, questionsStr, miralinks_links, gogetlinks_links);
     }
 
     // Use author's temperature if set, otherwise default

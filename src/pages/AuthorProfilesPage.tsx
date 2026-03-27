@@ -29,11 +29,27 @@ const MIRALINKS_DEFAULTS = {
   description: "Профиль для биржи Miralinks с жёсткими правилами модерации",
 };
 
+const GOGETLINKS_DEFAULTS = {
+  voice_tone: "expert",
+  system_instruction: `Ты — SEO-копирайтер для биржи GoGetLinks. Строгие правила:
+1. Тон: информационный, экспертный, естественный язык.
+2. Структура: обязательно H1, H2-H3, маркированные списки.
+3. Контекстные ссылки: естественно вписаны в текст. ЗАПРЕЩЕНО в первом и последнем абзацах.
+4. Минимальный объём: 300 слов (2000+ знаков).
+5. Уникальность: текст должен быть полностью уникальным.
+6. Изображения: 1-3 шт. с alt-тегами.
+7. Анкоры: естественные, без спамных коммерческих фраз.`,
+  temperature: 0.7,
+  niche: "GoGetLinks / Линкбилдинг",
+  description: "Профиль для биржи GoGetLinks с правилами контекстных ссылок",
+};
+
 interface AuthorProfile {
   id: string; user_id: string | null; name: string; niche: string | null; voice_tone: string | null;
   style_examples: string | null; stop_words: string[] | null; system_prompt_override: string | null;
   style_analysis: Record<string, unknown> | null; created_at: string; type?: string; description?: string;
-  avatar_icon?: string; system_instruction?: string; temperature?: number; is_miralinks_profile?: boolean;
+  avatar_icon?: string; system_instruction?: string; temperature?: number;
+  is_miralinks_profile?: boolean; is_gogetlinks_profile?: boolean;
 }
 
 export default function AuthorProfilesPage() {
@@ -117,6 +133,22 @@ export default function AuthorProfilesPage() {
     onError: (e) => { toast.error(e.message); setResettingId(null); },
   });
 
+  const resetGoGetLinks = useMutation({
+    mutationFn: async (id: string) => {
+      setResettingId(id);
+      const { error } = await supabase.from("author_profiles").update({
+        voice_tone: GOGETLINKS_DEFAULTS.voice_tone,
+        system_instruction: GOGETLINKS_DEFAULTS.system_instruction,
+        temperature: GOGETLINKS_DEFAULTS.temperature,
+        niche: GOGETLINKS_DEFAULTS.niche,
+        description: GOGETLINKS_DEFAULTS.description,
+      }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success("Профиль GoGetLinks сброшен к эталонным настройкам"); setResettingId(null); },
+    onError: (e) => { toast.error(e.message); setResettingId(null); },
+  });
+
   if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   return (
@@ -178,7 +210,9 @@ export default function AuthorProfilesPage() {
           {authors.map((author) => (
             <AuthorCard key={author.id} author={author} expanded={expandedId === author.id} onToggle={() => setExpandedId(expandedId === author.id ? null : author.id)}
               onDelete={() => deleteAuthor.mutate(author.id)} onAnalyze={(text) => analyzeStyle.mutate({ id: author.id, text })} isAnalyzing={analyzeStyle.isPending} t={t} toneOptions={TONE_OPTIONS}
-              onResetMiralinks={author.is_miralinks_profile ? () => resetMiralinks.mutate(author.id) : undefined} isResetting={resettingId === author.id} />
+              onResetMiralinks={author.is_miralinks_profile ? () => resetMiralinks.mutate(author.id) : undefined}
+              onResetGoGetLinks={author.is_gogetlinks_profile ? () => resetGoGetLinks.mutate(author.id) : undefined}
+              isResetting={resettingId === author.id} />
           ))}
         </div>
       )}
@@ -190,10 +224,10 @@ interface AuthorCardProps {
   author: AuthorProfile; expanded: boolean; onToggle: () => void; onDelete: () => void;
   onAnalyze: (text: string) => void; isAnalyzing: boolean; t: (k: string) => string;
   toneOptions: { value: string; label: string }[];
-  onResetMiralinks?: () => void; isResetting?: boolean;
+  onResetMiralinks?: () => void; onResetGoGetLinks?: () => void; isResetting?: boolean;
 }
 
-function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions, onResetMiralinks, isResetting }: AuthorCardProps) {
+function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions, onResetMiralinks, onResetGoGetLinks, isResetting }: AuthorCardProps) {
   const queryClient = useQueryClient();
   const [analyzeText, setAnalyzeText] = useState(author.style_examples || "");
   const [referenceText, setReferenceText] = useState(author.style_examples || "");
@@ -220,7 +254,8 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
   });
 
   const handleResetInstruction = () => {
-    setEditInstruction(MIRALINKS_DEFAULTS.system_instruction);
+    const defaults = author.is_gogetlinks_profile ? GOGETLINKS_DEFAULTS : MIRALINKS_DEFAULTS;
+    setEditInstruction(defaults.system_instruction);
     setInstructionDirty(true);
   };
 
@@ -242,12 +277,19 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                 {author.style_analysis && <Badge className="text-xs bg-primary/20 text-primary border-0"><Sparkles className="h-3 w-3 mr-1" />{t("authorPage.styleAnalyzed")}</Badge>}
                 {author.style_examples && <Badge className="text-xs bg-success/20 text-success border-0"><FileText className="h-3 w-3 mr-1" />{t("authorPage.referenceText")}</Badge>}
                 {author.is_miralinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />Miralinks Expert</Badge>}
+                {author.is_gogetlinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />GoGetLinks Expert</Badge>}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
             {onResetMiralinks && (
               <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={() => { onResetMiralinks(); handleResetInstruction(); }} disabled={isResetting}>
+                {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                Сброс
+              </Button>
+            )}
+            {onResetGoGetLinks && (
+              <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={() => { onResetGoGetLinks(); handleResetInstruction(); }} disabled={isResetting}>
                 {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
                 Сброс
               </Button>
@@ -260,8 +302,8 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
 
       {expanded && (
         <CardContent className="space-y-4 pt-0">
-          {/* Editable system instruction for Miralinks profiles */}
-          {author.is_miralinks_profile ? (
+          {/* Editable system instruction for Miralinks/GoGetLinks profiles */}
+          {(author.is_miralinks_profile || author.is_gogetlinks_profile) ? (
             <div className="space-y-2 rounded-lg bg-primary/5 border border-primary/20 p-4">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">{t("authorPage.stylePrompt")}</Label>
