@@ -56,10 +56,18 @@ export default function SettingsPage() {
     }
   };
 
+  const currentPlan = profile?.plan ?? "basic";
   const { data: planLimit } = useQuery({
-    queryKey: ["subscription-plan-limit", plan],
+    queryKey: ["subscription-plan-limit", currentPlan],
     queryFn: async () => {
       const { data } = await supabase
+        .from("subscription_plans")
+        .select("monthly_article_limit")
+        .eq("id", currentPlan)
+        .single();
+      return data?.monthly_article_limit ?? limits.maxGenerations;
+    },
+  });
         .from("subscription_plans")
         .select("monthly_article_limit")
         .eq("id", plan)
