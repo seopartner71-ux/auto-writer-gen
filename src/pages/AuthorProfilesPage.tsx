@@ -224,10 +224,10 @@ interface AuthorCardProps {
   author: AuthorProfile; expanded: boolean; onToggle: () => void; onDelete: () => void;
   onAnalyze: (text: string) => void; isAnalyzing: boolean; t: (k: string) => string;
   toneOptions: { value: string; label: string }[];
-  onResetMiralinks?: () => void; isResetting?: boolean;
+  onResetMiralinks?: () => void; onResetGoGetLinks?: () => void; isResetting?: boolean;
 }
 
-function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions, onResetMiralinks, isResetting }: AuthorCardProps) {
+function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzing, t, toneOptions, onResetMiralinks, onResetGoGetLinks, isResetting }: AuthorCardProps) {
   const queryClient = useQueryClient();
   const [analyzeText, setAnalyzeText] = useState(author.style_examples || "");
   const [referenceText, setReferenceText] = useState(author.style_examples || "");
