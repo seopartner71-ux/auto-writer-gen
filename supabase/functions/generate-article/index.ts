@@ -392,7 +392,10 @@ function buildNewArticleUserPrompt(
   keyword: any, outlineStr: string, competitorStr: string,
   lsiStr: string, questionsStr: string,
   miralinksLinks?: { url: string; anchor: string }[],
-  gogetlinksLinks?: { url: string; anchor: string }[]
+  gogetlinksLinks?: { url: string; anchor: string }[],
+  mustCoverTopics?: string[],
+  contentGaps?: any[],
+  entities?: string[]
 ): string {
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
   const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
@@ -404,6 +407,27 @@ ${allLinks.map((l, i) => `${i + 1}. ВСТАВЬ В ТЕКСТ РОВНО ТАК
 - КАЖДАЯ ссылка из списка выше ОБЯЗАНА присутствовать в финальном тексте.
 - Впиши анкор как естественную часть предложения.
 - НЕ ставь ссылки в первый и последний абзацы.\n`
+    : "";
+
+  // Build must_cover_topics block
+  const topicsBlock = mustCoverTopics?.length
+    ? `\nОБЯЗАТЕЛЬНЫЕ ТЕМЫ ДЛЯ РАСКРЫТИЯ (из анализа конкурентов):
+${mustCoverTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}
+- Каждая тема ДОЛЖНА быть раскрыта в отдельном абзаце или разделе.\n`
+    : "";
+
+  // Build content gaps block
+  const gapsBlock = contentGaps?.length
+    ? `\nПРОБЕЛЫ КОНТЕНТА (темы, которые конкуренты НЕ раскрыли — твоё преимущество):
+${contentGaps.map((g, i) => `${i + 1}. ${typeof g === "string" ? g : `${g.topic} — ${g.reason || ""}`}`).join("\n")}
+- Используй эти пробелы, чтобы сделать статью ГЛУБЖЕ и ПОЛЕЗНЕЕ, чем у конкурентов.\n`
+    : "";
+
+  // Build entities block
+  const entitiesBlock = entities?.length
+    ? `\nСУЩНОСТИ ИЗ ТОП-10 (термины, бренды, концепции, которые ОБЯЗАТЕЛЬНО упомянуть):
+${entities.slice(0, 30).join(", ")}
+- Включи минимум 70% этих сущностей естественно в текст статьи.\n`
     : "";
 
   return `КЛЮЧЕВОЕ СЛОВО: "${keyword.seed_keyword}"
@@ -420,7 +444,7 @@ ${lsiStr || "Нет"}
 
 ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
 ${questionsStr ? `- ${questionsStr}` : "Нет"}
-${linksBlock}
+${topicsBlock}${gapsBlock}${entitiesBlock}${linksBlock}
 РЕКОМЕНДУЕМЫЙ ОБЪЁМ: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} слов
 
 ВАЖНО: Статья ОБЯЗАТЕЛЬНО должна начинаться с заголовка H1 (# Заголовок). H1 должен содержать ключевое слово и быть первой строкой вывода.
