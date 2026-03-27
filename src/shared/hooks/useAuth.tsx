@@ -39,6 +39,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", userId),
     ]);
 
+    // Update last activity timestamp (fire-and-forget)
+    supabase.from("user_stats").upsert(
+      { user_id: userId, last_activity_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    ).then();
+
     setProfile(profileRes.data as Profile | null);
     const roles = (roleRes.data ?? []).map((r: any) => r.role as AppRole);
     setRole(roles.includes("admin") ? "admin" : roles[0] ?? "user");
