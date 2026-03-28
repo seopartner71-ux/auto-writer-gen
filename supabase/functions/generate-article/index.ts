@@ -395,7 +395,8 @@ function buildNewArticleUserPrompt(
   gogetlinksLinks?: { url: string; anchor: string }[],
   mustCoverTopics?: string[],
   contentGaps?: any[],
-  entities?: string[]
+  entities?: string[],
+  expertInsights?: { recommendation: string; eeat_category: string; impact: string }[]
 ): string {
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
   const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
