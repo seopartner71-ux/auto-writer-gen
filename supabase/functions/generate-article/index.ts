@@ -431,6 +431,15 @@ ${entities.slice(0, 30).join(", ")}
 - Включи минимум 70% этих сущностей естественно в текст статьи.\n`
     : "";
 
+  // Build expert insights block (selected E-E-A-T recommendations)
+  const insightsBlock = expertInsights?.length
+    ? `\nЭКСПЕРТНЫЕ РЕКОМЕНДАЦИИ E-E-A-T (ОБЯЗАТЕЛЬНО ВНЕДРИТЬ в текст):
+${expertInsights.map((ins, i) => `${i + 1}. [${(ins.eeat_category || "").toUpperCase()}] ${ins.recommendation}`).join("\n")}
+- Каждая отмеченная рекомендация ДОЛЖНА быть реализована в тексте статьи.
+- Добавь личный опыт, экспертные данные, статистику или ссылки на авторитетные источники где указано.
+- Интегрируй рекомендации ЕСТЕСТВЕННО в соответствующие разделы, НЕ выделяй их отдельным блоком.\n`
+    : "";
+
   return `КЛЮЧЕВОЕ СЛОВО: "${keyword.seed_keyword}"
 ИНТЕНТ: ${keyword.intent || "informational"}
 
@@ -445,7 +454,7 @@ ${lsiStr || "Нет"}
 
 ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
 ${questionsStr ? `- ${questionsStr}` : "Нет"}
-${topicsBlock}${gapsBlock}${entitiesBlock}${linksBlock}
+${topicsBlock}${gapsBlock}${entitiesBlock}${insightsBlock}${linksBlock}
 РЕКОМЕНДУЕМЫЙ ОБЪЁМ: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} слов
 
 ВАЖНО: Статья ОБЯЗАТЕЛЬНО должна начинаться с заголовка H1 (# Заголовок). H1 должен содержать ключевое слово и быть первой строкой вывода.
