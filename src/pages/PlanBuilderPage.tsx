@@ -247,6 +247,9 @@ export default function PlanBuilderPage() {
 
             <ExpertInsightsBlock keywordId={selectedKeywordId}
               onAddToOutline={(text, level) => setOutline((prev) => [...prev, { id: `gap-${Date.now()}`, text, level }])}
+              onSelectedInsightsChange={(insights) => {
+                localStorage.setItem(`expert_insights_${selectedKeywordId}`, JSON.stringify(insights));
+              }}
             />
           </div>
 
