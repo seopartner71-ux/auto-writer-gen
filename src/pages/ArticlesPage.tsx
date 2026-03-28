@@ -560,6 +560,7 @@ export default function ArticlesPage() {
           competitor_lists: (selectedKeyword as any)?.competitor_lists || [],
           miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
           gogetlinks_links: gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
+          expert_insights: (() => { try { return JSON.parse(localStorage.getItem(`expert_insights_${selectedKeywordId}`) || "[]"); } catch { return []; } })(),
         }),
         signal: controller.signal,
       });
