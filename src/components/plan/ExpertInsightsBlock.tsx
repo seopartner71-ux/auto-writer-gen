@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -6,16 +6,21 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Loader2, Shield, Star, Eye, Award, CheckCircle2, Lightbulb, Users, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface CommonTopic { topic: string; coverage_count: number; importance: "critical" | "high" | "medium"; }
 interface UniqueTopic { topic: string; found_in: string; differentiation_value: "high" | "medium" | "low"; }
 interface MissingTopic { topic: string; why_important: string; eeat_aspect: "experience" | "expertise" | "authority" | "trust"; }
-interface ExpertInsight { recommendation: string; eeat_category: "experience" | "expertise" | "authority" | "trust"; impact: "high" | "medium"; }
+export interface ExpertInsight { recommendation: string; eeat_category: "experience" | "expertise" | "authority" | "trust"; impact: "high" | "medium"; }
 interface GapAnalysis { common_topics: CommonTopic[]; unique_topics: UniqueTopic[]; missing_topics: MissingTopic[]; expert_insights: ExpertInsight[]; }
 
-interface Props { keywordId: string; onAddToOutline?: (text: string, level: "h2" | "h3") => void; }
+interface Props {
+  keywordId: string;
+  onAddToOutline?: (text: string, level: "h2" | "h3") => void;
+  onSelectedInsightsChange?: (insights: ExpertInsight[]) => void;
+}
 
 const EEAT_ICONS: Record<string, React.ReactNode> = { experience: <Eye className="h-3.5 w-3.5" />, expertise: <Star className="h-3.5 w-3.5" />, authority: <Award className="h-3.5 w-3.5" />, trust: <Shield className="h-3.5 w-3.5" /> };
 const EEAT_LABELS: Record<string, string> = { experience: "Experience", expertise: "Expertise", authority: "Authority", trust: "Trust" };
@@ -23,10 +28,11 @@ const EEAT_COLORS: Record<string, string> = { experience: "bg-info/15 text-info 
 const IMPORTANCE_COLORS: Record<string, string> = { critical: "bg-destructive/15 text-destructive border-destructive/30", high: "bg-warning/15 text-warning border-warning/30", medium: "bg-muted text-muted-foreground border-border" };
 const DIFF_COLORS: Record<string, string> = { high: "bg-success/15 text-success border-success/30", medium: "bg-warning/15 text-warning border-warning/30", low: "bg-muted text-muted-foreground border-border" };
 
-export function ExpertInsightsBlock({ keywordId, onAddToOutline }: Props) {
+export function ExpertInsightsBlock({ keywordId, onAddToOutline, onSelectedInsightsChange }: Props) {
   const { session } = useAuth();
   const { t } = useI18n();
   const [analysis, setAnalysis] = useState<GapAnalysis | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
   const analyze = useMutation({
     mutationFn: async () => {
@@ -36,9 +42,40 @@ export function ExpertInsightsBlock({ keywordId, onAddToOutline }: Props) {
       if (data.error) throw new Error(data.error);
       return data as GapAnalysis;
     },
-    onSuccess: (data) => { setAnalysis(data); toast.success(t("expert.complete")); },
+    onSuccess: (data) => {
+      setAnalysis(data);
+      // Select all high-impact insights by default
+      const defaults = new Set<number>();
+      data.expert_insights.forEach((ins, i) => {
+        if (ins.impact === "high") defaults.add(i);
+      });
+      setSelectedIndices(defaults);
+      const selected = data.expert_insights.filter((_, i) => defaults.has(i));
+      onSelectedInsightsChange?.(selected);
+      toast.success(t("expert.complete"));
+    },
     onError: (e) => toast.error(e.message),
   });
+
+  const toggleInsight = (index: number) => {
+    setSelectedIndices(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      const selected = (analysis?.expert_insights || []).filter((_, i) => next.has(i));
+      onSelectedInsightsChange?.(selected);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (!analysis) return;
+    const allSelected = selectedIndices.size === analysis.expert_insights.length;
+    const next = allSelected ? new Set<number>() : new Set(analysis.expert_insights.map((_, i) => i));
+    setSelectedIndices(next);
+    const selected = allSelected ? [] : [...analysis.expert_insights];
+    onSelectedInsightsChange?.(selected);
+  };
 
   if (!analysis) {
     return (
@@ -61,12 +98,38 @@ export function ExpertInsightsBlock({ keywordId, onAddToOutline }: Props) {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />Expert Insights (E-E-A-T)
-            <Badge variant="secondary" className="ml-auto text-[10px]">{analysis.expert_insights.length} {t("expert.recommendations")}</Badge>
+            <Badge variant="secondary" className="ml-auto text-[10px]">
+              {selectedIndices.size}/{analysis.expert_insights.length} {t("expert.selected") || "выбрано"}
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] text-muted-foreground">
+              {t("expert.checkboxHint") || "Отмеченные рекомендации будут учтены при генерации статьи"}
+            </p>
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={toggleAll}>
+              {selectedIndices.size === analysis.expert_insights.length
+                ? (t("expert.deselectAll") || "Снять все")
+                : (t("expert.selectAll") || "Выбрать все")}
+            </Button>
+          </div>
           {analysis.expert_insights.map((insight, i) => (
-            <div key={i} className="flex items-start gap-3 rounded-md bg-primary/5 border border-primary/10 p-3">
+            <div
+              key={i}
+              className={`flex items-start gap-3 rounded-md border p-3 cursor-pointer transition-colors ${
+                selectedIndices.has(i)
+                  ? "bg-primary/5 border-primary/20"
+                  : "bg-muted/30 border-border opacity-60"
+              }`}
+              onClick={() => toggleInsight(i)}
+            >
+              <Checkbox
+                checked={selectedIndices.has(i)}
+                onCheckedChange={() => toggleInsight(i)}
+                className="mt-0.5"
+                onClick={(e) => e.stopPropagation()}
+              />
               <div className={`mt-0.5 p-1 rounded ${EEAT_COLORS[insight.eeat_category]}`}>{EEAT_ICONS[insight.eeat_category]}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm">{insight.recommendation}</p>

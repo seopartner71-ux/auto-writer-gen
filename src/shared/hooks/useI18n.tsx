@@ -761,6 +761,10 @@ const translations: Record<string, Record<Lang, string>> = {
   "expert.reanalyze": { ru: "Повторный анализ", en: "Re-analyze" },
   "expert.complete": { ru: "Content Gap Analysis завершён", en: "Content Gap Analysis complete" },
   "expert.sessionExpired": { ru: "Сессия истекла", en: "Session expired" },
+  "expert.selected": { ru: "выбрано", en: "selected" },
+  "expert.checkboxHint": { ru: "Отмеченные рекомендации будут учтены при генерации статьи", en: "Selected recommendations will be used during article generation" },
+  "expert.selectAll": { ru: "Выбрать все", en: "Select all" },
+  "expert.deselectAll": { ru: "Снять все", en: "Deselect all" },
 
   // PersonaSelector
   "personaSel.authorStyle": { ru: "Стиль автора", en: "Author style" },

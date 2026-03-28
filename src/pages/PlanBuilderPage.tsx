@@ -15,7 +15,7 @@ import {
   Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
   ExternalLink, BarChart3, FileText
 } from "lucide-react";
-import { ExpertInsightsBlock } from "@/components/plan/ExpertInsightsBlock";
+import { ExpertInsightsBlock, type ExpertInsight } from "@/components/plan/ExpertInsightsBlock";
 import { CompetitorBenchmark } from "@/components/plan/CompetitorBenchmark";
 import { toast } from "sonner";
 
@@ -247,6 +247,9 @@ export default function PlanBuilderPage() {
 
             <ExpertInsightsBlock keywordId={selectedKeywordId}
               onAddToOutline={(text, level) => setOutline((prev) => [...prev, { id: `gap-${Date.now()}`, text, level }])}
+              onSelectedInsightsChange={(insights) => {
+                localStorage.setItem(`expert_insights_${selectedKeywordId}`, JSON.stringify(insights));
+              }}
             />
           </div>
 

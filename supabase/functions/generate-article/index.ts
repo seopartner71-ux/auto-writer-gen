@@ -395,7 +395,8 @@ function buildNewArticleUserPrompt(
   gogetlinksLinks?: { url: string; anchor: string }[],
   mustCoverTopics?: string[],
   contentGaps?: any[],
-  entities?: string[]
+  entities?: string[],
+  expertInsights?: { recommendation: string; eeat_category: string; impact: string }[]
 ): string {
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
   const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
@@ -430,6 +431,15 @@ ${entities.slice(0, 30).join(", ")}
 - Включи минимум 70% этих сущностей естественно в текст статьи.\n`
     : "";
 
+  // Build expert insights block (selected E-E-A-T recommendations)
+  const insightsBlock = expertInsights?.length
+    ? `\nЭКСПЕРТНЫЕ РЕКОМЕНДАЦИИ E-E-A-T (ОБЯЗАТЕЛЬНО ВНЕДРИТЬ в текст):
+${expertInsights.map((ins, i) => `${i + 1}. [${(ins.eeat_category || "").toUpperCase()}] ${ins.recommendation}`).join("\n")}
+- Каждая отмеченная рекомендация ДОЛЖНА быть реализована в тексте статьи.
+- Добавь личный опыт, экспертные данные, статистику или ссылки на авторитетные источники где указано.
+- Интегрируй рекомендации ЕСТЕСТВЕННО в соответствующие разделы, НЕ выделяй их отдельным блоком.\n`
+    : "";
+
   return `КЛЮЧЕВОЕ СЛОВО: "${keyword.seed_keyword}"
 ИНТЕНТ: ${keyword.intent || "informational"}
 
@@ -444,7 +454,7 @@ ${lsiStr || "Нет"}
 
 ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
 ${questionsStr ? `- ${questionsStr}` : "Нет"}
-${topicsBlock}${gapsBlock}${entitiesBlock}${linksBlock}
+${topicsBlock}${gapsBlock}${entitiesBlock}${insightsBlock}${linksBlock}
 РЕКОМЕНДУЕМЫЙ ОБЪЁМ: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} слов
 
 ВАЖНО: Статья ОБЯЗАТЕЛЬНО должна начинаться с заголовка H1 (# Заголовок). H1 должен содержать ключевое слово и быть первой строкой вывода.
@@ -474,7 +484,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights } = body;
     console.log("[generate-article] author_profile_id received:", author_profile_id);
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
@@ -619,7 +629,8 @@ serve(async (req) => {
         miralinks_links, gogetlinks_links,
         keyword.must_cover_topics || [],
         keyword.content_gaps || [],
-        allEntities
+        allEntities,
+        expert_insights || []
       );
     }
 
