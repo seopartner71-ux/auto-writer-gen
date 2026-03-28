@@ -629,7 +629,8 @@ serve(async (req) => {
         miralinks_links, gogetlinks_links,
         keyword.must_cover_topics || [],
         keyword.content_gaps || [],
-        allEntities
+        allEntities,
+        expert_insights || []
       );
     }
 
