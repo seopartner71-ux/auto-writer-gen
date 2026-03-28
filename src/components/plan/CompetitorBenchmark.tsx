@@ -88,6 +88,20 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
 
   const { benchmark: bm, entities, must_use_phrases, tfidf_phrases, lsi_success_phrases, best_competitor_headings: bch, per_competitor } = result;
 
+  if (!bm || !bch) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="py-6 text-center text-sm text-muted-foreground">
+          {t("comp.noData") || "Нет данных для отображения. Попробуйте повторить анализ."}
+          <Button variant="outline" size="sm" className="mt-3 gap-2" onClick={() => runDeepParse(true)} disabled={loading}>
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            {t("comp.runParse")}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* ── Benchmark Summary ── */}
