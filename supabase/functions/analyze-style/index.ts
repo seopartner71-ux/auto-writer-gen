@@ -28,7 +28,8 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { sample_text } = await req.json();
+    const body = await req.json();
+    const sample_text = body.sample_text || body.text;
     if (!sample_text || typeof sample_text !== "string" || sample_text.trim().length < 50) {
       return new Response(
         JSON.stringify({ error: "Текст-образец должен содержать минимум 50 символов" }),
