@@ -75,10 +75,19 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
         }
         throw new Error(message);
       }
-      const recommendedPrompt = data?.style_analysis?.recommended_system_prompt;
+      const analysis = data?.style_analysis;
+      const recommendedPrompt = analysis?.recommended_system_prompt;
       if (recommendedPrompt) {
         setNewInstruction(prev => (prev ? `${prev}\n\n${recommendedPrompt}` : recommendedPrompt));
-        toast.success(t("ps.styleAdded"));
+        const details = [
+          analysis.formality && `Формальность: ${analysis.formality}`,
+          analysis.tone_description && `Тон: ${analysis.tone_description}`,
+          analysis.vocabulary_level && `Лексика: ${analysis.vocabulary_level}`,
+        ].filter(Boolean).join(" · ");
+        toast.success(`✅ Стиль проанализирован!`, {
+          description: details || t("ps.styleAdded"),
+          duration: 6000,
+        });
       } else {
         throw new Error(t("ps.analyzeError"));
       }
