@@ -39,6 +39,8 @@ interface StealthPromptInput {
   deepAnalysisContext?: string;
   miralinksLinks?: { url: string; anchor: string }[];
   gogetlinksLinks?: { url: string; anchor: string }[];
+  includeExpertQuote?: boolean;
+  includeComparisonTable?: boolean;
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
