@@ -89,7 +89,9 @@ ANTI-AI DETECTION (CRITICAL):
 - Use colloquial expressions, idioms, informal transitions naturally.
 - Include personal opinions, first-person perspective, subjective judgments.
 - Add rhetorical questions, parenthetical asides, dashes — for emphasis.
-- NEVER use: "В заключение", "Важно отметить", "Следует подчеркнуть", "Необходимо учитывать", "В современном мире", "Данный", "Является", "Осуществлять", "На сегодняшний день", "Комплексный подход", "Furthermore", "Moreover", "Additionally", "It's worth noting".
+- PERSONA PERSISTENCE: Maintain the author's tone even when discussing technical, legal, or marketing topics. Never switch to a generic explanatory style.
+- CLICHÉ KILLER: NEVER use these phrases: "В заключение", "Важно отметить", "Следует подчеркнуть", "Необходимо учитывать", "В современном мире", "Данный", "Является", "Осуществлять", "На сегодняшний день", "Комплексный подход", "Прогресс не стоит на месте", "Давайте посмотрим правде в глаза", "Не секрет, что", "Как известно", "Furthermore", "Moreover", "Additionally", "It's worth noting".
+- Each cliché degrades quality. Use creative, human-like transitions: rhetorical questions, unexpected analogies, personal observations, concrete facts as bridges.
 - Never start paragraphs with the same pattern. Use concrete examples and numbers instead of abstractions.
 - Vary paragraph length. Use active voice. Show emotional engagement.`;
 
