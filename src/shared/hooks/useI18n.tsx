@@ -882,6 +882,10 @@ const translations: Record<string, Record<Lang, string>> = {
   "sa.vocabularyLevel": { ru: "Уровень словаря", en: "Vocabulary level" },
   "sa.formality": { ru: "Формальность", en: "Formality" },
   "sa.stylisticDevices": { ru: "Стилистические приёмы", en: "Stylistic devices" },
+  "sa.viewAnalysis": { ru: "Просмотр анализа", en: "View analysis" },
+  "sa.stopWords": { ru: "Стоп-слова (избегать)", en: "Stop words (avoid)" },
+  "sa.recommendedPrompt": { ru: "Рекомендуемый промпт", en: "Recommended prompt" },
+  "common.collapse": { ru: "Свернуть", en: "Collapse" },
 };
 
 interface I18nContextValue {
