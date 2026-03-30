@@ -367,10 +367,14 @@ ${showQuote
   : "- ЦИТАТЫ: НЕ включай экспертные цитаты."}
 - Элементы распределяй естественно по тексту, не концентрируй в одном месте.
 
-### ANTI-AI CLICHÉ PROHIBITION
+### ANTI-AI CLICHÉ PROHIBITION (CLICHÉ KILLER)
 ${isRussian
-  ? '- ЗАПРЕЩЕНО: "В заключение", "Важно отметить", "Следует подчеркнуть", "В современном мире", "Давайте разберёмся", "Является", "Данный", "На сегодняшний день", "Комплексный подход".'
-  : '- BANNED: "In conclusion", "It\'s important to note", "In today\'s world", "Unlock", "Comprehensive guide", "Essentially", "Furthermore", "Moreover", "Additionally".'}
+  ? `- ЗАПРЕЩЕНО: "В заключение", "Важно отметить", "Следует подчеркнуть", "В современном мире", "Давайте разберёмся", "Является", "Данный", "На сегодняшний день", "Комплексный подход", "Прогресс не стоит на месте", "Давайте посмотрим правде в глаза", "Не секрет, что", "Как известно", "Стоит отметить", "Нельзя не упомянуть", "Всё больше и больше", "Играет важную роль", "Представляет собой", "Обусловлено тем", "Необходимо подчеркнуть".
+- За каждое использование клише из списка выше статья теряет качество. Используй КРЕАТИВНЫЕ, человечные переходы вместо штампов.
+- Примеры хороших переходов: риторические вопросы, неожиданные сравнения, личные наблюдения, конкретные факты как мостик между идеями.`
+  : `- BANNED: "In conclusion", "It's important to note", "In today's world", "Unlock", "Comprehensive guide", "Essentially", "Furthermore", "Moreover", "Additionally", "Let's face the truth", "Progress doesn't stand still", "It goes without saying", "It's no secret that", "Plays an important role", "It's worth mentioning".
+- Each cliché used degrades the article. Use CREATIVE, human-like transitions instead.
+- Good transitions: rhetorical questions, unexpected analogies, personal observations, concrete facts as bridges between ideas.`}
 - Не будь "helpful" как типичный ИИ. Будь решительным, авторитетным и стилистическим.
 - NO META-COMMENTARY. NO INTROS типа "В этой статье мы рассмотрим...". ТОЛЬКО КОНТЕНТ.
 
