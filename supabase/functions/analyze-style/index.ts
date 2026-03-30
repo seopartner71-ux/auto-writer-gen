@@ -20,7 +20,7 @@ serve(async (req) => {
     if (!authHeader) throw new Error("No authorization header");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -28,7 +28,8 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { sample_text } = await req.json();
+    const body = await req.json();
+    const sample_text = body.sample_text || body.text;
     if (!sample_text || typeof sample_text !== "string" || sample_text.trim().length < 50) {
       return new Response(
         JSON.stringify({ error: "Текст-образец должен содержать минимум 50 символов" }),
