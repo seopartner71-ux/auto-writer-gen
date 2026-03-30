@@ -563,6 +563,8 @@ export default function ArticlesPage() {
           miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
           gogetlinks_links: gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
           expert_insights: (() => { try { return JSON.parse(localStorage.getItem(`expert_insights_${selectedKeywordId}`) || "[]"); } catch { return []; } })(),
+          include_expert_quote: includeExpertQuote,
+          include_comparison_table: includeComparisonTable,
         }),
         signal: controller.signal,
       });
