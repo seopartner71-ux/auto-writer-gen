@@ -63,16 +63,24 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
     setIsAnalyzing(true);
     try {
       const { data, error } = await supabase.functions.invoke("analyze-style", {
-        body: { text: sampleText },
+        body: { sample_text: sampleText },
       });
-      if (error) throw error;
-      if (data?.analysis?.recommended_system_prompt) {
-        setNewInstruction(prev =>
-          prev
-            ? `${prev}\n\n${data.analysis.recommended_system_prompt}`
-            : data.analysis.recommended_system_prompt
-        );
+      if (error) {
+        let message = error.message;
+        try {
+          const details = await (error as { context?: Response }).context?.json();
+          if (details?.error) message = details.error;
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+      const recommendedPrompt = data?.style_analysis?.recommended_system_prompt;
+      if (recommendedPrompt) {
+        setNewInstruction(prev => (prev ? `${prev}\n\n${recommendedPrompt}` : recommendedPrompt));
         toast.success(t("ps.styleAdded"));
+      } else {
+        throw new Error(t("ps.analyzeError"));
       }
     } catch (e: any) {
       toast.error(e.message || t("ps.analyzeError"));

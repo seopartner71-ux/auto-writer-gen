@@ -104,7 +104,16 @@ export default function AuthorProfilesPage() {
   const analyzeStyle = useMutation({
     mutationFn: async ({ id, text }: { id: string; text: string }) => {
       const { data, error } = await supabase.functions.invoke("analyze-style", { body: { sample_text: text } });
-      if (error) throw error;
+      if (error) {
+        let message = error.message;
+        try {
+          const details = await (error as { context?: Response }).context?.json();
+          if (details?.error) message = details.error;
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
       if (data.error) throw new Error(data.error);
       const { error: updateError } = await supabase.from("author_profiles").update({ style_analysis: data.style_analysis, system_prompt_override: data.style_analysis.recommended_system_prompt || null, stop_words: data.style_analysis.stop_words || null }).eq("id", id);
       if (updateError) throw updateError;
