@@ -897,6 +897,28 @@ export default function ArticlesPage() {
           selectedId={selectedAuthorId}
           onSelect={setSelectedAuthorId}
         />
+
+        {/* Content formatting options */}
+        <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-border mt-3">
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeExpertQuote}
+              onChange={(e) => setIncludeExpertQuote(e.target.checked)}
+              className="rounded border-border"
+            />
+            <span className="text-muted-foreground">💬 Экспертная цитата</span>
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeComparisonTable}
+              onChange={(e) => setIncludeComparisonTable(e.target.checked)}
+              className="rounded border-border"
+            />
+            <span className="text-muted-foreground">📊 Таблица сравнения</span>
+          </label>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
