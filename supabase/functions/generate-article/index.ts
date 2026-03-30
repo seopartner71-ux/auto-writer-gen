@@ -641,6 +641,8 @@ serve(async (req) => {
       deepAnalysisContext: deep_analysis_context,
       miralinksLinks: miralinks_links,
       gogetlinksLinks: gogetlinks_links,
+      includeExpertQuote: include_expert_quote,
+      includeComparisonTable: include_comparison_table,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
