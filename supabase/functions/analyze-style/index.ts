@@ -6,21 +6,63 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type StyleAnalysis = {
+  paragraph_length: "short" | "medium" | "long";
+  avg_sentences_per_paragraph: number;
+  sentence_complexity: "simple" | "moderate" | "complex";
+  tone_description: string;
+  metaphor_usage: "none" | "rare" | "moderate" | "frequent";
+  emoji_frequency: "none" | "rare" | "moderate" | "frequent";
+  vocabulary_level: "basic" | "intermediate" | "advanced" | "expert";
+  formality: "casual" | "neutral" | "formal" | "academic";
+  stop_words: string[];
+  stylistic_devices: string[];
+  recommended_system_prompt: string;
+};
+
+function extractStyleAnalysis(aiData: any): StyleAnalysis {
+  const toolArgs = aiData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  if (toolArgs) return JSON.parse(toolArgs);
+
+  const rawContent = aiData?.choices?.[0]?.message?.content;
+  if (typeof rawContent !== "string" || !rawContent.trim()) {
+    throw new Error("Failed to parse AI response");
+  }
+
+  let cleaned = rawContent
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+
+  cleaned = cleaned
+    .replace(/,\s*}/g, "}")
+    .replace(/,\s*]/g, "]")
+    .replace(/[\x00-\x1F\x7F]/g, "");
+
+  return JSON.parse(cleaned);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabaseAdmin0 = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const { data: orKey } = await supabaseAdmin0.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
-    const OPENROUTER_API_KEY = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
 
-    // Auth check
+    if (!supabaseUrl || !serviceRoleKey || !supabaseAnonKey) {
+      throw new Error("Backend environment is not configured");
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -29,105 +71,82 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const sample_text = body.sample_text || body.text;
-    if (!sample_text || typeof sample_text !== "string" || sample_text.trim().length < 50) {
+    const sample_text = typeof body.sample_text === "string"
+      ? body.sample_text
+      : typeof body.text === "string"
+        ? body.text
+        : "";
+
+    if (!sample_text.trim() || sample_text.trim().length < 50) {
       return new Response(
         JSON.stringify({ error: "Текст-образец должен содержать минимум 50 символов" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (sample_text.length > 20000) {
-      return new Response(
-        JSON.stringify({ error: "Текст-образец слишком длинный (макс. 20 000 символов)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Get researcher model from task assignments
-    const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const normalizedSample = sample_text.trim();
+    if (normalizedSample.length > 20000) {
+      return new Response(
+        JSON.stringify({ error: "Текст-образец слишком длинный (макс. 20 000 символов)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const compactSample = normalizedSample.slice(0, 2500);
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
     const { data: assignment } = await supabaseAdmin
       .from("task_model_assignments")
       .select("model_key")
       .eq("task_key", "researcher")
       .single();
 
-    const model = assignment?.model_key || "google/gemini-2.5-flash";
+    const model = assignment?.model_key || "google/gemini-2.5-flash-lite";
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const aiUrl = LOVABLE_API_KEY
+      ? "https://ai.gateway.lovable.dev/v1/chat/completions"
+      : "https://openrouter.ai/api/v1/chat/completions";
+    const aiAuthKey = LOVABLE_API_KEY || OPENROUTER_API_KEY;
 
-    const systemPrompt = `You are an expert writing style analyst. Analyze the provided text sample and return a JSON object describing the author's writing style. 
+    if (!aiAuthKey) throw new Error("AI key not configured");
 
-Return ONLY a valid JSON object with these exact fields:
-{
-  "paragraph_length": "short" | "medium" | "long",
-  "avg_sentences_per_paragraph": <number>,
-  "sentence_complexity": "simple" | "moderate" | "complex",
-  "tone_description": "<string describing the overall tone>",
-  "metaphor_usage": "none" | "rare" | "moderate" | "frequent",
-  "emoji_frequency": "none" | "rare" | "moderate" | "frequent",
-  "vocabulary_level": "basic" | "intermediate" | "advanced" | "expert",
-  "formality": "casual" | "neutral" | "formal" | "academic",
-  "stop_words": ["<array of filler words or phrases the author overuses>"],
-  "stylistic_devices": ["<array of literary devices used: e.g. rhetorical questions, lists, analogies>"],
-  "recommended_system_prompt": "<a system prompt instruction that would make an AI write in this style>"
-}
+    const systemPrompt = `You are an expert writing style analyst. Analyze the text and return ONLY a valid JSON object with these exact fields: paragraph_length, avg_sentences_per_paragraph, sentence_complexity, tone_description, metaphor_usage, emoji_frequency, vocabulary_level, formality, stop_words, stylistic_devices, recommended_system_prompt. Keep arrays concise and keep recommended_system_prompt practical.`;
 
-Do not include any text outside the JSON.`;
+    const aiController = new AbortController();
+    const aiTimeout = setTimeout(() => aiController.abort(), 15000);
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch(aiUrl, {
       method: "POST",
+      signal: aiController.signal,
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${aiAuthKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze this text sample:\n\n${sample_text.slice(0, 5000)}` },
+          { role: "user", content: `Analyze this text sample and return JSON only:\n\n${compactSample}` },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_style_analysis",
-              description: "Return the structured style analysis of the text",
-              parameters: {
-                type: "object",
-                properties: {
-                  paragraph_length: { type: "string", enum: ["short", "medium", "long"] },
-                  avg_sentences_per_paragraph: { type: "number" },
-                  sentence_complexity: { type: "string", enum: ["simple", "moderate", "complex"] },
-                  tone_description: { type: "string" },
-                  metaphor_usage: { type: "string", enum: ["none", "rare", "moderate", "frequent"] },
-                  emoji_frequency: { type: "string", enum: ["none", "rare", "moderate", "frequent"] },
-                  vocabulary_level: { type: "string", enum: ["basic", "intermediate", "advanced", "expert"] },
-                  formality: { type: "string", enum: ["casual", "neutral", "formal", "academic"] },
-                  stop_words: { type: "array", items: { type: "string" } },
-                  stylistic_devices: { type: "array", items: { type: "string" } },
-                  recommended_system_prompt: { type: "string" },
-                },
-                required: [
-                  "paragraph_length", "avg_sentences_per_paragraph", "sentence_complexity",
-                  "tone_description", "metaphor_usage", "emoji_frequency", "vocabulary_level",
-                  "formality", "stop_words", "stylistic_devices", "recommended_system_prompt",
-                ],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "return_style_analysis" } },
+        temperature: 0.2,
+        max_tokens: 600,
+        response_format: { type: "json_object" },
       }),
     });
+
+    clearTimeout(aiTimeout);
 
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded, try again later" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "AI credits exhausted" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const text = await response.text();
@@ -136,29 +155,13 @@ Do not include any text outside the JSON.`;
     }
 
     const aiData = await response.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    
-    let styleAnalysis;
-    if (toolCall?.function?.arguments) {
-      styleAnalysis = JSON.parse(toolCall.function.arguments);
-    } else {
-      // Fallback: try parsing content directly
-      const content = aiData.choices?.[0]?.message?.content || "";
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        styleAnalysis = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("Failed to parse AI response");
-      }
-    }
+    const styleAnalysis = extractStyleAnalysis(aiData);
 
-    // Log usage
-    const tokensUsed = aiData.usage?.total_tokens || 0;
     await supabaseAdmin.from("usage_logs").insert({
       user_id: user.id,
       action: "analyze_style",
       model_used: model,
-      tokens_used: tokensUsed,
+      tokens_used: aiData.usage?.total_tokens || 0,
     });
 
     return new Response(JSON.stringify({ style_analysis: styleAnalysis, model_used: model }), {
@@ -166,10 +169,20 @@ Do not include any text outside the JSON.`;
     });
   } catch (e) {
     console.error("analyze-style error:", e);
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    const status = msg.includes("Unauthorized") ? 401 : 500;
+    const msg = e instanceof Error
+      ? e.name === "AbortError"
+        ? "Анализ занял слишком много времени, попробуйте более короткий фрагмент текста"
+        : e.message
+      : "Unknown error";
+    const status = msg.includes("Unauthorized")
+      ? 401
+      : msg.includes("слишком много времени")
+        ? 504
+        : 500;
+
     return new Response(JSON.stringify({ error: msg }), {
-      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
