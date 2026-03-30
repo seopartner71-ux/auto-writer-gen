@@ -373,6 +373,8 @@ export default function ArticlesPage() {
   const [miralinksFollowRules, setMiralinksFollowRules] = useState(true);
   const [gogetlinksLinks, setGogetlinksLinks] = useState<GoGetLinksLink[]>([{ url: "", anchor: "" }]);
   const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
+  const [includeExpertQuote, setIncludeExpertQuote] = useState(true);
+  const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
