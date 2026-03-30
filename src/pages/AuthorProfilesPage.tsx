@@ -322,6 +322,11 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                 {author.is_miralinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />Miralinks Expert</Badge>}
                 {author.is_gogetlinks_profile && <Badge className="text-xs bg-primary/20 text-primary border-0"><Link2 className="h-3 w-3 mr-1" />GoGetLinks Expert</Badge>}
               </div>
+              {!expanded && author.style_analysis && (
+                <div className="mt-2">
+                  <StyleAnalysisCard analysis={author.style_analysis as Record<string, unknown>} compact />
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1">
