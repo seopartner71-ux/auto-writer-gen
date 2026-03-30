@@ -373,6 +373,8 @@ export default function ArticlesPage() {
   const [miralinksFollowRules, setMiralinksFollowRules] = useState(true);
   const [gogetlinksLinks, setGogetlinksLinks] = useState<GoGetLinksLink[]>([{ url: "", anchor: "" }]);
   const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
+  const [includeExpertQuote, setIncludeExpertQuote] = useState(true);
+  const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -561,6 +563,8 @@ export default function ArticlesPage() {
           miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
           gogetlinks_links: gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
           expert_insights: (() => { try { return JSON.parse(localStorage.getItem(`expert_insights_${selectedKeywordId}`) || "[]"); } catch { return []; } })(),
+          include_expert_quote: includeExpertQuote,
+          include_comparison_table: includeComparisonTable,
         }),
         signal: controller.signal,
       });
@@ -893,6 +897,28 @@ export default function ArticlesPage() {
           selectedId={selectedAuthorId}
           onSelect={setSelectedAuthorId}
         />
+
+        {/* Content formatting options */}
+        <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-border mt-3">
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeExpertQuote}
+              onChange={(e) => setIncludeExpertQuote(e.target.checked)}
+              className="rounded border-border"
+            />
+            <span className="text-muted-foreground">💬 Экспертная цитата</span>
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeComparisonTable}
+              onChange={(e) => setIncludeComparisonTable(e.target.checked)}
+              className="rounded border-border"
+            />
+            <span className="text-muted-foreground">📊 Таблица сравнения</span>
+          </label>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
