@@ -31,23 +31,20 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
       "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции. Используй инверсии, вопросы, факты.",
       "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% - длинными ветвистыми конструкциями (25-40 слов). Используй тире, двоеточия и парентетические вставки.",
       "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями.",
-      "humanize-all": `ПЕРЕПИШИ ЭТОТ ТЕКСТ ДЛЯ 0% AI SCORE:
+      "humanize-all": `ПРОМПТ ДЛЯ ФУНКЦИИ HUMANIZE FIX (0% AI TARGET):
 
-1. Удали ВСЕ символы ** (жирный шрифт). Текст должен быть визуально чистым, без markdown bold.
+1. ОЧИСТКА ФОРМАТИРОВАНИЯ: СТРОГО удали все символы ** (жирный шрифт). Текст должен быть плоским, но структурированным через H2/H3.
 
-2. Удали фразы: 'К счастью', 'Важно понимать', 'Наука не стоит на месте', 'В заключение', 'Следует отметить', 'Представляет собой', 'Комплексный подход', 'Рассмотрим подробнее', 'Таким образом', 'На сегодняшний день'. Замени на разговорные аналоги — каждый уникальный.
+2. ЛИНГВИСТИЧЕСКАЯ ИНЪЕКЦИЯ: Перепиши текст, добавив 10-15% разговорных оборотов и профессионального 'приземленного' сленга.
+Используй: 'база', 'честно', 'на деле', 'затыки', 'вот в чем фишка', 'короче', 'тут такое дело', 'давайте начистоту'.
 
-3. Добавь в каждый абзац по одной разговорной вставке в скобках (например: 'честно, сам в шоке', 'проверено на практике', 'хотя кто-то скажет иначе', 'вот тут главный подвох').
+3. РАЗРУШЕНИЕ РИТМА: Каждое 3-е или 4-е предложение должно быть коротким (3-5 слов). Используй тире и скобки для авторских ремарок (например: 'сам долго в это не верил', 'хотя кто знает', 'проверено на практике').
 
-4. Разбей каждое второе предложение. Сделай текст максимально 'рваным': 30% предложений — 3-7 слов, 20% — длинные ветвистые (25-40 слов). Используй тире, двоеточия, парентетические вставки.
+4. УБИЙЦА ШТАМПОВ: Удали фразы 'Важно понимать', 'Стоит отметить', 'В заключение', 'Наука не стоит на месте', 'К счастью', 'Представляет собой', 'Комплексный подход', 'Таким образом', 'На сегодняшний день'. Начинай абзацы прямо, без вступлений.
 
-5. Начни 2-3 абзаца с фраз: 'Ну, смотрите', 'Короче', 'Тут такое дело', 'Вот в чём штука', 'Давайте начистоту'.
+5. FAQ РЕДИЗАЙН: Переделай блок FAQ из 'Вопрос-Ответ' в формат 'Разбор затыков'. Тон должен быть как у эксперта, отвечающего другу.
 
-6. Убери симметрию в списках и FAQ: один пункт — 3 слова, другой — целое предложение. Не все пункты одинаковой длины.
-
-7. Перемешай порядок абзацев: каждый начинается с другого слова. Используй инверсию, вопросы, факты. Ни один абзац не начинается как предыдущий.
-
-8. ЦЕЛЬ: Детектор должен показать НОЛЬ процентов AI. Если текст похож на учебник или ChatGPT — перепиши заново. Сохрани смысл, убей 'запах GPT'.`,
+6. ЦЕЛЬ: Детектор ZeroGPT должен показать 0%. Если текст выглядит 'слишком правильно' — добавь в него больше авторского характера и упрости сложные обороты.`,
     };
   }
   return {
@@ -57,23 +54,20 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": `REWRITE THIS TEXT FOR 0% AI SCORE:
+    "humanize-all": `HUMANIZE FIX PROMPT (0% AI TARGET):
 
-1. Remove ALL ** symbols (bold formatting). Text must be visually clean, no markdown bold.
+1. FORMATTING CLEANUP: STRICTLY remove all ** symbols (bold). Text must be flat but structured via H2/H3.
 
-2. Kill clichés: 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage', 'delve', 'it goes without saying', 'in today's world'. Replace with conversational alternatives — each unique.
+2. LINGUISTIC INJECTION: Rewrite adding 10-15% conversational turns and professional 'grounded' slang.
+Use: 'the kicker', 'game-changer', 'no-brainer', 'let's be real', 'here's the deal', 'bottom line', 'so here's the thing'.
 
-3. Add one conversational aside in parentheses per paragraph (e.g., 'honestly, I didn't buy this for years', 'tested this hundreds of times', 'here's the real kicker', 'though some will disagree').
+3. RHYTHM DESTRUCTION: Every 3rd or 4th sentence must be short (3-5 words). Use dashes and parentheses for authorial asides (e.g., 'didn't buy this for years myself', 'though who knows', 'tested this hundreds of times').
 
-4. Break every other sentence. Make text maximally 'choppy': 30% sentences 3-7 words, 20% long branching (25-40 words). Use dashes, colons, parenthetical asides.
+4. CLICHÉ KILLER: Remove phrases 'It's important to understand', 'It's worth noting', 'In conclusion', 'In today's world', 'Furthermore', 'Comprehensive', 'Delve', 'Meticulously'. Start paragraphs directly, no preambles.
 
-5. Start 2-3 paragraphs with: 'Look', 'Here's the deal', 'So here's the thing', 'Bottom line', 'Let's be real'.
+5. FAQ REDESIGN: Reformat FAQ from 'Question-Answer' into 'Quick-fire troubleshooting' format. Tone should be like an expert answering a friend.
 
-6. Destroy symmetry in lists and FAQ: one item — 3 words, another — full sentence. No items the same length.
-
-7. Shuffle paragraph order: each starts with a different word. Use inversions, questions, facts. No two paragraphs start the same way.
-
-8. TARGET: AI detector must show ZERO percent AI. If text resembles a textbook or ChatGPT — rewrite from scratch. Keep meaning, kill 'GPT smell'.`,
+6. TARGET: ZeroGPT detector must show 0%. If text looks 'too polished' — add more authorial character and simplify complex constructions.`,
   };
 }
 
