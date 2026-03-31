@@ -273,7 +273,7 @@ export default function ArticlesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
 
   // Data fetching
@@ -1558,6 +1558,16 @@ export default function ArticlesPage() {
                   setStreamPhase("thinking");
                   const prevContent = content;
                   setContent("");
+
+                  const isHumanize = issueKey === "humanize-all";
+                  if (isHumanize) {
+                    toast.info(lang === "ru"
+                      ? "Анализируем структуру текста и убираем AI-паттерны..."
+                      : "Analyzing text structure and removing AI patterns...",
+                      { duration: 8000 }
+                    );
+                  }
+
                   const controller = new AbortController();
                   abortRef.current = controller;
                   try {
@@ -1616,10 +1626,24 @@ export default function ArticlesPage() {
                       }
                     }
 
-                    toast.success("Issue fixed - check Human Score");
+                    if (isHumanize) {
+                      toast.success(lang === "ru"
+                        ? "Текст успешно гуманизирован! Запах GPT устранён."
+                        : "Text humanized successfully! GPT smell eliminated.",
+                        { duration: 5000 }
+                      );
+                    } else {
+                      toast.success(lang === "ru" ? "Проблема исправлена — проверьте Human Score" : "Issue fixed — check Human Score");
+                    }
                   } catch (e: any) {
                      if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
-                    else { toast.error(e.message); setContent(prevContent); }
+                    else {
+                      toast.error(isHumanize
+                        ? (lang === "ru" ? "Ошибка при обработке текста. Попробуйте ещё раз." : "Error processing text. Please try again.")
+                        : e.message
+                      );
+                      setContent(prevContent);
+                    }
                   } finally {
                     setIsStreaming(false);
                     setStreamPhase(null);
