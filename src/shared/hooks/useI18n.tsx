@@ -938,6 +938,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.factoryQueue": { ru: "В очереди", en: "In queue" },
   "lp.factoryPublished": { ru: "Опубликовано", en: "Published" },
   "lp.factoryGenerating": { ru: "Генерация...", en: "Generating..." },
+  "lp.factoryBulk": { ru: "Bulk Progress", en: "Bulk Progress" },
 
   // Landing — Pricing (keep existing keys, add new ones)
   "lp.pricingTitle": { ru: "Инвестиция, которая окупается с первой статьи.", en: "An investment that pays off from the first article." },
