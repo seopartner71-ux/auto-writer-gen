@@ -314,6 +314,19 @@ export default function ArticlesPage() {
     },
   });
 
+  // State
+  const [selectedKeywordId, setSelectedKeywordId] = useState("");
+  const [selectedAuthorId, setSelectedAuthorId] = useState("");
+  const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
+  const sanitizeContent = useCallback((text: string) => text.replace(/[—–]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
+  const [content, setContentRaw] = useState("");
+  const setContent = useCallback((val: string | ((prev: string) => string)) => {
+    setContentRaw(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return sanitizeContent(next);
+    });
+  }, [sanitizeContent]);
+
   // Auto-select single author profile
   useEffect(() => {
     if (authorProfiles.length === 1 && !selectedAuthorId) {
@@ -346,19 +359,6 @@ export default function ArticlesPage() {
     };
     loadArticle();
   }, [searchParams]);
-
-  // State
-  const [selectedKeywordId, setSelectedKeywordId] = useState("");
-  const [selectedAuthorId, setSelectedAuthorId] = useState("");
-  const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
-  const sanitizeContent = useCallback((text: string) => text.replace(/[—–]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
-  const [content, setContentRaw] = useState("");
-  const setContent = useCallback((val: string | ((prev: string) => string)) => {
-    setContentRaw(prev => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      return sanitizeContent(next);
-    });
-  }, [sanitizeContent]);
   const [title, setTitle] = useState("");
   const [h1, setH1] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
