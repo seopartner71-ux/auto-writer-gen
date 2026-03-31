@@ -476,24 +476,10 @@ export default function RadarPage() {
           {projects.map((p: any) => (
             <Button key={p.id} variant={activeProject?.id === p.id ? "default" : "outline"} size="sm" onClick={() => setSelectedProjectId(p.id)} className="gap-1.5">
               <Globe className="h-3 w-3" />{p.brand_name}
-              <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1">{(p as any).language?.toUpperCase() || "EN"}</Badge>
             </Button>
           ))}
           {activeProject && (
             <>
-              <Select value={projectLang} onValueChange={async (v) => {
-                await supabase.from("radar_projects").update({ language: v } as any).eq("id", activeProject.id);
-                queryClient.invalidateQueries({ queryKey: ["radar-projects"] });
-                toast.success(v === "ru" ? "Язык проекта: Русский" : "Project language: English");
-              }}>
-                <SelectTrigger className="w-[90px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ru">🇷🇺 RU</SelectItem>
-                  <SelectItem value="en">🇬🇧 EN</SelectItem>
-                </SelectContent>
-              </Select>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive gap-1">
