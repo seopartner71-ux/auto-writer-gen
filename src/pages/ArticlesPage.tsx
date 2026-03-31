@@ -356,9 +356,9 @@ export default function ArticlesPage() {
   const setContent = useCallback((val: string | ((prev: string) => string)) => {
     setContentRaw(prev => {
       const next = typeof val === 'function' ? val(prev) : val;
-      return sanitizeDashes(next);
+      return sanitizeContent(next);
     });
-  }, [sanitizeDashes]);
+  }, [sanitizeContent]);
   const [title, setTitle] = useState("");
   const [h1, setH1] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
