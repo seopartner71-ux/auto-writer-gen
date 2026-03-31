@@ -17,3 +17,20 @@ export const AI_STOP_WORDS_EN = [
 ];
 
 export const ALL_AI_STOP_WORDS = [...AI_STOP_WORDS_RU, ...AI_STOP_WORDS_EN];
+
+/**
+ * Detect whether text is primarily Russian or English
+ */
+export function detectContentLanguage(text: string): "ru" | "en" {
+  const sample = text.slice(0, 500);
+  const cyrillicCount = (sample.match(/[а-яёА-ЯЁ]/g) || []).length;
+  const latinCount = (sample.match(/[a-zA-Z]/g) || []).length;
+  return cyrillicCount > latinCount ? "ru" : "en";
+}
+
+/**
+ * Get stop-words list matching content language
+ */
+export function getStopWordsForLanguage(lang: "ru" | "en"): string[] {
+  return lang === "ru" ? AI_STOP_WORDS_RU : AI_STOP_WORDS_EN;
+}

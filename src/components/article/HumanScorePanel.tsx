@@ -10,8 +10,9 @@ import {
 } from "lucide-react";
 import {
   computeBurstiness, computeAiProbability, computePerplexity,
-  computeSymmetry, findAiStopWords, getKeywordDensity,
+  computeSymmetry, findAiStopWords, getKeywordDensity, getLocalizedLabels,
 } from "./humanScore/analysis";
+import { detectContentLanguage } from "./humanScore/constants";
 
 interface HumanScorePanelProps {
   content: string;
@@ -21,40 +22,58 @@ interface HumanScorePanelProps {
   isFixing?: string | null;
 }
 
-const FIX_INSTRUCTIONS: Record<string, string> = {
-  "ai-cliches": "Найди и замени ВСЕ ИИ-клише и штампы (например: 'важно отметить', 'следует подчеркнуть', 'в заключение', 'необходимо учитывать', 'таким образом', 'комплексный подход') на живые, разговорные авторские обороты. Каждое заменённое выражение должно быть уникальным.",
-  "first-person": "Добавь в текст 3-5 высказываний от первого лица: 'Я считаю', 'По моему опыту', 'На мой взгляд', 'Мы видим', 'Меня удивило'. Вставь их в уже существующие абзацы естественно, не создавая новые разделы.",
-  "paragraph-variety": "Измени длину абзацев так, чтобы они были РАЗНЫМИ: один абзац — 1-2 предложения, следующий — 4-5, потом снова короткий. Не делай все абзацы одинаковой длины. Разбей длинные абзацы или объедини слишком короткие.",
-  "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции: один — с факта, второй — с вопроса, третий — с цитаты или примера, четвёртый — с личного мнения. Не используй одно и то же начальное слово дважды.",
-  "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% — длинными ветвистыми конструкциями (25-40 слов). Никогда не пиши 3+ предложения одинаковой длины подряд.",
-  "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями. Примеры: 'Но почему это важно?', 'Какой вывод мы можем сделать?', 'Задумывались ли вы, что...'",
-};
-
-function getTrafficColor(score: number, thresholds: [number, number] = [45, 70]) {
-  if (score >= thresholds[1]) return { text: "text-green-500", bg: "bg-green-500", label: "Отлично" };
-  if (score >= thresholds[0]) return { text: "text-yellow-500", bg: "bg-yellow-500", label: "Средне" };
-  return { text: "text-red-500", bg: "bg-red-500", label: "Низкая" };
+function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
+  if (lang === "ru") {
+    return {
+      "ai-cliches": "Найди и замени ВСЕ ИИ-клише и штампы (например: 'важно отметить', 'следует подчеркнуть', 'в заключение', 'необходимо учитывать', 'таким образом', 'комплексный подход') на живые, разговорные авторские обороты. Каждое заменённое выражение должно быть уникальным.",
+      "first-person": "Добавь в текст 3-5 высказываний от первого лица: 'Я считаю', 'По моему опыту', 'На мой взгляд', 'Мы видим', 'Меня удивило'. Вставь их в уже существующие абзацы естественно, не создавая новые разделы.",
+      "paragraph-variety": "Измени длину абзацев так, чтобы они были РАЗНЫМИ: один абзац — 1-2 предложения, следующий — 4-5, потом снова короткий. Не делай все абзацы одинаковой длины.",
+      "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции.",
+      "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% — длинными ветвистыми конструкциями (25-40 слов).",
+      "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями.",
+    };
+  }
+  return {
+    "ai-cliches": "Find and replace ALL AI clichés (e.g., 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage') with natural, conversational authorial phrases. Each replacement must be unique.",
+    "first-person": "Add 3-5 first-person statements: 'I believe', 'In my experience', 'From what I've seen', 'We found', 'This surprised me'. Insert them naturally into existing paragraphs.",
+    "paragraph-variety": "Vary paragraph lengths: one paragraph 1-2 sentences, next 4-5, then short again. Don't make all paragraphs the same length.",
+    "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction.",
+    "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words).",
+    "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
+  };
 }
 
-function getAiSafetyColor(score: number) {
-  if (score >= 75) return { text: "text-green-500", bg: "bg-green-500", label: "Безопасно" };
-  if (score >= 50) return { text: "text-yellow-500", bg: "bg-yellow-500", label: "Средний риск" };
-  return { text: "text-red-500", bg: "bg-red-500", label: "Высокий риск" };
+function getTrafficColor(score: number, lang: "ru" | "en", thresholds: [number, number] = [45, 70]) {
+  const labels = getLocalizedLabels(lang);
+  if (score >= thresholds[1]) return { text: "text-green-500", bg: "bg-green-500", label: labels.excellent };
+  if (score >= thresholds[0]) return { text: "text-yellow-500", bg: "bg-yellow-500", label: labels.medium };
+  return { text: "text-red-500", bg: "bg-red-500", label: labels.low };
 }
 
-const FLAG_TO_FIX_KEY: Record<string, string> = {
-  "Авторское «Я» / «Мы»": "first-person",
-  "Вариативность абзацев": "paragraph-variety",
-  "Разнообразие начал абзацев": "paragraph-starts",
-  "Burstiness": "burstiness",
-  "Риторические вопросы": "rhetorical",
-};
+function getAiSafetyColor(score: number, lang: "ru" | "en") {
+  const labels = getLocalizedLabels(lang);
+  if (score >= 75) return { text: "text-green-500", bg: "bg-green-500", label: labels.safe };
+  if (score >= 50) return { text: "text-yellow-500", bg: "bg-yellow-500", label: labels.mediumRisk };
+  return { text: "text-red-500", bg: "bg-red-500", label: labels.highRisk };
+}
 
 export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, onFixIssue, isFixing }: HumanScorePanelProps) {
   const [customKeywords, setCustomKeywords] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState("");
   const [showStopWords, setShowStopWords] = useState(false);
   const [stopWordsHighlighted, setStopWordsHighlighted] = useState(false);
+
+  const contentLang = useMemo(() => detectContentLanguage(content), [content]);
+  const labels = useMemo(() => getLocalizedLabels(contentLang), [contentLang]);
+  const FIX_INSTRUCTIONS = useMemo(() => getFixInstructions(contentLang), [contentLang]);
+
+  const FLAG_TO_FIX_KEY: Record<string, string> = useMemo(() => ({
+    [labels.authorVoice]: "first-person",
+    [labels.paragraphVariety]: "paragraph-variety",
+    [labels.paragraphStarts]: "paragraph-starts",
+    [labels.burstiness]: "burstiness",
+    [labels.rhetoricalQuestions]: "rhetorical",
+  }), [labels]);
 
   const wordCount = useMemo(() => content.trim().split(/\s+/).filter(Boolean).length, [content]);
   const burstiness = useMemo(() => computeBurstiness(content), [content]);
@@ -87,9 +106,9 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
   );
 
   const lsiFoundCount = lsiStatus.filter(s => s.found).length;
-  const burstColor = getTrafficColor(burstiness.score);
-  const aiColor = getAiSafetyColor(aiProb.score);
-  const perplexityColor = getTrafficColor(perplexity.score);
+  const burstColor = getTrafficColor(burstiness.score, contentLang);
+  const aiColor = getAiSafetyColor(aiProb.score, contentLang);
+  const perplexityColor = getTrafficColor(perplexity.score, contentLang);
 
   const handleAddCustomKeywords = useCallback(() => {
     if (!customInput.trim()) return;
@@ -120,7 +139,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
         <CardContent className="py-8 text-center">
           <Shield className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">
-            Сгенерируйте или вставьте текст для анализа на человечность
+            {labels.generateText}
           </p>
         </CardContent>
       </Card>
@@ -151,7 +170,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
           ) : (
             <Wrench className="h-4 w-4" />
           )}
-          Исправить все проблемы ({failedFlags.length + (stopWords.length > 0 ? 1 : 0)})
+          {labels.fixAllProblems} ({failedFlags.length + (stopWords.length > 0 ? 1 : 0)})
         </Button>
       )}
 
@@ -169,7 +188,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
         <CardContent className="space-y-3">
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>Безопасность от детекторов</span>
+              <span>{labels.detectorSafety}</span>
               <span className={`font-bold ${aiColor.text}`}>{aiProb.score}%</span>
             </div>
             <Progress value={aiProb.score} className="h-2.5" indicatorClassName={aiColor.bg} />
@@ -224,13 +243,13 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
         <CardContent className="space-y-2">
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>Сложность лексики</span>
+              <span>{labels.lexicalComplexity}</span>
               <span className={`font-bold ${perplexityColor.text}`}>{perplexity.score}%</span>
             </div>
             <Progress value={perplexity.score} className="h-2.5" indicatorClassName={perplexityColor.bg} />
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Ваш текст использует <span className={`font-semibold ${perplexityColor.text}`}>{perplexity.label.toLowerCase()}</span> словарный запас
+            {labels.vocabularyDesc} <span className={`font-semibold ${perplexityColor.text}`}>{perplexity.label.toLowerCase()}</span> {labels.vocabularySuffix}
           </p>
         </CardContent>
       </Card>
@@ -248,7 +267,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
               }`}
               onClick={() => setShowStopWords(!showStopWords)}
             >
-              {stopWords.length === 0 ? "Чисто ✓" : `${stopWords.reduce((s, w) => s + w.count, 0)} найдено`}
+              {stopWords.length === 0 ? labels.clean : `${stopWords.reduce((s, w) => s + w.count, 0)} ${labels.found}`}
               {stopWords.length > 0 && (showStopWords ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />)}
             </Badge>
           </CardTitle>
@@ -257,7 +276,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
           {stopWords.length === 0 ? (
             <p className="text-xs text-green-500 text-center py-2">
               <CheckCircle2 className="h-4 w-4 inline mr-1" />
-              ИИ-клише не обнаружены
+              {labels.noClichesFound}
             </p>
           ) : (
             <>
@@ -269,7 +288,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
                   onClick={handleToggleHighlight}
                 >
                   <Eye className="h-3 w-3 mr-1" />
-                  {stopWordsHighlighted ? "Скрыть подсветку" : "Подсветить в тексте"}
+                  {stopWordsHighlighted ? labels.hideHighlight : labels.highlightInText}
                 </Button>
                 {onFixIssue && (
                   <Button
@@ -284,7 +303,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
                     ) : (
                       <Wrench className="h-3 w-3" />
                     )}
-                    Исправить
+                    {labels.fix}
                   </Button>
                 )}
               </div>
@@ -299,7 +318,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
                 </div>
               )}
               <p className="text-[10px] text-muted-foreground">
-                💡 Замените эти слова на более живые синонимы, чтобы снизить риск детекции
+                💡 {labels.replaceTip}
               </p>
             </>
           )}
@@ -320,18 +339,18 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
         <CardContent className="space-y-3">
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>Разнообразие длины предложений</span>
+              <span>{labels.sentenceVariety}</span>
               <span className="font-mono font-bold">{burstiness.score}%</span>
             </div>
             <Progress value={burstiness.score} className="h-2.5" indicatorClassName={burstColor.bg} />
             <p className="text-[10px] text-muted-foreground mt-1">
-              Чем выше — тем больше вариация (как у человека)
+              {labels.higherIsBetter}
             </p>
           </div>
 
           {/* Symmetry badge */}
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground">Структура:</span>
+            <span className="text-[10px] text-muted-foreground">{labels.structure}</span>
             <Badge
               variant="outline"
               className={`text-[10px] ${symmetry.isRobotic ? "text-red-500 border-red-500/30" : "text-green-500 border-green-500/30"}`}
@@ -342,7 +361,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
           </div>
           {symmetry.isRobotic && (
             <p className="text-[10px] text-yellow-500">
-              ⚠ Слишком симметричный список — это признак ИИ. Измените длину пунктов.
+              ⚠ {labels.roboticWarning}
             </p>
           )}
 
@@ -358,7 +377,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
                     key={i}
                     className={`${color} rounded-t-sm opacity-70`}
                     style={{ height: `${h}%`, width: `${100 / Math.min(40, burstiness.lengths.length)}%`, minWidth: "2px" }}
-                    title={`${len} слов`}
+                    title={`${len} ${labels.words}`}
                   />
                 );
               })}
@@ -384,7 +403,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
             <Input
               value={customInput}
               onChange={(e) => setCustomInput(e.target.value)}
-              placeholder="Свои ключи через запятую..."
+              placeholder={labels.customKeysPlaceholder}
               className="h-7 text-xs"
               onKeyDown={(e) => e.key === "Enter" && handleAddCustomKeywords()}
             />
@@ -416,7 +435,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
                   <span className="font-mono text-[11px] flex-1">{item.keyword}</span>
                   {item.isSpam && (
                     <Badge variant="outline" className="text-[9px] text-yellow-500 border-yellow-500/30">
-                      {item.density.toFixed(1)}% спам
+                      {item.density.toFixed(1)}% {labels.spam}
                     </Badge>
                   )}
                 </div>
@@ -424,7 +443,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
             </div>
           ) : (
             <p className="text-xs text-muted-foreground text-center py-4">
-              Выберите ключевое слово для LSI
+              {labels.selectKeyword}
             </p>
           )}
         </CardContent>

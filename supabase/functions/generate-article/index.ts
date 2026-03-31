@@ -46,6 +46,7 @@ interface StealthPromptInput {
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
   const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable } = input;
   const isRussian = /[а-яё]/i.test(keyword.seed_keyword);
+  const targetLanguage = isRussian ? "ru" : "en";
 
   // ═══ BLOCK A: Author Context ═══
   let blockA = "";
@@ -82,6 +83,9 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
     if (authorProfile.stop_words?.length) parts.push(`ЗАПРЕЩЁННЫЕ СЛОВА (никогда не используй): ${authorProfile.stop_words.join(", ")}`);
     if (authorProfile.system_prompt_override) parts.push(`ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ АВТОРА: ${authorProfile.system_prompt_override}`);
 
+    if (!isRussian) {
+      parts.push(`IMPORTANT: The author persona above may be described in Russian, but you MUST write the article in ENGLISH. Apply the author's tone, style, and voice in English writing.`);
+    }
     blockA = `=== БЛОК А: КОНТЕКСТ АВТОРА (критически важно - строго следуй) ===\n${parts.join("\n")}\n=== КОНЕЦ БЛОКА А ===`;
   }
 
@@ -314,6 +318,12 @@ ${isRussian
   const systemPrompt = `### ROLE
 Ты - Professional Content Creator. Ты не просто пишешь текст; ты ВОПЛОЩАЕШЬ конкретную персону, чтобы создавать экспертный, человечески звучащий контент.${authorProfile ? " Пиши КАК автор, описанный в Блоке А - каждое предложение должно звучать как его/её текст. Инструкции автора имеют НАИВЫСШИЙ приоритет." : ""}
 
+### TARGET LANGUAGE (ABSOLUTE PRIORITY)
+The target language is: ${isRussian ? "RUSSIAN (RU)" : "ENGLISH (EN)"}
+ALL output — Title, H1, Meta Description, Article Body, FAQ — MUST be in ${isRussian ? "Russian" : "English"}.
+${!isRussian ? "Even if the author persona description is in Russian, you MUST write the article in English. Translate persona traits and tone into English writing style." : ""}
+Do NOT follow the UI language. Follow the keyword language ONLY: "${keyword.seed_keyword}".
+
 ### PERSONA EMBODIMENT
 ${authorProfile ? `1. Проанализируй синтаксис, длину предложений и лексику автора из Блока А.
 2. Используй профессиональный словарь его ниши как носитель.
@@ -346,7 +356,7 @@ ${blockGoGetLinks}
 БАЗОВЫЕ ПРАВИЛА:
 - Следуй структуре заголовков из Блока Б
 - ОБЯЗАТЕЛЬНО используй LSI-ключевые слова из Блока Б - минимум 80% всех LSI должны присутствовать в тексте, распределённые равномерно
-- Пиши на том же языке, что и ключевое слово
+- Пиши на ${isRussian ? "РУССКОМ" : "АНГЛИЙСКОМ"} языке — это определяется языком ключевого слова "${keyword.seed_keyword}", НЕ языком интерфейса.
 - Формат - ЧИСТЫЙ Markdown (# h1, ## h2, ### h3)
 - ОБЯЗАТЕЛЬНО начинай статью с заголовка H1 (# Заголовок). H1 должен содержать ключевое слово. Без H1 статья считается невалидной.
 
@@ -391,7 +401,7 @@ ${isRussian
 3. **РАЗНООБРАЗИЕ ЭКСПЕРТОВ:** При генерации экспертных цитат НЕ используй типовые имена вроде "Анна Петрова" или "John Smith". Используй разнообразные, реалистичные имена или конкретные профессиональные должности (например, "Руководитель портфельного управления Tier-1 банка", "Chief Investment Officer at a Tier-1 Bank").
 4. **HTML СТРУКТУРА И ССЫЛКИ:** Все ссылки должны быть размещены естественно в основном тексте, но НИКОГДА не в первом и не в последнем абзаце статьи. Это критически важно для совместимости с биржевыми площадками.
 
-КРИТИЧЕСКОЕ ПРАВИЛО ЯЗЫКА: ВСЯ статья ДОЛЖНА быть на том же языке, что и ключевое слово "${keyword.seed_keyword}". ${isRussian ? "Ключевое слово на русском - пиши ВСЁ на русском." : "Write in the language of the keyword."}
+КРИТИЧЕСКОЕ ПРАВИЛО ЯЗЫКА: ВСЯ статья ДОЛЖНА быть на ${isRussian ? "РУССКОМ" : "АНГЛИЙСКОМ"} языке, потому что ключевое слово "${keyword.seed_keyword}" на ${isRussian ? "русском" : "английском"}. ${!isRussian ? "Write EVERYTHING in English — title, headings, body, FAQ, expert quotes. Even if persona instructions are in Russian, output must be in English." : "Ключевое слово на русском - пиши ВСЁ на русском."}
 
 ${blockC}
 
