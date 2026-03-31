@@ -899,51 +899,48 @@ const translations: Record<string, Record<Lang, string>> = {
   "sa.recommendedPrompt": { ru: "Рекомендуемый промпт", en: "Recommended prompt" },
   "common.collapse": { ru: "Свернуть", en: "Collapse" },
 
-  // Landing page
+  // Landing page — Hero
   "lp.badge": { ru: "SEO нового поколения", en: "Next-gen SEO" },
-  "lp.heroLine1": { ru: "Синтезируйте контент, который доминирует в поиске", en: "Synthesize content that dominates search" },
-  "lp.heroLine2": { ru: "и ИИ-ответах", en: "& AI answers" },
+  "lp.heroLine1": { ru: "Убиваем запах ИИ.", en: "We kill the AI smell." },
+  "lp.heroLine2": { ru: "Выводим в ТОП.", en: "Push you to the TOP." },
   "lp.heroSub": { ru: "Профессиональная экосистема для проектирования SEO-статей. В эпоху Google SGE и AI-ответов мы даём вам чертёж успеха.", en: "A professional ecosystem for engineering SEO content. In the era of SGE and AI-answers, we provide the blueprint for success." },
   "lp.cta": { ru: "Начать синтез", en: "Start synthesis" },
-  "lp.statRanking": { ru: "Рост позиций", en: "Ranking growth" },
-  "lp.statArticles": { ru: "Статей создано", en: "Articles created" },
-  "lp.statTime": { ru: "Среднее время", en: "Avg time" },
-  "lp.heroOriginal": { ru: "Исходный текст", en: "Original text" },
-  "lp.heroScanning": { ru: "Сканирование...", en: "Scanning..." },
-  "lp.heroComplete": { ru: "Анализ завершён", en: "Analysis complete" },
-  "lp.heroWaiting": { ru: "Ожидание...", en: "Waiting..." },
-  "lp.heroStatus": { ru: "Статус", en: "Status" },
-  "lp.heroPassed": { ru: "Пройдено", en: "Passed" },
+  "lp.heroMetric": { ru: "0% AI Detection. Гарантировано.", en: "0% AI Detection. Guaranteed." },
+  "lp.stealthActive": { ru: "Stealth Mode Active", en: "Stealth Mode Active" },
+  "lp.stealthProcessing": { ru: "Обработка...", en: "Processing..." },
 
-  // Bento Grid
-  "lp.bentoTitle": { ru: "Арсенал доминирования", en: "The dominance arsenal" },
-  "lp.bentoSub": { ru: "Каждый инструмент подкреплён данными и визуальными доказательствами", en: "Every tool backed by data and visual proof" },
-  "lp.bentoKiller": { ru: "Киллер-фича", en: "Killer feature" },
-  "lp.feat1Title": { ru: "Smart Research", en: "Smart Research" },
-  "lp.bento1Desc": { ru: "Алгоритмический шпионаж: извлекаем LSI и сущности, которые Google считает эталоном.", en: "Algorithmic espionage: extract LSI keywords and entities that Google considers benchmark." },
-  "lp.bento2Desc": { ru: "GEO (Generative Engine Optimization): Станьте источником №1 для нейросетей.", en: "GEO (Generative Engine Optimization): Become the #1 source for AI models." },
-  "lp.bento3Desc": { ru: "Валидация по 7 метрикам: Perplexity, Burstiness, Cliché Killer. Контент, который пахнет кофе, а не процессором.", en: "Validation across 7 metrics: Perplexity, Burstiness, Cliché Killer. Content that smells like coffee, not a processor." },
-  "lp.bento4Desc": { ru: "Промышленный масштаб: 100+ SEO-статей за один цикл с автоматической публикацией в WordPress.", en: "Industrial scale: 100+ SEO articles per cycle with automatic WordPress publishing." },
-  "lp.tableWords": { ru: "Слова", en: "Words" },
-  "lp.bentoArticles": { ru: "статей", en: "articles" },
+  // Landing — Smart Research section
+  "lp.researchTitle": { ru: "Мы знаем, что хочет Google.", en: "We know what Google wants." },
+  "lp.researchSub": { ru: "Алгоритмический шпионаж: извлекаем LSI-ключи и сущности из ТОП-10, чтобы ваш контент был неуязвим.", en: "Algorithmic espionage: we extract LSI keywords and entities from TOP-10 to make your content bulletproof." },
+  "lp.researchMetric": { ru: "100% LSI & Entities Coverage", en: "100% LSI & Entities Coverage" },
+  "lp.researchExtracted": { ru: "Извлечено из ТОП-10", en: "Extracted from TOP-10" },
+  "lp.researchLsiFound": { ru: "LSI-ключей найдено", en: "LSI keys found" },
+  "lp.researchEntities": { ru: "Сущностей", en: "Entities" },
+  "lp.researchGaps": { ru: "Content Gaps", en: "Content Gaps" },
 
-  // Data-Driven section
-  "lp.dataTitle": { ru: "Доказанная эффективность", en: "Proven effectiveness" },
-  "lp.dataDesc": { ru: "Наши алгоритмы проектируют контент, который обходит 'Content Decay' и сохраняет позиции годами.", en: "Our algorithms engineer content that bypasses 'Content Decay' and maintains rankings for years." },
-  "lp.chartTitle": { ru: "Рост кликов (8 месяцев)", en: "Click growth (8 months)" },
-  "lp.chartGeneric": { ru: "Типичный AI", en: "Generic AI" },
-  "lp.chartSynth": { ru: "SERPblueprint", en: "SERPblueprint" },
-  "lp.case1": { ru: "Кейс: ниша 'Pool Service'. Рост упоминаний бренда в Perplexity с 0% до 65% за 30 дней.", en: "Case: 'Pool Service' niche. Brand mentions in Perplexity grew from 0% to 65% in 30 days." },
-  "lp.case2": { ru: "Бенчмарк: 100/100 по шкале читаемости и 0% вероятность ИИ по версии Originality.ai v2.0.", en: "Benchmark: 100/100 readability score and 0% AI probability by Originality.ai v2.0." },
-  "lp.case3": { ru: "Автоматизация: сокращение времени на подготовку 1 лонгрида с 6 часов до 12 минут.", en: "Automation: preparation time for 1 longread reduced from 6 hours to 12 minutes." },
+  // Landing — Persona Engine section
+  "lp.personaTitle": { ru: "Контент с душой эксперта.", en: "Content with an expert's soul." },
+  "lp.personaSub": { ru: "Каждый текст звучит как написанный практикующим специалистом. Не роботом.", en: "Every text reads like it was written by a practicing expert. Not a robot." },
+  "lp.personaMetric": { ru: "9 экспертных персон для любой ниши", en: "9 Expert Personas for any niche" },
 
-  // Trust section
-  "lp.trustBadge": { ru: "Проходим все детекторы", en: "Passes all detectors" },
-  "lp.trustTitle": { ru: "Проверено ведущими AI-детекторами", en: "Verified by leading AI detectors" },
-  "lp.integrTitle": { ru: "Интеграции и платформы", en: "Integrations and platforms" },
+  // Landing — GEO & Radar section
+  "lp.geoTitle": { ru: "Захватите ответы ChatGPT и Perplexity.", en: "Capture ChatGPT & Perplexity answers." },
+  "lp.geoSub": { ru: "GEO Optimization - проектируем контент так, чтобы нейросети цитировали именно вас.", en: "GEO Optimization - we engineer content so AI models cite YOU." },
+  "lp.geoMetric": { ru: "GEO Optimized: Доминируйте в AI-ответах", en: "GEO Optimized: Dominate AI Answers" },
+  "lp.geoScanning": { ru: "Сканирование AI-моделей...", en: "Scanning AI models..." },
+  "lp.geoBrandFound": { ru: "Бренд найден", en: "Brand found" },
+  "lp.geoBrandMissing": { ru: "Не найден", en: "Not found" },
 
-  // Pricing section
-  "lp.pricingTitle": { ru: "Тарифы", en: "Pricing" },
+  // Landing — Factory section
+  "lp.factoryTitle": { ru: "Контентный завод на автопилоте.", en: "Content factory on autopilot." },
+  "lp.factorySub": { ru: "100+ SEO-статей за один цикл с автоматической публикацией в WordPress.", en: "100+ SEO articles per cycle with automatic WordPress publishing." },
+  "lp.factoryMetric": { ru: "100+ статей за 15 минут", en: "100+ Articles in 15 Minutes" },
+  "lp.factoryQueue": { ru: "В очереди", en: "In queue" },
+  "lp.factoryPublished": { ru: "Опубликовано", en: "Published" },
+  "lp.factoryGenerating": { ru: "Генерация...", en: "Generating..." },
+
+  // Landing — Pricing (keep existing keys, add new ones)
+  "lp.pricingTitle": { ru: "Инвестиция, которая окупается с первой статьи.", en: "An investment that pays off from the first article." },
   "lp.pricingSub": { ru: "1 кредит = 1 полноценная SEO-статья под ключ", en: "1 credit = 1 full turnkey SEO article" },
   "lp.priceFree": { ru: "бесплатно", en: "free" },
   "lp.priceMonth": { ru: "мес", en: "mo" },
@@ -970,25 +967,45 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.priceF3d": { ru: "Приоритетная поддержка", en: "Priority support" },
   "lp.priceF3e": { ru: "Кастомные модели", en: "Custom models" },
 
-  // Bento extra
-  "lp.bentoOutlineDesc": { ru: "AI-автопилот строит идеальную структуру H2/H3 на основе ТОП-10 конкурентов.", en: "AI autopilot builds the perfect H2/H3 structure based on TOP-10 competitors." },
-  "lp.bentoPersonaDesc": { ru: "Имитация авторского стиля: тон, лексика, ритм предложений. Каждый текст уникален.", en: "Author style mimicry: tone, vocabulary, sentence rhythm. Every text is unique." },
-
-  // GEO Engine card
+  // Legacy keys kept for compatibility
+  "lp.statRanking": { ru: "Рост позиций", en: "Ranking growth" },
+  "lp.statArticles": { ru: "Статей создано", en: "Articles created" },
+  "lp.statTime": { ru: "Среднее время", en: "Avg time" },
+  "lp.heroOriginal": { ru: "Исходный текст", en: "Original text" },
+  "lp.heroScanning": { ru: "Сканирование...", en: "Scanning..." },
+  "lp.heroComplete": { ru: "Анализ завершён", en: "Analysis complete" },
+  "lp.heroWaiting": { ru: "Ожидание...", en: "Waiting..." },
+  "lp.heroStatus": { ru: "Статус", en: "Status" },
+  "lp.heroPassed": { ru: "Пройдено", en: "Passed" },
+  "lp.bentoTitle": { ru: "Арсенал доминирования", en: "The dominance arsenal" },
+  "lp.bentoSub": { ru: "Каждый инструмент подкреплён данными и визуальными доказательствами", en: "Every tool backed by data and visual proof" },
+  "lp.bentoKiller": { ru: "Киллер-фича", en: "Killer feature" },
+  "lp.feat1Title": { ru: "Smart Research", en: "Smart Research" },
+  "lp.bento1Desc": { ru: "Алгоритмический шпионаж: извлекаем LSI и сущности, которые Google считает эталоном.", en: "Algorithmic espionage: extract LSI keywords and entities that Google considers benchmark." },
+  "lp.bento2Desc": { ru: "GEO (Generative Engine Optimization): Станьте источником №1 для нейросетей.", en: "GEO (Generative Engine Optimization): Become the #1 source for AI models." },
+  "lp.bento3Desc": { ru: "Валидация по 7 метрикам: Perplexity, Burstiness, Cliché Killer.", en: "Validation across 7 metrics: Perplexity, Burstiness, Cliché Killer." },
+  "lp.bento4Desc": { ru: "Промышленный масштаб: 100+ SEO-статей за один цикл.", en: "Industrial scale: 100+ SEO articles per cycle." },
+  "lp.tableWords": { ru: "Слова", en: "Words" },
+  "lp.bentoArticles": { ru: "статей", en: "articles" },
+  "lp.dataTitle": { ru: "Доказанная эффективность", en: "Proven effectiveness" },
+  "lp.dataDesc": { ru: "Наши алгоритмы проектируют контент, который обходит Content Decay.", en: "Our algorithms engineer content that bypasses Content Decay." },
+  "lp.chartTitle": { ru: "Рост кликов (8 месяцев)", en: "Click growth (8 months)" },
+  "lp.chartGeneric": { ru: "Типичный AI", en: "Generic AI" },
+  "lp.chartSynth": { ru: "SERPblueprint", en: "SERPblueprint" },
+  "lp.case1": { ru: "Кейс: рост упоминаний в Perplexity с 0% до 65% за 30 дней.", en: "Case: brand mentions in Perplexity grew from 0% to 65% in 30 days." },
+  "lp.case2": { ru: "Бенчмарк: 100/100 читаемость и 0% ИИ по Originality.ai v2.0.", en: "Benchmark: 100/100 readability and 0% AI by Originality.ai v2.0." },
+  "lp.case3": { ru: "Сокращение времени на лонгрид с 6 часов до 12 минут.", en: "Longread preparation from 6 hours to 12 minutes." },
+  "lp.trustBadge": { ru: "Проходим все детекторы", en: "Passes all detectors" },
+  "lp.trustTitle": { ru: "Проверено ведущими AI-детекторами", en: "Verified by leading AI detectors" },
+  "lp.integrTitle": { ru: "Интеграции и платформы", en: "Integrations and platforms" },
+  "lp.bentoOutlineDesc": { ru: "AI-автопилот строит структуру H2/H3 на основе ТОП-10.", en: "AI autopilot builds H2/H3 structure from TOP-10." },
+  "lp.bentoPersonaDesc": { ru: "Имитация авторского стиля: тон, лексика, ритм.", en: "Author style mimicry: tone, vocabulary, rhythm." },
   "lp.bentoGeoTitle": { ru: "GEO - Будущее поиска", en: "GEO - The Future of Search" },
-  "lp.bentoGeoDesc": { ru: "Google Search умирает. Наступает эпоха AI-ответов. Мы проектируем контент так, чтобы ChatGPT, Claude и Perplexity выбирали именно вас.", en: "Google Search is dying. The era of AI answers is here. We engineer content so ChatGPT, Claude, and Perplexity choose YOU as the primary source." },
-  "lp.bentoGeoFake": { ru: "Лучший способ восстановления газона после зимы - глубокая аэрация при температуре почвы +5°C в сочетании с азотной подкормкой...", en: "The best way to restore a lawn after winter is deep aeration at soil temperature +5°C combined with nitrogen fertilization..." },
+  "lp.bentoGeoDesc": { ru: "Мы проектируем контент для цитирования нейросетями.", en: "We engineer content for AI citation." },
+  "lp.bentoGeoFake": { ru: "Лучший способ восстановления газона - глубокая аэрация при +5°C...", en: "The best way to restore a lawn is deep aeration at +5°C..." },
   "lp.bentoGeoSource": { ru: "Источник: YourSite.com", en: "Source: YourSite.com" },
-
-  // Trust marquee
   "lp.marqueeText": { ru: "Наш контент признан человеческим ведущими детекторами мира", en: "Our content is recognized as human by the world's leading detectors" },
   "lp.detectorWallSub": { ru: "Обходим все ведущие AI-детекторы", en: "By-passing all major AI detectors" },
-
-  // Stealth widget
-  "lp.stealthActive": { ru: "Stealth Mode Active", en: "Stealth Mode Active" },
-  "lp.stealthProcessing": { ru: "Обработка...", en: "Processing..." },
-
-  // Bento extra
   "lp.bentoBulk": { ru: "Bulk Progress", en: "Bulk Progress" },
 
   // Footer
