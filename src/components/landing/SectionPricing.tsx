@@ -33,6 +33,7 @@ export function SectionPricing() {
     return isEn ? `$${val}` : `${val.toLocaleString("ru-RU")} ₽`;
   };
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
+
   const getFeatures = (id: string, fallback: Array<{ text: string; included: boolean }>) => {
     const db = getDbPlan(id);
     const dbF = db?.features as Array<{ text_ru: string; text_en: string; included: boolean }> | null;
@@ -47,9 +48,13 @@ export function SectionPricing() {
       credits: fmtCredits("free", 5), popular: false,
       features: getFeatures("free", [
         { text: t("pricing.f.gens5") || (isEn ? "5 credits / month" : "5 кредитов / месяц"), included: true },
-        { text: t("lp.priceF1b"), included: true },
-        { text: t("lp.priceF1c"), included: true },
-        { text: t("lp.priceF1d"), included: true },
+        { text: t("pricing.f.basicResearch"), included: true },
+        { text: t("pricing.f.1profile"), included: true },
+        { text: t("pricing.f.htmlExport"), included: true },
+        { text: t("pricing.f.basicSeo"), included: true },
+        { text: t("pricing.f.modelsFlashLite"), included: true },
+        { text: t("pricing.f.uniquenessCheck"), included: false },
+        { text: t("pricing.f.jsonLd"), included: false },
         { text: "Factory", included: false },
         { text: "AI Radar & GEO", included: false },
       ]),
@@ -60,12 +65,16 @@ export function SectionPricing() {
       price: fmtPrice("basic", 59, "4900"), period: `/ ${t("lp.priceMonth")}`,
       credits: fmtCredits("basic", 30), popular: true, exclusive: "AI Radar & GEO",
       features: getFeatures("basic", [
-        { text: t("lp.priceF2a"), included: true },
-        { text: t("lp.priceF2b"), included: true },
-        { text: t("lp.priceF2c"), included: true },
-        { text: t("lp.priceF2d"), included: true },
-        { text: t("lp.priceF2e"), included: true },
-        { text: t("lp.priceF2f"), included: true },
+        { text: t("pricing.f.gens30"), included: true },
+        { text: t("pricing.f.fullSerp"), included: true },
+        { text: t("pricing.f.5profiles"), included: true },
+        { text: t("pricing.f.htmlMdExport"), included: true },
+        { text: t("pricing.f.advancedSeo"), included: true },
+        { text: t("pricing.f.modelsFlashNano"), included: true },
+        { text: t("pricing.f.uniquenessCheck"), included: true },
+        { text: t("pricing.f.jsonLd"), included: true },
+        { text: t("pricing.f.calendarPlanner"), included: false },
+        { text: t("pricing.f.miralinks"), included: false },
       ]),
       cta: t("lp.priceUpgrade"),
     },
@@ -74,12 +83,16 @@ export function SectionPricing() {
       price: fmtPrice("pro", 169, "12400"), period: `/ ${t("lp.priceMonth")}`,
       credits: fmtCredits("pro", 100), popular: false,
       features: getFeatures("pro", [
-        { text: t("lp.priceF3a"), included: true },
-        { text: t("lp.priceF3b"), included: true },
-        { text: t("lp.priceF3c"), included: true },
-        { text: t("lp.priceF3d"), included: true },
-        { text: t("lp.priceF3e"), included: true },
-        { text: isEn ? "Bulk generation" : "Массовая генерация", included: true },
+        { text: t("pricing.f.gens100"), included: true },
+        { text: t("pricing.f.fullSerpComp"), included: true },
+        { text: t("pricing.f.unlimitedProfiles"), included: true },
+        { text: t("pricing.f.allExports"), included: true },
+        { text: t("pricing.f.fullSeo"), included: true },
+        { text: t("pricing.f.allModels"), included: true },
+        { text: t("pricing.f.bulkGen"), included: true },
+        { text: t("pricing.f.uniquenessAntiAi"), included: true },
+        { text: t("pricing.f.miralinks"), included: true },
+        { text: t("pricing.f.gogetlinks"), included: true },
       ]),
       cta: t("lp.priceContact"),
     },
@@ -132,7 +145,6 @@ export function SectionPricing() {
                     : "0 20px 50px rgba(0,0,0,0.4)",
                 }}
               >
-                {/* PRO neon glow animation */}
                 {plan.popular && (
                   <>
                     <div className="absolute -inset-px rounded-3xl opacity-30 animate-pulse" style={{
