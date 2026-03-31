@@ -901,9 +901,9 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Landing page — Hero
   "lp.badge": { ru: "SEO нового поколения", en: "Next-gen SEO" },
-  "lp.heroLine1": { ru: "Убиваем запах ИИ.", en: "We kill the AI smell." },
-  "lp.heroLine2": { ru: "Выводим в ТОП.", en: "Push you to the TOP." },
-  "lp.heroSub": { ru: "Профессиональная экосистема для проектирования SEO-статей. В эпоху Google SGE и AI-ответов мы даём вам чертёж успеха.", en: "A professional ecosystem for engineering SEO content. In the era of SGE and AI-answers, we provide the blueprint for success." },
+  "lp.heroLine1": { ru: "Проектируйте контент, который", en: "Engineer content that" },
+  "lp.heroLine2": { ru: "доминирует в поиске.", en: "dominates search." },
+  "lp.heroSub": { ru: "Профессиональная экосистема для синтеза SEO-статей экспертного уровня. Захватывайте выдачу Google SGE и AI-ответы.", en: "Professional ecosystem for expert-level SEO article synthesis. Capture Google SGE and AI answers." },
   "lp.cta": { ru: "Начать синтез", en: "Start synthesis" },
   "lp.heroMetric": { ru: "0% AI Detection. Гарантировано.", en: "0% AI Detection. Guaranteed." },
   "lp.stealthActive": { ru: "Stealth Mode Active", en: "Stealth Mode Active" },

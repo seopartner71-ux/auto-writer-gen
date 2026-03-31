@@ -49,10 +49,10 @@ export function SectionHero() {
             </motion.div>
 
             <motion.h1 initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-black leading-[0.95]" style={{ letterSpacing: "-0.06em" }}>
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95]" style={{ letterSpacing: "-0.06em" }}>
               {t("lp.heroLine1")}
               <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-[#3b82f6] to-[#10b981]">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">
                 {t("lp.heroLine2")}
               </span>
             </motion.h1>
@@ -75,7 +75,7 @@ export function SectionHero() {
             </motion.div>
 
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }}
-              className="mt-8 text-sm font-tech text-emerald-400/80 tracking-wide">
+              className="mt-8 text-sm font-tech text-emerald-400/80 tracking-widest">
               {t("lp.heroMetric")}
             </motion.p>
           </div>
