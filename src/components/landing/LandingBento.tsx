@@ -1,6 +1,7 @@
-import { motion } from "framer-motion";
-import { Search, Radar, ShieldCheck, Factory, TrendingUp, Zap } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Radar, ShieldCheck, Factory, Zap } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 const somData = [
@@ -12,12 +13,54 @@ const somData = [
 
 const gaugeValue = 94;
 
+const lsiTags = [
+  "semantic search", "keyword clustering", "entity extraction",
+  "SERP features", "content gap", "search intent", "NLP analysis",
+  "topic modeling", "TF-IDF", "co-occurrence", "LSI keywords",
+  "knowledge graph", "E-E-A-T", "featured snippet",
+];
+
+const outlineItems = [
+  { level: "H2", width: "75%", label: "What is SEO Content?" },
+  { level: "H3", width: "60%", label: "Key Components", indent: true },
+  { level: "H3", width: "55%", label: "Common Mistakes", indent: true },
+  { level: "H2", width: "70%", label: "Research Methods" },
+  { level: "H3", width: "50%", label: "Competitor Analysis", indent: true },
+  { level: "H2", width: "65%", label: "Writing Strategy" },
+];
+
+const personaTexts = [
+  { font: "serif", text: "The empirical evidence suggests a paradigm shift in how search engines evaluate content quality..." },
+  { font: "sans", text: "Let's break it down: your content needs to hit three key metrics to rank. Here's what works →" },
+  { font: "serif", text: "В мире SEO-контента происходит тихая революция. Алгоритмы эволюционируют, и нам пора адаптироваться..." },
+  { font: "sans", text: "Короче говоря: если ваш текст не проходит AI-детектор, вы уже проигрываете. Вот как это исправить ↓" },
+];
+
 export function LandingBento() {
   const { t } = useI18n();
+  const [visibleTags, setVisibleTags] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [personaIdx, setPersonaIdx] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisibleTags(prev => {
+        const next = prev.map(i => (i + 1) % lsiTags.length);
+        return next;
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPersonaIdx(prev => (prev + 1) % personaTexts.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <section className="relative py-24 overflow-hidden">
-      <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full bg-[#8b5cf6]/5 blur-[180px]" />
+      <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full bg-primary/5 blur-[180px]" />
 
       <div className="container mx-auto px-4 max-w-6xl">
         <motion.div
@@ -40,15 +83,33 @@ export function LandingBento() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="group md:col-span-4 relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-6 sm:p-8 hover:border-[#8b5cf6]/20 hover:scale-[1.01] transition-all duration-500"
+            className="group md:col-span-4 relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-6 sm:p-8 hover:border-primary/20 hover:scale-[1.01] transition-all duration-500"
           >
-            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(500px circle at 50% 50%, rgba(139,92,246,0.06), transparent 70%)" }} />
+            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(500px circle at 50% 50%, hsl(270 60% 60% / 0.06), transparent 70%)" }} />
             <div className="relative z-10">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#8b5cf6]/10 mb-4">
-                <Search className="h-5 w-5 text-[#8b5cf6]" />
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 mb-4">
+                <Search className="h-5 w-5 text-primary" />
               </div>
               <h3 className="text-lg font-semibold mb-2">{t("lp.feat1Title")}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-6">{t("lp.bento1Desc")}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t("lp.bento1Desc")}</p>
+
+              {/* Animated LSI tags */}
+              <div className="flex flex-wrap gap-1.5 mb-5 min-h-[28px]">
+                <AnimatePresence mode="popLayout">
+                  {visibleTags.map(idx => (
+                    <motion.span
+                      key={`${idx}-${lsiTags[idx]}`}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.4 }}
+                      className="text-[10px] px-2.5 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary font-medium"
+                    >
+                      {lsiTags[idx]}
+                    </motion.span>
+                  ))}
+                </AnimatePresence>
+              </div>
 
               {/* Mini SERP table */}
               <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] overflow-hidden">
@@ -61,7 +122,7 @@ export function LandingBento() {
                   { pos: 3, url: "niche-expert.com", words: "1,956", lsi: "41" },
                 ].map((r, i) => (
                   <div key={i} className="grid grid-cols-4 gap-px text-[10px] px-3 py-1.5 border-b border-white/[0.02] last:border-0">
-                    <span className="text-[#8b5cf6] font-bold">{r.pos}</span>
+                    <span className="text-primary font-bold">{r.pos}</span>
                     <span className="text-muted-foreground truncate">{r.url}</span>
                     <span>{r.words}</span>
                     <span className="text-emerald-400">{r.lsi}</span>
@@ -77,19 +138,21 @@ export function LandingBento() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="group md:col-span-2 relative rounded-2xl border border-[#8b5cf6]/20 bg-[#8b5cf6]/[0.03] backdrop-blur-md p-6 hover:border-[#8b5cf6]/40 hover:scale-[1.01] transition-all duration-500 shadow-[0_0_30px_rgba(139,92,246,0.08)]"
+            className="group md:col-span-2 relative rounded-2xl border border-primary/20 bg-primary/[0.03] backdrop-blur-md p-6 hover:border-primary/40 hover:scale-[1.01] transition-all duration-500 shadow-[0_0_30px_hsl(270_60%_60%/0.08)]"
           >
+            {/* Glow behind chart */}
+            <div className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(200px circle at 50% 60%, hsl(270 60% 60% / 0.1), transparent 70%)" }} />
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
-                <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#8b5cf6]/10">
-                  <Radar className="h-4 w-4 text-[#8b5cf6]" />
+                <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+                  <Radar className="h-4 w-4 text-primary" />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b5cf6]">{t("lp.bentoKiller")}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{t("lp.bentoKiller")}</span>
               </div>
               <h3 className="text-lg font-semibold mb-1">AI Radar</h3>
               <p className="text-xs text-muted-foreground mb-4">{t("lp.bento2Desc")}</p>
 
-              {/* Pie chart */}
+              {/* Pie chart with tooltips */}
               <div className="h-[140px] -mx-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -107,6 +170,17 @@ export function LandingBento() {
                         <Cell key={index} fill={entry.color} />
                       ))}
                     </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: "#111",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: "8px",
+                        fontSize: "11px",
+                        padding: "6px 10px",
+                      }}
+                      formatter={(value: number, name: string) => [`${value}%`, name]}
+                      labelStyle={{ display: "none" }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -114,7 +188,7 @@ export function LandingBento() {
                 {somData.map((d, i) => (
                   <span key={i} className="text-[9px] flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: d.color }} />
-                    {d.name}
+                    {d.name} <span className="text-muted-foreground">{d.value}%</span>
                   </span>
                 ))}
               </div>
@@ -126,7 +200,7 @@ export function LandingBento() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.15 }}
             className="group md:col-span-2 relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-6 hover:border-emerald-500/20 hover:scale-[1.01] transition-all duration-500"
           >
             <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(300px circle at 50% 50%, rgba(16,185,129,0.06), transparent 70%)" }} />
@@ -166,13 +240,95 @@ export function LandingBento() {
             </div>
           </motion.div>
 
-          {/* Card 4: Factory - spans 4 */}
+          {/* Card 5: Outline Builder - spans 2 */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="group md:col-span-2 relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-6 hover:border-[#3b82f6]/20 hover:scale-[1.01] transition-all duration-500"
+          >
+            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(300px circle at 50% 50%, rgba(59,130,246,0.06), transparent 70%)" }} />
+            <div className="relative z-10">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#3b82f6]/10 mb-4">
+                <svg className="h-5 w-5 text-[#3b82f6]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="16" y2="12"/><line x1="4" y1="18" x2="12" y2="18"/></svg>
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Outline Builder</h3>
+              <p className="text-xs text-muted-foreground mb-4">{t("lp.bentoOutlineDesc")}</p>
+
+              {/* H2/H3 hierarchy visual */}
+              <div className="space-y-1.5">
+                {outlineItems.map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.4 + i * 0.08 }}
+                    className={`flex items-center gap-2 ${item.indent ? "ml-4" : ""}`}
+                  >
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                      item.level === "H2" 
+                        ? "bg-[#3b82f6]/20 text-[#3b82f6]" 
+                        : "bg-white/[0.06] text-muted-foreground"
+                    }`}>
+                      {item.level}
+                    </span>
+                    <div className="h-[3px] rounded-full bg-white/[0.06]" style={{ width: item.width }} />
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Card 6: Persona Engine - spans 2 */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.25 }}
+            className="group md:col-span-2 relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-6 hover:border-[#ec4899]/20 hover:scale-[1.01] transition-all duration-500"
+          >
+            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(300px circle at 50% 50%, rgba(236,72,153,0.06), transparent 70%)" }} />
+            <div className="relative z-10">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#ec4899]/10 mb-4">
+                <svg className="h-5 w-5 text-[#ec4899]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Persona Engine</h3>
+              <p className="text-xs text-muted-foreground mb-4">{t("lp.bentoPersonaDesc")}</p>
+
+              {/* Font-switching persona demo */}
+              <div className="rounded-lg border border-white/[0.04] bg-white/[0.01] p-3 min-h-[60px] relative overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={personaIdx}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.4 }}
+                    className="text-[11px] leading-relaxed text-muted-foreground"
+                    style={{ fontFamily: personaTexts[personaIdx].font === "serif" ? "Georgia, 'Times New Roman', serif" : "Inter, system-ui, sans-serif" }}
+                  >
+                    <span className={`inline-block mb-1 text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                      personaTexts[personaIdx].font === "serif" ? "bg-[#ec4899]/10 text-[#ec4899]" : "bg-[#3b82f6]/10 text-[#3b82f6]"
+                    }`}>
+                      {personaTexts[personaIdx].font === "serif" ? "Academic" : "Casual"}
+                    </span>
+                    <br />
+                    {personaTexts[personaIdx].text}
+                  </motion.p>
+                </AnimatePresence>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Card 4: Factory - spans 4 (was 4, now 2) */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.3 }}
-            className="group md:col-span-4 relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-6 sm:p-8 hover:border-[#f59e0b]/20 hover:scale-[1.01] transition-all duration-500"
+            className="group md:col-span-6 relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-6 sm:p-8 hover:border-[#f59e0b]/20 hover:scale-[1.01] transition-all duration-500"
           >
             <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(500px circle at 50% 50%, rgba(245,158,11,0.04), transparent 70%)" }} />
             <div className="relative z-10 flex flex-col sm:flex-row gap-6 items-start">

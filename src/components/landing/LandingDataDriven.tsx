@@ -20,6 +20,8 @@ export function LandingDataDriven() {
   return (
     <section className="relative py-24 overflow-hidden">
       <div className="pointer-events-none absolute top-1/2 right-0 w-[500px] h-[500px] rounded-full bg-[#3b82f6]/5 blur-[180px]" />
+      {/* Purple glow behind chart area */}
+      <div className="pointer-events-none absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-primary/5 blur-[150px]" />
 
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
