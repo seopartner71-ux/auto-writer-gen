@@ -158,6 +158,7 @@ export default function RadarPage() {
     model: string; text: string; date: string;
     brand_mentioned: boolean; domain_linked: boolean;
     matched_snippets: string[]; status: string; keyword: string;
+    sentiment?: string;
   } | null>(null);
   const [responseOpen, setResponseOpen] = useState(false);
   const responseRef = useRef<HTMLDivElement>(null);
@@ -277,9 +278,10 @@ export default function RadarPage() {
         }
       });
       const capturedCount = latest.filter((r: any) => r.status === "captured").length;
+      const fullCaptureCount = latest.filter((r: any) => r.is_brand_found && r.is_domain_found).length;
       const prevCapturedCount = Object.values(prevByModel).filter((r: any) => r.status === "captured").length;
       const trend = capturedCount > prevCapturedCount ? "up" : capturedCount < prevCapturedCount ? "down" : "stable";
-      const mainStatus = capturedCount > 0 ? "captured" : latest.some((r: any) => r.status === "displaced") ? "displaced" : "opportunity";
+      const mainStatus = fullCaptureCount > 0 ? "full_capture" : capturedCount > 0 ? "captured" : latest.some((r: any) => r.status === "displaced") ? "displaced" : "opportunity";
       return { ...kw, latestResults: latest, mainStatus, trend };
     });
   }, [keywords, results]);
@@ -418,6 +420,7 @@ export default function RadarPage() {
 
   const statusLabel = (status: string) => {
     const map: Record<string, Record<string, string>> = {
+      full_capture: { ru: "Полный захват", en: "Full Capture" },
       captured: { ru: "Захвачено", en: "Captured" },
       displaced: { ru: "Вытеснено", en: "Displaced" },
       opportunity: { ru: "Возможность", en: "Opportunity" },
@@ -425,7 +428,25 @@ export default function RadarPage() {
     return map[status]?.[projectLang] || status;
   };
 
+  const sentimentLabel = (s: string) => {
+    const map: Record<string, Record<string, string>> = {
+      positive: { ru: "Позитивно", en: "Positive" },
+      neutral: { ru: "Нейтрально", en: "Neutral" },
+      negative: { ru: "Негативно", en: "Negative" },
+      not_found: { ru: "Не найден", en: "Not Found" },
+    };
+    return map[s]?.[projectLang] || s;
+  };
+
+  const sentimentIcon = (s: string) => {
+    if (s === "positive") return "✅";
+    if (s === "negative") return "⚠️";
+    if (s === "neutral") return "➖";
+    return "❌";
+  };
+
   const STATUS_CONFIG: Record<string, { color: string; icon: any }> = {
+    full_capture: { color: "bg-green-500/20 text-green-400 border-green-500/30", icon: Shield },
     captured: { color: "bg-green-500/20 text-green-400 border-green-500/30", icon: Shield },
     displaced: { color: "bg-destructive/20 text-destructive border-destructive/30", icon: AlertTriangle },
     opportunity: { color: "bg-muted text-muted-foreground border-border", icon: Sparkles },
@@ -737,13 +758,18 @@ export default function RadarPage() {
                           <div className="flex items-center gap-2 mt-1">
                             {kw.latestResults.map((r: any) => {
                               const sc = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG];
+                              const isBrand = r.is_brand_found || r.brand_mentioned;
+                              const isDomain = r.is_domain_found || r.domain_linked;
                               return (
                                 <button key={r.model} onClick={() => setViewResponseData({
                                   model: MODEL_LABELS[r.model] || r.model, text: r.ai_response_text || "",
-                                  date: new Date(r.checked_at).toLocaleString(), brand_mentioned: r.brand_mentioned || false,
-                                  domain_linked: r.domain_linked || false, matched_snippets: r.matched_snippets || [],
+                                  date: new Date(r.checked_at).toLocaleString(), brand_mentioned: isBrand,
+                                  domain_linked: isDomain, matched_snippets: r.matched_snippets || [],
                                   status: r.status || "opportunity", keyword: kw.keyword,
-                                })} className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 transition-opacity ${sc?.color || ""}`}>
+                                  sentiment: r.sentiment || "unknown",
+                                })} className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${sc?.color || ""}`}>
+                                  {isBrand && <span title={projectLang === "ru" ? "Бренд найден" : "Brand found"}>🏷️</span>}
+                                  {isDomain && <span title={projectLang === "ru" ? "Домен найден" : "Domain found"}>🌐</span>}
                                   {MODEL_LABELS[r.model] || r.model}
                                 </button>
                               );
@@ -824,32 +850,45 @@ export default function RadarPage() {
           </DialogHeader>
 
           {(() => {
-            const text = (viewResponseData?.text || "").toLowerCase();
-            const brandName = activeProject?.brand_name || "";
-            const domain = activeProject?.domain || "";
-            const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
-            const domainBase = cleanDomain.replace(/\.[a-z]{2,}$/, "");
-            const variants: string[] = [];
-            if (brandName) variants.push(brandName.toLowerCase());
-            if (domainBase) variants.push(domainBase);
-            if (domainBase.length >= 4) { for (let i = 2; i <= domainBase.length - 2; i++) variants.push(domainBase.slice(0, i) + " " + domainBase.slice(i)); }
-            const actualBrand = variants.some(v => text.includes(v));
-            const actualDomain = text.includes(cleanDomain);
+            const actualBrand = viewResponseData?.brand_mentioned || false;
+            const actualDomain = viewResponseData?.domain_linked || false;
+            const sentiment = viewResponseData?.sentiment || "unknown";
+            const isFullCapture = actualBrand && actualDomain;
             return (
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div className={`p-3 rounded-lg border ${actualBrand ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    {actualBrand ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                    <span className="text-sm font-medium">{t("radar.brand")}</span>
+              <div className="space-y-3 mt-3">
+                {/* Full Capture banner */}
+                {isFullCapture && (
+                  <div className="p-3 rounded-lg border bg-green-500/10 border-green-500/30 text-center">
+                    <span className="text-sm font-semibold text-green-400">🎯 {projectLang === "ru" ? "ПОЛНЫЙ ЗАХВАТ" : "FULL CAPTURE"}</span>
+                    <p className="text-xs text-muted-foreground mt-1">{projectLang === "ru" ? "Бренд и домен найдены в ответе" : "Both brand and domain found in response"}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{actualBrand ? t("radar.mentioned") : t("radar.notMentioned")}</p>
-                </div>
-                <div className={`p-3 rounded-lg border ${actualDomain ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    {actualDomain ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                    <span className="text-sm font-medium">{t("radar.domainLabel")}</span>
+                )}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className={`p-3 rounded-lg border ${actualBrand ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{actualBrand ? "🏷️" : "❌"}</span>
+                      <span className="text-sm font-medium">{t("radar.brand")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{actualBrand ? t("radar.mentioned") : t("radar.notMentioned")}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{actualDomain ? t("radar.linkFound") : t("radar.linkNotFound")}</p>
+                  <div className={`p-3 rounded-lg border ${actualDomain ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{actualDomain ? "🌐" : "❌"}</span>
+                      <span className="text-sm font-medium">{t("radar.domainLabel")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{actualDomain ? t("radar.linkFound") : t("radar.linkNotFound")}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg border ${
+                    sentiment === "positive" ? "bg-green-500/10 border-green-500/30" :
+                    sentiment === "negative" ? "bg-red-500/10 border-red-500/30" :
+                    "bg-muted/30 border-border"
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{sentimentIcon(sentiment)}</span>
+                      <span className="text-sm font-medium">{projectLang === "ru" ? "Тональность" : "Sentiment"}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{sentimentLabel(sentiment)}</p>
+                  </div>
                 </div>
               </div>
             );

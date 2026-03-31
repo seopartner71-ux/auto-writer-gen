@@ -868,9 +868,12 @@ export type Database = {
           competitor_domains: string[] | null
           domain_linked: boolean | null
           id: string
+          is_brand_found: boolean | null
+          is_domain_found: boolean | null
           keyword_id: string
           matched_snippets: string[] | null
           model: string
+          sentiment: string | null
           status: string
           user_id: string
         }
@@ -881,9 +884,12 @@ export type Database = {
           competitor_domains?: string[] | null
           domain_linked?: boolean | null
           id?: string
+          is_brand_found?: boolean | null
+          is_domain_found?: boolean | null
           keyword_id: string
           matched_snippets?: string[] | null
           model: string
+          sentiment?: string | null
           status?: string
           user_id: string
         }
@@ -894,9 +900,12 @@ export type Database = {
           competitor_domains?: string[] | null
           domain_linked?: boolean | null
           id?: string
+          is_brand_found?: boolean | null
+          is_domain_found?: boolean | null
           keyword_id?: string
           matched_snippets?: string[] | null
           model?: string
+          sentiment?: string | null
           status?: string
           user_id?: string
         }
