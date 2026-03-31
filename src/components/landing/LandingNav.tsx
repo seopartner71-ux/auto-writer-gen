@@ -7,7 +7,7 @@ export function LandingNav() {
   const { lang, setLang, t } = useI18n();
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#050505]/80 backdrop-blur-xl">
       <div className="container mx-auto flex items-center justify-between px-4 h-14">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
           <Hexagon className="h-5 w-5 text-primary" />
@@ -15,27 +15,22 @@ export function LandingNav() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Language switcher */}
-          <div className="flex items-center rounded-full border border-border bg-muted p-0.5">
-            <button
-              onClick={() => setLang("en")}
-              className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
-                lang === "en"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              EN
-            </button>
+          <div className="flex items-center rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5">
             <button
               onClick={() => setLang("ru")}
               className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
-                lang === "ru"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                lang === "ru" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               RU
+            </button>
+            <button
+              onClick={() => setLang("en")}
+              className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                lang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              EN
             </button>
           </div>
 
@@ -47,7 +42,7 @@ export function LandingNav() {
           </button>
           <button
             onClick={() => navigate("/register")}
-            className="text-sm font-semibold rounded-full bg-primary px-5 py-1.5 text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="text-sm font-semibold rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] px-5 py-1.5 text-white hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all"
           >
             {t("landing.getStarted")}
           </button>
