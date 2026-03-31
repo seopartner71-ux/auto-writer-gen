@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
   CheckCircle2, Circle, Shield, Activity, Zap, Brain, AlertTriangle,
   Plus, Search, ChevronDown, ChevronUp, Eye, Wrench, Loader2,
