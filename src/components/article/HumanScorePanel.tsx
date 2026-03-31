@@ -89,6 +89,8 @@ CORE RULES:
 
 6. FAQ REDESIGN: Reformat FAQ into 'Quick-fire troubleshooting'. Tone like an expert answering a friend.
 
+7. DASH RESTRICTION: NEVER use em-dash (-) or en-dash (-). Use ONLY the standard hyphen/minus sign (-) for all punctuation, lists, and dialogues. This is a technical requirement for CMS compatibility.
+
 FINAL GOAL: Output must look typed by a human in one go, with all natural imperfections, slang, and unique rhythm that AI cannot predict. 0% AI Score is the only acceptable result.`,
   };
 }
