@@ -172,7 +172,7 @@ export default function RadarPage() {
   });
 
   const activeProject = projects.find((p: any) => p.id === selectedProjectId) || projects[0];
-  const projectLang = (activeProject as any)?.language || "en";
+  const projectLang = lang;
 
   const { data: keywords = [], refetch: refetchKeywords } = useQuery({
     queryKey: ["radar-keywords", activeProject?.id],
