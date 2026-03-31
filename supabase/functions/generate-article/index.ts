@@ -83,6 +83,9 @@ function generateStealthPrompt(input: StealthPromptInput): { system: string; use
     if (authorProfile.stop_words?.length) parts.push(`ЗАПРЕЩЁННЫЕ СЛОВА (никогда не используй): ${authorProfile.stop_words.join(", ")}`);
     if (authorProfile.system_prompt_override) parts.push(`ДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ АВТОРА: ${authorProfile.system_prompt_override}`);
 
+    if (!isRussian) {
+      parts.push(`IMPORTANT: The author persona above may be described in Russian, but you MUST write the article in ENGLISH. Apply the author's tone, style, and voice in English writing.`);
+    }
     blockA = `=== БЛОК А: КОНТЕКСТ АВТОРА (критически важно - строго следуй) ===\n${parts.join("\n")}\n=== КОНЕЦ БЛОКА А ===`;
   }
 
