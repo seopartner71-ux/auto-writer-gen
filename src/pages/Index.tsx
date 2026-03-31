@@ -44,7 +44,7 @@ export default function Index() {
         <LandingNav />
       </div>
 
-      <div className="relative z-[2] snap-y snap-mandatory h-screen overflow-y-auto scroll-smooth" style={{ scrollbarWidth: "none" }}>
+      <div className="relative z-[2]">
         <SectionHero />
         <SectionResearch />
         <SectionPersona />
@@ -54,6 +54,9 @@ export default function Index() {
         <SectionPricing />
         <LandingFooter />
       </div>
+
+      <CookieConsent />
+      <ScrollToTop />
     </div>
   );
 }
