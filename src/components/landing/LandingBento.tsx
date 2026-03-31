@@ -59,7 +59,7 @@ export function LandingBento() {
   }, []);
 
   return (
-    <section className="relative py-24 overflow-hidden">
+    <section className="relative py-32 overflow-hidden">
       <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full bg-primary/5 blur-[180px]" />
 
       <div className="container mx-auto px-4 max-w-6xl">
@@ -67,12 +67,12 @@ export function LandingBento() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-16"
+          className="text-center mb-20"
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-display">
             {t("lp.bentoTitle")}
           </h2>
-          <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
+          <p className="mt-5 text-[#9ca3af] max-w-xl mx-auto text-[15px] leading-[1.6]">
             {t("lp.bentoSub")}
           </p>
         </motion.div>

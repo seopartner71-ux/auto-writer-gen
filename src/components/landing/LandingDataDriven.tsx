@@ -18,27 +18,27 @@ export function LandingDataDriven() {
   const { t } = useI18n();
 
   return (
-    <section className="relative py-24 overflow-hidden">
+    <section className="relative py-32 overflow-hidden">
       <div className="pointer-events-none absolute top-1/2 right-0 w-[500px] h-[500px] rounded-full bg-[#3b82f6]/5 blur-[180px]" />
       {/* Purple glow behind chart area */}
       <div className="pointer-events-none absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-primary/5 blur-[150px]" />
 
       <div className="container mx-auto px-4 max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#3b82f6]/30 bg-[#3b82f6]/5 px-4 py-1.5 mb-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#3b82f6]/30 bg-[#3b82f6]/5 px-4 py-1.5 mb-8">
               <TrendingUp className="h-3.5 w-3.5 text-[#3b82f6]" />
-              <span className="text-xs font-medium text-[#3b82f6]">Data-Driven</span>
+              <span className="text-xs font-tech font-medium text-[#3b82f6] uppercase tracking-wider">Data-Driven</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            <h2 className="text-3xl sm:text-4xl font-black tracking-display mb-5">
               {t("lp.dataTitle")}
             </h2>
-            <p className="text-muted-foreground leading-relaxed mb-8">
+            <p className="text-[#9ca3af] text-[15px] leading-[1.6] mb-10">
               {t("lp.dataDesc")}
             </p>
 
