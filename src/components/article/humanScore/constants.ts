@@ -6,6 +6,10 @@ export const AI_STOP_WORDS_RU = [
   "на сегодняшний день", "комплексный подход", "таким образом",
   "в рамках", "обеспечивает", "позволяет", "представляет собой",
   "играет важную роль", "оказывает влияние", "в целом",
+  "рассмотрим подробнее", "прогресс не стоит на месте",
+  "давайте посмотрим правде в глаза", "не секрет, что", "как известно",
+  "нельзя не упомянуть", "всё больше и больше", "обусловлено тем",
+  "необходимо подчеркнуть",
 ];
 
 export const AI_STOP_WORDS_EN = [
@@ -14,6 +18,9 @@ export const AI_STOP_WORDS_EN = [
   "comprehensive", "leverage", "streamline", "utilize",
   "in today's world", "it is essential", "plays a crucial role",
   "in order to", "a wide range of", "at the end of the day",
+  "delve", "uncover", "meticulously", "comprehensive guide",
+  "it goes without saying", "it's no secret that",
+  "plays an important role",
 ];
 
 export const ALL_AI_STOP_WORDS = [...AI_STOP_WORDS_RU, ...AI_STOP_WORDS_EN];
