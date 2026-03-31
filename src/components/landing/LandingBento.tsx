@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Radar, ShieldCheck, Factory, Zap } from "lucide-react";
+import { Search, Radar, ShieldCheck, Factory, Zap, Globe } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useI18n } from "@/shared/hooks/useI18n";
 
