@@ -351,7 +351,7 @@ export default function ArticlesPage() {
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
-  const sanitizeDashes = useCallback((text: string) => text.replace(/[—–]/g, '-'), []);
+  const sanitizeContent = useCallback((text: string) => text.replace(/[—–]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
   const [content, setContentRaw] = useState("");
   const setContent = useCallback((val: string | ((prev: string) => string)) => {
     setContentRaw(prev => {
