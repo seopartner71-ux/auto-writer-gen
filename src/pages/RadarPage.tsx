@@ -850,32 +850,45 @@ export default function RadarPage() {
           </DialogHeader>
 
           {(() => {
-            const text = (viewResponseData?.text || "").toLowerCase();
-            const brandName = activeProject?.brand_name || "";
-            const domain = activeProject?.domain || "";
-            const cleanDomain = domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
-            const domainBase = cleanDomain.replace(/\.[a-z]{2,}$/, "");
-            const variants: string[] = [];
-            if (brandName) variants.push(brandName.toLowerCase());
-            if (domainBase) variants.push(domainBase);
-            if (domainBase.length >= 4) { for (let i = 2; i <= domainBase.length - 2; i++) variants.push(domainBase.slice(0, i) + " " + domainBase.slice(i)); }
-            const actualBrand = variants.some(v => text.includes(v));
-            const actualDomain = text.includes(cleanDomain);
+            const actualBrand = viewResponseData?.brand_mentioned || false;
+            const actualDomain = viewResponseData?.domain_linked || false;
+            const sentiment = viewResponseData?.sentiment || "unknown";
+            const isFullCapture = actualBrand && actualDomain;
             return (
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div className={`p-3 rounded-lg border ${actualBrand ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    {actualBrand ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                    <span className="text-sm font-medium">{t("radar.brand")}</span>
+              <div className="space-y-3 mt-3">
+                {/* Full Capture banner */}
+                {isFullCapture && (
+                  <div className="p-3 rounded-lg border bg-green-500/10 border-green-500/30 text-center">
+                    <span className="text-sm font-semibold text-green-400">🎯 {projectLang === "ru" ? "ПОЛНЫЙ ЗАХВАТ" : "FULL CAPTURE"}</span>
+                    <p className="text-xs text-muted-foreground mt-1">{projectLang === "ru" ? "Бренд и домен найдены в ответе" : "Both brand and domain found in response"}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{actualBrand ? t("radar.mentioned") : t("radar.notMentioned")}</p>
-                </div>
-                <div className={`p-3 rounded-lg border ${actualDomain ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    {actualDomain ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
-                    <span className="text-sm font-medium">{t("radar.domainLabel")}</span>
+                )}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className={`p-3 rounded-lg border ${actualBrand ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{actualBrand ? "🏷️" : "❌"}</span>
+                      <span className="text-sm font-medium">{t("radar.brand")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{actualBrand ? t("radar.mentioned") : t("radar.notMentioned")}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{actualDomain ? t("radar.linkFound") : t("radar.linkNotFound")}</p>
+                  <div className={`p-3 rounded-lg border ${actualDomain ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{actualDomain ? "🌐" : "❌"}</span>
+                      <span className="text-sm font-medium">{t("radar.domainLabel")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{actualDomain ? t("radar.linkFound") : t("radar.linkNotFound")}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg border ${
+                    sentiment === "positive" ? "bg-green-500/10 border-green-500/30" :
+                    sentiment === "negative" ? "bg-red-500/10 border-red-500/30" :
+                    "bg-muted/30 border-border"
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{sentimentIcon(sentiment)}</span>
+                      <span className="text-sm font-medium">{projectLang === "ru" ? "Тональность" : "Sentiment"}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{sentimentLabel(sentiment)}</p>
+                  </div>
                 </div>
               </div>
             );
