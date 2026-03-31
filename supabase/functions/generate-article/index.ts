@@ -46,6 +46,7 @@ interface StealthPromptInput {
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
   const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable } = input;
   const isRussian = /[а-яё]/i.test(keyword.seed_keyword);
+  const targetLanguage = isRussian ? "ru" : "en";
 
   // ═══ BLOCK A: Author Context ═══
   let blockA = "";
