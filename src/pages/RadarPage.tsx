@@ -418,6 +418,7 @@ export default function RadarPage() {
 
   const statusLabel = (status: string) => {
     const map: Record<string, Record<string, string>> = {
+      full_capture: { ru: "Полный захват", en: "Full Capture" },
       captured: { ru: "Захвачено", en: "Captured" },
       displaced: { ru: "Вытеснено", en: "Displaced" },
       opportunity: { ru: "Возможность", en: "Opportunity" },
@@ -425,7 +426,25 @@ export default function RadarPage() {
     return map[status]?.[projectLang] || status;
   };
 
+  const sentimentLabel = (s: string) => {
+    const map: Record<string, Record<string, string>> = {
+      positive: { ru: "Позитивно", en: "Positive" },
+      neutral: { ru: "Нейтрально", en: "Neutral" },
+      negative: { ru: "Негативно", en: "Negative" },
+      not_found: { ru: "Не найден", en: "Not Found" },
+    };
+    return map[s]?.[projectLang] || s;
+  };
+
+  const sentimentIcon = (s: string) => {
+    if (s === "positive") return "✅";
+    if (s === "negative") return "⚠️";
+    if (s === "neutral") return "➖";
+    return "❌";
+  };
+
   const STATUS_CONFIG: Record<string, { color: string; icon: any }> = {
+    full_capture: { color: "bg-green-500/20 text-green-400 border-green-500/30", icon: Shield },
     captured: { color: "bg-green-500/20 text-green-400 border-green-500/30", icon: Shield },
     displaced: { color: "bg-destructive/20 text-destructive border-destructive/30", icon: AlertTriangle },
     opportunity: { color: "bg-muted text-muted-foreground border-border", icon: Sparkles },
