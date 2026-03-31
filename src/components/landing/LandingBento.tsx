@@ -322,7 +322,7 @@ export function LandingBento() {
             </div>
           </motion.div>
 
-          {/* Card 4: Factory - spans 4 (was 4, now 2) */}
+          {/* Card 4: Factory - spans 6 */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -340,31 +340,47 @@ export function LandingBento() {
                 <p className="text-sm text-muted-foreground leading-relaxed">{t("lp.bento4Desc")}</p>
               </div>
 
-              {/* Stacked cards animation */}
-              <div className="relative w-40 h-28 shrink-0">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20, rotate: 0 }}
-                    whileInView={{ opacity: 1 - i * 0.15, y: -i * 6, rotate: -i * 2 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.5 + i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] as const }}
-                    className="absolute inset-0 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3"
-                    style={{ zIndex: 5 - i }}
-                  >
-                    {i === 0 && (
-                      <div className="space-y-1.5">
-                        <div className="h-1.5 rounded-full bg-[#f59e0b]/30 w-[60%]" />
-                        <div className="h-1 rounded-full bg-white/[0.06] w-full" />
-                        <div className="h-1 rounded-full bg-white/[0.06] w-[80%]" />
-                        <div className="flex items-center gap-1 mt-2">
-                          <Zap className="h-2.5 w-2.5 text-[#f59e0b]" />
-                          <span className="text-[8px] text-[#f59e0b]">100+ {t("lp.bentoArticles")}</span>
+              {/* Progress + stacked cards */}
+              <div className="flex items-center gap-6 shrink-0">
+                {/* Bulk progress indicator */}
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="relative w-16 h-16">
+                    <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+                      <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
+                      <circle cx="32" cy="32" r="26" fill="none" stroke="#f59e0b" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 26}`} strokeDashoffset={`${2 * Math.PI * 26 * (1 - 0.92)}`} />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-sm font-black text-[#f59e0b]">92%</span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-tech text-[#f59e0b] uppercase tracking-wider">{t("lp.bentoBulk")}</span>
+                </div>
+
+                <div className="relative w-40 h-28">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 20, rotate: 0 }}
+                      whileInView={{ opacity: 1 - i * 0.15, y: -i * 6, rotate: -i * 2 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.5 + i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] as const }}
+                      className="absolute inset-0 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3"
+                      style={{ zIndex: 5 - i }}
+                    >
+                      {i === 0 && (
+                        <div className="space-y-1.5">
+                          <div className="h-1.5 rounded-full bg-[#f59e0b]/30 w-[60%]" />
+                          <div className="h-1 rounded-full bg-white/[0.06] w-full" />
+                          <div className="h-1 rounded-full bg-white/[0.06] w-[80%]" />
+                          <div className="flex items-center gap-1 mt-2">
+                            <Zap className="h-2.5 w-2.5 text-[#f59e0b]" />
+                            <span className="text-[8px] text-[#f59e0b]">100+ {t("lp.bentoArticles")}</span>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>
