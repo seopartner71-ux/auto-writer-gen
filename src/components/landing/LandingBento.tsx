@@ -297,6 +297,23 @@ export function LandingBento() {
               <h3 className="text-lg font-semibold mb-2">Persona Engine</h3>
               <p className="text-xs text-muted-foreground mb-4">{t("lp.bentoPersonaDesc")}</p>
 
+              {/* Persona micro-selector */}
+              <div className="flex gap-1.5 mb-3">
+                {personaTexts.map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPersonaIdx(i)}
+                    className={`text-[9px] font-tech px-2 py-1 rounded-full border transition-all ${
+                      personaIdx === i
+                        ? "border-[#ec4899]/40 bg-[#ec4899]/10 text-[#ec4899]"
+                        : "border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/[0.12]"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Font-switching persona demo */}
               <div className="rounded-lg border border-white/[0.04] bg-white/[0.01] p-3 min-h-[60px] relative overflow-hidden">
                 <AnimatePresence mode="wait">
@@ -309,12 +326,6 @@ export function LandingBento() {
                     className="text-[11px] leading-relaxed text-muted-foreground"
                     style={{ fontFamily: personaTexts[personaIdx].font === "serif" ? "Georgia, 'Times New Roman', serif" : "Inter, system-ui, sans-serif" }}
                   >
-                    <span className={`inline-block mb-1 text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                      personaTexts[personaIdx].font === "serif" ? "bg-[#ec4899]/10 text-[#ec4899]" : "bg-[#3b82f6]/10 text-[#3b82f6]"
-                    }`}>
-                      {personaTexts[personaIdx].font === "serif" ? "Academic" : "Casual"}
-                    </span>
-                    <br />
                     {personaTexts[personaIdx].text}
                   </motion.p>
                 </AnimatePresence>
