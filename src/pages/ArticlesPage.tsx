@@ -1548,6 +1548,12 @@ export default function ArticlesPage() {
                 content={content}
                 lsiKeywords={lsiKeywords}
                 isFixing={fixingIssue}
+                personaStyle={(() => {
+                  if (!selectedAuthorId || selectedAuthorId === "none") return undefined;
+                  const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
+                  if (!author) return undefined;
+                  return `${author.name}${author.voice_tone ? ': ' + author.voice_tone : ''}${author.description ? ' — ' + author.description : ''}`;
+                })()}
                 onFixIssue={async (issueKey, instruction) => {
                   if (!selectedKeywordId || !content.trim()) {
                     toast.error("No content to fix");
