@@ -112,7 +112,7 @@ export function SectionFactory() {
   }, []);
 
   return (
-    <section ref={ref} className="relative min-h-screen flex items-center justify-center snap-start overflow-hidden">
+    <section ref={ref} className="relative py-32 flex items-center justify-center overflow-hidden">
       <div className="pointer-events-none absolute top-1/2 right-[20%] -translate-y-1/2 w-[600px] h-[500px] rounded-full bg-[#f59e0b]/[0.04] blur-[220px]" />
       <div className="pointer-events-none absolute bottom-[20%] left-[10%] w-[400px] h-[400px] rounded-full bg-primary/[0.03] blur-[200px]" />
 

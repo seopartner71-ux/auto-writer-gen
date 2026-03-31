@@ -124,7 +124,7 @@ export function SectionDeepDive() {
                 <Layers className="h-3.5 w-3.5 text-[#f59e0b]" />
                 <span className="text-[10px] font-tech font-medium text-[#f59e0b] uppercase tracking-widest">Factory</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(245,158,11,0.08)" }}>
                 {t("deep.factoryH1")}{" "}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#f59e0b] to-[#ef4444]">{t("deep.factoryH2")}</span>
               </h2>

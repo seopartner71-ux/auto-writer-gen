@@ -7,6 +7,8 @@ import { SectionFactory } from "@/components/landing/SectionFactory";
 import { SectionPricing } from "@/components/landing/SectionPricing";
 import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
 import { LandingFooter } from "@/components/landing/LandingFooter";
+import { CookieConsent } from "@/components/landing/CookieConsent";
+import { ScrollToTop } from "@/components/landing/ScrollToTop";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useEffect } from "react";
 

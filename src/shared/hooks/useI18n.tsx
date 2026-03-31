@@ -1045,6 +1045,18 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.factArt6": { ru: "Советы по страхованию", en: "Home Insurance Tips" },
   "lp.factArt7": { ru: "Гайд по AI-текстам", en: "AI Writing Guide" },
   "lp.factArt8": { ru: "Стратегия цен SaaS", en: "SaaS Pricing Strategy" },
+
+  // Cookie consent
+  "cookie.text": { ru: "Мы используем файлы cookie для улучшения работы платформы.", en: "We use cookies to improve the platform experience." },
+  "cookie.accept": { ru: "Принять", en: "Accept" },
+
+  // Expert Insight blocks (updated)
+  "deep.insightStealthH": { ru: "Технология невидимости", en: "Invisibility Technology" },
+  "deep.insightStealthP": { ru: "Мы анализируем структуру предложений и предсказуемость слов. Наш алгоритм ломает AI-паттерны, делая текст неотличимым от экспертной колонки.", en: "We analyze sentence structure and word predictability. Our algorithm breaks AI patterns, making text indistinguishable from an expert column." },
+  "deep.insightGeoH": { ru: "Захват выдачи нейросетей", en: "Capturing AI search results" },
+  "deep.insightGeoP": { ru: "Google SGE и Perplexity меняют правила. Мы проектируем контент так, чтобы ИИ цитировал именно вас, превращая статьи в базу знаний для LLM-моделей.", en: "Google SGE and Perplexity are changing the rules. We engineer content so AI cites you specifically, turning articles into a knowledge base for LLM models." },
+  "deep.insightFactoryH": { ru: "Масштабируйте экспертизу", en: "Scale Your Expertise" },
+  "deep.insightFactoryP": { ru: "Создавайте 100+ статей за цикл. Модуль Factory сохраняет уникальный голос автора (Persona Engine), обеспечивая массовость без потери качества.", en: "Create 100+ articles per cycle. The Factory module preserves the author's unique voice (Persona Engine), ensuring scale without sacrificing quality." },
 };
 
 interface I18nContextValue {

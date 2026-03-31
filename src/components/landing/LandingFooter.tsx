@@ -24,7 +24,7 @@ export function LandingFooter() {
   ];
 
   return (
-    <footer className="relative border-t border-primary/20 bg-[#050505]/90 backdrop-blur-2xl snap-start"
+    <footer className="relative border-t border-primary/20 bg-[#050505]/90 backdrop-blur-2xl"
       style={{ boxShadow: "0 -1px 40px rgba(139,92,246,0.06)" }}>
       <div className="container mx-auto px-4 py-14 max-w-6xl">
         <motion.div
