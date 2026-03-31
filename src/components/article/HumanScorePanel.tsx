@@ -104,7 +104,7 @@ function getAiSafetyColor(score: number, lang: "ru" | "en") {
   return { text: "text-red-500", bg: "bg-red-500", label: labels.highRisk };
 }
 
-export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, onFixIssue, isFixing }: HumanScorePanelProps) {
+export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, onFixIssue, isFixing, personaStyle }: HumanScorePanelProps) {
   const [customKeywords, setCustomKeywords] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState("");
   const [showStopWords, setShowStopWords] = useState(false);
@@ -112,7 +112,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
 
   const contentLang = useMemo(() => detectContentLanguage(content), [content]);
   const labels = useMemo(() => getLocalizedLabels(contentLang), [contentLang]);
-  const FIX_INSTRUCTIONS = useMemo(() => getFixInstructions(contentLang), [contentLang]);
+  const FIX_INSTRUCTIONS = useMemo(() => getFixInstructions(contentLang, personaStyle), [contentLang, personaStyle]);
 
   const FLAG_TO_FIX_KEY: Record<string, string> = useMemo(() => ({
     [labels.authorVoice]: "first-person",
