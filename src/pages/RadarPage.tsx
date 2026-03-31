@@ -480,25 +480,40 @@ export default function RadarPage() {
             </Button>
           ))}
           {activeProject && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive gap-1">
-                  <Trash2 className="h-3 w-3" />{t("radar.deleteProject")}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t("radar.deleteProject")} «{activeProject.brand_name}»?</AlertDialogTitle>
-                  <AlertDialogDescription>{t("radar.deleteProjectConfirm")}</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deleteProject.mutate(activeProject.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    {deleteProject.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t("common.delete")}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <Select value={projectLang} onValueChange={async (v) => {
+                await supabase.from("radar_projects").update({ language: v } as any).eq("id", activeProject.id);
+                queryClient.invalidateQueries({ queryKey: ["radar-projects"] });
+                toast.success(v === "ru" ? "Язык проекта: Русский" : "Project language: English");
+              }}>
+                <SelectTrigger className="w-[90px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ru">🇷🇺 RU</SelectItem>
+                  <SelectItem value="en">🇬🇧 EN</SelectItem>
+                </SelectContent>
+              </Select>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive gap-1">
+                    <Trash2 className="h-3 w-3" />{t("radar.deleteProject")}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t("radar.deleteProject")} «{activeProject.brand_name}»?</AlertDialogTitle>
+                    <AlertDialogDescription>{t("radar.deleteProjectConfirm")}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deleteProject.mutate(activeProject.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      {deleteProject.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t("common.delete")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
         </div>
       )}
