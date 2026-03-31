@@ -78,7 +78,7 @@ CORE RULES:
 
 2. LINGUISTIC CHAOS (Burstiness): Break GPT's rhythmic symmetry.
    - Rule: One very short sentence (3-5 words) every 3-4 sentences.
-   - Use dashes (—), colons (:), and parenthetical asides (e.g., "believe me, I've seen it", "though who knows") to mimic human thought.
+   - Use colons (:) and parenthetical asides (e.g., "believe me, I've seen it", "though who knows") to mimic human thought.
 
 3. CLICHÉ EXTERMINATOR: Delete "In today's world", "Unlock", "Delve", "Comprehensive guide", "Furthermore", "It's important to note", "Meticulously".
    Replace with: "the kicker", "let's be real", "game-changer", "no-brainer", "here's the deal", "bottom line".
