@@ -351,7 +351,14 @@ export default function ArticlesPage() {
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
-  const [content, setContent] = useState("");
+  const sanitizeDashes = useCallback((text: string) => text.replace(/[—–]/g, '-'), []);
+  const [content, setContentRaw] = useState("");
+  const setContent = useCallback((val: string | ((prev: string) => string)) => {
+    setContentRaw(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return sanitizeDashes(next);
+    });
+  }, [sanitizeDashes]);
   const [title, setTitle] = useState("");
   const [h1, setH1] = useState("");
   const [metaDescription, setMetaDescription] = useState("");

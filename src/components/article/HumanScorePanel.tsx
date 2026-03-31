@@ -47,18 +47,20 @@ function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Record<st
 
 2. ЛИНГВИСТИЧЕСКИЙ ХАОС (Burstiness): Сломай ритмическую симметрию GPT.
    - Правило: Одно очень короткое предложение (3-5 слов) каждые 3-4 предложения.
-   - Используй тире (—), двоеточия (:) и ремарки в скобках (например: 'поверьте, я это видел', 'сам долго не верил') для имитации человеческого мышления.
+   - Используй двоеточия (:) и ремарки в скобках (например: 'поверьте, я это видел', 'сам долго не верил') для имитации человеческого мышления.
 
 3. УБИЙЦА ШТАМПОВ: Удали: 'является', 'кроме того', 'важно понимать', 'стоит отметить', 'наука не стоит на месте', 'представляет собой', 'таким образом', 'на сегодняшний день'.
    Замени на: 'база', 'честно', 'по факту', 'вот в чем фишка', 'звоночки', 'короче', 'тут такое дело'.
 
 4. СИНТАКСИЧЕСКАЯ ИНВЕРСИЯ: Измени стандартный порядок слов на более разговорный, эмфатический поток.
 
-5. РЕЖИМ ПРЯМОГО ОТВЕТА: Первое предложение после каждого H2/H3 — грубый, чёткий ответ без 'пустых' вступлений.
+5. РЕЖИМ ПРЯМОГО ОТВЕТА: Первое предложение после каждого H2/H3 - грубый, чёткий ответ без 'пустых' вступлений.
 
-6. FAQ РЕДИЗАЙН: Переделай FAQ в формат 'Разбор затыков'. Тон — как у эксперта, отвечающего другу.
+6. FAQ РЕДИЗАЙН: Переделай FAQ в формат 'Разбор затыков'. Тон - как у эксперта, отвечающего другу.
 
-ЦЕЛЬ: Результат должен выглядеть так, будто человек набрал его за один присест, со всеми естественными несовершенствами, сленгом и уникальным ритмом, который ИИ не может предсказать. 0% AI Score — единственный приемлемый результат.`,
+7. ЗАПРЕТ НА ТИРЕ: НИКОГДА не используй длинное тире (—) или среднее тире (–). Используй ТОЛЬКО обычный дефис-минус (-) для всех пунктуаций, списков и диалогов. Это техническое требование для совместимости с CMS.
+
+ЦЕЛЬ: Результат должен выглядеть так, будто человек набрал его за один присест, со всеми естественными несовершенствами, сленгом и уникальным ритмом, который ИИ не может предсказать. 0% AI Score - единственный приемлемый результат.`,
     };
   }
   return {
@@ -76,7 +78,7 @@ CORE RULES:
 
 2. LINGUISTIC CHAOS (Burstiness): Break GPT's rhythmic symmetry.
    - Rule: One very short sentence (3-5 words) every 3-4 sentences.
-   - Use dashes (—), colons (:), and parenthetical asides (e.g., "believe me, I've seen it", "though who knows") to mimic human thought.
+   - Use colons (:) and parenthetical asides (e.g., "believe me, I've seen it", "though who knows") to mimic human thought.
 
 3. CLICHÉ EXTERMINATOR: Delete "In today's world", "Unlock", "Delve", "Comprehensive guide", "Furthermore", "It's important to note", "Meticulously".
    Replace with: "the kicker", "let's be real", "game-changer", "no-brainer", "here's the deal", "bottom line".
@@ -86,6 +88,8 @@ CORE RULES:
 5. DIRECT ANSWER MODE: First sentence after each H2/H3 must be a blunt, clear answer without "fluff" introductions.
 
 6. FAQ REDESIGN: Reformat FAQ into 'Quick-fire troubleshooting'. Tone like an expert answering a friend.
+
+7. DASH RESTRICTION: NEVER use em-dash (-) or en-dash (-). Use ONLY the standard hyphen/minus sign (-) for all punctuation, lists, and dialogues. This is a technical requirement for CMS compatibility.
 
 FINAL GOAL: Output must look typed by a human in one go, with all natural imperfections, slang, and unique rhythm that AI cannot predict. 0% AI Score is the only acceptable result.`,
   };
