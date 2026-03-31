@@ -21,7 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  ShieldAlert, Heart, Cpu, Flame, GraduationCap, User,
+  ShieldAlert, Heart, Cpu, Flame, GraduationCap, User, HeartPulse, Link2, Sun, Newspaper,
 };
 
 interface AuthorProfile {
