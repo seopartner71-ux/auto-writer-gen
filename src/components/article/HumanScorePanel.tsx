@@ -150,6 +150,24 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
 
   return (
     <div className="space-y-4">
+      {/* ─── Humanize Fix Button (Aggressive Second Pass) ──────────── */}
+      {onFixIssue && aiProb.score < 75 && (
+        <Button
+          size="sm"
+          variant="default"
+          className="w-full gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+          disabled={!!isFixing}
+          onClick={() => onFixIssue("humanize-all", FIX_INSTRUCTIONS["humanize-all"])}
+        >
+          {isFixing === "humanize-all" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Zap className="h-4 w-4" />
+          )}
+          {contentLang === "ru" ? "Humanize Fix" : "Humanize Fix"} — {contentLang === "ru" ? "убить запах GPT" : "kill GPT smell"}
+        </Button>
+      )}
+
       {/* ─── Quick Fix All Button ──────────────────────────────────── */}
       {hasFixableIssues && onFixIssue && (
         <Button
