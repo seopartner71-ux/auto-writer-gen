@@ -31,21 +31,23 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
       "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции. Используй инверсии, вопросы, факты.",
       "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% - длинными ветвистыми конструкциями (25-40 слов). Используй тире, двоеточия и парентетические вставки.",
       "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями.",
-      "humanize-all": `СТРОГИЕ ПРАВИЛА ГУМАНИЗАЦИИ:
+      "humanize-all": `ПЕРЕПИШИ ЭТОТ ТЕКСТ ДЛЯ 0% AI SCORE:
 
-1. ПОЛНОСТЬЮ УДАЛИ всё жирное выделение (символы **). Текст должен быть абсолютно чистым, без markdown-форматирования bold.
+1. Удали ВСЕ символы ** (жирный шрифт). Текст должен быть визуально чистым, без markdown bold.
 
-2. ИЗМЕНИ ТОН: Представь, что ты — опытный практик в своей нише, который пишет пост в Telegram. Тон живой, местами резкий, без воды. Никакой академической вежливости.
+2. Удали фразы: 'К счастью', 'Важно понимать', 'Наука не стоит на месте', 'В заключение', 'Следует отметить', 'Представляет собой', 'Комплексный подход', 'Рассмотрим подробнее', 'Таким образом', 'На сегодняшний день'. Замени на разговорные аналоги — каждый уникальный.
 
-3. УДАЛИ ВСЕ ШТАМПЫ: Замени фразы типа 'наука не стоит на месте', 'важно понимать', 'вносят свою лепту', 'следует отметить', 'представляет собой', 'рассмотрим подробнее', 'комплексный подход', 'в заключение', 'таким образом' на разговорные аналоги. Каждая замена — уникальная.
+3. Добавь в каждый абзац по одной разговорной вставке в скобках (например: 'честно, сам в шоке', 'проверено на практике', 'хотя кто-то скажет иначе', 'вот тут главный подвох').
 
-4. ПЕРЕМЕШАЙ ПОРЯДОК: Начни каждый абзац с другого слова. Используй инверсию, вопросы, факты. Ни один абзац не должен начинаться как предыдущий.
+4. Разбей каждое второе предложение. Сделай текст максимально 'рваным': 30% предложений — 3-7 слов, 20% — длинные ветвистые (25-40 слов). Используй тире, двоеточия, парентетические вставки.
 
-5. ДОБАВЬ 'ШУМ': Вставь 2-3 личных замечания в скобках (например: 'честно, сам долго в это не верил', 'проверено на практике', 'вот тут — главный подвох').
+5. Начни 2-3 абзаца с фраз: 'Ну, смотрите', 'Короче', 'Тут такое дело', 'Вот в чём штука', 'Давайте начистоту'.
 
-6. ЧЕРЕДУЙ ДЛИНУ: 30% предложений — короткие (3-7 слов). 20% — длинные ветвистые конструкции (25-40 слов). Используй тире, двоеточия, парентетические вставки.
+6. Убери симметрию в списках и FAQ: один пункт — 3 слова, другой — целое предложение. Не все пункты одинаковой длины.
 
-7. ЦЕЛЬ: Детектор должен показать 0% AI. Если текст хоть немного похож на учебник или ChatGPT — перепиши заново. Сохрани смысл, но убей 'запах GPT'.`,
+7. Перемешай порядок абзацев: каждый начинается с другого слова. Используй инверсию, вопросы, факты. Ни один абзац не начинается как предыдущий.
+
+8. ЦЕЛЬ: Детектор должен показать НОЛЬ процентов AI. Если текст похож на учебник или ChatGPT — перепиши заново. Сохрани смысл, убей 'запах GPT'.`,
     };
   }
   return {
@@ -55,21 +57,23 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": `STRICT HUMANIZATION RULES:
+    "humanize-all": `REWRITE THIS TEXT FOR 0% AI SCORE:
 
-1. COMPLETELY REMOVE all bold formatting (** symbols). Text must be clean, no markdown bold.
+1. Remove ALL ** symbols (bold formatting). Text must be visually clean, no markdown bold.
 
-2. CHANGE THE TONE: Write like an experienced practitioner posting on social media. Tone is lively, sometimes blunt, zero fluff. No academic politeness.
+2. Kill clichés: 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage', 'delve', 'it goes without saying', 'in today's world'. Replace with conversational alternatives — each unique.
 
-3. KILL ALL CLICHÉS: Replace phrases like 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage', 'delve', 'uncover', 'meticulously', 'it goes without saying' with conversational alternatives. Every replacement must be unique.
+3. Add one conversational aside in parentheses per paragraph (e.g., 'honestly, I didn't buy this for years', 'tested this hundreds of times', 'here's the real kicker', 'though some will disagree').
 
-4. SHUFFLE PARAGRAPH STARTS: Begin each paragraph with a different word. Use inversions, questions, facts. No two paragraphs should start the same way.
+4. Break every other sentence. Make text maximally 'choppy': 30% sentences 3-7 words, 20% long branching (25-40 words). Use dashes, colons, parenthetical asides.
 
-5. ADD 'NOISE': Insert 2-3 personal remarks in parentheses (e.g., 'honestly, I didn't believe this for years', 'tested this hundreds of times', 'here's the real kicker').
+5. Start 2-3 paragraphs with: 'Look', 'Here's the deal', 'So here's the thing', 'Bottom line', 'Let's be real'.
 
-6. VARY SENTENCE LENGTH: 30% sentences short (3-7 words). 20% long complex constructions (25-40 words). Use dashes, colons, parenthetical asides.
+6. Destroy symmetry in lists and FAQ: one item — 3 words, another — full sentence. No items the same length.
 
-7. TARGET: AI detector must show 0% AI. If the text even slightly resembles a textbook or ChatGPT output — rewrite it completely. Keep the meaning but kill the 'GPT smell'.`,
+7. Shuffle paragraph order: each starts with a different word. Use inversions, questions, facts. No two paragraphs start the same way.
+
+8. TARGET: AI detector must show ZERO percent AI. If text resembles a textbook or ChatGPT — rewrite from scratch. Keep meaning, kill 'GPT smell'.`,
   };
 }
 
