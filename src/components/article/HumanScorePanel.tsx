@@ -196,32 +196,45 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
 
   return (
     <div className="space-y-4">
-      {/* ─── Humanize Fix Button (Aggressive Second Pass) ──────────── */}
-      {onFixIssue && aiProb.score < 75 && (
-        <Button
-          size="sm"
-          variant="default"
-          className={`w-full gap-2 text-white relative overflow-hidden transition-all ${
-            isFixing === "humanize-all"
-              ? "bg-gradient-to-r from-purple-700 to-blue-700 cursor-wait"
-              : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 hover:scale-[1.02]"
-          }`}
-          disabled={!!isFixing}
-          onClick={() => onFixIssue("humanize-all", FIX_INSTRUCTIONS["humanize-all"])}
-        >
-          {isFixing === "humanize-all" && (
-            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_1.5s_infinite]" />
-          )}
-          {isFixing === "humanize-all" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Zap className="h-4 w-4" />
-          )}
-          {isFixing === "humanize-all"
-            ? (contentLang === "ru" ? "Гуманизация..." : "Humanizing...")
-            : `Humanize Fix — ${contentLang === "ru" ? "убить запах GPT" : "kill GPT smell"}`
-          }
-        </Button>
+      {/* ─── Humanize Fix Button (Always visible when content exists) ─── */}
+      {onFixIssue && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="default"
+                className={`w-full gap-2 text-white relative overflow-hidden transition-all ${
+                  isFixing === "humanize-all"
+                    ? "bg-gradient-to-r from-purple-700 to-blue-700 cursor-wait"
+                    : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 hover:scale-[1.02]"
+                }`}
+                disabled={!!isFixing}
+                onClick={() => onFixIssue("humanize-all", FIX_INSTRUCTIONS["humanize-all"])}
+              >
+                {isFixing === "humanize-all" && (
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_1.5s_infinite]" />
+                )}
+                {isFixing === "humanize-all" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="h-4 w-4" />
+                )}
+                {isFixing === "humanize-all"
+                  ? (contentLang === "ru" ? "Гуманизация..." : "Humanizing...")
+                  : `Humanize Fix — ${contentLang === "ru" ? "убить запах GPT" : "kill GPT smell"}`
+                }
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="text-xs max-w-[240px]">
+                {contentLang === "ru"
+                  ? "Полная переработка структуры текста для достижения 0% вероятности ИИ"
+                  : "Full text restructuring to achieve 0% AI probability"}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
 
       {/* ─── Quick Fix All Button ──────────────────────────────────── */}
