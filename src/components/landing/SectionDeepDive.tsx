@@ -31,7 +31,7 @@ export function SectionDeepDive() {
                 <Brain className="h-3.5 w-3.5 text-primary" />
                 <span className="text-[10px] font-tech font-medium text-primary uppercase tracking-widest">{t("deep.stealthTag")}</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(139,92,246,0.08)" }}>
                 {t("deep.stealthH1")}{" "}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">{t("deep.stealthH2")}</span>
               </h2>
