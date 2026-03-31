@@ -908,6 +908,12 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.statRanking": { ru: "Рост позиций", en: "Ranking growth" },
   "lp.statArticles": { ru: "Статей создано", en: "Articles created" },
   "lp.statTime": { ru: "Среднее время", en: "Avg time" },
+  "lp.heroOriginal": { ru: "Исходный текст", en: "Original text" },
+  "lp.heroScanning": { ru: "Сканирование...", en: "Scanning..." },
+  "lp.heroComplete": { ru: "Анализ завершён", en: "Analysis complete" },
+  "lp.heroWaiting": { ru: "Ожидание...", en: "Waiting..." },
+  "lp.heroStatus": { ru: "Статус", en: "Status" },
+  "lp.heroPassed": { ru: "Пройдено", en: "Passed" },
 
   // Bento Grid
   "lp.bentoTitle": { ru: "Арсенал доминирования", en: "The dominance arsenal" },
@@ -941,6 +947,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.pricingSub": { ru: "1 кредит = 1 полноценная SEO-статья под ключ", en: "1 credit = 1 full turnkey SEO article" },
   "lp.priceFree": { ru: "бесплатно", en: "free" },
   "lp.priceMonth": { ru: "мес", en: "mo" },
+  "lp.priceMonthly": { ru: "Ежемесячно", en: "Monthly" },
+  "lp.priceYearly": { ru: "Ежегодно", en: "Yearly" },
   "lp.priceStart": { ru: "Начать бесплатно", en: "Start free" },
   "lp.priceUpgrade": { ru: "Подключить PRO", en: "Upgrade to PRO" },
   "lp.priceContact": { ru: "Связаться", en: "Contact us" },
