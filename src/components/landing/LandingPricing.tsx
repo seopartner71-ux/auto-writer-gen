@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Check, Star } from "lucide-react";
+import { Check, Star, Radar, Zap } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function LandingPricing() {
@@ -31,9 +31,11 @@ export function LandingPricing() {
         t("lp.priceF2c"),
         t("lp.priceF2d"),
         t("lp.priceF2e"),
+        t("lp.priceF2f"),
       ],
       popular: true,
       cta: t("lp.priceUpgrade"),
+      exclusive: "AI Radar & GEO",
     },
     {
       name: "Enterprise",
@@ -74,7 +76,7 @@ export function LandingPricing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className={`relative rounded-2xl border p-6 sm:p-8 transition-all ${
+              className={`relative rounded-2xl border p-6 sm:p-8 transition-all hover:scale-[1.02] duration-300 ${
                 plan.popular
                   ? "border-[#8b5cf6]/40 bg-[#8b5cf6]/5 shadow-[0_0_40px_rgba(139,92,246,0.15)]"
                   : "border-white/[0.06] bg-white/[0.02]"
@@ -100,6 +102,13 @@ export function LandingPricing() {
                     <span className="text-muted-foreground">{f}</span>
                   </li>
                 ))}
+                {plan.exclusive && (
+                  <li className="flex items-start gap-2 text-sm">
+                    <Radar className="h-4 w-4 text-[#8b5cf6] mt-0.5 shrink-0" />
+                    <span className="text-[#8b5cf6] font-semibold">{plan.exclusive}</span>
+                    <span className="text-[9px] bg-[#8b5cf6]/20 text-[#8b5cf6] px-1.5 py-0.5 rounded-full font-medium">{t("lp.priceExcl")}</span>
+                  </li>
+                )}
               </ul>
 
               <button
@@ -115,6 +124,17 @@ export function LandingPricing() {
             </motion.div>
           ))}
         </div>
+
+        {/* Social proof */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.4 }}
+          className="text-center mt-10 text-sm text-muted-foreground"
+        >
+          {t("lp.priceSocial")}
+        </motion.p>
       </div>
     </section>
   );
