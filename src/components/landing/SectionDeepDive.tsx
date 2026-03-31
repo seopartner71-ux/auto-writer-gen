@@ -84,7 +84,7 @@ export function SectionDeepDive() {
                 <Globe className="h-3.5 w-3.5 text-[#06b6d4]" />
                 <span className="text-[10px] font-tech font-medium text-[#06b6d4] uppercase tracking-widest">GEO</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(6,182,212,0.08)" }}>
                 {t("deep.geoH1")}{" "}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]">{t("deep.geoH2")}</span>
               </h2>
