@@ -31,7 +31,7 @@ export function SectionHero() {
   const displayVal = aiPercent > 15 ? `${aiPercent}%` : `${100 - aiPercent}%`;
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center snap-start overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Grid */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.025]" style={{
         backgroundImage: "linear-gradient(hsl(270 60% 60% / 0.5) 1px, transparent 1px), linear-gradient(90deg, hsl(270 60% 60% / 0.5) 1px, transparent 1px)",

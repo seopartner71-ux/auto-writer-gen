@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { Brain, Globe, Layers } from "lucide-react";
 
-const fadeUp = { initial: { opacity: 0, y: 40 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.7 } };
+const fadeUp = { initial: { opacity: 0, y: 50 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-100px" }, transition: { duration: 0.7 } };
 
 /* ── tiny reusable node dot ── */
 function Dot({ color, x, y, size = 6 }: { color: string; x: string; y: string; size?: number }) {
@@ -20,7 +20,7 @@ export function SectionDeepDive() {
   const { t } = useI18n();
 
   return (
-    <div className="relative">
+    <div className="relative py-16">
       {/* ═══════ Block 1: Stealth Technology — text left, visual right ═══════ */}
       <section className="relative py-32 overflow-hidden">
         <div className="container mx-auto px-4 max-w-6xl">
@@ -31,7 +31,7 @@ export function SectionDeepDive() {
                 <Brain className="h-3.5 w-3.5 text-primary" />
                 <span className="text-[10px] font-tech font-medium text-primary uppercase tracking-widest">{t("deep.stealthTag")}</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(139,92,246,0.08)" }}>
                 {t("deep.stealthH1")}{" "}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">{t("deep.stealthH2")}</span>
               </h2>
@@ -84,7 +84,7 @@ export function SectionDeepDive() {
                 <Globe className="h-3.5 w-3.5 text-[#06b6d4]" />
                 <span className="text-[10px] font-tech font-medium text-[#06b6d4] uppercase tracking-widest">GEO</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(6,182,212,0.08)" }}>
                 {t("deep.geoH1")}{" "}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]">{t("deep.geoH2")}</span>
               </h2>
@@ -124,7 +124,7 @@ export function SectionDeepDive() {
                 <Layers className="h-3.5 w-3.5 text-[#f59e0b]" />
                 <span className="text-[10px] font-tech font-medium text-[#f59e0b] uppercase tracking-widest">Factory</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(245,158,11,0.08)" }}>
                 {t("deep.factoryH1")}{" "}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#f59e0b] to-[#ef4444]">{t("deep.factoryH2")}</span>
               </h2>

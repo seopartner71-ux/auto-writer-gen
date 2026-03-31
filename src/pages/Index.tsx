@@ -7,6 +7,8 @@ import { SectionFactory } from "@/components/landing/SectionFactory";
 import { SectionPricing } from "@/components/landing/SectionPricing";
 import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
 import { LandingFooter } from "@/components/landing/LandingFooter";
+import { CookieConsent } from "@/components/landing/CookieConsent";
+import { ScrollToTop } from "@/components/landing/ScrollToTop";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useEffect } from "react";
 
@@ -44,7 +46,7 @@ export default function Index() {
         <LandingNav />
       </div>
 
-      <div className="relative z-[2] snap-y snap-mandatory h-screen overflow-y-auto scroll-smooth" style={{ scrollbarWidth: "none" }}>
+      <div className="relative z-[2]">
         <SectionHero />
         <SectionResearch />
         <SectionPersona />
@@ -54,6 +56,9 @@ export default function Index() {
         <SectionPricing />
         <LandingFooter />
       </div>
+
+      <CookieConsent />
+      <ScrollToTop />
     </div>
   );
 }
