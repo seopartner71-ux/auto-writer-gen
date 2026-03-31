@@ -41,7 +41,7 @@ export function SectionGeo() {
             <Radar className="h-3.5 w-3.5 text-[#06b6d4]" />
             <span className="text-xs font-tech font-medium text-[#06b6d4] uppercase tracking-wider">GEO Radar</span>
           </div>
-          <h2 className="text-5xl sm:text-6xl md:text-7xl font-black leading-[0.95]" style={{ letterSpacing: "-0.06em" }}>
+          <h2 className="text-5xl sm:text-6xl md:text-7xl font-black leading-[0.95]" style={{ letterSpacing: "-0.06em", textShadow: "0 0 80px rgba(6,182,212,0.08)" }}>
             {t("lp.geoTitle")}
           </h2>
           <p className="mt-5 text-muted-foreground text-[15px] max-w-2xl mx-auto leading-[1.7]">{t("lp.geoSub")}</p>

@@ -1031,6 +1031,20 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.footerWiki": { ru: "База знаний", en: "Knowledge Base" },
   "lp.footerSupport": { ru: "Поддержка", en: "Support" },
   "lp.footerPricing": { ru: "Тарифы", en: "Pricing" },
+  "lp.footerProduct": { ru: "Продукт", en: "Product" },
+  "lp.footerSolutions": { ru: "Решения", en: "Solutions" },
+  "lp.footerStatus": { ru: "Все системы работают", en: "All systems operational" },
+  "lp.footerLegal": { ru: "Программное обеспечение предоставляется «как есть». Результаты могут отличаться в зависимости от ниши и конфигурации.", en: "Software is provided \"as is\". Results may vary depending on niche and configuration." },
+
+  // Factory articles (localized)
+  "lp.factArt1": { ru: "Гайд по бассейнам", en: "Pool Service Guide" },
+  "lp.factArt2": { ru: "Налоги на крипту 2025", en: "Crypto Tax 2025" },
+  "lp.factArt3": { ru: "Лучшие CRM системы", en: "Best CRM Tools" },
+  "lp.factArt4": { ru: "Как выбрать VPN", en: "How to Choose VPN" },
+  "lp.factArt5": { ru: "React vs Vue 2025", en: "React vs Vue 2025" },
+  "lp.factArt6": { ru: "Советы по страхованию", en: "Home Insurance Tips" },
+  "lp.factArt7": { ru: "Гайд по AI-текстам", en: "AI Writing Guide" },
+  "lp.factArt8": { ru: "Стратегия цен SaaS", en: "SaaS Pricing Strategy" },
 };
 
 interface I18nContextValue {

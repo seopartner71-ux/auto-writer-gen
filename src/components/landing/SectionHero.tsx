@@ -51,7 +51,7 @@ export function SectionHero() {
             </motion.div>
 
             <motion.h1 initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95]" style={{ letterSpacing: "-0.06em" }}>
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95]" style={{ letterSpacing: "-0.06em", textShadow: "0 0 80px rgba(139,92,246,0.12)" }}>
               {t("lp.heroLine1")}
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">
