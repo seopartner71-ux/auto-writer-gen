@@ -121,6 +121,13 @@
     font-family: "Outfit", "Inter", system-ui, sans-serif;
     font-weight: 900;
   }
+  .font-tech {
+    font-family: "Space Grotesk", "JetBrains Mono", monospace;
+  }
+
+  .tracking-display {
+    letter-spacing: -0.04em;
+  }
 }
 
 @keyframes marquee {
