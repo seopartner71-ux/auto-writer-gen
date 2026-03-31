@@ -717,6 +717,7 @@ serve(async (req) => {
       gogetlinksLinks: gogetlinks_links,
       includeExpertQuote: include_expert_quote,
       includeComparisonTable: include_comparison_table,
+      dataNuggets: body.data_nuggets || [],
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
