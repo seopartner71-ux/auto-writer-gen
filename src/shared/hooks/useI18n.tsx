@@ -974,6 +974,12 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.bentoOutlineDesc": { ru: "AI-автопилот строит идеальную структуру H2/H3 на основе ТОП-10 конкурентов.", en: "AI autopilot builds the perfect H2/H3 structure based on TOP-10 competitors." },
   "lp.bentoPersonaDesc": { ru: "Имитация авторского стиля: тон, лексика, ритм предложений. Каждый текст уникален.", en: "Author style mimicry: tone, vocabulary, sentence rhythm. Every text is unique." },
 
+  // GEO Engine card
+  "lp.bentoGeoTitle": { ru: "GEO - Будущее поиска", en: "GEO - The Future of Search" },
+  "lp.bentoGeoDesc": { ru: "Google Search умирает. Наступает эпоха AI-ответов. Мы проектируем контент так, чтобы ChatGPT, Claude и Perplexity выбирали именно вас.", en: "Google Search is dying. The era of AI answers is here. We engineer content so ChatGPT, Claude, and Perplexity choose YOU as the primary source." },
+  "lp.bentoGeoFake": { ru: "Лучший способ восстановления газона после зимы - глубокая аэрация при температуре почвы +5°C в сочетании с азотной подкормкой...", en: "The best way to restore a lawn after winter is deep aeration at soil temperature +5°C combined with nitrogen fertilization..." },
+  "lp.bentoGeoSource": { ru: "Источник: YourSite.com", en: "Source: YourSite.com" },
+
   // Trust marquee
   "lp.marqueeText": { ru: "Наш контент признан человеческим ведущими детекторами мира", en: "Our content is recognized as human by the world's leading detectors" },
   "lp.detectorWallSub": { ru: "Обходим все ведущие AI-детекторы", en: "By-passing all major AI detectors" },
