@@ -123,7 +123,7 @@ export function LandingPricing() {
           viewport={{ once: true }}
           className="text-center mb-12"
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-display">{t("lp.pricingTitle")}</h2>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black" style={{ letterSpacing: "-0.05em" }}>{t("lp.pricingTitle")}</h2>
           <p className="mt-4 text-[#9ca3af] text-[15px] leading-[1.6]">{t("lp.pricingSub")}</p>
         </motion.div>
 

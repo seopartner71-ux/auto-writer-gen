@@ -17,18 +17,20 @@ export function LandingTrust() {
   return (
     <section className="relative py-20 overflow-hidden">
       <div className="container mx-auto px-4 max-w-5xl space-y-16">
-        {/* Marquee — Science of Stealth */}
+        {/* Detector Wall marquee */}
         <div className="relative overflow-hidden py-6 border-y border-white/[0.04]">
+          <p className="text-center text-xs font-tech text-muted-foreground uppercase tracking-widest mb-4">
+            {t("lp.detectorWallSub")}
+          </p>
           <div className="flex items-center gap-8 animate-marquee whitespace-nowrap">
             {[...detectors, ...detectors, ...detectors].map((d, i) => (
-              <span key={i} className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
-                <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span key={i} className="flex items-center gap-2 text-sm text-muted-foreground/60 shrink-0 font-tech">
+                <Check className="h-3.5 w-3.5 text-emerald-400/50 shrink-0" />
                 {d}
               </span>
             ))}
-            {/* Separator text repeated */}
             <span className="text-xs text-emerald-400/60 font-medium shrink-0 px-4">•</span>
-            <span className="text-xs text-muted-foreground shrink-0">{t("lp.marqueeText")}</span>
+            <span className="text-xs text-muted-foreground/50 shrink-0">{t("lp.marqueeText")}</span>
             <span className="text-xs text-emerald-400/60 font-medium shrink-0 px-4">•</span>
           </div>
         </div>
