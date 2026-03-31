@@ -20,9 +20,16 @@ interface HumanScorePanelProps {
   onHighlightStopWords?: (words: string[]) => void;
   onFixIssue?: (issueKey: string, instruction: string) => void;
   isFixing?: string | null;
+  personaStyle?: string;
 }
 
-function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
+function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Record<string, string> {
+  const personaBlock = personaStyle
+    ? (lang === "ru"
+      ? `\n\nАДАПТАЦИЯ К ПЕРСОНЕ: Сохрани тон и стиль выбранного автора: "${personaStyle}". Если автор 'Скептик' — сделай текст ворчливым и прямым. Если 'Блогер' — более эмоциональным и неформальным. Если стиль нейтральный — сделай профессиональную, чистую, человечную редактуру.`
+      : `\n\nPERSONA ADAPTATION: Maintain the tone and style of the chosen author: "${personaStyle}". If "Skeptical Pro" — make the fix more grumpy and direct. If "Lifestyle Blogger" — more emotional and informal. If neutral — make it a professional, clean human-like edit.`)
+    : "";
+
   if (lang === "ru") {
     return {
       "ai-cliches": "Найди и замени ВСЕ ИИ-клише и штампы (например: 'важно отметить', 'следует подчеркнуть', 'в заключение', 'необходимо учитывать', 'таким образом', 'комплексный подход', 'представляет собой', 'рассмотрим подробнее') на живые, разговорные авторские обороты. Каждое заменённое выражение должно быть уникальным. Используй нишевый сленг и разговорные фразы.",
@@ -31,20 +38,26 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
       "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции. Используй инверсии, вопросы, факты.",
       "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% - длинными ветвистыми конструкциями (25-40 слов). Используй тире, двоеточия и парентетические вставки.",
       "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями.",
-      "humanize-all": `ПРОМПТ ДЛЯ ФУНКЦИИ HUMANIZE FIX (0% AI TARGET):
+      "humanize-all": `UNIVERSAL STEALTH BYPASS (0% AI TARGET):
+Ты — элитный человеческий редактор. Твоя задача — переписать текст для 0% AI Score, СТРОГО сохраняя тон выбранной персоны.${personaBlock}
 
-1. ОЧИСТКА ФОРМАТИРОВАНИЯ: СТРОГО удали все символы ** (жирный шрифт). Текст должен быть плоским, но структурированным через H2/H3.
+ОСНОВНЫЕ ПРАВИЛА:
+1. ОЧИСТКА: Удали ВСЕ символы ** (жирный шрифт). Человеческие эксперты не выделяют ключевые слова bold в плавном тексте.
 
-2. ЛИНГВИСТИЧЕСКАЯ ИНЪЕКЦИЯ: Перепиши текст, добавив 10-15% разговорных оборотов и профессионального 'приземленного' сленга.
-Используй: 'база', 'честно', 'на деле', 'затыки', 'вот в чем фишка', 'короче', 'тут такое дело', 'давайте начистоту'.
+2. ЛИНГВИСТИЧЕСКИЙ ХАОС (Burstiness): Сломай ритмическую симметрию GPT.
+   - Правило: Одно очень короткое предложение (3-5 слов) каждые 3-4 предложения.
+   - Используй тире (—), двоеточия (:) и ремарки в скобках (например: 'поверьте, я это видел', 'сам долго не верил') для имитации человеческого мышления.
 
-3. РАЗРУШЕНИЕ РИТМА: Каждое 3-е или 4-е предложение должно быть коротким (3-5 слов). Используй тире и скобки для авторских ремарок (например: 'сам долго в это не верил', 'хотя кто знает', 'проверено на практике').
+3. УБИЙЦА ШТАМПОВ: Удали: 'является', 'кроме того', 'важно понимать', 'стоит отметить', 'наука не стоит на месте', 'представляет собой', 'таким образом', 'на сегодняшний день'.
+   Замени на: 'база', 'честно', 'по факту', 'вот в чем фишка', 'звоночки', 'короче', 'тут такое дело'.
 
-4. УБИЙЦА ШТАМПОВ: Удали фразы 'Важно понимать', 'Стоит отметить', 'В заключение', 'Наука не стоит на месте', 'К счастью', 'Представляет собой', 'Комплексный подход', 'Таким образом', 'На сегодняшний день'. Начинай абзацы прямо, без вступлений.
+4. СИНТАКСИЧЕСКАЯ ИНВЕРСИЯ: Измени стандартный порядок слов на более разговорный, эмфатический поток.
 
-5. FAQ РЕДИЗАЙН: Переделай блок FAQ из 'Вопрос-Ответ' в формат 'Разбор затыков'. Тон должен быть как у эксперта, отвечающего другу.
+5. РЕЖИМ ПРЯМОГО ОТВЕТА: Первое предложение после каждого H2/H3 — грубый, чёткий ответ без 'пустых' вступлений.
 
-6. ЦЕЛЬ: Детектор ZeroGPT должен показать 0%. Если текст выглядит 'слишком правильно' — добавь в него больше авторского характера и упрости сложные обороты.`,
+6. FAQ РЕДИЗАЙН: Переделай FAQ в формат 'Разбор затыков'. Тон — как у эксперта, отвечающего другу.
+
+ЦЕЛЬ: Результат должен выглядеть так, будто человек набрал его за один присест, со всеми естественными несовершенствами, сленгом и уникальным ритмом, который ИИ не может предсказать. 0% AI Score — единственный приемлемый результат.`,
     };
   }
   return {
@@ -54,20 +67,26 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": `HUMANIZE FIX PROMPT (0% AI TARGET):
+    "humanize-all": `UNIVERSAL STEALTH BYPASS (0% AI TARGET):
+You are an expert human editor. Your task is to rewrite this text to achieve 0% AI detection score, while STRICTLY maintaining the chosen persona's tone.${personaBlock}
 
-1. FORMATTING CLEANUP: STRICTLY remove all ** symbols (bold). Text must be flat but structured via H2/H3.
+CORE RULES:
+1. STRIP ALL BOLD: Remove all ** formatting. Human experts don't bold keywords in flowy text.
 
-2. LINGUISTIC INJECTION: Rewrite adding 10-15% conversational turns and professional 'grounded' slang.
-Use: 'the kicker', 'game-changer', 'no-brainer', 'let's be real', 'here's the deal', 'bottom line', 'so here's the thing'.
+2. LINGUISTIC CHAOS (Burstiness): Break GPT's rhythmic symmetry.
+   - Rule: One very short sentence (3-5 words) every 3-4 sentences.
+   - Use dashes (—), colons (:), and parenthetical asides (e.g., "believe me, I've seen it", "though who knows") to mimic human thought.
 
-3. RHYTHM DESTRUCTION: Every 3rd or 4th sentence must be short (3-5 words). Use dashes and parentheses for authorial asides (e.g., 'didn't buy this for years myself', 'though who knows', 'tested this hundreds of times').
+3. CLICHÉ EXTERMINATOR: Delete "In today's world", "Unlock", "Delve", "Comprehensive guide", "Furthermore", "It's important to note", "Meticulously".
+   Replace with: "the kicker", "let's be real", "game-changer", "no-brainer", "here's the deal", "bottom line".
 
-4. CLICHÉ KILLER: Remove phrases 'It's important to understand', 'It's worth noting', 'In conclusion', 'In today's world', 'Furthermore', 'Comprehensive', 'Delve', 'Meticulously'. Start paragraphs directly, no preambles.
+4. SYNTACTIC INVERSION: Change standard word order to a more conversational, emphatic flow.
 
-5. FAQ REDESIGN: Reformat FAQ from 'Question-Answer' into 'Quick-fire troubleshooting' format. Tone should be like an expert answering a friend.
+5. DIRECT ANSWER MODE: First sentence after each H2/H3 must be a blunt, clear answer without "fluff" introductions.
 
-6. TARGET: ZeroGPT detector must show 0%. If text looks 'too polished' — add more authorial character and simplify complex constructions.`,
+6. FAQ REDESIGN: Reformat FAQ into 'Quick-fire troubleshooting'. Tone like an expert answering a friend.
+
+FINAL GOAL: Output must look typed by a human in one go, with all natural imperfections, slang, and unique rhythm that AI cannot predict. 0% AI Score is the only acceptable result.`,
   };
 }
 
@@ -85,7 +104,7 @@ function getAiSafetyColor(score: number, lang: "ru" | "en") {
   return { text: "text-red-500", bg: "bg-red-500", label: labels.highRisk };
 }
 
-export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, onFixIssue, isFixing }: HumanScorePanelProps) {
+export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, onFixIssue, isFixing, personaStyle }: HumanScorePanelProps) {
   const [customKeywords, setCustomKeywords] = useState<string[]>([]);
   const [customInput, setCustomInput] = useState("");
   const [showStopWords, setShowStopWords] = useState(false);
@@ -93,7 +112,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
 
   const contentLang = useMemo(() => detectContentLanguage(content), [content]);
   const labels = useMemo(() => getLocalizedLabels(contentLang), [contentLang]);
-  const FIX_INSTRUCTIONS = useMemo(() => getFixInstructions(contentLang), [contentLang]);
+  const FIX_INSTRUCTIONS = useMemo(() => getFixInstructions(contentLang, personaStyle), [contentLang, personaStyle]);
 
   const FLAG_TO_FIX_KEY: Record<string, string> = useMemo(() => ({
     [labels.authorVoice]: "first-person",
