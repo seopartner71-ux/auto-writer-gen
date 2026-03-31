@@ -273,7 +273,7 @@ export default function ArticlesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
 
   // Data fetching
