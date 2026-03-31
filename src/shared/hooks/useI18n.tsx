@@ -1066,6 +1066,11 @@ const translations: Record<string, Record<Lang, string>> = {
   "deep2.factoryH2": { ru: "в одной вкладке.", en: "in one tab." },
   "deep2.factoryBody": { ru: "Масштабируйте экспертизу, а не спам. Модуль <span class='text-[#f59e0b] font-medium'>Factory</span> позволяет генерировать сотни статей с сохранением уникального «голоса» (<span class='text-[#f59e0b] font-medium'>Persona Engine</span>). Интеграция с WP, автоматическая перелинковка и контроль LSI на лету - ваш завод работает, пока вы спите.", en: "Scale expertise, not spam. The <span class='text-[#f59e0b] font-medium'>Factory</span> module lets you generate hundreds of articles while preserving a unique \"voice\" (<span class='text-[#f59e0b] font-medium'>Persona Engine</span>). WP integration, automatic interlinking and on-the-fly LSI control - your factory works while you sleep." },
   "deep2.factoryMetric": { ru: "100+ статей/цикл | WP Auto-Publish", en: "100+ articles/cycle | WP Auto-Publish" },
+
+  "deep2.radarH1": { ru: "Сканируйте", en: "Scan" },
+  "deep2.radarH2": { ru: "AI-модели в реальном времени.", en: "AI models in real time." },
+  "deep2.radarBody": { ru: "Модуль <span class='text-[#06b6d4] font-medium'>GEO Radar</span> проверяет, цитируют ли вас ChatGPT, Perplexity, Gemini и Claude. Многомодельное сканирование с анализом тональности и стратегическими рекомендациями по усилению присутствия в <span class='text-[#06b6d4] font-medium'>AI-выдаче</span>.", en: "The <span class='text-[#06b6d4] font-medium'>GEO Radar</span> module checks if ChatGPT, Perplexity, Gemini and Claude cite you. Multi-model scanning with sentiment analysis and strategic recommendations to strengthen your presence in <span class='text-[#06b6d4] font-medium'>AI search results</span>." },
+  "deep2.radarMetric": { ru: "4 AI-модели | Мониторинг 24/7", en: "4 AI Models | 24/7 Monitoring" },
 };
 
 interface I18nContextValue {
