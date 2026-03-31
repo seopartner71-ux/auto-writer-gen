@@ -25,21 +25,23 @@ interface HumanScorePanelProps {
 function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
   if (lang === "ru") {
     return {
-      "ai-cliches": "Найди и замени ВСЕ ИИ-клише и штампы (например: 'важно отметить', 'следует подчеркнуть', 'в заключение', 'необходимо учитывать', 'таким образом', 'комплексный подход') на живые, разговорные авторские обороты. Каждое заменённое выражение должно быть уникальным.",
+      "ai-cliches": "Найди и замени ВСЕ ИИ-клише и штампы (например: 'важно отметить', 'следует подчеркнуть', 'в заключение', 'необходимо учитывать', 'таким образом', 'комплексный подход', 'представляет собой', 'рассмотрим подробнее') на живые, разговорные авторские обороты. Каждое заменённое выражение должно быть уникальным. Используй нишевый сленг и разговорные фразы.",
       "first-person": "Добавь в текст 3-5 высказываний от первого лица: 'Я считаю', 'По моему опыту', 'На мой взгляд', 'Мы видим', 'Меня удивило'. Вставь их в уже существующие абзацы естественно, не создавая новые разделы.",
-      "paragraph-variety": "Измени длину абзацев так, чтобы они были РАЗНЫМИ: один абзац — 1-2 предложения, следующий — 4-5, потом снова короткий. Не делай все абзацы одинаковой длины.",
-      "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции.",
-      "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% — длинными ветвистыми конструкциями (25-40 слов).",
+      "paragraph-variety": "Измени длину абзацев так, чтобы они были РАЗНЫМИ: один абзац - 1-2 предложения, следующий - 4-5, потом снова короткий. Не делай все абзацы одинаковой длины.",
+      "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции. Используй инверсии, вопросы, факты.",
+      "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% - длинными ветвистыми конструкциями (25-40 слов). Используй тире, двоеточия и парентетические вставки.",
       "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями.",
+      "humanize-all": "Действуй как редактор-человек. Перепиши этот текст так, чтобы он прошёл ИИ-детектор. Увеличь вариативность предложений, добавь человеческие несовершенства, используй отраслевой жаргон и уничтожь любые повторяющиеся ИИ-структуры предложений. Сохрани смысл, но убей 'запах GPT'. Конкретно: замени все клише на живые обороты, добавь инверсии, парентетические вставки (вот как эта), риторические вопросы, сленг ниши. Чередуй короткие (3-5 слов) и длинные (25-40 слов) предложения. Начинай абзацы по-разному.",
     };
   }
   return {
-    "ai-cliches": "Find and replace ALL AI clichés (e.g., 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage') with natural, conversational authorial phrases. Each replacement must be unique.",
+    "ai-cliches": "Find and replace ALL AI clichés (e.g., 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage', 'delve', 'uncover', 'meticulously') with natural, conversational authorial phrases. Each replacement must be unique. Use industry jargon and colloquial speech.",
     "first-person": "Add 3-5 first-person statements: 'I believe', 'In my experience', 'From what I've seen', 'We found', 'This surprised me'. Insert them naturally into existing paragraphs.",
     "paragraph-variety": "Vary paragraph lengths: one paragraph 1-2 sentences, next 4-5, then short again. Don't make all paragraphs the same length.",
-    "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction.",
-    "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words).",
+    "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
+    "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
+    "humanize-all": "Act as a human editor. Rewrite this text to pass an AI detector. Increase sentence variety, add human-like imperfections, use industry jargon, and destroy any repetitive AI sentence structures. Keep the meaning but kill the 'GPT-smell'. Specifically: replace all clichés with natural phrases, add inversions, parenthetical asides (like this one), rhetorical questions, niche slang. Alternate short (3-5 words) and long (25-40 words) sentences. Start paragraphs differently.",
   };
 }
 
