@@ -908,6 +908,12 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.statRanking": { ru: "Рост позиций", en: "Ranking growth" },
   "lp.statArticles": { ru: "Статей создано", en: "Articles created" },
   "lp.statTime": { ru: "Среднее время", en: "Avg time" },
+  "lp.heroOriginal": { ru: "Исходный текст", en: "Original text" },
+  "lp.heroScanning": { ru: "Сканирование...", en: "Scanning..." },
+  "lp.heroComplete": { ru: "Анализ завершён", en: "Analysis complete" },
+  "lp.heroWaiting": { ru: "Ожидание...", en: "Waiting..." },
+  "lp.heroStatus": { ru: "Статус", en: "Status" },
+  "lp.heroPassed": { ru: "Пройдено", en: "Passed" },
 
   // Bento Grid
   "lp.bentoTitle": { ru: "Арсенал доминирования", en: "The dominance arsenal" },
