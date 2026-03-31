@@ -29,7 +29,7 @@ export function SectionResearch() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center snap-start overflow-hidden">
+    <section className="relative py-32 flex items-center justify-center overflow-hidden">
       <div className="pointer-events-none absolute top-1/2 left-[30%] -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-primary/[0.06] blur-[220px]" />
 
       <div className="relative z-10 container mx-auto px-4 max-w-5xl">

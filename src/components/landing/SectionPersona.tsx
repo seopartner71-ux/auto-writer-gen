@@ -24,7 +24,7 @@ export function SectionPersona() {
   const isEn = lang === "en";
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center snap-start overflow-hidden">
+    <section className="relative py-32 flex items-center justify-center overflow-hidden">
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full bg-[#ec4899]/[0.04] blur-[220px]" />
 
       <div className="relative z-10 container mx-auto px-4 max-w-5xl">
