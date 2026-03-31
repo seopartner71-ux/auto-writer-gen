@@ -27,6 +27,8 @@ export function SectionHero() {
   const circ = 2 * Math.PI * radius;
   const progress = (aiPercent / 100) * circ;
   const color = aiPercent > 50 ? "#ef4444" : aiPercent > 15 ? "#f59e0b" : "#10b981";
+  const label = aiPercent > 15 ? "AI Detected" : "Human Score";
+  const displayVal = aiPercent > 15 ? `${aiPercent}%` : `${100 - aiPercent}%`;
 
   return (
     <section className="relative min-h-screen flex items-center justify-center snap-start overflow-hidden">
@@ -58,7 +60,7 @@ export function SectionHero() {
             </motion.h1>
 
             <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25 }}
-              className="mt-6 max-w-lg text-[15px] text-muted-foreground leading-[1.7] mx-auto lg:mx-0">
+              className="mt-6 max-w-lg text-[15px] text-muted-foreground/80 leading-[1.7] mx-auto lg:mx-0">
               {t("lp.heroSub")}
             </motion.p>
 
@@ -80,17 +82,19 @@ export function SectionHero() {
             </motion.p>
           </div>
 
-          {/* Right — Stealth Gauge */}
+          {/* Right — Stealth Guard */}
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, delay: 0.3 }}
             className="relative shrink-0">
             <div className="rounded-3xl border-t border-l border-r border-b border-t-white/20 border-l-white/10 border-r-white/5 border-b-white/[0.02] bg-white/[0.02] backdrop-blur-2xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(139,92,246,0.1)]">
-              <div className="rounded-2xl bg-[#06060b]/90 p-8 min-w-[260px]">
-                <div className="flex items-center gap-2 mb-6">
+              <div className="rounded-2xl bg-[#06060b]/90 p-8 min-w-[280px]">
+                {/* Title bar */}
+                <div className="flex items-center gap-2 mb-2">
                   <div className="w-2 h-2 rounded-full bg-red-500/60" />
                   <div className="w-2 h-2 rounded-full bg-yellow-500/60" />
                   <div className="w-2 h-2 rounded-full bg-green-500/60" />
                   <span className="ml-2 text-[10px] font-mono text-muted-foreground/60">stealth_guard.run</span>
                 </div>
+                <p className="text-center text-[10px] font-tech uppercase tracking-widest text-muted-foreground/40 mb-5">Stealth Guard™</p>
 
                 <div className="flex flex-col items-center">
                   <div className="relative w-[160px] h-[160px] mb-4">
@@ -101,8 +105,8 @@ export function SectionHero() {
                         style={{ transition: "stroke-dashoffset 0.06s linear, stroke 0.3s" }} />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-4xl font-black" style={{ color, letterSpacing: "-0.06em" }}>{aiPercent}%</span>
-                      <span className="text-[9px] text-muted-foreground/60 font-tech uppercase tracking-widest mt-1">AI Prob.</span>
+                      <span className="text-4xl font-black" style={{ color, letterSpacing: "-0.06em" }}>{displayVal}</span>
+                      <span className="text-[9px] text-muted-foreground/60 font-tech uppercase tracking-widest mt-1">{label}</span>
                     </div>
                   </div>
 
@@ -129,6 +133,11 @@ export function SectionHero() {
                       ))}
                     </motion.div>
                   )}
+
+                  {/* Bypassing notice */}
+                  <p className="mt-4 text-[8px] font-tech text-muted-foreground/40 tracking-wider text-center">
+                    Bypassing Originality.ai & GPTZero
+                  </p>
                 </div>
               </div>
             </div>

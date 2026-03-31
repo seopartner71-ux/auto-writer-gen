@@ -49,6 +49,7 @@ export function SectionGeo() {
 
         {/* Radar visualization */}
         <motion.div initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.15 }}
+          whileHover={{ rotateX: -1, rotateY: 2, scale: 1.01 }} style={{ perspective: 800 }}
           className="flex justify-center">
           <div className="relative w-[320px] h-[320px] sm:w-[400px] sm:h-[400px]">
             {/* Concentric circles */}

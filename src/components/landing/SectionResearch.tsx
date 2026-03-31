@@ -47,6 +47,7 @@ export function SectionResearch() {
 
         {/* Elevated card */}
         <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.15 }}
+          whileHover={{ rotateX: -1, rotateY: 2, scale: 1.01 }} style={{ perspective: 800 }}
           className="rounded-3xl border-t border-l border-r border-b border-t-white/20 border-l-white/10 border-r-white/5 border-b-white/[0.02] bg-white/[0.02] backdrop-blur-2xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(139,92,246,0.1)]">
           <div className="rounded-2xl bg-[#06060b]/90 p-6 sm:p-8">
             {/* Stats row */}
