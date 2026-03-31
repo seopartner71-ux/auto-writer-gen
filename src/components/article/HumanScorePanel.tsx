@@ -67,20 +67,26 @@ function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Record<st
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": `HUMANIZE FIX PROMPT (0% AI TARGET):
+    "humanize-all": `UNIVERSAL STEALTH BYPASS (0% AI TARGET):
+You are an expert human editor. Your task is to rewrite this text to achieve 0% AI detection score, while STRICTLY maintaining the chosen persona's tone.${personaBlock}
 
-1. FORMATTING CLEANUP: STRICTLY remove all ** symbols (bold). Text must be flat but structured via H2/H3.
+CORE RULES:
+1. STRIP ALL BOLD: Remove all ** formatting. Human experts don't bold keywords in flowy text.
 
-2. LINGUISTIC INJECTION: Rewrite adding 10-15% conversational turns and professional 'grounded' slang.
-Use: 'the kicker', 'game-changer', 'no-brainer', 'let's be real', 'here's the deal', 'bottom line', 'so here's the thing'.
+2. LINGUISTIC CHAOS (Burstiness): Break GPT's rhythmic symmetry.
+   - Rule: One very short sentence (3-5 words) every 3-4 sentences.
+   - Use dashes (—), colons (:), and parenthetical asides (e.g., "believe me, I've seen it", "though who knows") to mimic human thought.
 
-3. RHYTHM DESTRUCTION: Every 3rd or 4th sentence must be short (3-5 words). Use dashes and parentheses for authorial asides (e.g., 'didn't buy this for years myself', 'though who knows', 'tested this hundreds of times').
+3. CLICHÉ EXTERMINATOR: Delete "In today's world", "Unlock", "Delve", "Comprehensive guide", "Furthermore", "It's important to note", "Meticulously".
+   Replace with: "the kicker", "let's be real", "game-changer", "no-brainer", "here's the deal", "bottom line".
 
-4. CLICHÉ KILLER: Remove phrases 'It's important to understand', 'It's worth noting', 'In conclusion', 'In today's world', 'Furthermore', 'Comprehensive', 'Delve', 'Meticulously'. Start paragraphs directly, no preambles.
+4. SYNTACTIC INVERSION: Change standard word order to a more conversational, emphatic flow.
 
-5. FAQ REDESIGN: Reformat FAQ from 'Question-Answer' into 'Quick-fire troubleshooting' format. Tone should be like an expert answering a friend.
+5. DIRECT ANSWER MODE: First sentence after each H2/H3 must be a blunt, clear answer without "fluff" introductions.
 
-6. TARGET: ZeroGPT detector must show 0%. If text looks 'too polished' — add more authorial character and simplify complex constructions.`,
+6. FAQ REDESIGN: Reformat FAQ into 'Quick-fire troubleshooting'. Tone like an expert answering a friend.
+
+FINAL GOAL: Output must look typed by a human in one go, with all natural imperfections, slang, and unique rhythm that AI cannot predict. 0% AI Score is the only acceptable result.`,
   };
 }
 
