@@ -75,7 +75,7 @@ export function SectionHero() {
             </motion.div>
 
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }}
-              className="mt-8 text-sm font-tech text-emerald-400/80 tracking-wide">
+              className="mt-8 text-sm font-tech text-emerald-400/80 tracking-widest">
               {t("lp.heroMetric")}
             </motion.p>
           </div>
