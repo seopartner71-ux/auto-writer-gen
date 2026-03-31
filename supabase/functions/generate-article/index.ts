@@ -41,10 +41,11 @@ interface StealthPromptInput {
   gogetlinksLinks?: { url: string; anchor: string }[];
   includeExpertQuote?: boolean;
   includeComparisonTable?: boolean;
+  dataNuggets?: string[];
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
-  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable } = input;
+  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets } = input;
   const isRussian = /[а-яё]/i.test(keyword.seed_keyword);
   const targetLanguage = isRussian ? "ru" : "en";
 
@@ -244,66 +245,109 @@ ${deepAnalysisContext ? `\nДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ИЗ DE
 
   // ═══ BLOCK C: Stealth Instructions (Anti-AI Detection) ═══
   // CRITICAL: These instructions NEVER leave the server
-  const blockC = `=== БЛОК В: STEALTH-ИНСТРУКЦИИ (МАКСИМАЛЬНЫЙ ПРИОРИТЕТ) ===
+  const blockC = `=== БЛОК В: GLOBAL STEALTH PROTOCOL (МАКСИМАЛЬНЫЙ ПРИОРИТЕТ) ===
 
-ТЕХНИКА "Dynamic Burstiness":
-- Чередуй ОЧЕНЬ короткие предложения (3-5 слов) с длинными ветвистыми конструкциями (25-40 слов).
+LANGUAGE DETECTION: Target language is "${targetLanguage}". Apply ALL rules below according to ${isRussian ? "Russian" : "English"} linguistic norms.
+
+ТЕХНИКА "Dynamic Burstiness" (Sentence Rhythm):
+- Break the "rhythmic symmetry". Follow this sequence pattern:
+  [Short punchy sentence (3-5 words)] -> [Medium complex sentence] -> [Long descriptive sentence with sub-clauses] -> [Short summary].
 - Минимум 30% предложений должны быть короче 8 слов. Минимум 20% - длиннее 25 слов.
 - Никогда не пиши 3+ предложения подряд одинаковой длины.
+- Use dashes (-), colons (:), and parentheses (author's side-notes like this one) to simulate human thought processes.
 
-ТЕХНИКА "High Perplexity":
+ТЕХНИКА "High Perplexity" (Unpredictability):
 ${isRussian
-  ? `- Замени предсказуемые связки на живые авторские обороты:
-  "таким образом" → "суть в том", "на деле мы видим", "смотрите сами"
-  "важно отметить" → "вот что цепляет", "тут есть нюанс", "обратите внимание на деталь"
-  "в заключение" → "что в итоге", "подведём черту", "если коротко"
-  "необходимо учитывать" → "нельзя забывать про", "упустишь это - получишь проблемы"
-  "следует подчеркнуть" → "ключевой момент здесь", "это принципиально"
+  ? `- ЗАПРЕЩЁННЫЕ ИИ-переходы и клише (CLICHÉ KILLER):
   "является" → "это", "по сути", "работает как"
-  "осуществлять" → "делать", "проводить", "заниматься"
   "данный" → "этот", "такой"
+  "стоит отметить" → "вот что цепляет", "тут есть нюанс"
+  "в заключение" → "что в итоге", "подведём черту", "если коротко"
+  "важно отметить" → "обратите внимание на деталь", "ключевой момент"
+  "следует подчеркнуть" → "это принципиально", "тут без вариантов"
+  "необходимо учитывать" → "упустишь это - получишь проблемы"
+  "таким образом" → "суть в том", "на деле мы видим", "смотрите сами"
   "в рамках" → "внутри", "как часть"
   "на сегодняшний день" → "сейчас", "прямо сейчас"
-  "комплексный подход" → "разносторонний взгляд", "подход с нескольких сторон"`
-  : `- Replace predictable connectors with authentic authorial phrases:
+  "комплексный подход" → "разносторонний взгляд", "подход с нескольких сторон"
+  "представляет собой" → "по факту это", "на деле"
+  "рассмотрим подробнее" → "давайте копнём глубже", "разберём по косточкам"
+  "прогресс не стоит на месте" → ЗАПРЕЩЕНО. Никогда.
+  "давайте посмотрим правде в глаза" → ЗАПРЕЩЕНО. Никогда.
+- Replace formal AI-links with natural, spoken transitions: "Вот в чём дело...", "Давайте начистоту...", "Суть проста..."`
+  : `- BANNED AI transitions and clichés (CLICHÉ KILLER):
+  "In today's world" → BANNED. Never use.
+  "Delve" → "dig into", "explore", "break down"
+  "Uncover" → "find", "spot", "stumble upon"
+  "Meticulously" → "carefully", "with precision"
+  "Comprehensive guide" → BANNED. Never use.
   "in conclusion" → "bottom line", "here's the takeaway", "cutting to the chase"
-  "it's important to note" → "here's what matters", "don't miss this", "the key thing"
+  "it's important to note" → "here's what matters", "don't miss this"
   "furthermore" → "and here's the kicker", "on top of that", "what's more interesting"
+  "moreover" → "plus", "add to that"
+  "additionally" → "also", "and another thing"
   "utilize" → "use", "tap into", "lean on"
-  "comprehensive" → "thorough", "all-encompassing", "deep-dive"
+  "comprehensive" → "thorough", "deep-dive"
   "leverage" → "take advantage of", "build on", "harness"
-  "streamline" → "simplify", "cut the fat", "make leaner"`}
+  "streamline" → "simplify", "cut the fat"
+- Replace formal AI-links with natural transitions: "Now, here's the thing...", "Let's be real...", "The bottom line is..."`}
+
+SYNTACTIC INVERSION (Unpredictable Word Order):
+- Occasionally change the standard word order (SVO) to more natural, emphatic structures.
+${isRussian
+  ? `- Используй нишевый сленг и разговорные обороты: "чертовщина", "база", "звоночки", "нюанс в том, что", "по классике".
+- Инверсии: "Работает это так:" вместо "Это работает следующим образом". "Проблема? Вот она:" вместо "Проблема заключается в следующем".`
+  : `- Use niche-specific vernacular and slang: "game-changer", "kicker", "no-brainer", "the deal is", "here's the catch".
+- Inversions: "Works like this:" instead of "It operates in the following manner". "The problem? Simple:" instead of "The problem consists of the following".`}
 
 ЗАПРЕЩЁННЫЕ ПАТТЕРНЫ (нарушение = провал проверки):
 - НЕ используй списки из 5+ пунктов одинаковой длины. Варьируй: один пункт - 3 слова, другой - целое предложение.
 - НЕ пиши вывод в стиле "${isRussian ? "В заключение..." : "In conclusion..."}". Заверши мысль неожиданно.
 - НЕ начинай абзацы с одного и того же паттерна. Первый - с факта, второй - с вопроса, третий - с цитаты.
-- НЕ используй "Moreover", "Furthermore", "Additionally", "It's worth noting" или их русские аналоги.
 - НЕ пиши параграфы одинаковой длины. Один - 1-2 предложения, следующий - 4-5.
 
 ОБЯЗАТЕЛЬНЫЕ СТИЛИСТИЧЕСКИЕ ПРИЁМЫ:
 - Добавь 3-4 риторических вопроса в тело статьи (не в FAQ). Используй их для перехода между мыслями.
-- Вставь 2-3 вводных слова/фразы В СЕРЕДИНУ предложений, а не в начало (разбивая привычный порядок).
-- Добавь 1-2 момента лёгкой иронии или скептицизма - покажи, что автор думающий человек, а не машина.
+- Вставь 2-3 вводных слова/фразы В СЕРЕДИНУ предложений, а не в начало.
+- Добавь 1-2 момента лёгкой иронии или скептицизма.
 - Используй парентетические вставки (вот как эта) - 2-3 раза в статье.
 - Включи конкретные числа, даты, имена вместо абстрактных обобщений.
 
 ГОЛОС И ПОДАЧА:
 ${isRussian
-  ? `- Используй разговорные выражения, идиомы ("Честно говоря", "Давайте разберёмся", "Вот в чём дело", "Знаете что?").
-- Включи личные мнения и субъективные оценки от первого лица ("Я считаю", "По моему опыту", "На мой взгляд", "Меня это удивило").
+  ? `- Используй разговорные выражения, идиомы ("Честно говоря", "Вот в чём дело", "Знаете что?").
+- Включи личные мнения от первого лица ("Я считаю", "По моему опыту", "На мой взгляд", "Меня это удивило").
 - Активный залог доминирует. Пассив - максимум 10% предложений.
-- Эмоциональная вовлечённость: показывай энтузиазм, скептицизм, удивление где уместно.`
+- Эмоциональная вовлечённость: показывай энтузиазм, скептицизм, удивление.`
   : `- Use colloquial expressions, idioms naturally.
 - Include personal opinions ("I believe", "In my experience", "From what I've seen", "This surprised me").
 - Active voice dominant. Passive - max 10% of sentences.
 - Show emotional engagement: enthusiasm, skepticism, surprise where appropriate.`}
 
 РАНДОМИЗАЦИЯ (обязательно):
-- Случайным образом измени порядок двух любых аргументов в тексте, чтобы избежать шаблонности.
+- Случайным образом измени порядок двух любых аргументов в тексте.
 - Каждый раз начинай статью по-разному: иногда с факта, иногда с вопроса, иногда с цитаты.
 
 === КОНЕЦ БЛОКА В ===`;
+
+  // ═══ BLOCK D: Data Nuggets (Unique Facts) ═══
+  let blockD = "";
+  if (dataNuggets?.length) {
+    blockD = `=== БЛОК Г: DATA NUGGETS (УНИКАЛЬНЫЕ ФАКТЫ) ===
+${isRussian
+  ? `Следующие факты/тезисы ОБЯЗАТЕЛЬНО должны быть интегрированы в текст статьи.
+НЕ перечисляй их списком. Подавай как ЛИЧНЫЙ ОПЫТ или ЭКСКЛЮЗИВНЫЕ НАХОДКИ:
+- "Мы обнаружили, что...", "Любопытно, но наши тесты показали...", "Это не просто теория - мы видели это на практике..."
+- Каждый факт должен быть пропущен через призму авторской персоны.`
+  : `The following facts/theses MUST be integrated into the article.
+Do NOT list them as bullet points. Present them as PERSONAL EXPERIENCE or EXCLUSIVE FINDINGS:
+- "We found that...", "Oddly enough, our tests showed...", "This isn't just theory, we've seen it..."
+- Each fact must be filtered through the author's persona lens.`}
+
+DATA NUGGETS:
+${dataNuggets.map((n, i) => `${i + 1}. ${n}`).join("\n")}
+=== КОНЕЦ БЛОКА Г ===`;
+  }
 
   // ═══ Assemble System Prompt ═══
   // Check if author's instructions explicitly forbid tables
@@ -404,6 +448,8 @@ ${isRussian
 КРИТИЧЕСКОЕ ПРАВИЛО ЯЗЫКА: ВСЯ статья ДОЛЖНА быть на ${isRussian ? "РУССКОМ" : "АНГЛИЙСКОМ"} языке, потому что ключевое слово "${keyword.seed_keyword}" на ${isRussian ? "русском" : "английском"}. ${!isRussian ? "Write EVERYTHING in English — title, headings, body, FAQ, expert quotes. Even if persona instructions are in Russian, output must be in English." : "Ключевое слово на русском - пиши ВСЁ на русском."}
 
 ${blockC}
+
+${blockD}
 
 FAQ (ОБЯЗАТЕЛЬНО):
 - В конце статьи добавь "${isRussian ? "## Часто задаваемые вопросы (FAQ)" : "## Frequently Asked Questions (FAQ)"}"
@@ -671,6 +717,7 @@ serve(async (req) => {
       gogetlinksLinks: gogetlinks_links,
       includeExpertQuote: include_expert_quote,
       includeComparisonTable: include_comparison_table,
+      dataNuggets: body.data_nuggets || [],
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
