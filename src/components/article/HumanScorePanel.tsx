@@ -31,7 +31,21 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
       "paragraph-starts": "Измени начала абзацев так, чтобы каждый начинался с другого слова/конструкции. Используй инверсии, вопросы, факты.",
       "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% - длинными ветвистыми конструкциями (25-40 слов). Используй тире, двоеточия и парентетические вставки.",
       "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями.",
-      "humanize-all": "Действуй как редактор-человек. Перепиши этот текст так, чтобы он прошёл ИИ-детектор. Увеличь вариативность предложений, добавь человеческие несовершенства, используй отраслевой жаргон и уничтожь любые повторяющиеся ИИ-структуры предложений. Сохрани смысл, но убей 'запах GPT'. Конкретно: замени все клише на живые обороты, добавь инверсии, парентетические вставки (вот как эта), риторические вопросы, сленг ниши. Чередуй короткие (3-5 слов) и длинные (25-40 слов) предложения. Начинай абзацы по-разному.",
+      "humanize-all": `СТРОГИЕ ПРАВИЛА ГУМАНИЗАЦИИ:
+
+1. ПОЛНОСТЬЮ УДАЛИ всё жирное выделение (символы **). Текст должен быть абсолютно чистым, без markdown-форматирования bold.
+
+2. ИЗМЕНИ ТОН: Представь, что ты — опытный практик в своей нише, который пишет пост в Telegram. Тон живой, местами резкий, без воды. Никакой академической вежливости.
+
+3. УДАЛИ ВСЕ ШТАМПЫ: Замени фразы типа 'наука не стоит на месте', 'важно понимать', 'вносят свою лепту', 'следует отметить', 'представляет собой', 'рассмотрим подробнее', 'комплексный подход', 'в заключение', 'таким образом' на разговорные аналоги. Каждая замена — уникальная.
+
+4. ПЕРЕМЕШАЙ ПОРЯДОК: Начни каждый абзац с другого слова. Используй инверсию, вопросы, факты. Ни один абзац не должен начинаться как предыдущий.
+
+5. ДОБАВЬ 'ШУМ': Вставь 2-3 личных замечания в скобках (например: 'честно, сам долго в это не верил', 'проверено на практике', 'вот тут — главный подвох').
+
+6. ЧЕРЕДУЙ ДЛИНУ: 30% предложений — короткие (3-7 слов). 20% — длинные ветвистые конструкции (25-40 слов). Используй тире, двоеточия, парентетические вставки.
+
+7. ЦЕЛЬ: Детектор должен показать 0% AI. Если текст хоть немного похож на учебник или ChatGPT — перепиши заново. Сохрани смысл, но убей 'запах GPT'.`,
     };
   }
   return {
@@ -41,7 +55,21 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": "Act as a human editor. Rewrite this text to pass an AI detector. Increase sentence variety, add human-like imperfections, use industry jargon, and destroy any repetitive AI sentence structures. Keep the meaning but kill the 'GPT-smell'. Specifically: replace all clichés with natural phrases, add inversions, parenthetical asides (like this one), rhetorical questions, niche slang. Alternate short (3-5 words) and long (25-40 words) sentences. Start paragraphs differently.",
+    "humanize-all": `STRICT HUMANIZATION RULES:
+
+1. COMPLETELY REMOVE all bold formatting (** symbols). Text must be clean, no markdown bold.
+
+2. CHANGE THE TONE: Write like an experienced practitioner posting on social media. Tone is lively, sometimes blunt, zero fluff. No academic politeness.
+
+3. KILL ALL CLICHÉS: Replace phrases like 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage', 'delve', 'uncover', 'meticulously', 'it goes without saying' with conversational alternatives. Every replacement must be unique.
+
+4. SHUFFLE PARAGRAPH STARTS: Begin each paragraph with a different word. Use inversions, questions, facts. No two paragraphs should start the same way.
+
+5. ADD 'NOISE': Insert 2-3 personal remarks in parentheses (e.g., 'honestly, I didn't believe this for years', 'tested this hundreds of times', 'here's the real kicker').
+
+6. VARY SENTENCE LENGTH: 30% sentences short (3-7 words). 20% long complex constructions (25-40 words). Use dashes, colons, parenthetical asides.
+
+7. TARGET: AI detector must show 0% AI. If the text even slightly resembles a textbook or ChatGPT output — rewrite it completely. Keep the meaning but kill the 'GPT smell'.`,
   };
 }
 
