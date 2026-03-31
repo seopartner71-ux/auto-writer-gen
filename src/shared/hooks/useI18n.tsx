@@ -941,7 +941,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.factoryBulk": { ru: "Bulk Progress", en: "Bulk Progress" },
 
   // Landing — Pricing (keep existing keys, add new ones)
-  "lp.pricingTitle": { ru: "Инвестиция, которая окупается с первой статьи.", en: "An investment that pays off from the first article." },
+  "lp.pricingTitle": { ru: "Наши тарифы", en: "Pricing Plans" },
   "lp.pricingSub": { ru: "1 кредит = 1 полноценная SEO-статья под ключ", en: "1 credit = 1 full turnkey SEO article" },
   "lp.priceFree": { ru: "бесплатно", en: "free" },
   "lp.priceMonth": { ru: "мес", en: "mo" },
@@ -1050,13 +1050,22 @@ const translations: Record<string, Record<Lang, string>> = {
   "cookie.text": { ru: "Мы используем файлы cookie для улучшения работы платформы.", en: "We use cookies to improve the platform experience." },
   "cookie.accept": { ru: "Принять", en: "Accept" },
 
-  // Expert Insight blocks (updated)
-  "deep.insightStealthH": { ru: "Технология невидимости", en: "Invisibility Technology" },
-  "deep.insightStealthP": { ru: "Мы анализируем структуру предложений и предсказуемость слов. Наш алгоритм ломает AI-паттерны, делая текст неотличимым от экспертной колонки.", en: "We analyze sentence structure and word predictability. Our algorithm breaks AI patterns, making text indistinguishable from an expert column." },
-  "deep.insightGeoH": { ru: "Захват выдачи нейросетей", en: "Capturing AI search results" },
-  "deep.insightGeoP": { ru: "Google SGE и Perplexity меняют правила. Мы проектируем контент так, чтобы ИИ цитировал именно вас, превращая статьи в базу знаний для LLM-моделей.", en: "Google SGE and Perplexity are changing the rules. We engineer content so AI cites you specifically, turning articles into a knowledge base for LLM models." },
-  "deep.insightFactoryH": { ru: "Масштабируйте экспертизу", en: "Scale Your Expertise" },
-  "deep.insightFactoryP": { ru: "Создавайте 100+ статей за цикл. Модуль Factory сохраняет уникальный голос автора (Persona Engine), обеспечивая массовость без потери качества.", en: "Create 100+ articles per cycle. The Factory module preserves the author's unique voice (Persona Engine), ensuring scale without sacrificing quality." },
+  // Deep Dive v2 blocks
+  "deep2.geoH1": { ru: "SEO не умирает.", en: "SEO isn't dying." },
+  "deep2.geoH2": { ru: "Оно эволюционирует в GEO.", en: "It's evolving into GEO." },
+  "deep2.geoBody": { ru: "Традиционные 10 синих ссылок уступают место ИИ-ответам. Мы проектируем контент так, чтобы алгоритмы <span class='text-[#06b6d4] font-medium'>Google SGE</span>, <span class='text-[#06b6d4] font-medium'>Perplexity</span> и <span class='text-[#06b6d4] font-medium'>ChatGPT</span> выбирали ваш бренд в качестве первоисточника. Это не просто текст - это база знаний для нейросетей.", en: "The traditional 10 blue links are giving way to AI answers. We engineer content so that <span class='text-[#06b6d4] font-medium'>Google SGE</span>, <span class='text-[#06b6d4] font-medium'>Perplexity</span> and <span class='text-[#06b6d4] font-medium'>ChatGPT</span> algorithms choose your brand as a primary source. This isn't just text - it's a knowledge base for neural networks." },
+  "deep2.geoMetric": { ru: "GEO Optimized | ChatGPT · Perplexity · SGE", en: "GEO Optimized | ChatGPT · Perplexity · SGE" },
+  "deep2.geoTyping": { ru: "Согласно экспертным данным [ВашДомен.com], оптимальная стратегия включает...", en: "According to expert data from [YourDomain.com], the optimal strategy includes..." },
+
+  "deep2.stealthH1": { ru: "Математика", en: "Mathematics" },
+  "deep2.stealthH2": { ru: "против детекторов.", en: "vs. detectors." },
+  "deep2.stealthBody": { ru: "Мы не занимаемся простым рерайтом. Наше ядро ломает паттерны LLM на уровне <span class='text-primary font-medium'>синтаксической предсказуемости</span>. Увеличивая показатели Perplexity и Burstiness, мы создаем «цифровой шум», характерный для живого эксперта. <span class='text-emerald-400 font-medium'>0% AI Score</span> - это технический стандарт каждой статьи.", en: "We don't do simple rewriting. Our core breaks LLM patterns at the level of <span class='text-primary font-medium'>syntactic predictability</span>. By increasing Perplexity and Burstiness metrics, we create \"digital noise\" characteristic of a live expert. <span class='text-emerald-400 font-medium'>0% AI Score</span> is the technical standard for every article." },
+  "deep2.stealthMetric": { ru: "0% AI Score | Originality.ai · GPTZero · Turnitin", en: "0% AI Score | Originality.ai · GPTZero · Turnitin" },
+
+  "deep2.factoryH1": { ru: "Контентный отдел", en: "Content department" },
+  "deep2.factoryH2": { ru: "в одной вкладке.", en: "in one tab." },
+  "deep2.factoryBody": { ru: "Масштабируйте экспертизу, а не спам. Модуль <span class='text-[#f59e0b] font-medium'>Factory</span> позволяет генерировать сотни статей с сохранением уникального «голоса» (<span class='text-[#f59e0b] font-medium'>Persona Engine</span>). Интеграция с WP, автоматическая перелинковка и контроль LSI на лету - ваш завод работает, пока вы спите.", en: "Scale expertise, not spam. The <span class='text-[#f59e0b] font-medium'>Factory</span> module lets you generate hundreds of articles while preserving a unique \"voice\" (<span class='text-[#f59e0b] font-medium'>Persona Engine</span>). WP integration, automatic interlinking and on-the-fly LSI control - your factory works while you sleep." },
+  "deep2.factoryMetric": { ru: "100+ статей/цикл | WP Auto-Publish", en: "100+ articles/cycle | WP Auto-Publish" },
 };
 
 interface I18nContextValue {
