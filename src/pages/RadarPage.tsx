@@ -158,6 +158,7 @@ export default function RadarPage() {
     model: string; text: string; date: string;
     brand_mentioned: boolean; domain_linked: boolean;
     matched_snippets: string[]; status: string; keyword: string;
+    sentiment?: string;
   } | null>(null);
   const [responseOpen, setResponseOpen] = useState(false);
   const responseRef = useRef<HTMLDivElement>(null);
