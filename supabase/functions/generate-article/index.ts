@@ -41,6 +41,7 @@ interface StealthPromptInput {
   gogetlinksLinks?: { url: string; anchor: string }[];
   includeExpertQuote?: boolean;
   includeComparisonTable?: boolean;
+  dataNuggets?: string[];
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
