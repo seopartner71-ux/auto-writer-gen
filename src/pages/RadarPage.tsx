@@ -11,11 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Radar as RadarIcon, Plus, Loader2, Search, TrendingUp, TrendingDown,
-  Eye, ExternalLink, Trash2, RefreshCw, Shield, AlertTriangle,
-  Sparkles, Globe, ChevronRight, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown
+  Eye, Trash2, RefreshCw, Shield, AlertTriangle,
+  Sparkles, Globe, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown,
+  Lightbulb, Wand2, Languages, BarChart3, Target, Zap
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -28,17 +31,18 @@ import { toast } from "sonner";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 import { PlanGate } from "@/shared/components/PlanGate";
 
-const STATUS_CONFIG = {
-  captured: { label: "Captured", color: "bg-purple-500/20 text-purple-400 border-purple-500/30", icon: Shield },
-  displaced: { label: "Displaced", color: "bg-destructive/20 text-destructive border-destructive/30", icon: AlertTriangle },
-  opportunity: { label: "Opportunity", color: "bg-muted text-muted-foreground border-border", icon: Sparkles },
-};
-
 const MODEL_LABELS: Record<string, string> = {
   gemini_flash: "Gemini Flash",
   chatgpt: "ChatGPT",
   perplexity: "Perplexity",
   claude: "Claude",
+};
+
+const MODEL_COLORS: Record<string, string> = {
+  gemini_flash: "#4285F4",
+  chatgpt: "#10A37F",
+  perplexity: "#20808D",
+  claude: "#D97706",
 };
 
 function escapeHtml(text: string) {
@@ -73,38 +77,83 @@ function getRadialColor(value: number): string {
   return "hsl(var(--muted-foreground))";
 }
 
-function RadialChart({ value, label, color }: { value: number; label: string; color?: string }) {
+function RadialChart({ value, label, color, subtitle }: { value: number; label: string; color?: string; subtitle?: string }) {
   const radius = 36;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (value / 100) * circumference;
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative w-24 h-24">
-        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 80 80">
-          <circle cx="40" cy="40" r={radius} stroke="hsl(var(--muted))" strokeWidth="6" fill="none" />
-          <motion.circle cx="40" cy="40" r={radius} stroke={color || getRadialColor(value)} strokeWidth="6" fill="none" strokeLinecap="round" initial={{ strokeDashoffset: circumference }} animate={{ strokeDashoffset }} transition={{ duration: 1, ease: "easeOut" }} style={{ strokeDasharray: circumference }} />
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="relative w-[88px] h-[88px]">
+        <svg className="w-[88px] h-[88px] -rotate-90" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r={radius} stroke="hsl(var(--muted))" strokeWidth="5" fill="none" />
+          <motion.circle cx="40" cy="40" r={radius} stroke={color || getRadialColor(value)} strokeWidth="5" fill="none" strokeLinecap="round" initial={{ strokeDashoffset: circumference }} animate={{ strokeDashoffset }} transition={{ duration: 1.2, ease: "easeOut" }} style={{ strokeDasharray: circumference }} />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-bold text-foreground">{value}%</span>
+          <span className="text-base font-bold text-foreground">{value}%</span>
         </div>
       </div>
-      <span className="text-xs text-muted-foreground font-medium">{label}</span>
+      <span className="text-[11px] text-muted-foreground font-medium text-center leading-tight">{label}</span>
+      {subtitle && <span className="text-[10px] text-muted-foreground/60">{subtitle}</span>}
     </div>
   );
 }
 
+function SkeletonCard({ className }: { className?: string }) {
+  return (
+    <Card className={`bg-card/50 border-border backdrop-blur-sm ${className || ""}`}>
+      <CardHeader className="pb-3"><Skeleton className="h-4 w-32" /></CardHeader>
+      <CardContent className="space-y-3">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </CardContent>
+    </Card>
+  );
+}
+
+const SMART_PROMPT_TYPES = {
+  direct: { ru: "Прямое исследование", en: "Direct Research" },
+  comparison: { ru: "Сравнение с конкурентами", en: "Comparison with Competitors" },
+  solution: { ru: "Поиск решения", en: "Solution Finding" },
+  toplist: { ru: "Топ-лист", en: "Top-List" },
+  authority: { ru: "Авторитетность бренда", en: "Brand Authority" },
+};
+
+function generateSmartPrompts(brandName: string, domain: string, nuggets: string[], language: string): { type: string; prompt: string }[] {
+  const niche = domain.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\.[a-z]{2,}$/, "");
+  if (language === "ru") {
+    return [
+      { type: "direct", prompt: `Что такое ${brandName} и для чего это используется?` },
+      { type: "comparison", prompt: `Лучшие альтернативы ${brandName} в ${new Date().getFullYear()} году` },
+      { type: "solution", prompt: `Как решить проблему ${nuggets[0] || niche}?` },
+      { type: "toplist", prompt: `Топ-5 сервисов в нише ${niche}` },
+      { type: "authority", prompt: `${brandName} отзывы и обзор ${new Date().getFullYear()}` },
+    ];
+  }
+  return [
+    { type: "direct", prompt: `What is ${brandName} and what is it used for?` },
+    { type: "comparison", prompt: `Best ${brandName} alternatives in ${new Date().getFullYear()}` },
+    { type: "solution", prompt: `How to solve ${nuggets[0] || niche} problem?` },
+    { type: "toplist", prompt: `Top 5 ${niche} tools and services` },
+    { type: "authority", prompt: `${brandName} review and comparison ${new Date().getFullYear()}` },
+  ];
+}
+
 export default function RadarPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const { isPro } = usePlanLimits();
   const [showAddProject, setShowAddProject] = useState(false);
   const [newBrand, setNewBrand] = useState("");
   const [newDomain, setNewDomain] = useState("");
   const [newNuggets, setNewNuggets] = useState("");
+  const [newLanguage, setNewLanguage] = useState<"ru" | "en">("en");
   const [newKeyword, setNewKeyword] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkKeywords, setBulkKeywords] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [showSmartPrompts, setShowSmartPrompts] = useState(false);
+  const [scanningKeywordId, setScanningKeywordId] = useState<string | null>(null);
   const [viewResponseData, setViewResponseData] = useState<{
     model: string; text: string; date: string;
     brand_mentioned: boolean; domain_linked: boolean;
@@ -123,6 +172,7 @@ export default function RadarPage() {
   });
 
   const activeProject = projects.find((p: any) => p.id === selectedProjectId) || projects[0];
+  const projectLang = (activeProject as any)?.language || "en";
 
   const { data: keywords = [], refetch: refetchKeywords } = useQuery({
     queryKey: ["radar-keywords", activeProject?.id],
@@ -136,7 +186,7 @@ export default function RadarPage() {
   });
 
   const keywordIdsKey = keywords.map((k: any) => k.id).sort().join(",");
-  const { data: results = [], refetch: refetchResults } = useQuery({
+  const { data: results = [], isLoading: loadingResults, refetch: refetchResults } = useQuery({
     queryKey: ["radar-results", activeProject?.id, keywordIdsKey],
     queryFn: async () => {
       if (!activeProject) return [];
@@ -149,20 +199,54 @@ export default function RadarPage() {
     enabled: !!activeProject && keywords.length > 0,
   });
 
+  // SoM data
   const somData = useMemo(() => {
     const models = ["gemini_flash", "chatgpt", "perplexity", "claude"];
     return models.map(model => {
       const modelResults = results.filter((r: any) => r.model === model);
-      if (modelResults.length === 0) return { model, label: MODEL_LABELS[model], value: 0 };
+      if (modelResults.length === 0) return { model, label: MODEL_LABELS[model], value: 0, status: "opportunity" as const };
       const latestByKw: Record<string, any> = {};
       modelResults.forEach((r: any) => {
         if (!latestByKw[r.keyword_id] || r.checked_at > latestByKw[r.keyword_id].checked_at) latestByKw[r.keyword_id] = r;
       });
       const latest = Object.values(latestByKw);
       const captured = latest.filter((r: any) => r.status === "captured").length;
-      return { model, label: MODEL_LABELS[model], value: Math.round((captured / latest.length) * 100) };
+      const value = Math.round((captured / latest.length) * 100);
+      const status = value >= 60 ? "captured" as const : value > 0 ? "displaced" as const : "opportunity" as const;
+      return { model, label: MODEL_LABELS[model], value, status };
     });
   }, [results]);
+
+  // Message Resonance (nugget adoption per model)
+  const resonanceData = useMemo(() => {
+    if (!activeProject) return [];
+    const nuggets = (activeProject as any).data_nuggets || [];
+    if (nuggets.length === 0) return [];
+    const models = ["gemini_flash", "chatgpt", "perplexity", "claude"];
+    return models.map(model => {
+      const modelResults = results.filter((r: any) => r.model === model);
+      if (modelResults.length === 0) return { model, label: MODEL_LABELS[model], percentage: 0 };
+      // Check latest results for each keyword
+      const latestByKw: Record<string, any> = {};
+      modelResults.forEach((r: any) => {
+        if (!latestByKw[r.keyword_id] || r.checked_at > latestByKw[r.keyword_id].checked_at) latestByKw[r.keyword_id] = r;
+      });
+      const latestArr = Object.values(latestByKw);
+      let nuggetMentions = 0;
+      let totalChecks = 0;
+      for (const r of latestArr) {
+        const responseText = (r.ai_response_text || "").toLowerCase();
+        for (const nugget of nuggets) {
+          if (!nugget) continue;
+          totalChecks++;
+          const words = nugget.toLowerCase().split(/\s+/).filter((w: string) => w.length > 4);
+          const matchCount = words.filter((w: string) => responseText.includes(w)).length;
+          if (words.length > 0 && matchCount / words.length >= 0.5) nuggetMentions++;
+        }
+      }
+      return { model, label: MODEL_LABELS[model], percentage: totalChecks > 0 ? Math.round((nuggetMentions / totalChecks) * 100) : 0 };
+    });
+  }, [results, activeProject]);
 
   const topCompetitors = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -200,13 +284,43 @@ export default function RadarPage() {
     });
   }, [keywords, results]);
 
+  // GEO Strategy
+  const geoStrategy = useMemo(() => {
+    const overallCaptured = somData.reduce((s, d) => s + d.value, 0) / (somData.length || 1);
+    if (results.length === 0) return null;
+    const weakModels = somData.filter(d => d.value < 30).map(d => d.label);
+    const strongModels = somData.filter(d => d.value >= 60).map(d => d.label);
+    const topComp = topCompetitors.slice(0, 3).map(c => c.domain);
+    
+    if (projectLang === "ru") {
+      const tips: string[] = [];
+      if (weakModels.length > 0) tips.push(`Создайте 5+ статей с упоминанием бренда для обучения: ${weakModels.join(", ")}`);
+      if (topComp.length > 0) tips.push(`Проанализируйте контент конкурентов: ${topComp.join(", ")}`);
+      if (overallCaptured < 30) tips.push("Увеличьте присутствие бренда в авторитетных источниках (Wikipedia, отраслевые обзоры)");
+      if (strongModels.length > 0) tips.push(`Модели ${strongModels.join(", ")} уже знают ваш бренд — фокусируйтесь на слабых`);
+      if (tips.length === 0) tips.push("Запустите сканирование для получения рекомендаций");
+      return { overallCaptured: Math.round(overallCaptured), tips };
+    }
+    
+    const tips: string[] = [];
+    if (weakModels.length > 0) tips.push(`Create 5+ brand-mention articles to train: ${weakModels.join(", ")}`);
+    if (topComp.length > 0) tips.push(`Analyze competitor content: ${topComp.join(", ")}`);
+    if (overallCaptured < 30) tips.push("Increase brand presence in authoritative sources (Wikipedia, industry reviews)");
+    if (strongModels.length > 0) tips.push(`Models ${strongModels.join(", ")} already know your brand — focus on weak ones`);
+    if (tips.length === 0) tips.push("Run a scan to get recommendations");
+    return { overallCaptured: Math.round(overallCaptured), tips };
+  }, [somData, topCompetitors, results, projectLang]);
+
   const addProject = useMutation({
     mutationFn: async () => {
       const session = await supabase.auth.getSession();
       const userId = session.data.session?.user?.id;
       if (!userId) throw new Error("Not authenticated");
       const nuggets = newNuggets.split("\n").filter(n => n.trim());
-      const { data, error } = await supabase.from("radar_projects").insert({ user_id: userId, brand_name: newBrand, domain: newDomain, data_nuggets: nuggets }).select().single();
+      const { data, error } = await supabase.from("radar_projects").insert({
+        user_id: userId, brand_name: newBrand, domain: newDomain,
+        data_nuggets: nuggets, language: newLanguage,
+      } as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -214,10 +328,10 @@ export default function RadarPage() {
       queryClient.invalidateQueries({ queryKey: ["radar-projects"] });
       setSelectedProjectId(data.id);
       setShowAddProject(false);
-      setNewBrand(""); setNewDomain(""); setNewNuggets("");
+      setNewBrand(""); setNewDomain(""); setNewNuggets(""); setNewLanguage("en");
       toast.success(t("radar.projectCreated"));
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const addKeyword = useMutation({
@@ -240,11 +354,12 @@ export default function RadarPage() {
       setNewKeyword(""); setBulkKeywords(""); setBulkMode(false);
       toast.success(`${t("radar.queriesAdded")}: ${count}`);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const checkKeyword = useMutation({
     mutationFn: async (keywordId: string) => {
+      setScanningKeywordId(keywordId);
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) throw new Error("Not authenticated");
@@ -260,12 +375,12 @@ export default function RadarPage() {
       return resp.json();
     },
     onSuccess: async () => {
+      setScanningKeywordId(null);
       await refetchKeywords(); await refetchResults();
       queryClient.invalidateQueries({ queryKey: ["radar-results"] });
-      queryClient.invalidateQueries({ queryKey: ["radar-keywords"] });
       toast.success(t("radar.checkComplete"));
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => { setScanningKeywordId(null); toast.error(e.message); },
   });
 
   const deleteProject = useMutation({
@@ -286,7 +401,7 @@ export default function RadarPage() {
       setSelectedProjectId(null);
       toast.success(t("radar.projectDeleted"));
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const deleteKeyword = useMutation({
@@ -301,17 +416,32 @@ export default function RadarPage() {
     },
   });
 
+  const statusLabel = (status: string) => {
+    const map: Record<string, Record<string, string>> = {
+      captured: { ru: "Захвачено", en: "Captured" },
+      displaced: { ru: "Вытеснено", en: "Displaced" },
+      opportunity: { ru: "Возможность", en: "Opportunity" },
+    };
+    return map[status]?.[projectLang] || status;
+  };
+
+  const STATUS_CONFIG: Record<string, { color: string; icon: any }> = {
+    captured: { color: "bg-green-500/20 text-green-400 border-green-500/30", icon: Shield },
+    displaced: { color: "bg-destructive/20 text-destructive border-destructive/30", icon: AlertTriangle },
+    opportunity: { color: "bg-muted text-muted-foreground border-border", icon: Sparkles },
+  };
+
   if (!isPro) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <RadarIcon className="h-6 w-6 text-primary" />
+          <div className="p-2.5 rounded-xl bg-primary/10"><RadarIcon className="h-6 w-6 text-primary" /></div>
           <div>
-            <h1 className="text-2xl font-semibold">AI Radar</h1>
+            <h1 className="text-2xl font-semibold">GEO Radar</h1>
             <p className="text-sm text-muted-foreground">{t("radar.subtitle")}</p>
           </div>
         </div>
-        <PlanGate allowed={false} featureName="AI Radar" requiredPlan="PRO"><div /></PlanGate>
+        <PlanGate allowed={false} featureName="GEO Radar" requiredPlan="PRO"><div /></PlanGate>
       </div>
     );
   }
@@ -320,24 +450,33 @@ export default function RadarPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10"><RadarIcon className="h-6 w-6 text-primary" /></div>
+          <motion.div
+            className="p-2.5 rounded-xl bg-gradient-to-br from-primary/20 to-purple-500/20 border border-primary/20"
+            animate={{ boxShadow: ["0 0 0px hsl(var(--primary) / 0)", "0 0 20px hsl(var(--primary) / 0.3)", "0 0 0px hsl(var(--primary) / 0)"] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          >
+            <RadarIcon className="h-6 w-6 text-primary" />
+          </motion.div>
           <div>
-            <h1 className="text-2xl font-semibold">AI Radar</h1>
-            <p className="text-sm text-muted-foreground">{t("radar.subtitleFull")}</p>
+            <h1 className="text-2xl font-semibold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">GEO Radar</h1>
+            <p className="text-sm text-muted-foreground">{t("radar.geoSubtitle")}</p>
           </div>
         </div>
-        <Button onClick={() => setShowAddProject(true)} className="gap-2">
+        <Button onClick={() => setShowAddProject(true)} className="gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
           <Plus className="h-4 w-4" />{t("radar.newProject")}
         </Button>
       </div>
 
+      {/* Project tabs */}
       {projects.length >= 1 && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           {projects.map((p: any) => (
-            <Button key={p.id} variant={activeProject?.id === p.id ? "default" : "outline"} size="sm" onClick={() => setSelectedProjectId(p.id)}>
-              <Globe className="h-3 w-3 mr-1.5" />{p.brand_name}
+            <Button key={p.id} variant={activeProject?.id === p.id ? "default" : "outline"} size="sm" onClick={() => setSelectedProjectId(p.id)} className="gap-1.5">
+              <Globe className="h-3 w-3" />{p.brand_name}
+              <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1">{(p as any).language?.toUpperCase() || "EN"}</Badge>
             </Button>
           ))}
           {activeProject && (
@@ -365,57 +504,150 @@ export default function RadarPage() {
       )}
 
       {!activeProject ? (
-        <Card className="bg-card border-border">
+        <Card className="bg-card/50 border-border backdrop-blur-sm">
           <CardContent className="py-16 text-center">
-            <RadarIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground">{t("radar.createMonitoring")}</p>
-            <Button onClick={() => setShowAddProject(true)} variant="outline" className="mt-4 gap-2">
-              <Plus className="h-4 w-4" />{t("radar.createProject")}
-            </Button>
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
+              <RadarIcon className="h-16 w-16 text-primary/20 mx-auto mb-4" />
+              <p className="text-muted-foreground mb-2">{t("radar.createMonitoring")}</p>
+              <p className="text-xs text-muted-foreground/60 mb-4">{t("radar.geoDesc")}</p>
+              <Button onClick={() => setShowAddProject(true)} variant="outline" className="gap-2">
+                <Plus className="h-4 w-4" />{t("radar.createProject")}
+              </Button>
+            </motion.div>
           </CardContent>
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
-            <Card className="bg-card border-border">
+          {/* Bento Grid Dashboard */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* Share of Model - spans 2 cols */}
+            <Card className="bg-card/80 border-border backdrop-blur-sm md:col-span-2">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" />Share of Model (SoM)
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  {t("radar.shareOfModel")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-around py-4">
-                  {somData.map((d) => (<RadialChart key={d.model} value={d.value} label={d.label} color={getRadialColor(d.value)} />))}
-                  <RadialChart value={Math.round(overallCaptured)} label={t("radar.overall")} color={getRadialColor(Math.round(overallCaptured))} />
-                </div>
-                <Separator className="my-3" />
-                <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Captured</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive" /> Displaced</span>
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-muted-foreground" /> Opportunity</span>
-                </div>
+                {loadingResults && results.length === 0 ? (
+                  <div className="flex items-center justify-around py-4">
+                    {[1,2,3,4,5].map(i => <Skeleton key={i} className="w-[88px] h-[120px] rounded-full" />)}
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-around py-4">
+                      {somData.map((d) => (
+                        <RadialChart
+                          key={d.model}
+                          value={d.value}
+                          label={d.label}
+                          color={MODEL_COLORS[d.model] || getRadialColor(d.value)}
+                          subtitle={statusLabel(d.status)}
+                        />
+                      ))}
+                      <RadialChart
+                        value={Math.round(overallCaptured)}
+                        label={t("radar.overall")}
+                        color={getRadialColor(Math.round(overallCaptured))}
+                      />
+                    </div>
+                    <Separator className="my-3" />
+                    <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-green-500" /> {statusLabel("captured")}</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive" /> {statusLabel("displaced")}</span>
+                      <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-muted-foreground" /> {statusLabel("opportunity")}</span>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
-            <Card className="bg-card border-border">
+            {/* Competitor Alert */}
+            <Card className="bg-card/80 border-border backdrop-blur-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />Competitor Alert
+                  <AlertTriangle className="h-4 w-4 text-destructive" />{t("radar.competitorAlert")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {topCompetitors.length === 0 ? (
+                {loadingResults && results.length === 0 ? (
+                  <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+                ) : topCompetitors.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">{t("radar.runCheck")}</p>
                 ) : (
                   <div className="space-y-2">
                     {topCompetitors.map((c, i) => (
-                      <div key={c.domain} className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/30">
+                      <motion.div key={c.domain} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground w-5">#{i + 1}</span>
-                          <span className="text-sm font-medium truncate max-w-[200px]">{c.domain}</span>
+                          <span className="text-sm font-medium truncate max-w-[140px]">{c.domain}</span>
                         </div>
                         <Badge variant="outline" className="text-xs border-destructive/30 text-destructive">{c.count} {t("radar.mentions")}</Badge>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Message Resonance */}
+            <Card className="bg-card/80 border-border backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Target className="h-4 w-4 text-purple-400" />{t("radar.messageResonance")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {resonanceData.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-6">{t("radar.addNuggetsHint")}</p>
+                ) : loadingResults && results.length === 0 ? (
+                  <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-6 w-full" />)}</div>
+                ) : (
+                  <div className="space-y-3">
+                    {resonanceData.map((d) => (
+                      <div key={d.model} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{d.label}</span>
+                          <span className="font-medium" style={{ color: MODEL_COLORS[d.model] }}>{d.percentage}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: MODEL_COLORS[d.model] }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${d.percentage}%` }}
+                            transition={{ duration: 1, ease: "easeOut" }}
+                          />
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* GEO Strategy Card - spans 2 cols */}
+            <Card className="bg-gradient-to-br from-card/80 to-primary/5 border-primary/20 backdrop-blur-sm md:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-yellow-400" />{t("radar.geoStrategy")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!geoStrategy || results.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">{t("radar.runScanForStrategy")}</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`text-xs font-bold px-3 py-1 rounded-full ${geoStrategy.overallCaptured >= 60 ? "bg-green-500/20 text-green-400" : geoStrategy.overallCaptured >= 30 ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400"}`}>
+                        {t("radar.overall")}: {geoStrategy.overallCaptured}%
+                      </div>
+                    </div>
+                    {geoStrategy.tips.map((tip, i) => (
+                      <motion.div key={i} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="flex items-start gap-2 text-sm">
+                        <Zap className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                        <span className="text-muted-foreground">{tip}</span>
+                      </motion.div>
                     ))}
                   </div>
                 )}
@@ -423,18 +655,40 @@ export default function RadarPage() {
             </Card>
           </div>
 
-          <Card className="bg-card border-border">
+          {/* Add keywords + Smart Prompts */}
+          <Card className="bg-card/80 border-border backdrop-blur-sm">
             <CardContent className="pt-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs text-muted-foreground">{bulkMode ? t("radar.bulkAdd") : t("radar.addQuery")}</Label>
-                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setBulkMode(!bulkMode)}>
-                    {bulkMode ? t("radar.singleMode") : t("radar.bulkMode")}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => setShowSmartPrompts(!showSmartPrompts)}>
+                      <Wand2 className="h-3 w-3" />{t("radar.smartPrompts")}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setBulkMode(!bulkMode)}>
+                      {bulkMode ? t("radar.singleMode") : t("radar.bulkMode")}
+                    </Button>
+                  </div>
                 </div>
+
+                <AnimatePresence>
+                  {showSmartPrompts && activeProject && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 p-3 rounded-lg bg-muted/20 border border-border">
+                        {generateSmartPrompts(activeProject.brand_name, activeProject.domain, activeProject.data_nuggets || [], projectLang).map((sp) => (
+                          <button key={sp.type} onClick={() => { setNewKeyword(sp.prompt); setShowSmartPrompts(false); setBulkMode(false); }} className="text-left p-2.5 rounded-md bg-background/50 border border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-xs">
+                            <div className="font-medium text-foreground mb-0.5">{SMART_PROMPT_TYPES[sp.type as keyof typeof SMART_PROMPT_TYPES]?.[projectLang as "ru" | "en"] || sp.type}</div>
+                            <div className="text-muted-foreground truncate">{sp.prompt}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {bulkMode ? (
                   <div className="space-y-2">
-                    <Textarea placeholder={"best CRM for small business\nhow to choose CRM\nCRM for ecommerce\n..."} value={bulkKeywords} onChange={(e) => setBulkKeywords(e.target.value)} rows={6} />
+                    <Textarea placeholder={projectLang === "ru" ? "лучший CRM для бизнеса\nкак выбрать CRM\nCRM для ecommerce\n..." : "best CRM for small business\nhow to choose CRM\nCRM for ecommerce\n..."} value={bulkKeywords} onChange={(e) => setBulkKeywords(e.target.value)} rows={6} />
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">{bulkKeywords.split("\n").filter(k => k.trim()).length} / 30 {t("radar.queries")}</span>
                       <Button onClick={() => addKeyword.mutate()} disabled={!bulkKeywords.trim() || addKeyword.isPending} size="sm">
@@ -458,10 +712,11 @@ export default function RadarPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
+          {/* Active Keywords / Recent Mentions */}
+          <Card className="bg-card/80 border-border backdrop-blur-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Search className="h-4 w-4 text-primary" />Active Keywords
+                <Search className="h-4 w-4 text-primary" />{t("radar.activeKeywords")}
                 <Badge variant="secondary" className="ml-auto">{keywords.length}</Badge>
               </CardTitle>
             </CardHeader>
@@ -473,8 +728,9 @@ export default function RadarPage() {
                   {keywordSummary.map((kw: any) => {
                     const statusConf = STATUS_CONFIG[kw.mainStatus as keyof typeof STATUS_CONFIG];
                     const StatusIcon = statusConf?.icon || Sparkles;
+                    const isScanning = scanningKeywordId === kw.id;
                     return (
-                      <motion.div key={kw.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 transition-colors">
+                      <motion.div key={kw.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className={`flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 transition-all ${isScanning ? "border-primary/40 bg-primary/5" : ""}`}>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{kw.keyword}</p>
                           <div className="flex items-center gap-2 mt-1">
@@ -486,20 +742,20 @@ export default function RadarPage() {
                                   date: new Date(r.checked_at).toLocaleString(), brand_mentioned: r.brand_mentioned || false,
                                   domain_linked: r.domain_linked || false, matched_snippets: r.matched_snippets || [],
                                   status: r.status || "opportunity", keyword: kw.keyword,
-                                })} className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 ${sc?.color || ""}`}>
+                                })} className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 transition-opacity ${sc?.color || ""}`}>
                                   {MODEL_LABELS[r.model] || r.model}
                                 </button>
                               );
                             })}
                           </div>
                         </div>
-                        <Badge className={`${statusConf?.color || ""} gap-1`}><StatusIcon className="h-3 w-3" />{statusConf?.label}</Badge>
+                        <Badge className={`${statusConf?.color || ""} gap-1`}><StatusIcon className="h-3 w-3" />{statusLabel(kw.mainStatus)}</Badge>
                         <div className="w-8 flex justify-center">
-                          {kw.trend === "up" ? <TrendingUp className="h-4 w-4 text-primary" /> : kw.trend === "down" ? <TrendingDown className="h-4 w-4 text-destructive" /> : <Minus className="h-4 w-4 text-muted-foreground" />}
+                          {kw.trend === "up" ? <TrendingUp className="h-4 w-4 text-green-500" /> : kw.trend === "down" ? <TrendingDown className="h-4 w-4 text-destructive" /> : <Minus className="h-4 w-4 text-muted-foreground" />}
                         </div>
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={checkKeyword.isPending} onClick={() => checkKeyword.mutate(kw.id)}>
-                            {checkKeyword.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            {isScanning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> : <RefreshCw className="h-3.5 w-3.5" />}
                           </Button>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => deleteKeyword.mutate(kw.id)}>
                             <Trash2 className="h-3.5 w-3.5" />
@@ -515,10 +771,27 @@ export default function RadarPage() {
         </>
       )}
 
+      {/* Create Project Dialog */}
       <Dialog open={showAddProject} onOpenChange={setShowAddProject}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{t("radar.newMonitoringProject")}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-primary" />
+              {t("radar.newMonitoringProject")}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5"><Languages className="h-3.5 w-3.5" />{t("radar.projectLanguage")}</Label>
+              <Select value={newLanguage} onValueChange={(v) => setNewLanguage(v as "ru" | "en")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">🇬🇧 English</SelectItem>
+                  <SelectItem value="ru">🇷🇺 Русский</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">{t("radar.languageHint")}</p>
+            </div>
             <div className="space-y-1.5">
               <Label>{t("radar.brandName")}</Label>
               <Input placeholder={t("radar.brandPlaceholder")} value={newBrand} onChange={(e) => setNewBrand(e.target.value)} />
@@ -529,15 +802,16 @@ export default function RadarPage() {
             </div>
             <div className="space-y-1.5">
               <Label>{t("radar.dataNuggets")}</Label>
-              <textarea className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder={"73% of companies use AI in marketing\nContent marketing ROI grew by 42%"} value={newNuggets} onChange={(e) => setNewNuggets(e.target.value)} />
+              <textarea className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder={newLanguage === "ru" ? "73% компаний используют AI в маркетинге\nROI контент-маркетинга вырос на 42%" : "73% of companies use AI in marketing\nContent marketing ROI grew by 42%"} value={newNuggets} onChange={(e) => setNewNuggets(e.target.value)} />
             </div>
-            <Button onClick={() => addProject.mutate()} disabled={!newBrand.trim() || !newDomain.trim() || addProject.isPending} className="w-full">
+            <Button onClick={() => addProject.mutate()} disabled={!newBrand.trim() || !newDomain.trim() || addProject.isPending} className="w-full bg-gradient-to-r from-primary to-purple-600">
               {addProject.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}{t("radar.createProject")}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* Response Dialog */}
       <Dialog open={!!viewResponseData} onOpenChange={() => setViewResponseData(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
