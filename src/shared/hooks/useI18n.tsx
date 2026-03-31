@@ -976,6 +976,14 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Trust marquee
   "lp.marqueeText": { ru: "Наш контент признан человеческим ведущими детекторами мира", en: "Our content is recognized as human by the world's leading detectors" },
+  "lp.detectorWallSub": { ru: "Обходим все ведущие AI-детекторы", en: "By-passing all major AI detectors" },
+
+  // Stealth widget
+  "lp.stealthActive": { ru: "Stealth Mode Active", en: "Stealth Mode Active" },
+  "lp.stealthProcessing": { ru: "Обработка...", en: "Processing..." },
+
+  // Bento extra
+  "lp.bentoBulk": { ru: "Bulk Progress", en: "Bulk Progress" },
 
   // Footer
   "lp.footerWiki": { ru: "База знаний", en: "Knowledge Base" },

@@ -30,10 +30,10 @@ const outlineItems = [
 ];
 
 const personaTexts = [
-  { font: "serif", text: "The empirical evidence suggests a paradigm shift in how search engines evaluate content quality..." },
-  { font: "sans", text: "Let's break it down: your content needs to hit three key metrics to rank. Here's what works →" },
-  { font: "serif", text: "В мире SEO-контента происходит тихая революция. Алгоритмы эволюционируют, и нам пора адаптироваться..." },
-  { font: "sans", text: "Короче говоря: если ваш текст не проходит AI-детектор, вы уже проигрываете. Вот как это исправить ↓" },
+  { font: "serif", label: "🩺 MD", text: "Тут такое дело: метаанализ 2024 года ломает старую парадигму. Нет, серьезно - забудьте то, что писали в учебниках." },
+  { font: "sans", label: "📈 Investor", text: "Короче, рынок просел на 12%. Хомяки паникуют, а кто с головой - фиксирует профит. (сам через это прошел)" },
+  { font: "sans", label: "💻 Dev", text: "Под капотом - чистый Rust. Латенси 4ms. Да, это костыль, но он работает стабильнее 90% 'элегантных' решений." },
+  { font: "serif", label: "🔧 Foreman", text: "Демпферную ленту клеить ПЕРЕД стяжкой. Кто делает наоборот - переделывает через год. (сам видел сотни раз)" },
 ];
 
 export function LandingBento() {
@@ -69,7 +69,7 @@ export function LandingBento() {
           viewport={{ once: true }}
           className="text-center mb-20"
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-display">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black" style={{ letterSpacing: "-0.05em" }}>
             {t("lp.bentoTitle")}
           </h2>
           <p className="mt-5 text-[#9ca3af] max-w-xl mx-auto text-[15px] leading-[1.6]">
@@ -297,6 +297,23 @@ export function LandingBento() {
               <h3 className="text-lg font-semibold mb-2">Persona Engine</h3>
               <p className="text-xs text-muted-foreground mb-4">{t("lp.bentoPersonaDesc")}</p>
 
+              {/* Persona micro-selector */}
+              <div className="flex gap-1.5 mb-3">
+                {personaTexts.map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPersonaIdx(i)}
+                    className={`text-[9px] font-tech px-2 py-1 rounded-full border transition-all ${
+                      personaIdx === i
+                        ? "border-[#ec4899]/40 bg-[#ec4899]/10 text-[#ec4899]"
+                        : "border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/[0.12]"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Font-switching persona demo */}
               <div className="rounded-lg border border-white/[0.04] bg-white/[0.01] p-3 min-h-[60px] relative overflow-hidden">
                 <AnimatePresence mode="wait">
@@ -309,12 +326,6 @@ export function LandingBento() {
                     className="text-[11px] leading-relaxed text-muted-foreground"
                     style={{ fontFamily: personaTexts[personaIdx].font === "serif" ? "Georgia, 'Times New Roman', serif" : "Inter, system-ui, sans-serif" }}
                   >
-                    <span className={`inline-block mb-1 text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                      personaTexts[personaIdx].font === "serif" ? "bg-[#ec4899]/10 text-[#ec4899]" : "bg-[#3b82f6]/10 text-[#3b82f6]"
-                    }`}>
-                      {personaTexts[personaIdx].font === "serif" ? "Academic" : "Casual"}
-                    </span>
-                    <br />
                     {personaTexts[personaIdx].text}
                   </motion.p>
                 </AnimatePresence>
@@ -322,7 +333,7 @@ export function LandingBento() {
             </div>
           </motion.div>
 
-          {/* Card 4: Factory - spans 4 (was 4, now 2) */}
+          {/* Card 4: Factory - spans 6 */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -340,31 +351,47 @@ export function LandingBento() {
                 <p className="text-sm text-muted-foreground leading-relaxed">{t("lp.bento4Desc")}</p>
               </div>
 
-              {/* Stacked cards animation */}
-              <div className="relative w-40 h-28 shrink-0">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 20, rotate: 0 }}
-                    whileInView={{ opacity: 1 - i * 0.15, y: -i * 6, rotate: -i * 2 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.5 + i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] as const }}
-                    className="absolute inset-0 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3"
-                    style={{ zIndex: 5 - i }}
-                  >
-                    {i === 0 && (
-                      <div className="space-y-1.5">
-                        <div className="h-1.5 rounded-full bg-[#f59e0b]/30 w-[60%]" />
-                        <div className="h-1 rounded-full bg-white/[0.06] w-full" />
-                        <div className="h-1 rounded-full bg-white/[0.06] w-[80%]" />
-                        <div className="flex items-center gap-1 mt-2">
-                          <Zap className="h-2.5 w-2.5 text-[#f59e0b]" />
-                          <span className="text-[8px] text-[#f59e0b]">100+ {t("lp.bentoArticles")}</span>
+              {/* Progress + stacked cards */}
+              <div className="flex items-center gap-6 shrink-0">
+                {/* Bulk progress indicator */}
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="relative w-16 h-16">
+                    <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+                      <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="6" />
+                      <circle cx="32" cy="32" r="26" fill="none" stroke="#f59e0b" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 26}`} strokeDashoffset={`${2 * Math.PI * 26 * (1 - 0.92)}`} />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-sm font-black text-[#f59e0b]">92%</span>
+                    </div>
+                  </div>
+                  <span className="text-[9px] font-tech text-[#f59e0b] uppercase tracking-wider">{t("lp.bentoBulk")}</span>
+                </div>
+
+                <div className="relative w-40 h-28">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 20, rotate: 0 }}
+                      whileInView={{ opacity: 1 - i * 0.15, y: -i * 6, rotate: -i * 2 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.5 + i * 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] as const }}
+                      className="absolute inset-0 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3"
+                      style={{ zIndex: 5 - i }}
+                    >
+                      {i === 0 && (
+                        <div className="space-y-1.5">
+                          <div className="h-1.5 rounded-full bg-[#f59e0b]/30 w-[60%]" />
+                          <div className="h-1 rounded-full bg-white/[0.06] w-full" />
+                          <div className="h-1 rounded-full bg-white/[0.06] w-[80%]" />
+                          <div className="flex items-center gap-1 mt-2">
+                            <Zap className="h-2.5 w-2.5 text-[#f59e0b]" />
+                            <span className="text-[8px] text-[#f59e0b]">100+ {t("lp.bentoArticles")}</span>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>

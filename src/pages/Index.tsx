@@ -35,6 +35,9 @@ export default function Index() {
           backgroundSize: "256px 256px",
         }}
       />
+      {/* Background glow blobs */}
+      <div className="pointer-events-none fixed top-[40%] left-[20%] w-[600px] h-[500px] rounded-full bg-primary/[0.04] blur-[220px] z-[1]" />
+      <div className="pointer-events-none fixed top-[60%] right-[15%] w-[500px] h-[400px] rounded-full bg-[#3b82f6]/[0.03] blur-[200px] z-[1]" />
       <div className="relative z-[2]">
         <LandingNav />
         <LandingHero />
