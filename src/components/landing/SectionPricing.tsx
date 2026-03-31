@@ -105,7 +105,7 @@ export function SectionPricing() {
       <div className="relative z-10 container mx-auto px-4 max-w-6xl">
         <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
           className="text-center mb-12">
-          <h2 className="text-4xl sm:text-5xl md:text-6xl font-black leading-[0.95]" style={{ letterSpacing: "-0.06em" }}>
+          <h2 className="text-5xl sm:text-6xl md:text-7xl font-extrabold leading-[0.95]" style={{ letterSpacing: "-0.06em", textShadow: "0 0 80px rgba(139,92,246,0.08)" }}>
             {t("lp.pricingTitle")}
           </h2>
           <p className="mt-4 text-muted-foreground text-[15px] leading-[1.6]">{t("lp.pricingSub")}</p>
