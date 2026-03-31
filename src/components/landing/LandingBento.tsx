@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Radar, ShieldCheck, Factory, Zap } from "lucide-react";
+import { Search, Radar, ShieldCheck, Factory, Zap, Globe } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useI18n } from "@/shared/hooks/useI18n";
 
@@ -277,6 +277,43 @@ export function LandingBento() {
                     <div className="h-[3px] rounded-full bg-white/[0.06]" style={{ width: item.width }} />
                   </motion.div>
                 ))}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Card: GEO Engine - spans 2 */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.22 }}
+            className="group md:col-span-2 relative rounded-2xl border border-[#06b6d4]/20 bg-[#06b6d4]/[0.02] backdrop-blur-md p-6 hover:border-[#06b6d4]/40 hover:scale-[1.01] transition-all duration-500 shadow-[0_0_30px_rgba(6,182,212,0.06)]"
+          >
+            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ background: "radial-gradient(300px circle at 50% 50%, rgba(6,182,212,0.08), transparent 70%)" }} />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#06b6d4]/10">
+                  <Globe className="h-4 w-4 text-[#06b6d4]" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#06b6d4]">GEO</span>
+              </div>
+              <h3 className="text-lg font-semibold mb-1">{t("lp.bentoGeoTitle")}</h3>
+              <p className="text-xs text-muted-foreground mb-4">{t("lp.bentoGeoDesc")}</p>
+
+              {/* Fake AI response window */}
+              <div className="rounded-lg border border-white/[0.06] bg-[#0a0a0f] p-3 space-y-2">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#06b6d4]" />
+                  <span className="text-[9px] font-mono text-[#06b6d4]/70">AI Response</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  {t("lp.bentoGeoFake")}
+                </p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[8px] font-tech px-2 py-0.5 rounded-full border border-[#06b6d4]/30 bg-[#06b6d4]/[0.08] text-[#06b6d4]">
+                    📎 {t("lp.bentoGeoSource")}
+                  </span>
+                </div>
               </div>
             </div>
           </motion.div>
