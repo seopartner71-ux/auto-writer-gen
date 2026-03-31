@@ -941,7 +941,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.factoryBulk": { ru: "Bulk Progress", en: "Bulk Progress" },
 
   // Landing — Pricing (keep existing keys, add new ones)
-  "lp.pricingTitle": { ru: "Инвестиция, которая окупается с первой статьи.", en: "An investment that pays off from the first article." },
+  "lp.pricingTitle": { ru: "Наши тарифы", en: "Pricing Plans" },
   "lp.pricingSub": { ru: "1 кредит = 1 полноценная SEO-статья под ключ", en: "1 credit = 1 full turnkey SEO article" },
   "lp.priceFree": { ru: "бесплатно", en: "free" },
   "lp.priceMonth": { ru: "мес", en: "mo" },
