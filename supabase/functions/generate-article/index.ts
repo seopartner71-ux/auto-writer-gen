@@ -449,6 +449,8 @@ ${isRussian
 
 ${blockC}
 
+${blockD}
+
 FAQ (ОБЯЗАТЕЛЬНО):
 - В конце статьи добавь "${isRussian ? "## Часто задаваемые вопросы (FAQ)" : "## Frequently Asked Questions (FAQ)"}"
 - Минимум 5 вопросов и ответов на основе content_gaps и вопросов пользователей
