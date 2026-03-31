@@ -14,6 +14,7 @@ import {
 import {
   ShieldAlert, Heart, Cpu, Flame, GraduationCap,
   Plus, User, Loader2, X, Check, HeartPulse, Link2, Sun, Newspaper,
+  TrendingDown, HardHat, Terminal, BrainCircuit, Wrench, Scale,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
