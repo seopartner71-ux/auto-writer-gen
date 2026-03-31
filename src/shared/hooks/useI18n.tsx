@@ -962,6 +962,13 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.priceF3d": { ru: "Приоритетная поддержка", en: "Priority support" },
   "lp.priceF3e": { ru: "Кастомные модели", en: "Custom models" },
 
+  // Bento extra
+  "lp.bentoOutlineDesc": { ru: "AI-автопилот строит идеальную структуру H2/H3 на основе ТОП-10 конкурентов.", en: "AI autopilot builds the perfect H2/H3 structure based on TOP-10 competitors." },
+  "lp.bentoPersonaDesc": { ru: "Имитация авторского стиля: тон, лексика, ритм предложений. Каждый текст уникален.", en: "Author style mimicry: tone, vocabulary, sentence rhythm. Every text is unique." },
+
+  // Trust marquee
+  "lp.marqueeText": { ru: "Наш контент признан человеческим ведущими детекторами мира", en: "Our content is recognized as human by the world's leading detectors" },
+
   // Footer
   "lp.footerWiki": { ru: "База знаний", en: "Knowledge Base" },
   "lp.footerSupport": { ru: "Поддержка", en: "Support" },
