@@ -757,13 +757,18 @@ export default function RadarPage() {
                           <div className="flex items-center gap-2 mt-1">
                             {kw.latestResults.map((r: any) => {
                               const sc = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG];
+                              const isBrand = r.is_brand_found || r.brand_mentioned;
+                              const isDomain = r.is_domain_found || r.domain_linked;
                               return (
                                 <button key={r.model} onClick={() => setViewResponseData({
                                   model: MODEL_LABELS[r.model] || r.model, text: r.ai_response_text || "",
-                                  date: new Date(r.checked_at).toLocaleString(), brand_mentioned: r.brand_mentioned || false,
-                                  domain_linked: r.domain_linked || false, matched_snippets: r.matched_snippets || [],
+                                  date: new Date(r.checked_at).toLocaleString(), brand_mentioned: isBrand,
+                                  domain_linked: isDomain, matched_snippets: r.matched_snippets || [],
                                   status: r.status || "opportunity", keyword: kw.keyword,
-                                })} className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 transition-opacity ${sc?.color || ""}`}>
+                                  sentiment: r.sentiment || "unknown",
+                                })} className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${sc?.color || ""}`}>
+                                  {isBrand && <span title={projectLang === "ru" ? "Бренд найден" : "Brand found"}>🏷️</span>}
+                                  {isDomain && <span title={projectLang === "ru" ? "Домен найден" : "Domain found"}>🌐</span>}
                                   {MODEL_LABELS[r.model] || r.model}
                                 </button>
                               );
