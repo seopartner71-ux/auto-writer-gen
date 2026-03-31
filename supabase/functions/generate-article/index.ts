@@ -330,6 +330,25 @@ ${isRussian
 
 === КОНЕЦ БЛОКА В ===`;
 
+  // ═══ BLOCK D: Data Nuggets (Unique Facts) ═══
+  let blockD = "";
+  if (dataNuggets?.length) {
+    blockD = `=== БЛОК Г: DATA NUGGETS (УНИКАЛЬНЫЕ ФАКТЫ) ===
+${isRussian
+  ? `Следующие факты/тезисы ОБЯЗАТЕЛЬНО должны быть интегрированы в текст статьи.
+НЕ перечисляй их списком. Подавай как ЛИЧНЫЙ ОПЫТ или ЭКСКЛЮЗИВНЫЕ НАХОДКИ:
+- "Мы обнаружили, что...", "Любопытно, но наши тесты показали...", "Это не просто теория - мы видели это на практике..."
+- Каждый факт должен быть пропущен через призму авторской персоны.`
+  : `The following facts/theses MUST be integrated into the article.
+Do NOT list them as bullet points. Present them as PERSONAL EXPERIENCE or EXCLUSIVE FINDINGS:
+- "We found that...", "Oddly enough, our tests showed...", "This isn't just theory, we've seen it..."
+- Each fact must be filtered through the author's persona lens.`}
+
+DATA NUGGETS:
+${dataNuggets.map((n, i) => `${i + 1}. ${n}`).join("\n")}
+=== КОНЕЦ БЛОКА Г ===`;
+  }
+
   // ═══ Assemble System Prompt ═══
   // Check if author's instructions explicitly forbid tables
   const authorForbidsTables = authorProfile?.system_instruction?.toLowerCase().includes("запрещено писать таблиц") ||
