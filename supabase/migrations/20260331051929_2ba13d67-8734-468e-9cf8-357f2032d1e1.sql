@@ -1,0 +1,1 @@
+ALTER TABLE public.radar_projects ADD COLUMN language text NOT NULL DEFAULT 'en' CHECK (language IN ('ru', 'en'));
