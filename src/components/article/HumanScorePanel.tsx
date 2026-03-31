@@ -57,21 +57,23 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": `STRICT HUMANIZATION RULES:
+    "humanize-all": `REWRITE THIS TEXT FOR 0% AI SCORE:
 
-1. COMPLETELY REMOVE all bold formatting (** symbols). Text must be clean, no markdown bold.
+1. Remove ALL ** symbols (bold formatting). Text must be visually clean, no markdown bold.
 
-2. CHANGE THE TONE: Write like an experienced practitioner posting on social media. Tone is lively, sometimes blunt, zero fluff. No academic politeness.
+2. Kill clichés: 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage', 'delve', 'it goes without saying', 'in today's world'. Replace with conversational alternatives — each unique.
 
-3. KILL ALL CLICHÉS: Replace phrases like 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage', 'delve', 'uncover', 'meticulously', 'it goes without saying' with conversational alternatives. Every replacement must be unique.
+3. Add one conversational aside in parentheses per paragraph (e.g., 'honestly, I didn't buy this for years', 'tested this hundreds of times', 'here's the real kicker', 'though some will disagree').
 
-4. SHUFFLE PARAGRAPH STARTS: Begin each paragraph with a different word. Use inversions, questions, facts. No two paragraphs should start the same way.
+4. Break every other sentence. Make text maximally 'choppy': 30% sentences 3-7 words, 20% long branching (25-40 words). Use dashes, colons, parenthetical asides.
 
-5. ADD 'NOISE': Insert 2-3 personal remarks in parentheses (e.g., 'honestly, I didn't believe this for years', 'tested this hundreds of times', 'here's the real kicker').
+5. Start 2-3 paragraphs with: 'Look', 'Here's the deal', 'So here's the thing', 'Bottom line', 'Let's be real'.
 
-6. VARY SENTENCE LENGTH: 30% sentences short (3-7 words). 20% long complex constructions (25-40 words). Use dashes, colons, parenthetical asides.
+6. Destroy symmetry in lists and FAQ: one item — 3 words, another — full sentence. No items the same length.
 
-7. TARGET: AI detector must show 0% AI. If the text even slightly resembles a textbook or ChatGPT output — rewrite it completely. Keep the meaning but kill the 'GPT smell'.`,
+7. Shuffle paragraph order: each starts with a different word. Use inversions, questions, facts. No two paragraphs start the same way.
+
+8. TARGET: AI detector must show ZERO percent AI. If text resembles a textbook or ChatGPT — rewrite from scratch. Keep meaning, kill 'GPT smell'.`,
   };
 }
 
