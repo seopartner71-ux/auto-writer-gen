@@ -277,9 +277,10 @@ export default function RadarPage() {
         }
       });
       const capturedCount = latest.filter((r: any) => r.status === "captured").length;
+      const fullCaptureCount = latest.filter((r: any) => r.is_brand_found && r.is_domain_found).length;
       const prevCapturedCount = Object.values(prevByModel).filter((r: any) => r.status === "captured").length;
       const trend = capturedCount > prevCapturedCount ? "up" : capturedCount < prevCapturedCount ? "down" : "stable";
-      const mainStatus = capturedCount > 0 ? "captured" : latest.some((r: any) => r.status === "displaced") ? "displaced" : "opportunity";
+      const mainStatus = fullCaptureCount > 0 ? "full_capture" : capturedCount > 0 ? "captured" : latest.some((r: any) => r.status === "displaced") ? "displaced" : "opportunity";
       return { ...kw, latestResults: latest, mainStatus, trend };
     });
   }, [keywords, results]);
