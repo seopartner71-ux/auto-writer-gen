@@ -20,6 +20,7 @@ interface HumanScorePanelProps {
   onHighlightStopWords?: (words: string[]) => void;
   onFixIssue?: (issueKey: string, instruction: string) => void;
   isFixing?: string | null;
+  personaStyle?: string;
 }
 
 function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
