@@ -30,10 +30,10 @@ const outlineItems = [
 ];
 
 const personaTexts = [
-  { font: "serif", text: "The empirical evidence suggests a paradigm shift in how search engines evaluate content quality..." },
-  { font: "sans", text: "Let's break it down: your content needs to hit three key metrics to rank. Here's what works →" },
-  { font: "serif", text: "В мире SEO-контента происходит тихая революция. Алгоритмы эволюционируют, и нам пора адаптироваться..." },
-  { font: "sans", text: "Короче говоря: если ваш текст не проходит AI-детектор, вы уже проигрываете. Вот как это исправить ↓" },
+  { font: "serif", label: "🩺 MD", text: "Тут такое дело: метаанализ 2024 года ломает старую парадигму. Нет, серьезно - забудьте то, что писали в учебниках." },
+  { font: "sans", label: "📈 Investor", text: "Короче, рынок просел на 12%. Хомяки паникуют, а кто с головой - фиксирует профит. (сам через это прошел)" },
+  { font: "sans", label: "💻 Dev", text: "Под капотом - чистый Rust. Латенси 4ms. Да, это костыль, но он работает стабильнее 90% 'элегантных' решений." },
+  { font: "serif", label: "🔧 Foreman", text: "Демпферную ленту клеить ПЕРЕД стяжкой. Кто делает наоборот - переделывает через год. (сам видел сотни раз)" },
 ];
 
 export function LandingBento() {
