@@ -1,9 +1,10 @@
 import { LandingNav } from "@/components/landing/LandingNav";
-import { LandingHero } from "@/components/landing/LandingHero";
-import { LandingBento } from "@/components/landing/LandingBento";
-import { LandingDataDriven } from "@/components/landing/LandingDataDriven";
-import { LandingTrust } from "@/components/landing/LandingTrust";
-import { LandingPricing } from "@/components/landing/LandingPricing";
+import { SectionHero } from "@/components/landing/SectionHero";
+import { SectionResearch } from "@/components/landing/SectionResearch";
+import { SectionPersona } from "@/components/landing/SectionPersona";
+import { SectionGeo } from "@/components/landing/SectionGeo";
+import { SectionFactory } from "@/components/landing/SectionFactory";
+import { SectionPricing } from "@/components/landing/SectionPricing";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useEffect } from "react";
@@ -26,7 +27,7 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-foreground relative">
-      {/* Noise texture overlay */}
+      {/* Noise texture */}
       <div
         className="pointer-events-none fixed inset-0 z-[1] opacity-[0.02]"
         style={{
@@ -35,16 +36,23 @@ export default function Index() {
           backgroundSize: "256px 256px",
         }}
       />
-      {/* Background glow blobs */}
-      <div className="pointer-events-none fixed top-[40%] left-[20%] w-[600px] h-[500px] rounded-full bg-primary/[0.04] blur-[220px] z-[1]" />
-      <div className="pointer-events-none fixed top-[60%] right-[15%] w-[500px] h-[400px] rounded-full bg-[#3b82f6]/[0.03] blur-[200px] z-[1]" />
-      <div className="relative z-[2]">
+      {/* Global ambient glow */}
+      <div className="pointer-events-none fixed top-[30%] left-[15%] w-[600px] h-[500px] rounded-full bg-primary/[0.03] blur-[250px] z-[1]" />
+      <div className="pointer-events-none fixed top-[60%] right-[10%] w-[500px] h-[400px] rounded-full bg-[#3b82f6]/[0.025] blur-[220px] z-[1]" />
+
+      {/* Nav */}
+      <div className="relative z-[3]">
         <LandingNav />
-        <LandingHero />
-        <LandingBento />
-        <LandingDataDriven />
-        <LandingTrust />
-        <LandingPricing />
+      </div>
+
+      {/* Snap scroll container */}
+      <div className="relative z-[2] snap-y snap-mandatory h-screen overflow-y-auto scroll-smooth" style={{ scrollbarWidth: "none" }}>
+        <SectionHero />
+        <SectionResearch />
+        <SectionPersona />
+        <SectionGeo />
+        <SectionFactory />
+        <SectionPricing />
         <LandingFooter />
       </div>
     </div>
