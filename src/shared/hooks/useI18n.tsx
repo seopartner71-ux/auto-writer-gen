@@ -968,7 +968,25 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.priceF3d": { ru: "Приоритетная поддержка", en: "Priority support" },
   "lp.priceF3e": { ru: "Кастомные модели", en: "Custom models" },
 
-  // Legacy keys kept for compatibility
+  // Deep Dive sections
+  "deep.stealthTag": { ru: "Stealth Technology", en: "Stealth Technology" },
+  "deep.stealthH1": { ru: "Алгоритмическая гуманизация:", en: "Algorithmic humanization:" },
+  "deep.stealthH2": { ru: "за пределами простого рерайта.", en: "beyond simple rewriting." },
+  "deep.stealthBody": { ru: "Мы не просто меняем слова на синонимы. Наше ядро анализирует синтаксическую симметрию и предсказуемость токенов. Мы искусственно повышаем показатели Perplexity (сложность) и Burstiness (ритмичность), имитируя «рваный» стиль живого эксперта. Результат - 0% вероятности ИИ в любом детекторе.", en: "We don't just swap words for synonyms. Our core analyzes syntactic symmetry and token predictability. We artificially increase Perplexity (complexity) and Burstiness (rhythm), mimicking the \"broken\" style of a live expert. Result - 0% AI probability in any detector." },
+  "deep.stealthMetric": { ru: "0% AI Probability | Все детекторы", en: "0% AI Probability | All detectors" },
+
+  "deep.geoH1": { ru: "Традиционное SEO мертво.", en: "Traditional SEO is dead." },
+  "deep.geoH2": { ru: "Наступает эра GEO.", en: "The GEO era begins." },
+  "deep.geoBody": { ru: "Люди больше не хотят кликать по 10 ссылкам. Они хотят получить ответ в ChatGPT или Google SGE. Мы проектируем ваши статьи как «идеальные источники данных» для нейросетей. Прямые ответы, связка сущностей и уникальные Data Nuggets заставляют ИИ цитировать именно ваш бренд.", en: "People no longer want to click through 10 links. They want answers from ChatGPT or Google SGE. We engineer your articles as \"perfect data sources\" for neural networks. Direct answers, entity pairing, and unique Data Nuggets make AI cite your brand." },
+  "deep.geoMetric": { ru: "GEO Optimized | ChatGPT · Perplexity · SGE", en: "GEO Optimized | ChatGPT · Perplexity · SGE" },
+  "deep.geoFakeAnswer": { ru: "Лучший способ восстановить газон после зимы - глубокая аэрация при температуре почвы +5°C в сочетании с азотной подкормкой...", en: "The best way to restore a lawn after winter is deep aeration at soil temperature +5°C combined with nitrogen feeding..." },
+  "deep.geoSource": { ru: "Источник: YourSite.com", en: "Source: YourSite.com" },
+
+  "deep.factoryH1": { ru: "Масштабируйте экспертизу,", en: "Scale expertise," },
+  "deep.factoryH2": { ru: "а не спам.", en: "not spam." },
+  "deep.factoryBody": { ru: "Проблема массовой генерации - потеря качества. Модуль Factory сохраняет уникальный голос автора (Persona Engine) даже при создании 100 статей за один цикл. Это промышленный масштаб с качеством ручной работы. Каждая статья - это готовый актив для Miralinks, GoGetLinks или вашего WordPress.", en: "The problem with mass generation is quality loss. The Factory module preserves the author's unique voice (Persona Engine) even when creating 100 articles per cycle. Industrial scale with handcraft quality. Every article is a ready asset for Miralinks, GoGetLinks, or your WordPress." },
+  "deep.factoryMetric": { ru: "100+ статей | Качество ручной работы", en: "100+ articles | Handcraft quality" },
+
   "lp.statRanking": { ru: "Рост позиций", en: "Ranking growth" },
   "lp.statArticles": { ru: "Статей создано", en: "Articles created" },
   "lp.statTime": { ru: "Среднее время", en: "Avg time" },
