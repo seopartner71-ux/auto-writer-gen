@@ -834,6 +834,7 @@ export type Database = {
           data_nuggets: string[] | null
           domain: string
           id: string
+          language: string
           updated_at: string | null
           user_id: string
         }
@@ -843,6 +844,7 @@ export type Database = {
           data_nuggets?: string[] | null
           domain: string
           id?: string
+          language?: string
           updated_at?: string | null
           user_id: string
         }
@@ -852,6 +854,7 @@ export type Database = {
           data_nuggets?: string[] | null
           domain?: string
           id?: string
+          language?: string
           updated_at?: string | null
           user_id?: string
         }
