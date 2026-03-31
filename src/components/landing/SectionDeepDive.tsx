@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { Brain, Globe, Layers } from "lucide-react";
 
-const fadeUp = { initial: { opacity: 0, y: 40 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.7 } };
+const fadeUp = { initial: { opacity: 0, y: 50 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-100px" }, transition: { duration: 0.7 } };
 
 /* ── tiny reusable node dot ── */
 function Dot({ color, x, y, size = 6 }: { color: string; x: string; y: string; size?: number }) {
