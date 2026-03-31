@@ -39,7 +39,7 @@ export function SectionResearch() {
             <Search className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs font-tech font-medium text-primary uppercase tracking-wider">Smart Research</span>
           </div>
-          <h2 className="text-5xl sm:text-6xl md:text-7xl font-black leading-[0.95]" style={{ letterSpacing: "-0.06em" }}>
+          <h2 className="text-5xl sm:text-6xl md:text-7xl font-black leading-[0.95]" style={{ letterSpacing: "-0.06em", textShadow: "0 0 80px rgba(139,92,246,0.08)" }}>
             {t("lp.researchTitle")}
           </h2>
           <p className="mt-5 text-muted-foreground text-[15px] max-w-2xl mx-auto leading-[1.7]">{t("lp.researchSub")}</p>

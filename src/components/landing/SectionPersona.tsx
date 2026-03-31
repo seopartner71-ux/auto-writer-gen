@@ -30,7 +30,7 @@ export function SectionPersona() {
       <div className="relative z-10 container mx-auto px-4 max-w-5xl">
         <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
           className="text-center mb-16">
-          <h2 className="text-5xl sm:text-6xl md:text-7xl font-black leading-[0.95]" style={{ letterSpacing: "-0.06em" }}>
+          <h2 className="text-5xl sm:text-6xl md:text-7xl font-black leading-[0.95]" style={{ letterSpacing: "-0.06em", textShadow: "0 0 80px rgba(236,72,153,0.08)" }}>
             {t("lp.personaTitle")}
           </h2>
           <p className="mt-5 text-muted-foreground text-[15px] max-w-2xl mx-auto leading-[1.7]">{t("lp.personaSub")}</p>
