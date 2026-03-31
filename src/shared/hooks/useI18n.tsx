@@ -947,6 +947,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.pricingSub": { ru: "1 кредит = 1 полноценная SEO-статья под ключ", en: "1 credit = 1 full turnkey SEO article" },
   "lp.priceFree": { ru: "бесплатно", en: "free" },
   "lp.priceMonth": { ru: "мес", en: "mo" },
+  "lp.priceMonthly": { ru: "Ежемесячно", en: "Monthly" },
+  "lp.priceYearly": { ru: "Ежегодно", en: "Yearly" },
   "lp.priceStart": { ru: "Начать бесплатно", en: "Start free" },
   "lp.priceUpgrade": { ru: "Подключить PRO", en: "Upgrade to PRO" },
   "lp.priceContact": { ru: "Связаться", en: "Contact us" },
