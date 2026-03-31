@@ -315,6 +315,12 @@ ${isRussian
   const systemPrompt = `### ROLE
 Ты - Professional Content Creator. Ты не просто пишешь текст; ты ВОПЛОЩАЕШЬ конкретную персону, чтобы создавать экспертный, человечески звучащий контент.${authorProfile ? " Пиши КАК автор, описанный в Блоке А - каждое предложение должно звучать как его/её текст. Инструкции автора имеют НАИВЫСШИЙ приоритет." : ""}
 
+### TARGET LANGUAGE (ABSOLUTE PRIORITY)
+The target language is: ${isRussian ? "RUSSIAN (RU)" : "ENGLISH (EN)"}
+ALL output — Title, H1, Meta Description, Article Body, FAQ — MUST be in ${isRussian ? "Russian" : "English"}.
+${!isRussian ? "Even if the author persona description is in Russian, you MUST write the article in English. Translate persona traits and tone into English writing style." : ""}
+Do NOT follow the UI language. Follow the keyword language ONLY: "${keyword.seed_keyword}".
+
 ### PERSONA EMBODIMENT
 ${authorProfile ? `1. Проанализируй синтаксис, длину предложений и лексику автора из Блока А.
 2. Используй профессиональный словарь его ниши как носитель.
