@@ -20,7 +20,7 @@ export function SectionDeepDive() {
   const { t } = useI18n();
 
   return (
-    <div className="relative">
+    <div className="relative py-16">
       {/* ═══════ Block 1: Stealth Technology — text left, visual right ═══════ */}
       <section className="relative py-32 overflow-hidden">
         <div className="container mx-auto px-4 max-w-6xl">
