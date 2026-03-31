@@ -55,7 +55,21 @@ function getFixInstructions(lang: "ru" | "en"): Record<string, string> {
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": "Act as a human editor. Rewrite this text to pass an AI detector. Increase sentence variety, add human-like imperfections, use industry jargon, and destroy any repetitive AI sentence structures. Keep the meaning but kill the 'GPT-smell'. Specifically: replace all clichés with natural phrases, add inversions, parenthetical asides (like this one), rhetorical questions, niche slang. Alternate short (3-5 words) and long (25-40 words) sentences. Start paragraphs differently.",
+    "humanize-all": `STRICT HUMANIZATION RULES:
+
+1. COMPLETELY REMOVE all bold formatting (** symbols). Text must be clean, no markdown bold.
+
+2. CHANGE THE TONE: Write like an experienced practitioner posting on social media. Tone is lively, sometimes blunt, zero fluff. No academic politeness.
+
+3. KILL ALL CLICHÉS: Replace phrases like 'it's important to note', 'furthermore', 'in conclusion', 'comprehensive', 'leverage', 'delve', 'uncover', 'meticulously', 'it goes without saying' with conversational alternatives. Every replacement must be unique.
+
+4. SHUFFLE PARAGRAPH STARTS: Begin each paragraph with a different word. Use inversions, questions, facts. No two paragraphs should start the same way.
+
+5. ADD 'NOISE': Insert 2-3 personal remarks in parentheses (e.g., 'honestly, I didn't believe this for years', 'tested this hundreds of times', 'here's the real kicker').
+
+6. VARY SENTENCE LENGTH: 30% sentences short (3-7 words). 20% long complex constructions (25-40 words). Use dashes, colons, parenthetical asides.
+
+7. TARGET: AI detector must show 0% AI. If the text even slightly resembles a textbook or ChatGPT output — rewrite it completely. Keep the meaning but kill the 'GPT smell'.`,
   };
 }
 
