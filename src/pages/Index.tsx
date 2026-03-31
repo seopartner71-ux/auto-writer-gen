@@ -5,6 +5,7 @@ import { SectionPersona } from "@/components/landing/SectionPersona";
 import { SectionGeo } from "@/components/landing/SectionGeo";
 import { SectionFactory } from "@/components/landing/SectionFactory";
 import { SectionPricing } from "@/components/landing/SectionPricing";
+import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useEffect } from "react";
@@ -36,22 +37,20 @@ export default function Index() {
           backgroundSize: "256px 256px",
         }}
       />
-      {/* Global ambient glow */}
       <div className="pointer-events-none fixed top-[30%] left-[15%] w-[600px] h-[500px] rounded-full bg-primary/[0.03] blur-[250px] z-[1]" />
       <div className="pointer-events-none fixed top-[60%] right-[10%] w-[500px] h-[400px] rounded-full bg-[#3b82f6]/[0.025] blur-[220px] z-[1]" />
 
-      {/* Nav */}
       <div className="relative z-[3]">
         <LandingNav />
       </div>
 
-      {/* Snap scroll container */}
       <div className="relative z-[2] snap-y snap-mandatory h-screen overflow-y-auto scroll-smooth" style={{ scrollbarWidth: "none" }}>
         <SectionHero />
         <SectionResearch />
         <SectionPersona />
         <SectionGeo />
         <SectionFactory />
+        <SectionDeepDive />
         <SectionPricing />
         <LandingFooter />
       </div>
