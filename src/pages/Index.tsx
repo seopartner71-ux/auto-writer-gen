@@ -3,7 +3,7 @@ import { SectionHero } from "@/components/landing/SectionHero";
 import { SectionResearch } from "@/components/landing/SectionResearch";
 import { SectionPersona } from "@/components/landing/SectionPersona";
 import { SectionGeo } from "@/components/landing/SectionGeo";
-import { SectionFactory } from "@/components/landing/SectionFactory";
+import { SectionStealthEngine } from "@/components/landing/SectionStealthEngine";
 import { SectionPricing } from "@/components/landing/SectionPricing";
 import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
 import { SectionTestimonials } from "@/components/landing/SectionTestimonials";
