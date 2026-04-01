@@ -46,7 +46,7 @@ const testimonials = {
   ],
 };
 
-const badgeText = { ru: "Доказательство экспертности", en: "Proof of Expertise" };
+const badgeText = { ru: "Отзывы клиентов", en: "Client Reviews" };
 const headingText = {
   ru: "Разница между райтером и экспертом",
   en: "The Difference Between a Writer and an Expert",
@@ -70,19 +70,17 @@ export function SectionTestimonials() {
     });
   }, [items.length]);
 
-  // Auto-advance every 6s
   useEffect(() => {
     const timer = setInterval(() => paginate(1), 6000);
     return () => clearInterval(timer);
   }, [paginate]);
 
-  // JSON-LD Review schema
   const reviewLd = useMemo(() => {
     const plainText = (html: string) => html.replace(/<[^>]+>/g, "");
     return JSON.stringify({
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "SERPblueprint v2.4",
+      "name": "SERPblueprint v2.0",
       "applicationCategory": "SEO Tool",
       "aggregateRating": {
         "@type": "AggregateRating",
@@ -105,17 +103,17 @@ export function SectionTestimonials() {
   return (
     <section className="relative py-32 px-4 overflow-hidden">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: reviewLd }} />
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-primary/[0.04] blur-[200px]" />
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-primary/[0.03] blur-[250px]" />
 
       <div className="relative max-w-4xl mx-auto">
         {/* Badge */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="flex justify-center mb-8"
         >
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-mono uppercase tracking-widest">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/[0.04] text-amber-400/80 text-xs font-mono uppercase tracking-widest">
             <Flame className="w-3.5 h-3.5" />
             {badgeText[lang] || badgeText.en}
           </span>
@@ -123,33 +121,30 @@ export function SectionTestimonials() {
 
         {/* Heading */}
         <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.1 }}
-          className="text-4xl md:text-6xl font-black tracking-[-0.04em] text-center text-white mb-16"
-          style={{ textShadow: "0 0 40px hsl(var(--primary) / 0.15)" }}
+          className="text-4xl md:text-5xl font-extrabold tracking-[-0.03em] text-center text-white mb-16"
         >
           {headingText[lang] || headingText.en}
         </motion.h2>
 
         {/* Slider */}
         <div className="relative">
-          {/* Arrows */}
           <button
             onClick={() => paginate(-1)}
-            className="absolute -left-4 md:-left-14 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/20 transition-all"
+            className="absolute -left-4 md:-left-14 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full border border-white/[0.06] bg-white/[0.015] flex items-center justify-center text-white/40 hover:text-white/70 hover:border-white/[0.12] transition-all"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={() => paginate(1)}
-            className="absolute -right-4 md:-right-14 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/20 transition-all"
+            className="absolute -right-4 md:-right-14 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full border border-white/[0.06] bg-white/[0.015] flex items-center justify-center text-white/40 hover:text-white/70 hover:border-white/[0.12] transition-all"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
 
-          {/* Card */}
           <div className="relative min-h-[260px] md:min-h-[220px]">
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
@@ -162,23 +157,21 @@ export function SectionTestimonials() {
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="absolute inset-0"
               >
-                <div className="relative rounded-2xl border border-t-white/[0.08] border-l-white/[0.05] border-r-white/[0.03] border-b-white/[0.01] bg-white/[0.02] backdrop-blur-xl p-8 md:p-10 h-full overflow-hidden group">
-                  <div className="pointer-events-none absolute -top-20 -left-20 w-40 h-40 rounded-full bg-primary/[0.06] blur-[80px]" />
-
-                  <Quote className="w-8 h-8 text-amber-500/60 mb-5" />
+                <div className="relative rounded-2xl border border-white/[0.05] bg-white/[0.015] p-8 md:p-10 h-full overflow-hidden">
+                  <Quote className="w-7 h-7 text-amber-500/40 mb-5" />
 
                   <p
-                    className="text-base md:text-lg text-slate-300 leading-relaxed mb-6"
+                    className="text-base md:text-lg text-white/60 leading-relaxed mb-6"
                     dangerouslySetInnerHTML={{ __html: t.quote }}
                   />
 
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white/[0.05] border border-white/[0.08] flex items-center justify-center">
-                      <Icon className="w-4 h-4 text-primary" />
+                    <div className="w-10 h-10 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
+                      <Icon className="w-4 h-4 text-primary/70" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-white">{t.author}</div>
-                      <div className="text-xs text-slate-500 font-mono">{t.role}</div>
+                      <div className="text-sm font-semibold text-white/80">{t.author}</div>
+                      <div className="text-xs text-muted-foreground/40 font-mono">{t.role}</div>
                     </div>
                   </div>
                 </div>
@@ -194,8 +187,8 @@ export function SectionTestimonials() {
                 onClick={() => setCurrent([i, i > current ? 1 : -1])}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   i === current
-                    ? "w-8 bg-primary"
-                    : "w-1.5 bg-white/20 hover:bg-white/40"
+                    ? "w-8 bg-primary/70"
+                    : "w-1.5 bg-white/15 hover:bg-white/30"
                 }`}
               />
             ))}

@@ -1127,7 +1127,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "feat.radarDesc": { ru: "Мониторинг вашего бренда в ответах ChatGPT, Perplexity и Gemini. Оптимизация для AI-выдачи", en: "Monitor your brand in ChatGPT, Perplexity and Gemini responses. Optimize for AI search results" },
 
   // Final CTA
-  "finalCta.title": { ru: "Готовы вывести свой контент на новый уровень?", en: "Ready to take your content to the next level?" },
+  "finalCta.title": { ru: "Готовы создавать контент, который действительно работает?", en: "Ready to create content that actually works?" },
   "finalCta.sub": { ru: "Начните бесплатно. Без привязки карты. 5 статей в подарок.", en: "Start for free. No credit card. 5 articles included." },
   "finalCta.button": { ru: "Начать бесплатно", en: "Start for Free" },
 
