@@ -72,7 +72,7 @@ export function SectionFaq() {
   const items = lang === "ru" ? faqData.ru : faqData.en;
 
   return (
-    <section className="relative py-32 overflow-hidden">
+    <section id="faq" className="relative py-32 overflow-hidden">
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[400px] rounded-full bg-primary/[0.03] blur-[250px]" />
 
       <div className="relative z-10 container mx-auto px-6 max-w-3xl">
