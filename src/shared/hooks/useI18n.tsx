@@ -1066,7 +1066,74 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.factArt7": { ru: "Гайд по AI-текстам", en: "AI Writing Guide" },
   "lp.factArt8": { ru: "Стратегия цен SaaS", en: "SaaS Pricing Strategy" },
 
-  // Cookie consent
+  // Hero v2
+  "hero2.line1": { ru: "Профессиональный SEO-движок с человеческим лицом.", en: "The Professional SEO Engine That Thinks Like a Human." },
+  "hero2.line2": { ru: "", en: "" },
+  "hero2.sub": { ru: "17-модульная экосистема: от Deep SERP Research до Auto-Indexing и обхода AI-детекторов. Создавайте контент, который ранжируется и читается как человеческий.", en: "17-module ecosystem: from Deep SERP Research to Auto-Indexing and AI-Detector bypass. Create content that ranks and reads like a human." },
+
+  // Bento Features
+  "bento.badge": { ru: "17 модулей", en: "17 Modules" },
+  "bento.title": { ru: "Полная SEO-экосистема", en: "Complete SEO Ecosystem" },
+  "bento.sub": { ru: "Каждый модуль — это отдельный инструмент, работающий в единой системе", en: "Each module is a standalone tool working within a unified system" },
+
+  "bento.block1": { ru: "Глубокая аналитика", en: "Deep Research" },
+  "bento.smartResearch": { ru: "Smart Research", en: "Smart Research" },
+  "bento.smartResearchDesc": { ru: "Анализ SERP ТОП-10, извлечение сущностей и ранжирующих факторов", en: "TOP-10 SERP analysis, entity extraction and ranking factors" },
+  "bento.lsi": { ru: "LSI-анализ", en: "LSI Analysis" },
+  "bento.lsiDesc": { ru: "Извлечение латентно-семантических ключей из конкурентов", en: "Latent semantic keyword extraction from competitors" },
+  "bento.paa": { ru: "PAA Questions", en: "PAA Questions" },
+  "bento.paaDesc": { ru: "Автоматический сбор вопросов People Also Ask", en: "Automatic People Also Ask question collection" },
+  "bento.contentGap": { ru: "Content Gap", en: "Content Gap" },
+  "bento.contentGapDesc": { ru: "Обнаружение тем, которые конкуренты не покрыли", en: "Discover topics competitors haven't covered" },
+
+  "bento.block2": { ru: "Экспертный AI-контент", en: "Expert AI Content" },
+  "bento.persona": { ru: "Persona Engine", en: "Persona Engine" },
+  "bento.personaDesc": { ru: "Имитация стиля, тона и экспертизы автора", en: "Author style, tone and expertise mimicry" },
+  "bento.stealthPrompt": { ru: "Stealth Prompt", en: "Stealth Prompt" },
+  "bento.stealthPromptDesc": { ru: "Системный промпт для обхода паттернов LLM", en: "System prompt to bypass LLM patterns" },
+  "bento.clicheKiller": { ru: "Cliché Killer", en: "Cliché Killer" },
+  "bento.clicheKillerDesc": { ru: "Удаление AI-клише и стоп-фраз из текста", en: "Remove AI clichés and stop-phrases from text" },
+  "bento.aiWriter": { ru: "AI Writer", en: "AI Writer" },
+  "bento.aiWriterDesc": { ru: "Генерация экспертных SEO-статей с динамическим выбором модели", en: "Expert SEO article generation with dynamic model selection" },
+
+  "bento.block3": { ru: "Фабрика контента", en: "Content Factory" },
+  "bento.bulkGen": { ru: "Bulk Generation", en: "Bulk Generation" },
+  "bento.bulkGenDesc": { ru: "Массовая генерация до 100+ статей за цикл", en: "Mass generation of 100+ articles per cycle" },
+  "bento.wpSync": { ru: "WordPress Sync", en: "WordPress Sync" },
+  "bento.wpSyncDesc": { ru: "Прямая публикация с SEO-метаданными", en: "Direct publishing with SEO metadata" },
+  "bento.scheduler": { ru: "Планировщик", en: "Scheduler" },
+  "bento.schedulerDesc": { ru: "Автоматическая генерация по расписанию", en: "Automatic scheduled generation" },
+  "bento.outline": { ru: "AI Outline", en: "AI Outline" },
+  "bento.outlineDesc": { ru: "Автопостроение структуры H2/H3 из ТОП-10", en: "Auto-build H2/H3 structure from TOP-10" },
+
+  "bento.block4": { ru: "Мониторинг и индексация", en: "Monitoring & Indexing" },
+  "bento.radar": { ru: "AI Radar", en: "AI Radar" },
+  "bento.radarDesc": { ru: "Мониторинг бренда в ChatGPT, Perplexity, Gemini", en: "Brand monitoring in ChatGPT, Perplexity, Gemini" },
+  "bento.indexing": { ru: "Google/Яндекс Indexing", en: "Google/Yandex Indexing" },
+  "bento.indexingDesc": { ru: "Мгновенная отправка на индексацию", en: "Instant indexing submission" },
+  "bento.stealth": { ru: "Stealth Engine", en: "Stealth Engine" },
+  "bento.stealthDesc": { ru: "0% AI Detection во всех детекторах", en: "0% AI Detection across all detectors" },
+  "bento.humanize": { ru: "One-Click Humanize", en: "One-Click Humanize" },
+  "bento.humanizeDesc": { ru: "Гуманизация за 1 клик без потери смысла", en: "One-click humanization without losing meaning" },
+
+  // Humanizer comparison
+  "hum.title": { ru: "Разница — в деталях", en: "The Difference Is in the Details" },
+  "hum.sub": { ru: "Стандартный AI-текст vs контент SERPblueprint с высоким Perplexity и без клише", en: "Standard AI text vs SERPblueprint content with high Perplexity and no clichés" },
+  "hum.labelAi": { ru: "Стандартный AI-текст", en: "Standard AI Output" },
+  "hum.labelHuman": { ru: "SERPblueprint Output", en: "SERPblueprint Output" },
+  "hum.ai1": { ru: "В современном мире цифровых технологий SEO играет ключевую роль в продвижении бизнеса.", en: "In today's rapidly evolving digital landscape, SEO plays a crucial role in driving business growth." },
+  "hum.ai2": { ru: "Важно отметить, что качественный контент является неотъемлемой частью успешной стратегии.", en: "It is important to note that quality content is an integral part of a successful strategy." },
+  "hum.ai3": { ru: "Оптимизация ключевых слов помогает улучшить видимость сайта.", en: "Keyword optimization helps improve website visibility." },
+  "hum.ai4": { ru: "В заключение хочется сказать, что SEO — это непрерывный процесс совершенствования.", en: "In conclusion, it can be said that SEO is a continuous process of improvement." },
+  "hum.hu1": { ru: "Мы протестировали 340 лонгридов в нишах B2B SaaS и e-commerce. Результат: статьи с Perplexity > 75 получают на 62% больше органического трафика.", en: "We tested 340 longform articles in B2B SaaS and e-commerce niches. Result: articles with Perplexity > 75 get 62% more organic traffic." },
+  "hum.hu2": { ru: "Конкретный пример: клиент из ниши кибербезопасности вышел в ТОП-3 за 14 дней по запросу с KD 47.", en: "Specific example: a cybersecurity client reached TOP-3 in 14 days for a keyword with KD 47." },
+  "hum.hu3": { ru: "Секрет — не в «уникальности» текста, а в архитектуре сущностей и синтаксической непредсказуемости.", en: "The secret isn't text 'uniqueness' — it's entity architecture and syntactic unpredictability." },
+  "hum.hu4": { ru: "Наша система воспроизводит паттерн «рваного» экспертного письма, который детекторы не распознают.", en: "Our system reproduces the 'broken' expert writing pattern that detectors can't recognize." },
+
+  // Footer
+  "footer.roadmap": { ru: "Дорожная карта", en: "Roadmap" },
+
+
   "cookie.text": { ru: "Мы используем файлы cookie для улучшения работы платформы.", en: "We use cookies to improve the platform experience." },
   "cookie.accept": { ru: "Принять", en: "Accept" },
 
