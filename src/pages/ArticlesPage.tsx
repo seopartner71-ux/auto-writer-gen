@@ -385,6 +385,9 @@ export default function ArticlesPage() {
   const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
   const [includeExpertQuote, setIncludeExpertQuote] = useState(true);
   const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
+  const [telegraphPath, setTelegraphPath] = useState("");
+  const [telegraphUrl, setTelegraphUrl] = useState("");
+  const [anchorTargetUrl, setAnchorTargetUrl] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
