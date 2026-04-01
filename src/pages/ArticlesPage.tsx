@@ -1008,18 +1008,58 @@ export default function ArticlesPage() {
                 />
               </div>
 
-              {/* Anchor Target URL for Telegra.ph */}
-              <div className="space-y-0.5">
-                <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Link2 className="h-3 w-3" />
-                  {lang === "ru" ? "Целевой URL для анкоров" : "Target URL for Anchors"}
-                </Label>
-                <Input
-                  value={anchorTargetUrl}
-                  onChange={(e) => setAnchorTargetUrl(e.target.value)}
-                  placeholder={lang === "ru" ? "https://vash-sait.com/statya" : "https://your-site.com/article"}
-                  className="h-8 text-sm font-mono"
-                />
+              {/* Anchor Links for Telegra.ph (1-3) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Link2 className="h-3 w-3" />
+                    {lang === "ru" ? "Анкорные ссылки (1-3)" : "Anchor Links (1-3)"}
+                  </Label>
+                  {anchorLinks.length < 3 && (
+                    <button
+                      type="button"
+                      className="text-[10px] text-primary hover:underline"
+                      onClick={() => setAnchorLinks(prev => [...prev, { url: "", anchor: "" }])}
+                    >
+                      + {lang === "ru" ? "Добавить" : "Add"}
+                    </button>
+                  )}
+                </div>
+                {anchorLinks.map((link, idx) => (
+                  <div key={idx} className="flex gap-1.5 items-start">
+                    <div className="flex-1 space-y-1">
+                      <Input
+                        value={link.url}
+                        onChange={(e) => {
+                          const updated = [...anchorLinks];
+                          updated[idx] = { ...updated[idx], url: e.target.value };
+                          setAnchorLinks(updated);
+                        }}
+                        placeholder={lang === "ru" ? "https://сайт.com/страница" : "https://site.com/page"}
+                        className="h-7 text-[11px] font-mono"
+                      />
+                      <Input
+                        value={link.anchor}
+                        onChange={(e) => {
+                          const updated = [...anchorLinks];
+                          updated[idx] = { ...updated[idx], anchor: e.target.value };
+                          setAnchorLinks(updated);
+                        }}
+                        placeholder={lang === "ru" ? "Текст анкора" : "Anchor text"}
+                        className="h-7 text-[11px]"
+                      />
+                    </div>
+                    {anchorLinks.length > 1 && (
+                      <button
+                        type="button"
+                        className="mt-1 text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => setAnchorLinks(prev => prev.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
 
               {telegraphUrl && (
