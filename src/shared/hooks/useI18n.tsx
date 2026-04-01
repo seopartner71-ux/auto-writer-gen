@@ -1066,12 +1066,12 @@ const translations: Record<string, Record<Lang, string>> = {
   "deep2.stealthMetric": { ru: "0% AI Score | Originality.ai · GPTZero · Turnitin", en: "0% AI Score | Originality.ai · GPTZero · Turnitin" },
 
   // Stealth Engine standalone section
-  "lp.stealthEngineH1": { ru: "Stealth Engine —", en: "Stealth Engine —" },
+  "lp.stealthEngineH1": { ru: "Stealth Engine -", en: "Stealth Engine -" },
   "lp.stealthEngineH2": { ru: "невидимая сила", en: "invisible force" },
-  "lp.stealthEngineBody": { ru: "Наш движок анализирует синтаксическую симметрию и предсказуемость токенов. Мы искусственно повышаем Perplexity и Burstiness, имитируя стиль живого эксперта. Результат — 0% вероятности AI в любом детекторе.", en: "Our engine analyzes syntactic symmetry and token predictability. We artificially increase Perplexity and Burstiness, mimicking a live expert's style. Result — 0% AI probability in any detector." },
+  "lp.stealthEngineBody": { ru: "Наш движок анализирует синтаксическую симметрию и предсказуемость токенов. Мы искусственно повышаем Perplexity и Burstiness, имитируя стиль живого эксперта. Результат - 0% вероятности AI в любом детекторе.", en: "Our engine analyzes syntactic symmetry and token predictability. We artificially increase Perplexity and Burstiness, mimicking a live expert's style. Result - 0% AI probability in any detector." },
   "lp.stealthBullet1": { ru: "Human Score 95+ гарантировано после гуманизации", en: "Human Score 95+ guaranteed after humanization" },
   "lp.stealthBullet2": { ru: "Обходит Originality.ai, GPTZero, Copyleaks, Turnitin", en: "Bypasses Originality.ai, GPTZero, Copyleaks, Turnitin" },
-  "lp.stealthBullet3": { ru: "Humanize за 1 клик — без потери смысла и SEO-структуры", en: "Humanize in 1 click — no loss of meaning or SEO structure" },
+  "lp.stealthBullet3": { ru: "Humanize за 1 клик - без потери смысла и SEO-структуры", en: "Humanize in 1 click - no loss of meaning or SEO structure" },
 
   "deep2.factoryH1": { ru: "Контентный отдел", en: "Content department" },
   "deep2.factoryH2": { ru: "в одной вкладке.", en: "in one tab." },

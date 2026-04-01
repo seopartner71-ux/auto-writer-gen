@@ -4,7 +4,7 @@ import { AlertTriangle, Sparkles, Check } from "lucide-react";
 
 const content = {
   ru: {
-    heading: "Разница — в деталях",
+    heading: "Разница - в деталях",
     sub: "Стандартный AI-текст vs контент SERPblueprint с высоким Perplexity и без клише",
     leftTitle: "Стандартный AI-текст",
     leftBadge: "AI: 0%",
@@ -12,7 +12,7 @@ const content = {
       { text: "В современном мире цифровых технологий SEO играет ключевую роль в продвижении бизнеса.", tag: "CLICHÉ" },
       { text: "Важно отметить, что качественный контент является неотъемлемой частью успешной стратегии.", tag: "CLICHÉ" },
       { text: "Оптимизация ключевых слов помогает улучшить видимость сайта.", tag: null },
-      { text: "В заключение хочется сказать, что SEO — это непрерывный процесс совершенствования.", tag: "CLICHÉ" },
+      { text: "В заключение хочется сказать, что SEO - это непрерывный процесс совершенствования.", tag: "CLICHÉ" },
     ],
     leftPatterns: ["⚠ Pattern #1", "⚠ Pattern #2", "⚠ Pattern #3", "⚠ Pattern #4"],
     rightTitle: "SERPblueprint Output",
@@ -20,7 +20,7 @@ const content = {
     rightLines: [
       "Мы протестировали 340 лонгридов в нишах B2B SaaS и e-commerce. Результат: статьи с Perplexity > 75 получают на 62% больше органического трафика.",
       "Конкретный пример: клиент из ниши кибербезопасности вышел в ТОП-3 за 14 дней по запросу с KD 47.",
-      "Секрет — не в «уникальности» текста, а в архитектуре сущностей и синтаксической непредсказуемости.",
+      "Секрет - не в «уникальности» текста, а в архитектуре сущностей и синтаксической непредсказуемости.",
       "Наша система воспроизводит паттерн «рваного» экспертного письма, который детекторы не распознают.",
     ],
     rightMetrics: ["Perplexity: 82.4", "Burstiness: 71.2", "E-E-A-T: ✓"],
@@ -28,7 +28,7 @@ const content = {
     footerRight: "Human Score: 99%",
   },
   en: {
-    heading: "The Difference — in Details",
+    heading: "The Difference - in Details",
     sub: "Standard AI text vs SERPblueprint content with high Perplexity and no clichés",
     leftTitle: "Standard AI Text",
     leftBadge: "AI: 0%",
@@ -44,7 +44,7 @@ const content = {
     rightLines: [
       "We tested 340 long-reads in B2B SaaS and e-commerce niches. Result: articles with Perplexity > 75 receive 62% more organic traffic.",
       "Specific example: a cybersecurity client hit TOP-3 in 14 days for a keyword with KD 47.",
-      "The secret isn't in text 'uniqueness' — it's in entity architecture and syntactic unpredictability.",
+      "The secret isn't in text 'uniqueness' - it's in entity architecture and syntactic unpredictability.",
       "Our system replicates the 'rough' expert writing pattern that detectors can't recognize.",
     ],
     rightMetrics: ["Perplexity: 82.4", "Burstiness: 71.2", "E-E-A-T: ✓"],
@@ -91,7 +91,7 @@ export function SectionComparison() {
           className="rounded-2xl border border-white/[0.06] bg-white/[0.015] backdrop-blur-xl overflow-hidden"
         >
           <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/[0.06]">
-            {/* Left — AI text */}
+            {/* Left - AI text */}
             <div className="p-6 md:p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
@@ -128,7 +128,7 @@ export function SectionComparison() {
               </div>
             </div>
 
-            {/* Right — SERPblueprint */}
+            {/* Right - SERPblueprint */}
             <div className="p-6 md:p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">

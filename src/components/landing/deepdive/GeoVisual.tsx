@@ -56,7 +56,7 @@ export function GeoVisual({ typingText }: { typingText: string }) {
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500/40" />
           </div>
-          <span className="text-[9px] font-mono text-muted-foreground/30 ml-2">ai-assistant — inference</span>
+          <span className="text-[9px] font-mono text-muted-foreground/30 ml-2">ai-assistant - inference</span>
         </div>
 
         {/* Content */}
@@ -93,7 +93,7 @@ export function GeoVisual({ typingText }: { typingText: string }) {
             </div>
             <div>
               <p className="text-[10px] font-mono text-[#06b6d4] font-medium">Cited as Primary Source</p>
-              <p className="text-[9px] font-mono text-muted-foreground/40">YourDomain.com — Trust Score: 94%</p>
+              <p className="text-[9px] font-mono text-muted-foreground/40">YourDomain.com - Trust Score: 94%</p>
             </div>
             <motion.div
               className="ml-auto"
