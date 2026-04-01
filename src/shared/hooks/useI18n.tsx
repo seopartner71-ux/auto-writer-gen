@@ -1073,8 +1073,8 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Bento Features
   "bento.badge": { ru: "17 модулей", en: "17 Modules" },
-  "bento.title": { ru: "Полная SEO-экосистема", en: "Complete SEO Ecosystem" },
-  "bento.sub": { ru: "Каждый модуль — это отдельный инструмент, работающий в единой системе", en: "Each module is a standalone tool working within a unified system" },
+  "bento.title": { ru: "LSI-Driven экосистема экспертного контента", en: "LSI-Driven Expert Content Ecosystem" },
+  "bento.sub": { ru: "17 модулей: от SERP-анализа и E-E-A-T Persona Engine до Perplexity Score оптимизации", en: "17 modules: from SERP analysis and E-E-A-T Persona Engine to Perplexity Score optimization" },
 
   "bento.block1": { ru: "Глубокая аналитика", en: "Deep Research" },
   "bento.smartResearch": { ru: "Smart Research", en: "Smart Research" },
@@ -1133,6 +1133,8 @@ const translations: Record<string, Record<Lang, string>> = {
   // Footer
   "footer.roadmap": { ru: "Дорожная карта", en: "Roadmap" },
 
+  // Integrations marquee
+  "integ.title": { ru: "Интеграции и платформы", en: "Integrations & Platforms" },
 
   "cookie.text": { ru: "Мы используем файлы cookie для улучшения работы платформы.", en: "We use cookies to improve the platform experience." },
   "cookie.accept": { ru: "Принять", en: "Accept" },

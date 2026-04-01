@@ -1,29 +1,76 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Play, ShieldCheck, Activity } from "lucide-react";
+import { ArrowRight, Play, ShieldCheck, Activity, Hash, Search, FileText } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
-/* ---------- Glowing dashboard mockup ---------- */
+/* ---------- LSI keyword stream ---------- */
+const lsiKeywords = [
+  "pool maintenance cost", "chemical balance testing", "filter replacement schedule",
+  "seasonal pool care", "salt vs chlorine systems", "pump efficiency rating",
+  "water hardness ppm", "algae prevention protocol", "heat pump sizing",
+  "skimmer basket capacity", "pH level optimal range", "backwash frequency",
+];
+
+function LSIStream() {
+  const [visible, setVisible] = useState<number[]>([]);
+  const ref = useRef(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      ref.current = (ref.current + 1) % lsiKeywords.length;
+      setVisible((prev) => {
+        const next = [...prev, ref.current];
+        return next.length > 6 ? next.slice(-6) : next;
+      });
+    }, 800);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-wrap gap-1.5 overflow-hidden max-h-[52px]">
+      <AnimatePresence mode="popLayout">
+        {visible.map((idx) => (
+          <motion.span
+            key={`${idx}-${visible.indexOf(idx)}`}
+            initial={{ opacity: 0, scale: 0.8, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="text-[9px] font-mono px-2 py-0.5 rounded-full border border-primary/20 bg-primary/[0.06] text-primary/80 whitespace-nowrap"
+          >
+            <Hash className="inline h-2.5 w-2.5 mr-0.5" />{lsiKeywords[idx]}
+          </motion.span>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ---------- Enhanced Dashboard Mockup ---------- */
 function DashboardMockup() {
   const [humanScore, setHumanScore] = useState(0);
   const [stealthActive, setStealthActive] = useState(false);
+  const [lsiCount, setLsiCount] = useState(0);
 
   useEffect(() => {
     const t = setTimeout(() => setStealthActive(true), 1200);
     const interval = setInterval(() => {
-      setHumanScore((p) => {
-        if (p >= 98) { clearInterval(interval); return 98; }
-        return p + 1;
-      });
+      setHumanScore((p) => { if (p >= 98) { clearInterval(interval); return 98; } return p + 1; });
     }, 35);
-    return () => { clearTimeout(t); clearInterval(interval); };
+    const lsiInterval = setInterval(() => {
+      setLsiCount((p) => Math.min(p + 1, 47));
+    }, 80);
+    return () => { clearTimeout(t); clearInterval(interval); clearInterval(lsiInterval); };
   }, []);
 
   const scoreColor = humanScore >= 90 ? "text-emerald-400" : humanScore >= 50 ? "text-amber-400" : "text-red-400";
+  const radius = 42;
+  const circ = 2 * Math.PI * radius;
+  const progress = (humanScore / 100) * circ;
+  const strokeColor = humanScore >= 90 ? "#34d399" : humanScore >= 50 ? "#fbbf24" : "#f87171";
 
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl p-1 shadow-[0_30px_80px_rgba(0,0,0,0.5),0_0_60px_rgba(139,92,246,0.06)]">
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl p-1 shadow-[0_30px_80px_rgba(0,0,0,0.5),0_0_80px_rgba(139,92,246,0.08)]">
       <div className="rounded-xl bg-[#060609]/90 overflow-hidden">
         {/* Title bar */}
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.04]">
@@ -32,51 +79,79 @@ function DashboardMockup() {
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500/50" />
           </div>
-          <span className="ml-2 text-[10px] font-mono text-muted-foreground/40">serpblueprint — dashboard</span>
+          <span className="ml-2 text-[10px] font-mono text-muted-foreground/40">serpblueprint — analysis</span>
+          <div className="ml-auto">
+            <span className="text-[9px] font-mono text-emerald-400/60 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              LIVE
+            </span>
+          </div>
         </div>
 
-        {/* Dashboard content */}
-        <div className="p-6 space-y-5">
-          {/* Human Score */}
-          <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest">Human Score</span>
-              <Activity className="h-3.5 w-3.5 text-emerald-400/50" />
-            </div>
-            <div className={`text-5xl font-extrabold tracking-[-0.05em] ${scoreColor} transition-colors`}>
-              {humanScore}%
-            </div>
-            <div className="mt-3 h-1.5 rounded-full bg-white/[0.03] overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400"
-                animate={{ width: `${humanScore}%` }}
-                transition={{ duration: 0.05 }}
-              />
-            </div>
-          </div>
-
-          {/* Stealth Mode */}
-          <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-4 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest block mb-1">Stealth Mode</span>
-              <span className={`text-sm font-tech font-bold ${stealthActive ? "text-emerald-400" : "text-muted-foreground/30"}`}>
-                {stealthActive ? "Active" : "Initializing..."}
-              </span>
-            </div>
-            <div className={`w-3 h-3 rounded-full ${stealthActive ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.5)]" : "bg-muted-foreground/20"} transition-all`} />
-          </div>
-
-          {/* Mini metrics */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "Perplexity", value: "82.4" },
-              { label: "Burstiness", value: "71.2" },
-              { label: "SEO Score", value: "94" },
-            ].map((m, i) => (
-              <div key={i} className="rounded-lg border border-white/[0.03] bg-white/[0.005] p-3 text-center">
-                <div className="text-lg font-bold text-white/80 tracking-tight">{m.value}</div>
-                <div className="text-[8px] font-mono text-muted-foreground/25 mt-0.5">{m.label}</div>
+        <div className="p-5 space-y-4">
+          {/* Top row — Gauge + Stealth */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Gauge */}
+            <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-4 flex flex-col items-center">
+              <span className="text-[9px] font-mono text-muted-foreground/25 uppercase tracking-widest mb-2">Human Score</span>
+              <div className="relative w-[100px] h-[100px]">
+                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                  <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(255,255,255,0.02)" strokeWidth="7" />
+                  <circle cx="50" cy="50" r={radius} fill="none" stroke={strokeColor} strokeWidth="7" strokeLinecap="round"
+                    strokeDasharray={circ} strokeDashoffset={circ - progress}
+                    style={{ transition: "stroke-dashoffset 0.05s linear, stroke 0.3s" }} />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className={`text-3xl font-extrabold tracking-[-0.05em] ${scoreColor}`}>{humanScore}%</span>
+                </div>
               </div>
+            </div>
+
+            {/* Stealth + Metrics */}
+            <div className="space-y-3">
+              <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-mono text-muted-foreground/25 uppercase tracking-widest">Stealth</span>
+                  <div className={`w-2.5 h-2.5 rounded-full ${stealthActive ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" : "bg-muted-foreground/20"} transition-all`} />
+                </div>
+                <span className={`text-sm font-tech font-bold ${stealthActive ? "text-emerald-400" : "text-muted-foreground/30"}`}>
+                  {stealthActive ? "Active" : "..."}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-white/[0.03] bg-white/[0.005] p-2 text-center">
+                  <div className="text-sm font-bold text-primary/80">82.4</div>
+                  <div className="text-[7px] font-mono text-muted-foreground/20">Perplexity</div>
+                </div>
+                <div className="rounded-lg border border-white/[0.03] bg-white/[0.005] p-2 text-center">
+                  <div className="text-sm font-bold text-[#3b82f6]/80">71.2</div>
+                  <div className="text-[7px] font-mono text-muted-foreground/20">Burstiness</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* LSI extraction live */}
+          <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[9px] font-mono text-muted-foreground/25 uppercase tracking-widest flex items-center gap-1">
+                <Search className="h-3 w-3" /> LSI Extraction
+              </span>
+              <span className="text-[9px] font-mono text-primary/60">{lsiCount} found</span>
+            </div>
+            <LSIStream />
+          </div>
+
+          {/* Detectors passed */}
+          <div className="flex flex-wrap gap-1.5">
+            {["Originality.ai", "GPTZero", "Copyleaks", "Turnitin"].map((d, i) => (
+              <span key={i} className={`text-[8px] font-mono px-2 py-0.5 rounded-full border transition-all ${
+                humanScore >= 90
+                  ? "border-emerald-500/15 bg-emerald-500/[0.04] text-emerald-400/70"
+                  : "border-white/[0.04] bg-white/[0.01] text-muted-foreground/20"
+              }`}>
+                {humanScore >= 90 ? "✓" : "○"} {d}
+              </span>
             ))}
           </div>
         </div>
@@ -97,11 +172,12 @@ export function SectionHero() {
         backgroundImage: "linear-gradient(hsl(var(--primary) / 0.4) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.4) 1px, transparent 1px)",
         backgroundSize: "80px 80px",
       }} />
-      {/* Radial glow */}
-      <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full bg-gradient-radial from-indigo-500/[0.04] to-transparent blur-[200px]" />
+      {/* Radial glows */}
+      <div className="pointer-events-none absolute top-1/4 left-1/3 w-[600px] h-[400px] rounded-full bg-indigo-500/[0.04] blur-[200px]" />
+      <div className="pointer-events-none absolute bottom-1/4 right-1/4 w-[500px] h-[350px] rounded-full bg-slate-500/[0.03] blur-[200px]" />
 
       <div className="relative z-10 container mx-auto px-4 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left — Copy */}
           <div>
             <motion.div

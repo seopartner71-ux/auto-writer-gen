@@ -1,5 +1,6 @@
 import { LandingNav } from "@/components/landing/LandingNav";
 import { SectionHero } from "@/components/landing/SectionHero";
+import { SectionIntegrations } from "@/components/landing/SectionIntegrations";
 import { SectionBentoFeatures } from "@/components/landing/SectionBentoFeatures";
 import { SectionHumanizer } from "@/components/landing/SectionHumanizer";
 import { SectionStealth } from "@/components/landing/SectionStealth";
@@ -89,6 +90,7 @@ export default function Index() {
 
       <div className="relative z-[2]">
         <SectionHero />
+        <SectionIntegrations />
         <SectionBentoFeatures />
         <SectionHumanizer />
         <SectionStealth />
