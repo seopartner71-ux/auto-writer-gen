@@ -35,7 +35,7 @@ export default function Index() {
       "@graph": [
         {
           "@type": "Organization",
-          "name": "Auto-Writer-Gen",
+          "name": "SERPblueprint v2.0",
           "url": window.location.origin,
           "logo": `${window.location.origin}/placeholder.svg`,
           "description": lang === "ru"
