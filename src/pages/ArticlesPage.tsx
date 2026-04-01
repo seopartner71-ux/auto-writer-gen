@@ -1005,6 +1005,29 @@ export default function ArticlesPage() {
                   className="h-8 text-sm"
                 />
               </div>
+
+              {/* Anchor Target URL for Telegra.ph */}
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Link2 className="h-3 w-3" />
+                  {lang === "ru" ? "Целевой URL для анкоров" : "Target URL for Anchors"}
+                </Label>
+                <Input
+                  value={anchorTargetUrl}
+                  onChange={(e) => setAnchorTargetUrl(e.target.value)}
+                  placeholder={lang === "ru" ? "https://vash-sait.com/statya" : "https://your-site.com/article"}
+                  className="h-8 text-sm font-mono"
+                />
+              </div>
+
+              {telegraphUrl && (
+                <div className="flex items-center gap-2 text-[10px]">
+                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  <a href={telegraphUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                    {telegraphUrl}
+                  </a>
+                </div>
+              )}
             </CardContent>
           </Card>
 
