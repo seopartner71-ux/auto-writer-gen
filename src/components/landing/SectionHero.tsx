@@ -1,262 +1,146 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Play, ShieldCheck, Activity, Hash, Search, FileText } from "lucide-react";
+import { ArrowRight, Sparkles, Shield } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
-/* ---------- LSI keyword stream ---------- */
-const lsiKeywords = [
-  "pool maintenance cost", "chemical balance testing", "filter replacement schedule",
-  "seasonal pool care", "salt vs chlorine systems", "pump efficiency rating",
-  "water hardness ppm", "algae prevention protocol", "heat pump sizing",
-  "skimmer basket capacity", "pH level optimal range", "backwash frequency",
-];
-
-function LSIStream() {
-  const [visible, setVisible] = useState<number[]>([]);
-  const ref = useRef(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      ref.current = (ref.current + 1) % lsiKeywords.length;
-      setVisible((prev) => {
-        const next = [...prev, ref.current];
-        return next.length > 6 ? next.slice(-6) : next;
-      });
-    }, 800);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="flex flex-wrap gap-1.5 overflow-hidden max-h-[52px]">
-      <AnimatePresence mode="popLayout">
-        {visible.map((idx) => (
-          <motion.span
-            key={`${idx}-${visible.indexOf(idx)}`}
-            initial={{ opacity: 0, scale: 0.8, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-primary/25 bg-primary/[0.08] text-primary/90 whitespace-nowrap"
-          >
-            <Hash className="inline h-2.5 w-2.5 mr-0.5" />{lsiKeywords[idx]}
-          </motion.span>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* ---------- Enhanced Dashboard Mockup ---------- */
-function DashboardMockup() {
-  const [humanScore, setHumanScore] = useState(0);
-  const [stealthActive, setStealthActive] = useState(false);
-  const [lsiCount, setLsiCount] = useState(0);
-
-  useEffect(() => {
-    const t = setTimeout(() => setStealthActive(true), 1200);
-    const interval = setInterval(() => {
-      setHumanScore((p) => { if (p >= 98) { clearInterval(interval); return 98; } return p + 1; });
-    }, 35);
-    const lsiInterval = setInterval(() => {
-      setLsiCount((p) => Math.min(p + 1, 47));
-    }, 80);
-    return () => { clearTimeout(t); clearInterval(interval); clearInterval(lsiInterval); };
-  }, []);
-
-  const scoreColor = humanScore >= 90 ? "text-emerald-400" : humanScore >= 50 ? "text-amber-400" : "text-red-400";
-  const radius = 42;
-  const circ = 2 * Math.PI * radius;
-  const progress = (humanScore / 100) * circ;
-  const strokeColor = humanScore >= 90 ? "#34d399" : humanScore >= 50 ? "#fbbf24" : "#f87171";
-
-  return (
-    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl p-1 shadow-[0_30px_80px_rgba(0,0,0,0.5),0_0_80px_rgba(139,92,246,0.08)]">
-      <div className="rounded-xl bg-[#060609]/90 overflow-hidden">
-        {/* Title bar */}
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.06]">
-          <div className="flex gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-          </div>
-          <span className="ml-2 text-[11px] font-mono text-foreground/40">serpblueprint — analysis</span>
-          <div className="ml-auto">
-            <span className="text-[10px] font-mono text-emerald-400/80 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              LIVE
-            </span>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {/* Top row — Gauge + Stealth */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Gauge */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col items-center">
-              <span className="text-[10px] font-mono text-foreground/35 uppercase tracking-widest mb-2">Human Score</span>
-              <div className="relative w-[100px] h-[100px]">
-                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                  <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="7" />
-                  <circle cx="50" cy="50" r={radius} fill="none" stroke={strokeColor} strokeWidth="7" strokeLinecap="round"
-                    strokeDasharray={circ} strokeDashoffset={circ - progress}
-                    style={{ transition: "stroke-dashoffset 0.05s linear, stroke 0.3s" }} />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className={`text-3xl font-extrabold tracking-[-0.05em] ${scoreColor}`}>{humanScore}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Stealth + Metrics */}
-            <div className="space-y-3">
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-foreground/35 uppercase tracking-widest">Stealth</span>
-                  <div className={`w-2.5 h-2.5 rounded-full ${stealthActive ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" : "bg-foreground/20"} transition-all`} />
-                </div>
-                <span className={`text-sm font-tech font-bold ${stealthActive ? "text-emerald-400" : "text-foreground/30"}`}>
-                  {stealthActive ? "Active" : "..."}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-center">
-                  <div className="text-sm font-bold text-primary/90">82.4</div>
-                  <div className="text-[9px] font-mono text-foreground/30">Perplexity</div>
-                </div>
-                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-center">
-                  <div className="text-sm font-bold text-[#3b82f6]/90">71.2</div>
-                  <div className="text-[9px] font-mono text-foreground/30">Burstiness</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* LSI extraction live */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono text-foreground/35 uppercase tracking-widest flex items-center gap-1">
-                <Search className="h-3 w-3" /> LSI Extraction
-              </span>
-              <span className="text-[10px] font-mono text-primary/70">{lsiCount} found</span>
-            </div>
-            <LSIStream />
-          </div>
-
-          {/* Detectors passed */}
-          <div className="flex flex-wrap gap-1.5">
-            {["Originality.ai", "GPTZero", "Copyleaks", "Turnitin"].map((d, i) => (
-              <span key={i} className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border transition-all ${
-                humanScore >= 90
-                  ? "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-400/80"
-                  : "border-white/[0.06] bg-white/[0.02] text-foreground/25"
-              }`}>
-                {humanScore >= 90 ? "✓" : "○"} {d}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Hero ---------- */
 export function SectionHero() {
   const navigate = useNavigate();
   const { t } = useI18n();
+  const [aiPercent, setAiPercent] = useState(98);
+  const [phase, setPhase] = useState<"dropping" | "done">("dropping");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const interval = setInterval(() => {
+        setAiPercent((prev) => {
+          if (prev <= 0) { clearInterval(interval); setPhase("done"); return 0; }
+          return prev - (prev > 40 ? 3 : prev > 10 ? 2 : 1);
+        });
+      }, 45);
+      return () => clearInterval(interval);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const radius = 58;
+  const circ = 2 * Math.PI * radius;
+  const progress = (aiPercent / 100) * circ;
+  const color = aiPercent > 50 ? "#ef4444" : aiPercent > 15 ? "#f59e0b" : "#10b981";
+  const label = aiPercent > 15 ? "AI Detected" : "Human Score";
+  const displayVal = aiPercent > 15 ? `${aiPercent}%` : `${100 - aiPercent}%`;
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Grid */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.015]" style={{
-        backgroundImage: "linear-gradient(hsl(var(--primary) / 0.4) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.4) 1px, transparent 1px)",
+      <div className="pointer-events-none absolute inset-0 opacity-[0.025]" style={{
+        backgroundImage: "linear-gradient(hsl(270 60% 60% / 0.5) 1px, transparent 1px), linear-gradient(90deg, hsl(270 60% 60% / 0.5) 1px, transparent 1px)",
         backgroundSize: "80px 80px",
       }} />
-      {/* Radial glows */}
-      <div className="pointer-events-none absolute top-1/4 left-1/3 w-[600px] h-[400px] rounded-full bg-indigo-500/[0.04] blur-[200px]" />
-      <div className="pointer-events-none absolute bottom-1/4 right-1/4 w-[500px] h-[350px] rounded-full bg-slate-500/[0.03] blur-[200px]" />
+      <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full bg-primary/[0.08] blur-[250px]" />
+      <div className="pointer-events-none absolute bottom-[10%] right-[10%] w-[500px] h-[400px] rounded-full bg-[#3b82f6]/[0.06] blur-[200px]" />
 
-      <div className="relative z-10 container mx-auto px-4 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          {/* Left — Copy */}
-          <div>
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.06] px-4 py-1.5 mb-10"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-tech font-medium text-primary/90 uppercase tracking-widest">SERPblueprint v2.0</span>
+      <div className="relative z-10 container mx-auto px-4 max-w-6xl">
+        <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-20">
+          {/* Left */}
+          <div className="flex-1 text-center lg:text-left">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 mb-8">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-tech font-medium text-primary uppercase tracking-wider">{t("lp.badge")}</span>
             </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-[3.5rem] lg:text-[3.8rem] font-extrabold leading-[1.05]"
-              style={{ letterSpacing: "-0.04em" }}
-            >
-              {t("hero2.line1")}
+            <motion.h1 initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95]" style={{ letterSpacing: "-0.06em", textShadow: "0 0 80px rgba(139,92,246,0.12)" }}>
+              {t("lp.heroLine1")}
+              <br />
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">
+                {t("lp.heroLine2")}
+              </span>
             </motion.h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.25 }}
-              className="mt-8 max-w-lg text-base text-foreground/60 leading-[1.8]"
-            >
-              {t("hero2.sub")}
+            <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25 }}
+              className="mt-6 max-w-lg text-[15px] text-muted-foreground/80 leading-[1.7] mx-auto lg:mx-0">
+              {t("lp.heroSub")}
             </motion.p>
 
-            {/* CTAs */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.35 }}
-              className="mt-10 flex flex-wrap gap-4"
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.35 }}
+              className="mt-10 flex flex-wrap gap-4 justify-center lg:justify-start">
               <button onClick={() => navigate("/register")}
-                className="group relative inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-8 py-4 text-[15px] font-tech font-bold text-white shadow-[0_20px_60px_rgba(139,92,246,0.25)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_25px_80px_rgba(139,92,246,0.4)] active:scale-[0.98]">
-                {t("nav.startFree")}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-              <button onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-                className="inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.03] px-7 py-4 text-[15px] font-tech font-medium text-white/80 transition-all duration-300 hover:bg-white/[0.06] hover:border-white/[0.2]">
-                <Play className="h-4 w-4 text-primary/80" />
-                {t("hero.demo")}
+                className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-10 py-5 text-base font-tech font-bold text-white shadow-[0_20px_60px_rgba(139,92,246,0.35)] transition-all duration-300 hover:scale-[1.04] hover:shadow-[0_25px_80px_rgba(139,92,246,0.5)] active:scale-[0.98]">
+                <span className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] animate-pulse opacity-15 blur-2xl" />
+                <span className="relative flex items-center gap-2">
+                  {t("lp.cta")}
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </span>
               </button>
             </motion.div>
 
-            {/* Trust bar */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-              className="mt-14 space-y-3"
-            >
-              <div className="flex flex-wrap gap-x-5 gap-y-2">
-                {["0% AI Detection", "Stealth Guard™", "Human Score 95+"].map((text, i) => (
-                  <span key={i} className="flex items-center gap-1.5 text-[13px] font-tech text-emerald-400/80 tracking-wide">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    {text}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs font-mono text-foreground/40 tracking-wider">
-                {t("hero.bypasses")}
-              </p>
-            </motion.div>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }}
+              className="mt-8 text-sm font-tech text-emerald-400/80 tracking-widest">
+              {t("lp.heroMetric")}
+            </motion.p>
           </div>
 
-          {/* Right — Dashboard */}
-          <motion.div
-            initial={{ opacity: 0, x: 40, scale: 0.97 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            transition={{ duration: 0.9, delay: 0.3 }}
-            className="hidden lg:block"
-          >
-            <DashboardMockup />
+          {/* Right — Stealth Guard */}
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, delay: 0.3 }}
+            className="relative shrink-0">
+            <div className="rounded-3xl border-t border-l border-r border-b border-t-white/20 border-l-white/10 border-r-white/5 border-b-white/[0.02] bg-white/[0.02] backdrop-blur-2xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(139,92,246,0.1)]">
+              <div className="rounded-2xl bg-[#06060b]/90 p-8 min-w-[280px]">
+                {/* Title bar */}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500/60" />
+                  <div className="w-2 h-2 rounded-full bg-yellow-500/60" />
+                  <div className="w-2 h-2 rounded-full bg-green-500/60" />
+                  <span className="ml-2 text-[10px] font-mono text-muted-foreground/60">stealth_guard.run</span>
+                </div>
+                <p className="text-center text-[10px] font-tech uppercase tracking-widest text-muted-foreground/40 mb-5">Stealth Guard™</p>
+
+                <div className="flex flex-col items-center">
+                  <div className="relative w-[160px] h-[160px] mb-4">
+                    <svg viewBox="0 0 130 130" className="w-full h-full -rotate-90">
+                      <circle cx="65" cy="65" r={radius} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="10" />
+                      <circle cx="65" cy="65" r={radius} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round"
+                        strokeDasharray={circ} strokeDashoffset={circ - progress}
+                        style={{ transition: "stroke-dashoffset 0.06s linear, stroke 0.3s" }} />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-4xl font-black" style={{ color, letterSpacing: "-0.06em" }}>{displayVal}</span>
+                      <span className="text-[9px] text-muted-foreground/60 font-tech uppercase tracking-widest mt-1">{label}</span>
+                    </div>
+                  </div>
+
+                  {phase === "done" ? (
+                    <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                      className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/[0.06] px-4 py-1.5">
+                      <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                      <span className="text-xs font-tech font-bold text-emerald-400">{t("lp.stealthActive")}</span>
+                    </motion.div>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/[0.06] px-4 py-1.5">
+                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      <span className="text-xs font-tech text-primary">{t("lp.stealthProcessing")}</span>
+                    </div>
+                  )}
+
+                  {phase === "done" && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                      className="mt-4 flex flex-wrap gap-1.5 justify-center">
+                      {["Originality.ai", "GPTZero", "Copyleaks"].map((d, i) => (
+                        <span key={i} className="text-[8px] font-tech px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.04] text-emerald-400">
+                          ✓ {d}
+                        </span>
+                      ))}
+                    </motion.div>
+                  )}
+
+                  {/* Bypassing notice */}
+                  <p className="mt-4 text-[8px] font-tech text-muted-foreground/40 tracking-wider text-center">
+                    Bypassing Originality.ai & GPTZero
+                  </p>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>

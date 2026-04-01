@@ -900,26 +900,6 @@ const translations: Record<string, Record<Lang, string>> = {
   "common.collapse": { ru: "Свернуть", en: "Collapse" },
 
   // Landing page — Hero
-  "hero.line1": { ru: "SEO-статьи экспертного уровня, которые", en: "Expert-level SEO articles that" },
-  "hero.line2": { ru: "ранжируются", en: "rank" },
-  "hero.line3": { ru: "и не определяются как AI", en: "and bypass all AI detectors" },
-  "hero.sub": { ru: "Smart Research + Expert Personas + мощный Stealth Engine. Создавайте контент, который ранжируется как у профи и читается как человеческий.", en: "Smart Research + Expert Personas + powerful Stealth Engine. Create content that ranks like a pro and reads like a human." },
-  "hero.cta": { ru: "Создать статью за 8 минут", en: "Create Article in 8 Minutes" },
-  "hero.demo": { ru: "Посмотреть демо", en: "Watch Demo" },
-  "hero.trust1": { ru: "0% AI Detection", en: "0% AI Detection" },
-  "hero.trust2": { ru: "Stealth Guard™ • Human Score 95+", en: "Stealth Guard™ • Human Score 95+" },
-  "hero.trust3": { ru: "SEO-специалисты и агентства", en: "SEO specialists & agencies" },
-  "hero.bypasses": { ru: "Обходит Originality.ai, GPTZero, Copyleaks, Turnitin", en: "Bypasses Originality.ai, GPTZero, Copyleaks, Turnitin" },
-  "hero.usedBy": { ru: "Используется SEO-специалистами и агентствами", en: "Used by SEO specialists and agencies" },
-
-  // Landing — Results section
-  "results.title": { ru: "Результаты наших пользователей", en: "Real Results" },
-  "results.metric1": { ru: "органического трафика", en: "organic traffic growth" },
-  "results.metric2": { ru: "на экспертную статью", en: "per expert article" },
-  "results.metric3": { ru: "статей проходят AI-детекторы", en: "of articles pass AI detectors" },
-  "results.metric4": { ru: "статей создано", en: "articles created" },
-  "results.trust": { ru: "Доверяют SEO-инженеры из Miralinks, GoGetLinks и независимых агентств", en: "Trusted by SEO engineers from Miralinks, GoGetLinks and independent agencies" },
-
   "lp.badge": { ru: "SEO нового поколения", en: "Next-gen SEO" },
   "lp.heroLine1": { ru: "Проектируйте контент, который", en: "Engineer content that" },
   "lp.heroLine2": { ru: "доминирует в поиске.", en: "dominates search." },
@@ -1066,76 +1046,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.factArt7": { ru: "Гайд по AI-текстам", en: "AI Writing Guide" },
   "lp.factArt8": { ru: "Стратегия цен SaaS", en: "SaaS Pricing Strategy" },
 
-  // Hero v2
-  "hero2.line1": { ru: "Профессиональный SEO-движок с человеческим лицом.", en: "The Professional SEO Engine That Thinks Like a Human." },
-  "hero2.line2": { ru: "", en: "" },
-  "hero2.sub": { ru: "17-модульная экосистема: от Deep SERP Research до Auto-Indexing и обхода AI-детекторов. Создавайте контент, который ранжируется и читается как человеческий.", en: "17-module ecosystem: from Deep SERP Research to Auto-Indexing and AI-Detector bypass. Create content that ranks and reads like a human." },
-
-  // Bento Features
-  "bento.badge": { ru: "17 модулей", en: "17 Modules" },
-  "bento.title": { ru: "LSI-Driven экосистема экспертного контента", en: "LSI-Driven Expert Content Ecosystem" },
-  "bento.sub": { ru: "17 модулей: от SERP-анализа и E-E-A-T Persona Engine до Perplexity Score оптимизации", en: "17 modules: from SERP analysis and E-E-A-T Persona Engine to Perplexity Score optimization" },
-
-  "bento.block1": { ru: "Глубокая аналитика", en: "Deep Research" },
-  "bento.smartResearch": { ru: "Smart Research", en: "Smart Research" },
-  "bento.smartResearchDesc": { ru: "Анализ SERP ТОП-10, извлечение сущностей и ранжирующих факторов", en: "TOP-10 SERP analysis, entity extraction and ranking factors" },
-  "bento.lsi": { ru: "LSI-анализ", en: "LSI Analysis" },
-  "bento.lsiDesc": { ru: "Извлечение латентно-семантических ключей из конкурентов", en: "Latent semantic keyword extraction from competitors" },
-  "bento.paa": { ru: "PAA Questions", en: "PAA Questions" },
-  "bento.paaDesc": { ru: "Автоматический сбор вопросов People Also Ask", en: "Automatic People Also Ask question collection" },
-  "bento.contentGap": { ru: "Content Gap", en: "Content Gap" },
-  "bento.contentGapDesc": { ru: "Обнаружение тем, которые конкуренты не покрыли", en: "Discover topics competitors haven't covered" },
-
-  "bento.block2": { ru: "Экспертный AI-контент", en: "Expert AI Content" },
-  "bento.persona": { ru: "Persona Engine", en: "Persona Engine" },
-  "bento.personaDesc": { ru: "Имитация стиля, тона и экспертизы автора", en: "Author style, tone and expertise mimicry" },
-  "bento.stealthPrompt": { ru: "Stealth Prompt", en: "Stealth Prompt" },
-  "bento.stealthPromptDesc": { ru: "Системный промпт для обхода паттернов LLM", en: "System prompt to bypass LLM patterns" },
-  "bento.clicheKiller": { ru: "Cliché Killer", en: "Cliché Killer" },
-  "bento.clicheKillerDesc": { ru: "Удаление AI-клише и стоп-фраз из текста", en: "Remove AI clichés and stop-phrases from text" },
-  "bento.aiWriter": { ru: "AI Writer", en: "AI Writer" },
-  "bento.aiWriterDesc": { ru: "Генерация экспертных SEO-статей с динамическим выбором модели", en: "Expert SEO article generation with dynamic model selection" },
-
-  "bento.block3": { ru: "Фабрика контента", en: "Content Factory" },
-  "bento.bulkGen": { ru: "Bulk Generation", en: "Bulk Generation" },
-  "bento.bulkGenDesc": { ru: "Массовая генерация до 100+ статей за цикл", en: "Mass generation of 100+ articles per cycle" },
-  "bento.wpSync": { ru: "WordPress Sync", en: "WordPress Sync" },
-  "bento.wpSyncDesc": { ru: "Прямая публикация с SEO-метаданными", en: "Direct publishing with SEO metadata" },
-  "bento.scheduler": { ru: "Планировщик", en: "Scheduler" },
-  "bento.schedulerDesc": { ru: "Автоматическая генерация по расписанию", en: "Automatic scheduled generation" },
-  "bento.outline": { ru: "AI Outline", en: "AI Outline" },
-  "bento.outlineDesc": { ru: "Автопостроение структуры H2/H3 из ТОП-10", en: "Auto-build H2/H3 structure from TOP-10" },
-
-  "bento.block4": { ru: "Мониторинг и индексация", en: "Monitoring & Indexing" },
-  "bento.radar": { ru: "AI Radar", en: "AI Radar" },
-  "bento.radarDesc": { ru: "Мониторинг бренда в ChatGPT, Perplexity, Gemini", en: "Brand monitoring in ChatGPT, Perplexity, Gemini" },
-  "bento.indexing": { ru: "Google/Яндекс Indexing", en: "Google/Yandex Indexing" },
-  "bento.indexingDesc": { ru: "Мгновенная отправка на индексацию", en: "Instant indexing submission" },
-  "bento.stealth": { ru: "Stealth Engine", en: "Stealth Engine" },
-  "bento.stealthDesc": { ru: "0% AI Detection во всех детекторах", en: "0% AI Detection across all detectors" },
-  "bento.humanize": { ru: "One-Click Humanize", en: "One-Click Humanize" },
-  "bento.humanizeDesc": { ru: "Гуманизация за 1 клик без потери смысла", en: "One-click humanization without losing meaning" },
-
-  // Humanizer comparison
-  "hum.title": { ru: "Разница — в деталях", en: "The Difference Is in the Details" },
-  "hum.sub": { ru: "Стандартный AI-текст vs контент SERPblueprint с высоким Perplexity и без клише", en: "Standard AI text vs SERPblueprint content with high Perplexity and no clichés" },
-  "hum.labelAi": { ru: "Стандартный AI-текст", en: "Standard AI Output" },
-  "hum.labelHuman": { ru: "SERPblueprint Output", en: "SERPblueprint Output" },
-  "hum.ai1": { ru: "В современном мире цифровых технологий SEO играет ключевую роль в продвижении бизнеса.", en: "In today's rapidly evolving digital landscape, SEO plays a crucial role in driving business growth." },
-  "hum.ai2": { ru: "Важно отметить, что качественный контент является неотъемлемой частью успешной стратегии.", en: "It is important to note that quality content is an integral part of a successful strategy." },
-  "hum.ai3": { ru: "Оптимизация ключевых слов помогает улучшить видимость сайта.", en: "Keyword optimization helps improve website visibility." },
-  "hum.ai4": { ru: "В заключение хочется сказать, что SEO — это непрерывный процесс совершенствования.", en: "In conclusion, it can be said that SEO is a continuous process of improvement." },
-  "hum.hu1": { ru: "Мы протестировали 340 лонгридов в нишах B2B SaaS и e-commerce. Результат: статьи с Perplexity > 75 получают на 62% больше органического трафика.", en: "We tested 340 longform articles in B2B SaaS and e-commerce niches. Result: articles with Perplexity > 75 get 62% more organic traffic." },
-  "hum.hu2": { ru: "Конкретный пример: клиент из ниши кибербезопасности вышел в ТОП-3 за 14 дней по запросу с KD 47.", en: "Specific example: a cybersecurity client reached TOP-3 in 14 days for a keyword with KD 47." },
-  "hum.hu3": { ru: "Секрет — не в «уникальности» текста, а в архитектуре сущностей и синтаксической непредсказуемости.", en: "The secret isn't text 'uniqueness' — it's entity architecture and syntactic unpredictability." },
-  "hum.hu4": { ru: "Наша система воспроизводит паттерн «рваного» экспертного письма, который детекторы не распознают.", en: "Our system reproduces the 'broken' expert writing pattern that detectors can't recognize." },
-
-  // Footer
-  "footer.roadmap": { ru: "Дорожная карта", en: "Roadmap" },
-
-  // Integrations marquee
-  "integ.title": { ru: "Интеграции и платформы", en: "Integrations & Platforms" },
-
+  // Cookie consent
   "cookie.text": { ru: "Мы используем файлы cookie для улучшения работы платформы.", en: "We use cookies to improve the platform experience." },
   "cookie.accept": { ru: "Принять", en: "Accept" },
 
@@ -1160,53 +1071,6 @@ const translations: Record<string, Record<Lang, string>> = {
   "deep2.radarH2": { ru: "AI-модели в реальном времени.", en: "AI models in real time." },
   "deep2.radarBody": { ru: "Модуль <span class='text-[#06b6d4] font-medium'>GEO Radar</span> проверяет, цитируют ли вас ChatGPT, Perplexity, Gemini и Claude. Многомодельное сканирование с анализом тональности и стратегическими рекомендациями по усилению присутствия в <span class='text-[#06b6d4] font-medium'>AI-выдаче</span>.", en: "The <span class='text-[#06b6d4] font-medium'>GEO Radar</span> module checks if ChatGPT, Perplexity, Gemini and Claude cite you. Multi-model scanning with sentiment analysis and strategic recommendations to strengthen your presence in <span class='text-[#06b6d4] font-medium'>AI search results</span>." },
   "deep2.radarMetric": { ru: "4 AI-модели | Мониторинг 24/7", en: "4 AI Models | 24/7 Monitoring" },
-
-  // Nav
-  "nav.features": { ru: "Возможности", en: "Features" },
-  "nav.howItWorks": { ru: "Как это работает", en: "How It Works" },
-  "nav.landingPricing": { ru: "Тарифы", en: "Pricing" },
-  "nav.startFree": { ru: "Начать бесплатно", en: "Start for Free" },
-
-  // How It Works
-  "hiw.title": { ru: "Как это работает", en: "How It Works" },
-  "hiw.stepLabel": { ru: "Шаг", en: "Step" },
-  "hiw.step1": { ru: "Smart Research", en: "Smart Research" },
-  "hiw.desc1": { ru: "Анализ SERP, извлечение LSI-ключей, сущностей и Content Gaps из ТОП-10", en: "SERP analysis, LSI keyword extraction, entities and Content Gaps from TOP-10" },
-  "hiw.step2": { ru: "Expert Persona", en: "Expert Persona" },
-  "hiw.desc2": { ru: "Создание и сохранение стиля автора: тон, ритм, экспертиза ниши", en: "Create and save author style: tone, rhythm, niche expertise" },
-  "hiw.step3": { ru: "Stealth Generation", en: "Stealth Generation" },
-  "hiw.desc3": { ru: "Генерация статьи + автоматическая гуманизация. 0% AI Detection", en: "Article generation + automatic humanization. 0% AI Detection" },
-  "hiw.step4": { ru: "Публикация", en: "Publish" },
-  "hiw.desc4": { ru: "Экспорт в HTML/Markdown или прямая публикация в WordPress", en: "Export to HTML/Markdown or direct WordPress publishing" },
-
-  // Features
-  "feat.title": { ru: "Мощный контентный завод", en: "Powerful Content Factory" },
-  "feat.sub": { ru: "Полный набор инструментов для создания SEO-контента экспертного уровня", en: "Complete toolkit for creating expert-level SEO content" },
-  "feat.research": { ru: "Smart Research", en: "Smart Research" },
-  "feat.researchDesc": { ru: "Глубокий анализ SERP и конкурентов. Извлечение LSI-ключей, сущностей и Content Gaps для создания контента, который невозможно проигнорировать", en: "Deep SERP and competitor analysis. Extract LSI keywords, entities and Content Gaps to create content that can't be ignored" },
-  "feat.personas": { ru: "Expert Personas", en: "Expert Personas" },
-  "feat.personasDesc": { ru: "Создавайте и сохраняйте уникальные авторские стили. Каждая статья звучит как написанная практикующим экспертом", en: "Create and save unique author styles. Every article reads like it was written by a practicing expert" },
-  "feat.stealth": { ru: "Stealth Engine", en: "Stealth Engine" },
-  "feat.stealthDesc": { ru: "Одним кликом — полная гуманизация текста. Обходит Originality.ai, GPTZero, Copyleaks и Turnitin. Human Score 95+", en: "One click — full text humanization. Bypasses Originality.ai, GPTZero, Copyleaks and Turnitin. Human Score 95+" },
-  "feat.bulk": { ru: "Bulk Generation", en: "Bulk Generation" },
-  "feat.bulkDesc": { ru: "Массовая генерация статей по расписанию. Контентный конвейер на полном автопилоте", en: "Mass article generation on schedule. Content pipeline on full autopilot" },
-  "feat.wordpress": { ru: "WordPress Integration", en: "WordPress Integration" },
-  "feat.wordpressDesc": { ru: "Прямая публикация в WordPress с SEO-метаданными, категориями и тегами. Полный контроль", en: "Direct WordPress publishing with SEO metadata, categories and tags. Full control" },
-  "feat.radar": { ru: "AI Radar & GEO", en: "AI Radar & GEO" },
-  "feat.radarDesc": { ru: "Мониторинг вашего бренда в ответах ChatGPT, Perplexity и Gemini. Оптимизация для AI-выдачи", en: "Monitor your brand in ChatGPT, Perplexity and Gemini responses. Optimize for AI search results" },
-
-  // Final CTA
-  "finalCta.title": { ru: "Готовы создавать контент, который действительно работает?", en: "Ready to create content that actually works?" },
-  "finalCta.sub": { ru: "Начните бесплатно. Без привязки карты. 5 статей в подарок.", en: "Start for free. No credit card. 5 articles included." },
-  "finalCta.button": { ru: "Начать бесплатно", en: "Start for Free" },
-
-  // Stealth Engine section
-  "stealth.tag": { ru: "Core Technology", en: "Core Technology" },
-  "stealth.title": { ru: "Stealth Engine — невидимая сила", en: "Stealth Engine — Invisible Power" },
-  "stealth.body": { ru: "Наш движок анализирует синтаксическую симметрию и предсказуемость токенов. Мы искусственно повышаем Perplexity и Burstiness, имитируя стиль живого эксперта. Результат — 0% вероятности AI в любом детекторе.", en: "Our engine analyzes syntactic symmetry and token predictability. We artificially increase Perplexity and Burstiness, mimicking a live expert's style. Result — 0% AI probability in any detector." },
-  "stealth.point1": { ru: "Human Score 95+ гарантировано после гуманизации", en: "Human Score 95+ guaranteed after humanization" },
-  "stealth.point2": { ru: "Обходит Originality.ai, GPTZero, Copyleaks, Turnitin", en: "Bypasses Originality.ai, GPTZero, Copyleaks, Turnitin" },
-  "stealth.point3": { ru: "Humanize за 1 клик — без потери смысла и SEO-структуры", en: "Humanize in 1 click — no loss of meaning or SEO structure" },
 };
 
 interface I18nContextValue {

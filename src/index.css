@@ -148,16 +148,6 @@ html {
   animation: marquee 30s linear infinite;
 }
 
-@property --border-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes border-beam {
-  to { --border-angle: 360deg; }
-}
-
 /* Article Preview Styles */
 .article-preview .md-h1 {
   font-size: 1.75rem;

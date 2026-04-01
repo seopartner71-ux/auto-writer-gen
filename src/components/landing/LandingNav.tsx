@@ -1,80 +1,53 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Hexagon, Menu, X } from "lucide-react";
+import { Hexagon } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function LandingNav() {
   const navigate = useNavigate();
   const { lang, setLang, t } = useI18n();
-  const [open, setOpen] = useState(false);
-
-  const anchors = [
-    { label: t("nav.features"), href: "#features" },
-    { label: t("nav.landingPricing"), href: "#pricing" },
-    { label: t("nav.wiki"), href: "/wiki" },
-  ];
-
-  const scrollTo = (href: string) => {
-    setOpen(false);
-    if (href.startsWith("/")) { navigate(href); return; }
-    const el = document.querySelector(href);
-    el?.scrollIntoView({ behavior: "smooth" });
-  };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.04] bg-[#030303]/80 backdrop-blur-xl">
-      <div className="container mx-auto flex items-center justify-between px-4 h-16 max-w-7xl">
-        {/* Logo */}
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#050505]/80 backdrop-blur-xl">
+      <div className="container mx-auto flex items-center justify-between px-4 h-14">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-          <Hexagon className="h-5 w-5 text-primary/80" />
-          <span className="text-lg font-brand tracking-tight">
-            SERP<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">blueprint</span>{" "}
-            <span className="text-xs text-muted-foreground/40 font-mono">v2.0</span>
-          </span>
-        </div>
-
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-8">
-          {anchors.map((a) => (
-            <button key={a.href} onClick={() => scrollTo(a.href)}
-              className="text-sm text-muted-foreground/50 hover:text-foreground/80 transition-colors">{a.label}</button>
-          ))}
+          <Hexagon className="h-5 w-5 text-primary" />
+          <span className="text-xl font-brand tracking-tight">SERP<span className="gradient-text">blueprint</span></span>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Lang toggle */}
-          <div className="flex items-center rounded-full border border-white/[0.06] bg-white/[0.015] p-0.5">
-            <button onClick={() => setLang("ru")}
-              className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${lang === "ru" ? "bg-primary/80 text-primary-foreground" : "text-muted-foreground/50 hover:text-foreground"}`}>RU</button>
-            <button onClick={() => setLang("en")}
-              className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${lang === "en" ? "bg-primary/80 text-primary-foreground" : "text-muted-foreground/50 hover:text-foreground"}`}>EN</button>
+          <div className="flex items-center rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5">
+            <button
+              onClick={() => setLang("ru")}
+              className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                lang === "ru" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              RU
+            </button>
+            <button
+              onClick={() => setLang("en")}
+              className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                lang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              EN
+            </button>
           </div>
 
-          <button onClick={() => navigate("/login")}
-            className="hidden md:block text-sm font-medium text-muted-foreground/50 hover:text-foreground transition-colors px-3 py-1.5">{t("auth.login")}</button>
-          <button onClick={() => navigate("/register")}
-            className="hidden md:block text-sm font-semibold rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-5 py-2 text-white hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all">
-            {t("nav.startFree")}</button>
-
-          {/* Mobile burger */}
-          <button className="md:hidden text-muted-foreground/50" onClick={() => setOpen(!open)}>
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          <button
+            onClick={() => navigate("/login")}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5"
+          >
+            {t("auth.login")}
+          </button>
+          <button
+            onClick={() => navigate("/register")}
+            className="text-sm font-semibold rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] px-5 py-1.5 text-white hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all"
+          >
+            {t("landing.getStarted")}
           </button>
         </div>
       </div>
-
-      {/* Mobile menu */}
-      {open && (
-        <div className="md:hidden border-t border-white/[0.04] bg-[#030303]/95 backdrop-blur-xl px-4 py-4 space-y-3">
-          {anchors.map((a) => (
-            <button key={a.href} onClick={() => scrollTo(a.href)}
-              className="block w-full text-left text-sm text-muted-foreground/50 hover:text-foreground py-2">{a.label}</button>
-          ))}
-          <button onClick={() => { setOpen(false); navigate("/register"); }}
-            className="w-full text-sm font-semibold rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-5 py-2.5 text-white mt-2">
-            {t("nav.startFree")}</button>
-        </div>
-      )}
     </nav>
   );
 }
