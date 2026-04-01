@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2, Quote, Table2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -914,25 +914,31 @@ export default function ArticlesPage() {
         />
 
         {/* Content formatting options */}
-        <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-border mt-3">
-          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={includeExpertQuote}
-              onChange={(e) => setIncludeExpertQuote(e.target.checked)}
-              className="rounded border-border"
-            />
-            <span className="text-muted-foreground">💬 Экспертная цитата</span>
-          </label>
-          <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={includeComparisonTable}
-              onChange={(e) => setIncludeComparisonTable(e.target.checked)}
-              className="rounded border-border"
-            />
-            <span className="text-muted-foreground">📊 Таблица сравнения</span>
-          </label>
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border mt-3">
+          <button
+            type="button"
+            onClick={() => setIncludeExpertQuote(!includeExpertQuote)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 select-none cursor-pointer ${
+              includeExpertQuote
+                ? 'border-purple-500/60 text-white bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                : 'border-slate-800 text-slate-400 bg-white/5 hover:bg-white/10 hover:border-slate-700'
+            }`}
+          >
+            <Quote className={`h-3.5 w-3.5 ${includeExpertQuote ? 'text-purple-400' : 'text-slate-500'}`} />
+            Экспертная цитата
+          </button>
+          <button
+            type="button"
+            onClick={() => setIncludeComparisonTable(!includeComparisonTable)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 select-none cursor-pointer ${
+              includeComparisonTable
+                ? 'border-purple-500/60 text-white bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                : 'border-slate-800 text-slate-400 bg-white/5 hover:bg-white/10 hover:border-slate-700'
+            }`}
+          >
+            <Table2 className={`h-3.5 w-3.5 ${includeComparisonTable ? 'text-purple-400' : 'text-slate-500'}`} />
+            Таблица сравнения
+          </button>
         </div>
       </div>
 
