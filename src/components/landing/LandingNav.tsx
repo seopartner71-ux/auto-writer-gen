@@ -25,7 +25,7 @@ export function LandingNav() {
       <div className="container mx-auto flex items-center justify-between px-4 h-14 max-w-7xl">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
           <Hexagon className="h-5 w-5 text-primary" />
-          <span className="text-lg font-brand tracking-tight">Auto-Writer<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">-Gen</span></span>
+          <span className="text-lg font-brand tracking-tight">SERP<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">blueprint</span> <span className="text-xs text-muted-foreground/50 font-mono">v2.0</span></span>
         </div>
 
         {/* Desktop nav */}

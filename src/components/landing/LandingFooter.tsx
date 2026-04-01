@@ -39,7 +39,7 @@ export function LandingFooter() {
             <div className="flex items-center gap-2">
               <Hexagon className="h-5 w-5 text-primary" />
               <span className="text-lg font-brand tracking-tight">
-                Auto-Writer<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">-Gen</span>
+                SERP<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">blueprint</span> <span className="text-xs text-muted-foreground/50 font-mono">v2.0</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export function LandingFooter() {
           className="mt-12 pt-6 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3"
         >
           <p className="text-[10px] font-mono text-muted-foreground/25 tracking-wide">
-            © {new Date().getFullYear()} Auto-Writer-Gen — {t("landing.copyright")}
+            © {new Date().getFullYear()} SERPblueprint v2.0 — {t("landing.copyright")}
           </p>
           <p className="text-[9px] font-mono text-muted-foreground/20 tracking-wider max-w-md text-center sm:text-right leading-relaxed">
             {t("lp.footerLegal")}
