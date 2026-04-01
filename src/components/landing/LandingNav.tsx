@@ -11,7 +11,7 @@ export function LandingNav() {
   const anchors = [
     { label: t("nav.features"), href: "#features" },
     { label: t("nav.howItWorks"), href: "#how-it-works" },
-    { label: t("nav.pricing"), href: "#pricing" },
+    { label: t("nav.landingPricing"), href: "#pricing" },
   ];
 
   const scrollTo = (href: string) => {
