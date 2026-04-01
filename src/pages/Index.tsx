@@ -6,6 +6,7 @@ import { SectionGeo } from "@/components/landing/SectionGeo";
 import { SectionFactory } from "@/components/landing/SectionFactory";
 import { SectionPricing } from "@/components/landing/SectionPricing";
 import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
+import { SectionTestimonials } from "@/components/landing/SectionTestimonials";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { CookieConsent } from "@/components/landing/CookieConsent";
 import { ScrollToTop } from "@/components/landing/ScrollToTop";
