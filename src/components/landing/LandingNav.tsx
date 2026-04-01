@@ -1,10 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { Hexagon } from "lucide-react";
+import { Hexagon, Globe } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function LandingNav() {
   const navigate = useNavigate();
   const { lang, setLang, t } = useI18n();
+
+  const scrollTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#050505]/80 backdrop-blur-xl">
@@ -14,8 +19,19 @@ export function LandingNav() {
           <span className="text-xl font-brand tracking-tight">SERP<span className="gradient-text">blueprint</span></span>
         </div>
 
+        {/* Nav links — hidden on mobile */}
+        <div className="hidden md:flex items-center gap-6">
+          <button onClick={() => scrollTo("features")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {t("lp.navFeatures")}
+          </button>
+          <button onClick={() => scrollTo("pricing")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {t("nav.pricing")}
+          </button>
+        </div>
+
         <div className="flex items-center gap-3">
-          <div className="flex items-center rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5">
+          <div className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5">
+            <Globe className="w-3.5 h-3.5 text-muted-foreground ml-2" />
             <button
               onClick={() => setLang("ru")}
               className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
