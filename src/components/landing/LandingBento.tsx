@@ -59,7 +59,7 @@ export function LandingBento() {
   }, []);
 
   return (
-    <section className="relative py-32 overflow-hidden">
+    <section id="features" className="relative py-32 overflow-hidden">
       <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full bg-primary/5 blur-[180px]" />
 
       <div className="container mx-auto px-4 max-w-6xl">
