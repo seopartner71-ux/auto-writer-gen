@@ -67,7 +67,7 @@ export function SectionComparison() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-4xl md:text-5xl lg:text-6xl font-black tracking-[-0.06em] text-center text-white italic mb-4"
+          className="text-4xl md:text-5xl lg:text-6xl font-black tracking-[-0.06em] text-center text-white mb-4"
           style={{ textShadow: "0 0 60px hsl(var(--primary) / 0.15)" }}
         >
           {c.heading}
