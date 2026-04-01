@@ -899,13 +899,13 @@ const translations: Record<string, Record<Lang, string>> = {
   "sa.recommendedPrompt": { ru: "Рекомендуемый промпт", en: "Recommended prompt" },
   "common.collapse": { ru: "Свернуть", en: "Collapse" },
 
-  // Landing page — Hero (new)
-  "hero.line1": { ru: "Пиши SEO-статьи, которые", en: "Write SEO articles that" },
+  // Landing page — Hero
+  "hero.line1": { ru: "SEO-статьи экспертного уровня, которые", en: "Expert-level SEO articles that" },
   "hero.line2": { ru: "ранжируются", en: "rank" },
-  "hero.line3": { ru: "и не определяются как AI", en: "and pass every AI detector" },
-  "hero.sub": { ru: "Smart Research + Expert Personas + Stealth Engine. Полный цикл от анализа конкурентов до публикации в WordPress. 0% обнаружения детекторами.", en: "Smart Research + Expert Personas + Stealth Engine. Full cycle from competitor analysis to WordPress publishing. 0% AI detection." },
-  "hero.cta": { ru: "Начать генерацию статьи", en: "Start article generation" },
-  "hero.demo": { ru: "Посмотреть демо", en: "Watch demo" },
+  "hero.line3": { ru: "и не определяются как AI", en: "and bypass all AI detectors" },
+  "hero.sub": { ru: "Smart Research + Expert Personas + Stealth Engine. Полный цикл от анализа конкурентов до автоматической публикации в WordPress.", en: "Smart Research + Expert Personas + Stealth Engine. Full cycle from competitor analysis to auto-publishing in WordPress." },
+  "hero.cta": { ru: "Создать статью", en: "Create Article" },
+  "hero.demo": { ru: "Посмотреть демо", en: "Watch Demo" },
   "hero.trust1": { ru: "0% AI Detection", en: "0% AI Detection" },
   "hero.trust2": { ru: "Stealth Guard™ • Human Score 95+", en: "Stealth Guard™ • Human Score 95+" },
   "hero.trust3": { ru: "SEO-специалисты и агентства", en: "SEO specialists & agencies" },
@@ -1127,9 +1127,17 @@ const translations: Record<string, Record<Lang, string>> = {
   "feat.radarDesc": { ru: "Мониторинг вашего бренда в ответах ChatGPT, Perplexity и Gemini. Оптимизация для AI-выдачи", en: "Monitor your brand in ChatGPT, Perplexity and Gemini responses. Optimize for AI search results" },
 
   // Final CTA
-  "finalCta.title": { ru: "Готовы создавать контент нового уровня?", en: "Ready to create next-level content?" },
+  "finalCta.title": { ru: "Готовы вывести свой контент на новый уровень?", en: "Ready to take your content to the next level?" },
   "finalCta.sub": { ru: "Начните бесплатно. Без привязки карты. 5 статей в подарок.", en: "Start for free. No credit card. 5 articles included." },
-  "finalCta.button": { ru: "Начать бесплатно прямо сейчас", en: "Start for free right now" },
+  "finalCta.button": { ru: "Начать бесплатно", en: "Start for Free" },
+
+  // Stealth Engine section
+  "stealth.tag": { ru: "Core Technology", en: "Core Technology" },
+  "stealth.title": { ru: "Stealth Engine — невидимая сила", en: "Stealth Engine — Invisible Power" },
+  "stealth.body": { ru: "Наш движок анализирует синтаксическую симметрию и предсказуемость токенов. Мы искусственно повышаем Perplexity и Burstiness, имитируя стиль живого эксперта. Результат — 0% вероятности AI в любом детекторе.", en: "Our engine analyzes syntactic symmetry and token predictability. We artificially increase Perplexity and Burstiness, mimicking a live expert's style. Result — 0% AI probability in any detector." },
+  "stealth.point1": { ru: "Human Score 95+ гарантировано после гуманизации", en: "Human Score 95+ guaranteed after humanization" },
+  "stealth.point2": { ru: "Обходит Originality.ai, GPTZero, Copyleaks, Turnitin", en: "Bypasses Originality.ai, GPTZero, Copyleaks, Turnitin" },
+  "stealth.point3": { ru: "Humanize за 1 клик — без потери смысла и SEO-структуры", en: "Humanize in 1 click — no loss of meaning or SEO structure" },
 };
 
 interface I18nContextValue {

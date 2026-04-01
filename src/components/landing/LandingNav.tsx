@@ -9,8 +9,8 @@ export function LandingNav() {
   const [open, setOpen] = useState(false);
 
   const anchors = [
-    { label: t("nav.features"), href: "#features" },
     { label: t("nav.howItWorks"), href: "#how-it-works" },
+    { label: t("nav.features"), href: "#features" },
     { label: t("nav.landingPricing"), href: "#pricing" },
   ];
 

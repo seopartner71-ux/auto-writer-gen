@@ -3,6 +3,7 @@ import { SectionHero } from "@/components/landing/SectionHero";
 import { SectionResults } from "@/components/landing/SectionResults";
 import { SectionHowItWorks } from "@/components/landing/SectionHowItWorks";
 import { SectionFeatures } from "@/components/landing/SectionFeatures";
+import { SectionStealth } from "@/components/landing/SectionStealth";
 import { SectionPricing } from "@/components/landing/SectionPricing";
 import { SectionFinalCta } from "@/components/landing/SectionFinalCta";
 import { SectionTestimonials } from "@/components/landing/SectionTestimonials";
@@ -97,6 +98,7 @@ export default function Index() {
         <SectionResults />
         <SectionHowItWorks />
         <SectionFeatures />
+        <SectionStealth />
         <SectionTestimonials />
         <SectionPricing />
         <SectionFinalCta />
