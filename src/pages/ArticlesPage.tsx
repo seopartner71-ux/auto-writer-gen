@@ -1555,6 +1555,9 @@ export default function ArticlesPage() {
                               setMetaDescription(data.meta_description || "");
                               if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
                               if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
+                              setTelegraphPath((data as any).telegraph_path || "");
+                              setTelegraphUrl((data as any).telegraph_url || "");
+                              setAnchorTargetUrl((data as any).anchor_target_url || "");
                             }
                           }}
                         >
