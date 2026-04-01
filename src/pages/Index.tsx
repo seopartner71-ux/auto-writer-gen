@@ -53,7 +53,7 @@ export default function Index() {
         <SectionResearch />
         <SectionPersona />
         <SectionGeo />
-        <SectionFactory />
+        <SectionStealthEngine />
         <SectionDeepDive />
         <SectionComparison />
         <SectionTestimonials />
