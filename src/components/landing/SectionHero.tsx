@@ -51,7 +51,7 @@ function ArticlePreview() {
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500/50" />
           </div>
-          <span className="ml-2 text-[10px] font-mono text-muted-foreground/50">auto-writer-gen — article_output.md</span>
+          <span className="ml-2 text-[10px] font-mono text-muted-foreground/50">serpblueprint — article_output.md</span>
           <div className="ml-auto flex items-center gap-1.5">
             <span className="text-[9px] font-mono text-emerald-400/70 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
