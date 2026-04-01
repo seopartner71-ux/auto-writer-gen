@@ -387,7 +387,7 @@ export default function ArticlesPage() {
   const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
   const [telegraphPath, setTelegraphPath] = useState("");
   const [telegraphUrl, setTelegraphUrl] = useState("");
-  const [anchorTargetUrl, setAnchorTargetUrl] = useState("");
+  const [anchorLinks, setAnchorLinks] = useState<{ url: string; anchor: string }[]>([{ url: "", anchor: "" }]);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
