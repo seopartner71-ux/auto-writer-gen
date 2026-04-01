@@ -122,7 +122,7 @@ export function LandingFooter() {
           className="mt-12 pt-6 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3"
         >
           <p className="text-[10px] font-mono text-muted-foreground/25 tracking-wide">
-            © {new Date().getFullYear()} Auto-Writer-Gen — {t("landing.copyright")}
+            © {new Date().getFullYear()} SERPblueprint v2.0 — {t("landing.copyright")}
           </p>
           <p className="text-[9px] font-mono text-muted-foreground/20 tracking-wider max-w-md text-center sm:text-right leading-relaxed">
             {t("lp.footerLegal")}

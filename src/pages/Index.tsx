@@ -60,7 +60,7 @@ export default function Index() {
           "@id": window.location.href,
           "name": document.title,
           "description": meta?.getAttribute("content") || "",
-          "isPartOf": { "@type": "WebSite", "name": "Auto-Writer-Gen", "url": window.location.origin }
+          "isPartOf": { "@type": "WebSite", "name": "SERPblueprint v2.0", "url": window.location.origin }
         }
       ]
     };

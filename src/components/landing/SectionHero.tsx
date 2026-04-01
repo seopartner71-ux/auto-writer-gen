@@ -162,7 +162,7 @@ export function SectionHero() {
               className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.06] px-4 py-1.5 mb-8"
             >
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[11px] font-tech font-semibold text-primary uppercase tracking-widest">Auto-Writer-Gen</span>
+              <span className="text-[11px] font-tech font-semibold text-primary uppercase tracking-widest">SERPblueprint v2.0</span>
             </motion.div>
 
             <motion.h1
