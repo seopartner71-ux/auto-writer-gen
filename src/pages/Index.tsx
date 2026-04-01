@@ -1,8 +1,7 @@
 import { LandingNav } from "@/components/landing/LandingNav";
 import { SectionHero } from "@/components/landing/SectionHero";
-import { SectionResults } from "@/components/landing/SectionResults";
-import { SectionHowItWorks } from "@/components/landing/SectionHowItWorks";
-import { SectionFeatures } from "@/components/landing/SectionFeatures";
+import { SectionBentoFeatures } from "@/components/landing/SectionBentoFeatures";
+import { SectionHumanizer } from "@/components/landing/SectionHumanizer";
 import { SectionStealth } from "@/components/landing/SectionStealth";
 import { SectionTestimonials } from "@/components/landing/SectionTestimonials";
 import { SectionPricing } from "@/components/landing/SectionPricing";
@@ -18,13 +17,13 @@ export default function Index() {
 
   useEffect(() => {
     document.title = lang === "ru"
-      ? "SERPblueprint v2.0 — AI-генератор SEO-контента"
-      : "SERPblueprint v2.0 — AI SEO Content Generator";
+      ? "SERPblueprint v2.0 — Профессиональный SEO-движок"
+      : "SERPblueprint v2.0 — Professional SEO Engine";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute("content", lang === "ru"
-        ? "SERPblueprint v2.0 — профессиональный AI-генератор SEO-статей. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
-        : "SERPblueprint v2.0 — professional AI SEO article generator. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
+        ? "SERPblueprint v2.0 — 17-модульная SEO-экосистема. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
+        : "SERPblueprint v2.0 — 17-module SEO ecosystem. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
       );
     }
 
@@ -39,9 +38,6 @@ export default function Index() {
           "name": "SERPblueprint v2.0",
           "url": window.location.origin,
           "logo": `${window.location.origin}/placeholder.svg`,
-          "description": lang === "ru"
-            ? "AI-генератор SEO-контента экспертного уровня"
-            : "AI-powered expert-level SEO content generator",
         },
         {
           "@type": "WebApplication",
@@ -76,18 +72,16 @@ export default function Index() {
   }, [lang]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-foreground relative">
-      {/* Subtle noise */}
+    <div className="min-h-screen bg-[#030303] text-foreground relative">
+      {/* Noise */}
       <div
-        className="pointer-events-none fixed inset-0 z-[1] opacity-[0.015]"
+        className="pointer-events-none fixed inset-0 z-[1] opacity-[0.012]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
           backgroundRepeat: "repeat",
           backgroundSize: "256px 256px",
         }}
       />
-      {/* Ambient glow */}
-      <div className="pointer-events-none fixed top-[30%] left-[15%] w-[500px] h-[400px] rounded-full bg-primary/[0.02] blur-[250px] z-[1]" />
 
       <div className="relative z-[3]">
         <LandingNav />
@@ -95,9 +89,8 @@ export default function Index() {
 
       <div className="relative z-[2]">
         <SectionHero />
-        <SectionResults />
-        <SectionHowItWorks />
-        <SectionFeatures />
+        <SectionBentoFeatures />
+        <SectionHumanizer />
         <SectionStealth />
         <SectionTestimonials />
         <SectionPricing />
