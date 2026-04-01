@@ -60,7 +60,7 @@ export function RadarVisual() {
               <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
               <div className="w-2.5 h-2.5 rounded-full bg-green-500/40" />
             </div>
-            <span className="text-[9px] font-mono text-muted-foreground/30 ml-2">geo-radar — sweep mode</span>
+            <span className="text-[9px] font-mono text-muted-foreground/30 ml-2">geo-radar - sweep mode</span>
           </div>
           <motion.span
             className="text-[9px] font-mono text-[#06b6d4]/60"

@@ -132,7 +132,7 @@ export function StealthProofWidget() {
                 color: phase === "done" ? "hsl(142 71% 45%)" : "#9ca3af",
               }}
             >
-              {phase === "done" ? "97%" : "—"}
+              {phase === "done" ? "97%" : "-"}
             </p>
           </div>
           <div
@@ -151,7 +151,7 @@ export function StealthProofWidget() {
                 color: phase === "done" ? "hsl(142 71% 45%)" : "#9ca3af",
               }}
             >
-              {phase === "done" ? "High" : "—"}
+              {phase === "done" ? "High" : "-"}
             </p>
           </div>
         </div>

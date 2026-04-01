@@ -6,12 +6,12 @@ import { useState, useCallback, useEffect } from "react";
 const testimonials = {
   ru: [
     {
-      quote: 'Спросите ChatGPT о бассейнах — он даст урок химии. Спросите <span class="text-primary font-bold">SERPblueprint</span> — он расскажет про тарифы на свет в Аризоне, мусор от деревьев <span class="text-amber-400 font-bold">Palo Verde</span> и выживание в жару <span class="text-red-400 font-bold">115°F</span>. В этом разница между райтером и экспертом.',
+      quote: 'Спросите ChatGPT о бассейнах - он даст урок химии. Спросите <span class="text-primary font-bold">SERPblueprint</span> - он расскажет про тарифы на свет в Аризоне, мусор от деревьев <span class="text-amber-400 font-bold">Palo Verde</span> и выживание в жару <span class="text-red-400 font-bold">115°F</span>. В этом разница между райтером и экспертом.',
       author: "Алексей М.",
       role: "SEO-директор, агентство",
     },
     {
-      quote: 'За первый месяц мы вывели <span class="text-primary font-bold">47 статей</span> в топ-10. Модуль Factory + Persona Engine дал нам масштаб <span class="text-amber-400 font-bold">без потери качества</span>. Это не генератор текстов — это инженерная система.',
+      quote: 'За первый месяц мы вывели <span class="text-primary font-bold">47 статей</span> в топ-10. Модуль Factory + Persona Engine дал нам масштаб <span class="text-amber-400 font-bold">без потери качества</span>. Это не генератор текстов - это инженерная система.',
       author: "Мария К.",
       role: "Контент-маркетолог",
     },
@@ -23,12 +23,12 @@ const testimonials = {
   ],
   en: [
     {
-      quote: 'Ask ChatGPT about pools — you\'ll get a chemistry lesson. Ask <span class="text-primary font-bold">SERPblueprint</span> — it\'ll tell you about electricity rates in Arizona, debris from <span class="text-amber-400 font-bold">Palo Verde</span> trees, and surviving <span class="text-red-400 font-bold">115°F</span> heat. That\'s the difference between a writer and an expert.',
+      quote: 'Ask ChatGPT about pools - you\'ll get a chemistry lesson. Ask <span class="text-primary font-bold">SERPblueprint</span> - it\'ll tell you about electricity rates in Arizona, debris from <span class="text-amber-400 font-bold">Palo Verde</span> trees, and surviving <span class="text-red-400 font-bold">115°F</span> heat. That\'s the difference between a writer and an expert.',
       author: "Alex M.",
       role: "SEO Director, Agency",
     },
     {
-      quote: 'In the first month we pushed <span class="text-primary font-bold">47 articles</span> into the top 10. Factory + Persona Engine gave us scale <span class="text-amber-400 font-bold">without losing quality</span>. This isn\'t a text generator — it\'s an engineering system.',
+      quote: 'In the first month we pushed <span class="text-primary font-bold">47 articles</span> into the top 10. Factory + Persona Engine gave us scale <span class="text-amber-400 font-bold">without losing quality</span>. This isn\'t a text generator - it\'s an engineering system.',
       author: "Maria K.",
       role: "Content Marketer",
     },
