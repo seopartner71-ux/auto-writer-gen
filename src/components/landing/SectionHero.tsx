@@ -121,10 +121,7 @@ export function SectionHero() {
               className="text-4xl sm:text-5xl md:text-[3.5rem] lg:text-[3.8rem] font-extrabold leading-[1.05]"
               style={{ letterSpacing: "-0.04em" }}
             >
-              {t("hero2.line1")}{" "}
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">
-                {t("hero2.line2")}
-              </span>
+              {t("hero2.line1")}
             </motion.h1>
 
             <motion.p
