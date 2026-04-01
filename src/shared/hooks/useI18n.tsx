@@ -1071,6 +1071,50 @@ const translations: Record<string, Record<Lang, string>> = {
   "deep2.radarH2": { ru: "AI-модели в реальном времени.", en: "AI models in real time." },
   "deep2.radarBody": { ru: "Модуль <span class='text-[#06b6d4] font-medium'>GEO Radar</span> проверяет, цитируют ли вас ChatGPT, Perplexity, Gemini и Claude. Многомодельное сканирование с анализом тональности и стратегическими рекомендациями по усилению присутствия в <span class='text-[#06b6d4] font-medium'>AI-выдаче</span>.", en: "The <span class='text-[#06b6d4] font-medium'>GEO Radar</span> module checks if ChatGPT, Perplexity, Gemini and Claude cite you. Multi-model scanning with sentiment analysis and strategic recommendations to strengthen your presence in <span class='text-[#06b6d4] font-medium'>AI search results</span>." },
   "deep2.radarMetric": { ru: "4 AI-модели | Мониторинг 24/7", en: "4 AI Models | 24/7 Monitoring" },
+
+  // AWG Landing — Hero
+  "awg.heroLine1": { ru: "Доминируйте в эру", en: "Dominate the" },
+  "awg.heroLine2": { ru: "ИИ-поиска.", en: "AI Search Era." },
+  "awg.heroSub": { ru: "Больше чем SEO. Больше чем тексты. Первая в мире экспертная контент-система с GEO-радаром и технологией Stealth-письма.", en: "Beyond SEO. Beyond Writing. The world's first Expert Content Engine with integrated GEO Radar and Stealth-Writing technology." },
+  "awg.cta": { ru: "Создать экспертный контент", en: "Generate Expert Content" },
+
+  // AWG — Comparison Table
+  "awg.compTitle": { ru: "Почему выбирают нас", en: "Why teams choose us" },
+  "awg.compSub": { ru: "Профессиональное сравнение с ведущими платформами", en: "Professional comparison with leading platforms" },
+
+  // AWG — 4 Pillars
+  "awg.pillarsTitle": { ru: "Четыре столпа системы", en: "The 4 Pillars" },
+  "awg.pillarsSub": { ru: "Каждый модуль решает конкретную задачу в цепочке создания экспертного контента", en: "Each module solves a specific challenge in the expert content pipeline" },
+  "awg.pillar1Title": { ru: "Smart Research (SERP)", en: "Smart Research (SERP)" },
+  "awg.pillar1Desc": { ru: "Анализ ТОП-10, Content Gaps и LSI-ключей. Извлечение сущностей и структуры конкурентов.", en: "Analyze Top-10, Content Gaps, and LSI keys. Extract entities and competitor structure." },
+  "awg.pillar2Title": { ru: "Persona Engine", en: "Persona Engine" },
+  "awg.pillar2Desc": { ru: "Сохранение авторского стиля с технологией Cliche Killer. Каждый текст звучит как живой эксперт.", en: "Author-style persistence with Cliche Killer tech. Every text reads like a live expert." },
+  "awg.pillar3Title": { ru: "GEO Radar (SoM)", en: "GEO Radar (SoM)" },
+  "awg.pillar3Desc": { ru: "Отслеживайте авторитет вашего бренда в ChatGPT, Claude и Perplexity в реальном времени.", en: "Track your Brand Authority in ChatGPT, Claude, and Perplexity in real time." },
+  "awg.pillar4Title": { ru: "Content Factory", en: "Content Factory" },
+  "awg.pillar4Desc": { ru: "Массовая генерация 100+ статей с автоматической публикацией в WordPress через Proxy API.", en: "Mass generate 100+ articles and auto-publish to WordPress via Proxy API." },
+
+  // AWG — Expert Proof
+  "awg.expertTitle": { ru: "Разница между райтером и экспертом", en: "The difference between a writer and an expert" },
+  "awg.expertQuote": { ru: "Спросите ChatGPT о бассейнах - он даст урок химии. Спросите <span class='text-[#06b6d4] font-semibold'>Auto-Writer-Gen</span> - он расскажет про тарифы на свет в Аризоне, мусор от деревьев <span class='text-[#f59e0b] font-medium'>Palo Verde</span> и выживание в жару <span class='text-[#ef4444] font-medium'>115°F</span>. В этом разница между райтером и экспертом.", en: "Ask ChatGPT about salt water pools, and it gives a chemistry lesson. Ask <span class='text-[#06b6d4] font-semibold'>Auto-Writer-Gen</span>, and it tells you about Arizona's <span class='text-[#f59e0b] font-medium'>APS energy rates</span>, <span class='text-[#f59e0b] font-medium'>Palo Verde tree debris</span>, and how to survive a <span class='text-[#ef4444] font-medium'>115°F heatwave</span>. That's the difference between a writer and an expert." },
+
+  // AWG — Workflow
+  "awg.workflowTitle": { ru: "Три простых шага", en: "3 Simple Steps" },
+  "awg.workflowSub": { ru: "От идеи до публикации за минуты, а не дни", en: "From idea to publication in minutes, not days" },
+  "awg.step1Title": { ru: "Создайте проект", en: "Create Project" },
+  "awg.step1Desc": { ru: "Укажите нишу, регион (напр. Scottsdale, AZ) и бренд.", en: "Set your niche, region (e.g., Scottsdale, AZ), and brand." },
+  "awg.step2Title": { ru: "Постройте структуру", en: "Build Outline" },
+  "awg.step2Desc": { ru: "ИИ анализирует SERP и Gap Analysis для E-E-A-T.", en: "AI analyzes SERP and Gap Analysis for E-E-A-T." },
+  "awg.step3Title": { ru: "Публикуйте и отслеживайте", en: "Publish & Monitor" },
+  "awg.step3Desc": { ru: "Экспорт в WordPress в один клик + GEO Radar мониторинг.", en: "One-click WordPress export + GEO Radar tracking." },
+
+  // AWG — Pricing
+  "awg.pricingTitle": { ru: "Тарифные планы", en: "Pricing Plans" },
+  "awg.pricingSub": { ru: "Масштабируйте экспертный контент под любые задачи", en: "Scale expert content for any mission" },
+
+  // Landing common
+  "landing.copyright": { ru: "Все права защищены", en: "All rights reserved" },
+  "landing.getStarted": { ru: "Начать", en: "Get Started" },
 };
 
 interface I18nContextValue {
