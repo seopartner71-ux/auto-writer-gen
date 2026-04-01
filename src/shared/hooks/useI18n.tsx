@@ -1065,6 +1065,14 @@ const translations: Record<string, Record<Lang, string>> = {
   "deep2.stealthBody": { ru: "Мы не занимаемся простым рерайтом. Наше ядро ломает паттерны LLM на уровне <span class='text-primary font-medium'>синтаксической предсказуемости</span>. Увеличивая показатели Perplexity и Burstiness, мы создаем «цифровой шум», характерный для живого эксперта. <span class='text-emerald-400 font-medium'>0% AI Score</span> - это технический стандарт каждой статьи.", en: "We don't do simple rewriting. Our core breaks LLM patterns at the level of <span class='text-primary font-medium'>syntactic predictability</span>. By increasing Perplexity and Burstiness metrics, we create \"digital noise\" characteristic of a live expert. <span class='text-emerald-400 font-medium'>0% AI Score</span> is the technical standard for every article." },
   "deep2.stealthMetric": { ru: "0% AI Score | Originality.ai · GPTZero · Turnitin", en: "0% AI Score | Originality.ai · GPTZero · Turnitin" },
 
+  // Stealth Engine standalone section
+  "lp.stealthEngineH1": { ru: "Stealth Engine —", en: "Stealth Engine —" },
+  "lp.stealthEngineH2": { ru: "невидимая сила", en: "invisible force" },
+  "lp.stealthEngineBody": { ru: "Наш движок анализирует синтаксическую симметрию и предсказуемость токенов. Мы искусственно повышаем Perplexity и Burstiness, имитируя стиль живого эксперта. Результат — 0% вероятности AI в любом детекторе.", en: "Our engine analyzes syntactic symmetry and token predictability. We artificially increase Perplexity and Burstiness, mimicking a live expert's style. Result — 0% AI probability in any detector." },
+  "lp.stealthBullet1": { ru: "Human Score 95+ гарантировано после гуманизации", en: "Human Score 95+ guaranteed after humanization" },
+  "lp.stealthBullet2": { ru: "Обходит Originality.ai, GPTZero, Copyleaks, Turnitin", en: "Bypasses Originality.ai, GPTZero, Copyleaks, Turnitin" },
+  "lp.stealthBullet3": { ru: "Humanize за 1 клик — без потери смысла и SEO-структуры", en: "Humanize in 1 click — no loss of meaning or SEO structure" },
+
   "deep2.factoryH1": { ru: "Контентный отдел", en: "Content department" },
   "deep2.factoryH2": { ru: "в одной вкладке.", en: "in one tab." },
   "deep2.factoryBody": { ru: "Масштабируйте экспертизу, а не спам. Модуль <span class='text-[#f59e0b] font-medium'>Factory</span> позволяет генерировать сотни статей с сохранением уникального «голоса» (<span class='text-[#f59e0b] font-medium'>Persona Engine</span>). Интеграция с WP, автоматическая перелинковка и контроль LSI на лету - ваш завод работает, пока вы спите.", en: "Scale expertise, not spam. The <span class='text-[#f59e0b] font-medium'>Factory</span> module lets you generate hundreds of articles while preserving a unique \"voice\" (<span class='text-[#f59e0b] font-medium'>Persona Engine</span>). WP integration, automatic interlinking and on-the-fly LSI control - your factory works while you sleep." },
