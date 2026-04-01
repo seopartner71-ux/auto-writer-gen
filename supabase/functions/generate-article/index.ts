@@ -788,7 +788,7 @@ serve(async (req) => {
         keyword.content_gaps || [],
         allEntities,
         expert_insights || [],
-        anchor_target_url
+        anchor_links
       );
     }
 
