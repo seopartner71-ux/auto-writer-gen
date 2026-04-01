@@ -1,5 +1,6 @@
 import { LandingNav } from "@/components/landing/LandingNav";
 import { SectionHero } from "@/components/landing/SectionHero";
+import { SectionResults } from "@/components/landing/SectionResults";
 import { SectionResearch } from "@/components/landing/SectionResearch";
 import { SectionPersona } from "@/components/landing/SectionPersona";
 import { SectionGeo } from "@/components/landing/SectionGeo";
