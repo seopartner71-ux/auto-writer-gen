@@ -235,9 +235,6 @@ export function SectionHero() {
               <p className="text-[11px] font-mono text-muted-foreground/40 tracking-wider">
                 {t("hero.bypasses")}
               </p>
-              <p className="text-[11px] font-mono text-muted-foreground/35 tracking-wider">
-                {t("hero.usedBy")}
-              </p>
             </motion.div>
           </div>
 
