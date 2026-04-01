@@ -33,12 +33,25 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    setGoogleLoading(false);
-    if (error) {
-      toast.error(error.message);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+
+      if (result.error) {
+        toast.error(result.error.message || "Ошибка входа через Google");
+        setGoogleLoading(false);
+        return;
+      }
+
+      if (result.redirected) {
+        return;
+      }
+
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast.error(err?.message || "Ошибка входа через Google");
+      setGoogleLoading(false);
     }
   };
 
