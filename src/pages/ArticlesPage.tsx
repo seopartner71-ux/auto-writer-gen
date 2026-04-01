@@ -1111,17 +1111,27 @@ export default function ArticlesPage() {
                       <>
                         <Separator orientation="vertical" className="h-5" />
                         <Button
-                          variant="outline"
+                          variant={telegraphPath ? "default" : "outline"}
                           size="sm"
                           disabled={publishingTo !== null}
                           onClick={async () => {
                             setPublishingTo("telegraph");
                             try {
                               const { data, error } = await supabase.functions.invoke("publish-telegraph", {
-                                body: { article_id: currentArticleId, author_name: authorProfiles.find((a: any) => a.id === selectedAuthorId)?.name || "Author" },
+                                body: {
+                                  article_id: currentArticleId,
+                                  author_name: authorProfiles.find((a: any) => a.id === selectedAuthorId)?.name || "Author",
+                                  anchor_target_url: anchorTargetUrl,
+                                  lang,
+                                },
                               });
-                              if (error || !data?.success) throw new Error(data?.error || "Ошибка публикации");
-                              toast.success("Опубликовано в Telegra.ph!", { description: data.url, action: { label: "Открыть", onClick: () => window.open(data.url, "_blank") } });
+                              if (error || !data?.success) throw new Error(data?.error || (lang === "ru" ? "Ошибка публикации" : "Publish error"));
+                              setTelegraphPath(data.url ? "exists" : "");
+                              setTelegraphUrl(data.url);
+                              const msg = data.is_update
+                                ? (lang === "ru" ? "Пост в Telegra.ph успешно обновлен" : "Telegra.ph post successfully updated")
+                                : (lang === "ru" ? "Опубликовано в Telegra.ph!" : "Published to Telegra.ph!");
+                              toast.success(msg, { description: data.url, action: { label: lang === "ru" ? "Открыть" : "Open", onClick: () => window.open(data.url, "_blank") } });
                             } catch (e: any) {
                               toast.error(e.message || "Ошибка Telegra.ph");
                             } finally {
@@ -1130,7 +1140,9 @@ export default function ArticlesPage() {
                           }}
                         >
                           {publishingTo === "telegraph" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
-                          Telegra.ph
+                          {telegraphPath
+                            ? (lang === "ru" ? "Обновить Telegra.ph" : "Update Telegra.ph")
+                            : (lang === "ru" ? "Опубликовать Telegra.ph" : "Publish Telegra.ph")}
                         </Button>
                         <Button
                           variant="outline"
