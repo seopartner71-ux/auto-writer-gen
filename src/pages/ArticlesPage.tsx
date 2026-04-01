@@ -1146,7 +1146,7 @@ export default function ArticlesPage() {
                                 body: {
                                   article_id: currentArticleId,
                                   author_name: authorProfiles.find((a: any) => a.id === selectedAuthorId)?.name || "Author",
-                                  anchor_target_url: anchorTargetUrl,
+                                  anchor_links: anchorLinks.filter(l => l.url.trim() && l.anchor.trim()),
                                   lang,
                                 },
                               });
