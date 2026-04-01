@@ -26,7 +26,7 @@ const testimonials = {
   ],
   en: [
     {
-      quote: 'Ask ChatGPT about pools — you\'ll get a chemistry lesson. Ask <span class="text-primary font-bold">Auto-Writer-Gen</span> — it\'ll tell you about electricity rates in Arizona, debris from <span class="text-amber-400 font-bold">Palo Verde</span> trees, and surviving <span class="text-red-400 font-bold">115°F</span> heat. That\'s the difference between a writer and an expert.',
+      quote: 'Ask ChatGPT about pools — you\'ll get a chemistry lesson. Ask <span class="text-primary font-bold">SERPblueprint</span> — it\'ll tell you about electricity rates in Arizona, debris from <span class="text-amber-400 font-bold">Palo Verde</span> trees, and surviving <span class="text-red-400 font-bold">115°F</span> heat. That\'s the difference between a writer and an expert.',
       author: "Alex M.",
       role: "SEO Director, Agency",
       icon: Flame,
