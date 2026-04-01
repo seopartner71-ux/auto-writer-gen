@@ -1008,7 +1008,9 @@ export default function ArticlesPage() {
                 />
               </div>
 
-              {/* Anchor Links for Telegra.ph (1-3) */}
+              {/* Anchor Links for Telegra.ph — only for "Телеграф" preset + PRO */}
+              {limits.hasProImageGen && selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф") && (
+              <>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -1069,6 +1071,8 @@ export default function ArticlesPage() {
                     {telegraphUrl}
                   </a>
                 </div>
+              )}
+              </>
               )}
             </CardContent>
           </Card>
