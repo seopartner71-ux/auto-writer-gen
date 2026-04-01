@@ -99,7 +99,7 @@ export function SectionPricing() {
   ];
 
   return (
-    <section className="relative py-32 flex items-center justify-center overflow-hidden">
+    <section id="pricing" className="relative py-32 flex items-center justify-center overflow-hidden">
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full bg-primary/[0.06] blur-[200px]" />
 
       <div className="relative z-10 container mx-auto px-4 max-w-6xl">
