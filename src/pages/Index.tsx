@@ -17,13 +17,13 @@ export default function Index() {
 
   useEffect(() => {
     document.title = lang === "ru"
-      ? "Auto-Writer-Gen — AI-генератор SEO-контента"
-      : "Auto-Writer-Gen — AI SEO Content Generator";
+      ? "SERPblueprint v2.0 — AI-генератор SEO-контента"
+      : "SERPblueprint v2.0 — AI SEO Content Generator";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute("content", lang === "ru"
-        ? "Auto-Writer-Gen — профессиональный AI-генератор SEO-статей. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
-        : "Auto-Writer-Gen — professional AI SEO article generator. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
+        ? "SERPblueprint v2.0 — профессиональный AI-генератор SEO-статей. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
+        : "SERPblueprint v2.0 — professional AI SEO article generator. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
       );
     }
 
