@@ -98,6 +98,7 @@ export default function Index() {
 
       <div className="relative z-[2]">
         <SectionHero />
+        <SectionResults />
         <SectionResearch />
         <SectionPersona />
         <SectionGeo />

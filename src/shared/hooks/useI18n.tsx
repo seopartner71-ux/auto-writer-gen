@@ -912,7 +912,14 @@ const translations: Record<string, Record<Lang, string>> = {
   "hero.bypasses": { ru: "Обходит Originality.ai, GPTZero, Copyleaks, Turnitin", en: "Bypasses Originality.ai, GPTZero, Copyleaks, Turnitin" },
   "hero.usedBy": { ru: "Используется SEO-специалистами и агентствами", en: "Used by SEO specialists and agencies" },
 
-  // Landing page — Hero (legacy)
+  // Landing — Results section
+  "results.title": { ru: "Реальные результаты наших пользователей", en: "Real results from our users" },
+  "results.metric1": { ru: "органического трафика в среднем", en: "average organic traffic growth" },
+  "results.metric2": { ru: "среднее время создания экспертной статьи", en: "average time to create an expert article" },
+  "results.metric3": { ru: "статей проходят все AI-детекторы", en: "of articles pass every AI detector" },
+  "results.metric4": { ru: "статей сгенерировано за последний месяц", en: "articles generated last month" },
+  "results.trust": { ru: "Доверяют SEO-инженеры из Miralinks, GoGetLinks и независимых агентств", en: "Trusted by SEO engineers from Miralinks, GoGetLinks and independent agencies" },
+
   "lp.badge": { ru: "SEO нового поколения", en: "Next-gen SEO" },
   "lp.heroLine1": { ru: "Проектируйте контент, который", en: "Engineer content that" },
   "lp.heroLine2": { ru: "доминирует в поиске.", en: "dominates search." },
