@@ -696,13 +696,14 @@ export default function ArticlesPage() {
         title: title || null,
         content,
         meta_description: metaDescription || null,
+        anchor_target_url: anchorTargetUrl || null,
         seo_score: {
           readability,
           wordCount,
           lsiCoverage: lsiKeywords.length > 0 ? Math.round((lsiFoundCount / lsiKeywords.length) * 100) : 0,
         },
         status: "published",
-      };
+      } as any;
 
       if (currentArticleId) {
         const { error } = await supabase
