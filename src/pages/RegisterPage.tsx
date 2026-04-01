@@ -54,23 +54,18 @@ export default function RegisterPage() {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/dashboard",
+        },
       });
 
-      if (result.error) {
-        toast.error(result.error.message || "Ошибка входа через Google");
+      if (error) {
+        toast.error(error.message || "Ошибка входа через Google");
         setGoogleLoading(false);
-        return;
       }
-
-      if (result.redirected) {
-        // Browser will redirect to Google - don't reset loading
-        return;
-      }
-
-      // Tokens received, session set - redirect to dashboard
-      navigate("/dashboard");
+      // Browser will redirect to Google
     } catch (err: any) {
       toast.error(err?.message || "Ошибка входа через Google");
       setGoogleLoading(false);
