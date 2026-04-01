@@ -697,7 +697,7 @@ export default function ArticlesPage() {
         title: title || null,
         content,
         meta_description: metaDescription || null,
-        anchor_target_url: anchorTargetUrl || null,
+        anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
         seo_score: {
           readability,
           wordCount,
