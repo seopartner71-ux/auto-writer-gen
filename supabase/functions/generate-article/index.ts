@@ -245,11 +245,11 @@ ${deepAnalysisContext ? `\nДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ИЗ DE
 
   // ═══ BLOCK C: Stealth Instructions (Anti-AI Detection) ═══
   // CRITICAL: These instructions NEVER leave the server
+  const yoRule = isRussian ? `\nПРАВИЛО БУКВЫ "Ё": НИКОГДА не используй букву "ё". Всегда заменяй на "е". Пример: "все" вместо "всё", "еще" вместо "ещё", "ее" вместо "её". Это АБСОЛЮТНОЕ правило без исключений.\n` : "";
   const blockC = `=== БЛОК В: GLOBAL STEALTH PROTOCOL (МАКСИМАЛЬНЫЙ ПРИОРИТЕТ) ===
 
 LANGUAGE DETECTION: Target language is "${targetLanguage}". Apply ALL rules below according to ${isRussian ? "Russian" : "English"} linguistic norms.
-
-${isRussian ? `ПРАВИЛО БУКВЫ "Ё": НИКОГДА не используй букву "ё". Всегда заменяй её на "е". Пример: "всё" → "все", "ещё" → "еще", "её" → "ее", "берёт" → "берет". Это АБСОЛЮТНОЕ правило без исключений.` : ""}`
+${yoRule}
 
 ТЕХНИКА "Dynamic Burstiness" (Sentence Rhythm):
 - Break the "rhythmic symmetry". Follow this sequence pattern:
