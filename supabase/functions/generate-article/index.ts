@@ -541,7 +541,7 @@ function buildNewArticleUserPrompt(
   contentGaps?: any[],
   entities?: string[],
   expertInsights?: { recommendation: string; eeat_category: string; impact: string }[],
-  anchorTargetUrl?: string
+  anchorLinks?: { url: string; anchor: string }[]
 ): string {
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
   const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
@@ -599,11 +599,16 @@ ${lsiStr || "Нет"}
 
 ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
 ${questionsStr ? `- ${questionsStr}` : "Нет"}
-${topicsBlock}${gapsBlock}${entitiesBlock}${insightsBlock}${linksBlock}${anchorTargetUrl ? `\nАНКОРНЫЕ ССЫЛКИ НА ЦЕЛЕВОЙ URL:
-- Целевой URL: ${anchorTargetUrl}
-- Найди 2-3 наиболее релевантных ключевых слова/фразы в тексте статьи и оберни их в Markdown-ссылки: [ключевое слово](${anchorTargetUrl})
-- Ссылки должны быть органично вписаны в текст, НЕ в первый и последний абзацы.
-- Используй разные анкоры (не повторяй одно и то же слово).\n` : ""}
+${topicsBlock}${gapsBlock}${entitiesBlock}${insightsBlock}${linksBlock}${(() => {
+  const activeAnchors = (anchorLinks || []).filter(l => l.url && l.anchor);
+  if (!activeAnchors.length) return "";
+  return `\nАНКОРНЫЕ ССЫЛКИ (ОБЯЗАТЕЛЬНО ВСТАВИТЬ В ТЕКСТ):
+${activeAnchors.map((l, i) => `${i + 1}. ВСТАВЬ В ТЕКСТ РОВНО ТАК: [${l.anchor}](${l.url})`).join("\n")}
+- Используй ТОЧНО эти URL и анкоры. НЕ ПРИДУМЫВАЙ и НЕ ЗАМЕНЯЙ URL на другие.
+- КАЖДАЯ ссылка из списка выше ОБЯЗАНА присутствовать в финальном тексте.
+- Распредели ссылки равномерно по тексту. НЕ ставь их в первый и последний абзацы.
+- Впиши анкор как естественную часть предложения.\n`;
+})()}
 РЕКОМЕНДУЕМЫЙ ОБЪЁМ: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} слов
 
 ВАЖНО: Статья ОБЯЗАТЕЛЬНО должна начинаться с заголовка H1 (# Заголовок). H1 должен содержать ключевое слово и быть первой строкой вывода.
@@ -633,7 +638,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_target_url } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links } = body;
     console.log("[generate-article] author_profile_id received:", author_profile_id);
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
@@ -783,7 +788,7 @@ serve(async (req) => {
         keyword.content_gaps || [],
         allEntities,
         expert_insights || [],
-        anchor_target_url
+        anchor_links
       );
     }
 

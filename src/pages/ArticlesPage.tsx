@@ -355,7 +355,7 @@ export default function ArticlesPage() {
       if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
       setTelegraphPath((data as any).telegraph_path || "");
       setTelegraphUrl((data as any).telegraph_url || "");
-      setAnchorTargetUrl((data as any).anchor_target_url || "");
+      try { setAnchorLinks(JSON.parse((data as any).anchor_target_url || "[]")); } catch { setAnchorLinks([{ url: "", anchor: "" }]); }
       // Clear the param so it doesn't reload on re-render
       setSearchParams({}, { replace: true });
       toast.info(t("articles.articleLoaded"));
@@ -387,7 +387,7 @@ export default function ArticlesPage() {
   const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
   const [telegraphPath, setTelegraphPath] = useState("");
   const [telegraphUrl, setTelegraphUrl] = useState("");
-  const [anchorTargetUrl, setAnchorTargetUrl] = useState("");
+  const [anchorLinks, setAnchorLinks] = useState<{ url: string; anchor: string }[]>([{ url: "", anchor: "" }]);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -578,7 +578,7 @@ export default function ArticlesPage() {
           expert_insights: (() => { try { return JSON.parse(localStorage.getItem(`expert_insights_${selectedKeywordId}`) || "[]"); } catch { return []; } })(),
           include_expert_quote: includeExpertQuote,
           include_comparison_table: includeComparisonTable,
-          anchor_target_url: anchorTargetUrl || null,
+          anchor_links: anchorLinks.filter(l => l.url.trim() && l.anchor.trim()),
         }),
         signal: controller.signal,
       });
@@ -697,7 +697,7 @@ export default function ArticlesPage() {
         title: title || null,
         content,
         meta_description: metaDescription || null,
-        anchor_target_url: anchorTargetUrl || null,
+        anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
         seo_score: {
           readability,
           wordCount,
@@ -1008,18 +1008,58 @@ export default function ArticlesPage() {
                 />
               </div>
 
-              {/* Anchor Target URL for Telegra.ph */}
-              <div className="space-y-0.5">
-                <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Link2 className="h-3 w-3" />
-                  {lang === "ru" ? "Целевой URL для анкоров" : "Target URL for Anchors"}
-                </Label>
-                <Input
-                  value={anchorTargetUrl}
-                  onChange={(e) => setAnchorTargetUrl(e.target.value)}
-                  placeholder={lang === "ru" ? "https://vash-sait.com/statya" : "https://your-site.com/article"}
-                  className="h-8 text-sm font-mono"
-                />
+              {/* Anchor Links for Telegra.ph (1-3) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Link2 className="h-3 w-3" />
+                    {lang === "ru" ? "Анкорные ссылки (1-3)" : "Anchor Links (1-3)"}
+                  </Label>
+                  {anchorLinks.length < 3 && (
+                    <button
+                      type="button"
+                      className="text-[10px] text-primary hover:underline"
+                      onClick={() => setAnchorLinks(prev => [...prev, { url: "", anchor: "" }])}
+                    >
+                      + {lang === "ru" ? "Добавить" : "Add"}
+                    </button>
+                  )}
+                </div>
+                {anchorLinks.map((link, idx) => (
+                  <div key={idx} className="flex gap-1.5 items-start">
+                    <div className="flex-1 space-y-1">
+                      <Input
+                        value={link.url}
+                        onChange={(e) => {
+                          const updated = [...anchorLinks];
+                          updated[idx] = { ...updated[idx], url: e.target.value };
+                          setAnchorLinks(updated);
+                        }}
+                        placeholder={lang === "ru" ? "https://сайт.com/страница" : "https://site.com/page"}
+                        className="h-7 text-[11px] font-mono"
+                      />
+                      <Input
+                        value={link.anchor}
+                        onChange={(e) => {
+                          const updated = [...anchorLinks];
+                          updated[idx] = { ...updated[idx], anchor: e.target.value };
+                          setAnchorLinks(updated);
+                        }}
+                        placeholder={lang === "ru" ? "Текст анкора" : "Anchor text"}
+                        className="h-7 text-[11px]"
+                      />
+                    </div>
+                    {anchorLinks.length > 1 && (
+                      <button
+                        type="button"
+                        className="mt-1 text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => setAnchorLinks(prev => prev.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
 
               {telegraphUrl && (
@@ -1146,7 +1186,7 @@ export default function ArticlesPage() {
                                 body: {
                                   article_id: currentArticleId,
                                   author_name: authorProfiles.find((a: any) => a.id === selectedAuthorId)?.name || "Author",
-                                  anchor_target_url: anchorTargetUrl,
+                                  anchor_links: anchorLinks.filter(l => l.url.trim() && l.anchor.trim()),
                                   lang,
                                 },
                               });
@@ -1558,7 +1598,7 @@ export default function ArticlesPage() {
                               if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
                               setTelegraphPath((data as any).telegraph_path || "");
                               setTelegraphUrl((data as any).telegraph_url || "");
-                              setAnchorTargetUrl((data as any).anchor_target_url || "");
+                              try { setAnchorLinks(JSON.parse((data as any).anchor_target_url || "[]")); } catch { setAnchorLinks([{ url: "", anchor: "" }]); }
                             }
                           }}
                         >
