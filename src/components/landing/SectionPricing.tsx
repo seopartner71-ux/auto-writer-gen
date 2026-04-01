@@ -73,13 +73,13 @@ export function SectionPricing() {
         { text: t("pricing.f.modelsFlashNano"), included: true },
         { text: t("pricing.f.uniquenessCheck"), included: true },
         { text: t("pricing.f.jsonLd"), included: true },
-        { text: t("pricing.f.calendarPlanner"), included: false },
+        { text: isEn ? "Bulk Factory & Schedule" : "Factory + Расписание", included: true },
         { text: t("pricing.f.miralinks"), included: false },
       ]),
       cta: t("lp.priceUpgrade"),
     },
     {
-      id: "pro", name: "Enterprise", icon: Crown,
+      id: "pro", name: "Agency", icon: Crown,
       price: fmtPrice("pro", 169, "12400"), period: `/ ${t("lp.priceMonth")}`,
       credits: fmtCredits("pro", 100), popular: false,
       features: getFeatures("pro", [
@@ -136,19 +136,32 @@ export function SectionPricing() {
               <motion.div key={i} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
                 className={`relative rounded-2xl border p-8 transition-all hover:scale-[1.01] duration-300 ${
                   plan.popular
-                    ? "border-primary/20 bg-primary/[0.02]"
+                    ? "border-primary/25 bg-primary/[0.03] shadow-[0_0_50px_rgba(139,92,246,0.08)]"
                     : "border-white/[0.05] bg-white/[0.015]"
                 }`}
               >
+                {/* Border beam for PRO */}
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 bg-gradient-to-r from-primary to-[#3b82f6] text-white text-[10px] font-tech font-bold px-4 py-1 rounded-full uppercase tracking-wider">
-                    <Star className="h-3 w-3" /> Popular
-                  </div>
+                  <>
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 bg-gradient-to-r from-primary to-[#3b82f6] text-white text-[10px] font-tech font-bold px-4 py-1 rounded-full uppercase tracking-wider">
+                      <Star className="h-3 w-3" /> Popular
+                    </div>
+                    {/* Animated border beam */}
+                    <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                      <div className="absolute inset-[-1px] rounded-2xl"
+                        style={{
+                          background: "conic-gradient(from var(--border-angle, 0deg), transparent 60%, rgba(139,92,246,0.3) 80%, transparent 100%)",
+                          animation: "border-beam 4s linear infinite",
+                        }}
+                      />
+                      <div className="absolute inset-[1px] rounded-[15px] bg-[#060609]/95" />
+                    </div>
+                  </>
                 )}
 
                 <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-5">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${plan.popular ? "bg-primary/[0.06]" : "bg-white/[0.02]"}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${plan.popular ? "bg-primary/[0.08]" : "bg-white/[0.02]"}`}>
                       <Icon className={`h-5 w-5 ${plan.popular ? "text-primary/80" : "text-muted-foreground/50"}`} />
                     </div>
                     <h3 className="text-xl font-bold text-white/90" style={{ letterSpacing: "-0.03em" }}>{plan.name}</h3>
@@ -183,7 +196,7 @@ export function SectionPricing() {
                   <button onClick={() => navigate("/register")}
                     className={`w-full py-3.5 rounded-xl text-sm font-tech font-semibold transition-all ${
                       plan.popular
-                        ? "bg-gradient-to-r from-primary to-[#3b82f6] text-white hover:shadow-[0_0_25px_rgba(139,92,246,0.3)]"
+                        ? "bg-gradient-to-r from-primary to-[#3b82f6] text-white hover:shadow-[0_0_30px_rgba(139,92,246,0.35)]"
                         : "border border-white/[0.06] bg-white/[0.02] text-foreground/70 hover:bg-white/[0.04]"
                     }`}>
                     {plan.cta}
