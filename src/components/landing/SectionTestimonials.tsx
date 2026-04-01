@@ -76,11 +76,35 @@ export function SectionTestimonials() {
     return () => clearInterval(timer);
   }, [paginate]);
 
+  // JSON-LD Review schema
+  const reviewLd = useMemo(() => {
+    const plainText = (html: string) => html.replace(/<[^>]+>/g, "");
+    return JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "SERPblueprint v2.4",
+      "applicationCategory": "SEO Tool",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "reviewCount": String(items.length),
+        "bestRating": "5"
+      },
+      "review": items.map((item) => ({
+        "@type": "Review",
+        "author": { "@type": "Person", "name": item.author },
+        "reviewBody": plainText(item.quote),
+        "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" }
+      }))
+    });
+  }, [items]);
+
   const t = items[current];
   const Icon = t.icon;
 
   return (
     <section className="relative py-32 px-4 overflow-hidden">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: reviewLd }} />
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-primary/[0.04] blur-[200px]" />
 
       <div className="relative max-w-4xl mx-auto">
