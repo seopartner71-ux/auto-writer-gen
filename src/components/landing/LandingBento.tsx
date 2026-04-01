@@ -150,7 +150,7 @@ export function LandingBento() {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{t("lp.bentoKiller")}</span>
               </div>
               <h3 className="text-lg font-semibold mb-1">AI Radar</h3>
-              <p className="text-xs text-muted-foreground mb-4">{t("lp.bento2Desc")}</p>
+              <p className="text-xs text-muted-foreground mb-4">{t("lp.bento2Desc2")}</p>
 
               {/* Pie chart with tooltips */}
               <div className="h-[140px] -mx-2">
