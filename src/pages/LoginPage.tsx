@@ -30,25 +30,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin + "/dashboard",
-        },
-      });
-
-      if (error) {
-        toast.error(error.message || "Ошибка входа через Google");
-        setGoogleLoading(false);
-      }
-    } catch (err: any) {
-      toast.error(err?.message || "Ошибка входа через Google");
-      setGoogleLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
