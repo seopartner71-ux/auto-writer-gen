@@ -578,6 +578,7 @@ export default function ArticlesPage() {
           expert_insights: (() => { try { return JSON.parse(localStorage.getItem(`expert_insights_${selectedKeywordId}`) || "[]"); } catch { return []; } })(),
           include_expert_quote: includeExpertQuote,
           include_comparison_table: includeComparisonTable,
+          anchor_target_url: anchorTargetUrl || null,
         }),
         signal: controller.signal,
       });
