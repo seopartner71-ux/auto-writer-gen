@@ -27,6 +27,9 @@ export function LandingNav() {
           <button onClick={() => scrollTo("pricing")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             {t("nav.pricing")}
           </button>
+          <button onClick={() => scrollTo("faq")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            FAQ
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
