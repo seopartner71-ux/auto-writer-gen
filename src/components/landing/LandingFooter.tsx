@@ -39,7 +39,7 @@ export function LandingFooter() {
             <div className="flex items-center gap-2">
               <Hexagon className="h-5 w-5 text-primary" />
               <span className="text-lg font-brand tracking-tight">
-                SERP<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">blueprint</span>
+                Auto-Writer<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">-Gen</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
