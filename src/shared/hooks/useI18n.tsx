@@ -342,6 +342,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "pricing.subtitle": { ru: "Выберите подходящий тариф для создания SEO-оптимизированного контента с помощью AI", en: "Choose the right plan for creating SEO-optimized content with AI" },
   "pricing.forever": { ru: "навсегда", en: "forever" },
   "pricing.perMonth": { ru: "₽/мес", en: "/mo" },
+  "pricing.perArticle": { ru: "/ статья", en: "/ article" },
   "pricing.currency": { ru: "₽", en: "$" },
   "pricing.currentPlan": { ru: "Текущий тариф", en: "Current plan" },
   "pricing.selectPlan": { ru: "Выбрать", en: "Select" },
