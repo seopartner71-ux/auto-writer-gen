@@ -1111,10 +1111,6 @@ const translations: Record<string, Record<Lang, string>> = {
   // AWG — Pricing
   "awg.pricingTitle": { ru: "Тарифные планы", en: "Pricing Plans" },
   "awg.pricingSub": { ru: "Масштабируйте экспертный контент под любые задачи", en: "Scale expert content for any mission" },
-
-  // Landing common
-  "landing.copyright": { ru: "Все права защищены", en: "All rights reserved" },
-  "landing.getStarted": { ru: "Начать", en: "Get Started" },
 };
 
 interface I18nContextValue {
