@@ -59,6 +59,7 @@ export default function Index() {
         <SectionComparison />
         <SectionTestimonials />
         <SectionPricing />
+        <SectionFaq />
         <LandingFooter />
       </div>
 
