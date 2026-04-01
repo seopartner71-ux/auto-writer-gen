@@ -44,7 +44,7 @@ export default function Index() {
         },
         {
           "@type": "WebApplication",
-          "name": "Auto-Writer-Gen",
+          "name": "SERPblueprint v2.0",
           "applicationCategory": "SEO Tool",
           "operatingSystem": "Web",
           "offers": {
