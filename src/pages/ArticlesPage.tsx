@@ -353,6 +353,9 @@ export default function ArticlesPage() {
       setCurrentArticleId(data.id);
       if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
       if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
+      setTelegraphPath((data as any).telegraph_path || "");
+      setTelegraphUrl((data as any).telegraph_url || "");
+      setAnchorTargetUrl((data as any).anchor_target_url || "");
       // Clear the param so it doesn't reload on re-render
       setSearchParams({}, { replace: true });
       toast.info(t("articles.articleLoaded"));
@@ -382,6 +385,9 @@ export default function ArticlesPage() {
   const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
   const [includeExpertQuote, setIncludeExpertQuote] = useState(true);
   const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
+  const [telegraphPath, setTelegraphPath] = useState("");
+  const [telegraphUrl, setTelegraphUrl] = useState("");
+  const [anchorTargetUrl, setAnchorTargetUrl] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -572,6 +578,7 @@ export default function ArticlesPage() {
           expert_insights: (() => { try { return JSON.parse(localStorage.getItem(`expert_insights_${selectedKeywordId}`) || "[]"); } catch { return []; } })(),
           include_expert_quote: includeExpertQuote,
           include_comparison_table: includeComparisonTable,
+          anchor_target_url: anchorTargetUrl || null,
         }),
         signal: controller.signal,
       });
@@ -690,13 +697,14 @@ export default function ArticlesPage() {
         title: title || null,
         content,
         meta_description: metaDescription || null,
+        anchor_target_url: anchorTargetUrl || null,
         seo_score: {
           readability,
           wordCount,
           lsiCoverage: lsiKeywords.length > 0 ? Math.round((lsiFoundCount / lsiKeywords.length) * 100) : 0,
         },
         status: "published",
-      };
+      } as any;
 
       if (currentArticleId) {
         const { error } = await supabase
@@ -999,6 +1007,29 @@ export default function ArticlesPage() {
                   className="h-8 text-sm"
                 />
               </div>
+
+              {/* Anchor Target URL for Telegra.ph */}
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Link2 className="h-3 w-3" />
+                  {lang === "ru" ? "Целевой URL для анкоров" : "Target URL for Anchors"}
+                </Label>
+                <Input
+                  value={anchorTargetUrl}
+                  onChange={(e) => setAnchorTargetUrl(e.target.value)}
+                  placeholder={lang === "ru" ? "https://vash-sait.com/statya" : "https://your-site.com/article"}
+                  className="h-8 text-sm font-mono"
+                />
+              </div>
+
+              {telegraphUrl && (
+                <div className="flex items-center gap-2 text-[10px]">
+                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  <a href={telegraphUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                    {telegraphUrl}
+                  </a>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -1105,17 +1136,27 @@ export default function ArticlesPage() {
                       <>
                         <Separator orientation="vertical" className="h-5" />
                         <Button
-                          variant="outline"
+                          variant={telegraphPath ? "default" : "outline"}
                           size="sm"
                           disabled={publishingTo !== null}
                           onClick={async () => {
                             setPublishingTo("telegraph");
                             try {
                               const { data, error } = await supabase.functions.invoke("publish-telegraph", {
-                                body: { article_id: currentArticleId, author_name: authorProfiles.find((a: any) => a.id === selectedAuthorId)?.name || "Author" },
+                                body: {
+                                  article_id: currentArticleId,
+                                  author_name: authorProfiles.find((a: any) => a.id === selectedAuthorId)?.name || "Author",
+                                  anchor_target_url: anchorTargetUrl,
+                                  lang,
+                                },
                               });
-                              if (error || !data?.success) throw new Error(data?.error || "Ошибка публикации");
-                              toast.success("Опубликовано в Telegra.ph!", { description: data.url, action: { label: "Открыть", onClick: () => window.open(data.url, "_blank") } });
+                              if (error || !data?.success) throw new Error(data?.error || (lang === "ru" ? "Ошибка публикации" : "Publish error"));
+                              setTelegraphPath(data.url ? "exists" : "");
+                              setTelegraphUrl(data.url);
+                              const msg = data.is_update
+                                ? (lang === "ru" ? "Пост в Telegra.ph успешно обновлен" : "Telegra.ph post successfully updated")
+                                : (lang === "ru" ? "Опубликовано в Telegra.ph!" : "Published to Telegra.ph!");
+                              toast.success(msg, { description: data.url, action: { label: lang === "ru" ? "Открыть" : "Open", onClick: () => window.open(data.url, "_blank") } });
                             } catch (e: any) {
                               toast.error(e.message || "Ошибка Telegra.ph");
                             } finally {
@@ -1124,7 +1165,9 @@ export default function ArticlesPage() {
                           }}
                         >
                           {publishingTo === "telegraph" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
-                          Telegra.ph
+                          {telegraphPath
+                            ? (lang === "ru" ? "Обновить Telegra.ph" : "Update Telegra.ph")
+                            : (lang === "ru" ? "Опубликовать Telegra.ph" : "Publish Telegra.ph")}
                         </Button>
                         <Button
                           variant="outline"
@@ -1513,6 +1556,9 @@ export default function ArticlesPage() {
                               setMetaDescription(data.meta_description || "");
                               if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
                               if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
+                              setTelegraphPath((data as any).telegraph_path || "");
+                              setTelegraphUrl((data as any).telegraph_url || "");
+                              setAnchorTargetUrl((data as any).anchor_target_url || "");
                             }
                           }}
                         >

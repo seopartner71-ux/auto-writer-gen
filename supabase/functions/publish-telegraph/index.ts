@@ -14,7 +14,7 @@ interface TNode {
 function inlineFormat(text: string): (TNode | string)[] {
   const result: (TNode | string)[] = [];
   // Process bold, italic, links, inline code
-  const regex = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[([^\]]+)\]\(([^)]+)\)/g;
+  const regex = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[([^\]]+)\]\(([^)]+)\)|<a\s+href=['"]([^'"]+)['"]>([^<]+)<\/a>/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -30,6 +30,9 @@ function inlineFormat(text: string): (TNode | string)[] {
       result.push({ tag: "code", children: [match[3]] });
     } else if (match[4] && match[5]) {
       result.push({ tag: "a", attrs: { href: match[5] }, children: [match[4]] });
+    } else if (match[6] && match[7]) {
+      // HTML <a> tag support
+      result.push({ tag: "a", attrs: { href: match[6] }, children: [match[7]] });
     }
     lastIndex = match.index + match[0].length;
   }
@@ -50,13 +53,11 @@ function markdownToTelegraphNodes(md: string): TNode[] {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // Skip empty lines, code fences, horizontal rules
     if (!trimmed || trimmed === "---" || trimmed === "```") {
       i++;
       continue;
     }
 
-    // Skip code block content
     if (trimmed.startsWith("```")) {
       i++;
       while (i < lines.length && !lines[i].trim().startsWith("```")) i++;
@@ -64,19 +65,16 @@ function markdownToTelegraphNodes(md: string): TNode[] {
       continue;
     }
 
-    // Headings - Telegraph supports h3 and h4 only
     const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
     if (headingMatch) {
       const level = headingMatch[1].length;
       const text = headingMatch[2];
-      // H1/H2 → h3, H3+ → h4
       const tag = level <= 2 ? "h3" : "h4";
       nodes.push({ tag, children: inlineFormat(text) });
       i++;
       continue;
     }
 
-    // Blockquote
     if (trimmed.startsWith("> ")) {
       const quoteLines: string[] = [];
       while (i < lines.length && lines[i].trim().startsWith("> ")) {
@@ -87,7 +85,6 @@ function markdownToTelegraphNodes(md: string): TNode[] {
       continue;
     }
 
-    // Unordered list
     if (/^[-*]\s/.test(trimmed)) {
       const items: TNode[] = [];
       while (i < lines.length && /^\s*[-*]\s/.test(lines[i])) {
@@ -99,7 +96,6 @@ function markdownToTelegraphNodes(md: string): TNode[] {
       continue;
     }
 
-    // Ordered list
     if (/^\d+\.\s/.test(trimmed)) {
       const items: TNode[] = [];
       while (i < lines.length && /^\s*\d+\.\s/.test(lines[i])) {
@@ -111,12 +107,10 @@ function markdownToTelegraphNodes(md: string): TNode[] {
       continue;
     }
 
-    // Table - convert to formatted text since Telegraph doesn't support tables
     if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
       const tableRows: string[][] = [];
       while (i < lines.length && lines[i].trim().startsWith("|")) {
         const row = lines[i].trim();
-        // Skip separator rows
         if (/^[\s|:-]+$/.test(row)) {
           i++;
           continue;
@@ -126,20 +120,16 @@ function markdownToTelegraphNodes(md: string): TNode[] {
         i++;
       }
       if (tableRows.length > 0) {
-        // Header as bold
         const headerRow = tableRows[0];
         nodes.push({ tag: "p", children: [{ tag: "strong", children: [headerRow.join(" | ")] }] });
-        // Data rows
         for (let r = 1; r < tableRows.length; r++) {
           nodes.push({ tag: "p", children: [tableRows[r].join(" | ")] });
         }
-        // Add spacing
         nodes.push({ tag: "br" });
       }
       continue;
     }
 
-    // Image
     const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
     if (imgMatch) {
       nodes.push({ tag: "img", attrs: { src: imgMatch[2] }, children: [] });
@@ -150,7 +140,6 @@ function markdownToTelegraphNodes(md: string): TNode[] {
       continue;
     }
 
-    // Regular paragraph
     nodes.push({ tag: "p", children: inlineFormat(trimmed) });
     i++;
   }
@@ -180,60 +169,95 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const article_id = body?.article_id;
     const author_name = body?.author_name || "Author";
+    const anchor_target_url = body?.anchor_target_url || "";
+    const lang = body?.lang || "ru";
 
     if (!article_id || typeof article_id !== "string") {
       throw new Error("article_id is required");
     }
 
-    // Get article
+    // Get article with telegraph fields
     const { data: article, error: articleError } = await admin
       .from("articles")
-      .select("title, content")
+      .select("title, content, telegraph_path, telegraph_access_token, telegraph_url, anchor_target_url")
       .eq("id", article_id)
       .eq("user_id", user.id)
       .single();
 
-    if (articleError || !article) throw new Error("Статья не найдена");
+    if (articleError || !article) throw new Error(lang === "ru" ? "Статья не найдена" : "Article not found");
 
-    // Create Telegraph account
-    const accountRes = await fetch("https://api.telegra.ph/createAccount", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        short_name: author_name.slice(0, 32),
-        author_name: author_name.slice(0, 128),
-      }),
-    });
+    // Use anchor_target_url from body or from saved article
+    const targetUrl = anchor_target_url || (article as any).anchor_target_url || "";
 
-    const accountData = await accountRes.json();
-    if (!accountData.ok) {
-      console.error("Telegraph account error:", JSON.stringify(accountData));
-      throw new Error("Не удалось создать аккаунт Telegraph");
-    }
-
-    const accessToken = accountData.result.access_token;
-
-    // Create page
+    // Build content nodes
     const content = markdownToTelegraphNodes(article.content || "");
     const safeContent = content.length > 0 ? content : [{ tag: "p", children: ["Empty article"] }];
 
-    const pageRes = await fetch("https://api.telegra.ph/createPage", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        access_token: accessToken,
-        title: (article.title || "Untitled").slice(0, 256),
-        author_name: author_name.slice(0, 128),
-        content: safeContent,
-        return_content: false,
-      }),
-    });
-
-    const pageData = await pageRes.json();
-    if (!pageData.ok) {
-      console.error("Telegraph page error:", JSON.stringify(pageData));
-      throw new Error(`Telegraph error: ${pageData.error || "Unknown"}`);
+    // Add canonical link at bottom if target URL available
+    if (targetUrl) {
+      safeContent.push({ tag: "br" });
+      safeContent.push({
+        tag: "p",
+        children: [
+          { tag: "em", children: [
+            lang === "ru" ? "Оригинал статьи: " : "Original article: ",
+            { tag: "a", attrs: { href: targetUrl }, children: [targetUrl] }
+          ]}
+        ]
+      });
     }
+
+    const existingPath = (article as any).telegraph_path;
+    const existingToken = (article as any).telegraph_access_token;
+    let resultUrl: string;
+    let resultPath: string;
+    let resultToken: string;
+    let isUpdate = false;
+
+    if (existingPath && existingToken) {
+      // Edit existing page
+      isUpdate = true;
+      const editRes = await fetch("https://api.telegra.ph/editPage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          access_token: existingToken,
+          path: existingPath,
+          title: (article.title || "Untitled").slice(0, 256),
+          author_name: author_name.slice(0, 128),
+          content: safeContent,
+          return_content: false,
+        }),
+      });
+
+      const editData = await editRes.json();
+      if (!editData.ok) {
+        console.error("Telegraph editPage error:", JSON.stringify(editData));
+        // If edit fails (e.g. token expired), create new page
+        const fallback = await createNewPage(author_name, article.title, safeContent);
+        resultUrl = fallback.url;
+        resultPath = fallback.path;
+        resultToken = fallback.token;
+        isUpdate = false;
+      } else {
+        resultUrl = editData.result.url;
+        resultPath = existingPath;
+        resultToken = existingToken;
+      }
+    } else {
+      // Create new page
+      const created = await createNewPage(author_name, article.title, safeContent);
+      resultUrl = created.url;
+      resultPath = created.path;
+      resultToken = created.token;
+    }
+
+    // Save telegraph data to article
+    await admin.from("articles").update({
+      telegraph_path: resultPath,
+      telegraph_access_token: resultToken,
+      telegraph_url: resultUrl,
+    } as any).eq("id", article_id);
 
     // Log publish action
     await admin.from("usage_logs").insert({
@@ -243,7 +267,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      url: pageData.result.url,
+      url: resultUrl,
+      is_update: isUpdate,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -256,3 +281,47 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function createNewPage(authorName: string, title: string | null, content: TNode[]): Promise<{ url: string; path: string; token: string }> {
+  // Create Telegraph account
+  const accountRes = await fetch("https://api.telegra.ph/createAccount", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      short_name: authorName.slice(0, 32),
+      author_name: authorName.slice(0, 128),
+    }),
+  });
+
+  const accountData = await accountRes.json();
+  if (!accountData.ok) {
+    console.error("Telegraph account error:", JSON.stringify(accountData));
+    throw new Error("Failed to create Telegraph account");
+  }
+
+  const accessToken = accountData.result.access_token;
+
+  const pageRes = await fetch("https://api.telegra.ph/createPage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      access_token: accessToken,
+      title: (title || "Untitled").slice(0, 256),
+      author_name: authorName.slice(0, 128),
+      content,
+      return_content: false,
+    }),
+  });
+
+  const pageData = await pageRes.json();
+  if (!pageData.ok) {
+    console.error("Telegraph page error:", JSON.stringify(pageData));
+    throw new Error(`Telegraph error: ${pageData.error || "Unknown"}`);
+  }
+
+  return {
+    url: pageData.result.url,
+    path: pageData.result.path,
+    token: accessToken,
+  };
+}
