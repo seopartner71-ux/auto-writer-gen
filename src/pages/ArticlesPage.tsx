@@ -353,6 +353,9 @@ export default function ArticlesPage() {
       setCurrentArticleId(data.id);
       if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
       if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
+      setTelegraphPath((data as any).telegraph_path || "");
+      setTelegraphUrl((data as any).telegraph_url || "");
+      setAnchorTargetUrl((data as any).anchor_target_url || "");
       // Clear the param so it doesn't reload on re-render
       setSearchParams({}, { replace: true });
       toast.info(t("articles.articleLoaded"));
