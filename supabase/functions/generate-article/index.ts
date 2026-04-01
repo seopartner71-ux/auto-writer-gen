@@ -782,7 +782,8 @@ serve(async (req) => {
         keyword.must_cover_topics || [],
         keyword.content_gaps || [],
         allEntities,
-        expert_insights || []
+        expert_insights || [],
+        anchor_target_url
       );
     }
 
