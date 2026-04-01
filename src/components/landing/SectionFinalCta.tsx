@@ -26,7 +26,7 @@ export function SectionFinalCta() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ delay: 0.15 }}
-          className="text-muted-foreground/50 text-base mb-12 max-w-lg mx-auto"
+          className="text-foreground/55 text-base mb-12 max-w-lg mx-auto leading-relaxed"
         >
           {t("finalCta.sub")}
         </motion.p>
