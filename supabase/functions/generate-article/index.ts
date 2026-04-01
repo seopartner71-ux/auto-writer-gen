@@ -540,7 +540,8 @@ function buildNewArticleUserPrompt(
   mustCoverTopics?: string[],
   contentGaps?: any[],
   entities?: string[],
-  expertInsights?: { recommendation: string; eeat_category: string; impact: string }[]
+  expertInsights?: { recommendation: string; eeat_category: string; impact: string }[],
+  anchorTargetUrl?: string
 ): string {
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
   const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
