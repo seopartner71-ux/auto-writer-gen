@@ -358,7 +358,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "pricing.proDesc": { ru: "Для агентств и SEO-команд", en: "For agencies and SEO teams" },
 
   // Pricing features
-  "pricing.f.gens5": { ru: "5 генераций в месяц", en: "5 generations per month" },
+  "pricing.f.gens5": { ru: "5 генераций статей", en: "5 article generations" },
   "pricing.f.basicResearch": { ru: "Базовое исследование ключевых слов", en: "Basic keyword research" },
   "pricing.f.1profile": { ru: "1 профиль автора", en: "1 author profile" },
   "pricing.f.htmlExport": { ru: "Экспорт в HTML", en: "HTML export" },
