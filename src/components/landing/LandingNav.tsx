@@ -9,23 +9,28 @@ export function LandingNav() {
   const [open, setOpen] = useState(false);
 
   const anchors = [
-    { label: t("nav.howItWorks"), href: "#how-it-works" },
     { label: t("nav.features"), href: "#features" },
     { label: t("nav.landingPricing"), href: "#pricing" },
+    { label: t("nav.wiki"), href: "/wiki" },
   ];
 
   const scrollTo = (href: string) => {
     setOpen(false);
+    if (href.startsWith("/")) { navigate(href); return; }
     const el = document.querySelector(href);
     el?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.04] bg-[#0a0a0a]/80 backdrop-blur-xl">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.04] bg-[#030303]/80 backdrop-blur-xl">
       <div className="container mx-auto flex items-center justify-between px-4 h-16 max-w-7xl">
+        {/* Logo */}
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
           <Hexagon className="h-5 w-5 text-primary/80" />
-          <span className="text-lg font-brand tracking-tight">SERP<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">blueprint</span> <span className="text-xs text-muted-foreground/40 font-mono">v2.0</span></span>
+          <span className="text-lg font-brand tracking-tight">
+            SERP<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">blueprint</span>{" "}
+            <span className="text-xs text-muted-foreground/40 font-mono">v2.0</span>
+          </span>
         </div>
 
         {/* Desktop nav */}
@@ -37,7 +42,7 @@ export function LandingNav() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Lang */}
+          {/* Lang toggle */}
           <div className="flex items-center rounded-full border border-white/[0.06] bg-white/[0.015] p-0.5">
             <button onClick={() => setLang("ru")}
               className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${lang === "ru" ? "bg-primary/80 text-primary-foreground" : "text-muted-foreground/50 hover:text-foreground"}`}>RU</button>
@@ -60,7 +65,7 @@ export function LandingNav() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="md:hidden border-t border-white/[0.04] bg-[#0a0a0a]/95 backdrop-blur-xl px-4 py-4 space-y-3">
+        <div className="md:hidden border-t border-white/[0.04] bg-[#030303]/95 backdrop-blur-xl px-4 py-4 space-y-3">
           {anchors.map((a) => (
             <button key={a.href} onClick={() => scrollTo(a.href)}
               className="block w-full text-left text-sm text-muted-foreground/50 hover:text-foreground py-2">{a.label}</button>
