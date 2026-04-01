@@ -249,6 +249,8 @@ ${deepAnalysisContext ? `\nДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ИЗ DE
 
 LANGUAGE DETECTION: Target language is "${targetLanguage}". Apply ALL rules below according to ${isRussian ? "Russian" : "English"} linguistic norms.
 
+${isRussian ? `ПРАВИЛО БУКВЫ "Ё": НИКОГДА не используй букву "ё". Всегда заменяй её на "е". Пример: "всё" → "все", "ещё" → "еще", "её" → "ее", "берёт" → "берет". Это АБСОЛЮТНОЕ правило без исключений.` : ""}`
+
 ТЕХНИКА "Dynamic Burstiness" (Sentence Rhythm):
 - Break the "rhythmic symmetry". Follow this sequence pattern:
   [Short punchy sentence (3-5 words)] -> [Medium complex sentence] -> [Long descriptive sentence with sub-clauses] -> [Short summary].

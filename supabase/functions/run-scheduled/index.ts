@@ -84,6 +84,8 @@ RULES:
 - Format in Markdown
 - Aim for 1500-2500 words
 
+БУКВА "Ё": НИКОГДА не используй букву "ё". Всегда заменяй на "е". Пример: "всё" → "все", "ещё" → "еще". Без исключений.
+
 ANTI-AI DETECTION (CRITICAL):
 - Write like a real human expert. Vary sentence length: mix short punchy sentences with longer complex ones.
 - Use colloquial expressions, idioms, informal transitions naturally.
