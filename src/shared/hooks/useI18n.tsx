@@ -1091,6 +1091,45 @@ const translations: Record<string, Record<Lang, string>> = {
   "deep2.radarH2": { ru: "AI-модели в реальном времени.", en: "AI models in real time." },
   "deep2.radarBody": { ru: "Модуль <span class='text-[#06b6d4] font-medium'>GEO Radar</span> проверяет, цитируют ли вас ChatGPT, Perplexity, Gemini и Claude. Многомодельное сканирование с анализом тональности и стратегическими рекомендациями по усилению присутствия в <span class='text-[#06b6d4] font-medium'>AI-выдаче</span>.", en: "The <span class='text-[#06b6d4] font-medium'>GEO Radar</span> module checks if ChatGPT, Perplexity, Gemini and Claude cite you. Multi-model scanning with sentiment analysis and strategic recommendations to strengthen your presence in <span class='text-[#06b6d4] font-medium'>AI search results</span>." },
   "deep2.radarMetric": { ru: "4 AI-модели | Мониторинг 24/7", en: "4 AI Models | 24/7 Monitoring" },
+
+  // Nav
+  "nav.features": { ru: "Возможности", en: "Features" },
+  "nav.howItWorks": { ru: "Как это работает", en: "How It Works" },
+  "nav.landingPricing": { ru: "Тарифы", en: "Pricing" },
+  "nav.startFree": { ru: "Начать бесплатно", en: "Start for Free" },
+
+  // How It Works
+  "hiw.title": { ru: "Как это работает", en: "How It Works" },
+  "hiw.stepLabel": { ru: "Шаг", en: "Step" },
+  "hiw.step1": { ru: "Smart Research", en: "Smart Research" },
+  "hiw.desc1": { ru: "Анализ SERP, извлечение LSI-ключей, сущностей и Content Gaps из ТОП-10", en: "SERP analysis, LSI keyword extraction, entities and Content Gaps from TOP-10" },
+  "hiw.step2": { ru: "Expert Persona", en: "Expert Persona" },
+  "hiw.desc2": { ru: "Создание и сохранение стиля автора: тон, ритм, экспертиза ниши", en: "Create and save author style: tone, rhythm, niche expertise" },
+  "hiw.step3": { ru: "Stealth Generation", en: "Stealth Generation" },
+  "hiw.desc3": { ru: "Генерация статьи + автоматическая гуманизация. 0% AI Detection", en: "Article generation + automatic humanization. 0% AI Detection" },
+  "hiw.step4": { ru: "Публикация", en: "Publish" },
+  "hiw.desc4": { ru: "Экспорт в HTML/Markdown или прямая публикация в WordPress", en: "Export to HTML/Markdown or direct WordPress publishing" },
+
+  // Features
+  "feat.title": { ru: "Мощный контентный завод", en: "Powerful Content Factory" },
+  "feat.sub": { ru: "Полный набор инструментов для создания SEO-контента экспертного уровня", en: "Complete toolkit for creating expert-level SEO content" },
+  "feat.research": { ru: "Smart Research", en: "Smart Research" },
+  "feat.researchDesc": { ru: "Глубокий анализ SERP и конкурентов. Извлечение LSI-ключей, сущностей и Content Gaps для создания контента, который невозможно проигнорировать", en: "Deep SERP and competitor analysis. Extract LSI keywords, entities and Content Gaps to create content that can't be ignored" },
+  "feat.personas": { ru: "Expert Personas", en: "Expert Personas" },
+  "feat.personasDesc": { ru: "Создавайте и сохраняйте уникальные авторские стили. Каждая статья звучит как написанная практикующим экспертом", en: "Create and save unique author styles. Every article reads like it was written by a practicing expert" },
+  "feat.stealth": { ru: "Stealth Engine", en: "Stealth Engine" },
+  "feat.stealthDesc": { ru: "Одним кликом — полная гуманизация текста. Обходит Originality.ai, GPTZero, Copyleaks и Turnitin. Human Score 95+", en: "One click — full text humanization. Bypasses Originality.ai, GPTZero, Copyleaks and Turnitin. Human Score 95+" },
+  "feat.bulk": { ru: "Bulk Generation", en: "Bulk Generation" },
+  "feat.bulkDesc": { ru: "Массовая генерация статей по расписанию. Контентный конвейер на полном автопилоте", en: "Mass article generation on schedule. Content pipeline on full autopilot" },
+  "feat.wordpress": { ru: "WordPress Integration", en: "WordPress Integration" },
+  "feat.wordpressDesc": { ru: "Прямая публикация в WordPress с SEO-метаданными, категориями и тегами. Полный контроль", en: "Direct WordPress publishing with SEO metadata, categories and tags. Full control" },
+  "feat.radar": { ru: "AI Radar & GEO", en: "AI Radar & GEO" },
+  "feat.radarDesc": { ru: "Мониторинг вашего бренда в ответах ChatGPT, Perplexity и Gemini. Оптимизация для AI-выдачи", en: "Monitor your brand in ChatGPT, Perplexity and Gemini responses. Optimize for AI search results" },
+
+  // Final CTA
+  "finalCta.title": { ru: "Готовы создавать контент нового уровня?", en: "Ready to create next-level content?" },
+  "finalCta.sub": { ru: "Начните бесплатно. Без привязки карты. 5 статей в подарок.", en: "Start for free. No credit card. 5 articles included." },
+  "finalCta.button": { ru: "Начать бесплатно прямо сейчас", en: "Start for free right now" },
 };
 
 interface I18nContextValue {

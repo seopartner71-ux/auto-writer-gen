@@ -1,12 +1,10 @@
 import { LandingNav } from "@/components/landing/LandingNav";
 import { SectionHero } from "@/components/landing/SectionHero";
 import { SectionResults } from "@/components/landing/SectionResults";
-import { SectionResearch } from "@/components/landing/SectionResearch";
-import { SectionPersona } from "@/components/landing/SectionPersona";
-import { SectionGeo } from "@/components/landing/SectionGeo";
-import { SectionFactory } from "@/components/landing/SectionFactory";
+import { SectionHowItWorks } from "@/components/landing/SectionHowItWorks";
+import { SectionFeatures } from "@/components/landing/SectionFeatures";
 import { SectionPricing } from "@/components/landing/SectionPricing";
-import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
+import { SectionFinalCta } from "@/components/landing/SectionFinalCta";
 import { SectionTestimonials } from "@/components/landing/SectionTestimonials";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { CookieConsent } from "@/components/landing/CookieConsent";
@@ -19,17 +17,16 @@ export default function Index() {
 
   useEffect(() => {
     document.title = lang === "ru"
-      ? "SERPblueprint v2.4 — AI-экосистема для SEO-контента"
-      : "SERPblueprint v2.4 — AI-Powered SEO Content Ecosystem";
+      ? "Auto-Writer-Gen — AI-генератор SEO-контента"
+      : "Auto-Writer-Gen — AI SEO Content Generator";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute("content", lang === "ru"
-        ? "SERPblueprint v2.4 — профессиональная экосистема для проектирования SEO-статей. Smart Research, AI Writer, GEO Radar, Human Score."
-        : "SERPblueprint v2.4 — professional ecosystem for engineering SEO content. Smart Research, AI Writer, GEO Radar, Human Score."
+        ? "Auto-Writer-Gen — профессиональный AI-генератор SEO-статей. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
+        : "Auto-Writer-Gen — professional AI SEO article generator. Smart Research, Expert Personas, Stealth Engine. 0% AI Detection."
       );
     }
 
-    // JSON-LD structured data
     const existingLd = document.querySelector('script[data-ld="serpblueprint"]');
     if (existingLd) existingLd.remove();
 
@@ -38,25 +35,24 @@ export default function Index() {
       "@graph": [
         {
           "@type": "Organization",
-          "name": "SERPblueprint v2.4",
+          "name": "Auto-Writer-Gen",
           "url": window.location.origin,
           "logo": `${window.location.origin}/placeholder.svg`,
           "description": lang === "ru"
-            ? "AI-экосистема для создания SEO-контента экспертного уровня"
-            : "AI-powered ecosystem for expert-level SEO content engineering",
-          "sameAs": []
+            ? "AI-генератор SEO-контента экспертного уровня"
+            : "AI-powered expert-level SEO content generator",
         },
         {
           "@type": "WebApplication",
-          "name": "SERPblueprint v2.4",
+          "name": "Auto-Writer-Gen",
           "applicationCategory": "SEO Tool",
           "operatingSystem": "Web",
           "offers": {
             "@type": "AggregateOffer",
             "priceCurrency": "USD",
             "lowPrice": "0",
-            "highPrice": "99",
-            "offerCount": "4"
+            "highPrice": "169",
+            "offerCount": "3"
           }
         },
         {
@@ -64,7 +60,7 @@ export default function Index() {
           "@id": window.location.href,
           "name": document.title,
           "description": meta?.getAttribute("content") || "",
-          "isPartOf": { "@type": "WebSite", "name": "SERPblueprint v2.4", "url": window.location.origin }
+          "isPartOf": { "@type": "WebSite", "name": "Auto-Writer-Gen", "url": window.location.origin }
         }
       ]
     };
@@ -99,13 +95,11 @@ export default function Index() {
       <div className="relative z-[2]">
         <SectionHero />
         <SectionResults />
-        <SectionResearch />
-        <SectionPersona />
-        <SectionGeo />
-        <SectionFactory />
-        <SectionDeepDive />
+        <SectionHowItWorks />
+        <SectionFeatures />
         <SectionTestimonials />
         <SectionPricing />
+        <SectionFinalCta />
         <LandingFooter />
       </div>
 
