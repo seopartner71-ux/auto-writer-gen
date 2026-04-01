@@ -599,7 +599,11 @@ ${lsiStr || "Нет"}
 
 ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
 ${questionsStr ? `- ${questionsStr}` : "Нет"}
-${topicsBlock}${gapsBlock}${entitiesBlock}${insightsBlock}${linksBlock}
+${topicsBlock}${gapsBlock}${entitiesBlock}${insightsBlock}${linksBlock}${anchorTargetUrl ? `\nАНКОРНЫЕ ССЫЛКИ НА ЦЕЛЕВОЙ URL:
+- Целевой URL: ${anchorTargetUrl}
+- Найди 2-3 наиболее релевантных ключевых слова/фразы в тексте статьи и оберни их в Markdown-ссылки: [ключевое слово](${anchorTargetUrl})
+- Ссылки должны быть органично вписаны в текст, НЕ в первый и последний абзацы.
+- Используй разные анкоры (не повторяй одно и то же слово).\n` : ""}
 РЕКОМЕНДУЕМЫЙ ОБЪЁМ: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} слов
 
 ВАЖНО: Статья ОБЯЗАТЕЛЬНО должна начинаться с заголовка H1 (# Заголовок). H1 должен содержать ключевое слово и быть первой строкой вывода.
