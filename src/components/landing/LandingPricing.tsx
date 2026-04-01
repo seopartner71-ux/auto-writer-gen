@@ -56,14 +56,14 @@ export function LandingPricing() {
   const plans = [
     {
       id: "free",
-      name: "Starter",
+      name: isEn ? "Start" : "Старт",
       icon: Sparkles,
-      price: isEn ? "$0" : "0 ₽",
-      period: t("lp.priceFree"),
-      credits: fmtCredits("free", 5),
+      price: isEn ? "$2.99" : "230 ₽",
+      period: isEn ? "/ article" : "/ статья",
+      credits: 1,
       popular: false,
       features: getFeatures("free", [
-        { text: t("pricing.f.gens5") || (isEn ? "5 credits / month" : "5 кредитов / месяц"), included: true },
+        { text: t("pricing.f.gens5"), included: true },
         { text: t("lp.priceF1b"), included: true },
         { text: t("lp.priceF1c"), included: true },
         { text: t("lp.priceF1d"), included: true },
