@@ -1,119 +1,75 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Check, X, Star, Radar, Zap, Crown, Sparkles } from "lucide-react";
+import { Check, X, Star, Zap, Crown, Sparkles, CreditCard } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 
 export function LandingPricing() {
   const navigate = useNavigate();
   const { t, lang } = useI18n();
   const isEn = lang === "en";
-  const [yearly, setYearly] = useState(false);
-
-  // Fetch subscription plans from DB
-  const { data: dbPlans } = useQuery({
-    queryKey: ["subscription-plans-landing"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subscription_plans")
-        .select("*")
-        .order("monthly_article_limit");
-      if (error) throw error;
-      return data as unknown as Array<{
-        id: string; name: string; price_rub: number | null; price_usd: number | null;
-        monthly_article_limit: number; description_ru: string | null; description_en: string | null;
-        features: Array<{ text_ru: string; text_en: string; included: boolean }> | null;
-      }>;
-    },
-  });
-
-  const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
-
-  const fmtPrice = (id: string, fallbackUsd: number, fallbackRub: string) => {
-    const db = getDbPlan(id);
-    const base = isEn ? (db?.price_usd ?? fallbackUsd) : (db?.price_rub ?? parseInt(fallbackRub.replace(/\D/g, "")));
-    const val = yearly ? Math.round(base * 0.8) : base;
-    if (isEn) return `$${val}`;
-    return `${val.toLocaleString("ru-RU")} ₽`;
-  };
-
-  const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
-
-  const getFeatures = (id: string, fallback: Array<{ text: string; included: boolean }>) => {
-    const db = getDbPlan(id);
-    const dbFeatures = db?.features as Array<{ text_ru: string; text_en: string; included: boolean }> | null;
-    if (dbFeatures && dbFeatures.length > 0) {
-      return dbFeatures.map((f) => ({
-        text: isEn ? f.text_en : f.text_ru,
-        included: f.included,
-      }));
-    }
-    return fallback;
-  };
 
   const plans = [
     {
-      id: "free",
-      name: "Starter",
+      id: "single",
+      name: isEn ? "1 Credit" : "1 Кредит",
+      subtitle: isEn ? "Pay As You Go" : "Разовый запуск",
       icon: Sparkles,
-      price: isEn ? "$0" : "0 ₽",
-      period: t("lp.priceFree"),
-      credits: fmtCredits("free", 5),
+      price: "230 ₽",
+      period: isEn ? "/ single credit" : "/ за 1 кредит",
+      unitInfo: null,
       popular: false,
-      features: getFeatures("free", [
-        { text: t("pricing.f.gens5") || (isEn ? "5 credits / month" : "5 кредитов / месяц"), included: true },
-        { text: t("lp.priceF1b"), included: true },
-        { text: t("lp.priceF1c"), included: true },
-        { text: t("lp.priceF1d"), included: true },
-        { text: "Factory", included: false },
-        { text: "AI Radar & GEO", included: false },
-      ]),
-      cta: t("lp.priceStart"),
-    },
-    {
-      id: "basic",
-      name: "PRO",
-      icon: Zap,
-      price: fmtPrice("basic", 59, "4900"),
-      period: `/ ${t("lp.priceMonth")}`,
-      credits: fmtCredits("basic", 30),
-      popular: true,
-      exclusive: "AI Radar & GEO",
-      features: getFeatures("basic", [
-        { text: t("lp.priceF2a"), included: true },
-        { text: t("lp.priceF2b"), included: true },
-        { text: t("lp.priceF2c"), included: true },
-        { text: t("lp.priceF2d"), included: true },
-        { text: t("lp.priceF2e"), included: true },
-        { text: t("lp.priceF2f"), included: true },
-      ]),
-      cta: t("lp.priceUpgrade"),
+      features: [
+        { text: isEn ? "Full SERP analysis" : "Полный SERP-анализ", included: true },
+        { text: isEn ? "Stealth Engine (Human Score 95+)" : "Stealth Engine (Human Score 95+)", included: true },
+        { text: isEn ? "WordPress export" : "Экспорт в WordPress", included: true },
+        { text: isEn ? "LSI keywords & optimization" : "LSI-ключи и оптимизация", included: true },
+        { text: isEn ? "Bulk Factory" : "Фабрика (Bulk)", included: false },
+        { text: isEn ? "Priority support" : "Приоритетная поддержка", included: false },
+      ],
+      cta: isEn ? "Buy 1 Credit" : "Купить 1 кредит",
     },
     {
       id: "pro",
-      name: "Enterprise",
+      name: isEn ? "10 Credits" : "10 Кредитов",
+      subtitle: isEn ? "PRO" : "PRO Пакет",
+      icon: Zap,
+      price: "1 900 ₽",
+      period: isEn ? "/ package" : "/ пакет",
+      unitInfo: isEn ? "Only 190 ₽ per article" : "Всего 190 ₽ за статью",
+      popular: true,
+      features: [
+        { text: isEn ? "Everything in 1 Credit" : "Всё из пакета 1 Кредит", included: true },
+        { text: isEn ? "Bulk Factory access" : "Доступ к Фабрике (Bulk)", included: true },
+        { text: isEn ? "Priority support" : "Приоритетная поддержка", included: true },
+        { text: isEn ? "Persona Engine" : "Persona Engine", included: true },
+        { text: isEn ? "JSON-LD schema" : "JSON-LD разметка", included: true },
+        { text: isEn ? "API access" : "Доступ к API", included: false },
+      ],
+      cta: isEn ? "Buy 10 Credits" : "Купить 10 кредитов",
+    },
+    {
+      id: "agency",
+      name: isEn ? "30 Credits" : "30 Кредитов",
+      subtitle: isEn ? "Agency" : "Agency Пакет",
       icon: Crown,
-      price: fmtPrice("pro", 169, "12400"),
-      period: `/ ${t("lp.priceMonth")}`,
-      credits: fmtCredits("pro", 100),
+      price: "4 900 ₽",
+      period: isEn ? "/ package" : "/ пакет",
+      unitInfo: isEn ? "Only 163 ₽ per article" : "Всего 163 ₽ за статью",
       popular: false,
-      features: getFeatures("pro", [
-        { text: t("lp.priceF3a"), included: true },
-        { text: t("lp.priceF3b"), included: true },
-        { text: t("lp.priceF3c"), included: true },
-        { text: t("lp.priceF3d"), included: true },
-        { text: t("lp.priceF3e"), included: true },
-        { text: isEn ? "Bulk generation" : "Массовая генерация", included: true },
-      ]),
-      cta: t("lp.priceContact"),
+      features: [
+        { text: isEn ? "Everything in PRO" : "Всё из PRO пакета", included: true },
+        { text: isEn ? "API access" : "Доступ к API", included: true },
+        { text: isEn ? "Multi-user support" : "Многопользовательский доступ", included: true },
+        { text: isEn ? "GEO Radar" : "GEO Radar", included: true },
+        { text: isEn ? "White-label reports" : "White-label отчёты", included: true },
+        { text: isEn ? "Dedicated account manager" : "Персональный менеджер", included: true },
+      ],
+      cta: isEn ? "Buy 30 Credits" : "Купить 30 кредитов",
     },
   ];
 
   return (
-    <section className="relative py-32 overflow-hidden">
-      {/* Glow behind pricing */}
+    <section id="pricing" className="relative py-32 overflow-hidden">
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full bg-primary/[0.06] blur-[200px]" />
 
       <div className="container mx-auto px-4 max-w-6xl">
@@ -121,44 +77,29 @@ export function LandingPricing() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12"
+          className="text-center mb-6"
         >
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black" style={{ letterSpacing: "-0.05em" }}>{t("lp.pricingTitle")}</h2>
-          <p className="mt-4 text-[#9ca3af] text-[15px] leading-[1.6]">{t("lp.pricingSub")}</p>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black" style={{ letterSpacing: "-0.05em" }}>
+            {isEn ? "Simple Credit Pricing" : "Простая система кредитов"}
+          </h2>
+          <p className="mt-4 text-[#9ca3af] text-[15px] leading-[1.6]">
+            {isEn ? "No subscriptions. Buy credits, generate articles." : "Без подписок. Покупайте кредиты, генерируйте статьи."}
+          </p>
         </motion.div>
 
-        {/* Monthly / Yearly toggle */}
+        {/* 1 Credit = 1 Article badge */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          className="flex items-center justify-center gap-3 mb-14"
+          className="flex justify-center mb-14"
         >
-          <span className={`text-sm font-tech transition-colors ${!yearly ? "text-foreground" : "text-[#9ca3af]"}`}>
-            {t("lp.priceMonthly")}
-          </span>
-          <button
-            onClick={() => setYearly(!yearly)}
-            className={`relative w-12 h-6 rounded-full transition-colors ${yearly ? "bg-primary" : "bg-white/[0.1]"}`}
-          >
-            <motion.div
-              className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white"
-              animate={{ x: yearly ? 24 : 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            />
-          </button>
-          <span className={`text-sm font-tech transition-colors ${yearly ? "text-foreground" : "text-[#9ca3af]"}`}>
-            {t("lp.priceYearly")}
-          </span>
-          {yearly && (
-            <motion.span
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-[10px] font-tech font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full"
-            >
-              -20%
-            </motion.span>
-          )}
+          <div className="inline-flex items-center gap-2.5 bg-primary/10 border border-primary/20 rounded-full px-5 py-2.5">
+            <CreditCard className="h-4 w-4 text-primary" />
+            <span className="text-sm font-tech font-bold text-primary">
+              {isEn ? "1 Credit = 1 SEO Article" : "1 Кредит = 1 SEO-статья"}
+            </span>
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -180,29 +121,35 @@ export function LandingPricing() {
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 bg-gradient-to-r from-primary to-[#3b82f6] text-white text-[10px] font-tech font-bold px-4 py-1 rounded-full uppercase tracking-wider">
                     <Star className="h-3 w-3" />
-                    Popular
+                    {isEn ? "Most Popular" : "Популярный"}
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-1">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                     plan.popular ? "bg-primary/10" : "bg-white/[0.04]"
                   }`}>
                     <Icon className={`h-5 w-5 ${plan.popular ? "text-primary" : "text-[#9ca3af]"}`} />
                   </div>
-                  <h3 className="text-xl font-bold tracking-display">{plan.name}</h3>
+                  <div>
+                    <h3 className="text-xl font-bold tracking-display">{plan.name}</h3>
+                    <p className="text-xs text-[#9ca3af] font-tech">{plan.subtitle}</p>
+                  </div>
                 </div>
 
-                <div className="flex items-baseline gap-1 mb-1">
+                <div className="flex items-baseline gap-1 mb-1 mt-4">
                   <span className="text-4xl font-black tracking-display">{plan.price}</span>
                   <span className="text-[#9ca3af] text-sm font-tech">{plan.period}</span>
                 </div>
 
-                <div className="mb-6">
-                  <span className="text-xs font-tech text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                    {plan.credits} {t("pricing.articlesPerMonth") || (isEn ? "articles / mo" : "статей / мес")}
-                  </span>
-                </div>
+                {plan.unitInfo && (
+                  <div className="mb-4">
+                    <span className="text-xs font-tech text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                      {plan.unitInfo}
+                    </span>
+                  </div>
+                )}
+                {!plan.unitInfo && <div className="mb-4 h-6" />}
 
                 <ul className="space-y-2.5 mb-8">
                   {plan.features.map((f, fi) => (
@@ -215,13 +162,6 @@ export function LandingPricing() {
                       <span className={f.included ? "text-foreground/80" : "text-[#9ca3af]/40"}>{f.text}</span>
                     </li>
                   ))}
-                  {plan.exclusive && (
-                    <li className="flex items-start gap-2.5 text-[13px]">
-                      <Radar className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                      <span className="text-primary font-semibold">{plan.exclusive}</span>
-                      <span className="text-[9px] font-tech bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">{t("lp.priceExcl")}</span>
-                    </li>
-                  )}
                 </ul>
 
                 <button
@@ -239,7 +179,6 @@ export function LandingPricing() {
           })}
         </div>
 
-        {/* Social proof */}
         <motion.p
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -247,7 +186,9 @@ export function LandingPricing() {
           transition={{ delay: 0.4 }}
           className="text-center mt-12 text-sm text-[#9ca3af]"
         >
-          {t("lp.priceSocial")}
+          {isEn
+            ? "1 credit = 1 complete expert article. No hidden fees."
+            : "1 кредит = 1 полноценная экспертная статья. Без скрытых комиссий."}
         </motion.p>
       </div>
     </section>

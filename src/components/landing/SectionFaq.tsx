@@ -18,7 +18,7 @@ const faqData = {
     { q: "Is there direct WordPress publishing?", a: "Yes. You can connect your site via App Password and publish articles with ready-made SEO meta-tags (Yoast/RankMath) in one click or on a schedule." },
     { q: "Can I train the AI on my style?", a: "Yes, the Persona Engine module analyzes your text samples, identifying syntactic patterns and vocabulary to mimic your unique authorial voice in all articles." },
     { q: "What is the Factory module?", a: "It's a bulk generation tool. Upload a list of 100 keywords via CSV, and the system will perform research and write articles for each topic in the background." },
-    { q: "How many articles do I get for 1 credit?", a: "1 credit = 1 full expert article with competitor analysis, LSI keywords, and optimization. We don't count tokens or words, only the final result." },
+    { q: "How do credits work?", a: "The system is credit-based. 1 credit equals 1 complete article including all research and generation steps. You can buy 1 credit for 230 ₽ or 10/30 credit packages with up to 30% discount." },
   ],
 };
 
