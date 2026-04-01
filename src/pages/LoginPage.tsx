@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,21 +33,17 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/dashboard",
+        },
       });
 
-      if (result.error) {
-        toast.error(result.error.message || "Ошибка входа через Google");
+      if (error) {
+        toast.error(error.message || "Ошибка входа через Google");
         setGoogleLoading(false);
-        return;
       }
-
-      if (result.redirected) {
-        return;
-      }
-
-      navigate("/dashboard");
     } catch (err: any) {
       toast.error(err?.message || "Ошибка входа через Google");
       setGoogleLoading(false);
