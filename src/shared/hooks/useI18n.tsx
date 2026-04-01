@@ -352,7 +352,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "pricing.footer": { ru: "Все тарифы включают доступ к базовым функциям платформы. Обновление тарифа вступает в силу немедленно.", en: "All plans include access to basic platform features. Plan upgrades take effect immediately." },
   "pricing.popular": { ru: "Популярный", en: "Popular" },
   "pricing.maximum": { ru: "Максимум", en: "Maximum" },
-  "pricing.freeDesc": { ru: "Для знакомства с платформой", en: "Get to know the platform" },
+  "pricing.freeDesc": { ru: "Одна экспертная статья - без подписки", en: "One expert article - no subscription" },
   "pricing.basicName": { ru: "Базовый", en: "Basic" },
   "pricing.basicDesc": { ru: "Для контент-маркетологов и блогеров", en: "For content marketers and bloggers" },
   "pricing.proDesc": { ru: "Для агентств и SEO-команд", en: "For agencies and SEO teams" },
