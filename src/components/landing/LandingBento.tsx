@@ -332,7 +332,7 @@ export function LandingBento() {
                 <svg className="h-5 w-5 text-[#ec4899]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </div>
               <h3 className="text-lg font-semibold mb-2">Persona Engine</h3>
-              <p className="text-xs text-muted-foreground mb-4">{t("lp.bentoPersonaDesc")}</p>
+              <p className="text-xs text-muted-foreground mb-4">{t("lp.bentoPersonaDesc2")}</p>
 
               {/* Persona micro-selector */}
               <div className="flex gap-1.5 mb-3">
