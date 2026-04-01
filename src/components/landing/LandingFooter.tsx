@@ -24,7 +24,7 @@ export function LandingFooter() {
     {
       title: lang === "ru" ? "Поддержка" : "Support",
       links: [
-        { label: "FAQ", action: () => navigate("/wiki") },
+        { label: "FAQ", action: () => { navigate("/"); setTimeout(() => document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" }), 100); } },
         { label: lang === "ru" ? "Связаться" : "Contact", action: () => navigate("/support") },
         { label: "Roadmap", action: () => {} },
       ],
