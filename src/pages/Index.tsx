@@ -90,6 +90,7 @@ export default function Index() {
 
       <div className="relative z-[2]">
         <SectionHero />
+        <SectionIntegrations />
         <SectionBentoFeatures />
         <SectionHumanizer />
         <SectionStealth />
