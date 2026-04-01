@@ -108,22 +108,22 @@ export function SectionPricing() {
           <h2 className="text-3xl md:text-5xl font-extrabold tracking-[-0.03em] text-white">
             {t("lp.pricingTitle")}
           </h2>
-          <p className="mt-4 text-muted-foreground/50 text-[15px]">{t("lp.pricingSub")}</p>
+          <p className="mt-4 text-foreground/50 text-base leading-relaxed">{t("lp.pricingSub")}</p>
         </motion.div>
 
         {/* Toggle */}
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
           className="flex items-center justify-center gap-3 mb-16">
-          <span className={`text-sm font-tech ${!yearly ? "text-foreground/80" : "text-muted-foreground/40"}`}>{t("lp.priceMonthly")}</span>
+          <span className={`text-sm font-tech ${!yearly ? "text-foreground/80" : "text-foreground/40"}`}>{t("lp.priceMonthly")}</span>
           <button onClick={() => setYearly(!yearly)}
-            className={`relative w-12 h-6 rounded-full transition-colors ${yearly ? "bg-primary/70" : "bg-white/[0.08]"}`}>
+            className={`relative w-12 h-6 rounded-full transition-colors ${yearly ? "bg-primary/70" : "bg-white/[0.12]"}`}>
             <motion.div className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white"
               animate={{ x: yearly ? 24 : 0 }} transition={{ type: "spring", stiffness: 500, damping: 30 }} />
           </button>
-          <span className={`text-sm font-tech ${yearly ? "text-foreground/80" : "text-muted-foreground/40"}`}>{t("lp.priceYearly")}</span>
+          <span className={`text-sm font-tech ${yearly ? "text-foreground/80" : "text-foreground/40"}`}>{t("lp.priceYearly")}</span>
           {yearly && (
             <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-              className="text-[10px] font-tech font-bold text-emerald-400/80 bg-emerald-500/[0.06] border border-emerald-500/15 px-2 py-0.5 rounded-full">
+              className="text-xs font-tech font-bold text-emerald-400/90 bg-emerald-500/[0.08] border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
               -20%
             </motion.span>
           )}
@@ -136,15 +136,15 @@ export function SectionPricing() {
               <motion.div key={i} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
                 className={`relative rounded-2xl border p-8 transition-all hover:scale-[1.01] duration-300 ${
                   plan.popular
-                    ? "border-primary/25 bg-primary/[0.03] shadow-[0_0_50px_rgba(139,92,246,0.08)]"
-                    : "border-white/[0.05] bg-white/[0.015]"
+                    ? "border-primary/25 bg-primary/[0.04] shadow-[0_0_60px_rgba(139,92,246,0.12)]"
+                    : "border-white/[0.08] bg-white/[0.02]"
                 }`}
               >
                 {/* Border beam for PRO */}
                 {plan.popular && (
                   <>
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 bg-gradient-to-r from-primary to-[#3b82f6] text-white text-[10px] font-tech font-bold px-4 py-1 rounded-full uppercase tracking-wider">
-                      <Star className="h-3 w-3" /> Popular
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-gradient-to-r from-primary to-[#3b82f6] text-white text-xs font-tech font-bold px-5 py-1.5 rounded-full uppercase tracking-wider shadow-[0_4px_20px_rgba(139,92,246,0.4)]">
+                      <Star className="h-3.5 w-3.5" /> Popular
                     </div>
                     {/* Animated border beam */}
                     <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
@@ -161,34 +161,34 @@ export function SectionPricing() {
 
                 <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-5">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${plan.popular ? "bg-primary/[0.08]" : "bg-white/[0.02]"}`}>
-                      <Icon className={`h-5 w-5 ${plan.popular ? "text-primary/80" : "text-muted-foreground/50"}`} />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${plan.popular ? "bg-primary/[0.1]" : "bg-white/[0.04]"}`}>
+                      <Icon className={`h-5 w-5 ${plan.popular ? "text-primary/90" : "text-foreground/50"}`} />
                     </div>
-                    <h3 className="text-xl font-bold text-white/90" style={{ letterSpacing: "-0.03em" }}>{plan.name}</h3>
+                    <h3 className="text-xl font-bold text-white/95" style={{ letterSpacing: "-0.03em" }}>{plan.name}</h3>
                   </div>
 
                   <div className="flex items-baseline gap-1 mb-1">
                     <span className="text-4xl font-extrabold text-white" style={{ letterSpacing: "-0.04em" }}>{plan.price}</span>
-                    <span className="text-muted-foreground/40 text-sm font-tech">{plan.period}</span>
+                    <span className="text-foreground/40 text-sm font-tech">{plan.period}</span>
                   </div>
                   <div className="mb-7">
-                    <span className="text-xs font-tech text-primary/70 bg-primary/[0.06] px-2.5 py-1 rounded-full">
+                    <span className="text-xs font-tech text-primary/80 bg-primary/[0.08] px-2.5 py-1 rounded-full">
                       {plan.credits} {t("pricing.articlesPerMonth") || (isEn ? "articles / mo" : "статей / мес")}
                     </span>
                   </div>
 
-                  <ul className="space-y-3 mb-8">
+                  <ul className="space-y-3.5 mb-8">
                     {plan.features.map((f, fi) => (
-                      <li key={fi} className="flex items-start gap-2.5 text-[13px]">
-                        {f.included ? <Check className="h-4 w-4 text-emerald-400/70 mt-0.5 shrink-0" /> : <X className="h-4 w-4 text-muted-foreground/20 mt-0.5 shrink-0" />}
-                        <span className={f.included ? "text-foreground/60" : "text-muted-foreground/30"}>{f.text}</span>
+                      <li key={fi} className="flex items-start gap-2.5 text-sm">
+                        {f.included ? <Check className="h-4 w-4 text-emerald-400/80 mt-0.5 shrink-0" /> : <X className="h-4 w-4 text-foreground/20 mt-0.5 shrink-0" />}
+                        <span className={f.included ? "text-foreground/70" : "text-foreground/30"}>{f.text}</span>
                       </li>
                     ))}
                     {plan.exclusive && (
-                      <li className="flex items-start gap-2.5 text-[13px]">
-                        <Radar className="h-4 w-4 text-primary/70 mt-0.5 shrink-0" />
-                        <span className="text-primary/70 font-medium">{plan.exclusive}</span>
-                        <span className="text-[9px] font-tech bg-primary/[0.08] text-primary/70 px-1.5 py-0.5 rounded-full">{t("lp.priceExcl")}</span>
+                      <li className="flex items-start gap-2.5 text-sm">
+                        <Radar className="h-4 w-4 text-primary/80 mt-0.5 shrink-0" />
+                        <span className="text-primary/80 font-medium">{plan.exclusive}</span>
+                        <span className="text-[10px] font-tech bg-primary/[0.1] text-primary/80 px-2 py-0.5 rounded-full">{t("lp.priceExcl")}</span>
                       </li>
                     )}
                   </ul>
@@ -197,7 +197,7 @@ export function SectionPricing() {
                     className={`w-full py-3.5 rounded-xl text-sm font-tech font-semibold transition-all ${
                       plan.popular
                         ? "bg-gradient-to-r from-primary to-[#3b82f6] text-white hover:shadow-[0_0_30px_rgba(139,92,246,0.35)]"
-                        : "border border-white/[0.06] bg-white/[0.02] text-foreground/70 hover:bg-white/[0.04]"
+                        : "border border-white/[0.1] bg-white/[0.03] text-foreground/80 hover:bg-white/[0.06]"
                     }`}>
                     {plan.cta}
                   </button>
@@ -208,7 +208,7 @@ export function SectionPricing() {
         </div>
 
         <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.4 }}
-          className="text-center mt-12 text-sm text-muted-foreground/30">
+          className="text-center mt-12 text-sm text-foreground/40">
           {t("lp.priceSocial")}
         </motion.p>
       </div>
