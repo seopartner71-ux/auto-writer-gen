@@ -54,6 +54,7 @@ export default function Index() {
         <SectionGeo />
         <SectionFactory />
         <SectionDeepDive />
+        <SectionComparison />
         <SectionTestimonials />
         <SectionPricing />
         <LandingFooter />
