@@ -127,7 +127,7 @@ export function SectionTestimonials() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.1 }}
-          className="text-4xl md:text-5xl font-extrabold tracking-[-0.05em] text-center text-white italic mb-16"
+          className="text-4xl md:text-6xl font-black tracking-[-0.04em] text-center text-white mb-16"
           style={{ textShadow: "0 0 40px hsl(var(--primary) / 0.15)" }}
         >
           {headingText[lang] || headingText.en}
