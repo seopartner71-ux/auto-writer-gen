@@ -900,11 +900,11 @@ const translations: Record<string, Record<Lang, string>> = {
   "common.collapse": { ru: "Свернуть", en: "Collapse" },
 
   // Landing page — Hero
-  "hero.line1": { ru: "SEO-статьи экспертного уровня, которые", en: "Expert-level SEO articles that" },
+  "hero.line1": { ru: "SEO-статьи, которые", en: "SEO articles that" },
   "hero.line2": { ru: "ранжируются", en: "rank" },
   "hero.line3": { ru: "и не определяются как AI", en: "and bypass all AI detectors" },
-  "hero.sub": { ru: "Smart Research + Expert Personas + Stealth Engine. Полный цикл от анализа конкурентов до автоматической публикации в WordPress.", en: "Smart Research + Expert Personas + Stealth Engine. Full cycle from competitor analysis to auto-publishing in WordPress." },
-  "hero.cta": { ru: "Создать статью", en: "Create Article" },
+  "hero.sub": { ru: "Smart Research, экспертные персоны и мощный Stealth Engine. Полный цикл от анализа конкурентов до публикации в WordPress.", en: "Smart Research, expert personas and powerful Stealth Engine. Full cycle from competitor analysis to WordPress publishing." },
+  "hero.cta": { ru: "Создать статью за 60 секунд", en: "Create Article in 60 Seconds" },
   "hero.demo": { ru: "Посмотреть демо", en: "Watch Demo" },
   "hero.trust1": { ru: "0% AI Detection", en: "0% AI Detection" },
   "hero.trust2": { ru: "Stealth Guard™ • Human Score 95+", en: "Stealth Guard™ • Human Score 95+" },
@@ -913,11 +913,11 @@ const translations: Record<string, Record<Lang, string>> = {
   "hero.usedBy": { ru: "Используется SEO-специалистами и агентствами", en: "Used by SEO specialists and agencies" },
 
   // Landing — Results section
-  "results.title": { ru: "Реальные результаты наших пользователей", en: "Real results from our users" },
-  "results.metric1": { ru: "органического трафика в среднем", en: "average organic traffic growth" },
-  "results.metric2": { ru: "среднее время создания экспертной статьи", en: "average time to create an expert article" },
-  "results.metric3": { ru: "статей проходят все AI-детекторы", en: "of articles pass every AI detector" },
-  "results.metric4": { ru: "статей сгенерировано за последний месяц", en: "articles generated last month" },
+  "results.title": { ru: "Результаты наших пользователей", en: "Real Results" },
+  "results.metric1": { ru: "органического трафика", en: "organic traffic growth" },
+  "results.metric2": { ru: "на экспертную статью", en: "per expert article" },
+  "results.metric3": { ru: "статей проходят AI-детекторы", en: "of articles pass AI detectors" },
+  "results.metric4": { ru: "статей создано", en: "articles created" },
   "results.trust": { ru: "Доверяют SEO-инженеры из Miralinks, GoGetLinks и независимых агентств", en: "Trusted by SEO engineers from Miralinks, GoGetLinks and independent agencies" },
 
   "lp.badge": { ru: "SEO нового поколения", en: "Next-gen SEO" },
