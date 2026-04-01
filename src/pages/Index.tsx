@@ -18,15 +18,63 @@ export default function Index() {
 
   useEffect(() => {
     document.title = lang === "ru"
-      ? "SERPblueprint - AI-экосистема для SEO-контента"
-      : "SERPblueprint - AI-Powered SEO Content Ecosystem";
+      ? "SERPblueprint v2.4 — AI-экосистема для SEO-контента"
+      : "SERPblueprint v2.4 — AI-Powered SEO Content Ecosystem";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute("content", lang === "ru"
-        ? "Профессиональная экосистема для проектирования SEO-статей. Smart Research, AI Writer, GEO Radar, Human Score."
-        : "Professional ecosystem for engineering SEO content. Smart Research, AI Writer, GEO Radar, Human Score."
+        ? "SERPblueprint v2.4 — профессиональная экосистема для проектирования SEO-статей. Smart Research, AI Writer, GEO Radar, Human Score."
+        : "SERPblueprint v2.4 — professional ecosystem for engineering SEO content. Smart Research, AI Writer, GEO Radar, Human Score."
       );
     }
+
+    // JSON-LD structured data
+    const existingLd = document.querySelector('script[data-ld="serpblueprint"]');
+    if (existingLd) existingLd.remove();
+
+    const ldOrg = {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "name": "SERPblueprint v2.4",
+          "url": window.location.origin,
+          "logo": `${window.location.origin}/placeholder.svg`,
+          "description": lang === "ru"
+            ? "AI-экосистема для создания SEO-контента экспертного уровня"
+            : "AI-powered ecosystem for expert-level SEO content engineering",
+          "sameAs": []
+        },
+        {
+          "@type": "WebApplication",
+          "name": "SERPblueprint v2.4",
+          "applicationCategory": "SEO Tool",
+          "operatingSystem": "Web",
+          "offers": {
+            "@type": "AggregateOffer",
+            "priceCurrency": "USD",
+            "lowPrice": "0",
+            "highPrice": "99",
+            "offerCount": "4"
+          }
+        },
+        {
+          "@type": "WebPage",
+          "@id": window.location.href,
+          "name": document.title,
+          "description": meta?.getAttribute("content") || "",
+          "isPartOf": { "@type": "WebSite", "name": "SERPblueprint v2.4", "url": window.location.origin }
+        }
+      ]
+    };
+
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.setAttribute("data-ld", "serpblueprint");
+    script.textContent = JSON.stringify(ldOrg);
+    document.head.appendChild(script);
+
+    return () => { script.remove(); };
   }, [lang]);
 
   return (
