@@ -2,7 +2,6 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { motion, AnimatePresence } from "framer-motion";
 import { Quote, Flame, Star, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useState, useEffect, useCallback } from "react";
 
 const testimonials = {
   ru: [
