@@ -1133,6 +1133,8 @@ const translations: Record<string, Record<Lang, string>> = {
   // Footer
   "footer.roadmap": { ru: "Дорожная карта", en: "Roadmap" },
 
+  // Integrations marquee
+  "integ.title": { ru: "Интеграции и платформы", en: "Integrations & Platforms" },
 
   "cookie.text": { ru: "Мы используем файлы cookie для улучшения работы платформы.", en: "We use cookies to improve the platform experience." },
   "cookie.accept": { ru: "Принять", en: "Accept" },
