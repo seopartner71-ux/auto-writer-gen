@@ -342,6 +342,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "pricing.subtitle": { ru: "Выберите подходящий тариф для создания SEO-оптимизированного контента с помощью AI", en: "Choose the right plan for creating SEO-optimized content with AI" },
   "pricing.forever": { ru: "навсегда", en: "forever" },
   "pricing.perMonth": { ru: "₽/мес", en: "/mo" },
+  "pricing.perArticle": { ru: "/ статья", en: "/ article" },
   "pricing.currency": { ru: "₽", en: "$" },
   "pricing.currentPlan": { ru: "Текущий тариф", en: "Current plan" },
   "pricing.selectPlan": { ru: "Выбрать", en: "Select" },
@@ -351,13 +352,13 @@ const translations: Record<string, Record<Lang, string>> = {
   "pricing.footer": { ru: "Все тарифы включают доступ к базовым функциям платформы. Обновление тарифа вступает в силу немедленно.", en: "All plans include access to basic platform features. Plan upgrades take effect immediately." },
   "pricing.popular": { ru: "Популярный", en: "Popular" },
   "pricing.maximum": { ru: "Максимум", en: "Maximum" },
-  "pricing.freeDesc": { ru: "Для знакомства с платформой", en: "Get to know the platform" },
+  "pricing.freeDesc": { ru: "Одна экспертная статья - без подписки", en: "One expert article - no subscription" },
   "pricing.basicName": { ru: "Базовый", en: "Basic" },
   "pricing.basicDesc": { ru: "Для контент-маркетологов и блогеров", en: "For content marketers and bloggers" },
   "pricing.proDesc": { ru: "Для агентств и SEO-команд", en: "For agencies and SEO teams" },
 
   // Pricing features
-  "pricing.f.gens5": { ru: "5 генераций в месяц", en: "5 generations per month" },
+  "pricing.f.gens5": { ru: "5 генераций статей", en: "5 article generations" },
   "pricing.f.basicResearch": { ru: "Базовое исследование ключевых слов", en: "Basic keyword research" },
   "pricing.f.1profile": { ru: "1 профиль автора", en: "1 author profile" },
   "pricing.f.htmlExport": { ru: "Экспорт в HTML", en: "HTML export" },

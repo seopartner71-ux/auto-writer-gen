@@ -43,11 +43,11 @@ export function SectionPricing() {
 
   const plans = [
     {
-      id: "free", name: "Starter", icon: Sparkles,
-      price: isEn ? "$0" : "0 ₽", period: t("lp.priceFree"),
-      credits: fmtCredits("free", 5), popular: false,
+      id: "free", name: isEn ? "Start" : "Старт", icon: Sparkles,
+      price: isEn ? "$2.99" : "230 ₽", period: isEn ? "/ article" : "/ статья",
+      credits: 1, popular: false,
       features: getFeatures("free", [
-        { text: t("pricing.f.gens5") || (isEn ? "5 credits / month" : "5 кредитов / месяц"), included: true },
+        { text: t("pricing.f.gens5"), included: true },
         { text: t("pricing.f.basicResearch"), included: true },
         { text: t("pricing.f.1profile"), included: true },
         { text: t("pricing.f.htmlExport"), included: true },

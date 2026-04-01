@@ -113,8 +113,8 @@ export default function PricingPage() {
 
   const plans = [
     {
-      id: "free" as const, name: "Free", price: fmtPrice("free", 0, "0 ₽"), period: t("pricing.perMonth"), icon: Sparkles,
-      description: fmtDesc("free", t("pricing.freeDesc")), badge: null, credits: fmtCredits("free", 5), polarProductId: null as string | null,
+      id: "free" as const, name: isEn ? "Start" : "Старт", price: isEn ? "$2.99" : "230 ₽", period: t("pricing.perArticle"), icon: Sparkles,
+      description: fmtDesc("free", t("pricing.freeDesc")), badge: null, credits: fmtCredits("free", 1), polarProductId: null as string | null,
       features: getFeatures("free", [
         { text: t("pricing.f.gens5"), included: true },
         { text: t("pricing.f.basicResearch"), included: true },
