@@ -7,6 +7,7 @@ import { SectionFactory } from "@/components/landing/SectionFactory";
 import { SectionPricing } from "@/components/landing/SectionPricing";
 import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
 import { SectionTestimonials } from "@/components/landing/SectionTestimonials";
+import { SectionComparison } from "@/components/landing/SectionComparison";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { CookieConsent } from "@/components/landing/CookieConsent";
 import { ScrollToTop } from "@/components/landing/ScrollToTop";
