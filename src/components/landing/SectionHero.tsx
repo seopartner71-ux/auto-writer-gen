@@ -141,78 +141,76 @@ export function SectionHero() {
   ];
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-      {/* Grid */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.025]" style={{
-        backgroundImage: "linear-gradient(hsl(var(--primary) / 0.4) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.4) 1px, transparent 1px)",
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16">
+      {/* Subtle grid */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.02]" style={{
+        backgroundImage: "linear-gradient(hsl(var(--primary) / 0.5) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.5) 1px, transparent 1px)",
         backgroundSize: "80px 80px",
       }} />
-      {/* Glows */}
-      <div className="pointer-events-none absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full bg-primary/[0.07] blur-[280px]" />
-      <div className="pointer-events-none absolute bottom-[5%] right-[5%] w-[500px] h-[400px] rounded-full bg-[#3b82f6]/[0.05] blur-[220px]" />
+      {/* Single centered glow */}
+      <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full bg-primary/[0.06] blur-[300px]" />
 
       <div className="relative z-10 container mx-auto px-4 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* Left — Copy */}
           <div>
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.06] px-4 py-1.5 mb-8"
+              className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.04] px-4 py-1.5 mb-10"
             >
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[11px] font-tech font-semibold text-primary uppercase tracking-widest">SERPblueprint v2.0</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px] font-tech font-medium text-primary/80 uppercase tracking-widest">SERPblueprint v2.0</span>
             </motion.div>
 
             <motion.h1
-              initial={{ opacity: 0, y: 40 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem] font-extrabold leading-[0.95]"
-              style={{ letterSpacing: "-0.06em" }}
+              className="text-4xl sm:text-5xl md:text-[3.5rem] lg:text-[4rem] font-extrabold leading-[1.05]"
+              style={{ letterSpacing: "-0.04em" }}
             >
               {t("hero.line1")}{" "}
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-[#3b82f6] to-primary">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">
                 {t("hero.line2")}
               </span>{" "}
               {t("hero.line3")}
             </motion.h1>
 
             <motion.p
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.25 }}
-              className="mt-7 max-w-xl text-[15px] text-muted-foreground/70 leading-[1.75]"
+              className="mt-8 max-w-lg text-base text-muted-foreground/60 leading-[1.8]"
             >
               {t("hero.sub")}
             </motion.p>
 
             {/* CTAs */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.35 }}
               className="mt-10 flex flex-wrap gap-4"
             >
               <button
                 onClick={() => navigate("/register")}
-                className="group relative inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-9 py-4.5 text-[15px] font-tech font-bold text-white shadow-[0_20px_60px_rgba(139,92,246,0.3)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_25px_80px_rgba(139,92,246,0.45)] active:scale-[0.98]"
+                className="group relative inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-8 py-4 text-[15px] font-tech font-bold text-white shadow-[0_20px_60px_rgba(139,92,246,0.25)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_25px_80px_rgba(139,92,246,0.4)] active:scale-[0.98]"
               >
-                <span className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] animate-pulse opacity-15 blur-2xl" />
                 <span className="relative flex items-center gap-2">
                   {t("hero.cta")}
-                  <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </button>
 
               <button
                 onClick={() => {
-                  document.getElementById("section-deep-dive")?.scrollIntoView({ behavior: "smooth" });
+                  document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-sm px-7 py-4.5 text-[15px] font-tech font-medium text-white/80 transition-all duration-300 hover:bg-white/[0.06] hover:border-white/20"
+                className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-7 py-4 text-[15px] font-tech font-medium text-white/70 transition-all duration-300 hover:bg-white/[0.05] hover:border-white/[0.15]"
               >
-                <Play className="h-4 w-4 text-primary" />
+                <Play className="h-4 w-4 text-primary/70" />
                 {t("hero.demo")}
               </button>
             </motion.div>
@@ -222,17 +220,17 @@ export function SectionHero() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.8 }}
-              className="mt-12 space-y-3"
+              className="mt-14 space-y-3"
             >
               <div className="flex flex-wrap gap-x-6 gap-y-2">
                 {trustItems.map((item, i) => (
-                  <span key={i} className="flex items-center gap-1.5 text-[12px] font-tech text-emerald-400/80 tracking-wide">
+                  <span key={i} className="flex items-center gap-1.5 text-[12px] font-tech text-emerald-400/70 tracking-wide">
                     <item.icon className="h-3.5 w-3.5" />
                     {item.text}
                   </span>
                 ))}
               </div>
-              <p className="text-[11px] font-mono text-muted-foreground/40 tracking-wider">
+              <p className="text-[11px] font-mono text-muted-foreground/30 tracking-wider">
                 {t("hero.bypasses")}
               </p>
             </motion.div>
@@ -240,7 +238,7 @@ export function SectionHero() {
 
           {/* Right — Article Preview */}
           <motion.div
-            initial={{ opacity: 0, x: 50, scale: 0.95 }}
+            initial={{ opacity: 0, x: 40, scale: 0.97 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             transition={{ duration: 0.9, delay: 0.3 }}
             className="hidden lg:block"

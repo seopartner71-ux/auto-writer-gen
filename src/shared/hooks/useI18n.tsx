@@ -900,11 +900,11 @@ const translations: Record<string, Record<Lang, string>> = {
   "common.collapse": { ru: "Свернуть", en: "Collapse" },
 
   // Landing page — Hero
-  "hero.line1": { ru: "SEO-статьи, которые", en: "SEO articles that" },
+  "hero.line1": { ru: "SEO-статьи экспертного уровня, которые", en: "Expert-level SEO articles that" },
   "hero.line2": { ru: "ранжируются", en: "rank" },
   "hero.line3": { ru: "и не определяются как AI", en: "and bypass all AI detectors" },
-  "hero.sub": { ru: "Smart Research, экспертные персоны и мощный Stealth Engine. Полный цикл от анализа конкурентов до публикации в WordPress.", en: "Smart Research, expert personas and powerful Stealth Engine. Full cycle from competitor analysis to WordPress publishing." },
-  "hero.cta": { ru: "Создать статью за 60 секунд", en: "Create Article in 60 Seconds" },
+  "hero.sub": { ru: "Smart Research + Expert Personas + Stealth Engine. Создавайте контент, который ранжируется как у профи и выглядит как человеческий.", en: "Smart Research + Expert Personas + Stealth Engine. Create content that ranks like a pro and reads like a human." },
+  "hero.cta": { ru: "Создать статью за 8 минут", en: "Create Article in 8 Minutes" },
   "hero.demo": { ru: "Посмотреть демо", en: "Watch Demo" },
   "hero.trust1": { ru: "0% AI Detection", en: "0% AI Detection" },
   "hero.trust2": { ru: "Stealth Guard™ • Human Score 95+", en: "Stealth Guard™ • Human Score 95+" },
@@ -1127,7 +1127,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "feat.radarDesc": { ru: "Мониторинг вашего бренда в ответах ChatGPT, Perplexity и Gemini. Оптимизация для AI-выдачи", en: "Monitor your brand in ChatGPT, Perplexity and Gemini responses. Optimize for AI search results" },
 
   // Final CTA
-  "finalCta.title": { ru: "Готовы вывести свой контент на новый уровень?", en: "Ready to take your content to the next level?" },
+  "finalCta.title": { ru: "Готовы создавать контент, который действительно работает?", en: "Ready to create content that actually works?" },
   "finalCta.sub": { ru: "Начните бесплатно. Без привязки карты. 5 статей в подарок.", en: "Start for free. No credit card. 5 articles included." },
   "finalCta.button": { ru: "Начать бесплатно", en: "Start for Free" },
 
