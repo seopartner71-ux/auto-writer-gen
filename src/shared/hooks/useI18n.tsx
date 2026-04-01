@@ -1019,6 +1019,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.integrTitle": { ru: "Интеграции и платформы", en: "Integrations and platforms" },
   "lp.bentoOutlineDesc": { ru: "AI-автопилот строит структуру H2/H3 на основе ТОП-10.", en: "AI autopilot builds H2/H3 structure from TOP-10." },
   "lp.bentoPersonaDesc": { ru: "Имитация авторского стиля: тон, лексика, ритм.", en: "Author style mimicry: tone, vocabulary, rhythm." },
+  "lp.bentoPersonaDesc2": { ru: "Имитация стиля и экспертизы автора.", en: "Author style and expertise mimicry." },
   "lp.bentoGeoTitle": { ru: "GEO - Будущее поиска", en: "GEO - The Future of Search" },
   "lp.bentoGeoDesc": { ru: "Мы проектируем контент для цитирования нейросетями.", en: "We engineer content for AI citation." },
   "lp.bentoGeoFake": { ru: "Лучший способ восстановления газона - глубокая аэрация при +5°C...", en: "The best way to restore a lawn is deep aeration at +5°C..." },
@@ -1026,6 +1027,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.marqueeText": { ru: "Наш контент признан человеческим ведущими детекторами мира", en: "Our content is recognized as human by the world's leading detectors" },
   "lp.detectorWallSub": { ru: "Обходим все ведущие AI-детекторы", en: "By-passing all major AI detectors" },
   "lp.bentoBulk": { ru: "Bulk Progress", en: "Bulk Progress" },
+  "lp.bento2Desc2": { ru: "Мониторинг бренда в AI ответах.", en: "Brand monitoring in AI responses." },
+  "lp.navFeatures": { ru: "Возможности", en: "Features" },
 
   // Footer
   "lp.footerWiki": { ru: "База знаний", en: "Knowledge Base" },
