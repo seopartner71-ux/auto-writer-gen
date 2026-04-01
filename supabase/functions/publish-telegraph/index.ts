@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const article_id = body?.article_id;
     const author_name = body?.author_name || "Author";
-    const anchor_target_url = body?.anchor_target_url || "";
+    const anchor_links: { url: string; anchor: string }[] = body?.anchor_links || [];
     const lang = body?.lang || "ru";
 
     if (!article_id || typeof article_id !== "string") {
@@ -186,23 +186,29 @@ Deno.serve(async (req) => {
 
     if (articleError || !article) throw new Error(lang === "ru" ? "Статья не найдена" : "Article not found");
 
-    // Use anchor_target_url from body or from saved article
-    const targetUrl = anchor_target_url || (article as any).anchor_target_url || "";
+    // Parse saved anchor links if no body links provided
+    let effectiveLinks = anchor_links;
+    if (!effectiveLinks.length && (article as any).anchor_target_url) {
+      try { effectiveLinks = JSON.parse((article as any).anchor_target_url); } catch { effectiveLinks = []; }
+    }
 
     // Build content nodes
     const content = markdownToTelegraphNodes(article.content || "");
     const safeContent = content.length > 0 ? content : [{ tag: "p", children: ["Empty article"] }];
 
-    // Add canonical link at bottom if target URL available
-    if (targetUrl) {
+    // Add canonical link at bottom if anchor links available
+    const firstUrl = effectiveLinks.find(l => l.url)?.url;
+    if (firstUrl) {
       safeContent.push({ tag: "br" });
       safeContent.push({
         tag: "p",
         children: [
           { tag: "em", children: [
             lang === "ru" ? "Оригинал статьи: " : "Original article: ",
-            { tag: "a", attrs: { href: targetUrl }, children: [targetUrl] }
+            { tag: "a", attrs: { href: firstUrl }, children: [firstUrl] }
           ]}
+        ]
+      });
         ]
       });
     }
