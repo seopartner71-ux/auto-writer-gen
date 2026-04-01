@@ -1095,7 +1095,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // Nav
   "nav.features": { ru: "Возможности", en: "Features" },
   "nav.howItWorks": { ru: "Как это работает", en: "How It Works" },
-  "nav.pricing": { ru: "Тарифы", en: "Pricing" },
+  "nav.landingPricing": { ru: "Тарифы", en: "Pricing" },
   "nav.startFree": { ru: "Начать бесплатно", en: "Start for Free" },
 
   // How It Works
