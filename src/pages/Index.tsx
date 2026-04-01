@@ -1,5 +1,6 @@
 import { LandingNav } from "@/components/landing/LandingNav";
 import { SectionHero } from "@/components/landing/SectionHero";
+import { SectionIntegrations } from "@/components/landing/SectionIntegrations";
 import { SectionBentoFeatures } from "@/components/landing/SectionBentoFeatures";
 import { SectionHumanizer } from "@/components/landing/SectionHumanizer";
 import { SectionStealth } from "@/components/landing/SectionStealth";
