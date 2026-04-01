@@ -10,7 +10,7 @@ const faqData = {
     { q: "Есть ли прямая публикация в WordPress?", a: "Да. Вы можете подключить свой сайт через App Password и публиковать статьи с готовыми SEO-метатегами (Yoast/RankMath) одним кликом или по расписанию." },
     { q: "Могу ли я обучить AI своему стилю?", a: "Да, модуль Persona Engine анализирует ваши образцы текста, выявляет синтаксические паттерны и лексику, чтобы имитировать ваш уникальный авторский голос во всех статьях." },
     { q: "Что такое Factory (Фабрика)?", a: "Это инструмент для массовой генерации. Загрузите список из 100 ключевых слов через CSV, и система сама проведет исследование и напишет статьи для каждой темы в фоновом режиме." },
-    { q: "Как работают кредиты?", a: "Система работает на основе кредитов. 1 кредит равен 1 полноценной статье со всеми этапами анализа и генерации. Вы можете купить 1 кредит за 230 ₽ или пакет из 10/30 кредитов со скидкой до 30%." },
+    { q: "Сколько статей я получу за 1 кредит?", a: "1 кредит = 1 полноценная экспертная статья с анализом конкурентов, LSI-ключами и оптимизацией. Мы не считаем токены или слова, только готовый результат." },
   ],
   en: [
     { q: "How does the AI detector bypass work?", a: "Our Stealth Prompt technology increases text burstiness and perplexity, making it indistinguishable from human writing for services like Originality.ai and GPTZero." },
@@ -18,7 +18,7 @@ const faqData = {
     { q: "Is there direct WordPress publishing?", a: "Yes. You can connect your site via App Password and publish articles with ready-made SEO meta-tags (Yoast/RankMath) in one click or on a schedule." },
     { q: "Can I train the AI on my style?", a: "Yes, the Persona Engine module analyzes your text samples, identifying syntactic patterns and vocabulary to mimic your unique authorial voice in all articles." },
     { q: "What is the Factory module?", a: "It's a bulk generation tool. Upload a list of 100 keywords via CSV, and the system will perform research and write articles for each topic in the background." },
-    { q: "How do credits work?", a: "The system is credit-based. 1 credit equals 1 complete article including all research and generation steps. You can buy 1 credit for 230 ₽ or 10/30 credit packages with up to 30% discount." },
+    { q: "How many articles do I get for 1 credit?", a: "1 credit = 1 full expert article with competitor analysis, LSI keywords, and optimization. We don't count tokens or words, only the final result." },
   ],
 };
 
