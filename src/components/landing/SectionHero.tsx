@@ -1,49 +1,30 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Play, ShieldCheck, Sparkles, FileText, Hash, Heading2 } from "lucide-react";
+import { ArrowRight, Play, ShieldCheck, Activity } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
-/* ---------- animated article preview (right side) ---------- */
-const articleLines = [
-  { type: "h1", text: "How to Choose the Best Pool Service in 2025" },
-  { type: "p", text: "Finding a reliable pool maintenance provider requires evaluating several critical factors including" },
-  { type: "lsi", text: "pool cleaning frequency • chemical balance • equipment inspection" },
-  { type: "p", text: "certification standards and transparent pricing models that align with industry benchmarks." },
-  { type: "h2", text: "Key Factors for Hiring a Pool Maintenance Company" },
-  { type: "p", text: "According to recent market analysis, homeowners who invest in professional pool services report" },
-  { type: "lsi", text: "water quality testing • filter maintenance • seasonal preparation" },
-  { type: "p", text: "a 40% reduction in long-term repair costs compared to DIY maintenance approaches." },
-  { type: "h2", text: "Cost Breakdown: What to Expect" },
-  { type: "p", text: "The average monthly cost ranges from $80 to $150 depending on pool size and service tier." },
-];
-
-function ArticlePreview() {
-  const [visibleLines, setVisibleLines] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+/* ---------- Glowing dashboard mockup ---------- */
+function DashboardMockup() {
+  const [humanScore, setHumanScore] = useState(0);
+  const [stealthActive, setStealthActive] = useState(false);
 
   useEffect(() => {
+    const t = setTimeout(() => setStealthActive(true), 1200);
     const interval = setInterval(() => {
-      setVisibleLines((prev) => {
-        if (prev >= articleLines.length) {
-          setTimeout(() => setVisibleLines(0), 3000);
-          return prev;
-        }
-        return prev + 1;
+      setHumanScore((p) => {
+        if (p >= 98) { clearInterval(interval); return 98; }
+        return p + 1;
       });
-    }, 700);
-    return () => clearInterval(interval);
+    }, 35);
+    return () => { clearTimeout(t); clearInterval(interval); };
   }, []);
 
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-  }, [visibleLines]);
+  const scoreColor = humanScore >= 90 ? "text-emerald-400" : humanScore >= 50 ? "text-amber-400" : "text-red-400";
 
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl p-1 shadow-[0_30px_80px_rgba(0,0,0,0.5),0_0_40px_rgba(139,92,246,0.08)]">
-      <div className="rounded-xl bg-[#08080e]/90 overflow-hidden">
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl p-1 shadow-[0_30px_80px_rgba(0,0,0,0.5),0_0_60px_rgba(139,92,246,0.06)]">
+      <div className="rounded-xl bg-[#060609]/90 overflow-hidden">
         {/* Title bar */}
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.04]">
           <div className="flex gap-1.5">
@@ -51,104 +32,73 @@ function ArticlePreview() {
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500/50" />
           </div>
-          <span className="ml-2 text-[10px] font-mono text-muted-foreground/50">serpblueprint — article_output.md</span>
-          <div className="ml-auto flex items-center gap-1.5">
-            <span className="text-[9px] font-mono text-emerald-400/70 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              GENERATING
-            </span>
-          </div>
+          <span className="ml-2 text-[10px] font-mono text-muted-foreground/40">serpblueprint — dashboard</span>
         </div>
 
-        {/* Content */}
-        <div ref={containerRef} className="p-5 h-[340px] overflow-hidden space-y-2.5">
-          <AnimatePresence>
-            {articleLines.slice(0, visibleLines).map((line, i) => (
+        {/* Dashboard content */}
+        <div className="p-6 space-y-5">
+          {/* Human Score */}
+          <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest">Human Score</span>
+              <Activity className="h-3.5 w-3.5 text-emerald-400/50" />
+            </div>
+            <div className={`text-5xl font-extrabold tracking-[-0.05em] ${scoreColor} transition-colors`}>
+              {humanScore}%
+            </div>
+            <div className="mt-3 h-1.5 rounded-full bg-white/[0.03] overflow-hidden">
               <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                {line.type === "h1" && (
-                  <div className="flex items-start gap-2">
-                    <Heading2 className="h-3.5 w-3.5 text-primary/60 mt-1 shrink-0" />
-                    <p className="text-sm font-bold text-white/90 leading-snug">{line.text}</p>
-                  </div>
-                )}
-                {line.type === "h2" && (
-                  <div className="flex items-start gap-2 mt-3">
-                    <Heading2 className="h-3 w-3 text-[#3b82f6]/60 mt-1 shrink-0" />
-                    <p className="text-[13px] font-semibold text-white/80 leading-snug">{line.text}</p>
-                  </div>
-                )}
-                {line.type === "p" && (
-                  <p className="text-[11px] text-muted-foreground/60 leading-relaxed pl-5">{line.text}</p>
-                )}
-                {line.type === "lsi" && (
-                  <div className="flex flex-wrap gap-1.5 pl-5 mt-1">
-                    {line.text.split(" • ").map((kw, j) => (
-                      <span key={j} className="text-[9px] font-mono px-2 py-0.5 rounded-full border border-primary/20 bg-primary/[0.06] text-primary/80">
-                        <Hash className="inline h-2.5 w-2.5 mr-0.5" />{kw}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-
-          {visibleLines < articleLines.length && (
-            <motion.div
-              animate={{ opacity: [0.3, 1, 0.3] }}
-              transition={{ repeat: Infinity, duration: 1.2 }}
-              className="pl-5 flex items-center gap-2"
-            >
-              <div className="w-3 h-4 bg-primary/40 rounded-sm" />
-              <span className="text-[10px] font-mono text-muted-foreground/40">writing...</span>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Bottom bar */}
-        <div className="px-4 py-2 border-t border-white/[0.04] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-[9px] font-mono text-muted-foreground/40">
-              <FileText className="inline h-3 w-3 mr-1" />
-              {visibleLines > 0 ? Math.min(visibleLines * 245, 2450) : 0} words
-            </span>
-            <span className="text-[9px] font-mono text-emerald-400/60">
-              <ShieldCheck className="inline h-3 w-3 mr-1" />
-              Human Score: 97%
-            </span>
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400"
+                animate={{ width: `${humanScore}%` }}
+                transition={{ duration: 0.05 }}
+              />
+            </div>
           </div>
-          <span className="text-[9px] font-mono text-primary/50">SEO Score: 94/100</span>
+
+          {/* Stealth Mode */}
+          <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-4 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest block mb-1">Stealth Mode</span>
+              <span className={`text-sm font-tech font-bold ${stealthActive ? "text-emerald-400" : "text-muted-foreground/30"}`}>
+                {stealthActive ? "Active" : "Initializing..."}
+              </span>
+            </div>
+            <div className={`w-3 h-3 rounded-full ${stealthActive ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.5)]" : "bg-muted-foreground/20"} transition-all`} />
+          </div>
+
+          {/* Mini metrics */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Perplexity", value: "82.4" },
+              { label: "Burstiness", value: "71.2" },
+              { label: "SEO Score", value: "94" },
+            ].map((m, i) => (
+              <div key={i} className="rounded-lg border border-white/[0.03] bg-white/[0.005] p-3 text-center">
+                <div className="text-lg font-bold text-white/80 tracking-tight">{m.value}</div>
+                <div className="text-[8px] font-mono text-muted-foreground/25 mt-0.5">{m.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------- main hero ---------- */
+/* ---------- Hero ---------- */
 export function SectionHero() {
   const navigate = useNavigate();
   const { t } = useI18n();
 
-  const trustItems = [
-    { icon: ShieldCheck, text: t("hero.trust1") },
-    { icon: ShieldCheck, text: t("hero.trust2") },
-    { icon: Sparkles, text: t("hero.trust3") },
-  ];
-
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16">
-      {/* Subtle grid */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.02]" style={{
-        backgroundImage: "linear-gradient(hsl(var(--primary) / 0.5) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.5) 1px, transparent 1px)",
+      {/* Grid */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.015]" style={{
+        backgroundImage: "linear-gradient(hsl(var(--primary) / 0.4) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.4) 1px, transparent 1px)",
         backgroundSize: "80px 80px",
       }} />
-      {/* Single centered glow */}
-      <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full bg-primary/[0.06] blur-[300px]" />
+      {/* Radial glow */}
+      <div className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full bg-gradient-radial from-indigo-500/[0.04] to-transparent blur-[200px]" />
 
       <div className="relative z-10 container mx-auto px-4 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
@@ -168,14 +118,13 @@ export function SectionHero() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-[3.5rem] lg:text-[4rem] font-extrabold leading-[1.05]"
+              className="text-4xl sm:text-5xl md:text-[3.5rem] lg:text-[3.8rem] font-extrabold leading-[1.05]"
               style={{ letterSpacing: "-0.04em" }}
             >
-              {t("hero.line1")}{" "}
+              {t("hero2.line1")}{" "}
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">
-                {t("hero.line2")}
-              </span>{" "}
-              {t("hero.line3")}
+                {t("hero2.line2")}
+              </span>
             </motion.h1>
 
             <motion.p
@@ -184,7 +133,7 @@ export function SectionHero() {
               transition={{ duration: 0.6, delay: 0.25 }}
               className="mt-8 max-w-lg text-base text-muted-foreground/60 leading-[1.8]"
             >
-              {t("hero.sub")}
+              {t("hero2.sub")}
             </motion.p>
 
             {/* CTAs */}
@@ -194,22 +143,13 @@ export function SectionHero() {
               transition={{ duration: 0.6, delay: 0.35 }}
               className="mt-10 flex flex-wrap gap-4"
             >
-              <button
-                onClick={() => navigate("/register")}
-                className="group relative inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-8 py-4 text-[15px] font-tech font-bold text-white shadow-[0_20px_60px_rgba(139,92,246,0.25)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_25px_80px_rgba(139,92,246,0.4)] active:scale-[0.98]"
-              >
-                <span className="relative flex items-center gap-2">
-                  {t("hero.cta")}
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </span>
+              <button onClick={() => navigate("/register")}
+                className="group relative inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-8 py-4 text-[15px] font-tech font-bold text-white shadow-[0_20px_60px_rgba(139,92,246,0.25)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_25px_80px_rgba(139,92,246,0.4)] active:scale-[0.98]">
+                {t("nav.startFree")}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
-
-              <button
-                onClick={() => {
-                  document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-7 py-4 text-[15px] font-tech font-medium text-white/70 transition-all duration-300 hover:bg-white/[0.05] hover:border-white/[0.15]"
-              >
+              <button onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+                className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-7 py-4 text-[15px] font-tech font-medium text-white/70 transition-all duration-300 hover:bg-white/[0.05] hover:border-white/[0.15]">
                 <Play className="h-4 w-4 text-primary/70" />
                 {t("hero.demo")}
               </button>
@@ -222,11 +162,11 @@ export function SectionHero() {
               transition={{ delay: 0.6, duration: 0.8 }}
               className="mt-14 space-y-3"
             >
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
-                {trustItems.map((item, i) => (
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                {["0% AI Detection", "Stealth Guard™", "Human Score 95+"].map((text, i) => (
                   <span key={i} className="flex items-center gap-1.5 text-[12px] font-tech text-emerald-400/70 tracking-wide">
-                    <item.icon className="h-3.5 w-3.5" />
-                    {item.text}
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    {text}
                   </span>
                 ))}
               </div>
@@ -236,14 +176,14 @@ export function SectionHero() {
             </motion.div>
           </div>
 
-          {/* Right — Article Preview */}
+          {/* Right — Dashboard */}
           <motion.div
             initial={{ opacity: 0, x: 40, scale: 0.97 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             transition={{ duration: 0.9, delay: 0.3 }}
             className="hidden lg:block"
           >
-            <ArticlePreview />
+            <DashboardMockup />
           </motion.div>
         </div>
       </div>
