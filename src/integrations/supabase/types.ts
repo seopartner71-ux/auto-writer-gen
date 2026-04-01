@@ -192,6 +192,7 @@ export type Database = {
       articles: {
         Row: {
           ai_content_gap: Json | null
+          anchor_target_url: string | null
           author_profile_id: string | null
           cluster_id: string | null
           content: string | null
@@ -208,12 +209,16 @@ export type Database = {
           share_token: string | null
           status: string | null
           suggested_outline: Json | null
+          telegraph_access_token: string | null
+          telegraph_path: string | null
+          telegraph_url: string | null
           title: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           ai_content_gap?: Json | null
+          anchor_target_url?: string | null
           author_profile_id?: string | null
           cluster_id?: string | null
           content?: string | null
@@ -230,12 +235,16 @@ export type Database = {
           share_token?: string | null
           status?: string | null
           suggested_outline?: Json | null
+          telegraph_access_token?: string | null
+          telegraph_path?: string | null
+          telegraph_url?: string | null
           title?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           ai_content_gap?: Json | null
+          anchor_target_url?: string | null
           author_profile_id?: string | null
           cluster_id?: string | null
           content?: string | null
@@ -252,6 +261,9 @@ export type Database = {
           share_token?: string | null
           status?: string | null
           suggested_outline?: Json | null
+          telegraph_access_token?: string | null
+          telegraph_path?: string | null
+          telegraph_url?: string | null
           title?: string | null
           updated_at?: string | null
           user_id?: string
