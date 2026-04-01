@@ -5,6 +5,7 @@ import { SectionPersona } from "@/components/landing/SectionPersona";
 import { SectionGeo } from "@/components/landing/SectionGeo";
 import { SectionStealthEngine } from "@/components/landing/SectionStealthEngine";
 import { SectionPricing } from "@/components/landing/SectionPricing";
+import { SectionFaq } from "@/components/landing/SectionFaq";
 import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
 import { SectionTestimonials } from "@/components/landing/SectionTestimonials";
 import { SectionComparison } from "@/components/landing/SectionComparison";
@@ -58,6 +59,7 @@ export default function Index() {
         <SectionComparison />
         <SectionTestimonials />
         <SectionPricing />
+        <SectionFaq />
         <LandingFooter />
       </div>
 
