@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => ({
           charts: ["recharts"],
           supabase: ["@supabase/supabase-js"],
           query: ["@tanstack/react-query"],
+          motion: ["framer-motion"],
         },
       },
     },
