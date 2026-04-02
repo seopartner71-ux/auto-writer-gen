@@ -1,19 +1,22 @@
+import { lazy, Suspense } from "react";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { SectionHero } from "@/components/landing/SectionHero";
-import { SectionResearch } from "@/components/landing/SectionResearch";
-import { SectionPersona } from "@/components/landing/SectionPersona";
-import { SectionGeo } from "@/components/landing/SectionGeo";
-import { SectionStealthEngine } from "@/components/landing/SectionStealthEngine";
-import { SectionPricing } from "@/components/landing/SectionPricing";
 import { SectionFaq } from "@/components/landing/SectionFaq";
-import { SectionDeepDive } from "@/components/landing/SectionDeepDive";
-import { SectionTestimonials } from "@/components/landing/SectionTestimonials";
-import { SectionComparison } from "@/components/landing/SectionComparison";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { CookieConsent } from "@/components/landing/CookieConsent";
 import { ScrollToTop } from "@/components/landing/ScrollToTop";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useEffect } from "react";
+
+// Below-fold sections — lazy loaded
+const SectionResearch = lazy(() => import("@/components/landing/SectionResearch").then(m => ({ default: m.SectionResearch })));
+const SectionPersona = lazy(() => import("@/components/landing/SectionPersona").then(m => ({ default: m.SectionPersona })));
+const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
+const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
+const SectionDeepDive = lazy(() => import("@/components/landing/SectionDeepDive").then(m => ({ default: m.SectionDeepDive })));
+const SectionComparison = lazy(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
+const SectionTestimonials = lazy(() => import("@/components/landing/SectionTestimonials").then(m => ({ default: m.SectionTestimonials })));
+const SectionPricing = lazy(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
 
 export default function Index() {
   const { lang } = useI18n();
@@ -51,14 +54,16 @@ export default function Index() {
 
       <div className="relative z-[2]">
         <SectionHero />
-        <SectionResearch />
-        <SectionPersona />
-        <SectionGeo />
-        <SectionStealthEngine />
-        <SectionDeepDive />
-        <SectionComparison />
-        <SectionTestimonials />
-        <SectionPricing />
+        <Suspense fallback={null}>
+          <SectionResearch />
+          <SectionPersona />
+          <SectionGeo />
+          <SectionStealthEngine />
+          <SectionDeepDive />
+          <SectionComparison />
+          <SectionTestimonials />
+          <SectionPricing />
+        </Suspense>
         <SectionFaq />
         <LandingFooter />
       </div>
