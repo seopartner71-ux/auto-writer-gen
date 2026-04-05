@@ -10,14 +10,14 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
     // Get OpenRouter key from DB first, then fallback to env
     const { data: orKey } = await supabase.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
     const OPENROUTER_API_KEY = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
     if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
 
     // Find pending tasks scheduled for now or earlier
     const now = new Date().toISOString();
@@ -111,7 +111,23 @@ ANTI-AI DETECTION (CRITICAL):
 - CLICHÉ KILLER: NEVER use these phrases: "В заключение", "Важно отметить", "Следует подчеркнуть", "Необходимо учитывать", "В современном мире", "Данный", "Является", "Осуществлять", "На сегодняшний день", "Комплексный подход", "Прогресс не стоит на месте", "Давайте посмотрим правде в глаза", "Не секрет, что", "Как известно", "Furthermore", "Moreover", "Additionally", "It's worth noting".
 - Each cliché degrades quality. Use creative, human-like transitions: rhetorical questions, unexpected analogies, personal observations, concrete facts as bridges.
 - Never start paragraphs with the same pattern. Use concrete examples and numbers instead of abstractions.
-- Vary paragraph length. Use active voice. Show emotional engagement.`;
+- Vary paragraph length. Use active voice. Show emotional engagement.
+
+[SENTENCE SPLITTING RULE] (Readability - Flesch Ease 35-45):
+- If a sentence is longer than 15 words, SPLIT it into two independent sentences with a period.
+- No more than two commas per sentence. More periods, fewer conjunctions like "который", "вследствие того что", "поскольку".
+- Each sentence carries ONE idea.
+
+[ACTIVE VERBS ONLY]:
+- Replace verbal nouns with verbs. Instead of "осуществление процесса" write "мы делаем". Instead of "принятие решения" write "клиент решает".
+- This dramatically simplifies sentence structure for the Flesch formula.
+
+[DYNAMIC RHYTHM - The 1-2-1 Method]:
+- Alternate sentence lengths: Short (up to 5 words). Long (up to 15 words). Medium (about 10 words).
+- This creates a "choppy" human rhythm. AI detectors flag uniform 15-18 word sentences. Varied rhythm = 100% human.
+
+[PARAGRAPH DENSITY]:
+- Limit each paragraph to 3-4 sentences max. Text must visually "breathe".`;
 
         const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
