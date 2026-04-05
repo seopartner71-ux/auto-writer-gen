@@ -52,7 +52,13 @@ function fleschScore(text: string): number {
   if (words < 10) return 0;
   const sentences = countSentences(text);
   const syllables = text.split(/\s+/).reduce((sum, w) => sum + countSyllables(w), 0);
-  const score = 206.835 - 1.015 * (words / sentences) - 84.6 * (syllables / words);
+  const asl = words / sentences;
+  const asw = syllables / words;
+  // Detect Cyrillic text and use Oborneva formula
+  const isCyrillic = /[а-яА-Я]/.test(text);
+  const score = isCyrillic
+    ? 206.835 - 1.3 * asl - 60.1 * asw   // Oborneva (Russian)
+    : 206.835 - 1.015 * asl - 84.6 * asw; // Standard Flesch (English)
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
