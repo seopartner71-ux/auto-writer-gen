@@ -159,11 +159,11 @@ export default function PricingPage() {
     },
     {
       id: "pro" as const,
-      name: "FACTORY",
+      name: fmtName("pro", "FACTORY"),
       price: fmtPrice("pro", 220, 19900),
       period: t("pricing.perMonth"),
       icon: Crown,
-      description: isEn ? "Content factory for agencies" : "Контентный завод для агентств",
+      description: fmtDesc("pro", "Контентный завод для агентств", "Content factory for agencies"),
       badge: t("pricing.maximum"),
       credits: fmtCredits("pro", 150),
       polarProductId: proProductId,
