@@ -1546,6 +1546,11 @@ export default function ArticlesPage() {
                     </div>
                   )}
 
+                  <Separator />
+
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>{t("articles.readability")}</span>
                       <span className={`font-semibold ${readInfo.color}`}>
                         {readability} — {readInfo.label}
                       </span>
