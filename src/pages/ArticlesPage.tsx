@@ -666,6 +666,17 @@ export default function ArticlesPage() {
 
       toast.success(t("articles.articleGenerated"));
 
+      // Fact-check analysis: detect suspicious hallucination patterns
+      const suspiciousPatterns = [
+        /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/gi,
+        /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/g,
+        /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/gi,
+        /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/gi,
+        /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/g,
+      ];
+      const hasHallucinations = suspiciousPatterns.some(p => p.test(fullContent));
+      setFactCheckStatus(hasHallucinations ? "warning" : "verified");
+
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
 
