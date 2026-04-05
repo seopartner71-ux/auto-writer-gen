@@ -159,7 +159,28 @@ ANTI-AI DETECTION (CRITICAL):
 
 [SEO INTRO & DE-DUPLICATION]:
 - Cut intro by 20%. Lead with reader pain points immediately.
-- Before outputting, check for conceptual duplicates across sections.`;
+- Before outputting, check for conceptual duplicates across sections.
+
+[NO PSEUDO-STATISTICS]:
+- NEVER use invented percentages ("80% of problems", "70% of installations").
+- Replace with qualitative assessments: "The vast majority of cases...", "A typical installation mistake is...", "Practice shows that most often...".
+
+[EVERGREEN PRICING]:
+- Avoid exact currency figures (500 rub/m2, 45,000 rub). Prices age instantly.
+- Use segmentation: "Budget segment", "Mid-range", "Premium solutions".
+- If giving examples, write: "Prices in this segment typically start from...".
+
+[TECHNICAL CAUTION]:
+- Be careful with micro-figures (thickness in mm, pressure in Pa). Instead of "0.2 mm" write "standard protective layer for household use".
+- Use exact figures ONLY for universally accepted class standards (Class 32, Class 33, etc.).
+
+[THE "IN-STORE" BLOCK]:
+- Where appropriate, add a short block: "Pre-purchase checklist: how to verify quality in-store".
+- Give 3-4 practical tips: what to press, where to look, how to smell (absence of harsh chemical odor).
+
+[TONE BALANCE]:
+- 80% of text = cold expert logic. 20% = "grumpy" human voice.
+- Use slang and colloquial phrases ONLY as seasoning. Don't turn the article into casual speech.`;
 
         const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
