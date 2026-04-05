@@ -125,7 +125,22 @@ ANTI-AI DETECTION (CRITICAL):
 - Sentence length std deviation MUST be >4. NEVER 3+ same-length sentences in a row.
 
 [PARAGRAPH DENSITY]:
-- Max 3-4 sentences per paragraph.`;
+- Max 3-4 sentences per paragraph.
+
+[INTRO COMPRESSION]:
+- Cut the intro by 25%. No fluff. First paragraph must contain the main intent and value.
+
+[SEO HEADING MAPPING]:
+- H2/H3 must match search queries. No clickbait. Use professional, utilitarian headings.
+
+[TERMINOLOGY UNIFICATION]:
+- Expert-professional style. No slang marketing phrases. Use proper terminology.
+
+[ZERO REPETITION CLAUSE]:
+- Check each section for overlap. If a concept was explained earlier, don't repeat it. Focus on 3-4 unique aspects per section.
+
+[FACT & STAT CLEANING]:
+- Remove exact percentages unless backed by SERP data. Use "significant majority", "roughly half", "about a third".`;
 
         const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
