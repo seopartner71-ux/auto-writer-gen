@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
+export default function PricingPage() {
   const { profile, user } = useAuth();
   const { t, lang } = useI18n();
   const queryClient = useQueryClient();
