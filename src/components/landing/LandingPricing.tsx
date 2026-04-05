@@ -58,7 +58,7 @@ export function LandingPricing() {
   const plans = [
     {
       id: "free",
-      name: "NANO",
+      name: fmtName("free", "NANO"),
       icon: Sparkles,
       price: fmtPrice("free", 15, "990"),
       period: `/ ${t("lp.priceMonth")}`,
