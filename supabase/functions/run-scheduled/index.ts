@@ -113,21 +113,19 @@ ANTI-AI DETECTION (CRITICAL):
 - Never start paragraphs with the same pattern. Use concrete examples and numbers instead of abstractions.
 - Vary paragraph length. Use active voice. Show emotional engagement.
 
-[READABILITY OPTIMIZATION] (Flesch Ease 35-45):
-- Target AVERAGE sentence length: 8-12 words. NOT all sentences should be short.
-- Split sentences longer than 20 words. Short sentences (<4 words) max 25% of total.
-- No more than two commas per sentence. Fewer conjunctions, more periods.
+[READABILITY OPTIMIZATION] (Flesch Ease 35-45 Oborneva):
+- Target avg sentence length: 8-12 words. Max 30% sentences under 5 words. Min 15% sentences 13-18 words.
+- Split sentences >20 words. Max two commas per sentence. Fewer conjunctions.
 
 [WORD SIMPLICITY]:
-- Prefer short words. Replace verbal nouns with verbs. Avoid bureaucratic language.
-- "осуществление" → "делать", "принятие решения" → "решить".
+- Short words over long: "делать" not "осуществлять". Verbs over verbal nouns.
 
-[DYNAMIC RHYTHM - The 1-2-1 Method]:
-- Short (3-6 words), Long (12-18 words), Medium (8-10 words). Repeat.
-- Sentence length std deviation must be >4 words. NEVER write 3+ sentences of same length in a row.
+[DYNAMIC RHYTHM - 1-2-1 Method] (CRITICAL):
+- Alternate: Short (3-6 words), Long (13-18 words), Medium (8-11 words).
+- Sentence length std deviation MUST be >4. NEVER 3+ same-length sentences in a row.
 
 [PARAGRAPH DENSITY]:
-- Max 3-4 sentences per paragraph. Text must visually "breathe".`;
+- Max 3-4 sentences per paragraph.`;
 
         const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
