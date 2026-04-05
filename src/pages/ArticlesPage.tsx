@@ -1719,7 +1719,7 @@ export default function ArticlesPage() {
                 </CardHeader>
                 <CardContent>
                   {savedArticles.length > 0 ? (
-                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto overflow-x-hidden scrollbar-hide">
                       {savedArticles.slice(0, 10).map((a: any) => (
                         <div
                           key={a.id}
