@@ -388,6 +388,8 @@ export default function ArticlesPage() {
   const [telegraphPath, setTelegraphPath] = useState("");
   const [telegraphUrl, setTelegraphUrl] = useState("");
   const [anchorLinks, setAnchorLinks] = useState<{ url: string; anchor: string }[]>([{ url: "", anchor: "" }]);
+  const [finishReason, setFinishReason] = useState<string | null>(null);
+  const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
