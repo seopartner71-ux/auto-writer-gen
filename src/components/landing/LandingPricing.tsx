@@ -41,6 +41,8 @@ export function LandingPricing() {
 
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
 
+  const fmtName = (id: string, fallback: string) => getDbPlan(id)?.name ?? fallback;
+
   const getFeatures = (id: string, fallback: Array<{ text: string; included: boolean }>) => {
     const db = getDbPlan(id);
     const dbFeatures = db?.features as Array<{ text_ru: string; text_en: string; included: boolean }> | null;
@@ -56,7 +58,7 @@ export function LandingPricing() {
   const plans = [
     {
       id: "free",
-      name: "NANO",
+      name: fmtName("free", "NANO"),
       icon: Sparkles,
       price: fmtPrice("free", 15, "990"),
       period: `/ ${t("lp.priceMonth")}`,
@@ -74,7 +76,7 @@ export function LandingPricing() {
     },
     {
       id: "basic",
-      name: "PRO",
+      name: fmtName("basic", "PRO"),
       icon: Zap,
       price: fmtPrice("basic", 65, "5900"),
       period: `/ ${t("lp.priceMonth")}`,
@@ -93,7 +95,7 @@ export function LandingPricing() {
     },
     {
       id: "pro",
-      name: "FACTORY",
+      name: fmtName("pro", "FACTORY"),
       icon: Crown,
       price: fmtPrice("pro", 220, "19900"),
       period: `/ ${t("lp.priceMonth")}`,

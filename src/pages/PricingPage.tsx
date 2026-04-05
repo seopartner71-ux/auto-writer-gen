@@ -90,6 +90,13 @@ export default function PricingPage() {
 
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
 
+  const fmtName = (id: string, fallback: string) => getDbPlan(id)?.name ?? fallback;
+
+  const fmtDesc = (id: string, fallbackRu: string, fallbackEn: string) => {
+    const db = getDbPlan(id);
+    return (isEn ? db?.description_en : db?.description_ru) || (isEn ? fallbackEn : fallbackRu);
+  };
+
   const pluralArticles = (n: number) => {
     if (isEn) return `${n} articles / mo`;
     const mod10 = n % 10;
@@ -102,11 +109,11 @@ export default function PricingPage() {
   const plans = [
     {
       id: "free" as const,
-      name: "NANO",
+      name: fmtName("free", "NANO"),
       price: fmtPrice("free", 15, 990),
       period: t("pricing.perMonth"),
       icon: Atom,
-      description: isEn ? "Quick quality test" : "Для быстрого теста качества",
+      description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
       badge: null,
       credits: fmtCredits("free", 5),
       polarProductId: null as string | null,
@@ -126,11 +133,11 @@ export default function PricingPage() {
     },
     {
       id: "basic" as const,
-      name: "PRO",
+      name: fmtName("basic", "PRO"),
       price: fmtPrice("basic", 65, 5900),
       period: t("pricing.perMonth"),
       icon: Zap,
-      description: isEn ? "Perfect balance for SEO pros" : "Идеальный баланс для SEO-профи",
+      description: fmtDesc("basic", "Идеальный баланс для SEO-профи", "Perfect balance for SEO pros"),
       badge: t("pricing.popular"),
       credits: fmtCredits("basic", 40),
       polarProductId: basicProductId,
@@ -152,11 +159,11 @@ export default function PricingPage() {
     },
     {
       id: "pro" as const,
-      name: "FACTORY",
+      name: fmtName("pro", "FACTORY"),
       price: fmtPrice("pro", 220, 19900),
       period: t("pricing.perMonth"),
       icon: Crown,
-      description: isEn ? "Content factory for agencies" : "Контентный завод для агентств",
+      description: fmtDesc("pro", "Контентный завод для агентств", "Content factory for agencies"),
       badge: t("pricing.maximum"),
       credits: fmtCredits("pro", 150),
       polarProductId: proProductId,
@@ -243,7 +250,7 @@ export default function PricingPage() {
               </div>
             </div>
             <Badge variant="outline" className="uppercase">
-              {currentPlan === "free" ? "NANO" : currentPlan === "basic" ? "PRO" : currentPlan === "pro" ? "FACTORY" : String(currentPlan).toUpperCase()}
+              {fmtName(currentPlan, currentPlan.toUpperCase())}
             </Badge>
           </CardContent>
         </Card>

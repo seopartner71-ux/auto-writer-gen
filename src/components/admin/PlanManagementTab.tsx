@@ -109,6 +109,7 @@ export function PlanManagementTab() {
       setFeatureEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
       queryClient.invalidateQueries({ queryKey: ["admin-subscription-plans"] });
       queryClient.invalidateQueries({ queryKey: ["subscription-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["subscription-plans-landing"] });
     } catch (err) {
       console.error(err);
       toast.error("Не удалось сохранить изменения");
@@ -142,10 +143,18 @@ export function PlanManagementTab() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <DollarSign className="h-5 w-5 text-primary" />
-                  {plan.name} ({plan.id})
+                  {(getVal(plan, "name") as string) || plan.name} ({plan.id})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
+                {/* Name */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Название тарифа</Label>
+                  <Input value={(getVal(plan, "name") as string) ?? ""}
+                    onChange={(e) => setField(plan.id, "name", e.target.value)}
+                    placeholder="NANO / PRO / FACTORY" />
+                </div>
+
                 {/* Prices & limit */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1.5">
