@@ -1,14 +1,70 @@
-import { useState, useEffect } from "react";
-import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2, Shield, Atom } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
+
+function RoiCalculator({ isEn }: { isEn: boolean }) {
+  const [articles, setArticles] = useState(20);
+  const copywriterCost = isEn ? 50 : 1500;
+  const plans = [
+    { name: "NANO", limit: 5, price: isEn ? 15 : 990 },
+    { name: "PRO", limit: 40, price: isEn ? 65 : 5900 },
+    { name: "FACTORY", limit: 150, price: isEn ? 220 : 19900 },
+  ];
+  const bestPlan = plans.find(p => p.limit >= articles) ?? plans[plans.length - 1];
+  const savings = articles * copywriterCost - bestPlan.price;
+  const currency = isEn ? "$" : "₽";
+
+  return (
+    <Card className="bg-card border-border max-w-2xl mx-auto overflow-hidden">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg text-center">
+          {isEn ? "How much do you save vs copywriters?" : "Сколько вы экономите на копирайтерах?"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="space-y-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">
+              {isEn ? "Articles per month" : "Статей в месяц"}
+            </span>
+            <span className="font-bold text-foreground">{articles}</span>
+          </div>
+          <Slider
+            value={[articles]}
+            onValueChange={([v]) => setArticles(v)}
+            min={1}
+            max={150}
+            step={1}
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <div className="text-sm text-muted-foreground">
+            {isEn ? "Copywriter cost" : "Стоимость копирайтеров"}: <span className="font-semibold text-foreground">{(articles * copywriterCost).toLocaleString()} {currency}</span>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {bestPlan.name}: <span className="font-semibold text-foreground">{bestPlan.price.toLocaleString()} {currency}</span>
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">{isEn ? "Your net savings" : "Ваша чистая выгода"}:</p>
+          <p className={`text-3xl font-black ${savings > 0 ? "text-emerald-500" : "text-destructive"}`}>
+            {savings > 0 ? "+" : ""}{savings.toLocaleString()} {currency}
+            <span className="text-sm font-normal text-muted-foreground"> / {isEn ? "mo" : "мес"}</span>
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function PricingPage() {
   const { profile, user } = useAuth();
@@ -20,7 +76,6 @@ export default function PricingPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Fetch Polar product IDs from app_settings
   const { data: polarSettings } = useQuery({
     queryKey: ["app-settings", "polar"],
     queryFn: async () => {
@@ -35,7 +90,6 @@ export default function PricingPage() {
     },
   });
 
-  // Fetch subscription plans from DB
   const { data: dbPlans } = useQuery({
     queryKey: ["subscription-plans"],
     queryFn: async () => {
@@ -55,7 +109,6 @@ export default function PricingPage() {
   const basicProductId = polarSettings?.polar_basic_product_id ?? null;
   const proProductId = polarSettings?.polar_pro_product_id ?? null;
 
-  // Verify checkout on return from Polar
   useEffect(() => {
     const checkoutId = searchParams.get("checkout_id");
     if (!checkoutId || !user) return;
@@ -65,11 +118,9 @@ export default function PricingPage() {
         const { data, error } = await supabase.functions.invoke("polar-checkout", {
           body: { action: "verify", checkoutId },
         });
-
         if (error) throw error;
-
         if (data?.status === "succeeded") {
-          toast.success(isEn ? "Payment successful! Your plan has been upgraded." : "Оплата прошла успешно! Ваш тариф обновлён.");
+          toast.success(isEn ? "Payment successful! Your plan has been upgraded." : "Оплата прошла успешно! Ваш тариф обновлен.");
           queryClient.invalidateQueries({ queryKey: ["profile"] });
         } else if (data?.status === "failed") {
           toast.error(isEn ? "Payment failed. Please try again." : "Оплата не прошла. Попробуйте снова.");
@@ -77,7 +128,6 @@ export default function PricingPage() {
       } catch (err) {
         console.error("Checkout verification error:", err);
       }
-
       setSearchParams({});
     };
 
@@ -86,85 +136,100 @@ export default function PricingPage() {
 
   const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
 
-  const fmtPrice = (id: string, fallbackUsd: number, fallbackRub: string) => {
+  const fmtPrice = (id: string, fallbackUsd: number, fallbackRub: number) => {
     const db = getDbPlan(id);
     if (isEn) return `$${db?.price_usd ?? fallbackUsd}`;
-    return db?.price_rub != null ? `${db.price_rub.toLocaleString("ru-RU")} ₽` : fallbackRub;
-  };
-
-  const fmtDesc = (id: string, fallback: string) => {
-    const db = getDbPlan(id);
-    return (isEn ? db?.description_en : db?.description_ru) || fallback;
+    const rub = db?.price_rub ?? fallbackRub;
+    return `${rub.toLocaleString("ru-RU")} ₽`;
   };
 
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
 
-  const getFeatures = (id: string, fallback: Array<{ text: string; included: boolean }>) => {
-    const db = getDbPlan(id);
-    const dbFeatures = db?.features as Array<{ text_ru: string; text_en: string; included: boolean }> | null;
-    if (dbFeatures && dbFeatures.length > 0) {
-      return dbFeatures.map((f) => ({
-        text: isEn ? f.text_en : f.text_ru,
-        included: f.included,
-      }));
-    }
-    return fallback;
+  const pluralArticles = (n: number) => {
+    if (isEn) return `${n} articles / mo`;
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return `${n} статья / мес`;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} статьи / мес`;
+    return `${n} статей / мес`;
   };
 
   const plans = [
     {
-      id: "free" as const, name: isEn ? "Start" : "Старт", price: isEn ? "$2.99" : "230 ₽", period: t("pricing.perArticle"), icon: Sparkles,
-      description: fmtDesc("free", t("pricing.freeDesc")), badge: null, credits: fmtCredits("free", 1), polarProductId: null as string | null,
-      features: getFeatures("free", [
-        { text: t("pricing.f.gens5"), included: true },
-        { text: t("pricing.f.basicResearch"), included: true },
-        { text: t("pricing.f.1profile"), included: true },
-        { text: t("pricing.f.htmlExport"), included: true },
-        { text: t("pricing.f.basicSeo"), included: true },
-        { text: t("pricing.f.modelsFlashLite"), included: true },
-        { text: t("pricing.f.uniquenessCheck"), included: false },
-        { text: t("pricing.f.jsonLd"), included: false },
-        { text: t("pricing.f.miralinks"), included: false },
-        { text: t("pricing.f.gogetlinks"), included: false },
-        { text: t("pricing.f.calendarPlanner"), included: false },
-        { text: t("pricing.f.prioritySupport"), included: false },
-      ]),
+      id: "free" as const,
+      name: "NANO",
+      price: fmtPrice("free", 15, 990),
+      period: t("pricing.perMonth"),
+      icon: Atom,
+      description: isEn ? "Quick quality test" : "Для быстрого теста качества",
+      badge: null,
+      credits: fmtCredits("free", 5),
+      polarProductId: null as string | null,
+      showShield: false,
+      features: [
+        { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
+        { text: isEn ? "Deep SERP & LSI Analysis" : "Глубокий SERP & LSI Анализ", included: true },
+        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
+        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
+        { text: isEn ? "Flesch Readability 50+" : "Индекс читаемости 50+ (Flesch Ease)", included: true },
+        { text: isEn ? "1 author profile" : "1 профиль автора", included: true },
+        { text: isEn ? "HTML export" : "Экспорт в HTML", included: true },
+        { text: isEn ? "Bulk generation & WP Auto-Publish" : "Массовая генерация & WP Auto-Publish", included: false },
+        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: false },
+        { text: isEn ? "Priority support" : "Приоритетная поддержка", included: false },
+      ],
     },
     {
-      id: "basic" as const, name: t("pricing.basicName"), price: fmtPrice("basic", 59, "4 900 ₽"), period: t("pricing.perMonth"), icon: Zap,
-      description: fmtDesc("basic", t("pricing.basicDesc")), badge: t("pricing.popular"), credits: fmtCredits("basic", 30), polarProductId: basicProductId,
-      features: getFeatures("basic", [
-        { text: t("pricing.f.gens30"), included: true },
-        { text: t("pricing.f.fullSerp"), included: true },
-        { text: t("pricing.f.5profiles"), included: true },
-        { text: t("pricing.f.htmlMdExport"), included: true },
-        { text: t("pricing.f.advancedSeo"), included: true },
-        { text: t("pricing.f.modelsFlashNano"), included: true },
-        { text: t("pricing.f.uniquenessCheck"), included: true },
-        { text: t("pricing.f.jsonLd"), included: true },
-        { text: t("pricing.f.calendarPlanner"), included: false },
-        { text: t("pricing.f.miralinks"), included: false },
-        { text: t("pricing.f.gogetlinks"), included: false },
-        { text: t("pricing.f.prioritySupport"), included: false },
-      ]),
+      id: "basic" as const,
+      name: "PRO",
+      price: fmtPrice("basic", 65, 5900),
+      period: t("pricing.perMonth"),
+      icon: Zap,
+      description: isEn ? "Perfect balance for SEO pros" : "Идеальный баланс для SEO-профи",
+      badge: t("pricing.popular"),
+      credits: fmtCredits("basic", 40),
+      polarProductId: basicProductId,
+      showShield: true,
+      features: [
+        { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
+        { text: isEn ? "Deep SERP & LSI Analysis" : "Глубокий SERP & LSI Анализ", included: true },
+        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
+        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
+        { text: isEn ? "Flesch Readability 50+" : "Индекс читаемости 50+ (Flesch Ease)", included: true },
+        { text: isEn ? "5 author profiles" : "5 профилей авторов", included: true },
+        { text: isEn ? "HTML + Markdown export" : "Экспорт в HTML + Markdown", included: true },
+        { text: isEn ? "Uniqueness check + Anti-AI" : "Проверка уникальности + Anti-AI", included: true },
+        { text: isEn ? "JSON-LD schema markup" : "JSON-LD микроразметка", included: true },
+        { text: isEn ? "WordPress integration" : "WordPress интеграция", included: true },
+        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: false },
+        { text: isEn ? "Bulk generation & WP Auto-Publish" : "Массовая генерация & WP Auto-Publish", included: false },
+      ],
     },
     {
-      id: "pro" as const, name: "Pro", price: fmtPrice("pro", 169, "12 400 ₽"), period: t("pricing.perMonth"), icon: Crown,
-      description: fmtDesc("pro", t("pricing.proDesc")), badge: t("pricing.maximum"), credits: fmtCredits("pro", 100), polarProductId: proProductId,
-      features: getFeatures("pro", [
-        { text: t("pricing.f.gens100"), included: true },
-        { text: t("pricing.f.fullSerpComp"), included: true },
-        { text: t("pricing.f.unlimitedProfiles"), included: true },
-        { text: t("pricing.f.allExports"), included: true },
-        { text: t("pricing.f.fullSeo"), included: true },
-        { text: t("pricing.f.allModels"), included: true },
-        { text: t("pricing.f.bulkGen"), included: true },
-        { text: t("pricing.f.uniquenessAntiAi"), included: true },
-        { text: t("pricing.f.allSchema"), included: true },
-        { text: t("pricing.f.miralinks"), included: true },
-        { text: t("pricing.f.gogetlinks"), included: true },
-        { text: t("pricing.f.support247"), included: true },
-      ]),
+      id: "pro" as const,
+      name: "FACTORY",
+      price: fmtPrice("pro", 220, 19900),
+      period: t("pricing.perMonth"),
+      icon: Crown,
+      description: isEn ? "Content factory for agencies" : "Контентный завод для агентств",
+      badge: t("pricing.maximum"),
+      credits: fmtCredits("pro", 150),
+      polarProductId: proProductId,
+      showShield: true,
+      features: [
+        { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
+        { text: isEn ? "Deep SERP & LSI + competitor analysis" : "Глубокий SERP & LSI + конкурентный анализ", included: true },
+        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
+        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
+        { text: isEn ? "Flesch Readability 50+" : "Индекс читаемости 50+ (Flesch Ease)", included: true },
+        { text: isEn ? "Unlimited author profiles" : "Безлимитные профили авторов", included: true },
+        { text: isEn ? "All export formats" : "Все форматы экспорта", included: true },
+        { text: isEn ? "Bulk generation & WP Auto-Publish" : "Массовая генерация & WP Auto-Publish", included: true },
+        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: true },
+        { text: isEn ? "Miralinks + GoGetLinks" : "Miralinks + GoGetLinks", included: true },
+        { text: isEn ? "All AI models (Gemini Pro + GPT-5)" : "Все AI модели (Gemini Pro + GPT-5)", included: true },
+        { text: isEn ? "Priority support 24/7" : "Приоритетная поддержка 24/7", included: true },
+      ],
     },
   ];
 
@@ -177,40 +242,28 @@ export default function PricingPage() {
 
     const selectedPlan = plans.find(p => p.id === planId);
 
-    // Free plan — just update directly
     if (planId === "free") {
       const { error } = await supabase.from("profiles").update({ plan: planId, credits_amount: 5, monthly_limit: 5 }).eq("id", user.id);
       if (error) {
         toast.error(t("pricing.changeFailed"));
       } else {
-        toast.success(`${t("pricing.planChanged")} Free.`);
+        toast.success(`${t("pricing.planChanged")} NANO.`);
         queryClient.invalidateQueries({ queryKey: ["profile"] });
       }
       return;
     }
 
-    // Paid plans — redirect to Polar checkout
     if (!selectedPlan?.polarProductId) {
-      toast.error(
-        isEn
-          ? "Payment not configured yet. Please contact the administrator."
-          : "Оплата ещё не настроена. Обратитесь к администратору."
-      );
+      toast.error(isEn ? "Payment not configured yet. Please contact the administrator." : "Оплата еще не настроена. Обратитесь к администратору.");
       return;
     }
 
     setLoadingPlan(planId);
-
     try {
       const { data, error } = await supabase.functions.invoke("polar-checkout", {
-        body: {
-          action: "create",
-          productId: selectedPlan.polarProductId,
-        },
+        body: { action: "create", productId: selectedPlan.polarProductId },
       });
-
       if (error) throw error;
-
       if (data?.url) {
         window.open(data.url, "_blank");
       } else {
@@ -218,61 +271,79 @@ export default function PricingPage() {
       }
     } catch (err) {
       console.error("Checkout error:", err);
-      toast.error(
-        isEn
-          ? "Failed to create checkout. Please try again."
-          : "Не удалось создать сессию оплаты. Попробуйте снова."
-      );
+      toast.error(isEn ? "Failed to create checkout. Please try again." : "Не удалось создать сессию оплаты. Попробуйте снова.");
     } finally {
       setLoadingPlan(null);
     }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 overflow-x-hidden">
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">{t("pricing.title")}</h1>
         <p className="text-muted-foreground max-w-lg mx-auto">{t("pricing.creditDesc")}</p>
       </div>
 
+      {/* Balance card */}
       <div className="max-w-sm mx-auto">
         <Card className="bg-card border-border">
           <CardContent className="flex items-center justify-between py-4 px-5">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center"><CreditCard className="h-5 w-5 text-primary" /></div>
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
               <div>
                 <p className="text-xs text-muted-foreground">{t("pricing.yourBalance")}</p>
                 <p className="text-lg font-bold">{currentCredits} {t("pricing.credits")}</p>
               </div>
             </div>
-            <Badge variant="outline" className="uppercase">{currentPlan}</Badge>
+            <Badge variant="outline" className="uppercase">{currentPlan === "free" ? "NANO" : currentPlan === "basic" ? "PRO" : currentPlan === "pro" ? "FACTORY" : currentPlan.toUpperCase()}</Badge>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto">
+      {/* ROI Calculator */}
+      <RoiCalculator isEn={isEn} />
+
+      {/* Plans grid */}
+      <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto overflow-x-hidden">
         {plans.map((plan) => {
           const isCurrentPlan = currentPlan === plan.id;
           const Icon = plan.icon;
           const isPopular = plan.badge === t("pricing.popular");
           const isLoading = loadingPlan === plan.id;
           return (
-            <Card key={plan.id} className={`relative bg-card border-border flex flex-col ${isPopular ? "border-primary shadow-lg shadow-primary/10 scale-[1.02]" : ""}`}>
+            <Card key={plan.id} className={`relative bg-card border-border flex flex-col overflow-hidden ${isPopular ? "border-primary shadow-lg shadow-primary/10 scale-[1.02]" : ""}`}>
               {plan.badge && (
-                <Badge className={`absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 ${isPopular ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>{plan.badge}</Badge>
+                <Badge className={`absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 z-10 ${isPopular ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>{plan.badge}</Badge>
               )}
               <CardHeader className="text-center pb-2 pt-6">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"><Icon className="h-6 w-6 text-primary" /></div>
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                  <Icon className="h-6 w-6 text-primary" />
+                </div>
                 <CardTitle className="text-xl">{plan.name}</CardTitle>
                 <p className="text-xs text-muted-foreground">{plan.description}</p>
-                <div className="pt-3"><span className="text-4xl font-bold">{plan.price}</span><span className="text-sm text-muted-foreground ml-1">{plan.period}</span></div>
-                <div className="pt-2"><Badge variant="secondary" className="text-sm font-semibold px-3 py-1">{plan.credits} {t("pricing.articlesPerMonth")}</Badge></div>
+                <div className="pt-3">
+                  <span className="text-4xl font-bold">{plan.price}</span>
+                  <span className="text-sm text-muted-foreground ml-1">{plan.period}</span>
+                </div>
+                <div className="pt-2">
+                  <Badge variant="secondary" className="text-sm font-semibold px-3 py-1">
+                    {pluralArticles(plan.credits)}
+                  </Badge>
+                </div>
+                {plan.showShield && (
+                  <div className="pt-2 flex items-center justify-center gap-1.5">
+                    <Shield className="h-4 w-4 text-emerald-500" />
+                    <span className="text-xs font-semibold text-emerald-500">98% Human Score</span>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="flex-1 flex flex-col">
                 <ul className="space-y-2.5 flex-1 mb-6">
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm">
-                      {feature.included ? <Check className="h-4 w-4 text-success shrink-0 mt-0.5" /> : <X className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5" />}
+                      {feature.included ? <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" /> : <X className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5" />}
                       <span className={feature.included ? "text-foreground" : "text-muted-foreground/50"}>{feature.text}</span>
                     </li>
                   ))}
