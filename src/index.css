@@ -249,3 +249,12 @@ html {
 .html-tag { color: hsl(210 80% 65%); }
 .html-attr { color: hsl(30 80% 65%); }
 .html-val { color: hsl(120 50% 60%); }
+
+/* Hide scrollbars but keep scroll functionality */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Edge */
+}

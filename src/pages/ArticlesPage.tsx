@@ -1567,7 +1567,7 @@ export default function ArticlesPage() {
         </div>
 
         {/* Right: SEO Dashboard */}
-        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-auto">
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-auto overflow-x-hidden scrollbar-hide">
           <Tabs defaultValue="dashboard">
             <TabsList className="w-full h-8">
               <TabsTrigger value="dashboard" className="text-xs gap-1 flex-1">
@@ -1679,7 +1679,7 @@ export default function ArticlesPage() {
                 </CardHeader>
                 <CardContent>
                   {lsiStatus.length > 0 ? (
-                    <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto overflow-x-hidden scrollbar-hide">
                       {lsiStatus.map((item, i) => (
                         <div
                           key={i}
@@ -1694,7 +1694,7 @@ export default function ArticlesPage() {
                           ) : (
                             <Circle className="h-3 w-3 shrink-0" />
                           )}
-                          <span className="font-mono">{item.keyword}</span>
+                          <span className="font-mono break-all truncate">{item.keyword}</span>
                         </div>
                       ))}
                     </div>
@@ -1719,7 +1719,7 @@ export default function ArticlesPage() {
                 </CardHeader>
                 <CardContent>
                   {savedArticles.length > 0 ? (
-                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto overflow-x-hidden scrollbar-hide">
                       {savedArticles.slice(0, 10).map((a: any) => (
                         <div
                           key={a.id}
