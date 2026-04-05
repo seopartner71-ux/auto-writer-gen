@@ -11,62 +11,6 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
-function RoiCalculator({ isEn }: { isEn: boolean }) {
-  const [articles, setArticles] = useState(20);
-  const copywriterCost = isEn ? 50 : 1500;
-  const plans = [
-    { name: "NANO", limit: 5, price: isEn ? 15 : 990 },
-    { name: "PRO", limit: 40, price: isEn ? 65 : 5900 },
-    { name: "FACTORY", limit: 150, price: isEn ? 220 : 19900 },
-  ];
-  const bestPlan = plans.find(p => p.limit >= articles) ?? plans[plans.length - 1];
-  const savings = articles * copywriterCost - bestPlan.price;
-  const currency = isEn ? "$" : "₽";
-
-  return (
-    <Card className="bg-card border-border max-w-2xl mx-auto overflow-hidden">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg text-center">
-          {isEn ? "How much do you save vs copywriters?" : "Сколько вы экономите на копирайтерах?"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              {isEn ? "Articles per month" : "Статей в месяц"}
-            </span>
-            <span className="font-bold text-foreground">{articles}</span>
-          </div>
-          <Slider
-            value={[articles]}
-            onValueChange={([v]) => setArticles(v)}
-            min={1}
-            max={150}
-            step={1}
-          />
-        </div>
-        <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-4">
-          <div className="text-sm text-muted-foreground">
-            {isEn ? "Copywriter cost" : "Стоимость копирайтеров"}: <span className="font-semibold text-foreground">{(articles * copywriterCost).toLocaleString()} {currency}</span>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {bestPlan.name}: <span className="font-semibold text-foreground">{bestPlan.price.toLocaleString()} {currency}</span>
-          </div>
-        </div>
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">{isEn ? "Your net savings" : "Ваша чистая выгода"}:</p>
-          <p className={`text-3xl font-black ${savings > 0 ? "text-emerald-500" : "text-destructive"}`}>
-            {savings > 0 ? "+" : ""}{savings.toLocaleString()} {currency}
-            <span className="text-sm font-normal text-muted-foreground"> / {isEn ? "mo" : "мес"}</span>
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function PricingPage() {
   const { profile, user } = useAuth();
   const { t, lang } = useI18n();
   const queryClient = useQueryClient();
