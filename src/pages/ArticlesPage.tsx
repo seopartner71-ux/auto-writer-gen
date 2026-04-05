@@ -1527,9 +1527,25 @@ export default function ArticlesPage() {
 
                   <Separator />
 
-                  <div>
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>{t("articles.readability")}</span>
+                  {/* Fact-Check Status Badge */}
+                  {factCheckStatus && content && (
+                    <div>
+                      <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+                        <span>{t("articles.factCheckLabel")}</span>
+                        <Badge
+                          variant={factCheckStatus === "verified" ? "default" : "destructive"}
+                          className={`text-[10px] ${factCheckStatus === "verified" ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground"}`}
+                        >
+                          {factCheckStatus === "verified" ? (
+                            <><CheckCircle2 className="h-3 w-3 mr-1" />{t("articles.factCheckVerified")}</>
+                          ) : (
+                            <><AlertTriangle className="h-3 w-3 mr-1" />{t("articles.factCheckWarning")}</>
+                          )}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+
                       <span className={`font-semibold ${readInfo.color}`}>
                         {readability} — {readInfo.label}
                       </span>
