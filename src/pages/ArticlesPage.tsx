@@ -1679,7 +1679,7 @@ export default function ArticlesPage() {
                 </CardHeader>
                 <CardContent>
                   {lsiStatus.length > 0 ? (
-                    <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto overflow-x-hidden scrollbar-hide">
                       {lsiStatus.map((item, i) => (
                         <div
                           key={i}
