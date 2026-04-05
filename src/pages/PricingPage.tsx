@@ -133,11 +133,11 @@ export default function PricingPage() {
     },
     {
       id: "basic" as const,
-      name: "PRO",
+      name: fmtName("basic", "PRO"),
       price: fmtPrice("basic", 65, 5900),
       period: t("pricing.perMonth"),
       icon: Zap,
-      description: isEn ? "Perfect balance for SEO pros" : "Идеальный баланс для SEO-профи",
+      description: fmtDesc("basic", "Идеальный баланс для SEO-профи", "Perfect balance for SEO pros"),
       badge: t("pricing.popular"),
       credits: fmtCredits("basic", 40),
       polarProductId: basicProductId,
