@@ -90,6 +90,13 @@ export default function PricingPage() {
 
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
 
+  const fmtName = (id: string, fallback: string) => getDbPlan(id)?.name ?? fallback;
+
+  const fmtDesc = (id: string, fallbackRu: string, fallbackEn: string) => {
+    const db = getDbPlan(id);
+    return (isEn ? db?.description_en : db?.description_ru) || (isEn ? fallbackEn : fallbackRu);
+  };
+
   const pluralArticles = (n: number) => {
     if (isEn) return `${n} articles / mo`;
     const mod10 = n % 10;
