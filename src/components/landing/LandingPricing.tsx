@@ -41,6 +41,8 @@ export function LandingPricing() {
 
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
 
+  const fmtName = (id: string, fallback: string) => getDbPlan(id)?.name ?? fallback;
+
   const getFeatures = (id: string, fallback: Array<{ text: string; included: boolean }>) => {
     const db = getDbPlan(id);
     const dbFeatures = db?.features as Array<{ text_ru: string; text_en: string; included: boolean }> | null;
