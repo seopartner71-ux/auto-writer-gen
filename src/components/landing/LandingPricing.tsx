@@ -95,7 +95,7 @@ export function LandingPricing() {
     },
     {
       id: "pro",
-      name: "FACTORY",
+      name: fmtName("pro", "FACTORY"),
       icon: Crown,
       price: fmtPrice("pro", 220, "19900"),
       period: `/ ${t("lp.priceMonth")}`,
