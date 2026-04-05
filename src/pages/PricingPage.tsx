@@ -248,8 +248,6 @@ import { useSearchParams } from "react-router-dom";
         </Card>
       </div>
 
-      {/* ROI Calculator */}
-      <RoiCalculator isEn={isEn} />
 
       {/* Plans grid */}
       <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto overflow-x-hidden">
