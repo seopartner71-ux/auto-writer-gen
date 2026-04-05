@@ -109,6 +109,7 @@ export function PlanManagementTab() {
       setFeatureEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
       queryClient.invalidateQueries({ queryKey: ["admin-subscription-plans"] });
       queryClient.invalidateQueries({ queryKey: ["subscription-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["subscription-plans-landing"] });
     } catch (err) {
       console.error(err);
       toast.error("Не удалось сохранить изменения");
