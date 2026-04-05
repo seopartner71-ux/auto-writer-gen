@@ -297,7 +297,9 @@ export default function PricingPage() {
                 <p className="text-lg font-bold">{currentCredits} {t("pricing.credits")}</p>
               </div>
             </div>
-            <Badge variant="outline" className="uppercase">{currentPlan === "free" ? "NANO" : currentPlan === "basic" ? "PRO" : currentPlan === "pro" ? "FACTORY" : currentPlan.toUpperCase()}</Badge>
+            <Badge variant="outline" className="uppercase">
+              {currentPlan === "free" ? "NANO" : currentPlan === "basic" ? "PRO" : currentPlan === "pro" ? "FACTORY" : String(currentPlan).toUpperCase()}
+            </Badge>
           </CardContent>
         </Card>
       </div>
