@@ -3,7 +3,7 @@ import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2, Shield, Atom } fro
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
+
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
