@@ -250,7 +250,7 @@ export default function PricingPage() {
               </div>
             </div>
             <Badge variant="outline" className="uppercase">
-              {currentPlan === "free" ? "NANO" : currentPlan === "basic" ? "PRO" : currentPlan === "pro" ? "FACTORY" : String(currentPlan).toUpperCase()}
+              {fmtName(currentPlan, currentPlan.toUpperCase())}
             </Badge>
           </CardContent>
         </Card>
