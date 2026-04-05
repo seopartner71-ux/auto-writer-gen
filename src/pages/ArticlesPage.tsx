@@ -1567,7 +1567,7 @@ export default function ArticlesPage() {
         </div>
 
         {/* Right: SEO Dashboard */}
-        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-auto">
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-auto overflow-x-hidden scrollbar-hide">
           <Tabs defaultValue="dashboard">
             <TabsList className="w-full h-8">
               <TabsTrigger value="dashboard" className="text-xs gap-1 flex-1">
