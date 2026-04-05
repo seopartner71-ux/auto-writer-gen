@@ -109,11 +109,11 @@ export default function PricingPage() {
   const plans = [
     {
       id: "free" as const,
-      name: "NANO",
+      name: fmtName("free", "NANO"),
       price: fmtPrice("free", 15, 990),
       period: t("pricing.perMonth"),
       icon: Atom,
-      description: isEn ? "Quick quality test" : "Для быстрого теста качества",
+      description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
       badge: null,
       credits: fmtCredits("free", 5),
       polarProductId: null as string | null,
