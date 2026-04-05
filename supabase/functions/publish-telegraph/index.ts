@@ -209,8 +209,6 @@ Deno.serve(async (req) => {
           ]}
         ]
       });
-        ]
-      });
     }
 
     const existingPath = (article as any).telegraph_path;
