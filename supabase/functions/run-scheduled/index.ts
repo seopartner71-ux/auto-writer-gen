@@ -127,7 +127,7 @@ ANTI-AI DETECTION (CRITICAL):
 - This creates a "choppy" human rhythm. AI detectors flag uniform 15-18 word sentences. Varied rhythm = 100% human.
 
 [PARAGRAPH DENSITY]:
-- Limit each paragraph to 3-4 sentences max. Text must visually "breathe".
+- Limit each paragraph to 3-4 sentences max. Text must visually "breathe".`;
 
         const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
