@@ -604,6 +604,7 @@ export default function ArticlesPage() {
       const decoder = new TextDecoder();
       let buffer = "";
       let fullContent = "";
+      let lastFinishReason: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -625,6 +626,8 @@ export default function ArticlesPage() {
           try {
             const parsed = JSON.parse(jsonStr);
             const delta = parsed.choices?.[0]?.delta?.content;
+            const fr = parsed.choices?.[0]?.finish_reason;
+            if (fr) lastFinishReason = fr;
             if (delta) {
               if (!fullContent) setStreamPhase("writing");
               fullContent += delta;
@@ -636,6 +639,8 @@ export default function ArticlesPage() {
           }
         }
       }
+
+      setFinishReason(lastFinishReason);
 
       // Auto-fill title and meta from generated content
 
