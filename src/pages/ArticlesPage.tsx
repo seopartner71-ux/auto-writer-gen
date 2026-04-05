@@ -517,6 +517,23 @@ export default function ArticlesPage() {
   const readability = useMemo(() => fleschScore(content), [content]);
   const readInfo = readabilityLabel(readability, t);
 
+  // Real-time fact-check on content changes
+  const liveFactCheck = useMemo(() => {
+    if (!content || content.length < 100) return null;
+    const patterns = [
+      /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/i,
+      /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/,
+      /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/i,
+      /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/i,
+      /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/,
+    ];
+    return patterns.some(p => p.test(content)) ? "warning" as const : "verified" as const;
+  }, [content]);
+
+  useEffect(() => {
+    if (liveFactCheck) setFactCheckStatus(liveFactCheck);
+  }, [liveFactCheck]);
+
   // Stream article generation
   const handleGenerate = useCallback(async () => {
     if (!selectedKeywordId) {
