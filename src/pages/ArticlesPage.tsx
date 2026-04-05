@@ -388,6 +388,8 @@ export default function ArticlesPage() {
   const [telegraphPath, setTelegraphPath] = useState("");
   const [telegraphUrl, setTelegraphUrl] = useState("");
   const [anchorLinks, setAnchorLinks] = useState<{ url: string; anchor: string }[]>([{ url: "", anchor: "" }]);
+  const [finishReason, setFinishReason] = useState<string | null>(null);
+  const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Timer for streaming elapsed seconds
@@ -548,6 +550,8 @@ export default function ArticlesPage() {
     setStreamPhase("thinking");
     setContent("");
     setSchemaJson("");
+    setFinishReason(null);
+    setFactCheckStatus(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -600,6 +604,7 @@ export default function ArticlesPage() {
       const decoder = new TextDecoder();
       let buffer = "";
       let fullContent = "";
+      let lastFinishReason: string | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -621,6 +626,8 @@ export default function ArticlesPage() {
           try {
             const parsed = JSON.parse(jsonStr);
             const delta = parsed.choices?.[0]?.delta?.content;
+            const fr = parsed.choices?.[0]?.finish_reason;
+            if (fr) lastFinishReason = fr;
             if (delta) {
               if (!fullContent) setStreamPhase("writing");
               fullContent += delta;
@@ -632,6 +639,8 @@ export default function ArticlesPage() {
           }
         }
       }
+
+      setFinishReason(lastFinishReason);
 
       // Auto-fill title and meta from generated content
 
@@ -656,6 +665,17 @@ export default function ArticlesPage() {
       generateSeoTitle(fullContent);
 
       toast.success(t("articles.articleGenerated"));
+
+      // Fact-check analysis: detect suspicious hallucination patterns
+      const suspiciousPatterns = [
+        /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/gi,
+        /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/g,
+        /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/gi,
+        /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/gi,
+        /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/g,
+      ];
+      const hasHallucinations = suspiciousPatterns.some(p => p.test(fullContent));
+      setFactCheckStatus(hasHallucinations ? "warning" : "verified");
 
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
@@ -1451,6 +1471,99 @@ export default function ArticlesPage() {
             </Tabs>
           </Card>
 
+          {/* Continue Generation Button - shown when text was truncated */}
+          {finishReason === "length" && content && !isStreaming && (
+            <Card className="bg-card border-border border-warning/50">
+              <CardContent className="py-3">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+                  <p className="text-xs text-muted-foreground flex-1">
+                    {t("articles.truncatedWarning")}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 gap-1.5 border-warning/50 text-warning hover:bg-warning/10"
+                    onClick={async () => {
+                      setIsStreaming(true);
+                      setStreamPhase("writing");
+                      setFinishReason(null);
+                      const prevContent = content;
+                      const controller = new AbortController();
+                      abortRef.current = controller;
+                      try {
+                        const { data: { session: freshSession } } = await supabase.auth.refreshSession();
+                        const token = freshSession?.access_token;
+                        if (!token) throw new Error("Not authenticated");
+
+                        const lastParagraph = prevContent.split("\n\n").filter(p => p.trim()).slice(-2).join("\n\n");
+                        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
+                        const resp = await fetch(url, {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                          },
+                          body: JSON.stringify({
+                            keyword_id: selectedKeywordId,
+                            author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
+                            outline,
+                            lsi_keywords: lsiKeywords,
+                            optimize_instructions: `ЗАДАЧА: Продолжи писать статью с того места, где она оборвалась. НЕ повторяй то, что уже написано. Допиши оставшиеся разделы и ОБЯЗАТЕЛЬНО добавь заключение.\n\nПОСЛЕДНИЙ КОНТЕКСТ (продолжай отсюда):\n${lastParagraph}`,
+                            existing_content: prevContent,
+                          }),
+                          signal: controller.signal,
+                        });
+
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                        if (!resp.body) throw new Error("No stream body");
+
+                        const reader = resp.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = "";
+                        let fullContent = prevContent;
+
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          buffer += decoder.decode(value, { stream: true });
+                          let ni: number;
+                          while ((ni = buffer.indexOf("\n")) !== -1) {
+                            let line = buffer.slice(0, ni);
+                            buffer = buffer.slice(ni + 1);
+                            if (line.endsWith("\r")) line = line.slice(0, -1);
+                            if (line.startsWith(":") || line.trim() === "") continue;
+                            if (!line.startsWith("data: ")) continue;
+                            const jsonStr = line.slice(6).trim();
+                            if (jsonStr === "[DONE]") break;
+                            try {
+                              const parsed = JSON.parse(jsonStr);
+                              const delta = parsed.choices?.[0]?.delta?.content;
+                              const fr = parsed.choices?.[0]?.finish_reason;
+                              if (fr) setFinishReason(fr);
+                              if (delta) { fullContent += delta; setContent(fullContent); }
+                            } catch { buffer = line + "\n" + buffer; break; }
+                          }
+                        }
+                        toast.success(lang === "ru" ? "Статья дописана" : "Article completed");
+                      } catch (e: any) {
+                        if (e.name !== "AbortError") toast.error(e.message);
+                      } finally {
+                        setIsStreaming(false);
+                        setStreamPhase(null);
+                        abortRef.current = null;
+                      }
+                    }}
+                  >
+                    <Wand2 className="h-3.5 w-3.5" />
+                    {t("articles.continueGeneration")}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
         </div>
 
         {/* Right: SEO Dashboard */}
@@ -1504,6 +1617,27 @@ export default function ArticlesPage() {
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">{t("articles.recommended")}</p>
                   </div>
+
+                  <Separator />
+
+                  {/* Fact-Check Status Badge */}
+                  {factCheckStatus && content && (
+                    <div>
+                      <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+                        <span>{t("articles.factCheckLabel")}</span>
+                        <Badge
+                          variant={factCheckStatus === "verified" ? "default" : "destructive"}
+                          className={`text-[10px] ${factCheckStatus === "verified" ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground"}`}
+                        >
+                          {factCheckStatus === "verified" ? (
+                            <><CheckCircle2 className="h-3 w-3 mr-1" />{t("articles.factCheckVerified")}</>
+                          ) : (
+                            <><AlertTriangle className="h-3 w-3 mr-1" />{t("articles.factCheckWarning")}</>
+                          )}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
 
                   <Separator />
 

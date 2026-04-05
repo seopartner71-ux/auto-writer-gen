@@ -203,6 +203,11 @@ const translations: Record<string, Record<Lang, string>> = {
   "articles.readMedium": { ru: "Средне", en: "Medium" },
   "articles.readHard": { ru: "Сложно", en: "Hard" },
   "articles.schemaGenerated": { ru: "JSON-LD Schema сгенерирована", en: "JSON-LD Schema generated" },
+  "articles.factCheckVerified": { ru: "Проверено", en: "Verified" },
+  "articles.factCheckWarning": { ru: "Требуется проверка", en: "Manual Check Required" },
+  "articles.factCheckLabel": { ru: "Fact-Check", en: "Fact-Check" },
+  "articles.continueGeneration": { ru: "Продолжить синтез", en: "Continue Generation" },
+  "articles.truncatedWarning": { ru: "Текст был обрезан. Нажмите чтобы дописать статью и заключение.", en: "Text was truncated. Click to continue and add conclusion." },
 
   // Calendar
   "calendar.title": { ru: "Контент-календарь", en: "Content Calendar" },
