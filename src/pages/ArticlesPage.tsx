@@ -1471,6 +1471,99 @@ export default function ArticlesPage() {
             </Tabs>
           </Card>
 
+          {/* Continue Generation Button - shown when text was truncated */}
+          {finishReason === "length" && content && !isStreaming && (
+            <Card className="bg-card border-border border-warning/50">
+              <CardContent className="py-3">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+                  <p className="text-xs text-muted-foreground flex-1">
+                    {t("articles.truncatedWarning")}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 gap-1.5 border-warning/50 text-warning hover:bg-warning/10"
+                    onClick={async () => {
+                      setIsStreaming(true);
+                      setStreamPhase("writing");
+                      setFinishReason(null);
+                      const prevContent = content;
+                      const controller = new AbortController();
+                      abortRef.current = controller;
+                      try {
+                        const { data: { session: freshSession } } = await supabase.auth.refreshSession();
+                        const token = freshSession?.access_token;
+                        if (!token) throw new Error("Not authenticated");
+
+                        const lastParagraph = prevContent.split("\n\n").filter(p => p.trim()).slice(-2).join("\n\n");
+                        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
+                        const resp = await fetch(url, {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                          },
+                          body: JSON.stringify({
+                            keyword_id: selectedKeywordId,
+                            author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
+                            outline,
+                            lsi_keywords: lsiKeywords,
+                            optimize_instructions: `ЗАДАЧА: Продолжи писать статью с того места, где она оборвалась. НЕ повторяй то, что уже написано. Допиши оставшиеся разделы и ОБЯЗАТЕЛЬНО добавь заключение.\n\nПОСЛЕДНИЙ КОНТЕКСТ (продолжай отсюда):\n${lastParagraph}`,
+                            existing_content: prevContent,
+                          }),
+                          signal: controller.signal,
+                        });
+
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                        if (!resp.body) throw new Error("No stream body");
+
+                        const reader = resp.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = "";
+                        let fullContent = prevContent;
+
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          buffer += decoder.decode(value, { stream: true });
+                          let ni: number;
+                          while ((ni = buffer.indexOf("\n")) !== -1) {
+                            let line = buffer.slice(0, ni);
+                            buffer = buffer.slice(ni + 1);
+                            if (line.endsWith("\r")) line = line.slice(0, -1);
+                            if (line.startsWith(":") || line.trim() === "") continue;
+                            if (!line.startsWith("data: ")) continue;
+                            const jsonStr = line.slice(6).trim();
+                            if (jsonStr === "[DONE]") break;
+                            try {
+                              const parsed = JSON.parse(jsonStr);
+                              const delta = parsed.choices?.[0]?.delta?.content;
+                              const fr = parsed.choices?.[0]?.finish_reason;
+                              if (fr) setFinishReason(fr);
+                              if (delta) { fullContent += delta; setContent(fullContent); }
+                            } catch { buffer = line + "\n" + buffer; break; }
+                          }
+                        }
+                        toast.success(lang === "ru" ? "Статья дописана" : "Article completed");
+                      } catch (e: any) {
+                        if (e.name !== "AbortError") toast.error(e.message);
+                      } finally {
+                        setIsStreaming(false);
+                        setStreamPhase(null);
+                        abortRef.current = null;
+                      }
+                    }}
+                  >
+                    <Wand2 className="h-3.5 w-3.5" />
+                    {t("articles.continueGeneration")}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
         </div>
 
         {/* Right: SEO Dashboard */}
