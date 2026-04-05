@@ -113,21 +113,21 @@ ANTI-AI DETECTION (CRITICAL):
 - Never start paragraphs with the same pattern. Use concrete examples and numbers instead of abstractions.
 - Vary paragraph length. Use active voice. Show emotional engagement.
 
-[SENTENCE SPLITTING RULE] (Readability - Flesch Ease 35-45):
-- If a sentence is longer than 15 words, SPLIT it into two independent sentences with a period.
-- No more than two commas per sentence. More periods, fewer conjunctions like "который", "вследствие того что", "поскольку".
-- Each sentence carries ONE idea.
+[READABILITY OPTIMIZATION] (Flesch Ease 35-45):
+- Target AVERAGE sentence length: 8-12 words. NOT all sentences should be short.
+- Split sentences longer than 20 words. Short sentences (<4 words) max 25% of total.
+- No more than two commas per sentence. Fewer conjunctions, more periods.
 
-[ACTIVE VERBS ONLY]:
-- Replace verbal nouns with verbs. Instead of "осуществление процесса" write "мы делаем". Instead of "принятие решения" write "клиент решает".
-- This dramatically simplifies sentence structure for the Flesch formula.
+[WORD SIMPLICITY]:
+- Prefer short words. Replace verbal nouns with verbs. Avoid bureaucratic language.
+- "осуществление" → "делать", "принятие решения" → "решить".
 
 [DYNAMIC RHYTHM - The 1-2-1 Method]:
-- Alternate sentence lengths: Short (up to 5 words). Long (up to 15 words). Medium (about 10 words).
-- This creates a "choppy" human rhythm. AI detectors flag uniform 15-18 word sentences. Varied rhythm = 100% human.
+- Short (3-6 words), Long (12-18 words), Medium (8-10 words). Repeat.
+- Sentence length std deviation must be >4 words. NEVER write 3+ sentences of same length in a row.
 
 [PARAGRAPH DENSITY]:
-- Limit each paragraph to 3-4 sentences max. Text must visually "breathe".`;
+- Max 3-4 sentences per paragraph. Text must visually "breathe".`;
 
         const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
