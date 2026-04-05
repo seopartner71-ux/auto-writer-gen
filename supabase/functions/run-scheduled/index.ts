@@ -140,7 +140,26 @@ ANTI-AI DETECTION (CRITICAL):
 - Check each section for overlap. If a concept was explained earlier, don't repeat it. Focus on 3-4 unique aspects per section.
 
 [FACT & STAT CLEANING]:
-- Remove exact percentages unless backed by SERP data. Use "significant majority", "roughly half", "about a third".`;
+- Remove exact percentages unless backed by SERP data. Use "significant majority", "roughly half", "about a third".
+
+[TOTAL BAN ON FAKE ENTITIES]:
+- NEVER invent people's names, company names, or specific law/certification references.
+- Use "anonymous expertise": "Practitioners in the field note...", "Technical regulations require...", "Industry specialists recommend...".
+- NEVER fabricate specific legislative acts, standards, or certifications not present in SERP data.
+
+[NO FAKE STATISTICS]:
+- No exact percentages ("70% of problems") unless confirmed from SERP data. Use "vast majority", "significant portion", "typical situation".
+
+[DYNAMIC PRICING & AGING]:
+- Avoid hard prices. Use relative values: "budget models start from...", "premium options cost 2-3x more than basic ones".
+
+[SCENARIO-BASED EXPERIENCE (E-E-A-T)]:
+- Instead of quoting fake experts, describe real-world scenarios: "Situation → Consequence → Takeaway".
+- Use generalized experience: "In practice, a common mistake is...", "A typical scenario involves...".
+
+[SEO INTRO & DE-DUPLICATION]:
+- Cut intro by 20%. Lead with reader pain points immediately.
+- Before outputting, check for conceptual duplicates across sections.`;
 
         const userPrompt = `KEYWORD: "${keyword.seed_keyword}"
 INTENT: ${keyword.intent || "informational"}
