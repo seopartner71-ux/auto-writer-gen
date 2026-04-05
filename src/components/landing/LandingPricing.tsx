@@ -76,7 +76,7 @@ export function LandingPricing() {
     },
     {
       id: "basic",
-      name: "PRO",
+      name: fmtName("basic", "PRO"),
       icon: Zap,
       price: fmtPrice("basic", 65, "5900"),
       period: `/ ${t("lp.priceMonth")}`,
