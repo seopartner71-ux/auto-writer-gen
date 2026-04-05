@@ -1694,7 +1694,7 @@ export default function ArticlesPage() {
                           ) : (
                             <Circle className="h-3 w-3 shrink-0" />
                           )}
-                          <span className="font-mono">{item.keyword}</span>
+                          <span className="font-mono break-all truncate">{item.keyword}</span>
                         </div>
                       ))}
                     </div>
