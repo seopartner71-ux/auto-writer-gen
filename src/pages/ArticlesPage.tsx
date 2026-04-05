@@ -550,6 +550,8 @@ export default function ArticlesPage() {
     setStreamPhase("thinking");
     setContent("");
     setSchemaJson("");
+    setFinishReason(null);
+    setFactCheckStatus(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
