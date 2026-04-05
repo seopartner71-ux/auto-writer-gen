@@ -52,7 +52,13 @@ function fleschScore(text: string): number {
   if (words < 10) return 0;
   const sentences = countSentences(text);
   const syllables = text.split(/\s+/).reduce((sum, w) => sum + countSyllables(w), 0);
-  const score = 206.835 - 1.015 * (words / sentences) - 84.6 * (syllables / words);
+  const asl = words / sentences;
+  const asw = syllables / words;
+  // Detect Cyrillic text and use Oborneva formula
+  const isCyrillic = /[а-яА-Я]/.test(text);
+  const score = isCyrillic
+    ? 206.835 - 1.3 * asl - 60.1 * asw   // Oborneva (Russian)
+    : 206.835 - 1.015 * asl - 84.6 * asw; // Standard Flesch (English)
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
@@ -511,6 +517,23 @@ export default function ArticlesPage() {
   const readability = useMemo(() => fleschScore(content), [content]);
   const readInfo = readabilityLabel(readability, t);
 
+  // Real-time fact-check on content changes
+  const liveFactCheck = useMemo(() => {
+    if (!content || content.length < 100) return null;
+    const patterns = [
+      /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/i,
+      /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/,
+      /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/i,
+      /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/i,
+      /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/,
+    ];
+    return patterns.some(p => p.test(content)) ? "warning" as const : "verified" as const;
+  }, [content]);
+
+  useEffect(() => {
+    if (liveFactCheck) setFactCheckStatus(liveFactCheck);
+  }, [liveFactCheck]);
+
   // Stream article generation
   const handleGenerate = useCallback(async () => {
     if (!selectedKeywordId) {
@@ -668,11 +691,11 @@ export default function ArticlesPage() {
 
       // Fact-check analysis: detect suspicious hallucination patterns
       const suspiciousPatterns = [
-        /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/gi,
-        /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/g,
-        /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/gi,
-        /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/gi,
-        /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/g,
+        /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/i,
+        /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/,
+        /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/i,
+        /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/i,
+        /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/,
       ];
       const hasHallucinations = suspiciousPatterns.some(p => p.test(fullContent));
       setFactCheckStatus(hasHallucinations ? "warning" : "verified");
