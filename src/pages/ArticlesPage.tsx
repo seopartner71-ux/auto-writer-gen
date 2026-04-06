@@ -1899,6 +1899,20 @@ export default function ArticlesPage() {
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
+                        {isAdmin && (
+                          <button
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary shrink-0"
+                            title="Передать пользователю"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTransferArticleId(a.id);
+                              setTransferEmail("");
+                              setTransferDialogOpen(true);
+                            }}
+                          >
+                            <UserPlus className="h-3 w-3" />
+                          </button>
+                        )}
                         </div>
                       ))}
                     </div>
