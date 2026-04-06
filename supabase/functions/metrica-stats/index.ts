@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
 
     const baseUrl = "https://api-metrika.yandex.net/stat/v1/data";
     const headers = { Authorization: `OAuth ${token}` };
+    console.log("Token length:", token.length, "Counter:", counterId);
 
     const today = new Date().toISOString().split("T")[0];
     const monthStart = today.slice(0, 8) + "01";
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews&date1=${monthStart}&date2=${today}`, { headers }),
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews&date1=${yearStart}&date2=${today}`, { headers }),
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits&dimensions=ym:s:trafficSource&date1=${monthStart}&date2=${today}&limit=10`, { headers }),
-      fetch(`${baseUrl}/bytime?ids=${counterId}&metrics=ym:s:visits,ym:s:users&date1=${date30ago}&date2=${today}&group=day`, { headers }),
+      fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:date&date1=${date30ago}&date2=${today}&sort=ym:s:date&limit=31`, { headers }),
     ]);
 
     const [todayData, monthData, yearData, sourcesData, dailyData] = await Promise.all([
@@ -70,6 +71,8 @@ Deno.serve(async (req) => {
       sourcesRes.json(),
       dailyRes.json(),
     ]);
+
+    console.log("Today totals:", JSON.stringify(todayData?.totals), "Status:", todayRes.status);
 
     const extractTotals = (d: any) => {
       const t = d?.totals || [];
@@ -86,17 +89,14 @@ Deno.serve(async (req) => {
       visits: Math.round(row.metrics?.[0] || 0),
     }));
 
-    // Parse daily bytime data
-    const visitsTimeline = dailyData?.data?.[0]?.metrics?.[0] || [];
-    const usersTimeline = dailyData?.data?.[0]?.metrics?.[1] || [];
-    const timeLabels = dailyData?.time_intervals || [];
-    const daily = timeLabels.map((interval: string[], i: number) => {
-      const dateStr = interval[0]?.split("T")[0] || "";
+    // Parse daily data (dimensions=ym:s:date)
+    const daily = (dailyData?.data || []).map((row: any) => {
+      const dateStr = row.dimensions?.[0]?.name || "";
       const parts = dateStr.split("-");
       return {
         date: parts.length === 3 ? `${parts[2]}.${parts[1]}` : dateStr,
-        visits: Math.round(visitsTimeline[i] || 0),
-        users: Math.round(usersTimeline[i] || 0),
+        visits: Math.round(row.metrics?.[0] || 0),
+        users: Math.round(row.metrics?.[1] || 0),
       };
     });
 
