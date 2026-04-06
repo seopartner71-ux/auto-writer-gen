@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -7,7 +7,8 @@ import { PLAN_LIMITS } from "@/shared/api/types";
 import {
   FileText, Search, BarChart3, Zap, TrendingUp, Hash, Trash2,
   CheckCircle2, AlertCircle, Clock, BookOpen, Send, Globe, Newspaper, PenTool,
-  Users, UserCheck, UserX, CreditCard, ListOrdered, RefreshCw, Loader2, Eye, MousePointerClick, ArrowUpDown
+  Users, UserCheck, UserX, CreditCard, ListOrdered, RefreshCw, Loader2,
+  Eye, MousePointerClick, ArrowUpDown, Target, Timer
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -96,54 +97,45 @@ function QueueMonitor() {
 }
 
 /* ──────────── Yandex Metrica Widget ──────────── */
+const PERIODS = [
+  { key: "today", label: "Сегодня" },
+  { key: "yesterday", label: "Вчера" },
+  { key: "week", label: "Неделя" },
+  { key: "month", label: "Месяц" },
+] as const;
+
+type MetricaPeriod = typeof PERIODS[number]["key"];
+
+interface MetricaData {
+  period: string;
+  date1: string;
+  date2: string;
+  summary: {
+    visits: number; users: number; pageviews: number;
+    bounceRate: number; avgDuration: number; pageDepth: number;
+  };
+  sources: { source: string; visits: number }[];
+  daily: { date: string; visits: number; users: number }[];
+  goals: { id: number; name: string; reaches: number; conversionRate: number }[];
+  goalsList: { id: number; name: string; type: string }[];
+  counterId: string;
+}
+
 function MetricaWidget() {
+  const [period, setPeriod] = useState<MetricaPeriod>("today");
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["metrica-stats"],
+    queryKey: ["metrica-stats", period],
     queryFn: async () => {
-      const { data: result, error } = await supabase.functions.invoke("metrica-stats");
+      const { data: result, error } = await supabase.functions.invoke("metrica-stats", {
+        body: { period },
+      });
       if (error) throw error;
       if (result?.error) throw new Error(result.error);
-      return result as {
-        today: { visits: number; users: number; pageviews: number; bounceRate: number };
-        month: { visits: number; users: number; pageviews: number };
-        year: { visits: number; users: number; pageviews: number };
-        sources: { source: string; visits: number }[];
-        daily: { date: string; visits: number; users: number }[];
-        counterId: string;
-      };
+      return result as MetricaData;
     },
     refetchInterval: 60000,
   });
-
-  if (isLoading) {
-    return (
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" /> Яндекс.Метрика
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" /> Яндекс.Метрика
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-destructive">{(error as any)?.message || "Ошибка загрузки"}</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   const sourceColors = [
     "hsl(var(--primary))",
@@ -156,56 +148,97 @@ function MetricaWidget() {
     "hsl(30 90% 55%)",
   ];
 
-  const sourceChartData = data.sources.map((s, i) => ({
+  const sourceChartData = (data?.sources || []).map((s, i) => ({
     name: s.source,
     value: s.visits,
     fill: sourceColors[i % sourceColors.length],
   }));
 
+  const formatDuration = (seconds: number) => {
+    if (seconds < 60) return `${seconds} сек`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
   return (
     <div className="space-y-4">
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-primary" /> Яндекс.Метрика
-            <Badge variant="outline" className="text-[10px] ml-auto font-mono">ID {data.counterId}</Badge>
-          </CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" /> Яндекс.Метрика
+              {data && <Badge variant="outline" className="text-[10px] font-mono">ID {data.counterId}</Badge>}
+            </CardTitle>
+            <div className="flex gap-1">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => setPeriod(p.key)}
+                  className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+                    period === p.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: "Сегодня", visits: data.today.visits, users: data.today.users, pageviews: data.today.pageviews },
-              { label: "За месяц", visits: data.month.visits, users: data.month.users, pageviews: data.month.pageviews },
-              { label: "За год", visits: data.year.visits, users: data.year.users, pageviews: data.year.pageviews },
-            ].map((period) => (
-              <div key={period.label} className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">{period.label}</p>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="h-3 w-3 text-primary" />
-                    <span className="text-lg font-bold">{period.visits.toLocaleString()}</span>
-                    <span className="text-[10px] text-muted-foreground">визитов</span>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : error || !data ? (
+            <p className="text-xs text-destructive py-4">{(error as any)?.message || "Ошибка загрузки"}</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                {[
+                  { label: "Визиты", value: data.summary.visits.toLocaleString(), icon: Eye, color: "text-primary" },
+                  { label: "Посетители", value: data.summary.users.toLocaleString(), icon: Users, color: "text-emerald-500" },
+                  { label: "Просмотры", value: data.summary.pageviews.toLocaleString(), icon: MousePointerClick, color: "text-yellow-500" },
+                  { label: "Отказы", value: `${data.summary.bounceRate}%`, icon: ArrowUpDown, color: "text-destructive" },
+                  { label: "Время", value: formatDuration(data.summary.avgDuration), icon: Timer, color: "text-accent" },
+                  { label: "Глубина", value: String(data.summary.pageDepth), icon: BookOpen, color: "text-primary" },
+                ].map((m) => (
+                  <div key={m.label} className="text-center">
+                    <m.icon className={`h-3.5 w-3.5 mx-auto mb-1 ${m.color}`} />
+                    <p className="text-lg font-bold">{m.value}</p>
+                    <p className="text-[10px] text-muted-foreground">{m.label}</p>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Users className="h-3 w-3 text-emerald-500" />
-                    <span className="text-sm font-semibold">{period.users.toLocaleString()}</span>
-                    <span className="text-[10px] text-muted-foreground">юзеров</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <MousePointerClick className="h-3 w-3 text-yellow-500" />
-                    <span className="text-sm font-semibold">{period.pageviews.toLocaleString()}</span>
-                    <span className="text-[10px] text-muted-foreground">просм.</span>
+                ))}
+              </div>
+
+              {data.goals.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-border">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Target className="h-3 w-3" /> Цели
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {data.goals.map((g) => (
+                      <div key={g.id} className="bg-muted/50 rounded-lg p-2.5">
+                        <p className="text-[11px] text-muted-foreground truncate">{g.name}</p>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-sm font-bold">{g.reaches}</span>
+                          <span className="text-[10px] text-muted-foreground">{g.conversionRate}%</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-          {data.today.bounceRate > 0 && (
-            <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
-              <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Отказы сегодня:</span>
-              <span className="text-xs font-semibold">{data.today.bounceRate}%</span>
-            </div>
+              )}
+              {data.goalsList.length === 0 && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <Target className="h-3 w-3" /> Цели не настроены в Метрике
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -214,7 +247,7 @@ function MetricaWidget() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Globe className="h-4 w-4 text-primary" /> Каналы трафика (месяц)
+              <Globe className="h-4 w-4 text-primary" /> Каналы трафика
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -240,12 +273,11 @@ function MetricaWidget() {
         </Card>
       )}
 
-      {/* Daily visits chart */}
-      {data.daily && data.daily.length > 0 && (
+      {data?.daily && data.daily.length > 1 && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" /> Посещаемость за 30 дней
+              <TrendingUp className="h-4 w-4 text-primary" /> Посещаемость по дням
             </CardTitle>
           </CardHeader>
           <CardContent>
