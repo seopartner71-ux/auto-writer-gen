@@ -393,6 +393,10 @@ export default function ArticlesPage() {
   const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
   const [includeExpertQuote, setIncludeExpertQuote] = useState(true);
   const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
+  const [seoKeywords, setSeoKeywords] = useState("");
+  const [enableGeo, setEnableGeo] = useState(false);
+  const [geoLocation, setGeoLocation] = useState("");
+  const [customInstructions, setCustomInstructions] = useState("");
   const [telegraphPath, setTelegraphPath] = useState("");
   const [telegraphUrl, setTelegraphUrl] = useState("");
   const [anchorLinks, setAnchorLinks] = useState<{ url: string; anchor: string }[]>([{ url: "", anchor: "" }]);
