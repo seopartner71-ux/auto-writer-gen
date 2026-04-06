@@ -165,24 +165,29 @@ function AdminDashboard() {
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Всего пользователей", value: stats.total, icon: Users, color: "text-primary" },
-          { label: "Активных", value: stats.active, icon: UserCheck, color: "text-emerald-500" },
-          { label: "Ожидают активации", value: stats.pending, icon: UserX, color: "text-yellow-500" },
-          { label: "Всего статей", value: stats.totalArticles, icon: FileText, color: "text-accent" },
-        ].map((s) => (
-          <Card key={s.label} className="bg-card border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{s.label}</CardTitle>
-              <s.icon className={`h-4 w-4 ${s.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{s.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Today's activity */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" /> Активность сегодня
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: "Новых юзеров", value: stats.regToday, color: "text-primary" },
+              { label: "Статей создано", value: stats.articlesToday, color: "text-emerald-500" },
+              { label: "Генераций", value: stats.gensToday, color: "text-yellow-500" },
+              { label: "Токенов", value: stats.tokensToday.toLocaleString(), color: "text-accent" },
+            ].map((m) => (
+              <div key={m.label} className="text-center">
+                <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{m.label}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card border-border">
