@@ -36,6 +36,7 @@ export default function AdminPage() {
           <TabsTrigger value="plans">Тарифы</TabsTrigger>
           <TabsTrigger value="polar">Polar</TabsTrigger>
           <TabsTrigger value="support">Поддержка</TabsTrigger>
+          <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
