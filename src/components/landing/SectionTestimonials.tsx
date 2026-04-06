@@ -43,7 +43,7 @@ const headingText = {
 
 interface CardProps {
   position: number;
-  item: { quote: string; author: string; role: string };
+  item: { quote: string; author: string; role: string; img: string };
   handleMove: (steps: number) => void;
   cardSize: number;
 }
