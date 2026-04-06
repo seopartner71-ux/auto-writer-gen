@@ -7,7 +7,7 @@ import { PLAN_LIMITS } from "@/shared/api/types";
 import {
   FileText, Search, BarChart3, Zap, TrendingUp, Hash, Trash2,
   CheckCircle2, AlertCircle, Clock, BookOpen, Send, Globe, Newspaper, PenTool,
-  Users, UserCheck, UserX, CreditCard
+  Users, UserCheck, UserX, CreditCard, ListOrdered, RefreshCw, Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
