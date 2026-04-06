@@ -7,7 +7,7 @@ import { PLAN_LIMITS } from "@/shared/api/types";
 import {
   FileText, Search, BarChart3, Zap, TrendingUp, Hash, Trash2,
   CheckCircle2, AlertCircle, Clock, BookOpen, Send, Globe, Newspaper, PenTool,
-  Users, UserCheck, UserX, CreditCard
+  Users, UserCheck, UserX, CreditCard, ListOrdered, RefreshCw, Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,75 @@ const STATUS_COLORS: Record<string, string> = {
   review: "hsl(var(--warning, 45 93% 47%))",
   published: "hsl(var(--primary))",
 };
+
+/* ──────────── Queue Monitor ──────────── */
+function QueueMonitor() {
+  const { data: queueStats, refetch, isLoading } = useQuery({
+    queryKey: ["admin-queue-stats"],
+    queryFn: async () => {
+      const { data: all } = await supabase.from("generation_queue").select("status");
+      const statuses = (all || []).reduce((acc: Record<string, number>, q: any) => {
+        acc[q.status] = (acc[q.status] || 0) + 1;
+        return acc;
+      }, {});
+      return {
+        queued: statuses["queued"] || 0,
+        processing: statuses["processing"] || 0,
+        completed: statuses["completed"] || 0,
+        failed: statuses["failed"] || 0,
+        retry: statuses["retry"] || 0,
+        total: (all || []).length,
+      };
+    },
+    refetchInterval: 5000,
+  });
+
+  const handleTrigger = async () => {
+    try {
+      await supabase.functions.invoke("process-queue", { body: {} });
+      refetch();
+    } catch { /* silent */ }
+  };
+
+  const s = queueStats || { queued: 0, processing: 0, completed: 0, failed: 0, retry: 0, total: 0 };
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ListOrdered className="h-4 w-4 text-primary" /> Очередь генерации
+        </CardTitle>
+        <button onClick={handleTrigger} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} /> Обработать
+        </button>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          {[
+            { label: "В очереди", value: s.queued, color: "text-yellow-500" },
+            { label: "В работе", value: s.processing, color: "text-primary" },
+            { label: "Повтор", value: s.retry, color: "text-orange-500" },
+            { label: "Готово", value: s.completed, color: "text-emerald-500" },
+            { label: "Ошибки", value: s.failed, color: "text-destructive" },
+          ].map((m) => (
+            <div key={m.label} className="text-center">
+              <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{m.label}</p>
+            </div>
+          ))}
+        </div>
+        {s.total > 0 && (
+          <div className="mt-3">
+            <Progress value={((s.completed / s.total) * 100)} className="h-1.5" />
+            <p className="text-[10px] text-muted-foreground mt-1 text-center">
+              {s.completed} из {s.total} завершено ({s.processing} обрабатывается)
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 /* ──────────── Admin Dashboard ──────────── */
 function AdminDashboard() {
@@ -281,6 +350,9 @@ function AdminDashboard() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* Queue Monitor */}
+      <QueueMonitor />
 
       {/* Bottom: top users + recent registrations */}
       <div className="grid gap-4 md:grid-cols-2">
