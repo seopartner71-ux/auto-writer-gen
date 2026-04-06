@@ -4,6 +4,19 @@ import { ChevronLeft, ChevronRight, Flame, Quote } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
+import avatar01 from "@/assets/avatars/avatar-01.jpg";
+import avatar02 from "@/assets/avatars/avatar-02.jpg";
+import avatar03 from "@/assets/avatars/avatar-03.jpg";
+import avatar04 from "@/assets/avatars/avatar-04.jpg";
+import avatar05 from "@/assets/avatars/avatar-05.jpg";
+import avatar06 from "@/assets/avatars/avatar-06.jpg";
+import avatar07 from "@/assets/avatars/avatar-07.jpg";
+import avatar08 from "@/assets/avatars/avatar-08.jpg";
+import avatar09 from "@/assets/avatars/avatar-09.jpg";
+import avatar10 from "@/assets/avatars/avatar-10.jpg";
+import avatar11 from "@/assets/avatars/avatar-11.jpg";
+import avatar12 from "@/assets/avatars/avatar-12.jpg";
+
 const testimonials = {
   ru: [
     { quote: "Спросите ChatGPT о бассейнах — он даст урок химии. Спросите СЕО-Модуль — он расскажет про тарифы на свет в Аризоне. В этом разница.", author: "Алексей М.", role: "SEO-директор, агентство", img: "https://i.pravatar.cc/150?img=11" },
