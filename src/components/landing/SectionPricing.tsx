@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Check, X, Star, Zap, Crown, Sparkles, Radar } from "lucide-react";
+import { Check, X, Star, Zap, Crown, Sparkles, Shield, Atom } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,13 +26,21 @@ export function SectionPricing() {
   });
 
   const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
-  const fmtPrice = (id: string, fallbackUsd: number, fallbackRub: string) => {
+
+  const fmtPrice = (id: string, fallbackUsd: number, fallbackRub: number) => {
     const db = getDbPlan(id);
-    const base = isEn ? (db?.price_usd ?? fallbackUsd) : (db?.price_rub ?? parseInt(fallbackRub.replace(/\D/g, "")));
+    const base = isEn ? (db?.price_usd ?? fallbackUsd) : (db?.price_rub ?? fallbackRub);
     const val = yearly ? Math.round(base * 0.8) : base;
     return isEn ? `$${val}` : `${val.toLocaleString("ru-RU")} ₽`;
   };
+
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
+  const fmtName = (id: string, fallback: string) => getDbPlan(id)?.name ?? fallback;
+
+  const fmtDesc = (id: string, fallbackRu: string, fallbackEn: string) => {
+    const db = getDbPlan(id);
+    return (isEn ? db?.description_en : db?.description_ru) || (isEn ? fallbackEn : fallbackRu);
+  };
 
   const getFeatures = (id: string, fallback: Array<{ text: string; included: boolean }>) => {
     const db = getDbPlan(id);
@@ -41,58 +49,84 @@ export function SectionPricing() {
     return fallback;
   };
 
+  const pluralArticles = (n: number) => {
+    if (isEn) return `${n} articles / mo`;
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return `${n} статья / мес`;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} статьи / мес`;
+    return `${n} статей / мес`;
+  };
+
   const plans = [
     {
-      id: "free", name: isEn ? "Start" : "Старт", icon: Sparkles,
-      price: isEn ? "$2.99" : "230 ₽", period: isEn ? "/ article" : "/ статья",
-      credits: 1, popular: false,
+      id: "free",
+      name: fmtName("free", "NANO"),
+      icon: Atom,
+      price: fmtPrice("free", 15, 990),
+      period: t("pricing.perMonth"),
+      credits: fmtCredits("free", 5),
+      description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
+      popular: false,
+      showShield: false,
       features: getFeatures("free", [
-        { text: t("pricing.f.gens5"), included: true },
-        { text: t("pricing.f.basicResearch"), included: true },
-        { text: t("pricing.f.1profile"), included: true },
-        { text: t("pricing.f.htmlExport"), included: true },
-        { text: t("pricing.f.basicSeo"), included: true },
-        { text: t("pricing.f.modelsFlashLite"), included: true },
-        { text: t("pricing.f.uniquenessCheck"), included: false },
-        { text: t("pricing.f.jsonLd"), included: false },
-        { text: "Factory", included: false },
-        { text: "AI Radar & GEO", included: false },
+        { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
+        { text: isEn ? "Deep SERP & LSI Analysis" : "Глубокий SERP & LSI Анализ", included: true },
+        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
+        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
+        { text: isEn ? "1 author profile" : "1 профиль автора", included: true },
+        { text: isEn ? "HTML export" : "Экспорт в HTML", included: true },
+        { text: isEn ? "Bulk generation & WP Auto-Publish" : "Массовая генерация & WP Auto-Publish", included: false },
+        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: false },
       ]),
       cta: t("lp.priceStart"),
     },
     {
-      id: "basic", name: "PRO", icon: Zap,
-      price: fmtPrice("basic", 59, "4900"), period: `/ ${t("lp.priceMonth")}`,
-      credits: fmtCredits("basic", 30), popular: true, exclusive: "AI Radar & GEO",
+      id: "basic",
+      name: fmtName("basic", "PRO"),
+      icon: Zap,
+      price: fmtPrice("basic", 65, 5900),
+      period: t("pricing.perMonth"),
+      credits: fmtCredits("basic", 40),
+      description: fmtDesc("basic", "Идеальный баланс для SEO-профи", "Perfect balance for SEO pros"),
+      popular: true,
+      showShield: true,
       features: getFeatures("basic", [
-        { text: t("pricing.f.gens30"), included: true },
-        { text: t("pricing.f.fullSerp"), included: true },
-        { text: t("pricing.f.5profiles"), included: true },
-        { text: t("pricing.f.htmlMdExport"), included: true },
-        { text: t("pricing.f.advancedSeo"), included: true },
-        { text: t("pricing.f.modelsFlashNano"), included: true },
-        { text: t("pricing.f.uniquenessCheck"), included: true },
-        { text: t("pricing.f.jsonLd"), included: true },
-        { text: t("pricing.f.calendarPlanner"), included: false },
-        { text: t("pricing.f.miralinks"), included: false },
+        { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
+        { text: isEn ? "Deep SERP & LSI Analysis" : "Глубокий SERP & LSI Анализ", included: true },
+        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
+        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
+        { text: isEn ? "5 author profiles" : "5 профилей авторов", included: true },
+        { text: isEn ? "HTML + Markdown export" : "Экспорт в HTML + Markdown", included: true },
+        { text: isEn ? "Uniqueness check + Anti-AI" : "Проверка уникальности + Anti-AI", included: true },
+        { text: isEn ? "JSON-LD schema markup" : "JSON-LD микроразметка", included: true },
+        { text: isEn ? "WordPress integration" : "WordPress интеграция", included: true },
+        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: false },
       ]),
       cta: t("lp.priceUpgrade"),
     },
     {
-      id: "pro", name: "Enterprise", icon: Crown,
-      price: fmtPrice("pro", 169, "12400"), period: `/ ${t("lp.priceMonth")}`,
-      credits: fmtCredits("pro", 100), popular: false,
+      id: "pro",
+      name: fmtName("pro", "FACTORY"),
+      icon: Crown,
+      price: fmtPrice("pro", 220, 19900),
+      period: t("pricing.perMonth"),
+      credits: fmtCredits("pro", 150),
+      description: fmtDesc("pro", "Контентный завод для агентств", "Content factory for agencies"),
+      popular: false,
+      showShield: true,
       features: getFeatures("pro", [
-        { text: t("pricing.f.gens100"), included: true },
-        { text: t("pricing.f.fullSerpComp"), included: true },
-        { text: t("pricing.f.unlimitedProfiles"), included: true },
-        { text: t("pricing.f.allExports"), included: true },
-        { text: t("pricing.f.fullSeo"), included: true },
-        { text: t("pricing.f.allModels"), included: true },
-        { text: t("pricing.f.bulkGen"), included: true },
-        { text: t("pricing.f.uniquenessAntiAi"), included: true },
-        { text: t("pricing.f.miralinks"), included: true },
-        { text: t("pricing.f.gogetlinks"), included: true },
+        { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
+        { text: isEn ? "Deep SERP & LSI + competitor analysis" : "Глубокий SERP & LSI + конкурентный анализ", included: true },
+        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
+        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
+        { text: isEn ? "Unlimited author profiles" : "Безлимитные профили авторов", included: true },
+        { text: isEn ? "All export formats" : "Все форматы экспорта", included: true },
+        { text: isEn ? "Bulk generation & WP Auto-Publish" : "Массовая генерация & WP Auto-Publish", included: true },
+        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: true },
+        { text: isEn ? "Miralinks + GoGetLinks" : "Miralinks + GoGetLinks", included: true },
+        { text: isEn ? "All AI models (Gemini Pro + GPT-5)" : "Все AI модели (Gemini Pro + GPT-5)", included: true },
+        { text: isEn ? "Priority support 24/7" : "Приоритетная поддержка 24/7", included: true },
       ]),
       cta: t("lp.priceContact"),
     },
@@ -133,7 +167,7 @@ export function SectionPricing() {
           {plans.map((plan, i) => {
             const Icon = plan.icon;
             return (
-              <motion.div key={i} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+              <motion.div key={plan.id} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
                 className={`relative rounded-3xl border-t border-l border-r border-b p-7 backdrop-blur-2xl transition-all hover:scale-[1.02] duration-300 ${
                   plan.popular
                     ? "border-t-primary/40 border-l-primary/20 border-r-primary/10 border-b-primary/[0.05] bg-primary/[0.04]"
@@ -161,18 +195,28 @@ export function SectionPricing() {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${plan.popular ? "bg-primary/10" : "bg-white/[0.04]"}`}>
                       <Icon className={`h-5 w-5 ${plan.popular ? "text-primary" : "text-muted-foreground"}`} />
                     </div>
-                    <h3 className="text-xl font-bold" style={{ letterSpacing: "-0.04em" }}>{plan.name}</h3>
+                    <div>
+                      <h3 className="text-xl font-bold" style={{ letterSpacing: "-0.04em" }}>{plan.name}</h3>
+                      <p className="text-[11px] text-muted-foreground">{plan.description}</p>
+                    </div>
                   </div>
 
                   <div className="flex items-baseline gap-1 mb-1">
                     <span className="text-4xl font-black" style={{ letterSpacing: "-0.06em" }}>{plan.price}</span>
                     <span className="text-muted-foreground text-sm font-tech">{plan.period}</span>
                   </div>
-                  <div className="mb-6">
+                  <div className="mb-4">
                     <span className="text-xs font-tech text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                      {plan.credits} {t("pricing.articlesPerMonth") || (isEn ? "articles / mo" : "статей / мес")}
+                      {pluralArticles(plan.credits)}
                     </span>
                   </div>
+
+                  {plan.showShield && (
+                    <div className="mb-5 flex items-center gap-1.5">
+                      <Shield className="h-4 w-4 text-emerald-500" />
+                      <span className="text-xs font-semibold text-emerald-500">98% Human Score</span>
+                    </div>
+                  )}
 
                   <ul className="space-y-2.5 mb-8">
                     {plan.features.map((f, fi) => (
@@ -181,13 +225,6 @@ export function SectionPricing() {
                         <span className={f.included ? "text-foreground/80" : "text-muted-foreground/40"}>{f.text}</span>
                       </li>
                     ))}
-                    {plan.exclusive && (
-                      <li className="flex items-start gap-2.5 text-[13px]">
-                        <Radar className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                        <span className="text-primary font-semibold">{plan.exclusive}</span>
-                        <span className="text-[9px] font-tech bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">{t("lp.priceExcl")}</span>
-                      </li>
-                    )}
                   </ul>
 
                   <button onClick={() => navigate("/register")}
