@@ -688,6 +688,30 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_pages: {
+        Row: {
+          content: string
+          id: string
+          slug: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string
+          id?: string
+          slug: string
+          title?: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          id?: string
+          slug?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
