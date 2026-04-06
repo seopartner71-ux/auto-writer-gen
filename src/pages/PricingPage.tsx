@@ -97,6 +97,13 @@ export default function PricingPage() {
     return (isEn ? db?.description_en : db?.description_ru) || (isEn ? fallbackEn : fallbackRu);
   };
 
+  const getFeatures = (id: string, fallback: Array<{ text: string; included: boolean }>) => {
+    const db = getDbPlan(id);
+    const dbF = db?.features as Array<{ text_ru: string; text_en: string; included: boolean }> | null;
+    if (dbF?.length) return dbF.map(f => ({ text: isEn ? f.text_en : f.text_ru, included: f.included }));
+    return fallback;
+  };
+
   const pluralArticles = (n: number) => {
     if (isEn) return `${n} articles / mo`;
     const mod10 = n % 10;
@@ -118,18 +125,11 @@ export default function PricingPage() {
       credits: fmtCredits("free", 5),
       polarProductId: null as string | null,
       showShield: false,
-      features: [
+      features: getFeatures("free", [
         { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
-        { text: isEn ? "Deep SERP & LSI Analysis" : "Глубокий SERP & LSI Анализ", included: true },
-        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
-        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
-        { text: isEn ? "Flesch Readability 50+" : "Индекс читаемости 50+ (Flesch Ease)", included: true },
         { text: isEn ? "1 author profile" : "1 профиль автора", included: true },
         { text: isEn ? "HTML export" : "Экспорт в HTML", included: true },
-        { text: isEn ? "Bulk generation & WP Auto-Publish" : "Массовая генерация & WP Auto-Publish", included: false },
-        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: false },
-        { text: isEn ? "Priority support" : "Приоритетная поддержка", included: false },
-      ],
+      ]),
     },
     {
       id: "basic" as const,
@@ -142,20 +142,11 @@ export default function PricingPage() {
       credits: fmtCredits("basic", 40),
       polarProductId: basicProductId,
       showShield: true,
-      features: [
+      features: getFeatures("basic", [
         { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
-        { text: isEn ? "Deep SERP & LSI Analysis" : "Глубокий SERP & LSI Анализ", included: true },
-        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
-        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
-        { text: isEn ? "Flesch Readability 50+" : "Индекс читаемости 50+ (Flesch Ease)", included: true },
         { text: isEn ? "5 author profiles" : "5 профилей авторов", included: true },
-        { text: isEn ? "HTML + Markdown export" : "Экспорт в HTML + Markdown", included: true },
-        { text: isEn ? "Uniqueness check + Anti-AI" : "Проверка уникальности + Anti-AI", included: true },
-        { text: isEn ? "JSON-LD schema markup" : "JSON-LD микроразметка", included: true },
-        { text: isEn ? "WordPress integration" : "WordPress интеграция", included: true },
-        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: false },
-        { text: isEn ? "Bulk generation & WP Auto-Publish" : "Массовая генерация & WP Auto-Publish", included: false },
-      ],
+        { text: isEn ? "Uniqueness check" : "Проверка уникальности", included: true },
+      ]),
     },
     {
       id: "pro" as const,
@@ -168,20 +159,11 @@ export default function PricingPage() {
       credits: fmtCredits("pro", 150),
       polarProductId: proProductId,
       showShield: true,
-      features: [
+      features: getFeatures("pro", [
         { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
-        { text: isEn ? "Deep SERP & LSI + competitor analysis" : "Глубокий SERP & LSI + конкурентный анализ", included: true },
-        { text: isEn ? "Stealth Engine (1.57% AI Detection)" : "Stealth Engine (1.57% AI Detection)", included: true },
-        { text: isEn ? "Fact-Check Guard" : "Fact-Check Guard (Защита от галлюцинаций)", included: true },
-        { text: isEn ? "Flesch Readability 50+" : "Индекс читаемости 50+ (Flesch Ease)", included: true },
-        { text: isEn ? "Unlimited author profiles" : "Безлимитные профили авторов", included: true },
-        { text: isEn ? "All export formats" : "Все форматы экспорта", included: true },
-        { text: isEn ? "Bulk generation & WP Auto-Publish" : "Массовая генерация & WP Auto-Publish", included: true },
-        { text: isEn ? "Calendar planner" : "Планировщик календаря", included: true },
-        { text: isEn ? "Miralinks + GoGetLinks" : "Miralinks + GoGetLinks", included: true },
-        { text: isEn ? "All AI models (Gemini Pro + GPT-5)" : "Все AI модели (Gemini Pro + GPT-5)", included: true },
-        { text: isEn ? "Priority support 24/7" : "Приоритетная поддержка 24/7", included: true },
-      ],
+        { text: isEn ? "All AI models" : "Все модели AI", included: true },
+        { text: isEn ? "Bulk generation" : "Массовая генерация", included: true },
+      ]),
     },
   ];
 
