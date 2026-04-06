@@ -4,34 +4,47 @@ import { ChevronLeft, ChevronRight, Flame, Quote } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
+import avatar01 from "@/assets/avatars/avatar-01.jpg";
+import avatar02 from "@/assets/avatars/avatar-02.jpg";
+import avatar03 from "@/assets/avatars/avatar-03.jpg";
+import avatar04 from "@/assets/avatars/avatar-04.jpg";
+import avatar05 from "@/assets/avatars/avatar-05.jpg";
+import avatar06 from "@/assets/avatars/avatar-06.jpg";
+import avatar07 from "@/assets/avatars/avatar-07.jpg";
+import avatar08 from "@/assets/avatars/avatar-08.jpg";
+import avatar09 from "@/assets/avatars/avatar-09.jpg";
+import avatar10 from "@/assets/avatars/avatar-10.jpg";
+import avatar11 from "@/assets/avatars/avatar-11.jpg";
+import avatar12 from "@/assets/avatars/avatar-12.jpg";
+
 const testimonials = {
   ru: [
-    { quote: "Спросите ChatGPT о бассейнах — он даст урок химии. Спросите СЕО-Модуль — он расскажет про тарифы на свет в Аризоне. В этом разница.", author: "Алексей М.", role: "SEO-директор, агентство", img: "https://i.pravatar.cc/150?img=11" },
-    { quote: "За первый месяц мы вывели 47 статей в топ-10. Factory + Persona Engine дал масштаб без потери качества.", author: "Мария К.", role: "Контент-маркетолог", img: "https://i.pravatar.cc/150?img=5" },
-    { quote: "GEO Radar показал, что Perplexity цитирует наши статьи как первоисточник. Мы обучаем нейросети рекомендовать наш бренд.", author: "Дмитрий В.", role: "Founder, SaaS-стартап", img: "https://i.pravatar.cc/150?img=12" },
-    { quote: "Stealth Engine — это магия. 1.57% AI detection на выходе. Ни один детектор не может отличить от человеческого текста.", author: "Ирина С.", role: "Копирайтер, фриланс", img: "https://i.pravatar.cc/150?img=9" },
-    { quote: "Раньше одна статья занимала 4 часа. Сейчас — 15 минут. И качество выше, чем у штатных авторов.", author: "Олег Н.", role: "Руководитель контент-отдела", img: "https://i.pravatar.cc/150?img=14" },
-    { quote: "Smart Research — это как иметь аналитика, который за минуту разбирает весь ТОП-10 и выдаёт стратегию.", author: "Анна Т.", role: "SEO-специалист", img: "https://i.pravatar.cc/150?img=16" },
-    { quote: "Мы подключили WordPress Auto-Publish и забыли о рутине. Контент выходит по расписанию без нашего участия.", author: "Павел Д.", role: "Владелец интернет-магазина", img: "https://i.pravatar.cc/150?img=53" },
-    { quote: "Persona Engine идеально скопировал мой стиль. Клиенты не отличают мои тексты от сгенерированных.", author: "Елена Р.", role: "Блогер, автор", img: "https://i.pravatar.cc/150?img=23" },
-    { quote: "100 статей за неделю через Factory. Раньше это заняло бы 3 месяца у команды из 5 человек.", author: "Сергей Л.", role: "CEO, контент-агентство", img: "https://i.pravatar.cc/150?img=33" },
-    { quote: "Лучший инструмент для GEO-оптимизации. Мы первые в AI-ответах по нашей нише.", author: "Наталья Ф.", role: "Digital-маркетолог", img: "https://i.pravatar.cc/150?img=44" },
-    { quote: "1 кредит = 1 статья экспертного уровня. Никаких скрытых лимитов на токены. Честная модель.", author: "Виктор К.", role: "Предприниматель", img: "https://i.pravatar.cc/150?img=51" },
-    { quote: "Поддержка отвечает моментально. Ощущение, что работаешь с командой, а не с сервисом.", author: "Юлия Б.", role: "Менеджер проектов", img: "https://i.pravatar.cc/150?img=32" },
+    { quote: "Спросите ChatGPT о бассейнах — он даст урок химии. Спросите СЕО-Модуль — он расскажет про тарифы на свет в Аризоне. В этом разница.", author: "Алексей М.", role: "SEO-директор, агентство", img: avatar01 },
+    { quote: "За первый месяц мы вывели 47 статей в топ-10. Factory + Persona Engine дал масштаб без потери качества.", author: "Мария К.", role: "Контент-маркетолог", img: avatar02 },
+    { quote: "GEO Radar показал, что Perplexity цитирует наши статьи как первоисточник. Мы обучаем нейросети рекомендовать наш бренд.", author: "Дмитрий В.", role: "Founder, SaaS-стартап", img: avatar03 },
+    { quote: "Stealth Engine — это магия. 1.57% AI detection на выходе. Ни один детектор не может отличить от человеческого текста.", author: "Ирина С.", role: "Копирайтер, фриланс", img: avatar04 },
+    { quote: "Раньше одна статья занимала 4 часа. Сейчас — 15 минут. И качество выше, чем у штатных авторов.", author: "Олег Н.", role: "Руководитель контент-отдела", img: avatar05 },
+    { quote: "Smart Research — это как иметь аналитика, который за минуту разбирает весь ТОП-10 и выдаёт стратегию.", author: "Анна Т.", role: "SEO-специалист", img: avatar06 },
+    { quote: "Мы подключили WordPress Auto-Publish и забыли о рутине. Контент выходит по расписанию без нашего участия.", author: "Павел Д.", role: "Владелец интернет-магазина", img: avatar07 },
+    { quote: "Persona Engine идеально скопировал мой стиль. Клиенты не отличают мои тексты от сгенерированных.", author: "Елена Р.", role: "Блогер, автор", img: avatar08 },
+    { quote: "100 статей за неделю через Factory. Раньше это заняло бы 3 месяца у команды из 5 человек.", author: "Сергей Л.", role: "CEO, контент-агентство", img: avatar09 },
+    { quote: "Лучший инструмент для GEO-оптимизации. Мы первые в AI-ответах по нашей нише.", author: "Наталья Ф.", role: "Digital-маркетолог", img: avatar10 },
+    { quote: "1 кредит = 1 статья экспертного уровня. Никаких скрытых лимитов на токены. Честная модель.", author: "Виктор К.", role: "Предприниматель", img: avatar11 },
+    { quote: "Поддержка отвечает моментально. Ощущение, что работаешь с командой, а не с сервисом.", author: "Юлия Б.", role: "Менеджер проектов", img: avatar12 },
   ],
   en: [
-    { quote: "Ask ChatGPT about pools — you get a chemistry lesson. Ask СЕО-Модуль — it tells you about electricity rates in Arizona. That's the difference.", author: "Alex M.", role: "SEO Director, Agency", img: "https://i.pravatar.cc/150?img=11" },
-    { quote: "In the first month we pushed 47 articles into the top 10. Factory + Persona Engine gave us scale without losing quality.", author: "Maria K.", role: "Content Marketer", img: "https://i.pravatar.cc/150?img=5" },
-    { quote: "GEO Radar showed that Perplexity already cites our articles as a primary source. We're training neural networks to recommend our brand.", author: "Dmitry V.", role: "Founder, SaaS Startup", img: "https://i.pravatar.cc/150?img=12" },
-    { quote: "Stealth Engine is magic. 1.57% AI detection on output. No detector can tell it apart from human text.", author: "Irina S.", role: "Freelance Copywriter", img: "https://i.pravatar.cc/150?img=9" },
-    { quote: "One article used to take 4 hours. Now — 15 minutes. And the quality is higher than our in-house writers.", author: "Oleg N.", role: "Content Team Lead", img: "https://i.pravatar.cc/150?img=14" },
-    { quote: "Smart Research is like having an analyst who breaks down the entire Top 10 in a minute and delivers a strategy.", author: "Anna T.", role: "SEO Specialist", img: "https://i.pravatar.cc/150?img=16" },
-    { quote: "We connected WordPress Auto-Publish and forgot about routine. Content goes live on schedule without us.", author: "Pavel D.", role: "E-commerce Owner", img: "https://i.pravatar.cc/150?img=53" },
-    { quote: "Persona Engine perfectly copied my style. Clients can't tell my texts from generated ones.", author: "Elena R.", role: "Blogger, Author", img: "https://i.pravatar.cc/150?img=23" },
-    { quote: "100 articles in a week via Factory. Previously that would've taken 3 months with a team of 5.", author: "Sergey L.", role: "CEO, Content Agency", img: "https://i.pravatar.cc/150?img=33" },
-    { quote: "Best tool for GEO optimization. We're first in AI answers for our niche.", author: "Natalia F.", role: "Digital Marketer", img: "https://i.pravatar.cc/150?img=44" },
-    { quote: "1 credit = 1 expert-level article. No hidden token limits. Honest pricing model.", author: "Victor K.", role: "Entrepreneur", img: "https://i.pravatar.cc/150?img=51" },
-    { quote: "Support responds instantly. Feels like working with a team, not a service.", author: "Julia B.", role: "Project Manager", img: "https://i.pravatar.cc/150?img=32" },
+    { quote: "Ask ChatGPT about pools — you get a chemistry lesson. Ask СЕО-Модуль — it tells you about electricity rates in Arizona. That's the difference.", author: "Alex M.", role: "SEO Director, Agency", img: avatar01 },
+    { quote: "In the first month we pushed 47 articles into the top 10. Factory + Persona Engine gave us scale without losing quality.", author: "Maria K.", role: "Content Marketer", img: avatar02 },
+    { quote: "GEO Radar showed that Perplexity already cites our articles as a primary source. We're training neural networks to recommend our brand.", author: "Dmitry V.", role: "Founder, SaaS Startup", img: avatar03 },
+    { quote: "Stealth Engine is magic. 1.57% AI detection on output. No detector can tell it apart from human text.", author: "Irina S.", role: "Freelance Copywriter", img: avatar04 },
+    { quote: "One article used to take 4 hours. Now — 15 minutes. And the quality is higher than our in-house writers.", author: "Oleg N.", role: "Content Team Lead", img: avatar05 },
+    { quote: "Smart Research is like having an analyst who breaks down the entire Top 10 in a minute and delivers a strategy.", author: "Anna T.", role: "SEO Specialist", img: avatar06 },
+    { quote: "We connected WordPress Auto-Publish and forgot about routine. Content goes live on schedule without us.", author: "Pavel D.", role: "E-commerce Owner", img: avatar07 },
+    { quote: "Persona Engine perfectly copied my style. Clients can't tell my texts from generated ones.", author: "Elena R.", role: "Blogger, Author", img: avatar08 },
+    { quote: "100 articles in a week via Factory. Previously that would've taken 3 months with a team of 5.", author: "Sergey L.", role: "CEO, Content Agency", img: avatar09 },
+    { quote: "Best tool for GEO optimization. We're first in AI answers for our niche.", author: "Natalia F.", role: "Digital Marketer", img: avatar10 },
+    { quote: "1 credit = 1 expert-level article. No hidden token limits. Honest pricing model.", author: "Victor K.", role: "Entrepreneur", img: avatar11 },
+    { quote: "Support responds instantly. Feels like working with a team, not a service.", author: "Julia B.", role: "Project Manager", img: avatar12 },
   ],
 };
 
