@@ -1043,7 +1043,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.footerProduct": { ru: "Продукт", en: "Product" },
   "lp.footerSolutions": { ru: "Решения", en: "Solutions" },
   "lp.footerStatus": { ru: "Все системы работают", en: "All systems operational" },
-  "lp.footerLegal": { ru: "Программное обеспечение предоставляется «как есть». Результаты могут отличаться в зависимости от ниши и конфигурации.", en: "Software is provided \"as is\". Results may vary depending on niche and configuration." },
+  "lp.footerLegal": { ru: "Программное обеспечение предоставляется «как есть». Результаты зависят от ниши и конфигурации.", en: "Software is provided \"as is\". Results may vary depending on niche and configuration." },
 
   // Factory articles (localized)
   "lp.factArt1": { ru: "Гайд по бассейнам", en: "Pool Service Guide" },
