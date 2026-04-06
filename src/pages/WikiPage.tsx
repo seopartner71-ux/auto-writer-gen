@@ -71,17 +71,118 @@ export default function WikiPage() {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
-  function renderContent(content: string) {
-    return content.split("\n").map((line, i) => {
-      if (line.startsWith("### ")) return <h3 key={i} className="text-lg font-semibold mt-6 mb-2 text-foreground">{line.slice(4)}</h3>;
-      if (line.startsWith("## ")) return <h2 key={i} className="text-xl font-bold mt-8 mb-3 text-foreground">{line.slice(3)}</h2>;
-      if (line.startsWith("# ")) return <h1 key={i} className="text-2xl font-bold mt-8 mb-4 text-foreground">{line.slice(2)}</h1>;
-      if (line.startsWith("- ")) return <li key={i} className="ml-4 text-sm text-muted-foreground list-disc">{line.slice(2)}</li>;
-      if (line.startsWith("> ")) return <blockquote key={i} className="border-l-4 border-primary/30 pl-4 my-3 text-sm text-muted-foreground italic">{line.slice(2)}</blockquote>;
-      if (line.trim() === "") return <br key={i} />;
-      const parts = line.split(/(\*\*[^*]+\*\*)/g);
-      return <p key={i} className="text-sm text-muted-foreground leading-relaxed mb-1">{parts.map((part, j) => part.startsWith("**") && part.endsWith("**") ? <strong key={j} className="text-foreground font-medium">{part.slice(2, -2)}</strong> : part)}</p>;
+  function renderInline(text: string) {
+    // Handle bold, inline code, links, and images
+    const parts = text.split(/(!\[[^\]]*\]\([^)]+\)|\[[^\]]*\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`)/g);
+    return parts.map((part, j) => {
+      if (part.startsWith("![")) {
+        const match = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        if (match) return <img key={j} src={match[2]} alt={match[1]} className="rounded-lg max-w-full my-4 border border-border shadow-sm" />;
+      }
+      if (part.startsWith("[")) {
+        const match = part.match(/^\[([^\]]*)\]\(([^)]+)\)$/);
+        if (match) return <a key={j} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{match[1]}</a>;
+      }
+      if (part.startsWith("**") && part.endsWith("**")) return <strong key={j} className="text-foreground font-semibold">{part.slice(2, -2)}</strong>;
+      if (part.startsWith("`") && part.endsWith("`")) return <code key={j} className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono text-foreground">{part.slice(1, -1)}</code>;
+      return part;
     });
+  }
+
+  function renderContent(content: string) {
+    const lines = content.split("\n");
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+    let listBuffer: React.ReactNode[] = [];
+    let numberedBuffer: React.ReactNode[] = [];
+
+    const flushList = () => {
+      if (listBuffer.length > 0) {
+        elements.push(<ul key={`ul-${i}`} className="space-y-1.5 my-3 ml-1">{listBuffer}</ul>);
+        listBuffer = [];
+      }
+    };
+    const flushNumbered = () => {
+      if (numberedBuffer.length > 0) {
+        elements.push(<ol key={`ol-${i}`} className="space-y-1.5 my-3 ml-1 list-decimal list-inside">{numberedBuffer}</ol>);
+        numberedBuffer = [];
+      }
+    };
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // Numbered list item
+      const numMatch = line.match(/^(\d+)\.\s+(.+)/);
+      if (numMatch) {
+        flushList();
+        numberedBuffer.push(
+          <li key={i} className="text-sm text-muted-foreground leading-relaxed pl-1">
+            {renderInline(numMatch[2])}
+          </li>
+        );
+        i++;
+        continue;
+      } else {
+        flushNumbered();
+      }
+
+      // Unordered list
+      if (line.startsWith("- ") || line.startsWith("* ")) {
+        flushNumbered();
+        listBuffer.push(
+          <li key={i} className="flex gap-2 text-sm text-muted-foreground leading-relaxed">
+            <span className="text-primary mt-1.5 shrink-0">•</span>
+            <span>{renderInline(line.slice(2))}</span>
+          </li>
+        );
+        i++;
+        continue;
+      } else {
+        flushList();
+      }
+
+      // Headings
+      if (line.startsWith("### ")) {
+        elements.push(<h3 key={i} className="text-base font-semibold mt-6 mb-2 text-foreground border-b border-border/50 pb-1">{line.slice(4)}</h3>);
+      } else if (line.startsWith("## ")) {
+        elements.push(<h2 key={i} className="text-lg font-bold mt-8 mb-3 text-foreground border-b border-border pb-2">{line.slice(3)}</h2>);
+      } else if (line.startsWith("# ")) {
+        elements.push(<h1 key={i} className="text-xl font-bold mt-6 mb-4 text-foreground">{line.slice(2)}</h1>);
+      }
+      // Blockquote
+      else if (line.startsWith("> ")) {
+        elements.push(
+          <blockquote key={i} className="border-l-4 border-primary/40 bg-primary/5 rounded-r-lg pl-4 pr-3 py-2.5 my-4 text-sm text-muted-foreground italic">
+            {renderInline(line.slice(2))}
+          </blockquote>
+        );
+      }
+      // Image-only line
+      else if (line.trim().startsWith("![")) {
+        elements.push(<div key={i}>{renderInline(line.trim())}</div>);
+      }
+      // Horizontal rule
+      else if (line.trim() === "---" || line.trim() === "***") {
+        elements.push(<hr key={i} className="my-6 border-border" />);
+      }
+      // Empty line → spacer
+      else if (line.trim() === "") {
+        elements.push(<div key={i} className="h-2" />);
+      }
+      // Regular paragraph
+      else {
+        elements.push(
+          <p key={i} className="text-sm text-muted-foreground leading-relaxed mb-2">
+            {renderInline(line)}
+          </p>
+        );
+      }
+      i++;
+    }
+    flushList();
+    flushNumbered();
+    return elements;
   }
 
   return (

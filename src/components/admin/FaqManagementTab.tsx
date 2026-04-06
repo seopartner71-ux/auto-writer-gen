@@ -287,12 +287,15 @@ export function FaqManagementTab() {
                 </div>
 
                 <div>
-                  <Label className="text-xs">{"Содержание (Markdown: # ## ### - > **bold**)"}</Label>
+                  <Label className="text-xs">Содержание (Markdown)</Label>
+                  <p className="text-[11px] text-muted-foreground mb-1.5">
+                    # H1 &nbsp; ## H2 &nbsp; ### H3 &nbsp; **bold** &nbsp; `code` &nbsp; - список &nbsp; &gt; цитата &nbsp; --- разделитель &nbsp; ![описание](url) — изображение &nbsp; [текст](url) — ссылка
+                  </p>
                   <Textarea
                     value={editingArticle.content || ""}
                     onChange={(e) => setEditingArticle({ ...editingArticle, content: e.target.value })}
-                    placeholder="# Заголовок&#10;&#10;Текст статьи...&#10;&#10;## Подзаголовок&#10;- Пункт 1&#10;- Пункт 2"
-                    rows={12}
+                    placeholder={"# Заголовок\n\nТекст статьи...\n\n![скриншот](https://example.com/image.png)\n\n## Подзаголовок\n- Пункт 1\n- Пункт 2\n\n> Важная заметка"}
+                    rows={14}
                     className="font-mono text-sm"
                   />
                 </div>
