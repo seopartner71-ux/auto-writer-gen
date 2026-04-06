@@ -124,7 +124,7 @@ interface MetricaData {
 function MetricaWidget() {
   const [period, setPeriod] = useState<MetricaPeriod>("today");
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["metrica-stats", period],
     queryFn: async () => {
       const { data: result, error } = await supabase.functions.invoke("metrica-stats", {
@@ -170,7 +170,7 @@ function MetricaWidget() {
               <BarChart3 className="h-4 w-4 text-primary" /> Яндекс.Метрика
               {data && <Badge variant="outline" className="text-[10px] font-mono">ID {data.counterId}</Badge>}
             </CardTitle>
-            <div className="flex gap-1">
+            <div className="flex items-center gap-1">
               {PERIODS.map((p) => (
                 <button
                   key={p.key}
@@ -184,6 +184,14 @@ function MetricaWidget() {
                   {p.label}
                 </button>
               ))}
+              <button
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="ml-1 p-1.5 rounded-md bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                title="Обновить"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+              </button>
             </div>
           </div>
         </CardHeader>
