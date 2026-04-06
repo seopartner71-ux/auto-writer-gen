@@ -67,10 +67,10 @@ export function LandingFooter() {
           {columns.map((col, ci) => (
             <motion.div key={ci} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }} className="space-y-4">
               <h4 className="text-xs font-tech uppercase tracking-widest text-muted-foreground/60">{col.title}</h4>
-              <ul className="space-y-2.5">
+              <ul className="space-y-2.5 text-left items-start">
                 {col.links.map((link, li) => (
-                  <li key={li}>
-                    <button onClick={link.action} className="text-sm text-muted-foreground/50 hover:text-foreground transition-colors">
+                  <li key={li} className="text-left">
+                    <button onClick={link.action} className="text-sm text-gray-400 hover:text-white transition-colors text-left">
                       {link.label}
                     </button>
                   </li>
