@@ -42,6 +42,9 @@ interface StealthPromptInput {
   includeExpertQuote?: boolean;
   includeComparisonTable?: boolean;
   dataNuggets?: string[];
+  seoKeywords?: string | null;
+  geoLocation?: string | null;
+  customInstructions?: string | null;
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
