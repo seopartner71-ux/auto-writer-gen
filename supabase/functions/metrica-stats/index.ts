@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
 
     const baseUrl = "https://api-metrika.yandex.net/stat/v1/data";
     const headers = { Authorization: `OAuth ${token}` };
+    console.log("Token length:", token.length, "Counter:", counterId);
 
     const today = new Date().toISOString().split("T")[0];
     const monthStart = today.slice(0, 8) + "01";
