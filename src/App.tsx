@@ -102,6 +102,10 @@ const App = () => (
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/offer" element={<Suspense fallback={<PageLoader />}><OfferPage /></Suspense>} />
+                <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><PrivacyPage /></Suspense>} />
+                <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
+                <Route path="/cookies" element={<Suspense fallback={<PageLoader />}><CookiesPage /></Suspense>} />
 
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>
