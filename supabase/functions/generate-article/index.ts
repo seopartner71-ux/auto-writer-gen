@@ -932,38 +932,51 @@ serve(async (req) => {
     // Use author's temperature if set, otherwise default
     const authorTemperature = authorData?.temperature ? Number(authorData.temperature) : 0.85;
 
-    // Stream AI response
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        stream: true,
-        temperature: authorTemperature,
-      }),
-    });
+    // Stream AI response with retry on 429
+    let aiResponse: Response | null = null;
+    const maxRetries = 3;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          stream: true,
+          temperature: authorTemperature,
+        }),
+      });
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, try again later" }), {
+      if (aiResponse.status === 429 && attempt < maxRetries) {
+        const delay = 5000 * Math.pow(2, attempt); // 5s, 10s, 20s
+        console.log(`[generate-article] 429 rate limited, retry ${attempt + 1}/${maxRetries} after ${delay}ms`);
+        await aiResponse.text(); // consume body
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      break;
+    }
+
+    if (!aiResponse || !aiResponse.ok) {
+      if (aiResponse?.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded after retries, try again later" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiResponse.status === 402) {
+      if (aiResponse?.status === 402) {
         return new Response(JSON.stringify({ error: "AI credits exhausted" }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errText);
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
+      const errText = aiResponse ? await aiResponse.text() : "No response";
+      console.error("AI error:", aiResponse?.status, errText);
+      throw new Error(`AI gateway error: ${aiResponse?.status || "unknown"}`);
     }
 
     // Deduct credit after successful generation start (skip for admins)
