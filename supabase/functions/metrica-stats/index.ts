@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews&date1=${monthStart}&date2=${today}`, { headers }),
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews&date1=${yearStart}&date2=${today}`, { headers }),
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits&dimensions=ym:s:trafficSource&date1=${monthStart}&date2=${today}&limit=10`, { headers }),
-      fetch(`${baseUrl}/bytime?ids=${counterId}&metrics=ym:s:visits,ym:s:users&date1=${date30ago}&date2=${today}&group=day`, { headers }),
+      fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users&dimensions=ym:s:date&date1=${date30ago}&date2=${today}&sort=ym:s:date&limit=31`, { headers }),
     ]);
 
     const [todayData, monthData, yearData, sourcesData, dailyData] = await Promise.all([
