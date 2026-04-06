@@ -498,6 +498,9 @@ function AdminDashboard() {
         </CardContent>
       </Card>
 
+      {/* Yandex Metrica */}
+      <MetricaWidget />
+
       {/* Queue Monitor */}
       <QueueMonitor />
 
