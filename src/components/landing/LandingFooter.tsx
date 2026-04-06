@@ -83,15 +83,14 @@ export function LandingFooter() {
           <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }} className="space-y-4">
             <h4 className="text-xs font-tech uppercase tracking-widest text-muted-foreground/60">Social</h4>
             <div className="flex items-center gap-2">
-              {[
-                { icon: Send, href: "#", label: "Telegram" },
-                { icon: Twitter, href: "#", label: "Twitter" },
-              ].map((s, i) => (
-                <a key={i} href={s.href} aria-label={s.label}
-                  className="w-8 h-8 rounded-lg border border-white/[0.06] bg-white/[0.02] flex items-center justify-center text-muted-foreground/40 hover:text-foreground hover:border-white/[0.12] transition-all">
-                  <s.icon className="h-3.5 w-3.5" />
-                </a>
-              ))}
+              <a href="https://t.me/sin0ptick" target="_blank" rel="noopener noreferrer" aria-label="Telegram"
+                className="w-8 h-8 rounded-lg border border-white/[0.06] bg-white/[0.02] flex items-center justify-center text-muted-foreground/40 hover:text-foreground hover:border-white/[0.12] transition-all">
+                <Send className="h-3.5 w-3.5" />
+              </a>
+              <a href="https://vk.com" target="_blank" rel="noopener noreferrer" aria-label="VK"
+                className="w-8 h-8 rounded-lg border border-white/[0.06] bg-white/[0.02] flex items-center justify-center text-muted-foreground/40 hover:text-foreground hover:border-white/[0.12] transition-all font-bold text-[10px]">
+                VK
+              </a>
             </div>
 
             {/* Lang */}
