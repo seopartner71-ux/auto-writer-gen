@@ -402,7 +402,7 @@ function AdminDashboard() {
   const { data: allUsageLogs = [] } = useQuery({
     queryKey: ["admin-dashboard-usage"],
     queryFn: async () => {
-      const { data } = await supabase.from("usage_logs").select("user_id, tokens_used, action, created_at");
+      const { data } = await supabase.from("usage_logs").select("user_id, tokens_used, action, created_at").limit(1000);
       return data || [];
     },
   });
