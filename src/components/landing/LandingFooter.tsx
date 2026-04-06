@@ -67,10 +67,10 @@ export function LandingFooter() {
           {columns.map((col, ci) => (
             <motion.div key={ci} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }} className="space-y-4">
               <h4 className="text-xs font-tech uppercase tracking-widest text-muted-foreground/60">{col.title}</h4>
-              <ul className="space-y-2.5">
+              <ul className="space-y-2.5 text-left items-start">
                 {col.links.map((link, li) => (
-                  <li key={li}>
-                    <button onClick={link.action} className="text-sm text-muted-foreground/50 hover:text-foreground transition-colors">
+                  <li key={li} className="text-left">
+                    <button onClick={link.action} className="text-sm text-gray-400 hover:text-white transition-colors text-left">
                       {link.label}
                     </button>
                   </li>
@@ -110,7 +110,7 @@ export function LandingFooter() {
 
         {/* Requisites */}
         <div className="mt-10 pt-6 border-t border-white/[0.04]">
-          <p className="text-[11px] font-mono text-muted-foreground/30 leading-relaxed">
+          <p className="text-[11px] font-mono text-gray-400 leading-relaxed">
             {lang === "ru"
               ? "Самозанятый. Контактный email: support@seo-modul.ru"
               : "Self-employed. Contact email: support@seo-modul.ru"
@@ -120,10 +120,10 @@ export function LandingFooter() {
 
         {/* Legal */}
         <div className="mt-4 pt-4 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-[10px] font-mono text-muted-foreground/25 tracking-wide">
+          <p className="text-[10px] font-mono text-gray-500 tracking-wide">
             © {new Date().getFullYear()} СЕО-Модуль — {t("landing.copyright")}
           </p>
-          <p className="text-[9px] font-mono text-muted-foreground/20 tracking-wider max-w-md text-center sm:text-right leading-relaxed">
+          <p className="text-[9px] font-mono text-gray-500 tracking-wider max-w-md text-center sm:text-right leading-relaxed">
             {t("lp.footerLegal")}
           </p>
         </div>

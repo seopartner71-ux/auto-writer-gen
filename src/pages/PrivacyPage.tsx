@@ -1,60 +1,23 @@
-import { LandingNav } from "@/components/landing/LandingNav";
-import { LandingFooter } from "@/components/landing/LandingFooter";
-import { useI18n } from "@/shared/hooks/useI18n";
+import { DynamicLegalPage } from "@/components/legal/DynamicLegalPage";
 
 export default function PrivacyPage() {
-  const { lang } = useI18n();
-
   return (
-    <div className="min-h-screen bg-[#050505] text-foreground">
-      <LandingNav />
-      <div className="container mx-auto px-4 max-w-3xl pt-24 pb-20">
-        <h1 className="text-3xl font-black mb-8" style={{ letterSpacing: "-0.04em" }}>
-          {lang === "ru" ? "Политика конфиденциальности" : "Privacy Policy"}
-        </h1>
-        <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground/80 leading-relaxed">
-          <p className="text-xs text-muted-foreground/50">Дата вступления в силу: 01.03.2026</p>
+    <DynamicLegalPage
+      slug="privacy"
+      fallbackTitle="Политика конфиденциальности"
+      fallback={<PrivacyFallback />}
+    />
+  );
+}
 
-          <h2 className="text-lg font-bold text-foreground">1. Общие положения</h2>
-          <p>Настоящая Политика конфиденциальности разработана в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных» и определяет порядок обработки персональных данных пользователей платформы «СЕО-Модуль» (далее — Оператор).</p>
-
-          <h2 className="text-lg font-bold text-foreground">2. Перечень собираемых данных</h2>
-          <p>Оператор собирает и обрабатывает следующие категории персональных данных:</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>Адрес электронной почты (email) — для идентификации пользователя и отправки уведомлений.</li>
-            <li>Имя пользователя — для персонализации интерфейса.</li>
-            <li>Данные о платежах — обрабатываются через сертифицированного платёжного агента (Polar). Оператор не хранит реквизиты банковских карт.</li>
-            <li>Техническая информация — IP-адрес, тип браузера, файлы cookie, данные об использовании Сервиса для аналитических целей.</li>
-          </ul>
-
-          <h2 className="text-lg font-bold text-foreground">3. Цели обработки</h2>
-          <p>Персональные данные обрабатываются для:</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>Предоставления доступа к функционалу Сервиса.</li>
-            <li>Обработки платежей и начисления кредитов.</li>
-            <li>Направления сервисных уведомлений.</li>
-            <li>Улучшения качества Сервиса на основе анализа поведения пользователей.</li>
-          </ul>
-
-          <h2 className="text-lg font-bold text-foreground">4. Хранение и защита данных</h2>
-          <p>4.1. Персональные данные хранятся на серверах с применением шифрования и иных мер защиты информации.</p>
-          <p>4.2. Доступ к персональным данным имеют только уполномоченные сотрудники Оператора.</p>
-          <p>4.3. Срок хранения персональных данных определяется целями обработки и составляет не более 3 лет с момента последнего использования Сервиса.</p>
-
-          <h2 className="text-lg font-bold text-foreground">5. Права субъекта данных</h2>
-          <p>Пользователь имеет право:</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>Запросить информацию об обработке своих персональных данных.</li>
-            <li>Потребовать удаления или уточнения своих данных.</li>
-            <li>Отозвать согласие на обработку персональных данных.</li>
-          </ul>
-          <p>Для реализации указанных прав направьте запрос на контактный email, указанный в футере сайта.</p>
-
-          <h2 className="text-lg font-bold text-foreground">6. Передача данных третьим лицам</h2>
-          <p>Оператор не передаёт персональные данные третьим лицам, за исключением случаев, предусмотренных законодательством РФ, а также передачи данных платёжному агенту для обработки транзакций.</p>
-        </div>
-      </div>
-      <LandingFooter />
-    </div>
+function PrivacyFallback() {
+  return (
+    <>
+      <p className="text-xs text-muted-foreground/50">Дата вступления в силу: 01.03.2026</p>
+      <h2 className="text-lg font-bold text-foreground">1. Общие положения</h2>
+      <p>Настоящая Политика разработана в соответствии с ФЗ-152 «О персональных данных» и определяет порядок обработки персональных данных пользователей «СЕО-Модуль».</p>
+      <h2 className="text-lg font-bold text-foreground">2. Собираемые данные</h2>
+      <p>Email, имя, данные о платежах (через Polar), техническая информация (IP, cookie).</p>
+    </>
   );
 }
