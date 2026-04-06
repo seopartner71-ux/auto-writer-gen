@@ -52,6 +52,14 @@ function AdminDashboard() {
     },
   });
 
+  const { data: subPlans = [] } = useQuery({
+    queryKey: ["admin-dashboard-sub-plans"],
+    queryFn: async () => {
+      const { data } = await supabase.from("subscription_plans").select("id, name, price_rub, price_usd, monthly_article_limit");
+      return data || [];
+    },
+  });
+
   const stats = useMemo(() => {
     const total = profiles.length;
     const active = profiles.filter((p: any) => p.is_active).length;
@@ -59,6 +67,16 @@ function AdminDashboard() {
     const totalCredits = profiles.reduce((s: number, p: any) => s + (p.credits_amount || 0), 0);
     const totalTokens = allUsageLogs.reduce((s: number, l: any) => s + (l.tokens_used || 0), 0);
     const totalArticles = allArticles.length;
+
+    // Revenue: count paying users by plan × price
+    const planPriceMap: Record<string, number> = {};
+    subPlans.forEach((sp: any) => {
+      planPriceMap[sp.id] = sp.price_rub || 0;
+    });
+    const monthlyRevenue = profiles.reduce((sum: number, p: any) => {
+      if (!p.is_active || !p.plan || p.plan === "free") return sum;
+      return sum + (planPriceMap[p.plan] || 0);
+    }, 0);
 
     // Plan distribution
     const planMap: Record<string, number> = {};
@@ -98,8 +116,8 @@ function AdminDashboard() {
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 6);
 
-    return { total, active, pending, totalCredits, totalTokens, totalArticles, planMap, regDays, topUsers, recentUsers };
-  }, [profiles, allUsageLogs, allArticles]);
+    return { total, active, pending, totalCredits, totalTokens, totalArticles, planMap, regDays, topUsers, recentUsers, monthlyRevenue };
+  }, [profiles, allUsageLogs, allArticles, subPlans]);
 
   const planColors: Record<string, string> = {
     free: "hsl(var(--muted-foreground))",
