@@ -410,7 +410,36 @@ export default function ArticlesPage() {
   const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Timer for streaming elapsed seconds
+  // Admin: transfer article to another user
+  const handleTransferArticle = useCallback(async () => {
+    if (!transferArticleId || !transferEmail.trim()) return;
+    try {
+      // Find user by email
+      const { data: targetProfile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("email", transferEmail.trim())
+        .single();
+      if (profileErr || !targetProfile) {
+        toast.error(lang === "ru" ? "Пользователь не найден" : "User not found");
+        return;
+      }
+      // Update article user_id
+      const { error: updateErr } = await supabase
+        .from("articles")
+        .update({ user_id: targetProfile.id })
+        .eq("id", transferArticleId);
+      if (updateErr) throw updateErr;
+      toast.success(lang === "ru" ? `Статья передана ${targetProfile.email}` : `Article transferred to ${targetProfile.email}`);
+      setTransferDialogOpen(false);
+      setTransferArticleId(null);
+      setTransferEmail("");
+      queryClient.invalidateQueries({ queryKey: ["articles-list"] });
+    } catch (e: any) {
+      toast.error(e.message || "Transfer failed");
+    }
+  }, [transferArticleId, transferEmail, lang, queryClient]);
+
   useEffect(() => {
     if (!isStreaming) { setStreamElapsed(0); return; }
     const start = Date.now();
