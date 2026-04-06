@@ -398,7 +398,7 @@ function OnlineUsersPanel() {
       const { data: stats } = await supabase
         .from("user_stats")
         .select("user_id, last_activity_at")
-        .gte("last_activity_at", fiveMinAgo)
+        .gte("last_activity_at", fifteenMinAgo)
         .order("last_activity_at", { ascending: false });
 
       if (!stats || stats.length === 0) return [];
