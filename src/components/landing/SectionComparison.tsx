@@ -5,7 +5,7 @@ import { AlertTriangle, Sparkles, Check } from "lucide-react";
 const content = {
   ru: {
     heading: "Разница - в деталях",
-    sub: "Стандартный AI-текст vs контент SERPblueprint с высоким Perplexity и без клише",
+    sub: "Стандартный AI-текст vs контент СЕО-Модуль с высоким Perplexity и без клише",
     leftTitle: "Стандартный AI-текст",
     leftBadge: "AI: 0%",
     leftLines: [
