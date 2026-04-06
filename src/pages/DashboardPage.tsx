@@ -405,15 +405,20 @@ export default function DashboardPage() {
       totalWords, avgWords, totalTokens, statusMap, intentMap,
       topKeywords, recentArticles, weeklyData, publishCounts, totalPublished,
     };
-  }, [articles, keywords, usageLogs, t]);
+  }, [articles, keywords, usageLogs, t, isAdmin]);
 
-  const statusChartData = Object.entries(stats.statusMap).map(([key, value]) => ({
+  // Admin sees a completely different dashboard
+  if (isAdmin) {
+    return <AdminDashboard />;
+  }
+
+  const statusChartData = Object.entries(stats!.statusMap).map(([key, value]) => ({
     name: STATUS_LABELS[key] || key,
     value,
     fill: STATUS_COLORS[key] || "hsl(var(--muted-foreground))",
   }));
 
-  const intentChartData = Object.entries(stats.intentMap).map(([key, value]) => ({
+  const intentChartData = Object.entries(stats!.intentMap).map(([key, value]) => ({
     name: key === "informational" ? t("dashboard.intentInfo") : key === "transactional" ? t("dashboard.intentTrans") : key === "navigational" ? t("dashboard.intentNav") : key,
     value,
   }));
