@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Hexagon, Send, Twitter } from "lucide-react";
+import { Hexagon, Send } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 const fadeUp = {
