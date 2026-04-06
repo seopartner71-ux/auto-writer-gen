@@ -5,7 +5,7 @@ import { AlertTriangle, Sparkles, Check } from "lucide-react";
 const content = {
   ru: {
     heading: "Разница - в деталях",
-    sub: "Стандартный AI-текст vs контент SERPblueprint с высоким Perplexity и без клише",
+    sub: "Стандартный AI-текст vs контент СЕО-Модуль с высоким Perplexity и без клише",
     leftTitle: "Стандартный AI-текст",
     leftBadge: "AI: 0%",
     leftLines: [
@@ -15,7 +15,7 @@ const content = {
       { text: "В заключение хочется сказать, что SEO - это непрерывный процесс совершенствования.", tag: "CLICHÉ" },
     ],
     leftPatterns: ["⚠ Pattern #1", "⚠ Pattern #2", "⚠ Pattern #3", "⚠ Pattern #4"],
-    rightTitle: "SERPblueprint Output",
+    rightTitle: "СЕО-Модуль Output",
     rightBadge: "AI: 0%",
     rightLines: [
       "Мы протестировали 340 лонгридов в нишах B2B SaaS и e-commerce. Результат: статьи с Perplexity > 75 получают на 62% больше органического трафика.",
@@ -29,7 +29,7 @@ const content = {
   },
   en: {
     heading: "The Difference - in Details",
-    sub: "Standard AI text vs SERPblueprint content with high Perplexity and no clichés",
+    sub: "Standard AI text vs СЕО-Модуль content with high Perplexity and no clichés",
     leftTitle: "Standard AI Text",
     leftBadge: "AI: 0%",
     leftLines: [
@@ -39,7 +39,7 @@ const content = {
       { text: "In conclusion, SEO is a continuous process of improvement.", tag: "CLICHÉ" },
     ],
     leftPatterns: ["⚠ Pattern #1", "⚠ Pattern #2", "⚠ Pattern #3", "⚠ Pattern #4"],
-    rightTitle: "SERPblueprint Output",
+    rightTitle: "СЕО-Модуль Output",
     rightBadge: "AI: 0%",
     rightLines: [
       "We tested 340 long-reads in B2B SaaS and e-commerce niches. Result: articles with Perplexity > 75 receive 62% more organic traffic.",

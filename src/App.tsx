@@ -38,6 +38,10 @@ const RadarPage = lazy(() => import("@/pages/RadarPage"));
 const WikiPage = lazy(() => import("@/pages/WikiPage"));
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
 const SupportPage = lazy(() => import("@/pages/SupportPage"));
+const OfferPage = lazy(() => import("@/pages/OfferPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
+const TermsPage = lazy(() => import("@/pages/TermsPage"));
+const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -98,6 +102,10 @@ const App = () => (
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/offer" element={<Suspense fallback={<PageLoader />}><OfferPage /></Suspense>} />
+                <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><PrivacyPage /></Suspense>} />
+                <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
+                <Route path="/cookies" element={<Suspense fallback={<PageLoader />}><CookiesPage /></Suspense>} />
 
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>

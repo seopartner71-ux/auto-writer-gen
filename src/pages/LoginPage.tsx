@@ -64,7 +64,7 @@ export default function LoginPage() {
               <Hexagon className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-brand tracking-tight">SERP<span className="gradient-text">blueprint</span> <sup className="text-xs text-muted-foreground font-sans font-normal">v2.0</sup></CardTitle>
+          <CardTitle className="text-2xl font-brand tracking-tight">СЕО-<span className="gradient-text">Модуль</span></CardTitle>
           <CardDescription>{t("auth.loginTitle")}</CardDescription>
         </CardHeader>
         <CardContent>

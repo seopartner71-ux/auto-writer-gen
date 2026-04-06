@@ -666,7 +666,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "radar.queries": { ru: "запросов", en: "queries" },
   "radar.newMonitoringProject": { ru: "Новый проект GEO-мониторинга", en: "New GEO monitoring project" },
   "radar.brandName": { ru: "Название бренда", en: "Brand name" },
-  "radar.brandPlaceholder": { ru: "Например: SERPblueprint", en: "E.g.: SERPblueprint" },
+  "radar.brandPlaceholder": { ru: "Например: СЕО-Модуль", en: "E.g.: СЕО-Модуль" },
   "radar.domain": { ru: "Домен сайта", en: "Website domain" },
   "radar.dataNuggets": { ru: "Data Nuggets (уникальные тезисы, по одному на строку)", en: "Data Nuggets (unique selling points, one per line)" },
   "radar.projectCreated": { ru: "Проект создан", en: "Project created" },
@@ -907,9 +907,9 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Landing page — Hero
   "lp.badge": { ru: "SEO нового поколения", en: "Next-gen SEO" },
-  "lp.heroLine1": { ru: "Проектируйте контент, который", en: "Engineer content that" },
+  "lp.heroLine1": { ru: "СЕО-Модуль: Проектируйте контент, который", en: "Engineer content that" },
   "lp.heroLine2": { ru: "доминирует в поиске.", en: "dominates search." },
-  "lp.heroSub": { ru: "Профессиональная экосистема для синтеза SEO-статей экспертного уровня. Захватывайте выдачу Google SGE и AI-ответы.", en: "Professional ecosystem for expert-level SEO article synthesis. Capture Google SGE and AI answers." },
+  "lp.heroSub": { ru: "Технологичная экосистема для синтеза SEO-статей экспертного уровня. Захватывайте выдачу Google SGE и AI-ответы.", en: "Advanced ecosystem for expert-level SEO article synthesis. Capture Google SGE and AI answers." },
   "lp.cta": { ru: "Начать синтез", en: "Start synthesis" },
   "lp.heroMetric": { ru: "0% AI Detection. Гарантировано.", en: "0% AI Detection. Guaranteed." },
   "lp.stealthActive": { ru: "Stealth Mode Active", en: "Stealth Mode Active" },
@@ -1016,7 +1016,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.dataDesc": { ru: "Наши алгоритмы проектируют контент, который обходит Content Decay.", en: "Our algorithms engineer content that bypasses Content Decay." },
   "lp.chartTitle": { ru: "Рост кликов (8 месяцев)", en: "Click growth (8 months)" },
   "lp.chartGeneric": { ru: "Типичный AI", en: "Generic AI" },
-  "lp.chartSynth": { ru: "SERPblueprint", en: "SERPblueprint" },
+  "lp.chartSynth": { ru: "СЕО-Модуль", en: "СЕО-Модуль" },
   "lp.case1": { ru: "Кейс: рост упоминаний в Perplexity с 0% до 65% за 30 дней.", en: "Case: brand mentions in Perplexity grew from 0% to 65% in 30 days." },
   "lp.case2": { ru: "Бенчмарк: 100/100 читаемость и 0% ИИ по Originality.ai v2.0.", en: "Benchmark: 100/100 readability and 0% AI by Originality.ai v2.0." },
   "lp.case3": { ru: "Сокращение времени на лонгрид с 6 часов до 12 минут.", en: "Longread preparation from 6 hours to 12 minutes." },
@@ -1043,7 +1043,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.footerProduct": { ru: "Продукт", en: "Product" },
   "lp.footerSolutions": { ru: "Решения", en: "Solutions" },
   "lp.footerStatus": { ru: "Все системы работают", en: "All systems operational" },
-  "lp.footerLegal": { ru: "Программное обеспечение предоставляется «как есть». Результаты могут отличаться в зависимости от ниши и конфигурации.", en: "Software is provided \"as is\". Results may vary depending on niche and configuration." },
+  "lp.footerLegal": { ru: "Программное обеспечение предоставляется «как есть». Результаты зависят от ниши и конфигурации.", en: "Software is provided \"as is\". Results may vary depending on niche and configuration." },
 
   // Factory articles (localized)
   "lp.factArt1": { ru: "Гайд по бассейнам", en: "Pool Service Guide" },
