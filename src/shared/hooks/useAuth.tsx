@@ -39,11 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", userId),
     ]);
 
-    // Update last activity timestamp (fire-and-forget)
+    // Update last activity timestamp (fire-and-forget with error logging)
     supabase.from("user_stats").upsert(
       { user_id: userId, last_activity_at: new Date().toISOString() },
       { onConflict: "user_id" }
-    ).then();
+    ).then(({ error }) => {
+      if (error) console.error("[useAuth] user_stats upsert error:", error.message);
+    });
 
     setProfile(profileRes.data as Profile | null);
     const roles = (roleRes.data ?? []).map((r: any) => r.role as AppRole);
