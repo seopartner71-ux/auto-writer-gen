@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/shared/hooks/useTheme";
 import { I18nProvider } from "@/shared/hooks/useI18n";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { SEOManager } from "@/components/SEOManager";
 import { Loader2 } from "lucide-react";
 
 // Eagerly loaded (core auth pages)
