@@ -577,6 +577,12 @@ ${blockC}
 
 ${blockD}
 
+${blockSeoKeywords}
+
+${blockGeo}
+
+${blockCustom}
+
 FAQ (ОБЯЗАТЕЛЬНО):
 - В конце статьи добавь "${isRussian ? "## Вопросы и ответы" : "## Quick-fire Q&A"}"
 - Минимум 5 вопросов и ответов на основе content_gaps и вопросов пользователей
