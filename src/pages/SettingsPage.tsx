@@ -1,4 +1,4 @@
-import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, LifeBuoy, Send } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
@@ -31,9 +31,6 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [ticketSubject, setTicketSubject] = useState("");
-  const [ticketMessage, setTicketMessage] = useState("");
-  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
   const queryClient = useQueryClient();
 
@@ -128,29 +125,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSubmitTicket = async () => {
-    if (!user) return;
-    if (!ticketSubject.trim() || !ticketMessage.trim()) {
-      toast.error(t("settings.fillFields"));
-      return;
-    }
-    setIsSubmittingTicket(true);
-    try {
-      const { error } = await supabase.from("support_tickets" as any).insert({
-        user_id: user.id,
-        subject: ticketSubject.trim(),
-        message: ticketMessage.trim(),
-      } as any);
-      if (error) throw error;
-      toast.success(t("settings.ticketSent"));
-      setTicketSubject("");
-      setTicketMessage("");
-    } catch (e: any) {
-      toast.error(e.message || "Error");
-    } finally {
-      setIsSubmittingTicket(false);
-    }
-  };
 
   const plan = currentPlan;
 
@@ -339,32 +313,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Card className="bg-card border-border overflow-hidden">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <LifeBuoy className="h-4 w-4 text-primary" />
-            {t("settings.support")}
-          </CardTitle>
-          <CardDescription className="text-xs">{t("settings.supportDesc")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">{t("settings.subject")}</Label>
-            <Input value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder={t("settings.subjectPlaceholder")} className="text-sm" maxLength={200} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">{t("settings.message")}</Label>
-            <Textarea value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} placeholder={t("settings.messagePlaceholder")} className="text-sm min-h-[120px] resize-y" maxLength={2000} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{ticketMessage.length}/2000</span>
-            <Button onClick={handleSubmitTicket} disabled={isSubmittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} size="sm">
-              <Send className="h-4 w-4 mr-2" />
-              {isSubmittingTicket ? t("settings.sending") : t("settings.sendTicket")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
