@@ -5,6 +5,7 @@ import { SectionFaq } from "@/components/landing/SectionFaq";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { CookieConsent } from "@/components/landing/CookieConsent";
 import { ScrollToTop } from "@/components/landing/ScrollToTop";
+import { FloatingCTA } from "@/components/landing/FloatingCTA";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useEffect } from "react";
 
