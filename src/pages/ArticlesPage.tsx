@@ -606,6 +606,9 @@ export default function ArticlesPage() {
           include_expert_quote: includeExpertQuote,
           include_comparison_table: includeComparisonTable,
           anchor_links: anchorLinks.filter(l => l.url.trim() && l.anchor.trim()),
+          seo_keywords: seoKeywords.trim() || null,
+          geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
+          custom_instructions: customInstructions.trim() || null,
         }),
         signal: controller.signal,
       });
