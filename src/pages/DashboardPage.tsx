@@ -27,6 +27,79 @@ const STATUS_COLORS: Record<string, string> = {
   published: "hsl(var(--primary))",
 };
 
+/* ──────────── Service Load Panel ──────────── */
+function ServiceLoadPanel() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-service-load"],
+    queryFn: async () => {
+      const now = new Date();
+      const h24 = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      const h1 = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+
+      const [{ count: gens24h }, { count: gens1h }, { data: queueAll }, { count: activeUsers }] = await Promise.all([
+        supabase.from("usage_logs").select("id", { count: "exact", head: true }).gte("created_at", h24),
+        supabase.from("usage_logs").select("id", { count: "exact", head: true }).gte("created_at", h1),
+        supabase.from("generation_queue").select("status").in("status", ["queued", "processing", "retry"]),
+        supabase.from("usage_logs").select("user_id", { count: "exact", head: true }).gte("created_at", h24),
+      ]);
+
+      const queueItems = queueAll || [];
+      const queued = queueItems.filter((q: any) => q.status === "queued").length;
+      const processing = queueItems.filter((q: any) => q.status === "processing").length;
+      const retry = queueItems.filter((q: any) => q.status === "retry").length;
+
+      return {
+        gens24h: gens24h || 0,
+        gens1h: gens1h || 0,
+        activeUsers24h: activeUsers || 0,
+        queued,
+        processing,
+        retry,
+        queueTotal: queueItems.length,
+      };
+    },
+    refetchInterval: 15000,
+  });
+
+  const s = data || { gens24h: 0, gens1h: 0, activeUsers24h: 0, queued: 0, processing: 0, retry: 0, queueTotal: 0 };
+  const queuePressure = s.queueTotal > 10 ? "high" : s.queueTotal > 3 ? "medium" : "low";
+  const pressureColor = queuePressure === "high" ? "text-destructive" : queuePressure === "medium" ? "text-yellow-500" : "text-emerald-500";
+  const pressureLabel = queuePressure === "high" ? "Высокая" : queuePressure === "medium" ? "Средняя" : "Низкая";
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Zap className="h-4 w-4 text-primary" /> Нагрузка на сервис
+          <Badge variant="outline" className={`text-[10px] ${pressureColor} border-current`}>{pressureLabel}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+            {[
+              { label: "Генераций / 24ч", value: s.gens24h, color: "text-primary" },
+              { label: "Генераций / 1ч", value: s.gens1h, color: "text-emerald-500" },
+              { label: "Актив. юзеров 24ч", value: s.activeUsers24h, color: "text-accent" },
+              { label: "В очереди", value: s.queued, color: "text-yellow-500" },
+              { label: "В работе", value: s.processing, color: "text-primary" },
+              { label: "Повтор", value: s.retry, color: "text-orange-500" },
+              { label: "Всего в очереди", value: s.queueTotal, color: pressureColor },
+            ].map((m) => (
+              <div key={m.label} className="text-center">
+                <p className={`text-xl font-bold ${m.color}`}>{m.value}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{m.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ──────────── Queue Monitor ──────────── */
 function QueueMonitor() {
   const { data: queueStats, refetch, isLoading } = useQuery({
@@ -46,7 +119,7 @@ function QueueMonitor() {
         total: (all || []).length,
       };
     },
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
   const handleTrigger = async () => {
@@ -329,7 +402,7 @@ function AdminDashboard() {
   const { data: allUsageLogs = [] } = useQuery({
     queryKey: ["admin-dashboard-usage"],
     queryFn: async () => {
-      const { data } = await supabase.from("usage_logs").select("user_id, tokens_used, action, created_at");
+      const { data } = await supabase.from("usage_logs").select("user_id, tokens_used, action, created_at").limit(1000);
       return data || [];
     },
   });
@@ -574,6 +647,9 @@ function AdminDashboard() {
 
       {/* Yandex Metrica */}
       <MetricaWidget />
+
+      {/* Service Load */}
+      <ServiceLoadPanel />
 
       {/* Queue Monitor */}
       <QueueMonitor />
