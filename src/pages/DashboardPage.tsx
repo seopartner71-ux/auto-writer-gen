@@ -389,6 +389,76 @@ function MetricaWidget() {
   );
 }
 
+/* ──────────── Online Users Panel ──────────── */
+function OnlineUsersPanel() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-online-users"],
+    queryFn: async () => {
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: stats } = await supabase
+        .from("user_stats")
+        .select("user_id, last_activity_at")
+        .gte("last_activity_at", fiveMinAgo)
+        .order("last_activity_at", { ascending: false });
+
+      if (!stats || stats.length === 0) return [];
+
+      const userIds = stats.map((s: any) => s.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, plan")
+        .in("id", userIds);
+
+      return stats.map((s: any) => {
+        const p = (profiles || []).find((pr: any) => pr.id === s.user_id);
+        return {
+          id: s.user_id,
+          email: p?.email || s.user_id.slice(0, 8),
+          name: p?.full_name || "—",
+          plan: p?.plan || "free",
+          lastActivity: s.last_activity_at,
+        };
+      });
+    },
+    refetchInterval: 15000,
+  });
+
+  const users = data || [];
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4 text-emerald-500" />
+          Онлайн сейчас
+          <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/50">{users.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+        ) : users.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-3">Нет активных пользователей</p>
+        ) : (
+          <div className="space-y-2">
+            {users.map((u: any) => (
+              <div key={u.id} className="flex items-center gap-3 text-sm">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span className="font-mono text-xs truncate max-w-[200px]">{u.email}</span>
+                <span className="text-xs text-muted-foreground truncate hidden sm:inline">{u.name}</span>
+                <Badge variant="outline" className="text-[10px] ml-auto shrink-0 uppercase">{u.plan}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ──────────── Admin Dashboard ──────────── */
 function AdminDashboard() {
   const { data: profiles = [] } = useQuery({
@@ -653,6 +723,9 @@ function AdminDashboard() {
 
       {/* Queue Monitor */}
       <QueueMonitor />
+
+      {/* Online Users */}
+      <OnlineUsersPanel />
 
       {/* Bottom: top users + recent registrations */}
       <div className="grid gap-4 md:grid-cols-2">
