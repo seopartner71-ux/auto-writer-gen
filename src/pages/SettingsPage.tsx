@@ -267,8 +267,8 @@ export default function SettingsPage() {
                 <Select value={lang} onValueChange={(v) => setLang(v as "ru" | "en")}>
                   <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ru">🇷🇺 Русский</SelectItem>
-                    <SelectItem value="en">🇬🇧 English</SelectItem>
+                    <SelectItem value="ru">RU Русский</SelectItem>
+                    <SelectItem value="en">EN English</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
