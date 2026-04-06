@@ -14,8 +14,9 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2, Quote, Table2
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -392,6 +393,10 @@ export default function ArticlesPage() {
   const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
   const [includeExpertQuote, setIncludeExpertQuote] = useState(true);
   const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
+  const [seoKeywords, setSeoKeywords] = useState("");
+  const [enableGeo, setEnableGeo] = useState(false);
+  const [geoLocation, setGeoLocation] = useState("");
+  const [customInstructions, setCustomInstructions] = useState("");
   const [telegraphPath, setTelegraphPath] = useState("");
   const [telegraphUrl, setTelegraphUrl] = useState("");
   const [anchorLinks, setAnchorLinks] = useState<{ url: string; anchor: string }[]>([{ url: "", anchor: "" }]);
@@ -601,6 +606,9 @@ export default function ArticlesPage() {
           include_expert_quote: includeExpertQuote,
           include_comparison_table: includeComparisonTable,
           anchor_links: anchorLinks.filter(l => l.url.trim() && l.anchor.trim()),
+          seo_keywords: seoKeywords.trim() || null,
+          geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
+          custom_instructions: customInstructions.trim() || null,
         }),
         signal: controller.signal,
       });
@@ -994,6 +1002,61 @@ export default function ArticlesPage() {
             <Table2 className={`h-3.5 w-3.5 ${includeComparisonTable ? 'text-purple-400' : 'text-slate-500'}`} />
             Таблица сравнения
           </button>
+        </div>
+
+        {/* SEO Keywords, Geo, Custom Instructions */}
+        <div className="space-y-3 pt-3 border-t border-border">
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <Search className="h-3 w-3" />
+              SEO ключевые слова (через запятую)
+            </Label>
+            <Input
+              value={seoKeywords}
+              onChange={(e) => setSeoKeywords(e.target.value)}
+              placeholder="Напр.: моторное масло для трактора, купить масло оптом"
+              className="h-8 text-sm bg-muted/30"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="geo-toggle"
+              checked={enableGeo}
+              onCheckedChange={(v) => setEnableGeo(!!v)}
+              className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            />
+            <label htmlFor="geo-toggle" className="text-sm text-foreground cursor-pointer flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              Добавить гео-привязку
+            </label>
+          </div>
+
+          {enableGeo && (
+            <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              <Label className="text-[11px] text-muted-foreground">Целевой регион/город</Label>
+              <Input
+                value={geoLocation}
+                onChange={(e) => setGeoLocation(e.target.value)}
+                placeholder="Напр.: Москва и МО, Екатеринбург, Arizona"
+                className="h-8 text-sm bg-muted/30"
+              />
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <MessageSquarePlus className="h-3 w-3" />
+              Дополнительные пожелания (необязательно)
+            </Label>
+            <Textarea
+              value={customInstructions}
+              onChange={(e) => setCustomInstructions(e.target.value)}
+              placeholder="Напр.: упомянуть сертификат GMP, сослаться на бренд LA ROSSA"
+              className="min-h-[72px] text-sm bg-muted/30 resize-y"
+              rows={3}
+            />
+          </div>
         </div>
       </div>
 

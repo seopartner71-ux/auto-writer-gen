@@ -42,10 +42,13 @@ interface StealthPromptInput {
   includeExpertQuote?: boolean;
   includeComparisonTable?: boolean;
   dataNuggets?: string[];
+  seoKeywords?: string | null;
+  geoLocation?: string | null;
+  customInstructions?: string | null;
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
-  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets } = input;
+  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets, seoKeywords, geoLocation, customInstructions } = input;
   const isRussian = /[а-яё]/i.test(keyword.seed_keyword);
   const targetLanguage = isRussian ? "ru" : "en";
 
@@ -351,7 +354,45 @@ ${dataNuggets.map((n, i) => `${i + 1}. ${n}`).join("\n")}
 === КОНЕЦ БЛОКА Г ===`;
   }
 
-  // ═══ Assemble System Prompt ═══
+  // ═══ BLOCK E: SEO Keywords from user ═══
+  let blockSeoKeywords = "";
+  if (seoKeywords?.trim()) {
+    blockSeoKeywords = `=== БЛОК SEO-КЛЮЧИ ПОЛЬЗОВАТЕЛЯ ===
+Твоя задача интегрировать следующие SEO-ключи в текст: ${seoKeywords}
+ПРАВИЛА ИСПОЛЬЗОВАНИЯ КЛЮЧЕЙ:
+1. Вписывай их максимально органично, избегая "роботизированного" текста.
+2. Разрешается склонять слова и разбивать их знаками препинания, если точное вхождение нарушает правила русского языка.
+3. Распредели ключи равномерно по всему тексту (не собирай их все в одном абзаце).
+=== КОНЕЦ БЛОКА SEO-КЛЮЧИ ===`;
+  }
+
+  // ═══ BLOCK F: Geo-localization ═══
+  let blockGeo = "";
+  if (geoLocation?.trim()) {
+    blockGeo = `=== БЛОК ГЕО-ЛОКАЛИЗАЦИЯ ===
+ЦЕЛЕВОЕ ГЕО СТАТЬИ: ${geoLocation}
+ПРАВИЛА ЛОКАЛИЗАЦИИ:
+1. Адаптируй контент под указанный регион/город.
+2. Органично упомяни "${geoLocation}" в главном заголовке (H1) и во введении (в первом или втором абзаце).
+3. Используй топоним 2-4 раза на протяжении статьи. Не спамь названием города в каждом предложении!
+4. Используй синонимы: "в нашем городе", "в регионе", "местные жители".
+5. Если тема статьи зависит от географии (климат, логистика, местное законодательство), обязательно сделай на этом акцент в контексте ${geoLocation}.
+=== КОНЕЦ БЛОКА ГЕО ===`;
+  }
+
+  // ═══ BLOCK G: Custom user instructions (HIGHEST PRIORITY) ═══
+  let blockCustom = "";
+  if (customInstructions?.trim()) {
+    blockCustom = `=== БЛОК ПОЖЕЛАНИЯ КЛИЕНТА (ВЫСШИЙ ПРИОРИТЕТ) ===
+ДОПОЛНИТЕЛЬНЫЕ ТРЕБОВАНИЯ ОТ ПОЛЬЗОВАТЕЛЯ:
+"""
+${customInstructions}
+"""
+ПРАВИЛА ВЫПОЛНЕНИЯ:
+Это бизнес-требования клиента. Ты ОБЯЗАН выполнить все инструкции, указанные в блоке выше. Вплетай эти факты, бренды или условия в текст статьи так, чтобы это выглядело как экспертное мнение или естественная рекомендация, а не как прямая реклама (если в требованиях не указано иное).
+=== КОНЕЦ БЛОКА ПОЖЕЛАНИЯ ===`;
+  }
+
   // Check if author's instructions explicitly forbid tables
   const authorForbidsTables = authorProfile?.system_instruction?.toLowerCase().includes("запрещено писать таблиц") ||
     authorProfile?.system_instruction?.toLowerCase().includes("без таблиц") ||
@@ -535,6 +576,12 @@ ${isRussian
 ${blockC}
 
 ${blockD}
+
+${blockSeoKeywords}
+
+${blockGeo}
+
+${blockCustom}
 
 FAQ (ОБЯЗАТЕЛЬНО):
 - В конце статьи добавь "${isRussian ? "## Вопросы и ответы" : "## Quick-fire Q&A"}"
@@ -793,7 +840,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions } = body;
     console.log("[generate-article] author_profile_id received:", author_profile_id);
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
@@ -918,6 +965,9 @@ serve(async (req) => {
       includeExpertQuote: include_expert_quote,
       includeComparisonTable: include_comparison_table,
       dataNuggets: body.data_nuggets || [],
+      seoKeywords: seo_keywords || null,
+      geoLocation: geo_location || null,
+      customInstructions: custom_instructions || null,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
