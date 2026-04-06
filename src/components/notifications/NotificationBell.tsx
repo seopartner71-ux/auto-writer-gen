@@ -39,6 +39,59 @@ export function NotificationBell() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
+  // Request browser notification permission on mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+      // Second tone
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.frequency.value = 1174;
+      osc2.type = "sine";
+      gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.65);
+      osc2.start(ctx.currentTime + 0.15);
+      osc2.stop(ctx.currentTime + 0.65);
+    } catch {
+      // AudioContext not available
+    }
+  };
+
+  // Show desktop notification
+  const showDesktopNotification = (title: string, body: string) => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      const n = new window.Notification(title, {
+        body,
+        icon: "/favicon.ico",
+        tag: "seo-module-notification",
+        requireInteraction: true,
+      });
+      n.onclick = () => {
+        window.focus();
+        n.close();
+      };
+    }
+  };
+
   // Realtime subscription for new notifications
   useEffect(() => {
     if (!user) return;
@@ -57,8 +110,10 @@ export function NotificationBell() {
           const n = payload.new as Notification;
           toast.success(n.title, { description: n.message });
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
-          // Also refresh sidebar credits
           queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+          // Desktop notification + sound
+          playNotificationSound();
+          showDesktopNotification(n.title, n.message);
         }
       )
       .subscribe();
