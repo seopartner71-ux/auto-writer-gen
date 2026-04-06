@@ -90,12 +90,12 @@ function TestimonialCard({ position, item, handleMove, cardSize }: CardProps) {
       <div className="absolute bottom-6 left-6 sm:left-8 right-6 sm:right-8">
         <div className="flex items-center gap-3">
           <div className={cn(
-            "w-9 h-9 rounded-full flex items-center justify-center border shrink-0",
+            "w-9 h-9 rounded-full shrink-0 overflow-hidden border",
             isCenter
-              ? "bg-primary/20 border-primary/30"
-              : "bg-white/[0.03] border-white/[0.06]"
+              ? "border-primary/30"
+              : "border-white/[0.06]"
           )}>
-            <Flame className={cn("w-4 h-4", isCenter ? "text-primary" : "text-white/20")} />
+            <img src={item.img} alt={item.author} className="w-full h-full object-cover" loading="lazy" />
           </div>
           <div className="min-w-0">
             <div className={cn(
