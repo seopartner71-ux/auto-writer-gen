@@ -28,6 +28,7 @@ import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
+import { validateContent } from "@/shared/utils/contentValidator";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 
 // Readability helpers
@@ -520,14 +521,8 @@ export default function ArticlesPage() {
   // Real-time fact-check on content changes
   const liveFactCheck = useMemo(() => {
     if (!content || content.length < 100) return null;
-    const patterns = [
-      /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/i,
-      /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/,
-      /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/i,
-      /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/i,
-      /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/,
-    ];
-    return patterns.some(p => p.test(content)) ? "warning" as const : "verified" as const;
+    const result = validateContent(content);
+    return result.issues.length > 0 ? "warning" as const : "verified" as const;
   }, [content]);
 
   useEffect(() => {
@@ -690,15 +685,32 @@ export default function ArticlesPage() {
       toast.success(t("articles.articleGenerated"));
 
       // Fact-check analysis: detect suspicious hallucination patterns
-      const suspiciousPatterns = [
-        /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/i,
-        /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/,
-        /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/i,
-        /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/i,
-        /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/,
-      ];
-      const hasHallucinations = suspiciousPatterns.some(p => p.test(fullContent));
-      setFactCheckStatus(hasHallucinations ? "warning" : "verified");
+      // Post-generation validator: detect & auto-fix fake experts/stats
+      const validation = validateContent(fullContent);
+      if (validation.issues.length > 0) {
+        fullContent = validation.fixedContent;
+        setContent(fullContent);
+        setFactCheckStatus("warning");
+
+        const fakeExperts = validation.issues.filter(i => i.type === "fake_expert").length;
+        const pseudoStats = validation.issues.filter(i => i.type === "pseudo_stat").length;
+        const fakeOrgs = validation.issues.filter(i => i.type === "fake_company").length;
+        const parts: string[] = [];
+        if (fakeExperts) parts.push(`${fakeExperts} фейк. экспертов`);
+        if (pseudoStats) parts.push(`${pseudoStats} псевдостатистик`);
+        if (fakeOrgs) parts.push(`${fakeOrgs} фейк. организаций`);
+
+        toast.warning(`Валидатор исправил: ${parts.join(", ")}`, {
+          description: "Текст автоматически очищен от подозрительных элементов. Проверьте результат.",
+          duration: 8000,
+        });
+
+        // After auto-fix, re-check
+        const recheck = validateContent(fullContent);
+        setFactCheckStatus(recheck.issues.length === 0 ? "verified" : "warning");
+      } else {
+        setFactCheckStatus("verified");
+      }
 
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
@@ -1659,6 +1671,32 @@ export default function ArticlesPage() {
                           )}
                         </Badge>
                       </div>
+                      {factCheckStatus === "warning" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full mt-1.5 text-xs h-7"
+                          onClick={() => {
+                            const result = validateContent(content);
+                            if (result.issues.length > 0) {
+                              setContent(result.fixedContent);
+                              const parts: string[] = [];
+                              const fe = result.issues.filter(i => i.type === "fake_expert").length;
+                              const ps = result.issues.filter(i => i.type === "pseudo_stat").length;
+                              const fo = result.issues.filter(i => i.type === "fake_company").length;
+                              if (fe) parts.push(`${fe} фейк. экспертов`);
+                              if (ps) parts.push(`${ps} псевдостатистик`);
+                              if (fo) parts.push(`${fo} фейк. организаций`);
+                              toast.success(`Исправлено: ${parts.join(", ")}`);
+                            } else {
+                              toast.info("Подозрительных элементов не найдено");
+                            }
+                            setFactCheckStatus("verified");
+                          }}
+                        >
+                          <Shield className="h-3 w-3 mr-1" /> Исправить автоматически
+                        </Button>
+                      )}
                     </div>
                   )}
 
