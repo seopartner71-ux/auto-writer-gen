@@ -86,17 +86,14 @@ Deno.serve(async (req) => {
       visits: Math.round(row.metrics?.[0] || 0),
     }));
 
-    // Parse daily bytime data
-    const visitsTimeline = dailyData?.data?.[0]?.metrics?.[0] || [];
-    const usersTimeline = dailyData?.data?.[0]?.metrics?.[1] || [];
-    const timeLabels = dailyData?.time_intervals || [];
-    const daily = timeLabels.map((interval: string[], i: number) => {
-      const dateStr = interval[0]?.split("T")[0] || "";
+    // Parse daily data (dimensions=ym:s:date)
+    const daily = (dailyData?.data || []).map((row: any) => {
+      const dateStr = row.dimensions?.[0]?.name || "";
       const parts = dateStr.split("-");
       return {
         date: parts.length === 3 ? `${parts[2]}.${parts[1]}` : dateStr,
-        visits: Math.round(visitsTimeline[i] || 0),
-        users: Math.round(usersTimeline[i] || 0),
+        visits: Math.round(row.metrics?.[0] || 0),
+        users: Math.round(row.metrics?.[1] || 0),
       };
     });
 
