@@ -314,32 +314,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Card className="bg-card border-border overflow-hidden">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <LifeBuoy className="h-4 w-4 text-primary" />
-            {t("settings.support")}
-          </CardTitle>
-          <CardDescription className="text-xs">{t("settings.supportDesc")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">{t("settings.subject")}</Label>
-            <Input value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder={t("settings.subjectPlaceholder")} className="text-sm" maxLength={200} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">{t("settings.message")}</Label>
-            <Textarea value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} placeholder={t("settings.messagePlaceholder")} className="text-sm min-h-[120px] resize-y" maxLength={2000} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{ticketMessage.length}/2000</span>
-            <Button onClick={handleSubmitTicket} disabled={isSubmittingTicket || !ticketSubject.trim() || !ticketMessage.trim()} size="sm">
-              <Send className="h-4 w-4 mr-2" />
-              {isSubmittingTicket ? t("settings.sending") : t("settings.sendTicket")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
