@@ -15,7 +15,7 @@ const content = {
       { text: "В заключение хочется сказать, что SEO - это непрерывный процесс совершенствования.", tag: "CLICHÉ" },
     ],
     leftPatterns: ["⚠ Pattern #1", "⚠ Pattern #2", "⚠ Pattern #3", "⚠ Pattern #4"],
-    rightTitle: "SERPblueprint Output",
+    rightTitle: "СЕО-Модуль Output",
     rightBadge: "AI: 0%",
     rightLines: [
       "Мы протестировали 340 лонгридов в нишах B2B SaaS и e-commerce. Результат: статьи с Perplexity > 75 получают на 62% больше органического трафика.",
