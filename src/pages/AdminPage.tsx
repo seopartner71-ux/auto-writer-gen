@@ -38,6 +38,7 @@ export default function AdminPage() {
           <TabsTrigger value="polar">Polar</TabsTrigger>
           <TabsTrigger value="support">Поддержка</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
+          <TabsTrigger value="legal">Юр. страницы</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
@@ -50,6 +51,7 @@ export default function AdminPage() {
         <TabsContent value="polar" className="mt-4"><PolarSettingsTab /></TabsContent>
         <TabsContent value="support" className="mt-4"><SupportManagementTab /></TabsContent>
         <TabsContent value="seo" className="mt-4"><SeoIntegrationsTab /></TabsContent>
+        <TabsContent value="legal" className="mt-4"><LegalPagesTab /></TabsContent>
       </Tabs>
     </div>
   );
