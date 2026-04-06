@@ -6,7 +6,7 @@ import { useState, useCallback, useEffect } from "react";
 const testimonials = {
   ru: [
     {
-      quote: 'Спросите ChatGPT о бассейнах - он даст урок химии. Спросите <span class="text-primary font-bold">SERPblueprint</span> - он расскажет про тарифы на свет в Аризоне, мусор от деревьев <span class="text-amber-400 font-bold">Palo Verde</span> и выживание в жару <span class="text-red-400 font-bold">115°F</span>. В этом разница между райтером и экспертом.',
+      quote: 'Спросите ChatGPT о бассейнах - он даст урок химии. Спросите <span class="text-primary font-bold">СЕО-Модуль</span> - он расскажет про тарифы на свет в Аризоне, мусор от деревьев <span class="text-amber-400 font-bold">Palo Verde</span> и выживание в жару <span class="text-red-400 font-bold">115°F</span>. В этом разница между райтером и экспертом.',
       author: "Алексей М.",
       role: "SEO-директор, агентство",
     },
