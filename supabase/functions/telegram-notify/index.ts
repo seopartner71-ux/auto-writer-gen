@@ -41,9 +41,10 @@ serve(async (req) => {
 
     if (type === 'new_registration') {
       const { email, full_name } = data;
-      text = `🆕 <b>Новый пользователь</b>\n\n` +
+      text = `🆕 <b>Новый юзер ждет апрува в СЕО-Модуле!</b>\n\n` +
         `👤 Имя: ${full_name || 'Не указано'}\n` +
         `📧 Email: ${email}\n` +
+        `⏳ Статус: Ожидает активации\n` +
         `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
     } else if (type === 'new_support_ticket') {
       const { email, subject, message } = data;

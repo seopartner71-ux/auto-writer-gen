@@ -193,7 +193,17 @@ export function UserManagementTab() {
                     key={p.id}
                     className={`border-border ${!p.is_active ? "opacity-50" : ""}`}
                   >
-                    <TableCell className="font-mono text-xs">{p.email}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {p.email}
+                        {!p.is_active && (
+                          <Badge variant="outline" className="text-[10px] border-yellow-500/50 text-yellow-500 gap-1 px-1.5 py-0">
+                            <Clock className="h-2.5 w-2.5" />
+                            Ожидает
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{p.full_name || '—'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {p.created_at ? format(new Date(p.created_at), 'dd.MM.yyyy') : '—'}
