@@ -1060,6 +1060,30 @@ export type Database = {
           },
         ]
       }
+      site_settings: {
+        Row: {
+          google_verification: string | null
+          id: string
+          metrica_id: string | null
+          updated_at: string | null
+          yandex_verification: string | null
+        }
+        Insert: {
+          google_verification?: string | null
+          id?: string
+          metrica_id?: string | null
+          updated_at?: string | null
+          yandex_verification?: string | null
+        }
+        Update: {
+          google_verification?: string | null
+          id?: string
+          metrica_id?: string | null
+          updated_at?: string | null
+          yandex_verification?: string | null
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
           can_export_html: boolean | null
