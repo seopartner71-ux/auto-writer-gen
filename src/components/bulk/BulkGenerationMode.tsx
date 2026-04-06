@@ -47,13 +47,33 @@ export function BulkGenerationMode() {
 
   const { data: bulkJobs = [] } = useQuery({
     queryKey: ["bulk-jobs"],
-    queryFn: async () => { const { data, error } = await supabase.from("bulk_jobs").select("*").order("created_at", { ascending: false }).limit(10); if (error) throw error; return data as BulkJob[]; },
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bulk_jobs")
+        .select("id, status, total_items, completed_items, author_profile_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data as BulkJob[];
+    },
+    refetchInterval: 5000,
   });
 
   const { data: jobItems = [] } = useQuery({
     queryKey: ["bulk-job-items", activeJobId],
-    queryFn: async () => { if (!activeJobId) return []; const { data, error } = await supabase.from("bulk_job_items").select("*").eq("bulk_job_id", activeJobId).order("created_at", { ascending: true }); if (error) throw error; return data as BulkJobItem[]; },
+    queryFn: async () => {
+      if (!activeJobId) return [];
+      const { data, error } = await supabase
+        .from("bulk_job_items")
+        .select("id, seed_keyword, status, article_id, error_message")
+        .eq("bulk_job_id", activeJobId)
+        .order("created_at", { ascending: true })
+        .limit(100);
+      if (error) throw error;
+      return data as BulkJobItem[];
+    },
     enabled: !!activeJobId,
+    refetchInterval: activeJobId ? 3000 : false,
   });
 
   const { data: wpSites = [] } = useQuery({
@@ -65,7 +85,12 @@ export function BulkGenerationMode() {
     },
   });
 
-  useEffect(() => { if (!activeJobId && bulkJobs.length > 0) { const active = bulkJobs.find((j) => j.status === "processing") || bulkJobs[0]; setActiveJobId(active.id); } }, [bulkJobs, activeJobId]);
+  useEffect(() => {
+    if (!activeJobId && bulkJobs.length > 0) {
+      const active = bulkJobs.find((j) => ["processing", "paused", "pending"].includes(j.status)) || bulkJobs[0];
+      setActiveJobId(active.id);
+    }
+  }, [bulkJobs, activeJobId]);
 
   useEffect(() => {
     if (!activeJobId) return;
@@ -97,20 +122,39 @@ export function BulkGenerationMode() {
       if (keywords.length === 0) throw new Error(t("bulk.uploadError"));
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("Not authenticated");
-      const { data: job, error: jobErr } = await supabase.from("bulk_jobs").insert({ user_id: session.user.id, author_profile_id: selectedAuthorId || null, total_items: keywords.length, status: "pending" }).select("id").single();
+      const { data: job, error: jobErr } = await supabase
+        .from("bulk_jobs")
+        .insert({ user_id: session.user.id, author_profile_id: selectedAuthorId || null, total_items: keywords.length, status: "pending" })
+        .select("id")
+        .single();
       if (jobErr) throw jobErr;
       const items = keywords.map((kw) => ({ bulk_job_id: job.id, seed_keyword: kw, status: "queued" }));
       const { error: itemsErr } = await supabase.from("bulk_job_items").insert(items);
       if (itemsErr) throw itemsErr;
       return job.id;
     },
-    onSuccess: (jobId) => { setActiveJobId(jobId); setKeywords([]); queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); toast.success(t("bulk.queueCreated")); startProcessing.mutate(jobId); },
+    onSuccess: (jobId) => {
+      setActiveJobId(jobId);
+      setKeywords([]);
+      queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["bulk-job-items", jobId] });
+      startProcessing.mutate(jobId);
+      toast.success("Пакет создан");
+    },
     onError: (e) => toast.error(e.message),
   });
 
   const startProcessing = useMutation({
-    mutationFn: async (jobId: string) => { const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } }); if (error) throw error; if (data?.error) throw new Error(data.error); return data; },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] }); toast.success(t("bulk.processingComplete")); },
+    mutationFn: async (jobId: string) => {
+      const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (_, jobId) => {
+      queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["bulk-job-items", jobId] });
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -125,13 +169,18 @@ export function BulkGenerationMode() {
 
   const resumeJob = useMutation({
     mutationFn: async (jobId: string) => {
-      await supabase.from("bulk_jobs").update({ status: "processing" }).eq("id", jobId);
+      const { error: updateError } = await supabase.from("bulk_jobs").update({ status: "processing" }).eq("id", jobId);
+      if (updateError) throw updateError;
       const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] }); toast.success(t("bulk.processingComplete")); },
+    onSuccess: (_, jobId) => {
+      queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["bulk-job-items", jobId] });
+      toast.success("Генерация возобновлена");
+    },
     onError: (e) => toast.error(e.message),
   });
 
@@ -206,7 +255,7 @@ export function BulkGenerationMode() {
 
   const activeJob = bulkJobs.find((j) => j.id === activeJobId);
   const progressPercent = activeJob ? Math.round((activeJob.completed_items / Math.max(activeJob.total_items, 1)) * 100) : 0;
-  const isProcessing = activeJob?.status === "processing" || startProcessing.isPending || resumeJob.isPending;
+  const isProcessing = activeJob?.status === "processing" || activeJob?.status === "pending" || startProcessing.isPending || resumeJob.isPending;
   const isPaused = activeJob?.status === "paused";
 
   return (
