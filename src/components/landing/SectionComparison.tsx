@@ -39,7 +39,7 @@ const content = {
       { text: "In conclusion, SEO is a continuous process of improvement.", tag: "CLICHÉ" },
     ],
     leftPatterns: ["⚠ Pattern #1", "⚠ Pattern #2", "⚠ Pattern #3", "⚠ Pattern #4"],
-    rightTitle: "SERPblueprint Output",
+    rightTitle: "СЕО-Модуль Output",
     rightBadge: "AI: 0%",
     rightLines: [
       "We tested 340 long-reads in B2B SaaS and e-commerce niches. Result: articles with Perplexity > 75 receive 62% more organic traffic.",
