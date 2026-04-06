@@ -1016,7 +1016,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.dataDesc": { ru: "Наши алгоритмы проектируют контент, который обходит Content Decay.", en: "Our algorithms engineer content that bypasses Content Decay." },
   "lp.chartTitle": { ru: "Рост кликов (8 месяцев)", en: "Click growth (8 months)" },
   "lp.chartGeneric": { ru: "Типичный AI", en: "Generic AI" },
-  "lp.chartSynth": { ru: "SERPblueprint", en: "SERPblueprint" },
+  "lp.chartSynth": { ru: "СЕО-Модуль", en: "СЕО-Модуль" },
   "lp.case1": { ru: "Кейс: рост упоминаний в Perplexity с 0% до 65% за 30 дней.", en: "Case: brand mentions in Perplexity grew from 0% to 65% in 30 days." },
   "lp.case2": { ru: "Бенчмарк: 100/100 читаемость и 0% ИИ по Originality.ai v2.0.", en: "Benchmark: 100/100 readability and 0% AI by Originality.ai v2.0." },
   "lp.case3": { ru: "Сокращение времени на лонгрид с 6 часов до 12 минут.", en: "Longread preparation from 6 hours to 12 minutes." },
