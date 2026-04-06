@@ -38,6 +38,10 @@ const RadarPage = lazy(() => import("@/pages/RadarPage"));
 const WikiPage = lazy(() => import("@/pages/WikiPage"));
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
 const SupportPage = lazy(() => import("@/pages/SupportPage"));
+const OfferPage = lazy(() => import("@/pages/OfferPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
+const TermsPage = lazy(() => import("@/pages/TermsPage"));
+const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
