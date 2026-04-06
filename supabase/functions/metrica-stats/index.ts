@@ -72,6 +72,8 @@ Deno.serve(async (req) => {
       dailyRes.json(),
     ]);
 
+    console.log("Today totals:", JSON.stringify(todayData?.totals), "Status:", todayRes.status);
+
     const extractTotals = (d: any) => {
       const t = d?.totals || [];
       return { visits: Math.round(t[0] || 0), users: Math.round(t[1] || 0), pageviews: Math.round(t[2] || 0) };
