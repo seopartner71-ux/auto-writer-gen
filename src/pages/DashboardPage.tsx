@@ -648,6 +648,9 @@ function AdminDashboard() {
       {/* Yandex Metrica */}
       <MetricaWidget />
 
+      {/* Service Load */}
+      <ServiceLoadPanel />
+
       {/* Queue Monitor */}
       <QueueMonitor />
 
