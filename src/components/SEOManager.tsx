@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SiteSettings {
-  metrica_id: string;
-  yandex_verification: string;
-  google_verification: string;
+  metrica_id: string | null;
+  yandex_verification: string | null;
+  google_verification: string | null;
 }
 
 export function SEOManager() {
@@ -15,8 +15,12 @@ export function SEOManager() {
       .from("site_settings")
       .select("metrica_id, yandex_verification, google_verification")
       .limit(1)
-      .single()
-      .then(({ data }) => {
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn("SEOManager: failed to load site_settings", error.message);
+          return;
+        }
         if (data) setSettings(data as SiteSettings);
       });
   }, []);
@@ -25,49 +29,60 @@ export function SEOManager() {
     if (!settings) return;
 
     // Yandex verification meta
-    if (settings.yandex_verification) {
-      let meta = document.querySelector('meta[name="yandex-verification"]');
+    const yv = settings.yandex_verification?.trim();
+    if (yv) {
+      let meta = document.querySelector('meta[name="yandex-verification"]') as HTMLMetaElement | null;
       if (!meta) {
         meta = document.createElement("meta");
         meta.setAttribute("name", "yandex-verification");
         document.head.appendChild(meta);
       }
-      meta.setAttribute("content", settings.yandex_verification);
+      meta.setAttribute("content", yv);
     }
 
     // Google verification meta
-    if (settings.google_verification) {
-      let meta = document.querySelector('meta[name="google-site-verification"]');
+    const gv = settings.google_verification?.trim();
+    if (gv) {
+      let meta = document.querySelector('meta[name="google-site-verification"]') as HTMLMetaElement | null;
       if (!meta) {
         meta = document.createElement("meta");
         meta.setAttribute("name", "google-site-verification");
         document.head.appendChild(meta);
       }
-      meta.setAttribute("content", settings.google_verification);
+      meta.setAttribute("content", gv);
     }
 
-    // Yandex.Metrica script — skip on localhost
-    if (settings.metrica_id && !window.location.hostname.includes("localhost")) {
-      const id = settings.metrica_id;
+    // Yandex.Metrica script — skip on localhost and preview domains
+    const mid = settings.metrica_id?.trim();
+    const hostname = window.location.hostname;
+    const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname.includes(".lovable.app");
+    if (mid && !isLocal) {
       if (document.getElementById("ym-script")) return;
+
+      // Declare ym globally
+      (window as any).ym = (window as any).ym || function (...args: any[]) {
+        ((window as any).ym.a = (window as any).ym.a || []).push(args);
+      };
+      (window as any).ym.l = Date.now();
 
       const script = document.createElement("script");
       script.id = "ym-script";
       script.async = true;
-      script.textContent = `
-        (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-        m[i].l=1*new Date();
-        for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r)return;}
-        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
-        (window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
-        ym(${id},"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});
-      `;
+      script.src = "https://mc.yandex.ru/metrika/tag.js";
+      script.onload = () => {
+        (window as any).ym(Number(mid), "init", {
+          clickmap: true,
+          trackLinks: true,
+          accurateTrackBounce: true,
+          webvisor: true,
+        });
+      };
       document.head.appendChild(script);
 
       // noscript fallback in body
       const noscript = document.createElement("noscript");
       const img = document.createElement("img");
-      img.src = `https://mc.yandex.ru/watch/${id}`;
+      img.src = `https://mc.yandex.ru/watch/${mid}`;
       img.style.position = "absolute";
       img.style.left = "-9999px";
       img.alt = "";
