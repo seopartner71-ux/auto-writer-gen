@@ -12,7 +12,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Users, Save, Trash2, Coins } from "lucide-react";
+import { Users, Save, Trash2, Coins, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -98,11 +98,24 @@ export function UserManagementTab() {
 
   const toggleActive = useMutation({
     mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      const user = profiles.find((p) => p.id === userId);
+      const wasInactive = user && !user.is_active;
+
       const { error } = await supabase
         .from("profiles")
         .update({ is_active: isActive })
         .eq("id", userId);
       if (error) throw error;
+
+      // Auto-grant 10 welcome credits when activating a new user
+      if (isActive && wasInactive && user && user.credits_amount === 0) {
+        await supabase.rpc("admin_add_credits", {
+          p_user_id: userId,
+          p_amount: 10,
+          p_notify: true,
+          p_comment: "Приветственные кредиты — добро пожаловать в СЕО-Модуль! 🎉",
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
@@ -180,7 +193,17 @@ export function UserManagementTab() {
                     key={p.id}
                     className={`border-border ${!p.is_active ? "opacity-50" : ""}`}
                   >
-                    <TableCell className="font-mono text-xs">{p.email}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {p.email}
+                        {!p.is_active && (
+                          <Badge variant="outline" className="text-[10px] border-yellow-500/50 text-yellow-500 gap-1 px-1.5 py-0">
+                            <Clock className="h-2.5 w-2.5" />
+                            Ожидает
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{p.full_name || '—'}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {p.created_at ? format(new Date(p.created_at), 'dd.MM.yyyy') : '—'}
