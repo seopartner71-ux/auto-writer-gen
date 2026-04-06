@@ -26,7 +26,15 @@ export function LandingFooter() {
       links: [
         { label: "FAQ", action: () => { navigate("/"); setTimeout(() => document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" }), 100); } },
         { label: lang === "ru" ? "Связаться" : "Contact", action: () => navigate("/support") },
-        { label: "Roadmap", action: () => {} },
+      ],
+    },
+    {
+      title: lang === "ru" ? "Юридическая информация" : "Legal",
+      links: [
+        { label: lang === "ru" ? "Публичная оферта" : "Public Offer", action: () => navigate("/offer") },
+        { label: lang === "ru" ? "Политика конфиденциальности" : "Privacy Policy", action: () => navigate("/privacy") },
+        { label: lang === "ru" ? "Пользовательское соглашение" : "Terms of Service", action: () => navigate("/terms") },
+        { label: lang === "ru" ? "Политика Cookie" : "Cookie Policy", action: () => navigate("/cookies") },
       ],
     },
   ];
@@ -35,13 +43,13 @@ export function LandingFooter() {
     <footer className="relative border-t border-primary/20 bg-[#050505]/90 backdrop-blur-2xl"
       style={{ boxShadow: "0 -1px 40px rgba(139,92,246,0.06)" }}>
       <div className="container mx-auto px-4 py-14 max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-8">
           {/* Logo + status */}
           <motion.div variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }} className="space-y-5">
             <div className="flex items-center gap-2">
               <Hexagon className="h-5 w-5 text-primary" />
               <span className="text-lg font-brand tracking-tight">
-                SERP<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">blueprint</span>
+                СЕО-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">Модуль</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -100,10 +108,20 @@ export function LandingFooter() {
           </motion.div>
         </div>
 
+        {/* Requisites */}
+        <div className="mt-10 pt-6 border-t border-white/[0.04]">
+          <p className="text-[11px] font-mono text-muted-foreground/30 leading-relaxed">
+            {lang === "ru"
+              ? "Самозанятый. Контактный email: support@seo-modul.ru"
+              : "Self-employed. Contact email: support@seo-modul.ru"
+            }
+          </p>
+        </div>
+
         {/* Legal */}
-        <div className="mt-12 pt-6 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="mt-4 pt-4 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-[10px] font-mono text-muted-foreground/25 tracking-wide">
-            © {new Date().getFullYear()} SERPblueprint v2.1.0 - {t("landing.copyright")}
+            © {new Date().getFullYear()} СЕО-Модуль — {t("landing.copyright")}
           </p>
           <p className="text-[9px] font-mono text-muted-foreground/20 tracking-wider max-w-md text-center sm:text-right leading-relaxed">
             {t("lp.footerLegal")}

@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Cookie } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function CookieConsent() {
-  const { t } = useI18n();
+  const { lang } = useI18n();
+  const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -37,14 +39,19 @@ export function CookieConsent() {
               </div>
               <div className="flex-1">
                 <p className="text-sm text-muted-foreground/80 leading-relaxed">
-                  {t("cookie.text")}
+                  {lang === "ru"
+                    ? <>Мы используем файлы cookie для улучшения работы сервиса и анализа трафика. Продолжая использовать сайт, вы соглашаетесь с нашей{" "}
+                        <button onClick={() => { accept(); navigate("/cookies"); }} className="text-primary hover:underline">Политикой использования Cookie</button>.</>
+                    : <>We use cookies to improve service and analyze traffic. By continuing to use the site, you agree to our{" "}
+                        <button onClick={() => { accept(); navigate("/cookies"); }} className="text-primary hover:underline">Cookie Policy</button>.</>
+                  }
                 </p>
               </div>
               <button
                 onClick={accept}
                 className="shrink-0 px-5 py-2 rounded-xl bg-primary/20 border border-primary/30 text-sm font-medium text-primary hover:bg-primary/30 transition-colors"
               >
-                {t("cookie.accept")}
+                {lang === "ru" ? "Принять" : "Accept"}
               </button>
             </div>
           </div>
