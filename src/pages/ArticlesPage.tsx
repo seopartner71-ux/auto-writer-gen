@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus, UserPlus
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { useAuth } from "@/shared/hooks/useAuth";
 import { PlanGate } from "@/shared/components/PlanGate";
 import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
@@ -281,8 +282,13 @@ export default function ArticlesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
+  const [transferEmail, setTransferEmail] = useState("");
 
   // Data fetching
   const { data: keywords = [] } = useQuery({
@@ -404,7 +410,36 @@ export default function ArticlesPage() {
   const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Timer for streaming elapsed seconds
+  // Admin: transfer article to another user
+  const handleTransferArticle = useCallback(async () => {
+    if (!transferArticleId || !transferEmail.trim()) return;
+    try {
+      // Find user by email
+      const { data: targetProfile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("email", transferEmail.trim())
+        .single();
+      if (profileErr || !targetProfile) {
+        toast.error(lang === "ru" ? "Пользователь не найден" : "User not found");
+        return;
+      }
+      // Update article user_id
+      const { error: updateErr } = await supabase
+        .from("articles")
+        .update({ user_id: targetProfile.id })
+        .eq("id", transferArticleId);
+      if (updateErr) throw updateErr;
+      toast.success(lang === "ru" ? `Статья передана ${targetProfile.email}` : `Article transferred to ${targetProfile.email}`);
+      setTransferDialogOpen(false);
+      setTransferArticleId(null);
+      setTransferEmail("");
+      queryClient.invalidateQueries({ queryKey: ["articles-list"] });
+    } catch (e: any) {
+      toast.error(e.message || "Transfer failed");
+    }
+  }, [transferArticleId, transferEmail, lang, queryClient]);
+
   useEffect(() => {
     if (!isStreaming) { setStreamElapsed(0); return; }
     const start = Date.now();
@@ -523,16 +558,17 @@ export default function ArticlesPage() {
   const readability = useMemo(() => fleschScore(content), [content]);
   const readInfo = readabilityLabel(readability, t);
 
-  // Real-time fact-check on content changes
-  const liveFactCheck = useMemo(() => {
-    if (!content || content.length < 100) return null;
-    const result = validateContent(content);
-    return result.issues.length > 0 ? "warning" as const : "verified" as const;
-  }, [content]);
-
+  // Debounced fact-check to avoid freezing during streaming
   useEffect(() => {
-    if (liveFactCheck) setFactCheckStatus(liveFactCheck);
-  }, [liveFactCheck]);
+    if (!content || content.length < 100 || isStreaming) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      const result = validateContent(content);
+      setFactCheckStatus(result.issues.length > 0 ? "warning" : "verified");
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [content, isStreaming]);
 
   // Stream article generation
   const handleGenerate = useCallback(async () => {
@@ -1892,6 +1928,20 @@ export default function ArticlesPage() {
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
+                        {isAdmin && (
+                          <button
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary shrink-0"
+                            title="Передать пользователю"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTransferArticleId(a.id);
+                              setTransferEmail("");
+                              setTransferDialogOpen(true);
+                            }}
+                          >
+                            <UserPlus className="h-3 w-3" />
+                          </button>
+                        )}
                         </div>
                       ))}
                     </div>
@@ -2183,6 +2233,42 @@ export default function ArticlesPage() {
               <Button className="flex-1" onClick={() => { setShowCreditsModal(false); navigate("/pricing"); }}>
                 <CreditCard className="h-4 w-4 mr-1.5" />
                 {t("nav.pricing")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin: Transfer Article Dialog */}
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              {lang === "ru" ? "Передать статью пользователю" : "Transfer article to user"}
+            </DialogTitle>
+            <DialogDescription>
+              {lang === "ru" ? "Введите email пользователя, которому хотите передать статью" : "Enter the email of the user to transfer the article to"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="user@example.com"
+              value={transferEmail}
+              onChange={(e) => setTransferEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && transferEmail.trim() && handleTransferArticle()}
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setTransferDialogOpen(false)}>
+                {t("common.close")}
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!transferEmail.trim()}
+                onClick={handleTransferArticle}
+              >
+                <UserPlus className="h-4 w-4 mr-1.5" />
+                {lang === "ru" ? "Передать" : "Transfer"}
               </Button>
             </div>
           </div>
