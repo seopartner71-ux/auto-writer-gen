@@ -287,11 +287,7 @@ export default function DashboardPage() {
   const { profile, role } = useAuth();
   const { t } = useI18n();
   const queryClient = useQueryClient();
-
-  // Admin sees a completely different dashboard
-  if (role === "admin") {
-    return <AdminDashboard />;
-  }
+  const isAdmin = role === "admin";
 
   const plan = (profile?.plan ?? "basic") as "basic" | "pro";
   const limits = PLAN_LIMITS[plan];
@@ -312,6 +308,7 @@ export default function DashboardPage() {
         .limit(100);
       return data || [];
     },
+    enabled: !isAdmin,
   });
 
   const { data: keywords = [] } = useQuery({
@@ -322,6 +319,7 @@ export default function DashboardPage() {
         .select("id, seed_keyword, intent, volume, difficulty");
       return data || [];
     },
+    enabled: !isAdmin,
   });
 
   const { data: usageLogs = [] } = useQuery({
@@ -332,10 +330,11 @@ export default function DashboardPage() {
         .select("id, tokens_used, action, created_at");
       return data || [];
     },
+    enabled: !isAdmin,
   });
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const stats = useMemo(() => {
+    if (isAdmin) return null;
     const totalArticles = articles.length;
     const totalKeywords = keywords.length;
     const totalGenerations = usageLogs.length;
