@@ -98,11 +98,24 @@ export function UserManagementTab() {
 
   const toggleActive = useMutation({
     mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      const user = profiles.find((p) => p.id === userId);
+      const wasInactive = user && !user.is_active;
+
       const { error } = await supabase
         .from("profiles")
         .update({ is_active: isActive })
         .eq("id", userId);
       if (error) throw error;
+
+      // Auto-grant 10 welcome credits when activating a new user
+      if (isActive && wasInactive && user && user.credits_amount === 0) {
+        await supabase.rpc("admin_add_credits", {
+          p_user_id: userId,
+          p_amount: 10,
+          p_notify: true,
+          p_comment: "Приветственные кредиты — добро пожаловать в СЕО-Модуль! 🎉",
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
