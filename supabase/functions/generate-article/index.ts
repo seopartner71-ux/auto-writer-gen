@@ -965,6 +965,9 @@ serve(async (req) => {
       includeExpertQuote: include_expert_quote,
       includeComparisonTable: include_comparison_table,
       dataNuggets: body.data_nuggets || [],
+      seoKeywords: seo_keywords || null,
+      geoLocation: geo_location || null,
+      customInstructions: custom_instructions || null,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
