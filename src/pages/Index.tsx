@@ -71,6 +71,7 @@ export default function Index() {
 
       <CookieConsent />
       <ScrollToTop />
+      <FloatingCTA />
     </div>
   );
 }
