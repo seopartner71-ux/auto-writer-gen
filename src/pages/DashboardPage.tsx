@@ -394,11 +394,11 @@ function OnlineUsersPanel() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-online-users"],
     queryFn: async () => {
-      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       const { data: stats } = await supabase
         .from("user_stats")
         .select("user_id, last_activity_at")
-        .gte("last_activity_at", fiveMinAgo)
+        .gte("last_activity_at", fifteenMinAgo)
         .order("last_activity_at", { ascending: false });
 
       if (!stats || stats.length === 0) return [];
