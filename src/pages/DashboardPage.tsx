@@ -124,7 +124,7 @@ interface MetricaData {
 function MetricaWidget() {
   const [period, setPeriod] = useState<MetricaPeriod>("today");
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["metrica-stats", period],
     queryFn: async () => {
       const { data: result, error } = await supabase.functions.invoke("metrica-stats", {
