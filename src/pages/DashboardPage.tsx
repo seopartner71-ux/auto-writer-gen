@@ -239,6 +239,39 @@ function MetricaWidget() {
           </CardContent>
         </Card>
       )}
+
+      {/* Daily visits chart */}
+      {data.daily && data.daily.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" /> Посещаемость за 30 дней
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={data.daily}>
+                <defs>
+                  <linearGradient id="metricaVisitsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="metricaUsersGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.2} />
+                    <stop offset="100%" stopColor="hsl(142 71% 45%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" interval="preserveStartEnd" />
+                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
+                <Area type="monotone" dataKey="visits" name="Визиты" stroke="hsl(var(--primary))" fill="url(#metricaVisitsGrad)" strokeWidth={2} />
+                <Area type="monotone" dataKey="users" name="Пользователи" stroke="hsl(142 71% 45%)" fill="url(#metricaUsersGrad)" strokeWidth={1.5} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
