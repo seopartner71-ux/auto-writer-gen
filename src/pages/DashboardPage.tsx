@@ -7,7 +7,7 @@ import { PLAN_LIMITS } from "@/shared/api/types";
 import {
   FileText, Search, BarChart3, Zap, TrendingUp, Hash, Trash2,
   CheckCircle2, AlertCircle, Clock, BookOpen, Send, Globe, Newspaper, PenTool,
-  Users, UserCheck, UserX, CreditCard, ListOrdered, RefreshCw, Loader2
+  Users, UserCheck, UserX, CreditCard, ListOrdered, RefreshCw, Loader2, Eye, MousePointerClick, ArrowUpDown
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +92,153 @@ function QueueMonitor() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/* ──────────── Yandex Metrica Widget ──────────── */
+function MetricaWidget() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["metrica-stats"],
+    queryFn: async () => {
+      const { data: result, error } = await supabase.functions.invoke("metrica-stats");
+      if (error) throw error;
+      if (result?.error) throw new Error(result.error);
+      return result as {
+        today: { visits: number; users: number; pageviews: number; bounceRate: number };
+        month: { visits: number; users: number; pageviews: number };
+        year: { visits: number; users: number; pageviews: number };
+        sources: { source: string; visits: number }[];
+        counterId: string;
+      };
+    },
+    refetchInterval: 60000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" /> Яндекс.Метрика
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" /> Яндекс.Метрика
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-destructive">{(error as any)?.message || "Ошибка загрузки"}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const sourceColors = [
+    "hsl(var(--primary))",
+    "hsl(210 100% 50%)",
+    "hsl(142 71% 45%)",
+    "hsl(45 93% 47%)",
+    "hsl(0 84% 60%)",
+    "hsl(280 67% 55%)",
+    "hsl(200 80% 50%)",
+    "hsl(30 90% 55%)",
+  ];
+
+  const sourceChartData = data.sources.map((s, i) => ({
+    name: s.source,
+    value: s.visits,
+    fill: sourceColors[i % sourceColors.length],
+  }));
+
+  return (
+    <div className="space-y-4">
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" /> Яндекс.Метрика
+            <Badge variant="outline" className="text-[10px] ml-auto font-mono">ID {data.counterId}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: "Сегодня", visits: data.today.visits, users: data.today.users, pageviews: data.today.pageviews },
+              { label: "За месяц", visits: data.month.visits, users: data.month.users, pageviews: data.month.pageviews },
+              { label: "За год", visits: data.year.visits, users: data.year.users, pageviews: data.year.pageviews },
+            ].map((period) => (
+              <div key={period.label} className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">{period.label}</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="h-3 w-3 text-primary" />
+                    <span className="text-lg font-bold">{period.visits.toLocaleString()}</span>
+                    <span className="text-[10px] text-muted-foreground">визитов</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Users className="h-3 w-3 text-emerald-500" />
+                    <span className="text-sm font-semibold">{period.users.toLocaleString()}</span>
+                    <span className="text-[10px] text-muted-foreground">юзеров</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MousePointerClick className="h-3 w-3 text-yellow-500" />
+                    <span className="text-sm font-semibold">{period.pageviews.toLocaleString()}</span>
+                    <span className="text-[10px] text-muted-foreground">просм.</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {data.today.bounceRate > 0 && (
+            <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
+              <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Отказы сегодня:</span>
+              <span className="text-xs font-semibold">{data.today.bounceRate}%</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {sourceChartData.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Globe className="h-4 w-4 text-primary" /> Каналы трафика (месяц)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width={100} height={100}>
+                <PieChart>
+                  <Pie data={sourceChartData} dataKey="value" cx="50%" cy="50%" innerRadius={25} outerRadius={45} strokeWidth={1.5}>
+                    {sourceChartData.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 flex-1">
+                {sourceChartData.map((s) => (
+                  <div key={s.name} className="flex items-center gap-2 text-xs">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.fill }} />
+                    <span className="text-muted-foreground truncate">{s.name}</span>
+                    <span className="font-semibold ml-auto">{s.value.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -350,6 +497,9 @@ function AdminDashboard() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* Yandex Metrica */}
+      <MetricaWidget />
 
       {/* Queue Monitor */}
       <QueueMonitor />
