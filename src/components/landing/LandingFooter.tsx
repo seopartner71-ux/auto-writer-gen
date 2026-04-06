@@ -111,8 +111,8 @@ export function LandingFooter() {
         <div className="mt-10 pt-6 border-t border-white/[0.04]">
           <p className="text-[11px] font-mono text-gray-400 leading-relaxed">
             {lang === "ru"
-              ? "Самозанятый. Контактный email: support@seo-modul.ru"
-              : "Self-employed. Contact email: support@seo-modul.ru"
+              ? "ИП Синицын В. Н. ИНН 710302169739. Контактный email: support@seo-modul.ru"
+              : "IE Sinitsyn V. N. TIN 710302169739. Contact email: support@seo-modul.ru"
             }
           </p>
         </div>
