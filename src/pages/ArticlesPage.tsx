@@ -521,14 +521,8 @@ export default function ArticlesPage() {
   // Real-time fact-check on content changes
   const liveFactCheck = useMemo(() => {
     if (!content || content.length < 100) return null;
-    const patterns = [
-      /(?:по данным|согласно|исследовани[еяю])\s+(?:[А-ЯA-Z][а-яa-z]+\s+){1,3}(?:университет|институт|лаборатори)/i,
-      /(?:профессор|доктор|к\.м\.н\.|PhD)\s+[А-ЯA-Z][а-яa-z]+\s+[А-ЯA-Z][а-яa-z]+/,
-      /\b\d{2,3}[.,]\d{1,2}%\s+(?:пользователей|людей|компаний|респондентов)/i,
-      /(?:according to|study by|research from)\s+(?:[A-Z][a-z]+\s+){1,3}(?:University|Institute|Lab)/i,
-      /(?:Dr\.|Prof\.|Professor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/,
-    ];
-    return patterns.some(p => p.test(content)) ? "warning" as const : "verified" as const;
+    const result = validateContent(content);
+    return result.issues.length > 0 ? "warning" as const : "verified" as const;
   }, [content]);
 
   useEffect(() => {
