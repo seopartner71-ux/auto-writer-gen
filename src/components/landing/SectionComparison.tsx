@@ -29,7 +29,7 @@ const content = {
   },
   en: {
     heading: "The Difference - in Details",
-    sub: "Standard AI text vs SERPblueprint content with high Perplexity and no clichés",
+    sub: "Standard AI text vs СЕО-Модуль content with high Perplexity and no clichés",
     leftTitle: "Standard AI Text",
     leftBadge: "AI: 0%",
     leftLines: [
