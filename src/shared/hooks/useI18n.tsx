@@ -208,6 +208,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "articles.factCheckLabel": { ru: "Fact-Check", en: "Fact-Check" },
   "articles.continueGeneration": { ru: "Продолжить синтез", en: "Continue Generation" },
   "articles.truncatedWarning": { ru: "Текст был обрезан. Нажмите чтобы дописать статью и заключение.", en: "Text was truncated. Click to continue and add conclusion." },
+  "articles.noCreditsTitle": { ru: "Кредиты закончились", en: "Not enough credits" },
+  "articles.noCreditsDesc": { ru: "У вас закончились кредиты для генерации статей", en: "You have run out of article generation credits" },
 
   // Calendar
   "calendar.title": { ru: "Контент-календарь", en: "Content Calendar" },
