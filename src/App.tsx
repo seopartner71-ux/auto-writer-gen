@@ -95,6 +95,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <SEOManager />
           <BrowserRouter>
             <AuthProvider>
               <Routes>

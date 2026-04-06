@@ -48,6 +48,7 @@ export default function AdminPage() {
         <TabsContent value="plans" className="mt-4"><PlanManagementTab /></TabsContent>
         <TabsContent value="polar" className="mt-4"><PolarSettingsTab /></TabsContent>
         <TabsContent value="support" className="mt-4"><SupportManagementTab /></TabsContent>
+        <TabsContent value="seo" className="mt-4"><SeoIntegrationsTab /></TabsContent>
       </Tabs>
     </div>
   );
