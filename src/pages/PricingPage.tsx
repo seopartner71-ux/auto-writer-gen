@@ -240,14 +240,14 @@ export default function PricingPage() {
 
 
       {/* Plans grid */}
-      <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto overflow-x-hidden">
+      <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto px-2">
         {plans.map((plan) => {
           const isCurrentPlan = currentPlan === plan.id;
           const Icon = plan.icon;
           const isPopular = plan.badge === t("pricing.popular");
           const isLoading = loadingPlan === plan.id;
           return (
-            <Card key={plan.id} className={`relative bg-card border-border flex flex-col overflow-hidden ${isPopular ? "border-primary shadow-lg shadow-primary/10 scale-[1.02]" : ""}`}>
+            <Card key={plan.id} className={`relative bg-card border-border flex flex-col overflow-hidden ${isPopular ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary" : ""}`}>
               {plan.badge && (
                 <Badge className={`absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 z-10 ${isPopular ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>{plan.badge}</Badge>
               )}
