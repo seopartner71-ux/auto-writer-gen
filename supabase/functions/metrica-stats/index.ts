@@ -49,19 +49,26 @@ Deno.serve(async (req) => {
     const monthStart = today.slice(0, 8) + "01";
     const yearStart = today.slice(0, 5) + "01-01";
 
-    // Fetch visits for today, month, year + traffic sources in parallel
-    const [todayRes, monthRes, yearRes, sourcesRes] = await Promise.all([
+    // 30 days ago
+    const d30 = new Date();
+    d30.setDate(d30.getDate() - 29);
+    const date30ago = d30.toISOString().split("T")[0];
+
+    // Fetch visits for today, month, year, sources, and daily breakdown in parallel
+    const [todayRes, monthRes, yearRes, sourcesRes, dailyRes] = await Promise.all([
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews,ym:s:bounceRate&date1=${today}&date2=${today}`, { headers }),
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews&date1=${monthStart}&date2=${today}`, { headers }),
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits,ym:s:users,ym:s:pageviews&date1=${yearStart}&date2=${today}`, { headers }),
       fetch(`${baseUrl}?ids=${counterId}&metrics=ym:s:visits&dimensions=ym:s:trafficSource&date1=${monthStart}&date2=${today}&limit=10`, { headers }),
+      fetch(`${baseUrl}/bytime?ids=${counterId}&metrics=ym:s:visits,ym:s:users&date1=${date30ago}&date2=${today}&group=day`, { headers }),
     ]);
 
-    const [todayData, monthData, yearData, sourcesData] = await Promise.all([
+    const [todayData, monthData, yearData, sourcesData, dailyData] = await Promise.all([
       todayRes.json(),
       monthRes.json(),
       yearRes.json(),
       sourcesRes.json(),
+      dailyRes.json(),
     ]);
 
     const extractTotals = (d: any) => {
@@ -79,12 +86,27 @@ Deno.serve(async (req) => {
       visits: Math.round(row.metrics?.[0] || 0),
     }));
 
+    // Parse daily bytime data
+    const visitsTimeline = dailyData?.data?.[0]?.metrics?.[0] || [];
+    const usersTimeline = dailyData?.data?.[0]?.metrics?.[1] || [];
+    const timeLabels = dailyData?.time_intervals || [];
+    const daily = timeLabels.map((interval: string[], i: number) => {
+      const dateStr = interval[0]?.split("T")[0] || "";
+      const parts = dateStr.split("-");
+      return {
+        date: parts.length === 3 ? `${parts[2]}.${parts[1]}` : dateStr,
+        visits: Math.round(visitsTimeline[i] || 0),
+        users: Math.round(usersTimeline[i] || 0),
+      };
+    });
+
     return new Response(
       JSON.stringify({
         today: todayTotals,
         month: extractTotals(monthData),
         year: extractTotals(yearData),
         sources,
+        daily,
         counterId,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
