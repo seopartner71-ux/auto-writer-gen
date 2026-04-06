@@ -743,7 +743,10 @@ function buildNewArticleUserPrompt(
   contentGaps?: any[],
   entities?: string[],
   expertInsights?: { recommendation: string; eeat_category: string; impact: string }[],
-  anchorLinks?: { url: string; anchor: string }[]
+  anchorLinks?: { url: string; anchor: string }[],
+  seoKeywords?: string | null,
+  geoLocation?: string | null,
+  customInstructions?: string | null
 ): string {
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
   const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
