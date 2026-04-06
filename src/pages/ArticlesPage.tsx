@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { useAuth } from "@/shared/hooks/useAuth";
 import { PlanGate } from "@/shared/components/PlanGate";
 import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
