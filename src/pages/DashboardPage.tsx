@@ -108,6 +108,7 @@ function MetricaWidget() {
         month: { visits: number; users: number; pageviews: number };
         year: { visits: number; users: number; pageviews: number };
         sources: { source: string; visits: number }[];
+        daily: { date: string; visits: number; users: number }[];
         counterId: string;
       };
     },
