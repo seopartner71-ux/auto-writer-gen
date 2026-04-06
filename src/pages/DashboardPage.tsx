@@ -231,6 +231,19 @@ function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+              <Zap className="h-4 w-4" /> Доход / мес
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{stats.monthlyRevenue.toLocaleString()} ₽</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Активные подписки × цена тарифа
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Registration chart */}
