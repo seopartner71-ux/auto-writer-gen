@@ -31,9 +31,7 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [ticketSubject, setTicketSubject] = useState("");
-  const [ticketMessage, setTicketMessage] = useState("");
-  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+  const [isClearingCache, setIsClearingCache] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
   const queryClient = useQueryClient();
 
