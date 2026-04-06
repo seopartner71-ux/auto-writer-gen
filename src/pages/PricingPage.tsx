@@ -230,7 +230,7 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="space-y-8 overflow-x-hidden">
+    <div className="space-y-8 overflow-x-hidden scrollbar-hide">
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold">{t("pricing.title")}</h1>
         <p className="text-muted-foreground max-w-lg mx-auto">{t("pricing.creditDesc")}</p>
