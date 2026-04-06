@@ -1010,7 +1010,10 @@ serve(async (req) => {
         keyword.content_gaps || [],
         allEntities,
         expert_insights || [],
-        anchor_links
+        anchor_links,
+        seo_keywords,
+        geo_location,
+        custom_instructions
       );
     }
 
