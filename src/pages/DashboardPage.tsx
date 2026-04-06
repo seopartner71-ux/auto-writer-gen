@@ -394,7 +394,7 @@ function OnlineUsersPanel() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-online-users"],
     queryFn: async () => {
-      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       const { data: stats } = await supabase
         .from("user_stats")
         .select("user_id, last_activity_at")
