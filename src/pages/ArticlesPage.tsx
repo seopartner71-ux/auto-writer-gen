@@ -523,16 +523,17 @@ export default function ArticlesPage() {
   const readability = useMemo(() => fleschScore(content), [content]);
   const readInfo = readabilityLabel(readability, t);
 
-  // Real-time fact-check on content changes
-  const liveFactCheck = useMemo(() => {
-    if (!content || content.length < 100) return null;
-    const result = validateContent(content);
-    return result.issues.length > 0 ? "warning" as const : "verified" as const;
-  }, [content]);
-
+  // Debounced fact-check to avoid freezing during streaming
   useEffect(() => {
-    if (liveFactCheck) setFactCheckStatus(liveFactCheck);
-  }, [liveFactCheck]);
+    if (!content || content.length < 100 || isStreaming) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      const result = validateContent(content);
+      setFactCheckStatus(result.issues.length > 0 ? "warning" : "verified");
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [content, isStreaming]);
 
   // Stream article generation
   const handleGenerate = useCallback(async () => {
