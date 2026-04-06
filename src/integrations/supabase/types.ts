@@ -596,6 +596,82 @@ export type Database = {
         }
         Relationships: []
       }
+      generation_queue: {
+        Row: {
+          article_id: string | null
+          author_profile_id: string | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          keyword_id: string | null
+          max_retries: number
+          priority: number
+          request_payload: Json
+          retry_count: number
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          article_id?: string | null
+          author_profile_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          keyword_id?: string | null
+          max_retries?: number
+          priority?: number
+          request_payload?: Json
+          retry_count?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string | null
+          author_profile_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          keyword_id?: string | null
+          max_retries?: number
+          priority?: number
+          request_payload?: Json
+          retry_count?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_queue_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_queue_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_queue_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       indexing_logs: {
         Row: {
           article_id: string | null
