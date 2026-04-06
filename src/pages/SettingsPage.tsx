@@ -129,25 +129,24 @@ export default function SettingsPage() {
   const plan = currentPlan;
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div>
-        <div className="flex items-center gap-3 mb-1">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Settings className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
-            <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
-          </div>
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Settings className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Column 1: Profile + Account Info */}
+        <div className="space-y-4">
           <Card className="bg-card border-border overflow-hidden">
-            <CardHeader className="pb-4">
+            <CardHeader className="pb-3 pt-4 px-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-sm flex items-center gap-2">
                   <User className="h-4 w-4 text-primary" />
                   {t("settings.profile")}
                 </CardTitle>
@@ -156,77 +155,117 @@ export default function SettingsPage() {
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
+            <CardContent className="space-y-3 px-4 pb-4">
+              <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">{t("settings.email")}</Label>
-                <Input value={user?.email ?? ""} disabled className="bg-muted/50 text-sm" />
+                <Input value={user?.email ?? ""} disabled className="bg-muted/50 text-sm h-9" />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">{t("settings.name")}</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t("settings.namePlaceholder")} className="text-sm" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t("settings.namePlaceholder")} className="text-sm h-9" />
               </div>
-              <Button onClick={handleSaveProfile} disabled={isSavingProfile} size="sm" className="w-full mt-2">
-                <Save className="h-4 w-4 mr-2" />
+              <Button onClick={handleSaveProfile} disabled={isSavingProfile} size="sm" className="w-full">
+                <Save className="h-3.5 w-3.5 mr-2" />
                 {isSavingProfile ? t("settings.saving") : t("settings.save")}
               </Button>
             </CardContent>
           </Card>
 
           <Card className="bg-card border-border overflow-hidden">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="space-y-2.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("settings.accountCreated")}</span>
+                  <span className="text-foreground text-xs">
+                    {profile?.created_at
+                      ? new Date(profile.created_at).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "long", year: "numeric" })
+                      : "-"}
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t("settings.genLimit")}</span>
+                  <span className="text-foreground font-medium text-xs">{planLimit ?? limits.maxGenerations} {t("settings.perMonth")}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Column 2: Security + Cache */}
+        <div className="space-y-4">
+          <Card className="bg-card border-border overflow-hidden">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
                 <Lock className="h-4 w-4 text-primary" />
                 {t("settings.security")}
               </CardTitle>
               <CardDescription className="text-xs">{t("settings.changePassword")}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
+            <CardContent className="space-y-3 px-4 pb-4">
+              <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">{t("settings.newPassword")}</Label>
-                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder={t("settings.passwordPlaceholder")} className="text-sm" />
+                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder={t("settings.passwordPlaceholder")} className="text-sm h-9" />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">{t("settings.confirmPassword")}</Label>
-                <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t("settings.repeatPassword")} className="text-sm" />
+                <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={t("settings.repeatPassword")} className="text-sm h-9" />
               </div>
               <Button onClick={handleChangePassword} disabled={isChangingPassword || !newPassword} size="sm" variant="outline" className="w-full">
-                <Lock className="h-4 w-4 mr-2" />
+                <Lock className="h-3.5 w-3.5 mr-2" />
                 {isChangingPassword ? t("settings.changingPassword") : t("settings.changePasswordBtn")}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border overflow-hidden">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-primary" />
+                {t("settings.cache")}
+              </CardTitle>
+              <CardDescription className="text-xs">{t("settings.cacheDesc")}</CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <Button onClick={handleClearCache} disabled={isClearingCache} size="sm" variant="outline" className="w-full">
+                <RefreshCw className={`h-3.5 w-3.5 mr-2 ${isClearingCache ? "animate-spin" : ""}`} />
+                {isClearingCache ? t("settings.clearing") : t("settings.clearCache")}
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        <div className="space-y-6">
+        {/* Column 3: Appearance + Pro Images */}
+        <div className="space-y-4">
           <Card className="bg-card border-border overflow-hidden">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
                 <Palette className="h-4 w-4 text-primary" />
                 {t("settings.appearance")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2.5">
+            <CardContent className="space-y-4 px-4 pb-4">
+              <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">{t("settings.theme")}</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setTheme("dark")} className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${theme === "dark" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-muted-foreground/30"}`}>
-                    <Moon className={`h-5 w-5 ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`} />
+                  <button onClick={() => setTheme("dark")} className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 transition-all ${theme === "dark" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-muted-foreground/30"}`}>
+                    <Moon className={`h-4 w-4 ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`} />
                     <span className={`text-xs font-medium ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`}>{t("settings.darkTheme")}</span>
                   </button>
-                  <button onClick={() => setTheme("light")} className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-all ${theme === "light" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-muted-foreground/30"}`}>
-                    <Sun className={`h-5 w-5 ${theme === "light" ? "text-primary" : "text-muted-foreground"}`} />
+                  <button onClick={() => setTheme("light")} className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 transition-all ${theme === "light" ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-muted-foreground/30"}`}>
+                    <Sun className={`h-4 w-4 ${theme === "light" ? "text-primary" : "text-muted-foreground"}`} />
                     <span className={`text-xs font-medium ${theme === "light" ? "text-primary" : "text-muted-foreground"}`}>{t("settings.lightTheme")}</span>
                   </button>
                 </div>
               </div>
               <Separator />
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Languages className="h-3.5 w-3.5" />
                   {t("settings.language")}
                 </Label>
                 <Select value={lang} onValueChange={(v) => setLang(v as "ru" | "en")}>
-                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ru">🇷🇺 Русский</SelectItem>
                     <SelectItem value="en">🇬🇧 English</SelectItem>
@@ -239,18 +278,18 @@ export default function SettingsPage() {
           {isPro && (
             <Card className="bg-card border-primary/15 overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base flex items-center gap-2">
+              <CardHeader className="pb-3 pt-4 px-4">
+                <CardTitle className="text-sm flex items-center gap-2">
                   <ImageIcon className="h-4 w-4 text-primary" />
                   Pro Visual Synthesis
                 </CardTitle>
                 <CardDescription className="text-xs">{t("settings.proImageLimit")}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 px-4 pb-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-sm font-medium">Генерация изображений</Label>
-                    <p className="text-xs text-muted-foreground">Включить/отключить генерацию Pro-обложек</p>
+                    <Label className="text-xs font-medium">Генерация изображений</Label>
+                    <p className="text-[11px] text-muted-foreground">Включить/отключить Pro-обложки</p>
                   </div>
                   <Switch
                     checked={localStorage.getItem("pro_image_enabled") === "true"}
@@ -263,56 +302,19 @@ export default function SettingsPage() {
                 <Separator />
                 <div className="flex items-end justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{proImageCount}</p>
-                    <p className="text-xs text-muted-foreground">{t("bench.ofTotal")} {proImageMax} {t("settings.ofGenerations")}</p>
+                    <p className="text-xl font-bold text-foreground">{proImageCount}</p>
+                    <p className="text-[11px] text-muted-foreground">{t("bench.ofTotal")} {proImageMax} {t("settings.ofGenerations")}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[11px] text-muted-foreground">
                     {t("settings.remaining")} {Math.max(0, proImageMax - proImageCount)}
                   </span>
                 </div>
-                <Progress value={proImagePercent} className="h-2" />
+                <Progress value={proImagePercent} className="h-1.5" />
               </CardContent>
             </Card>
           )}
-
-          <Card className="bg-card border-border overflow-hidden">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 text-primary" />
-                {t("settings.cache")}
-              </CardTitle>
-              <CardDescription className="text-xs">{t("settings.cacheDesc")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={handleClearCache} disabled={isClearingCache} size="sm" variant="outline" className="w-full">
-                <RefreshCw className={`h-4 w-4 mr-2 ${isClearingCache ? "animate-spin" : ""}`} />
-                {isClearingCache ? t("settings.clearing") : t("settings.clearCache")}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border overflow-hidden">
-            <CardContent className="pt-5 pb-4">
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("settings.accountCreated")}</span>
-                  <span className="text-foreground">
-                    {profile?.created_at
-                      ? new Date(profile.created_at).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "long", year: "numeric" })
-                      : "-"}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("settings.genLimit")}</span>
-                  <span className="text-foreground font-medium">{planLimit ?? limits.maxGenerations} {t("settings.perMonth")}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
-
     </div>
   );
 }
