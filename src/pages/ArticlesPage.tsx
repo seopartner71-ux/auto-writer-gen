@@ -282,8 +282,13 @@ export default function ArticlesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
+  const [transferEmail, setTransferEmail] = useState("");
 
   // Data fetching
   const { data: keywords = [] } = useQuery({
