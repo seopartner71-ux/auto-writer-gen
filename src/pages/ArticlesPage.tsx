@@ -1671,6 +1671,32 @@ export default function ArticlesPage() {
                           )}
                         </Badge>
                       </div>
+                      {factCheckStatus === "warning" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full mt-1.5 text-xs h-7"
+                          onClick={() => {
+                            const result = validateContent(content);
+                            if (result.issues.length > 0) {
+                              setContent(result.fixedContent);
+                              const parts: string[] = [];
+                              const fe = result.issues.filter(i => i.type === "fake_expert").length;
+                              const ps = result.issues.filter(i => i.type === "pseudo_stat").length;
+                              const fo = result.issues.filter(i => i.type === "fake_company").length;
+                              if (fe) parts.push(`${fe} фейк. экспертов`);
+                              if (ps) parts.push(`${ps} псевдостатистик`);
+                              if (fo) parts.push(`${fo} фейк. организаций`);
+                              toast.success(`Исправлено: ${parts.join(", ")}`);
+                            } else {
+                              toast.info("Подозрительных элементов не найдено");
+                            }
+                            setFactCheckStatus("verified");
+                          }}
+                        >
+                          <Shield className="h-3 w-3 mr-1" /> Исправить автоматически
+                        </Button>
+                      )}
                     </div>
                   )}
 
