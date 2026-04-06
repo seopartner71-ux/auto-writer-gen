@@ -53,7 +53,7 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
           </p>
           <div className="flex flex-col items-center gap-3 pt-2">
             <a
-              href="https://t.me/seomodul_support"
+              href="https://t.me/sin0ptick"
               target="_blank"
               rel="noopener noreferrer"
             >
