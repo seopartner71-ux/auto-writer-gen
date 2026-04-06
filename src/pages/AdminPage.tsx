@@ -10,6 +10,7 @@ import { PolarSettingsTab } from "@/components/admin/PolarSettingsTab";
 import { PlanManagementTab } from "@/components/admin/PlanManagementTab";
 import { SupportManagementTab } from "@/components/admin/SupportManagementTab";
 import { SeoIntegrationsTab } from "@/components/admin/SeoIntegrationsTab";
+import { LegalPagesTab } from "@/components/admin/LegalPagesTab";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
