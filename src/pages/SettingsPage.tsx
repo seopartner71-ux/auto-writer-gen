@@ -126,29 +126,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSubmitTicket = async () => {
-    if (!user) return;
-    if (!ticketSubject.trim() || !ticketMessage.trim()) {
-      toast.error(t("settings.fillFields"));
-      return;
-    }
-    setIsSubmittingTicket(true);
-    try {
-      const { error } = await supabase.from("support_tickets" as any).insert({
-        user_id: user.id,
-        subject: ticketSubject.trim(),
-        message: ticketMessage.trim(),
-      } as any);
-      if (error) throw error;
-      toast.success(t("settings.ticketSent"));
-      setTicketSubject("");
-      setTicketMessage("");
-    } catch (e: any) {
-      toast.error(e.message || "Error");
-    } finally {
-      setIsSubmittingTicket(false);
-    }
-  };
 
   const plan = currentPlan;
 
