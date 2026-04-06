@@ -282,6 +282,9 @@ function AdminDashboard() {
         </CardContent>
       </Card>
 
+      {/* Queue Monitor */}
+      <QueueMonitor />
+
       {/* Bottom: top users + recent registrations */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="bg-card border-border">
