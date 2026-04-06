@@ -116,7 +116,14 @@ function AdminDashboard() {
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 6);
 
-    return { total, active, pending, totalCredits, totalTokens, totalArticles, planMap, regDays, topUsers, recentUsers, monthlyRevenue };
+    // Today's stats
+    const todayStart = startOfDay(now);
+    const regToday = profiles.filter((p: any) => new Date(p.created_at) >= todayStart).length;
+    const articlesToday = allArticles.filter((a: any) => new Date(a.created_at) >= todayStart).length;
+    const gensToday = allUsageLogs.filter((l: any) => new Date(l.created_at) >= todayStart).length;
+    const tokensToday = allUsageLogs.filter((l: any) => new Date(l.created_at) >= todayStart).reduce((s: number, l: any) => s + (l.tokens_used || 0), 0);
+
+    return { total, active, pending, totalCredits, totalTokens, totalArticles, planMap, regDays, topUsers, recentUsers, monthlyRevenue, regToday, articlesToday, gensToday, tokensToday };
   }, [profiles, allUsageLogs, allArticles, subPlans]);
 
   const planColors: Record<string, string> = {
