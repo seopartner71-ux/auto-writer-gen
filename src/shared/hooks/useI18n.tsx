@@ -129,16 +129,16 @@ const translations: Record<string, Record<Lang, string>> = {
   "research.diffVeryHard": { ru: "Очень сложная", en: "Very Hard" },
 
   // GEO options
-  "geo.us": { ru: "🇺🇸 США", en: "🇺🇸 USA" },
-  "geo.gb": { ru: "🇬🇧 Великобритания", en: "🇬🇧 United Kingdom" },
-  "geo.de": { ru: "🇩🇪 Германия", en: "🇩🇪 Germany" },
-  "geo.fr": { ru: "🇫🇷 Франция", en: "🇫🇷 France" },
-  "geo.ru": { ru: "🇷🇺 Россия", en: "🇷🇺 Russia" },
-  "geo.ua": { ru: "🇺🇦 Украина", en: "🇺🇦 Ukraine" },
-  "geo.br": { ru: "🇧🇷 Бразилия", en: "🇧🇷 Brazil" },
-  "geo.in": { ru: "🇮🇳 Индия", en: "🇮🇳 India" },
-  "geo.jp": { ru: "🇯🇵 Япония", en: "🇯🇵 Japan" },
-  "geo.es": { ru: "🇪🇸 Испания", en: "🇪🇸 Spain" },
+  "geo.us": { ru: "US США", en: "US USA" },
+  "geo.gb": { ru: "GB Великобритания", en: "GB United Kingdom" },
+  "geo.de": { ru: "DE Германия", en: "DE Germany" },
+  "geo.fr": { ru: "FR Франция", en: "FR France" },
+  "geo.ru": { ru: "RU Россия", en: "RU Russia" },
+  "geo.ua": { ru: "UA Украина", en: "UA Ukraine" },
+  "geo.br": { ru: "BR Бразилия", en: "BR Brazil" },
+  "geo.in": { ru: "IN Индия", en: "IN India" },
+  "geo.jp": { ru: "JP Япония", en: "JP Japan" },
+  "geo.es": { ru: "ES Испания", en: "ES Spain" },
 
   // Plan Builder
   "planBuilder.title": { ru: "Структура статьи", en: "Article Structure" },
