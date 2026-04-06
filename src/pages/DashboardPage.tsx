@@ -193,7 +193,7 @@ function MetricaWidget() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : error || !data || !data.summary ? (
-            <p className="text-xs text-destructive py-4">{(error as any)?.message || data?.error || "Ошибка загрузки"}</p>
+            <p className="text-xs text-destructive py-4">{(error as any)?.message || (data as any)?.error || "Ошибка загрузки"}</p>
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
