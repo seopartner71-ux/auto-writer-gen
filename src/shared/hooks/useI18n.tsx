@@ -762,7 +762,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "geo.country": { ru: "Страна", en: "Country" },
   "geo.city": { ru: "Город", en: "City" },
   "geo.selectCity": { ru: "Выберите город", en: "Select city" },
-  "geo.co": { ru: "🇨🇴 Колумбия", en: "🇨🇴 Colombia" },
+  "geo.co": { ru: "CO Колумбия", en: "CO Colombia" },
 
   // ExpertInsights
   "expert.deepAnalysis": { ru: "Глубокий анализ пробелов контента на основе конкурентов", en: "Deep content gap analysis based on competitors" },

@@ -813,8 +813,8 @@ export default function RadarPage() {
               <Select value={newLanguage} onValueChange={(v) => setNewLanguage(v as "ru" | "en")}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="en">🇬🇧 English</SelectItem>
-                  <SelectItem value="ru">🇷🇺 Русский</SelectItem>
+                  <SelectItem value="en">EN English</SelectItem>
+                  <SelectItem value="ru">RU Русский</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground">{t("radar.languageHint")}</p>
