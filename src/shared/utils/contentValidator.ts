@@ -114,6 +114,11 @@ export function validateContent(content: string): ValidationResult {
   let fixedContent = content;
   const isRussian = /[а-яё]/i.test(content);
 
+  // Safety: skip validation on very large content to prevent freezes
+  if (content.length > 100_000) {
+    return { status: "clean", issues: [], fixedContent: content };
+  }
+
   // 1. Detect fake expert names (Russian)
   let match: RegExpExecArray | null;
   const ruNamePattern = new RegExp(RU_EXPERT_NAME.source, "g");

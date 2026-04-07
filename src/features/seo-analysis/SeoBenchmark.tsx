@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { sanitizeKeyword } from "@/shared/utils/sanitizeKeyword";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { fetchAndAnalyze, buildAnalysisContext, type DeepParseResult, type Entity } from "@/entities/competitor/analysisService";
@@ -59,11 +60,17 @@ function extractHeadings(md: string): { level: number; text: string }[] {
 
 function calcKeywordDensity(text: string, keyword: string): number {
   if (!keyword || !text) return 0;
+  const safe = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!safe.trim()) return 0;
   const words = countWords(text);
   if (words === 0) return 0;
-  const re = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-  const matches = text.match(re) || [];
-  return parseFloat(((matches.length / words) * 100).toFixed(2));
+  try {
+    const re = new RegExp(safe, "gi");
+    const matches = text.match(re) || [];
+    return parseFloat(((matches.length / words) * 100).toFixed(2));
+  } catch {
+    return 0;
+  }
 }
 
 const statusIcon = (s: "done" | "warning" | "error") => {
@@ -111,7 +118,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
         .select("seed_keyword")
         .eq("id", keywordId)
         .single();
-      if (kw) setSeedKeyword(kw.seed_keyword);
+      if (kw) setSeedKeyword(sanitizeKeyword(kw.seed_keyword));
 
       setLoadingPhase("Анализ конкурентов из ТОП-10...");
       const timer = setTimeout(() => setLoadingPhase("AI извлекает сущности..."), 8000);

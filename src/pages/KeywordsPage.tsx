@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
+import { sanitizeKeyword, validateKeywordInput } from "@/shared/utils/sanitizeKeyword";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,8 +86,11 @@ export default function KeywordsPage() {
 
   const research = useMutation({
     mutationFn: async () => {
+      const clean = sanitizeKeyword(keyword);
+      const vErr = validateKeywordInput(clean);
+      if (vErr) throw new Error(vErr === "too_short" ? "Слишком короткий запрос" : "Слишком длинный запрос");
       const { data, error } = await supabase.functions.invoke("smart-research", {
-        body: { keyword: keyword.trim(), geo, language, ...(geoMode === "city" && city ? { city } : {}) },
+        body: { keyword: clean, geo, language, ...(geoMode === "city" && city ? { city } : {}) },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);

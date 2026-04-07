@@ -238,9 +238,11 @@ export function findAiStopWords(text: string): { word: string; count: number }[]
 
 // ─── LSI keyword density check ──────────────────────────────────────────
 export function getKeywordDensity(text: string, keyword: string): number {
+  if (!keyword || !text) return 0;
   const words = text.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return 0;
-  const kwLower = keyword.toLowerCase();
+  const kwLower = keyword.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "");
+  if (!kwLower.trim()) return 0;
   const count = words.filter(w => w.includes(kwLower)).length;
   return (count / words.length) * 100;
 }
