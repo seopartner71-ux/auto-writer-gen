@@ -811,20 +811,30 @@ export default function ArticlesPage() {
           .update(payload)
           .eq("id", currentArticleId);
         if (error) throw error;
-        return currentArticleId;
+        return { id: currentArticleId, isNew: false };
       } else {
+        // Deduct credit for new article (skip for admins)
+        if (!isAdmin) {
+          const { data: deducted } = await supabase.rpc("deduct_credit", { p_user_id: userId });
+          if (!deducted) {
+            throw new Error(lang === "ru" ? "Недостаточно кредитов для сохранения" : "Not enough credits to save");
+          }
+        }
         const { data, error } = await supabase
           .from("articles")
           .insert(payload)
           .select("id")
           .single();
         if (error) throw error;
-        return data.id;
+        return { id: data.id, isNew: true };
       }
     },
-    onSuccess: (id) => {
-      setCurrentArticleId(id);
+    onSuccess: (result) => {
+      setCurrentArticleId(result.id);
       queryClient.invalidateQueries({ queryKey: ["articles-list"] });
+      if (result.isNew) {
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+      }
       toast.success(t("articles.articleSaved"));
     },
     onError: (e) => toast.error(e.message),

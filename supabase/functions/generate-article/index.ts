@@ -1067,10 +1067,7 @@ serve(async (req) => {
       throw new Error(`AI gateway error: ${aiResponse?.status || "unknown"}`);
     }
 
-    // Deduct credit after successful generation start (skip for admins)
-    if (!isAdmin) {
-      await supabaseAdmin.rpc("deduct_credit", { p_user_id: user.id });
-    }
+    // Credit is now deducted on save, not on generation
 
     // Log usage
     supabaseAdmin.from("usage_logs").insert({
