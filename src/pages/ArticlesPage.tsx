@@ -839,8 +839,20 @@ export default function ArticlesPage() {
       queryClient.invalidateQueries({ queryKey: ["articles-list"] });
       if (result.isNew) {
         queryClient.invalidateQueries({ queryKey: ["profile"] });
+        toast.success(
+          lang === "ru"
+            ? "✅ Статья сохранена, 1 кредит списан"
+            : "✅ Article saved, 1 credit deducted",
+          {
+            description: lang === "ru"
+              ? "Статья автоматически сохранена после генерации. Баланс обновлён."
+              : "Article was auto-saved after generation. Balance updated.",
+            duration: 6000,
+          }
+        );
+      } else {
+        toast.success(t("articles.articleSaved"));
       }
-      toast.success(t("articles.articleSaved"));
     },
     onError: (e) => toast.error(e.message),
   });
