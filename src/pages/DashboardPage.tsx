@@ -58,7 +58,8 @@ function ServiceLoadPanel() {
         queueTotal: queueItems.length,
       };
     },
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 
   const s = data || { gens24h: 0, gens1h: 0, activeUsers24h: 0, queued: 0, processing: 0, retry: 0, queueTotal: 0 };
