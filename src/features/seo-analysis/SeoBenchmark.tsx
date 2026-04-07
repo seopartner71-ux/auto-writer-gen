@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { sanitizeKeyword } from "@/shared/utils/sanitizeKeyword";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { fetchAndAnalyze, buildAnalysisContext, type DeepParseResult, type Entity } from "@/entities/competitor/analysisService";
