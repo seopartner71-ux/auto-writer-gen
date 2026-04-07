@@ -767,6 +767,11 @@ export default function ArticlesPage() {
         localStorage.setItem("pro_image_enabled", "true");
       }
       autoInsertImages(fullContent);
+
+      // Auto-save after generation completes
+      setTimeout(() => {
+        saveArticle.mutate();
+      }, 500);
     } catch (e: any) {
       if (e.name === "AbortError") {
         toast.info(t("articles.genStopped"));
