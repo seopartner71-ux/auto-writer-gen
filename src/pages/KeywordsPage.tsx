@@ -86,8 +86,11 @@ export default function KeywordsPage() {
 
   const research = useMutation({
     mutationFn: async () => {
+      const clean = sanitizeKeyword(keyword);
+      const vErr = validateKeywordInput(clean);
+      if (vErr) throw new Error(vErr === "too_short" ? "Слишком короткий запрос" : "Слишком длинный запрос");
       const { data, error } = await supabase.functions.invoke("smart-research", {
-        body: { keyword: keyword.trim(), geo, language, ...(geoMode === "city" && city ? { city } : {}) },
+        body: { keyword: clean, geo, language, ...(geoMode === "city" && city ? { city } : {}) },
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
