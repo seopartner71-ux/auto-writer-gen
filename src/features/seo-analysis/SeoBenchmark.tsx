@@ -112,7 +112,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
         .select("seed_keyword")
         .eq("id", keywordId)
         .single();
-      if (kw) setSeedKeyword(kw.seed_keyword);
+      if (kw) setSeedKeyword(sanitizeKeyword(kw.seed_keyword));
 
       setLoadingPhase("Анализ конкурентов из ТОП-10...");
       const timer = setTimeout(() => setLoadingPhase("AI извлекает сущности..."), 8000);
