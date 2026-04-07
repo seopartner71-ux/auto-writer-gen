@@ -421,7 +421,8 @@ function OnlineUsersPanel() {
         };
       });
     },
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 
   const users = data || [];
