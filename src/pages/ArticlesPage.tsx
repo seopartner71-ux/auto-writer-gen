@@ -829,9 +829,12 @@ export default function ArticlesPage() {
         return { id: data.id, isNew: true };
       }
     },
-    onSuccess: (id) => {
-      setCurrentArticleId(id);
+    onSuccess: (result) => {
+      setCurrentArticleId(result.id);
       queryClient.invalidateQueries({ queryKey: ["articles-list"] });
+      if (result.isNew) {
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+      }
       toast.success(t("articles.articleSaved"));
     },
     onError: (e) => toast.error(e.message),
