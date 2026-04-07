@@ -60,11 +60,17 @@ function extractHeadings(md: string): { level: number; text: string }[] {
 
 function calcKeywordDensity(text: string, keyword: string): number {
   if (!keyword || !text) return 0;
+  const safe = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!safe.trim()) return 0;
   const words = countWords(text);
   if (words === 0) return 0;
-  const re = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-  const matches = text.match(re) || [];
-  return parseFloat(((matches.length / words) * 100).toFixed(2));
+  try {
+    const re = new RegExp(safe, "gi");
+    const matches = text.match(re) || [];
+    return parseFloat(((matches.length / words) * 100).toFixed(2));
+  } catch {
+    return 0;
+  }
 }
 
 const statusIcon = (s: "done" | "warning" | "error") => {
