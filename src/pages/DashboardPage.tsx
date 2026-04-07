@@ -58,7 +58,8 @@ function ServiceLoadPanel() {
         queueTotal: queueItems.length,
       };
     },
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 
   const s = data || { gens24h: 0, gens1h: 0, activeUsers24h: 0, queued: 0, processing: 0, retry: 0, queueTotal: 0 };
@@ -119,7 +120,8 @@ function QueueMonitor() {
         total: (all || []).length,
       };
     },
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 
   const handleTrigger = async () => {
@@ -420,7 +422,8 @@ function OnlineUsersPanel() {
         };
       });
     },
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 
   const users = data || [];
@@ -443,10 +446,7 @@ function OnlineUsersPanel() {
           <div className="space-y-2">
             {users.map((u: any) => (
               <div key={u.id} className="flex items-center gap-3 text-sm">
-                <span className="relative flex h-2 w-2 shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                </span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shrink-0" />
                 <span className="font-mono text-xs truncate max-w-[200px]">{u.email}</span>
                 <span className="text-xs text-muted-foreground truncate hidden sm:inline">{u.name}</span>
                 <Badge variant="outline" className="text-[10px] ml-auto shrink-0 uppercase">{u.plan}</Badge>
@@ -467,6 +467,7 @@ function AdminDashboard() {
       const { data } = await supabase.from("profiles").select("id, email, full_name, plan, is_active, credits_amount, created_at");
       return data || [];
     },
+    staleTime: 60000,
   });
 
   const { data: allUsageLogs = [] } = useQuery({
@@ -475,6 +476,7 @@ function AdminDashboard() {
       const { data } = await supabase.from("usage_logs").select("user_id, tokens_used, action, created_at").limit(1000);
       return data || [];
     },
+    staleTime: 60000,
   });
 
   const { data: allArticles = [] } = useQuery({
@@ -483,6 +485,7 @@ function AdminDashboard() {
       const { data } = await supabase.from("articles").select("id, user_id, status, created_at").limit(1000);
       return data || [];
     },
+    staleTime: 60000,
   });
 
   const { data: subPlans = [] } = useQuery({
@@ -491,6 +494,7 @@ function AdminDashboard() {
       const { data } = await supabase.from("subscription_plans").select("id, name, price_rub, price_usd, monthly_article_limit");
       return data || [];
     },
+    staleTime: 300000,
   });
 
   const stats = useMemo(() => {
