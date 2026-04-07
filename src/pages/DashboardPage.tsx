@@ -120,7 +120,8 @@ function QueueMonitor() {
         total: (all || []).length,
       };
     },
-    refetchInterval: 15000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 
   const handleTrigger = async () => {
