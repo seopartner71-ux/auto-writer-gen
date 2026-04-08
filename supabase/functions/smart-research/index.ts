@@ -89,13 +89,15 @@ serve(async (req) => {
     const organicResults = serperData.organic || [];
     const peopleAlsoAsk = serperData.peopleAlsoAsk || [];
 
-    // 3. Save keyword to DB
+    // 3. Save keyword to DB (including language and geo for article generation)
     const { data: keywordRow, error: kwError } = await supabase
       .from("keywords")
       .insert({
         user_id: user.id,
         seed_keyword: keyword.trim(),
         intent: null,
+        language: language || "en",
+        geo: geo || "us",
       })
       .select("id")
       .single();
