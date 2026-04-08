@@ -51,8 +51,20 @@ interface StealthPromptInput {
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
   const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets, seoKeywords, geoLocation, customInstructions } = input;
-  const isRussian = /[а-яё]/i.test(keyword.seed_keyword);
-  const targetLanguage = isRussian ? "ru" : "en";
+  
+  // Use explicit language from keyword record instead of Cyrillic detection
+  const langMap: Record<string, string> = {
+    ru: "Russian", en: "English", de: "German", fr: "French", es: "Spanish",
+    "es-CO": "Spanish (Colombian)", pt: "Portuguese", ja: "Japanese",
+    uk: "Ukrainian", it: "Italian", zh: "Chinese", ko: "Korean",
+    ar: "Arabic", tr: "Turkish", pl: "Polish", nl: "Dutch",
+    hi: "Hindi", th: "Thai", vi: "Vietnamese", id: "Indonesian",
+    kk: "Kazakh", az: "Azerbaijani", ka: "Georgian", uz: "Uzbek",
+  };
+  const explicitLang = keyword.language || "";
+  const isRussian = explicitLang === "ru" || (!explicitLang && /[а-яё]/i.test(keyword.seed_keyword));
+  const targetLanguage = explicitLang || (isRussian ? "ru" : "en");
+  const targetLangName = langMap[targetLanguage] || "English";
 
   // ═══ BLOCK A: Author Context ═══
   let blockA = "";
