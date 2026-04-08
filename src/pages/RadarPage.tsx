@@ -1124,65 +1124,6 @@ export default function RadarPage() {
         </CardContent>
       </Card>
 
-      {/* Active Keywords Table */}
-      <Card className="bg-card/80 border-border backdrop-blur-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Search className="h-4 w-4 text-primary" />
-            {lang === "ru" ? "Активные запросы" : "Active Queries"}
-            <Badge variant="secondary" className="ml-auto">{keywords.length}</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {keywords.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">{t("radar.addKeywords")}</p>
-          ) : (
-            <div className="space-y-2">
-              {keywordSummary.map((kw: any) => {
-                const statusConf = STATUS_CONFIG[kw.mainStatus as keyof typeof STATUS_CONFIG];
-                const StatusIcon = statusConf?.icon || Sparkles;
-                const isScanning = scanningKeywordId === kw.id;
-                return (
-                  <motion.div key={kw.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className={`flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 transition-all ${isScanning ? "border-primary/40 bg-primary/5" : ""}`}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{kw.keyword}</p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {kw.latestResults.map((r: any) => {
-                          const sc = STATUS_CONFIG[r.status as keyof typeof STATUS_CONFIG];
-                          const isBrand = r.is_brand_found || r.brand_mentioned;
-                          const isDomain = r.is_domain_found || r.domain_linked;
-                          return (
-                            <button key={r.model} onClick={() => setViewResponseData({
-                              model: MODEL_LABELS[r.model] || r.model, text: r.ai_response_text || "",
-                              date: new Date(r.checked_at).toLocaleString(), brand_mentioned: isBrand,
-                              domain_linked: isDomain, matched_snippets: r.matched_snippets || [],
-                              status: r.status || "opportunity", keyword: kw.keyword,
-                              sentiment: r.sentiment || "unknown",
-                            })} className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${sc?.color || ""}`}>
-                              {isBrand && <span>🏷️</span>}
-                              {isDomain && <span>🌐</span>}
-                              {MODEL_LABELS[r.model] || r.model}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <Badge className={`${statusConf?.color || ""} gap-1`}><StatusIcon className="h-3 w-3" />{statusLabel(kw.mainStatus)}</Badge>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={checkKeyword.isPending} onClick={() => checkKeyword.mutate(kw.id)}>
-                        {isScanning ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => deleteKeyword.mutate(kw.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
         </TabsContent>
 
