@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, CheckCircle2, XCircle, TrendingUp, Minus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Download, CheckCircle2, XCircle, TrendingUp, Minus, Eye } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { motion } from "framer-motion";
 
@@ -16,6 +17,9 @@ const AI_MODELS = [
   { key: "perplexity", name: "Perplexity", color: "#1fb8cd" },
   { key: "claude", name: "Claude", color: "#d97706" },
   { key: "gemini_flash", name: "Gemini", color: "#4285f4" },
+  { key: "deepseek", name: "DeepSeek", color: "#5B6AE0" },
+  { key: "mistral", name: "Mistral", color: "#F97316" },
+  { key: "llama", name: "Llama", color: "#8B5CF6" },
 ];
 
 const SENTIMENT_BADGE: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
@@ -30,6 +34,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
   const [selectedGroup, setSelectedGroup] = useState("all");
   const [sentimentFilter, setSentimentFilter] = useState("all");
   const [mentionFilter, setMentionFilter] = useState("all");
+  const [viewResult, setViewResult] = useState<any>(null);
 
   // Fetch prompt groups
   const { data: groups = [] } = useQuery({
@@ -268,12 +273,16 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
                             const mentioned = r.is_brand_found || r.brand_mentioned;
                             return (
                               <TableCell key={m.key} className="text-center">
-                                <div className="flex flex-col items-center gap-1">
-                                  {mentioned ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-destructive" />}
-                                  <Badge variant={SENTIMENT_BADGE[r.sentiment]?.variant || "secondary"} className="text-[10px] px-1.5">
+                                <button
+                                  onClick={() => setViewResult({ ...r, queryText: item.text, modelName: m.name })}
+                                  className="flex flex-col items-center gap-1 mx-auto cursor-pointer hover:opacity-80 transition-opacity group"
+                                  title="Нажмите для просмотра ответа"
+                                >
+                                  {mentioned ? <CheckCircle2 className="h-4 w-4 text-green-500 group-hover:scale-110 transition-transform" /> : <XCircle className="h-4 w-4 text-destructive group-hover:scale-110 transition-transform" />}
+                                  <Badge variant={SENTIMENT_BADGE[r.sentiment]?.variant || "secondary"} className="text-[10px] px-1.5 cursor-pointer">
                                     {SENTIMENT_BADGE[r.sentiment]?.label || r.sentiment}
                                   </Badge>
-                                </div>
+                                </button>
                               </TableCell>
                             );
                           })}
@@ -337,6 +346,81 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Response Detail Dialog */}
+      <Dialog open={!!viewResult} onOpenChange={() => setViewResult(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Ответ {viewResult?.modelName}
+              {viewResult?.sentiment && (
+                <Badge variant={SENTIMENT_BADGE[viewResult.sentiment]?.variant || "secondary"} className="ml-2">
+                  {SENTIMENT_BADGE[viewResult.sentiment]?.label || viewResult.sentiment}
+                </Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Запрос: <span className="font-medium text-foreground">{viewResult?.queryText}</span>
+              <span className="text-xs ml-2">
+                {viewResult?.checked_at && new Date(viewResult.checked_at).toLocaleString()}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewResult && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge variant={viewResult.is_brand_found || viewResult.brand_mentioned ? "default" : "destructive"}>
+                  {viewResult.is_brand_found || viewResult.brand_mentioned ? "✓ Бренд найден" : "✗ Бренд не найден"}
+                </Badge>
+                {(viewResult.is_domain_found || viewResult.domain_linked) && (
+                  <Badge variant="default">✓ Домен найден</Badge>
+                )}
+                {viewResult.competitor_domains?.length > 0 && (
+                  <Badge variant="secondary">Конкуренты: {viewResult.competitor_domains.join(", ")}</Badge>
+                )}
+              </div>
+
+              {viewResult.matched_snippets?.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Найденные фрагменты:</p>
+                  <div className="space-y-1">
+                    {viewResult.matched_snippets.map((s: string, i: number) => (
+                      <div key={i} className="text-sm bg-primary/10 rounded px-3 py-1.5 border-l-2 border-primary">
+                        ...{s}...
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {viewResult.ai_response_text && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Полный ответ ИИ:</p>
+                  <div className="text-sm whitespace-pre-wrap bg-muted/30 rounded-lg p-4 border border-border max-h-[400px] overflow-y-auto leading-relaxed">
+                    {viewResult.ai_response_text}
+                  </div>
+                </div>
+              )}
+
+              {viewResult.sources && Array.isArray(viewResult.sources) && viewResult.sources.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Источники:</p>
+                  <div className="space-y-1">
+                    {viewResult.sources.map((src: any, i: number) => (
+                      <a key={i} href={typeof src === "string" ? src : src.url} target="_blank" rel="noopener noreferrer"
+                        className="block text-xs text-primary hover:underline truncate">
+                        {typeof src === "string" ? src : src.url || src.title}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
