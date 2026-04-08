@@ -2134,6 +2134,7 @@ export default function ArticlesPage() {
                         author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
                           outline,
                           lsi_keywords: lsiKeywords,
+                          language: (selectedKeyword as any)?.language || null,
                           optimize_instructions: instructions,
                           deep_analysis_context: benchmarkContext,
                           existing_content: prevContent,
