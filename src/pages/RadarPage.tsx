@@ -227,7 +227,40 @@ export default function RadarPage() {
   const [activeModels, setActiveModels] = useState<string[]>(["gemini_flash", "chatgpt", "perplexity", "claude"]);
   const [viewResponseData, setViewResponseData] = useState<any>(null);
   const [responseOpen, setResponseOpen] = useState(false);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [runProgress, setRunProgress] = useState<{ completed: number; total: number; model: string; prompt: string } | null>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+
+  /* ── Realtime progress subscription ── */
+  useEffect(() => {
+    if (!activeRunId) { setRunProgress(null); return; }
+    const channel = supabase
+      .channel(`run-progress-${activeRunId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'radar_analysis_runs',
+        filter: `id=eq.${activeRunId}`,
+      }, (payload) => {
+        const row = payload.new as any;
+        setRunProgress({
+          completed: row.completed_prompts || 0,
+          total: row.total_prompts || 1,
+          model: row.current_model || '',
+          prompt: row.current_prompt_text || '',
+        });
+        if (row.status === 'completed' || row.status === 'error') {
+          setTimeout(() => {
+            setActiveRunId(null);
+            setRunProgress(null);
+            refetchResults();
+            refetchKeywords();
+          }, 1500);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeRunId]);
 
   /* ── Queries ── */
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
