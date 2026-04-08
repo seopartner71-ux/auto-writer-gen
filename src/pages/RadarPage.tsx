@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, lazy, Suspense } from "react";
 import DOMPurify from "dompurify";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,13 +30,17 @@ import {
   Eye, Trash2, RefreshCw, Shield, AlertTriangle,
   Sparkles, Globe, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown,
   Lightbulb, Wand2, Languages, BarChart3, Target, Zap, ExternalLink,
-  Check, CircleDot
+  Check, CircleDot, Crosshair, MessageSquareText, Link2
 } from "lucide-react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   Radar as RechartsRadar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   Tooltip, Cell, PieChart, Pie, Legend
 } from "recharts";
+
+const MentionsPage = lazy(() => import("@/pages/MentionsPage"));
+const PromptsPage = lazy(() => import("@/pages/PromptsPage"));
+const SourcesPage = lazy(() => import("@/pages/SourcesPage"));
 
 /* ── Constants ── */
 const MODEL_LABELS: Record<string, string> = {
