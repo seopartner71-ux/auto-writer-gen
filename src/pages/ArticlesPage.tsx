@@ -2034,6 +2034,7 @@ export default function ArticlesPage() {
                         author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
                         outline,
                         lsi_keywords: lsiKeywords,
+                        language: (selectedKeyword as any)?.language || null,
                         optimize_instructions: `ЗАДАЧА: Исправь ТОЛЬКО указанную проблему, сохрани весь остальной текст максимально близко к оригиналу.\n\n${instruction}\n\nВАЖНО: НЕ переписывай статью целиком. Измени только те части, которые нарушают указанное правило. Сохрани структуру, заголовки и объём.`,
                         existing_content: prevContent,
                       }),
