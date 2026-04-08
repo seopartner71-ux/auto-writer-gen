@@ -538,21 +538,40 @@ export default function RadarPage() {
 
   const scanAll = useMutation({
     mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const userId = session?.user?.id;
+      if (!token || !userId) throw new Error("Not authenticated");
+
+      // Create analysis run
+      const totalPrompts = keywords.length * 4; // 4 models per keyword
+      const { data: run, error: runErr } = await supabase.from("radar_analysis_runs").insert({
+        user_id: userId,
+        project_id: activeProject?.id,
+        status: "running",
+        total_prompts: totalPrompts,
+        completed_prompts: 0,
+      } as any).select().single();
+      if (runErr) throw runErr;
+
+      setActiveRunId(run.id);
+      setRunProgress({ completed: 0, total: totalPrompts, model: '', prompt: '' });
+
       for (const kw of keywords) {
         setScanningKeywordId(kw.id);
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        if (!token) throw new Error("Not authenticated");
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ keyword_id: kw.id, project_id: activeProject?.id }),
+          body: JSON.stringify({ keyword_id: kw.id, project_id: activeProject?.id, run_id: run.id }),
         });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           console.warn(`Scan failed for ${kw.keyword}:`, err);
         }
       }
+
+      // Mark run as completed
+      await supabase.from("radar_analysis_runs").update({ status: "completed", completed_at: new Date().toISOString() } as any).eq("id", run.id);
     },
     onSuccess: async () => {
       setScanningKeywordId(null);
