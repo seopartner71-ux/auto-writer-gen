@@ -1084,19 +1084,19 @@ export default function RadarPage() {
 
         <TabsContent value="mentions" className="mt-0">
           <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-            <MentionsPage />
+            <MentionsPage projectId={activeProject?.id} />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="prompts" className="mt-0">
           <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-            <PromptsPage />
+            <PromptsPage projectId={activeProject?.id} />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="sources" className="mt-0">
           <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-            <SourcesPage />
+            <SourcesPage projectId={activeProject?.id} />
           </Suspense>
         </TabsContent>
       </Tabs>

@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -9,12 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, FolderInput, Search, Copy, CreditCard } from "lucide-react";
-import { MOCK_PROMPTS, PROMPT_GROUPS, type GeoPrompt } from "@/shared/data/geoMockData";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
-export default function PromptsPage() {
-  const [prompts, setPrompts] = useState<GeoPrompt[]>(MOCK_PROMPTS);
+export default function PromptsPage({ projectId }: { projectId?: string }) {
+  const queryClient = useQueryClient();
   const [selectedGroup, setSelectedGroup] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -23,10 +24,43 @@ export default function PromptsPage() {
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState("");
 
+  // Fetch groups
+  const { data: groups = [] } = useQuery({
+    queryKey: ["radar-prompt-groups", projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data } = await supabase.from("radar_prompt_groups" as any).select("*").eq("project_id", projectId).order("sort_order");
+      return (data || []) as any[];
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch prompts
+  const { data: prompts = [], isLoading } = useQuery({
+    queryKey: ["radar-prompts", projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data } = await supabase.from("radar_prompts" as any).select("*").eq("project_id", projectId).order("created_at", { ascending: false });
+      return (data || []) as any[];
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch credits
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile-credits"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase.from("profiles").select("credits_amount").eq("id", user.id).single();
+      return data;
+    },
+  });
+
   const filteredPrompts = useMemo(() => {
-    return prompts.filter((p) => {
-      if (selectedGroup !== "all" && selectedGroup !== "unassigned" && p.groupId !== selectedGroup) return false;
-      if (selectedGroup === "unassigned" && p.groupId !== null) return false;
+    return prompts.filter((p: any) => {
+      if (selectedGroup !== "all" && selectedGroup !== "unassigned" && p.group_id !== selectedGroup) return false;
+      if (selectedGroup === "unassigned" && p.group_id !== null) return false;
       if (search && !p.text.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
@@ -34,94 +68,122 @@ export default function PromptsPage() {
 
   const groupCounts = useMemo(() => {
     const counts: Record<string, number> = { all: prompts.length, unassigned: 0 };
-    prompts.forEach((p) => {
-      if (!p.groupId) counts.unassigned = (counts.unassigned || 0) + 1;
-      else counts[p.groupId] = (counts[p.groupId] || 0) + 1;
+    prompts.forEach((p: any) => {
+      if (!p.group_id) counts.unassigned = (counts.unassigned || 0) + 1;
+      else counts[p.group_id] = (counts[p.group_id] || 0) + 1;
     });
     return counts;
   }, [prompts]);
 
   const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   };
 
   const toggleAll = () => {
     if (selected.size === filteredPrompts.length) setSelected(new Set());
-    else setSelected(new Set(filteredPrompts.map((p) => p.id)));
+    else setSelected(new Set(filteredPrompts.map((p: any) => p.id)));
   };
 
-  const handleAddPrompts = () => {
-    const lines = bulkText.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (!lines.length) return;
-    const newPrompts: GeoPrompt[] = lines.map((text, i) => ({
-      id: `p-new-${Date.now()}-${i}`,
-      text,
-      groupId: selectedGroup !== "all" && selectedGroup !== "unassigned" ? selectedGroup : null,
-      createdAt: new Date().toISOString().split("T")[0],
-    }));
-    setPrompts((prev) => [...prev, ...newPrompts]);
-    setBulkText("");
-    setAddOpen(false);
-    toast.success(`Добавлено ${lines.length} промптов`);
-  };
+  // Add prompts mutation
+  const addPrompts = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !projectId) throw new Error("Not authenticated");
+      const lines = bulkText.split("\n").map(l => l.trim()).filter(Boolean);
+      if (!lines.length) throw new Error("No prompts");
+      const groupId = selectedGroup !== "all" && selectedGroup !== "unassigned" ? selectedGroup : null;
+      const rows = lines.map(text => ({
+        user_id: user.id,
+        project_id: projectId,
+        text,
+        group_id: groupId,
+      }));
+      const { error } = await supabase.from("radar_prompts" as any).insert(rows);
+      if (error) throw error;
+      return lines.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["radar-prompts"] });
+      setBulkText("");
+      setAddOpen(false);
+      toast.success(`Добавлено ${count} промптов`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
-  const handleDelete = () => {
-    setPrompts((prev) => prev.filter((p) => !selected.has(p.id)));
-    toast.success(`Удалено ${selected.size} промптов`);
-    setSelected(new Set());
-  };
+  // Delete prompts mutation
+  const deletePrompts = useMutation({
+    mutationFn: async () => {
+      const ids = Array.from(selected);
+      const { error } = await supabase.from("radar_prompts" as any).delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["radar-prompts"] });
+      toast.success(`Удалено ${selected.size} промптов`);
+      setSelected(new Set());
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
-  const handleMove = () => {
-    if (!moveTarget) return;
-    setPrompts((prev) => prev.map((p) => selected.has(p.id) ? { ...p, groupId: moveTarget === "unassigned" ? null : moveTarget } : p));
-    toast.success(`Перемещено ${selected.size} промптов`);
-    setSelected(new Set());
-    setMoveOpen(false);
-  };
+  // Move prompts mutation
+  const movePrompts = useMutation({
+    mutationFn: async () => {
+      if (!moveTarget) return;
+      const ids = Array.from(selected);
+      const groupId = moveTarget === "unassigned" ? null : moveTarget;
+      const { error } = await supabase.from("radar_prompts" as any).update({ group_id: groupId }).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["radar-prompts"] });
+      toast.success(`Перемещено ${selected.size} промптов`);
+      setSelected(new Set());
+      setMoveOpen(false);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const handleCopy = () => {
-    const texts = prompts.filter((p) => selected.has(p.id)).map((p) => p.text).join("\n");
+    const texts = prompts.filter((p: any) => selected.has(p.id)).map((p: any) => p.text).join("\n");
     navigator.clipboard.writeText(texts);
     toast.success("Скопировано в буфер обмена");
   };
 
-  const remainingLimits = 17750;
+  if (!projectId) {
+    return <div className="text-center py-12 text-muted-foreground">Выберите проект для управления промптами</div>;
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Промпты и Группы</h1>
+          <h2 className="text-xl font-bold tracking-tight">Промпты и Группы</h2>
           <p className="text-muted-foreground text-sm">Управление запросами для анализа AI моделей</p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="gap-1.5 py-1.5 px-3">
             <CreditCard className="h-3.5 w-3.5" />
-            {remainingLimits.toLocaleString()} лимитов
+            {profile?.credits_amount?.toLocaleString() || 0} кредитов
           </Badge>
           <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" />Добавить промпты</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6">
-        {/* Main table */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-3">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Поиск по промптам..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                <Input placeholder="Поиск по промптам..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
               </div>
               {selected.size > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Выбрано: {selected.size}</span>
                   <Button variant="outline" size="sm" onClick={handleCopy}><Copy className="h-3.5 w-3.5" /></Button>
                   <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}><FolderInput className="h-3.5 w-3.5" /></Button>
-                  <Button variant="destructive" size="sm" onClick={handleDelete}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <Button variant="destructive" size="sm" onClick={() => deletePrompts.mutate()}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
               )}
             </div>
@@ -140,8 +202,8 @@ export default function PromptsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPrompts.map((p) => {
-                    const group = PROMPT_GROUPS.find((g) => g.id === p.groupId);
+                  {filteredPrompts.map((p: any) => {
+                    const group = groups.find((g: any) => g.id === p.group_id);
                     return (
                       <TableRow key={p.id}>
                         <TableCell><Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} /></TableCell>
@@ -155,12 +217,16 @@ export default function PromptsPage() {
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{p.createdAt}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {new Date(p.created_at).toLocaleDateString()}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {filteredPrompts.length === 0 && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Промпты не найдены</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      {isLoading ? "Загрузка..." : "Промпты не найдены"}
+                    </TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -168,11 +234,14 @@ export default function PromptsPage() {
           </CardContent>
         </Card>
 
-        {/* Groups sidebar */}
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-sm">Группы</CardTitle></CardHeader>
           <CardContent className="space-y-1">
-            {PROMPT_GROUPS.map((g) => (
+            {[
+              { id: "all", name: "Все" },
+              { id: "unassigned", name: "Без группы" },
+              ...groups,
+            ].map((g: any) => (
               <motion.button
                 key={g.id}
                 whileTap={{ scale: 0.98 }}
@@ -189,34 +258,33 @@ export default function PromptsPage() {
         </Card>
       </div>
 
-      {/* Add prompts modal */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Добавить промпты</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Введите по одному промпту на строку</p>
-          <Textarea value={bulkText} onChange={(e) => setBulkText(e.target.value)} placeholder="Лучшие SEO сервисы&#10;Сравни Ahrefs и SEMrush&#10;Как выбрать AI писателя" rows={8} />
+          <Textarea value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="Лучшие SEO сервисы&#10;Сравни Ahrefs и SEMrush&#10;Как выбрать AI писателя" rows={8} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Отмена</Button>
-            <Button onClick={handleAddPrompts} disabled={!bulkText.trim()}>Добавить {bulkText.split("\n").filter((l) => l.trim()).length} промптов</Button>
+            <Button onClick={() => addPrompts.mutate()} disabled={!bulkText.trim() || addPrompts.isPending}>
+              Добавить {bulkText.split("\n").filter(l => l.trim()).length} промптов
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Move to group modal */}
       <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Переместить в группу</DialogTitle></DialogHeader>
           <Select value={moveTarget} onValueChange={setMoveTarget}>
             <SelectTrigger><SelectValue placeholder="Выберите группу" /></SelectTrigger>
             <SelectContent>
-              {PROMPT_GROUPS.filter((g) => g.id !== "all").map((g) => (
-                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-              ))}
+              <SelectItem value="unassigned">Без группы</SelectItem>
+              {groups.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMoveOpen(false)}>Отмена</Button>
-            <Button onClick={handleMove} disabled={!moveTarget}>Переместить</Button>
+            <Button onClick={() => movePrompts.mutate()} disabled={!moveTarget || movePrompts.isPending}>Переместить</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
