@@ -111,7 +111,7 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Delete prompts mutation
+  // Delete prompts mutation (bulk)
   const deletePrompts = useMutation({
     mutationFn: async () => {
       const ids = Array.from(selected);
@@ -122,6 +122,19 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
       queryClient.invalidateQueries({ queryKey: ["radar-prompts"] });
       toast.success(`Удалено ${selected.size} промптов`);
       setSelected(new Set());
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Delete single prompt
+  const deleteSingle = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("radar_prompts" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["radar-prompts"] });
+      toast.success("Промпт удалён");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -196,9 +209,10 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
                     <TableHead className="w-10">
                       <Checkbox checked={selected.size === filteredPrompts.length && filteredPrompts.length > 0} onCheckedChange={toggleAll} />
                     </TableHead>
-                    <TableHead>Промпт</TableHead>
-                    <TableHead className="w-[150px]">Группа</TableHead>
-                    <TableHead className="w-[100px]">Дата</TableHead>
+                     <TableHead>Промпт</TableHead>
+                     <TableHead className="w-[150px]">Группа</TableHead>
+                     <TableHead className="w-[100px]">Дата</TableHead>
+                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -220,11 +234,16 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
                         <TableCell className="text-xs text-muted-foreground">
                           {new Date(p.created_at).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteSingle.mutate(p.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {filteredPrompts.length === 0 && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       {isLoading ? "Загрузка..." : "Промпты не найдены"}
                     </TableCell></TableRow>
                   )}
