@@ -209,9 +209,10 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
                     <TableHead className="w-10">
                       <Checkbox checked={selected.size === filteredPrompts.length && filteredPrompts.length > 0} onCheckedChange={toggleAll} />
                     </TableHead>
-                    <TableHead>Промпт</TableHead>
-                    <TableHead className="w-[150px]">Группа</TableHead>
-                    <TableHead className="w-[100px]">Дата</TableHead>
+                     <TableHead>Промпт</TableHead>
+                     <TableHead className="w-[150px]">Группа</TableHead>
+                     <TableHead className="w-[100px]">Дата</TableHead>
+                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
