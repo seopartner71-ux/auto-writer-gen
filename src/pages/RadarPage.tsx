@@ -1049,26 +1049,129 @@ export default function RadarPage() {
                   {lang === "ru" ? "Общая видимость" : "Overall Visibility"}: {overallVisibility}%
                 </div>
                 {(() => {
-                  const weakModels = somData.filter(d => d.value < 30).map(d => d.label);
-                  const strongModels = somData.filter(d => d.value >= 60).map(d => d.label);
-                  const topComp = competitorLeaderboard.filter(c => !c.isBrand).slice(0, 3).map(c => c.name);
-                  const tips: string[] = [];
+                  const weakModels = somData.filter(d => d.value < 30);
+                  const midModels = somData.filter(d => d.value >= 30 && d.value < 60);
+                  const strongModels = somData.filter(d => d.value >= 60);
+                  const topComp = competitorLeaderboard.filter(c => !c.isBrand).slice(0, 5);
+                  const negSent = sentimentDonut.find(s => s.name === (lang === "ru" ? "Негативный" : "Negative"));
+                  const posSent = sentimentDonut.find(s => s.name === (lang === "ru" ? "Позитивный" : "Positive"));
+                  const radarAxes = radarChartData || [];
+                  const weakAxes = radarAxes.filter(a => a.value < 30);
+                  const sovBrand = sovDonut.find(s => s.name === activeProject?.brand_name);
+                  const sovComp = sovDonut.find(s => s.name !== activeProject?.brand_name);
+
+                  type Tip = { icon: typeof Zap; color: string; priority: number; text: string };
+                  const tips: Tip[] = [];
+
                   if (lang === "ru") {
-                    if (weakModels.length > 0) tips.push(`Создайте контент для: ${weakModels.join(", ")}`);
-                    if (topComp.length > 0) tips.push(`Анализируйте контент: ${topComp.join(", ")}`);
-                    if (overallVisibility < 30) tips.push("Увеличьте присутствие в авторитетных источниках");
-                    if (strongModels.length > 0) tips.push(`${strongModels.join(", ")} знают ваш бренд`);
+                    // Critical: very low visibility
+                    if (overallVisibility < 15) {
+                      tips.push({ icon: AlertTriangle, color: "text-destructive", priority: 1, text: "Критически низкая видимость. Создайте экспертный контент с упоминанием бренда на авторитетных площадках (Wikipedia, отраслевые медиа, GitHub, научные публикации)." });
+                    }
+
+                    // Weak models — specific actions
+                    if (weakModels.length > 0) {
+                      const names = weakModels.map(m => m.label).join(", ");
+                      if (weakModels.length >= 4) {
+                        tips.push({ icon: Target, color: "text-destructive", priority: 2, text: `${names} не знают ваш бренд. Приоритет: разместите обзоры и кейсы на площадках, которые эти модели используют как источники (Reddit, Habr, Medium, отраслевые форумы).` });
+                      } else {
+                        tips.push({ icon: Target, color: "text-orange-400", priority: 3, text: `${names} — слабое покрытие. Опубликуйте сравнительные обзоры «${activeProject?.brand_name} vs конкурент» на площадках, индексируемых этими моделями.` });
+                      }
+                    }
+
+                    // Strong models — leverage
+                    if (strongModels.length > 0) {
+                      tips.push({ icon: CheckCircle2, color: "text-green-400", priority: 8, text: `${strongModels.map(m => m.label).join(", ")} уверенно рекомендуют ваш бренд. Используйте эти модели для генерации контента с упоминанием вашего бренда.` });
+                    }
+
+                    // Mid models — almost there
+                    if (midModels.length > 0) {
+                      tips.push({ icon: TrendingUp, color: "text-yellow-400", priority: 5, text: `${midModels.map(m => m.label).join(", ")} — частичное покрытие. Добавьте структурированные данные (FAQ, How-to schema) и Data Nuggets с уникальной статистикой.` });
+                    }
+
+                    // Negative sentiment high
+                    if (negSent && negSent.pct > 30) {
+                      tips.push({ icon: AlertTriangle, color: "text-destructive", priority: 2, text: `${negSent.pct}% негативной тональности. Создайте позитивные кейсы, отзывы клиентов и истории успеха. Разместите их на площадках с высоким авторитетом.` });
+                    } else if (negSent && negSent.pct > 15) {
+                      tips.push({ icon: AlertTriangle, color: "text-orange-400", priority: 4, text: `${negSent.pct}% негативной тональности. Мониторьте источники негатива и подготовьте контент-ответы с фактами и данными.` });
+                    }
+
+                    // Low positive sentiment
+                    if (posSent && posSent.pct < 20 && overallVisibility > 20) {
+                      tips.push({ icon: Sparkles, color: "text-yellow-400", priority: 5, text: `Только ${posSent.pct}% позитивных упоминаний. Опубликуйте кейсы с конкретными результатами: «рост конверсии на X%», «сокращение затрат на Y%».` });
+                    }
+
+                    // Competitors dominating
+                    if (topComp.length > 0 && topComp[0].visibility > overallVisibility) {
+                      const leader = topComp[0];
+                      tips.push({ icon: Eye, color: "text-orange-400", priority: 3, text: `${leader.name} лидирует с ${leader.visibility}% видимости. Проанализируйте их контент-стратегию: на каких площадках они упоминаются, какие форматы используют.` });
+                    }
+                    if (topComp.length >= 3) {
+                      const compNames = topComp.slice(0, 3).map(c => c.name).join(", ");
+                      tips.push({ icon: BarChart3, color: "text-muted-foreground", priority: 6, text: `Топ конкуренты: ${compNames}. Создайте сравнительные статьи с объективным анализом преимуществ вашего продукта.` });
+                    }
+
+                    // Weak radar axes
+                    if (weakAxes.length > 0) {
+                      const axisMap: Record<string, string> = {
+                        "Ситуационный": "Добавьте бренд в ответы на вопросы «какой лучший...», «как выбрать...» на Quora, Reddit, Habr Q&A.",
+                        "Сравнительный": "Создайте детальные сравнения с конкурентами: таблицы функций, ценовые сравнения, пользовательские отзывы.",
+                        "Репутационный": "Увеличьте количество позитивных упоминаний: кейсы, награды, рейтинги, экспертные обзоры.",
+                        "Поисковый": "Оптимизируйте контент для AI-поиска: структурированные ответы, Entity-Brand связки, FAQ с прямыми ответами.",
+                        "Рекомендательный": "Обеспечьте наличие ссылок на домен в авторитетных источниках: обзоры, каталоги, агрегаторы.",
+                      };
+                      weakAxes.forEach(ax => {
+                        const advice = axisMap[ax.axis];
+                        if (advice) {
+                          tips.push({ icon: Crosshair, color: "text-orange-400", priority: 4, text: `${ax.axis}: ${ax.value}%. ${advice}` });
+                        }
+                      });
+                    }
+
+                    // Share of voice
+                    if (sovBrand && sovComp && sovBrand.pct < sovComp.pct) {
+                      tips.push({ icon: Globe, color: "text-orange-400", priority: 4, text: `Доля голоса бренда (${sovBrand.pct}%) ниже конкурентов (${sovComp.pct}%). Увеличьте частоту упоминаний бренда в экспертном контенте.` });
+                    }
+
+                    // Domain linking low
+                    const linkAxis = radarAxes.find(a => a.axis === "Рекомендательный");
+                    if (linkAxis && linkAxis.value < 20) {
+                      tips.push({ icon: Link2, color: "text-orange-400", priority: 5, text: "AI-модели редко ссылаются на ваш домен. Разместите бренд в структурированных каталогах, Wikipedia-страницах и агрегаторах отзывов." });
+                    }
+
                   } else {
-                    if (weakModels.length > 0) tips.push(`Create content for: ${weakModels.join(", ")}`);
-                    if (topComp.length > 0) tips.push(`Analyze competitor: ${topComp.join(", ")}`);
-                    if (overallVisibility < 30) tips.push("Increase presence in authoritative sources");
-                    if (strongModels.length > 0) tips.push(`${strongModels.join(", ")} know your brand`);
+                    // English versions
+                    if (overallVisibility < 15) {
+                      tips.push({ icon: AlertTriangle, color: "text-destructive", priority: 1, text: "Critically low visibility. Create expert content mentioning your brand on authoritative platforms (Wikipedia, industry media, GitHub, academic publications)." });
+                    }
+                    if (weakModels.length > 0) {
+                      const names = weakModels.map(m => m.label).join(", ");
+                      tips.push({ icon: Target, color: "text-orange-400", priority: 3, text: `${names} don't mention your brand. Publish reviews and case studies on platforms these models use as sources (Reddit, Medium, industry forums).` });
+                    }
+                    if (strongModels.length > 0) {
+                      tips.push({ icon: CheckCircle2, color: "text-green-400", priority: 8, text: `${strongModels.map(m => m.label).join(", ")} confidently recommend your brand. Leverage these models for content generation.` });
+                    }
+                    if (negSent && negSent.pct > 30) {
+                      tips.push({ icon: AlertTriangle, color: "text-destructive", priority: 2, text: `${negSent.pct}% negative sentiment. Create positive case studies, customer testimonials, and success stories on high-authority platforms.` });
+                    }
+                    if (topComp.length > 0 && topComp[0].visibility > overallVisibility) {
+                      tips.push({ icon: Eye, color: "text-orange-400", priority: 3, text: `${topComp[0].name} leads with ${topComp[0].visibility}% visibility. Analyze their content strategy and platforms.` });
+                    }
+                    if (weakAxes.length > 0) {
+                      weakAxes.forEach(ax => {
+                        tips.push({ icon: Crosshair, color: "text-orange-400", priority: 4, text: `${ax.axis}: ${ax.value}%. Improve this dimension with targeted content.` });
+                      });
+                    }
                   }
-                  if (tips.length === 0) tips.push(lang === "ru" ? "Запустите сканирование" : "Run a scan");
-                  return tips.map((tip, i) => (
+
+                  tips.sort((a, b) => a.priority - b.priority);
+                  const displayTips = tips.slice(0, 6);
+                  if (displayTips.length === 0) displayTips.push({ icon: CheckCircle2, color: "text-green-400", priority: 10, text: lang === "ru" ? "Отличные показатели! Продолжайте мониторинг и поддерживайте контент-стратегию." : "Great performance! Keep monitoring and maintain your content strategy." });
+
+                  return displayTips.map((tip, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm">
-                      <Zap className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                      <span className="text-muted-foreground">{tip}</span>
+                      <tip.icon className={`h-4 w-4 shrink-0 mt-0.5 ${tip.color}`} />
+                      <span className="text-muted-foreground leading-snug">{tip.text}</span>
                     </div>
                   ));
                 })()}
