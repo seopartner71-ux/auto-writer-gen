@@ -253,8 +253,8 @@ export default function RadarPage() {
           setTimeout(() => {
             setActiveRunId(null);
             setRunProgress(null);
-            refetchResults();
-            refetchKeywords();
+            queryClient.invalidateQueries({ queryKey: ["radar-results"] });
+            queryClient.invalidateQueries({ queryKey: ["radar-keywords"] });
           }, 1500);
         }
       })
