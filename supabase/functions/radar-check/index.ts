@@ -262,6 +262,13 @@ serve(async (req) => {
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Deduct 1 credit for this scan
+    const { data: creditOk } = await supabaseAdmin.rpc("deduct_credit", { p_user_id: user.id });
+    if (!creditOk) {
+      return new Response(JSON.stringify({ error: "Insufficient credits" }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const { data: project } = await supabaseUser.from("radar_projects").select("*").eq("id", project_id).single();
     if (!project) throw new Error("Project not found");
 
