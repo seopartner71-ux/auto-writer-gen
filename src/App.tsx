@@ -126,6 +126,9 @@ const App = () => (
                   <Route path="/indexing" element={<IndexingPage />} />
                   <Route path="/wordpress" element={<WordPressPage />} />
                   <Route path="/radar" element={<RadarPage />} />
+                  <Route path="/mentions" element={<MentionsPage />} />
+                  <Route path="/prompts" element={<PromptsPage />} />
+                  <Route path="/sources" element={<SourcesPage />} />
                   <Route path="/wiki" element={<WikiPage />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="/support" element={<SupportPage />} />
