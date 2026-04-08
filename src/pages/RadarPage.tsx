@@ -830,7 +830,7 @@ export default function RadarPage() {
       <Card className="bg-card/50 border-border backdrop-blur-sm">
         <CardContent className="py-3 flex items-center gap-3 flex-wrap">
           <span className="text-xs text-muted-foreground font-medium">{lang === "ru" ? "Модели:" : "Models:"}</span>
-          {["gemini_flash", "chatgpt", "perplexity", "claude"].map(model => (
+          {["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"].map(model => (
             <ModelToggle key={model} model={model} active={activeModels.includes(model)} onClick={() => toggleModel(model)} />
           ))}
           <div className="ml-auto flex items-center gap-2">
