@@ -265,7 +265,7 @@ ${deepAnalysisContext ? `\nДОПОЛНИТЕЛЬНЫЙ КОНТЕКСТ ИЗ DE
   const yoRule = isRussian ? `\nПРАВИЛО БУКВЫ "Ё": НИКОГДА не используй букву "ё". Всегда заменяй на "е". Пример: "все" вместо "всё", "еще" вместо "ещё", "ее" вместо "её". Это АБСОЛЮТНОЕ правило без исключений.\n` : "";
   const blockC = `=== БЛОК В: GLOBAL STEALTH PROTOCOL (МАКСИМАЛЬНЫЙ ПРИОРИТЕТ) ===
 
-LANGUAGE DETECTION: Target language is "${targetLanguage}". Apply ALL rules below according to ${isRussian ? "Russian" : "English"} linguistic norms.
+LANGUAGE DETECTION: Target language is "${targetLangName}" (${targetLanguage}). ALL text MUST be written in ${targetLangName}. Apply linguistic norms of ${targetLangName}.
 ${yoRule}
 
 ТЕХНИКА "Dynamic Burstiness" (Sentence Rhythm):
