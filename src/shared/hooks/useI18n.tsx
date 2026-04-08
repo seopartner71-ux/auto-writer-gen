@@ -139,6 +139,25 @@ const translations: Record<string, Record<Lang, string>> = {
   "geo.in": { ru: "IN Индия", en: "IN India" },
   "geo.jp": { ru: "JP Япония", en: "JP Japan" },
   "geo.es": { ru: "ES Испания", en: "ES Spain" },
+  "geo.co": { ru: "CO Колумбия", en: "CO Colombia" },
+  "geo.mx": { ru: "MX Мексика", en: "MX Mexico" },
+  "geo.ar": { ru: "AR Аргентина", en: "AR Argentina" },
+  "geo.it": { ru: "IT Италия", en: "IT Italy" },
+  "geo.tr": { ru: "TR Турция", en: "TR Turkey" },
+  "geo.pl": { ru: "PL Польша", en: "PL Poland" },
+  "geo.kz": { ru: "KZ Казахстан", en: "KZ Kazakhstan" },
+  "geo.az": { ru: "AZ Азербайджан", en: "AZ Azerbaijan" },
+  "geo.ge": { ru: "GE Грузия", en: "GE Georgia" },
+  "geo.uz": { ru: "UZ Узбекистан", en: "UZ Uzbekistan" },
+  "geo.th": { ru: "TH Таиланд", en: "TH Thailand" },
+  "geo.id": { ru: "ID Индонезия", en: "ID Indonesia" },
+  "geo.vn": { ru: "VN Вьетнам", en: "VN Vietnam" },
+  "geo.ae": { ru: "AE ОАЭ", en: "AE UAE" },
+  "geo.sa": { ru: "SA Саудовская Аравия", en: "SA Saudi Arabia" },
+  "geo.au": { ru: "AU Австралия", en: "AU Australia" },
+  "geo.ca": { ru: "CA Канада", en: "CA Canada" },
+  "geo.nl": { ru: "NL Нидерланды", en: "NL Netherlands" },
+  "geo.kr": { ru: "KR Южная Корея", en: "KR South Korea" },
 
   // Plan Builder
   "planBuilder.title": { ru: "Структура статьи", en: "Article Structure" },
@@ -762,7 +781,6 @@ const translations: Record<string, Record<Lang, string>> = {
   "geo.country": { ru: "Страна", en: "Country" },
   "geo.city": { ru: "Город", en: "City" },
   "geo.selectCity": { ru: "Выберите город", en: "Select city" },
-  "geo.co": { ru: "CO Колумбия", en: "CO Colombia" },
 
   // ExpertInsights
   "expert.deepAnalysis": { ru: "Глубокий анализ пробелов контента на основе конкурентов", en: "Deep content gap analysis based on competitors" },

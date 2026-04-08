@@ -36,7 +36,7 @@ serve(async (req) => {
     });
     const user = { id: userId };
 
-    const { keyword, geo, language } = await req.json();
+    const { keyword, geo, language, city } = await req.json();
     if (!keyword || typeof keyword !== "string" || keyword.trim().length < 2) {
       return new Response(JSON.stringify({ error: "Keyword is required (min 2 chars)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -89,13 +89,15 @@ serve(async (req) => {
     const organicResults = serperData.organic || [];
     const peopleAlsoAsk = serperData.peopleAlsoAsk || [];
 
-    // 3. Save keyword to DB
+    // 3. Save keyword to DB (including language and geo for article generation)
     const { data: keywordRow, error: kwError } = await supabase
       .from("keywords")
       .insert({
         user_id: user.id,
         seed_keyword: keyword.trim(),
         intent: null,
+        language: language || "en",
+        geo: geo || "us",
       })
       .select("id")
       .single();
@@ -135,14 +137,31 @@ serve(async (req) => {
 
     const paaQuestions = peopleAlsoAsk.map((p: any) => p.question || p.title).filter(Boolean);
 
-    const langName = language === "ru" ? "Russian" : language === "de" ? "German" : language === "fr" ? "French" : language === "es" ? "Spanish" : language === "it" ? "Italian" : language === "pt" ? "Portuguese" : language === "ja" ? "Japanese" : language === "zh" ? "Chinese" : language === "ko" ? "Korean" : language === "ar" ? "Arabic" : language === "tr" ? "Turkish" : language === "pl" ? "Polish" : language === "nl" ? "Dutch" : language === "uk" ? "Ukrainian" : "English";
+    const langMap: Record<string, string> = {
+      ru: "Russian", en: "English", de: "German", fr: "French", es: "Spanish",
+      "es-CO": "Spanish (Colombian)", pt: "Portuguese", ja: "Japanese",
+      uk: "Ukrainian", it: "Italian", zh: "Chinese", ko: "Korean",
+      ar: "Arabic", tr: "Turkish", pl: "Polish", nl: "Dutch",
+      hi: "Hindi", th: "Thai", vi: "Vietnamese", id: "Indonesian",
+      kk: "Kazakh", az: "Azerbaijani", ka: "Georgian", uz: "Uzbek",
+    };
+    const langName = langMap[language || "en"] || "English";
 
-    const systemPrompt = `You are an expert SEO analyst. Analyze Google search results for the given keyword and provide actionable insights. IMPORTANT: All text output (topics, questions, gaps, keywords, headings) MUST be written in ${langName}. Return structured data via the provided tool.`;
+    const geoContext = city ? `${city}, ${(geo || "us").toUpperCase()}` : (geo || "us").toUpperCase();
+
+    const systemPrompt = `You are an expert SEO analyst. Analyze Google search results for the given keyword and provide actionable insights.
+
+CRITICAL LANGUAGE RULE: ALL your output text — every topic, question, gap, keyword, heading, table topic, list topic — MUST be written ENTIRELY in ${langName}. Do NOT mix languages. Do NOT write in English if the target language is ${langName}. This is an ABSOLUTE requirement.
+
+CRITICAL GEO RULE: The target region is ${geoContext}. All analysis must be relevant to this specific market/region. Consider local search behavior, local competition, and regional specifics.
+
+Return structured data via the provided tool.`;
 
     const userPrompt = `Keyword: "${keyword}"
-Geo: ${geo || "US"}, Language: ${language || "en"}
+Target Region: ${geoContext}
+Target Language: ${langName}
 
-TOP-10 Google Results:
+TOP-10 Google Results for this region:
 ${competitorSummary}
 
 People Also Ask questions found:
@@ -153,11 +172,11 @@ Analyze these results and identify:
 2. Content gaps - topics that are missing or underserved  
 3. The top 5 questions users are asking (from PAA and inferred from content)
 4. Search intent classification
-5. LSI keywords to include
-6. Tables that competitors use or that would be useful (comparison tables, feature tables, pricing tables, etc.) — specify what columns to include
-7. Lists that competitors use (bullet lists, numbered steps, checklists) — specify the topic and type
+5. LSI keywords to include (in ${langName} ONLY)
+6. Tables that competitors use or that would be useful — specify columns (in ${langName})
+7. Lists that competitors use — specify topic and type (in ${langName})
 
-IMPORTANT: Write ALL output text in ${langName}.`;
+ABSOLUTE REQUIREMENT: Write EVERY piece of text output in ${langName}. Not a single word in any other language unless it's a brand name or technical term with no translation.`;
 
     // Per-user rate limiting: max 30 research requests per hour
     const { data: rateLimitOk } = await supabaseAdmin0.rpc("check_rate_limit", {
