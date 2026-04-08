@@ -1078,61 +1078,6 @@ export default function RadarPage() {
         </Card>
       </div>
 
-      {/* Add Keywords Section */}
-      <Card className="bg-card/80 border-border backdrop-blur-sm">
-        <CardContent className="pt-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">{bulkMode ? t("radar.bulkAdd") : t("radar.addQuery")}</Label>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => setShowSmartPrompts(!showSmartPrompts)}>
-                  <Wand2 className="h-3 w-3" />{t("radar.smartPrompts")}
-                </Button>
-                <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setBulkMode(!bulkMode)}>
-                  {bulkMode ? t("radar.singleMode") : t("radar.bulkMode")}
-                </Button>
-              </div>
-            </div>
-
-            <AnimatePresence>
-              {showSmartPrompts && activeProject && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 p-3 rounded-lg bg-muted/20 border border-border">
-                    {generateSmartPrompts(activeProject.brand_name, activeProject.domain, activeProject.data_nuggets || [], lang).map((sp) => (
-                      <button key={sp.type} onClick={() => { setNewKeyword(sp.prompt); setShowSmartPrompts(false); setBulkMode(false); }} className="text-left p-2.5 rounded-md bg-background/50 border border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-xs">
-                        <div className="font-medium text-foreground mb-0.5">{SMART_PROMPT_TYPES[sp.type as keyof typeof SMART_PROMPT_TYPES]?.[lang as "ru" | "en"] || sp.type}</div>
-                        <div className="text-muted-foreground truncate">{sp.prompt}</div>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {bulkMode ? (
-              <div className="space-y-2">
-                <Textarea placeholder={lang === "ru" ? "лучший CRM для бизнеса\nкак выбрать CRM\n..." : "best CRM for small business\nhow to choose CRM\n..."} value={bulkKeywords} onChange={(e) => setBulkKeywords(e.target.value)} rows={5} />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{bulkKeywords.split("\n").filter(k => k.trim()).length} / 30</span>
-                  <Button onClick={() => addKeyword.mutate()} disabled={!bulkKeywords.trim() || addKeyword.isPending} size="sm">
-                    {addKeyword.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-                    <Plus className="h-4 w-4 mr-1.5" />{t("radar.addAll")}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex gap-3">
-                <Input className="flex-1" placeholder={t("radar.queryPlaceholder")} value={newKeyword} onChange={(e) => setNewKeyword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && newKeyword.trim() && addKeyword.mutate()} />
-                <Button onClick={() => addKeyword.mutate()} disabled={!newKeyword.trim() || addKeyword.isPending}>
-                  {addKeyword.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-                  <Plus className="h-4 w-4 mr-1.5" />{t("common.add")}
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
 
         </TabsContent>
 

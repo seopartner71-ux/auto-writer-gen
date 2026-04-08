@@ -111,7 +111,7 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Delete prompts mutation
+  // Delete prompts mutation (bulk)
   const deletePrompts = useMutation({
     mutationFn: async () => {
       const ids = Array.from(selected);
@@ -122,6 +122,19 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
       queryClient.invalidateQueries({ queryKey: ["radar-prompts"] });
       toast.success(`Удалено ${selected.size} промптов`);
       setSelected(new Set());
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Delete single prompt
+  const deleteSingle = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("radar_prompts" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["radar-prompts"] });
+      toast.success("Промпт удалён");
     },
     onError: (e: any) => toast.error(e.message),
   });
