@@ -203,8 +203,8 @@ function EmptySetupCard({ lang, onStart }: { lang: string; onStart: () => void }
             </h2>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-6">
               {lang === "ru"
-                ? "Узнайте, как ваш бренд представлен в ответах ИИ-моделей (ChatGPT, Perplexity, Claude, Gemini)"
-                : "Discover how your brand appears in AI model responses (ChatGPT, Perplexity, Claude, Gemini)"}
+                ? "Узнайте, как ваш бренд представлен в ответах ИИ-моделей (ChatGPT, Perplexity, Claude, Gemini, DeepSeek, Mistral, Llama)"
+                : "Discover how your brand appears in AI model responses (ChatGPT, Perplexity, Claude, Gemini, DeepSeek, Mistral, Llama)"}
             </p>
             <Button onClick={onStart} className="gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
               <Plus className="h-4 w-4" />
