@@ -720,8 +720,10 @@ export type Database = {
           content_gaps: Json | null
           created_at: string | null
           difficulty: number | null
+          geo: string | null
           id: string
           intent: string | null
+          language: string | null
           lsi_keywords: string[] | null
           must_cover_topics: string[] | null
           questions: string[] | null
@@ -736,8 +738,10 @@ export type Database = {
           content_gaps?: Json | null
           created_at?: string | null
           difficulty?: number | null
+          geo?: string | null
           id?: string
           intent?: string | null
+          language?: string | null
           lsi_keywords?: string[] | null
           must_cover_topics?: string[] | null
           questions?: string[] | null
@@ -752,8 +756,10 @@ export type Database = {
           content_gaps?: Json | null
           created_at?: string | null
           difficulty?: number | null
+          geo?: string | null
           id?: string
           intent?: string | null
+          language?: string | null
           lsi_keywords?: string[] | null
           must_cover_topics?: string[] | null
           questions?: string[] | null
