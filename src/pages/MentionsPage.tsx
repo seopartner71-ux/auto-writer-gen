@@ -346,6 +346,81 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Response Detail Dialog */}
+      <Dialog open={!!viewResult} onOpenChange={() => setViewResult(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Ответ {viewResult?.modelName}
+              {viewResult?.sentiment && (
+                <Badge variant={SENTIMENT_BADGE[viewResult.sentiment]?.variant || "secondary"} className="ml-2">
+                  {SENTIMENT_BADGE[viewResult.sentiment]?.label || viewResult.sentiment}
+                </Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Запрос: <span className="font-medium text-foreground">{viewResult?.queryText}</span>
+              <span className="text-xs ml-2">
+                {viewResult?.checked_at && new Date(viewResult.checked_at).toLocaleString()}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewResult && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge variant={viewResult.is_brand_found || viewResult.brand_mentioned ? "default" : "destructive"}>
+                  {viewResult.is_brand_found || viewResult.brand_mentioned ? "✓ Бренд найден" : "✗ Бренд не найден"}
+                </Badge>
+                {(viewResult.is_domain_found || viewResult.domain_linked) && (
+                  <Badge variant="default">✓ Домен найден</Badge>
+                )}
+                {viewResult.competitor_domains?.length > 0 && (
+                  <Badge variant="secondary">Конкуренты: {viewResult.competitor_domains.join(", ")}</Badge>
+                )}
+              </div>
+
+              {viewResult.matched_snippets?.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Найденные фрагменты:</p>
+                  <div className="space-y-1">
+                    {viewResult.matched_snippets.map((s: string, i: number) => (
+                      <div key={i} className="text-sm bg-primary/10 rounded px-3 py-1.5 border-l-2 border-primary">
+                        ...{s}...
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {viewResult.ai_response_text && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Полный ответ ИИ:</p>
+                  <div className="text-sm whitespace-pre-wrap bg-muted/30 rounded-lg p-4 border border-border max-h-[400px] overflow-y-auto leading-relaxed">
+                    {viewResult.ai_response_text}
+                  </div>
+                </div>
+              )}
+
+              {viewResult.sources && Array.isArray(viewResult.sources) && viewResult.sources.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Источники:</p>
+                  <div className="space-y-1">
+                    {viewResult.sources.map((src: any, i: number) => (
+                      <a key={i} href={typeof src === "string" ? src : src.url} target="_blank" rel="noopener noreferrer"
+                        className="block text-xs text-primary hover:underline truncate">
+                        {typeof src === "string" ? src : src.url || src.title}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
