@@ -12,6 +12,9 @@ const ALL_AI_MODELS = [
   { key: "chatgpt", model: "openai/gpt-4.1-nano", label: "ChatGPT" },
   { key: "perplexity", model: "perplexity/sonar", label: "Perplexity" },
   { key: "claude", model: "anthropic/claude-sonnet-4", label: "Claude" },
+  { key: "deepseek", model: "deepseek/deepseek-chat-v3-0324", label: "DeepSeek" },
+  { key: "mistral", model: "mistralai/mistral-medium-3", label: "Mistral" },
+  { key: "llama", model: "meta-llama/llama-4-maverick", label: "Llama" },
 ];
 
 // ─── Brand / Domain Detection ───────────────────────────────────────────

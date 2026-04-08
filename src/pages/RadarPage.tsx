@@ -49,6 +49,9 @@ const MODEL_LABELS: Record<string, string> = {
   chatgpt: "ChatGPT",
   perplexity: "Perplexity",
   claude: "Claude",
+  deepseek: "DeepSeek",
+  mistral: "Mistral",
+  llama: "Llama",
 };
 
 const MODEL_COLORS: Record<string, string> = {
@@ -56,6 +59,9 @@ const MODEL_COLORS: Record<string, string> = {
   chatgpt: "#10A37F",
   perplexity: "#20808D",
   claude: "#D97706",
+  deepseek: "#5B6AE0",
+  mistral: "#F97316",
+  llama: "#8B5CF6",
 };
 
 const MODEL_ICONS: Record<string, string> = {
@@ -63,6 +69,9 @@ const MODEL_ICONS: Record<string, string> = {
   chatgpt: "◉",
   perplexity: "⬡",
   claude: "◈",
+  deepseek: "◆",
+  mistral: "▲",
+  llama: "◎",
 };
 
 const SENTIMENT_COLORS = {
