@@ -233,7 +233,7 @@ export default function RadarPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showSmartPrompts, setShowSmartPrompts] = useState(false);
   const [scanningKeywordId, setScanningKeywordId] = useState<string | null>(null);
-  const [activeModels, setActiveModels] = useState<string[]>(["gemini_flash", "chatgpt", "perplexity", "claude"]);
+  const [activeModels, setActiveModels] = useState<string[]>(["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"]);
   const [viewResponseData, setViewResponseData] = useState<any>(null);
   const [responseOpen, setResponseOpen] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
