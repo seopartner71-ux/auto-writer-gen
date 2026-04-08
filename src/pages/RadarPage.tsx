@@ -49,6 +49,9 @@ const MODEL_LABELS: Record<string, string> = {
   chatgpt: "ChatGPT",
   perplexity: "Perplexity",
   claude: "Claude",
+  deepseek: "DeepSeek",
+  mistral: "Mistral",
+  llama: "Llama",
 };
 
 const MODEL_COLORS: Record<string, string> = {
@@ -56,6 +59,9 @@ const MODEL_COLORS: Record<string, string> = {
   chatgpt: "#10A37F",
   perplexity: "#20808D",
   claude: "#D97706",
+  deepseek: "#5B6AE0",
+  mistral: "#F97316",
+  llama: "#8B5CF6",
 };
 
 const MODEL_ICONS: Record<string, string> = {
@@ -63,6 +69,9 @@ const MODEL_ICONS: Record<string, string> = {
   chatgpt: "◉",
   perplexity: "⬡",
   claude: "◈",
+  deepseek: "◆",
+  mistral: "▲",
+  llama: "◎",
 };
 
 const SENTIMENT_COLORS = {
@@ -194,8 +203,8 @@ function EmptySetupCard({ lang, onStart }: { lang: string; onStart: () => void }
             </h2>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-6">
               {lang === "ru"
-                ? "Узнайте, как ваш бренд представлен в ответах ИИ-моделей (ChatGPT, Perplexity, Claude, Gemini)"
-                : "Discover how your brand appears in AI model responses (ChatGPT, Perplexity, Claude, Gemini)"}
+                ? "Узнайте, как ваш бренд представлен в ответах ИИ-моделей (ChatGPT, Perplexity, Claude, Gemini, DeepSeek, Mistral, Llama)"
+                : "Discover how your brand appears in AI model responses (ChatGPT, Perplexity, Claude, Gemini, DeepSeek, Mistral, Llama)"}
             </p>
             <Button onClick={onStart} className="gap-2 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
               <Plus className="h-4 w-4" />
@@ -224,7 +233,7 @@ export default function RadarPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showSmartPrompts, setShowSmartPrompts] = useState(false);
   const [scanningKeywordId, setScanningKeywordId] = useState<string | null>(null);
-  const [activeModels, setActiveModels] = useState<string[]>(["gemini_flash", "chatgpt", "perplexity", "claude"]);
+  const [activeModels, setActiveModels] = useState<string[]>(["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"]);
   const [viewResponseData, setViewResponseData] = useState<any>(null);
   const [responseOpen, setResponseOpen] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
@@ -304,7 +313,7 @@ export default function RadarPage() {
 
   /* ── Computed Data ── */
   const somData = useMemo(() => {
-    const models = ["gemini_flash", "chatgpt", "perplexity", "claude"];
+    const models = ["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"];
     return models.map(model => {
       const modelResults = filteredResults.filter((r: any) => r.model === model);
       if (modelResults.length === 0) return { model, label: MODEL_LABELS[model], value: 0, status: "opportunity" as const };
@@ -544,7 +553,7 @@ export default function RadarPage() {
       if (!token || !userId) throw new Error("Not authenticated");
 
       // Create analysis run
-      const totalPrompts = keywords.length * 4; // 4 models per keyword
+      const totalPrompts = keywords.length * 7; // 7 models per keyword
       const { data: run, error: runErr } = await supabase.from("radar_analysis_runs").insert({
         user_id: userId,
         project_id: activeProject?.id,
@@ -821,7 +830,7 @@ export default function RadarPage() {
       <Card className="bg-card/50 border-border backdrop-blur-sm">
         <CardContent className="py-3 flex items-center gap-3 flex-wrap">
           <span className="text-xs text-muted-foreground font-medium">{lang === "ru" ? "Модели:" : "Models:"}</span>
-          {["gemini_flash", "chatgpt", "perplexity", "claude"].map(model => (
+          {["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"].map(model => (
             <ModelToggle key={model} model={model} active={activeModels.includes(model)} onClick={() => toggleModel(model)} />
           ))}
           <div className="ml-auto flex items-center gap-2">
