@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import DOMPurify from "dompurify";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
