@@ -273,12 +273,16 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
                             const mentioned = r.is_brand_found || r.brand_mentioned;
                             return (
                               <TableCell key={m.key} className="text-center">
-                                <div className="flex flex-col items-center gap-1">
-                                  {mentioned ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-destructive" />}
-                                  <Badge variant={SENTIMENT_BADGE[r.sentiment]?.variant || "secondary"} className="text-[10px] px-1.5">
+                                <button
+                                  onClick={() => setViewResult({ ...r, queryText: item.text, modelName: m.name })}
+                                  className="flex flex-col items-center gap-1 mx-auto cursor-pointer hover:opacity-80 transition-opacity group"
+                                  title="Нажмите для просмотра ответа"
+                                >
+                                  {mentioned ? <CheckCircle2 className="h-4 w-4 text-green-500 group-hover:scale-110 transition-transform" /> : <XCircle className="h-4 w-4 text-destructive group-hover:scale-110 transition-transform" />}
+                                  <Badge variant={SENTIMENT_BADGE[r.sentiment]?.variant || "secondary"} className="text-[10px] px-1.5 cursor-pointer">
                                     {SENTIMENT_BADGE[r.sentiment]?.label || r.sentiment}
                                   </Badge>
-                                </div>
+                                </button>
                               </TableCell>
                             );
                           })}
