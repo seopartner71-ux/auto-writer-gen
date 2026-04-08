@@ -1080,6 +1080,27 @@ export default function RadarPage() {
         </CardContent>
       </Card>
 
+        </TabsContent>
+
+        <TabsContent value="mentions" className="mt-0">
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+            <MentionsPage />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="prompts" className="mt-0">
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+            <PromptsPage />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="sources" className="mt-0">
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+            <SourcesPage />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
+
       {/* Dialogs */}
       <CreateProjectDialog
         open={showAddProject} onOpenChange={setShowAddProject}
