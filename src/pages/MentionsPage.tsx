@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, CheckCircle2, XCircle, TrendingUp, Minus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Download, CheckCircle2, XCircle, TrendingUp, Minus, Eye } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { motion } from "framer-motion";
 
@@ -16,6 +17,9 @@ const AI_MODELS = [
   { key: "perplexity", name: "Perplexity", color: "#1fb8cd" },
   { key: "claude", name: "Claude", color: "#d97706" },
   { key: "gemini_flash", name: "Gemini", color: "#4285f4" },
+  { key: "deepseek", name: "DeepSeek", color: "#5B6AE0" },
+  { key: "mistral", name: "Mistral", color: "#F97316" },
+  { key: "llama", name: "Llama", color: "#8B5CF6" },
 ];
 
 const SENTIMENT_BADGE: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
