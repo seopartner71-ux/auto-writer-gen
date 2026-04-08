@@ -80,9 +80,6 @@ export function AppSidebar() {
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
     { title: "AI Radar", url: "/radar", icon: Radar },
-    { title: "Позиции", url: "/mentions", icon: Crosshair },
-    { title: "Промпты", url: "/prompts", icon: MessageSquareText },
-    { title: "Источники", url: "/sources", icon: Link2 },
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
     { title: t("nav.wiki"), url: "/wiki", icon: BookMarked },
   ];
