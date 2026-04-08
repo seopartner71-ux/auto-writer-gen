@@ -313,7 +313,7 @@ export default function RadarPage() {
 
   /* ── Computed Data ── */
   const somData = useMemo(() => {
-    const models = ["gemini_flash", "chatgpt", "perplexity", "claude"];
+    const models = ["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"];
     return models.map(model => {
       const modelResults = filteredResults.filter((r: any) => r.model === model);
       if (modelResults.length === 0) return { model, label: MODEL_LABELS[model], value: 0, status: "opportunity" as const };
