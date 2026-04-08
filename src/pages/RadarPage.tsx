@@ -697,6 +697,11 @@ export default function RadarPage() {
           <Button variant="outline" size="sm" onClick={() => scanAll.mutate()} disabled={scanAll.isPending || keywords.length === 0} className="gap-1.5">
             {scanAll.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             {lang === "ru" ? "Сканировать всё" : "Scan All"}
+            {keywords.length > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-1">
+                {keywords.length} {lang === "ru" ? "кр." : "cr."}
+              </Badge>
+            )}
           </Button>
           <Button onClick={() => setShowAddProject(true)} size="sm" className="gap-1.5 bg-gradient-to-r from-primary to-purple-600">
             <Plus className="h-3.5 w-3.5" />{t("radar.newProject")}
