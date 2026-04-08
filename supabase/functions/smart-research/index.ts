@@ -36,7 +36,7 @@ serve(async (req) => {
     });
     const user = { id: userId };
 
-    const { keyword, geo, language } = await req.json();
+    const { keyword, geo, language, city } = await req.json();
     if (!keyword || typeof keyword !== "string" || keyword.trim().length < 2) {
       return new Response(JSON.stringify({ error: "Keyword is required (min 2 chars)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
