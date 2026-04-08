@@ -243,7 +243,7 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
                     );
                   })}
                   {filteredPrompts.length === 0 && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       {isLoading ? "Загрузка..." : "Промпты не найдены"}
                     </TableCell></TableRow>
                   )}
