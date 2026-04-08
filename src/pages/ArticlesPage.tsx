@@ -634,6 +634,7 @@ export default function ArticlesPage() {
           author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
           outline,
           lsi_keywords: lsiKeywords,
+          language: (selectedKeyword as any)?.language || null,
           competitor_tables: (selectedKeyword as any)?.competitor_tables || [],
           competitor_lists: (selectedKeyword as any)?.competitor_lists || [],
           miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
