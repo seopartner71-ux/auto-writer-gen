@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, lazy, Suspense } from "react";
 import DOMPurify from "dompurify";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,13 +30,17 @@ import {
   Eye, Trash2, RefreshCw, Shield, AlertTriangle,
   Sparkles, Globe, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown,
   Lightbulb, Wand2, Languages, BarChart3, Target, Zap, ExternalLink,
-  Check, CircleDot
+  Check, CircleDot, Crosshair, MessageSquareText, Link2
 } from "lucide-react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   Radar as RechartsRadar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   Tooltip, Cell, PieChart, Pie, Legend
 } from "recharts";
+
+const MentionsPage = lazy(() => import("@/pages/MentionsPage"));
+const PromptsPage = lazy(() => import("@/pages/PromptsPage"));
+const SourcesPage = lazy(() => import("@/pages/SourcesPage"));
 
 /* ── Constants ── */
 const MODEL_LABELS: Record<string, string> = {
@@ -678,6 +683,29 @@ export default function RadarPage() {
         </div>
       )}
 
+      {/* Module Tabs */}
+      <Tabs defaultValue="dashboard" className="space-y-4">
+        <TabsList className="bg-muted/50 border border-border p-1 h-auto flex-wrap">
+          <TabsTrigger value="dashboard" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <RadarIcon className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Дашборд" : "Dashboard"}
+          </TabsTrigger>
+          <TabsTrigger value="mentions" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Crosshair className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Позиции" : "Positions"}
+          </TabsTrigger>
+          <TabsTrigger value="prompts" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <MessageSquareText className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Промпты" : "Prompts"}
+          </TabsTrigger>
+          <TabsTrigger value="sources" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Link2 className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Источники" : "Sources"}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-6 mt-0">
+
       {/* Stepper */}
       <Card className="bg-card/50 border-border backdrop-blur-sm">
         <CardContent className="py-4">
@@ -1051,6 +1079,27 @@ export default function RadarPage() {
           )}
         </CardContent>
       </Card>
+
+        </TabsContent>
+
+        <TabsContent value="mentions" className="mt-0">
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+            <MentionsPage />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="prompts" className="mt-0">
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+            <PromptsPage />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="sources" className="mt-0">
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+            <SourcesPage />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
 
       {/* Dialogs */}
       <CreateProjectDialog

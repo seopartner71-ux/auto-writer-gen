@@ -36,9 +36,6 @@ const PricingPage = lazy(() => import("@/pages/PricingPage"));
 const IndexingPage = lazy(() => import("@/pages/IndexingPage"));
 const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
 const RadarPage = lazy(() => import("@/pages/RadarPage"));
-const MentionsPage = lazy(() => import("@/pages/MentionsPage"));
-const PromptsPage = lazy(() => import("@/pages/PromptsPage"));
-const SourcesPage = lazy(() => import("@/pages/SourcesPage"));
 const WikiPage = lazy(() => import("@/pages/WikiPage"));
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
 const SupportPage = lazy(() => import("@/pages/SupportPage"));
@@ -126,9 +123,6 @@ const App = () => (
                   <Route path="/indexing" element={<IndexingPage />} />
                   <Route path="/wordpress" element={<WordPressPage />} />
                   <Route path="/radar" element={<RadarPage />} />
-                  <Route path="/mentions" element={<MentionsPage />} />
-                  <Route path="/prompts" element={<PromptsPage />} />
-                  <Route path="/sources" element={<SourcesPage />} />
                   <Route path="/wiki" element={<WikiPage />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="/support" element={<SupportPage />} />
