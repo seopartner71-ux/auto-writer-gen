@@ -704,7 +704,53 @@ export default function RadarPage() {
         </div>
       </div>
 
-      {/* Project tabs */}
+      {/* Scan Progress Bar */}
+      <AnimatePresence>
+        {runProgress && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="bg-card/50 border-primary/20 backdrop-blur-sm overflow-hidden">
+              <CardContent className="py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm font-medium text-foreground">
+                      {lang === "ru" ? "Сканирование..." : "Scanning..."}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono">
+                    {runProgress.completed} / {runProgress.total}
+                  </Badge>
+                </div>
+                <Progress
+                  value={runProgress.total > 0 ? (runProgress.completed / runProgress.total) * 100 : 0}
+                  className="h-2"
+                  indicatorClassName="bg-gradient-to-r from-primary to-purple-500 transition-all duration-500"
+                />
+                {(runProgress.model || runProgress.prompt) && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {runProgress.model && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        {runProgress.model}
+                      </Badge>
+                    )}
+                    {runProgress.prompt && (
+                      <span className="truncate max-w-[300px]">
+                        {runProgress.prompt}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {projects.length >= 1 && (
         <div className="flex gap-2 flex-wrap items-center">
           {projects.map((p: any) => (
