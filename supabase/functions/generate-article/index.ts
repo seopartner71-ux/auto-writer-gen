@@ -987,7 +987,7 @@ serve(async (req) => {
         intent: keyword.intent,
         difficulty: keyword.difficulty,
         questions: keyword.questions,
-        language: keyword.language || body.language || null,
+        language: bodyLanguage || keyword.language || null,
         geo: keyword.geo || null,
       },
       competitorTables: competitor_tables,
