@@ -683,6 +683,29 @@ export default function RadarPage() {
         </div>
       )}
 
+      {/* Module Tabs */}
+      <Tabs defaultValue="dashboard" className="space-y-4">
+        <TabsList className="bg-muted/50 border border-border p-1 h-auto flex-wrap">
+          <TabsTrigger value="dashboard" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <RadarIcon className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Дашборд" : "Dashboard"}
+          </TabsTrigger>
+          <TabsTrigger value="mentions" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Crosshair className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Позиции" : "Positions"}
+          </TabsTrigger>
+          <TabsTrigger value="prompts" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <MessageSquareText className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Промпты" : "Prompts"}
+          </TabsTrigger>
+          <TabsTrigger value="sources" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Link2 className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Источники" : "Sources"}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-6 mt-0">
+
       {/* Stepper */}
       <Card className="bg-card/50 border-border backdrop-blur-sm">
         <CardContent className="py-4">
