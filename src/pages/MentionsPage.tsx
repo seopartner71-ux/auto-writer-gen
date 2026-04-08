@@ -34,6 +34,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
   const [selectedGroup, setSelectedGroup] = useState("all");
   const [sentimentFilter, setSentimentFilter] = useState("all");
   const [mentionFilter, setMentionFilter] = useState("all");
+  const [viewResult, setViewResult] = useState<any>(null);
 
   // Fetch prompt groups
   const { data: groups = [] } = useQuery({
