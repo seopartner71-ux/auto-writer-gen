@@ -553,7 +553,7 @@ export default function RadarPage() {
       if (!token || !userId) throw new Error("Not authenticated");
 
       // Create analysis run
-      const totalPrompts = keywords.length * 4; // 4 models per keyword
+      const totalPrompts = keywords.length * 7; // 7 models per keyword
       const { data: run, error: runErr } = await supabase.from("radar_analysis_runs").insert({
         user_id: userId,
         project_id: activeProject?.id,
