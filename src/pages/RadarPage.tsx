@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import DOMPurify from "dompurify";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -226,7 +227,40 @@ export default function RadarPage() {
   const [activeModels, setActiveModels] = useState<string[]>(["gemini_flash", "chatgpt", "perplexity", "claude"]);
   const [viewResponseData, setViewResponseData] = useState<any>(null);
   const [responseOpen, setResponseOpen] = useState(false);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [runProgress, setRunProgress] = useState<{ completed: number; total: number; model: string; prompt: string } | null>(null);
   const responseRef = useRef<HTMLDivElement>(null);
+
+  /* ── Realtime progress subscription ── */
+  useEffect(() => {
+    if (!activeRunId) { setRunProgress(null); return; }
+    const channel = supabase
+      .channel(`run-progress-${activeRunId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'radar_analysis_runs',
+        filter: `id=eq.${activeRunId}`,
+      }, (payload) => {
+        const row = payload.new as any;
+        setRunProgress({
+          completed: row.completed_prompts || 0,
+          total: row.total_prompts || 1,
+          model: row.current_model || '',
+          prompt: row.current_prompt_text || '',
+        });
+        if (row.status === 'completed' || row.status === 'error') {
+          setTimeout(() => {
+            setActiveRunId(null);
+            setRunProgress(null);
+            queryClient.invalidateQueries({ queryKey: ["radar-results"] });
+            queryClient.invalidateQueries({ queryKey: ["radar-keywords"] });
+          }, 1500);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeRunId]);
 
   /* ── Queries ── */
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
@@ -504,21 +538,40 @@ export default function RadarPage() {
 
   const scanAll = useMutation({
     mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const userId = session?.user?.id;
+      if (!token || !userId) throw new Error("Not authenticated");
+
+      // Create analysis run
+      const totalPrompts = keywords.length * 4; // 4 models per keyword
+      const { data: run, error: runErr } = await supabase.from("radar_analysis_runs").insert({
+        user_id: userId,
+        project_id: activeProject?.id,
+        status: "running",
+        total_prompts: totalPrompts,
+        completed_prompts: 0,
+      } as any).select().single();
+      if (runErr) throw runErr;
+
+      setActiveRunId(run.id);
+      setRunProgress({ completed: 0, total: totalPrompts, model: '', prompt: '' });
+
       for (const kw of keywords) {
         setScanningKeywordId(kw.id);
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        if (!token) throw new Error("Not authenticated");
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ keyword_id: kw.id, project_id: activeProject?.id }),
+          body: JSON.stringify({ keyword_id: kw.id, project_id: activeProject?.id, run_id: run.id }),
         });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           console.warn(`Scan failed for ${kw.keyword}:`, err);
         }
       }
+
+      // Mark run as completed
+      await supabase.from("radar_analysis_runs").update({ status: "completed", completed_at: new Date().toISOString() } as any).eq("id", run.id);
     },
     onSuccess: async () => {
       setScanningKeywordId(null);
@@ -651,7 +704,53 @@ export default function RadarPage() {
         </div>
       </div>
 
-      {/* Project tabs */}
+      {/* Scan Progress Bar */}
+      <AnimatePresence>
+        {runProgress && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="bg-card/50 border-primary/20 backdrop-blur-sm overflow-hidden">
+              <CardContent className="py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm font-medium text-foreground">
+                      {lang === "ru" ? "Сканирование..." : "Scanning..."}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono">
+                    {runProgress.completed} / {runProgress.total}
+                  </Badge>
+                </div>
+                <Progress
+                  value={runProgress.total > 0 ? (runProgress.completed / runProgress.total) * 100 : 0}
+                  className="h-2"
+                  indicatorClassName="bg-gradient-to-r from-primary to-purple-500 transition-all duration-500"
+                />
+                {(runProgress.model || runProgress.prompt) && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {runProgress.model && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        {runProgress.model}
+                      </Badge>
+                    )}
+                    {runProgress.prompt && (
+                      <span className="truncate max-w-[300px]">
+                        {runProgress.prompt}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {projects.length >= 1 && (
         <div className="flex gap-2 flex-wrap items-center">
           {projects.map((p: any) => (
