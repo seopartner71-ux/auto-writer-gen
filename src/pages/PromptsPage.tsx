@@ -234,6 +234,11 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
                         <TableCell className="text-xs text-muted-foreground">
                           {new Date(p.created_at).toLocaleDateString()}
                         </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteSingle.mutate(p.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
