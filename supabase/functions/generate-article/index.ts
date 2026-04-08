@@ -33,6 +33,8 @@ interface StealthPromptInput {
     intent?: string;
     difficulty?: number;
     questions?: string[];
+    language?: string;
+    geo?: string;
   };
   competitorTables?: any[];
   competitorLists?: any[];
