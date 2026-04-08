@@ -907,6 +907,56 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_analysis_runs: {
+        Row: {
+          completed_at: string | null
+          completed_prompts: number | null
+          created_at: string | null
+          current_model: string | null
+          current_prompt_text: string | null
+          id: string
+          project_id: string
+          started_at: string | null
+          status: string
+          total_prompts: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_prompts?: number | null
+          created_at?: string | null
+          current_model?: string | null
+          current_prompt_text?: string | null
+          id?: string
+          project_id: string
+          started_at?: string | null
+          status?: string
+          total_prompts?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_prompts?: number | null
+          created_at?: string | null
+          current_model?: string | null
+          current_prompt_text?: string | null
+          id?: string
+          project_id?: string
+          started_at?: string | null
+          status?: string
+          total_prompts?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_analysis_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       radar_keywords: {
         Row: {
           created_at: string | null
@@ -978,6 +1028,86 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_prompt_groups: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          project_id: string
+          sort_order: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          project_id: string
+          sort_order?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          sort_order?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_prompt_groups_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      radar_prompts: {
+        Row: {
+          created_at: string | null
+          group_id: string | null
+          id: string
+          project_id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          project_id: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string | null
+          id?: string
+          project_id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "radar_prompts_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "radar_prompt_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_prompts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "radar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       radar_results: {
         Row: {
           ai_response_text: string | null
@@ -991,7 +1121,10 @@ export type Database = {
           keyword_id: string
           matched_snippets: string[] | null
           model: string
+          prompt_id: string | null
+          run_id: string | null
           sentiment: string | null
+          sources: Json | null
           status: string
           user_id: string
         }
@@ -1007,7 +1140,10 @@ export type Database = {
           keyword_id: string
           matched_snippets?: string[] | null
           model: string
+          prompt_id?: string | null
+          run_id?: string | null
           sentiment?: string | null
+          sources?: Json | null
           status?: string
           user_id: string
         }
@@ -1023,7 +1159,10 @@ export type Database = {
           keyword_id?: string
           matched_snippets?: string[] | null
           model?: string
+          prompt_id?: string | null
+          run_id?: string | null
           sentiment?: string | null
+          sources?: Json | null
           status?: string
           user_id?: string
         }
@@ -1033,6 +1172,20 @@ export type Database = {
             columns: ["keyword_id"]
             isOneToOne: false
             referencedRelation: "radar_keywords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_results_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "radar_prompts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "radar_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "radar_analysis_runs"
             referencedColumns: ["id"]
           },
         ]
