@@ -977,6 +977,36 @@ serve(async (req) => {
       console.log("[generate-article] No author selected, using default style");
     }
 
+    // Build interlinking context if project_id is provided
+    let interlinkingContext: StealthPromptInput["interlinkingContext"] = null;
+    if (project_id) {
+      const { data: project } = await supabaseAdmin.from("projects").select("*").eq("id", project_id).single();
+      if (project && project.auto_interlinking) {
+        const { data: projectArticles } = await supabaseAdmin
+          .from("articles")
+          .select("title, id")
+          .eq("project_id", project_id)
+          .eq("status", "completed")
+          .not("title", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        
+        const articleLinks = (projectArticles || []).map((a: any) => ({
+          title: a.title || "",
+          url: project.domain ? `https://${project.domain.replace(/^https?:\/\//, "")}/${a.id}` : `#${a.id}`,
+        }));
+        
+        if (articleLinks.length > 0) {
+          interlinkingContext = {
+            projectName: project.name,
+            domain: project.domain,
+            articles: articleLinks,
+          };
+          console.log(`[generate-article] Interlinking context: ${articleLinks.length} articles from project "${project.name}"`);
+        }
+      }
+    }
+
     // Build stealth prompt via server-side function
     const stealthInput: StealthPromptInput = {
       authorProfile: authorData,
@@ -1002,6 +1032,7 @@ serve(async (req) => {
       seoKeywords: seo_keywords || null,
       geoLocation: geo_location || null,
       customInstructions: custom_instructions || null,
+      interlinkingContext,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);
