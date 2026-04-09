@@ -1024,10 +1024,10 @@ serve(async (req) => {
         
         const domainBase = project.domain ? `https://${project.domain.replace(/^https?:\/\//, "")}` : "";
         const articleLinks = (projectArticles || [])
-          .filter((a: any) => a.published_url || domainBase)
+          .filter((a: any) => a.published_url && a.published_url.trim() !== "")
           .map((a: any) => ({
             title: a.title || "",
-            url: a.published_url || `${domainBase}/${a.id}`,
+            url: a.published_url.trim(),
           }));
         
         if (articleLinks.length > 0) {
