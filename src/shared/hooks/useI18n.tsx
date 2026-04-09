@@ -1133,6 +1133,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "projects.selectProject": { ru: "Выберите проект", en: "Select Project" },
   "projects.noProject": { ru: "Без проекта", en: "No project" },
   "projects.contextMap": { ru: "Контекстная карта проекта", en: "Project context map" },
+  "projects.confirmDelete": { ru: "Удалить проект и все привязки? Это действие нельзя отменить.", en: "Delete project and all associations? This cannot be undone." },
+  "projects.delete": { ru: "Удалить", en: "Delete" },
   "projects.active": { ru: "Активный", en: "Active" },
   "projects.activated": { ru: "Проект активирован", en: "Project activated" },
   "projects.deactivated": { ru: "Проект деактивирован", en: "Project deactivated" },
