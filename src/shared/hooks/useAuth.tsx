@@ -27,61 +27,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const lastFetchedUserId = useRef<string | null>(null);
+  const inFlightUserId = useRef<string | null>(null);
 
   const fetchUserData = useCallback(async (userId: string) => {
-    // Skip if we already fetched for this user
-    if (lastFetchedUserId.current === userId) return;
-    lastFetchedUserId.current = userId;
+    if (lastFetchedUserId.current === userId || inFlightUserId.current === userId) return;
 
-    // Fetch profile and role in parallel
-    const [profileRes, roleRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).single(),
-      supabase.from("user_roles").select("role").eq("user_id", userId),
-    ]);
+    inFlightUserId.current = userId;
 
-    // Update last activity timestamp (fire-and-forget with error logging)
-    supabase.from("user_stats").upsert(
-      { user_id: userId, last_activity_at: new Date().toISOString() },
-      { onConflict: "user_id" }
-    ).then(({ error }) => {
-      if (error) console.error("[useAuth] user_stats upsert error:", error.message);
-    });
+    try {
+      const [profileRes, roleRes] = await Promise.allSettled([
+        supabase.from("profiles").select("*").eq("id", userId).single(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+      ]);
 
-    setProfile(profileRes.data as Profile | null);
-    const roles = (roleRes.data ?? []).map((r: any) => r.role as AppRole);
-    setRole(roles.includes("admin") ? "admin" : roles[0] ?? "user");
+      if (profileRes.status === "fulfilled") {
+        if (profileRes.value.error) {
+          console.error("[useAuth] profile fetch error:", profileRes.value.error.message);
+          setProfile(null);
+        } else {
+          setProfile(profileRes.value.data as Profile | null);
+        }
+      } else {
+        console.error("[useAuth] profile fetch error:", profileRes.reason);
+        setProfile(null);
+      }
+
+      if (roleRes.status === "fulfilled") {
+        if (roleRes.value.error) {
+          console.error("[useAuth] role fetch error:", roleRes.value.error.message);
+          setRole(null);
+          lastFetchedUserId.current = null;
+        } else {
+          const roles = (roleRes.value.data ?? []).map((r: any) => r.role as AppRole);
+          setRole(roles.includes("admin") ? "admin" : roles[0] ?? "user");
+          lastFetchedUserId.current = userId;
+        }
+      } else {
+        console.error("[useAuth] role fetch error:", roleRes.reason);
+        setRole(null);
+        lastFetchedUserId.current = null;
+      }
+
+      void (async () => {
+        try {
+          const { error } = await supabase.from("user_stats").upsert(
+            { user_id: userId, last_activity_at: new Date().toISOString() },
+            { onConflict: "user_id" }
+          );
+
+          if (error) console.error("[useAuth] user_stats upsert error:", error.message);
+        } catch (error) {
+          console.error("[useAuth] user_stats upsert error:", error);
+        }
+      })();
+    } finally {
+      inFlightUserId.current = null;
+    }
   }, []);
 
   useEffect(() => {
-    // Get initial session first
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchUserData(session.user.id);
+    let isMounted = true;
+
+    const syncSession = async (nextSession: Session | null) => {
+      if (!isMounted) return;
+
+      setSession(nextSession);
+
+      if (!nextSession?.user) {
+        setProfile(null);
+        setRole(null);
+        lastFetchedUserId.current = null;
+        inFlightUserId.current = null;
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      setLoading(true);
+      await fetchUserData(nextSession.user.id);
+
+      if (isMounted) {
+        setLoading(false);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      void syncSession(session);
     });
 
-    // Then listen for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        setSession(session);
-        if (session?.user) {
-          fetchUserData(session.user.id);
-        } else {
-          setProfile(null);
-          setRole(null);
-          lastFetchedUserId.current = null;
-        }
-        setLoading(false);
+        void syncSession(session);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchUserData]);
 
   const signOut = async () => {
     lastFetchedUserId.current = null;
+    inFlightUserId.current = null;
     await supabase.auth.signOut();
   };
 

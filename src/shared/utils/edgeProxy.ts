@@ -5,45 +5,83 @@
  * avoiding geo-blocks in Russia.
  */
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const FUNCTIONS_PREFIX = `${SUPABASE_URL}/functions/v1/`;
-
-// Proxy is co-located with the frontend on Beget
-const PROXY_BASE = 'https://seo-modul.pro/api/proxy.php';
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, "");
+const PROXY_BASE = "/api/proxy.php";
 
 const nativeFetch = window.fetch.bind(window);
 
-function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  let url: string;
+function isPreviewHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.endsWith(".lovable.app") ||
+    hostname.endsWith(".lovableproject.com") ||
+    hostname.endsWith(".lovable.dev")
+  );
+}
 
-  if (typeof input === 'string') {
-    url = input;
-  } else if (input instanceof URL) {
-    url = input.href;
-  } else {
-    url = (input as Request).url;
+function resolveRequestUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") {
+    return input;
   }
 
-  // Only intercept Edge Function calls
-  if (url.startsWith(FUNCTIONS_PREFIX)) {
-    const functionName = url.slice(FUNCTIONS_PREFIX.length).split('?')[0];
-    const proxyUrl = `${PROXY_BASE}?function=${encodeURIComponent(functionName)}`;
+  if (input instanceof URL) {
+    return input.href;
+  }
 
-    // Clone init to avoid mutating the original
-    const proxyInit: RequestInit = { ...init };
+  return input.url;
+}
 
-    return nativeFetch(proxyUrl, proxyInit);
+function toProxyRequestInit(input: RequestInfo | URL, init?: RequestInit): RequestInit {
+  if (!(input instanceof Request)) {
+    return init ? { ...init } : {};
+  }
+
+  const headers = new Headers(input.headers);
+
+  if (init?.headers) {
+    const overrideHeaders = new Headers(init.headers);
+    overrideHeaders.forEach((value, key) => headers.set(key, value));
+  }
+
+  const method = init?.method ?? input.method;
+  const hasBody = !["GET", "HEAD"].includes(method.toUpperCase());
+
+  return {
+    method,
+    headers,
+    body: init?.body ?? (hasBody ? input.clone().body ?? undefined : undefined),
+    credentials: init?.credentials ?? input.credentials,
+    cache: init?.cache ?? input.cache,
+    integrity: init?.integrity ?? input.integrity,
+    keepalive: init?.keepalive ?? input.keepalive,
+    mode: init?.mode ?? input.mode,
+    redirect: init?.redirect ?? input.redirect,
+    referrer: init?.referrer ?? input.referrer,
+    referrerPolicy: init?.referrerPolicy ?? input.referrerPolicy,
+    signal: init?.signal ?? input.signal,
+  };
+}
+
+function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = resolveRequestUrl(input);
+
+  if (url.startsWith(SUPABASE_URL)) {
+    const upstreamPath = url.slice(SUPABASE_URL.length);
+    const proxyUrl = `${PROXY_BASE}?path=${encodeURIComponent(upstreamPath)}`;
+
+    return nativeFetch(proxyUrl, toProxyRequestInit(input, init));
   }
 
   return nativeFetch(input, init);
 }
 
 export function installEdgeProxy(): void {
-  // Only install in production (when hosted on seo-modul.pro)
-  // In dev / preview on lovable.app, Supabase is accessible directly
   const hostname = window.location.hostname;
-  if (hostname.includes('seo-modul.pro') || hostname.includes('beget.')) {
-    (window as any).fetch = patchedFetch;
-    console.info('[EdgeProxy] Installed — routing Edge Functions through proxy');
+
+  if (!isPreviewHost(hostname)) {
+    window.fetch = patchedFetch as typeof window.fetch;
+    (globalThis as typeof window).fetch = patchedFetch as typeof fetch;
+    console.info("[EdgeProxy] Installed — proxying backend requests through site domain");
   }
 }
