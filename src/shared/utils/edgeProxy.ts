@@ -70,7 +70,12 @@ function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Res
     const upstreamPath = url.slice(SUPABASE_URL.length);
     const proxyUrl = `${PROXY_BASE}?path=${encodeURIComponent(upstreamPath)}`;
 
-    return nativeFetch(proxyUrl, toProxyRequestInit(input, init));
+    console.info("[EdgeProxy] Proxying:", upstreamPath.slice(0, 80), "→", proxyUrl.slice(0, 120));
+
+    return nativeFetch(proxyUrl, toProxyRequestInit(input, init)).catch((err) => {
+      console.error("[EdgeProxy] Fetch failed for", upstreamPath.slice(0, 80), err);
+      throw err;
+    });
   }
 
   return nativeFetch(input, init);
@@ -82,6 +87,8 @@ export function installEdgeProxy(): void {
   if (!isPreviewHost(hostname)) {
     window.fetch = patchedFetch as typeof window.fetch;
     (globalThis as typeof window).fetch = patchedFetch as typeof fetch;
-    console.info("[EdgeProxy] Installed — proxying backend requests through site domain");
+    console.info("[EdgeProxy] Installed on", hostname, "— proxying ALL backend requests through", PROXY_BASE);
+  } else {
+    console.info("[EdgeProxy] Skipped — preview host:", hostname);
   }
 }
