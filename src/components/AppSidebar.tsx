@@ -55,6 +55,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/support": () => import("@/pages/SupportPage"),
   "/admin": () => import("@/pages/AdminPage"),
   "/projects": () => import("@/pages/ProjectsPage"),
+  "/my-articles": () => import("@/pages/MyArticlesPage"),
 };
 
 export function AppSidebar() {
