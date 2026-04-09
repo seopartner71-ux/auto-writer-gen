@@ -417,7 +417,7 @@ ${customInstructions}
   const showTable = includeComparisonTable !== false && !authorForbidsTables;
   const showQuote = includeExpertQuote !== false;
 
-  const systemPrompt = `### ROLE & MISSION
+  let systemPrompt = `### ROLE & MISSION
 Ты - элитный SEO-инженер и контент-стратег. Твоя цель: создавать экспертный контент, который НЕВОЗМОЖНО отличить от написанного человеком (0% AI Score), и который захватывает выдачу Google SGE и нейросетей (GEO).${authorProfile ? " Пиши КАК автор, описанный в Блоке А — каждое предложение должно звучать как его/её текст. Инструкции автора имеют НАИВЫСШИЙ приоритет." : ""}
 
 ### PERSONA ADAPTATION (Mandatory)
