@@ -158,6 +158,13 @@ export type Database = {
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "article_metrics_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       article_versions: {
@@ -185,6 +192,13 @@ export type Database = {
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "article_versions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
             referencedColumns: ["id"]
           },
         ]
@@ -411,6 +425,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bulk_job_items_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bulk_job_items_bulk_job_id_fkey"
             columns: ["bulk_job_id"]
             isOneToOne: false
@@ -537,6 +558,13 @@ export type Database = {
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitors_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
             referencedColumns: ["id"]
           },
         ]
@@ -673,6 +701,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "generation_queue_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "generation_queue_author_profile_id_fkey"
             columns: ["author_profile_id"]
             isOneToOne: false
@@ -725,6 +760,13 @@ export type Database = {
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "indexing_logs_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
             referencedColumns: ["id"]
           },
         ]
@@ -865,6 +907,13 @@ export type Database = {
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paa_questions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
             referencedColumns: ["id"]
           },
         ]
@@ -1309,6 +1358,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "scheduled_generations_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scheduled_generations_author_profile_id_fkey"
             columns: ["author_profile_id"]
             isOneToOne: false
@@ -1698,6 +1754,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "wp_scheduled_posts_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "wp_scheduled_posts_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -1708,7 +1771,59 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_articles: {
+        Row: {
+          author_profile_id: string | null
+          content: string | null
+          created_at: string | null
+          geo: string | null
+          id: string | null
+          keywords: string[] | null
+          language: string | null
+          meta_description: string | null
+          published_url: string | null
+          share_token: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          author_profile_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          geo?: string | null
+          id?: string | null
+          keywords?: string[] | null
+          language?: string | null
+          meta_description?: string | null
+          published_url?: string | null
+          share_token?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          author_profile_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          geo?: string | null
+          id?: string | null
+          keywords?: string[] | null
+          language?: string | null
+          meta_description?: string | null
+          published_url?: string | null
+          share_token?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "articles_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "author_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_add_credits: {
