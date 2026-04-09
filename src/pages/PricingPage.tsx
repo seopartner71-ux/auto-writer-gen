@@ -27,7 +27,10 @@ export default function PricingPage() {
       const { data, error } = await supabase
         .from("app_settings")
         .select("key, value")
-        .in("key", ["polar_basic_product_id", "polar_pro_product_id"]);
+        .in("key", [
+          "polar_basic_product_id", "polar_pro_product_id",
+          "prodamus_basic_link", "prodamus_pro_link",
+        ]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((s: { key: string; value: string }) => (map[s.key] = s.value));
@@ -53,6 +56,8 @@ export default function PricingPage() {
 
   const basicProductId = polarSettings?.polar_basic_product_id ?? null;
   const proProductId = polarSettings?.polar_pro_product_id ?? null;
+  const prodamusBasicLink = polarSettings?.prodamus_basic_link ?? null;
+  const prodamusProLink = polarSettings?.prodamus_pro_link ?? null;
 
   useEffect(() => {
     const checkoutId = searchParams.get("checkout_id");
@@ -124,6 +129,7 @@ export default function PricingPage() {
       badge: null,
       credits: fmtCredits("free", 5),
       polarProductId: null as string | null,
+      prodamusLink: null as string | null,
       showShield: false,
       features: getFeatures("free", [
         { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
@@ -141,6 +147,7 @@ export default function PricingPage() {
       badge: t("pricing.popular"),
       credits: fmtCredits("basic", 40),
       polarProductId: basicProductId,
+      prodamusLink: prodamusBasicLink,
       showShield: true,
       features: getFeatures("basic", [
         { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
@@ -158,6 +165,7 @@ export default function PricingPage() {
       badge: t("pricing.maximum"),
       credits: fmtCredits("pro", 150),
       polarProductId: proProductId,
+      prodamusLink: prodamusProLink,
       showShield: true,
       features: getFeatures("pro", [
         { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
@@ -167,7 +175,7 @@ export default function PricingPage() {
     },
   ];
 
-  const handleSelectPlan = async (planId: string) => {
+  const handleSelectPlan = async (planId: string, method: "polar" | "prodamus" = "polar") => {
     if (!user) {
       toast.error(t("pricing.loginRequired"));
       return;
@@ -184,6 +192,20 @@ export default function PricingPage() {
         toast.success(`${t("pricing.planChanged")} NANO.`);
         queryClient.invalidateQueries({ queryKey: ["profile"] });
       }
+      return;
+    }
+
+    if (method === "prodamus") {
+      const link = selectedPlan?.prodamusLink;
+      if (!link) {
+        toast.error(isEn ? "Prodamus payment not configured." : "Оплата через Prodamus не настроена.");
+        return;
+      }
+      // Append user email as a query param for tracking
+      const url = new URL(link);
+      if (user.email) url.searchParams.set("customer_email", user.email);
+      url.searchParams.set("customer_extra", user.id);
+      window.open(url.toString(), "_blank");
       return;
     }
 
@@ -282,15 +304,45 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  className="w-full"
-                  variant={isCurrentPlan ? "secondary" : isPopular ? "default" : "outline"}
-                  disabled={isCurrentPlan || isLoading}
-                  onClick={() => handleSelectPlan(plan.id)}
-                >
-                  {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {isCurrentPlan ? t("pricing.currentPlan") : t("pricing.selectPlan")}
-                </Button>
+                {isCurrentPlan ? (
+                  <Button className="w-full" variant="secondary" disabled>
+                    {t("pricing.currentPlan")}
+                  </Button>
+                ) : plan.id === "free" ? (
+                  <Button className="w-full" variant="outline" onClick={() => handleSelectPlan(plan.id)}>
+                    {t("pricing.selectPlan")}
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    {plan.prodamusLink && (
+                      <Button
+                        className="w-full"
+                        variant={isPopular ? "default" : "outline"}
+                        disabled={isLoading}
+                        onClick={() => handleSelectPlan(plan.id, "prodamus")}
+                      >
+                        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        {isEn ? "Pay in ₽ (Russia)" : "Оплатить в ₽"}
+                      </Button>
+                    )}
+                    {plan.polarProductId && (
+                      <Button
+                        className="w-full"
+                        variant={plan.prodamusLink ? "outline" : (isPopular ? "default" : "outline")}
+                        disabled={isLoading}
+                        onClick={() => handleSelectPlan(plan.id, "polar")}
+                      >
+                        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        {isEn ? "Pay in $ (International)" : "Оплатить в $ (International)"}
+                      </Button>
+                    )}
+                    {!plan.prodamusLink && !plan.polarProductId && (
+                      <Button className="w-full" variant="outline" disabled>
+                        {isEn ? "Coming soon" : "Скоро"}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
