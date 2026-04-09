@@ -55,6 +55,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/support": () => import("@/pages/SupportPage"),
   "/admin": () => import("@/pages/AdminPage"),
   "/projects": () => import("@/pages/ProjectsPage"),
+  "/my-articles": () => import("@/pages/MyArticlesPage"),
 };
 
 export function AppSidebar() {
@@ -78,6 +79,7 @@ export function AppSidebar() {
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
+    { title: "Мои статьи", url: "/my-articles", icon: BookMarked },
     { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
     { title: "AI Radar", url: "/radar", icon: Radar },
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },

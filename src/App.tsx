@@ -40,6 +40,7 @@ const WikiPage = lazy(() => import("@/pages/WikiPage"));
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
 const SupportPage = lazy(() => import("@/pages/SupportPage"));
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
+const MyArticlesPage = lazy(() => import("@/pages/MyArticlesPage"));
 const OfferPage = lazy(() => import("@/pages/OfferPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
@@ -128,6 +129,7 @@ const App = () => (
                   <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="/support" element={<SupportPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/my-articles" element={<MyArticlesPage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>
