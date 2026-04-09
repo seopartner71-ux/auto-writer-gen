@@ -1134,7 +1134,6 @@ const translations: Record<string, Record<Lang, string>> = {
   "projects.noProject": { ru: "Без проекта", en: "No project" },
   "projects.contextMap": { ru: "Контекстная карта проекта", en: "Project context map" },
   "nav.projects": { ru: "Проекты", en: "Projects" },
-  "nav.indexing": { ru: "Индексация", en: "Indexing" },
 };
 
 interface I18nContextValue {
