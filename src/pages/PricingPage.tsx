@@ -147,17 +147,6 @@ export default function PricingPage() {
 
     const selectedPlan = plans.find(p => p.id === planId);
 
-    if (planId === "free") {
-      const { error } = await supabase.from("profiles").update({ plan: planId, credits_amount: 5, monthly_limit: 5 }).eq("id", user.id);
-      if (error) {
-        toast.error(t("pricing.changeFailed"));
-      } else {
-        toast.success(`${t("pricing.planChanged")} NANO.`);
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-      }
-      return;
-    }
-
     const link = selectedPlan?.prodamusLink;
     if (!link) {
       toast.error(isEn ? "Payment not configured yet. Please contact the administrator." : "Оплата ещё не настроена. Обратитесь к администратору.");
