@@ -20,6 +20,7 @@ interface AppSetting {
 const ALL_KEYS = [
   "prodamus_shop_id",
   "prodamus_api_key",
+  "prodamus_nano_link",
   "prodamus_basic_link",
   "prodamus_pro_link",
 ];
@@ -126,27 +127,38 @@ export function PolarSettingsTab() {
 
         <Separator />
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="prodamus_nano_link">Ссылка оплаты NANO (₽)</Label>
+            <Input
+              id="prodamus_nano_link"
+              placeholder="https://example.prodamus.link/nano-plan"
+              value={values["prodamus_nano_link"] ?? ""}
+              onChange={(e) => setValues((v) => ({ ...v, prodamus_nano_link: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">Тариф NANO — 990 ₽/мес</p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="prodamus_basic_link">Ссылка оплаты PRO (₽)</Label>
             <Input
               id="prodamus_basic_link"
-              placeholder="https://example.prodamus.link/basic-plan"
+              placeholder="https://example.prodamus.link/pro-plan"
               value={values["prodamus_basic_link"] ?? ""}
               onChange={(e) => setValues((v) => ({ ...v, prodamus_basic_link: e.target.value }))}
             />
-            <p className="text-xs text-muted-foreground">Ссылка на форму оплаты тарифа PRO</p>
+            <p className="text-xs text-muted-foreground">Тариф PRO — 5 900 ₽/мес</p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="prodamus_pro_link">Ссылка оплаты FACTORY (₽)</Label>
             <Input
               id="prodamus_pro_link"
-              placeholder="https://example.prodamus.link/pro-plan"
+              placeholder="https://example.prodamus.link/factory-plan"
               value={values["prodamus_pro_link"] ?? ""}
               onChange={(e) => setValues((v) => ({ ...v, prodamus_pro_link: e.target.value }))}
             />
-            <p className="text-xs text-muted-foreground">Ссылка на форму оплаты тарифа FACTORY</p>
+            <p className="text-xs text-muted-foreground">Тариф FACTORY — 19 900 ₽/мес</p>
           </div>
         </div>
 

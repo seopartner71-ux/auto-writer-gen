@@ -24,7 +24,7 @@ export default function PricingPage() {
       const { data, error } = await supabase
         .from("app_settings")
         .select("key, value")
-        .in("key", ["prodamus_basic_link", "prodamus_pro_link"]);
+        .in("key", ["prodamus_nano_link", "prodamus_basic_link", "prodamus_pro_link"]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((s: { key: string; value: string }) => (map[s.key] = s.value));
@@ -48,6 +48,7 @@ export default function PricingPage() {
     },
   });
 
+  const prodamusNanoLink = paymentSettings?.prodamus_nano_link ?? null;
   const prodamusBasicLink = paymentSettings?.prodamus_basic_link ?? null;
   const prodamusProLink = paymentSettings?.prodamus_pro_link ?? null;
 
@@ -93,7 +94,7 @@ export default function PricingPage() {
       description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
       badge: null,
       credits: fmtCredits("free", 5),
-      prodamusLink: null as string | null,
+      prodamusLink: prodamusNanoLink,
       showShield: false,
       features: getFeatures("free", [
         { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
@@ -145,17 +146,6 @@ export default function PricingPage() {
     if (planId === currentPlan) return;
 
     const selectedPlan = plans.find(p => p.id === planId);
-
-    if (planId === "free") {
-      const { error } = await supabase.from("profiles").update({ plan: planId, credits_amount: 5, monthly_limit: 5 }).eq("id", user.id);
-      if (error) {
-        toast.error(t("pricing.changeFailed"));
-      } else {
-        toast.success(`${t("pricing.planChanged")} NANO.`);
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-      }
-      return;
-    }
 
     const link = selectedPlan?.prodamusLink;
     if (!link) {
@@ -240,11 +230,7 @@ export default function PricingPage() {
                 </ul>
                 {isCurrentPlan ? (
                   <Button className="w-full" variant="secondary" disabled>
-                    {t("pricing.currentPlan")}
-                  </Button>
-                ) : plan.id === "free" ? (
-                  <Button className="w-full" variant="outline" onClick={() => handleSelectPlan(plan.id)}>
-                    {t("pricing.selectPlan")}
+                  {t("pricing.currentPlan")}
                   </Button>
                 ) : (
                   <Button
