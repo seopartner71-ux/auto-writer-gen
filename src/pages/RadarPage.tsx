@@ -1256,6 +1256,16 @@ export default function RadarPage() {
                     </div>
                   ));
                 })()}
+                <Separator className="my-2" />
+                <Button
+                  onClick={generateGeoPlan}
+                  disabled={geoPlanLoading}
+                  className="w-full gap-2 bg-gradient-to-r from-yellow-500/80 to-orange-500/80 hover:from-yellow-500 hover:to-orange-500 text-white border-0"
+                  size="sm"
+                >
+                  {geoPlanLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  {lang === "ru" ? "Сгенерировать GEO-план" : "Generate GEO Plan"}
+                </Button>
               </div>
             )}
           </CardContent>
