@@ -1,0 +1,1 @@
+ALTER TABLE public.articles ADD COLUMN published_url text DEFAULT NULL;

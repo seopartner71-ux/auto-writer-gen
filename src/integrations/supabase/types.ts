@@ -206,6 +206,7 @@ export type Database = {
           lsi_keywords: Json | null
           meta_description: string | null
           project_id: string | null
+          published_url: string | null
           scheduled_at: string | null
           seo_score: Json | null
           share_token: string | null
@@ -234,6 +235,7 @@ export type Database = {
           lsi_keywords?: Json | null
           meta_description?: string | null
           project_id?: string | null
+          published_url?: string | null
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
@@ -262,6 +264,7 @@ export type Database = {
           lsi_keywords?: Json | null
           meta_description?: string | null
           project_id?: string | null
+          published_url?: string | null
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
