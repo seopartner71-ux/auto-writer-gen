@@ -241,11 +241,7 @@ export default function PricingPage() {
                 </ul>
                 {isCurrentPlan ? (
                   <Button className="w-full" variant="secondary" disabled>
-                    {t("pricing.currentPlan")}
-                  </Button>
-                ) : plan.id === "free" ? (
-                  <Button className="w-full" variant="outline" onClick={() => handleSelectPlan(plan.id)}>
-                    {t("pricing.selectPlan")}
+                  {t("pricing.currentPlan")}
                   </Button>
                 ) : (
                   <Button
