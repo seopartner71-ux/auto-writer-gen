@@ -626,6 +626,82 @@ export default function RadarPage() {
     },
   });
 
+  const generateGeoPlan = useCallback(async () => {
+    setGeoPlanOpen(true);
+    setGeoPlanContent("");
+    setGeoPlanLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const radarData = {
+        overallVisibility,
+        somData: somData.map(d => ({ model: d.label, visibility: d.value, status: d.status })),
+        radarAxes: radarChartData,
+        sentimentData: sentimentDonut.map(s => ({ name: s.name, pct: s.pct })),
+        sovData: sovDonut.map(s => ({ name: s.name, pct: s.pct })),
+        competitors: competitorLeaderboard.slice(0, 10).map(c => ({ name: c.name, visibility: c.visibility, sentiment: c.sentiment, isBrand: c.isBrand })),
+        tips: [],
+      };
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-geo-plan`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ project_id: activeProject?.id, radar_data: radarData }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Error" }));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error("No stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              fullText += content;
+              setGeoPlanContent(fullText);
+            }
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+
+      setGeoPlanLoading(false);
+    } catch (e: any) {
+      setGeoPlanLoading(false);
+      toast.error(e.message);
+    }
+  }, [activeProject, overallVisibility, somData, radarChartData, sentimentDonut, sovDonut, competitorLeaderboard]);
+
   const toggleModel = (model: string) => {
     setActiveModels(prev =>
       prev.includes(model)
