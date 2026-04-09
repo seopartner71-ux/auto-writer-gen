@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus, UserPlus
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus, UserPlus, ChevronDown, ChevronUp, ExternalLink
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -306,7 +306,26 @@ export default function ArticlesPage() {
     },
   });
 
-  // Data fetching
+  // Articles for interlinking (from selected project)
+  const { data: projectArticlesForLinks = [], refetch: refetchProjectArticles } = useQuery({
+    queryKey: ["project-articles-for-links", selectedProjectId],
+    queryFn: async () => {
+      if (!selectedProjectId || selectedProjectId === "none") return [];
+      const { data, error } = await supabase
+        .from("articles")
+        .select("id, title, published_url, status")
+        .eq("project_id", selectedProjectId)
+        .in("status", ["completed", "published"])
+        .not("title", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedProjectId && selectedProjectId !== "none",
+  });
+  const [showInterlinkingArticles, setShowInterlinkingArticles] = useState(false);
+
   const { data: keywords = [] } = useQuery({
     queryKey: ["keywords-for-writer"],
     queryFn: async () => {
@@ -1036,6 +1055,44 @@ export default function ArticlesPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        )}
+
+        {/* Interlinking articles panel */}
+        {selectedProjectId && selectedProjectId !== "none" && projectArticlesForLinks.length > 0 && (
+          <div className="mb-3 pb-3 border-b border-border">
+            <button
+              type="button"
+              onClick={() => setShowInterlinkingArticles(!showInterlinkingArticles)}
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              <span>{lang === "ru" ? "Статьи для перелинковки" : "Articles for interlinking"} ({projectArticlesForLinks.length})</span>
+              {showInterlinkingArticles ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+            </button>
+            {showInterlinkingArticles && (
+              <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+                {projectArticlesForLinks.map((article: any) => (
+                  <div key={article.id} className="flex items-center gap-2 text-xs p-1.5 rounded bg-muted/50">
+                    <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span className="truncate flex-1 font-medium">{article.title}</span>
+                    {article.published_url ? (
+                      <a href={article.published_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1 shrink-0">
+                        <ExternalLink className="h-3 w-3" />
+                        <span className="max-w-[200px] truncate">{article.published_url}</span>
+                      </a>
+                    ) : (
+                      <span className="text-destructive/70 text-[10px] shrink-0">{lang === "ru" ? "URL не указан" : "No URL"}</span>
+                    )}
+                  </div>
+                ))}
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {lang === "ru"
+                    ? "Укажите Published URL у каждой статьи (в редакторе → SEO/Meta) для корректной перелинковки."
+                    : "Set Published URL for each article (in editor → SEO/Meta) for proper interlinking."}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
