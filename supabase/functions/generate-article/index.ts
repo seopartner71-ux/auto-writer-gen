@@ -51,7 +51,7 @@ interface StealthPromptInput {
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
-  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets, seoKeywords, geoLocation, customInstructions } = input;
+  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets, seoKeywords, geoLocation, customInstructions, interlinkingContext } = input;
   
   // Use explicit language from keyword record instead of Cyrillic detection
   const langMap: Record<string, string> = {
