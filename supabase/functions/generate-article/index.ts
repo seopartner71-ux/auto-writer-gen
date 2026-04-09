@@ -47,6 +47,7 @@ interface StealthPromptInput {
   seoKeywords?: string | null;
   geoLocation?: string | null;
   customInstructions?: string | null;
+  interlinkingContext?: { projectName: string; domain: string; articles: { title: string; url: string }[] } | null;
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
