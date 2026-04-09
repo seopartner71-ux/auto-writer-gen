@@ -129,6 +129,7 @@ export default function PricingPage() {
       badge: null,
       credits: fmtCredits("free", 5),
       polarProductId: null as string | null,
+      prodamusLink: null as string | null,
       showShield: false,
       features: getFeatures("free", [
         { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
@@ -146,6 +147,7 @@ export default function PricingPage() {
       badge: t("pricing.popular"),
       credits: fmtCredits("basic", 40),
       polarProductId: basicProductId,
+      prodamusLink: prodamusBasicLink,
       showShield: true,
       features: getFeatures("basic", [
         { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
@@ -163,6 +165,7 @@ export default function PricingPage() {
       badge: t("pricing.maximum"),
       credits: fmtCredits("pro", 150),
       polarProductId: proProductId,
+      prodamusLink: prodamusProLink,
       showShield: true,
       features: getFeatures("pro", [
         { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
