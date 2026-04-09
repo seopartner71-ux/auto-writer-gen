@@ -385,6 +385,7 @@ export default function ArticlesPage() {
       if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
       setTelegraphPath((data as any).telegraph_path || "");
       setTelegraphUrl((data as any).telegraph_url || "");
+      setPublishedUrl((data as any).published_url || "");
       try { setAnchorLinks(JSON.parse((data as any).anchor_target_url || "[]")); } catch { setAnchorLinks([{ url: "", anchor: "" }]); }
       // Clear the param so it doesn't reload on re-render
       setSearchParams({}, { replace: true });
@@ -421,6 +422,7 @@ export default function ArticlesPage() {
   const [customInstructions, setCustomInstructions] = useState("");
   const [telegraphPath, setTelegraphPath] = useState("");
   const [telegraphUrl, setTelegraphUrl] = useState("");
+  const [publishedUrl, setPublishedUrl] = useState("");
   const [anchorLinks, setAnchorLinks] = useState<{ url: string; anchor: string }[]>([{ url: "", anchor: "" }]);
   const [finishReason, setFinishReason] = useState<string | null>(null);
   const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
@@ -820,6 +822,7 @@ export default function ArticlesPage() {
         content,
         meta_description: metaDescription || null,
         anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
+        published_url: publishedUrl.trim() || null,
         project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
         seo_score: {
           readability,
@@ -1230,6 +1233,19 @@ export default function ArticlesPage() {
                   onChange={(e) => setMetaDescription(e.target.value)}
                   placeholder={t("articles.metaPlaceholder")}
                   maxLength={160}
+                  className="h-8 text-sm"
+                />
+              </div>
+              {/* Published URL for interlinking */}
+              <div className="space-y-0.5">
+                <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Link2 className="h-3 w-3" />
+                  {lang === "ru" ? "URL статьи на сайте (для перелинковки)" : "Published URL (for interlinking)"}
+                </Label>
+                <Input
+                  value={publishedUrl}
+                  onChange={(e) => setPublishedUrl(e.target.value)}
+                  placeholder="https://example.com/my-article"
                   className="h-8 text-sm"
                 />
               </div>
@@ -1969,6 +1985,7 @@ export default function ArticlesPage() {
                               if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
                               setTelegraphPath((data as any).telegraph_path || "");
                               setTelegraphUrl((data as any).telegraph_url || "");
+                              setPublishedUrl((data as any).published_url || "");
                               try { setAnchorLinks(JSON.parse((data as any).anchor_target_url || "[]")); } catch { setAnchorLinks([{ url: "", anchor: "" }]); }
                             }
                           }}
