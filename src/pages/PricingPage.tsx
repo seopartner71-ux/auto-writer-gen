@@ -27,7 +27,10 @@ export default function PricingPage() {
       const { data, error } = await supabase
         .from("app_settings")
         .select("key, value")
-        .in("key", ["polar_basic_product_id", "polar_pro_product_id"]);
+        .in("key", [
+          "polar_basic_product_id", "polar_pro_product_id",
+          "prodamus_basic_link", "prodamus_pro_link",
+        ]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((s: { key: string; value: string }) => (map[s.key] = s.value));
