@@ -993,7 +993,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold uppercase">{plan}</p>
-            <p className="text-xs text-muted-foreground mt-1">{limits.maxGenerations} {t("dashboard.genPerMonth")}</p>
+            <p className="text-xs text-muted-foreground mt-1">{profile?.credits_amount ?? 0} {t("dashboard.genPerMonth")}</p>
           </CardContent>
         </Card>
       </div>
