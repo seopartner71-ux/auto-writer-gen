@@ -1367,6 +1367,38 @@ export default function RadarPage() {
           </Collapsible>
         </DialogContent>
       </Dialog>
+
+      {/* GEO Plan Dialog */}
+      <Dialog open={geoPlanOpen} onOpenChange={setGeoPlanOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-yellow-400" />
+              {lang === "ru" ? "GEO План действий" : "GEO Action Plan"}
+              {geoPlanLoading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-2" />}
+            </DialogTitle>
+            <DialogDescription>
+              {lang === "ru"
+                ? `Персональный план для ${activeProject?.brand_name || "бренда"} на основе данных радара`
+                : `Personalized plan for ${activeProject?.brand_name || "brand"} based on radar data`}
+            </DialogDescription>
+          </DialogHeader>
+          <div ref={geoPlanRef} className="mt-2">
+            {geoPlanContent ? (
+              <div className="prose prose-sm prose-invert max-w-none [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_p]:text-sm [&_p]:text-muted-foreground [&_p]:leading-relaxed [&_li]:text-sm [&_li]:text-muted-foreground [&_ul]:space-y-1 [&_ol]:space-y-1 [&_strong]:text-foreground">
+                <ReactMarkdown>{geoPlanContent}</ReactMarkdown>
+              </div>
+            ) : geoPlanLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  {lang === "ru" ? "Анализирую данные и генерирую план..." : "Analyzing data and generating plan..."}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
