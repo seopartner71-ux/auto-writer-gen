@@ -296,15 +296,6 @@ export default function ProjectsPage() {
                   </div>
                   <div className="flex gap-2 pt-1">
                     <Button
-                      variant={isActive ? "secondary" : "default"}
-                      size="sm"
-                      className="flex-1 text-xs h-8 gap-1.5"
-                      onClick={() => handleSetActive(p.id)}
-                    >
-                      {isActive ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
-                      {isActive ? t("projects.isActive") : t("projects.setActive")}
-                    </Button>
-                    <Button
                       variant="outline"
                       size="sm"
                       className="flex-1 text-xs h-8 gap-1.5"
@@ -312,6 +303,23 @@ export default function ProjectsPage() {
                     >
                       <Eye className="h-3.5 w-3.5" />
                       {t("projects.viewArticles")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 text-xs h-8 gap-1.5 text-destructive hover:text-destructive"
+                      onClick={() => {
+                        if (confirm(t("projects.confirmDelete"))) {
+                          deleteMutation.mutate(p.id);
+                          if (activeProjectId === p.id) {
+                            localStorage.removeItem("active_project_id");
+                            setActiveProjectId(null);
+                          }
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t("projects.delete")}
                     </Button>
                   </div>
 
