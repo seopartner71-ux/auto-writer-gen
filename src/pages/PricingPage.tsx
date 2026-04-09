@@ -24,7 +24,7 @@ export default function PricingPage() {
       const { data, error } = await supabase
         .from("app_settings")
         .select("key, value")
-        .in("key", ["prodamus_basic_link", "prodamus_pro_link"]);
+        .in("key", ["prodamus_nano_link", "prodamus_basic_link", "prodamus_pro_link"]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((s: { key: string; value: string }) => (map[s.key] = s.value));
@@ -48,6 +48,7 @@ export default function PricingPage() {
     },
   });
 
+  const prodamusNanoLink = paymentSettings?.prodamus_nano_link ?? null;
   const prodamusBasicLink = paymentSettings?.prodamus_basic_link ?? null;
   const prodamusProLink = paymentSettings?.prodamus_pro_link ?? null;
 
