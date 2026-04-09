@@ -5,6 +5,14 @@
  * bypassing regional blocks for the upstream backend.
  */
 
+// Disable any PHP output compression to prevent ERR_CONTENT_DECODING_FAILED
+@ini_set('zlib.output_compression', 'Off');
+@ini_set('output_buffering', 'Off');
+if (function_exists('apache_setenv')) {
+    @apache_setenv('no-gzip', '1');
+}
+header('X-Accel-Buffering: no');
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, accept, accept-profile, content-profile, prefer, range, range-unit');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
