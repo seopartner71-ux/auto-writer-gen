@@ -289,6 +289,20 @@ export default function ArticlesPage() {
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
   const [transferEmail, setTransferEmail] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+
+  // Projects
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects-for-writer"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Data fetching
   const { data: keywords = [] } = useQuery({
@@ -646,6 +660,7 @@ export default function ArticlesPage() {
           seo_keywords: seoKeywords.trim() || null,
           geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
           custom_instructions: customInstructions.trim() || null,
+          project_id: selectedProjectId || null,
         }),
         signal: controller.signal,
       });
@@ -803,6 +818,7 @@ export default function ArticlesPage() {
         content,
         meta_description: metaDescription || null,
         anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
+        project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
         seo_score: {
           readability,
           wordCount,
@@ -998,6 +1014,26 @@ export default function ArticlesPage() {
       <>
       {/* Configuration */}
       <div className="rounded-lg border border-border bg-card p-4">
+        {/* Project selector (FACTORY only) */}
+        {projects.length > 0 && (
+          <div className="mb-3 pb-3 border-b border-border">
+            <Label className="text-xs text-muted-foreground">{t("projects.selectProject")}</Label>
+            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder={t("projects.noProject")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("projects.noProject")}</SelectItem>
+                {projects.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} ({p.domain || "—"})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">{t("articles.keyword")}</Label>

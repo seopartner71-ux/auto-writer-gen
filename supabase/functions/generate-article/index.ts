@@ -47,10 +47,11 @@ interface StealthPromptInput {
   seoKeywords?: string | null;
   geoLocation?: string | null;
   customInstructions?: string | null;
+  interlinkingContext?: { projectName: string; domain: string; articles: { title: string; url: string }[] } | null;
 }
 
 function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
-  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets, seoKeywords, geoLocation, customInstructions } = input;
+  const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets, seoKeywords, geoLocation, customInstructions, interlinkingContext } = input;
   
   // Use explicit language from keyword record instead of Cyrillic detection
   const langMap: Record<string, string> = {
@@ -713,6 +714,24 @@ FAQ (ОБЯЗАТЕЛЬНО):
 - Действуй как реальный человек-эксперт. Будь решительным, авторитетным и стилистическим.
 - НЕ ПИШИ мета-комментариев. ТОЛЬКО СТАТЬЯ.`;
 
+  // Append interlinking instructions if available
+  if (interlinkingContext && interlinkingContext.articles.length > 0) {
+    const articleList = interlinkingContext.articles
+      .map(a => `- "${a.title}" → ${a.url}`)
+      .join("\n");
+    systemPrompt += `\n\n═══ SMART INTERLINKING (AUTO) ═══
+Ты пишешь для проекта "${interlinkingContext.projectName}" на домене ${interlinkingContext.domain}.
+Вот список существующих статей проекта:
+${articleList}
+
+ПРАВИЛА ПЕРЕЛИНКОВКИ:
+- Если в новой статье упоминаются темы, раскрытые в существующих статьях — вставь гиперссылку с естественным анкором.
+- Используй 2-5 внутренних ссылок на релевантные статьи.
+- Анкоры должны быть органичными частями предложений, НЕ "нажмите здесь" или "читайте тут".
+- Формат: [естественный анкорный текст](URL)
+- НЕ ссылайся на нерелевантные статьи — только тематически связанные.`;
+  }
+
   return { system: systemPrompt, user: "" }; // user prompt built separately
 }
 
@@ -871,8 +890,8 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage } = body;
-    console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none");
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id } = body;
+    console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none");
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
 
     // Input sanitization: validate types and lengths
@@ -976,6 +995,36 @@ serve(async (req) => {
       console.log("[generate-article] No author selected, using default style");
     }
 
+    // Build interlinking context if project_id is provided
+    let interlinkingContext: StealthPromptInput["interlinkingContext"] = null;
+    if (project_id) {
+      const { data: project } = await supabaseAdmin.from("projects").select("*").eq("id", project_id).single();
+      if (project && project.auto_interlinking) {
+        const { data: projectArticles } = await supabaseAdmin
+          .from("articles")
+          .select("title, id")
+          .eq("project_id", project_id)
+          .eq("status", "completed")
+          .not("title", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        
+        const articleLinks = (projectArticles || []).map((a: any) => ({
+          title: a.title || "",
+          url: project.domain ? `https://${project.domain.replace(/^https?:\/\//, "")}/${a.id}` : `#${a.id}`,
+        }));
+        
+        if (articleLinks.length > 0) {
+          interlinkingContext = {
+            projectName: project.name,
+            domain: project.domain,
+            articles: articleLinks,
+          };
+          console.log(`[generate-article] Interlinking context: ${articleLinks.length} articles from project "${project.name}"`);
+        }
+      }
+    }
+
     // Build stealth prompt via server-side function
     const stealthInput: StealthPromptInput = {
       authorProfile: authorData,
@@ -1001,6 +1050,7 @@ serve(async (req) => {
       seoKeywords: seo_keywords || null,
       geoLocation: geo_location || null,
       customInstructions: custom_instructions || null,
+      interlinkingContext,
     };
 
     const { system: systemPrompt } = generateStealthPrompt(stealthInput);

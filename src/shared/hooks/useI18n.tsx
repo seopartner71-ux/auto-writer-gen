@@ -1108,6 +1108,32 @@ const translations: Record<string, Record<Lang, string>> = {
   "deep2.radarH2": { ru: "AI-модели в реальном времени.", en: "AI models in real time." },
   "deep2.radarBody": { ru: "Модуль <span class='text-[#06b6d4] font-medium'>GEO Radar</span> проверяет, цитируют ли вас ChatGPT, Perplexity, Gemini и Claude. Многомодельное сканирование с анализом тональности и стратегическими рекомендациями по усилению присутствия в <span class='text-[#06b6d4] font-medium'>AI-выдаче</span>.", en: "The <span class='text-[#06b6d4] font-medium'>GEO Radar</span> module checks if ChatGPT, Perplexity, Gemini and Claude cite you. Multi-model scanning with sentiment analysis and strategic recommendations to strengthen your presence in <span class='text-[#06b6d4] font-medium'>AI search results</span>." },
   "deep2.radarMetric": { ru: "4 AI-модели | Мониторинг 24/7", en: "4 AI Models | 24/7 Monitoring" },
+
+  // Projects / Content Hub
+  "projects.title": { ru: "Проекты", en: "Projects" },
+  "projects.subtitle": { ru: "Управление проектами и AI-перелинковка", en: "Project management and AI interlinking" },
+  "projects.create": { ru: "Новый проект", en: "New Project" },
+  "projects.createNew": { ru: "Создать проект", en: "Create Project" },
+  "projects.createFirst": { ru: "Создать первый проект", en: "Create first project" },
+  "projects.edit": { ru: "Редактировать проект", en: "Edit Project" },
+  "projects.dialogDesc": { ru: "Настройте параметры проекта для автоматической перелинковки и языка", en: "Configure project settings for auto-interlinking and language" },
+  "projects.name": { ru: "Название проекта", en: "Project Name" },
+  "projects.namePlaceholder": { ru: "Например: Мой SEO блог", en: "E.g.: My SEO Blog" },
+  "projects.domain": { ru: "Домен", en: "Domain" },
+  "projects.language": { ru: "Язык", en: "Language" },
+  "projects.region": { ru: "Регион", en: "Region" },
+  "projects.autoInterlinking": { ru: "AI Авто-перелинковка", en: "AI Auto-Interlinking" },
+  "projects.autoInterlinkingDesc": { ru: "Автоматически вставлять ссылки на релевантные статьи проекта", en: "Automatically insert links to relevant project articles" },
+  "projects.interlinking": { ru: "Перелинковка", en: "Interlinking" },
+  "projects.articlesCount": { ru: "статей", en: "articles" },
+  "projects.empty": { ru: "У вас пока нет проектов", en: "You don't have any projects yet" },
+  "projects.created": { ru: "Проект создан", en: "Project created" },
+  "projects.updated": { ru: "Проект обновлён", en: "Project updated" },
+  "projects.deleted": { ru: "Проект удалён", en: "Project deleted" },
+  "projects.selectProject": { ru: "Выберите проект", en: "Select Project" },
+  "projects.noProject": { ru: "Без проекта", en: "No project" },
+  "projects.contextMap": { ru: "Контекстная карта проекта", en: "Project context map" },
+  "nav.projects": { ru: "Проекты", en: "Projects" },
 };
 
 interface I18nContextValue {
