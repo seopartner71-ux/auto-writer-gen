@@ -714,6 +714,24 @@ FAQ (ОБЯЗАТЕЛЬНО):
 - Действуй как реальный человек-эксперт. Будь решительным, авторитетным и стилистическим.
 - НЕ ПИШИ мета-комментариев. ТОЛЬКО СТАТЬЯ.`;
 
+  // Append interlinking instructions if available
+  if (interlinkingContext && interlinkingContext.articles.length > 0) {
+    const articleList = interlinkingContext.articles
+      .map(a => `- "${a.title}" → ${a.url}`)
+      .join("\n");
+    systemPrompt += `\n\n═══ SMART INTERLINKING (AUTO) ═══
+Ты пишешь для проекта "${interlinkingContext.projectName}" на домене ${interlinkingContext.domain}.
+Вот список существующих статей проекта:
+${articleList}
+
+ПРАВИЛА ПЕРЕЛИНКОВКИ:
+- Если в новой статье упоминаются темы, раскрытые в существующих статьях — вставь гиперссылку с естественным анкором.
+- Используй 2-5 внутренних ссылок на релевантные статьи.
+- Анкоры должны быть органичными частями предложений, НЕ "нажмите здесь" или "читайте тут".
+- Формат: [естественный анкорный текст](URL)
+- НЕ ссылайся на нерелевантные статьи — только тематически связанные.`;
+  }
+
   return { system: systemPrompt, user: "" }; // user prompt built separately
 }
 
