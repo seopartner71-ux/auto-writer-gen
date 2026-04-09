@@ -201,9 +201,11 @@ export type Database = {
           id: string
           is_public: boolean | null
           keyword_id: string | null
+          keywords: string[] | null
           language: string | null
           lsi_keywords: Json | null
           meta_description: string | null
+          project_id: string | null
           scheduled_at: string | null
           seo_score: Json | null
           share_token: string | null
@@ -227,9 +229,11 @@ export type Database = {
           id?: string
           is_public?: boolean | null
           keyword_id?: string | null
+          keywords?: string[] | null
           language?: string | null
           lsi_keywords?: Json | null
           meta_description?: string | null
+          project_id?: string | null
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
@@ -253,9 +257,11 @@ export type Database = {
           id?: string
           is_public?: boolean | null
           keyword_id?: string | null
+          keywords?: string[] | null
           language?: string | null
           lsi_keywords?: Json | null
           meta_description?: string | null
+          project_id?: string | null
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
@@ -288,6 +294,13 @@ export type Database = {
             columns: ["keyword_id"]
             isOneToOne: false
             referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "articles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -904,6 +917,42 @@ export type Database = {
           plan?: string | null
           preferred_language?: string | null
           theme_preference?: string | null
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          auto_interlinking: boolean
+          created_at: string
+          domain: string
+          id: string
+          language: string
+          name: string
+          region: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_interlinking?: boolean
+          created_at?: string
+          domain?: string
+          id?: string
+          language?: string
+          name: string
+          region?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_interlinking?: boolean
+          created_at?: string
+          domain?: string
+          id?: string
+          language?: string
+          name?: string
+          region?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
