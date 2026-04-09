@@ -170,12 +170,12 @@ export interface SubscriptionPlan {
   can_use_clusters: boolean;
   can_export_html: boolean;
   price_rub: number;
+  feature_flags: PlanConfig;
   created_at: string;
 }
 
 // Plan limits & feature flags
 export interface PlanConfig {
-  maxGenerations: number;
   maxAuthorProfiles: number; // -1 = unlimited
   maxProImages: number; // 0 = disabled
   models: string[];
@@ -189,43 +189,58 @@ export interface PlanConfig {
   hasProImageGen: boolean;
   hasMiralinks: boolean;
   hasGoGetLinks: boolean;
+  hasProjects: boolean;
+  hasRadar: boolean;
 }
 
+// Feature flag labels for admin UI
+export const FEATURE_FLAG_LABELS: Record<string, { ru: string; en: string }> = {
+  hasCalendar: { ru: "Календарь публикаций", en: "Publication Calendar" },
+  hasUniquenessCheck: { ru: "Проверка уникальности", en: "Uniqueness Check" },
+  hasJsonLdSchema: { ru: "JSON-LD Schema", en: "JSON-LD Schema" },
+  hasFullSerp: { ru: "Полный анализ SERP", en: "Full SERP Analysis" },
+  hasAntiAiCheck: { ru: "Stealth Engine (Anti-AI)", en: "Stealth Engine (Anti-AI)" },
+  hasBulkMode: { ru: "Массовая генерация", en: "Bulk Generation" },
+  hasWordPress: { ru: "Публикация в WordPress", en: "WordPress Publishing" },
+  hasProImageGen: { ru: "PRO генерация изображений", en: "PRO Image Generation" },
+  hasMiralinks: { ru: "Miralinks интеграция", en: "Miralinks Integration" },
+  hasGoGetLinks: { ru: "GoGetLinks интеграция", en: "GoGetLinks Integration" },
+  hasProjects: { ru: "Проекты и перелинковка", en: "Projects & Interlinking" },
+  hasRadar: { ru: "AI Radar", en: "AI Radar" },
+};
+
+export const DEFAULT_PLAN_CONFIG: PlanConfig = {
+  maxAuthorProfiles: 1,
+  maxProImages: 0,
+  models: ["google/gemini-2.5-flash-lite"],
+  hasCalendar: false,
+  hasUniquenessCheck: false,
+  hasJsonLdSchema: false,
+  hasFullSerp: false,
+  hasAntiAiCheck: false,
+  hasBulkMode: false,
+  hasWordPress: false,
+  hasProImageGen: false,
+  hasMiralinks: false,
+  hasGoGetLinks: false,
+  hasProjects: false,
+  hasRadar: false,
+};
+
+// Keep PLAN_LIMITS as fallback only
 export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
-  free: {
-    maxGenerations: 5,
-    maxAuthorProfiles: 1,
-    maxProImages: 0,
-    models: ["google/gemini-2.5-flash-lite"],
-    hasCalendar: false,
-    hasUniquenessCheck: false,
-    hasJsonLdSchema: false,
-    hasFullSerp: false,
-    hasAntiAiCheck: false,
-    hasBulkMode: false,
-    hasWordPress: false,
-    hasProImageGen: false,
-    hasMiralinks: false,
-    hasGoGetLinks: false,
-  },
+  free: { ...DEFAULT_PLAN_CONFIG },
   basic: {
-    maxGenerations: 30,
+    ...DEFAULT_PLAN_CONFIG,
     maxAuthorProfiles: 5,
-    maxProImages: 0,
     models: ["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash", "openai/gpt-5-nano"],
-    hasCalendar: false,
     hasUniquenessCheck: true,
     hasJsonLdSchema: true,
     hasFullSerp: true,
-    hasAntiAiCheck: false,
-    hasBulkMode: false,
-    hasWordPress: false,
-    hasProImageGen: false,
-    hasMiralinks: false,
-    hasGoGetLinks: false,
+    hasAntiAiCheck: true,
   },
   pro: {
-    maxGenerations: 100,
+    ...DEFAULT_PLAN_CONFIG,
     maxAuthorProfiles: -1,
     maxProImages: 100,
     models: ["google/gemini-2.5-pro", "openai/gpt-5", "google/gemini-2.5-flash", "google/gemini-2.5-flash-lite", "openai/gpt-5-nano"],
@@ -239,5 +254,7 @@ export const PLAN_LIMITS: Record<Plan, PlanConfig> = {
     hasProImageGen: true,
     hasMiralinks: true,
     hasGoGetLinks: true,
+    hasProjects: true,
+    hasRadar: true,
   },
 };
