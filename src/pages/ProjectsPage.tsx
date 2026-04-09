@@ -137,6 +137,7 @@ export default function ProjectsPage() {
     }
   };
 
+  const saveMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
       if (!form.name.trim()) throw new Error("Name is required");
