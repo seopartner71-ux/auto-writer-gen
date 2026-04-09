@@ -110,7 +110,33 @@ export default function ProjectsPage() {
     enabled: !!user,
   });
 
-  const saveMutation = useMutation({
+  // Articles for the project being viewed
+  const { data: projectArticles = [], isLoading: articlesLoading } = useQuery({
+    queryKey: ["project-articles", viewingProjectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("id, title, status, created_at, keywords")
+        .eq("project_id", viewingProjectId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!viewingProjectId,
+  });
+
+  const handleSetActive = (id: string) => {
+    const newId = activeProjectId === id ? null : id;
+    setActiveProjectId(newId);
+    if (newId) {
+      localStorage.setItem("active_project_id", newId);
+      toast.success(t("projects.activated"));
+    } else {
+      localStorage.removeItem("active_project_id");
+      toast.info(t("projects.deactivated"));
+    }
+  };
+
     mutationFn: async () => {
       if (!user) throw new Error("Not authenticated");
       if (!form.name.trim()) throw new Error("Name is required");
