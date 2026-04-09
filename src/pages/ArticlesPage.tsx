@@ -306,7 +306,26 @@ export default function ArticlesPage() {
     },
   });
 
-  // Data fetching
+  // Articles for interlinking (from selected project)
+  const { data: projectArticlesForLinks = [], refetch: refetchProjectArticles } = useQuery({
+    queryKey: ["project-articles-for-links", selectedProjectId],
+    queryFn: async () => {
+      if (!selectedProjectId || selectedProjectId === "none") return [];
+      const { data, error } = await supabase
+        .from("articles")
+        .select("id, title, published_url, status")
+        .eq("project_id", selectedProjectId)
+        .in("status", ["completed", "published"])
+        .not("title", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedProjectId && selectedProjectId !== "none",
+  });
+  const [showInterlinkingArticles, setShowInterlinkingArticles] = useState(false);
+
   const { data: keywords = [] } = useQuery({
     queryKey: ["keywords-for-writer"],
     queryFn: async () => {
