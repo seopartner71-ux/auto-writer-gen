@@ -155,15 +155,20 @@ export default function ProjectsPage() {
           .eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("projects").insert({
+        const { data, error } = await supabase.from("projects").insert({
           user_id: user.id,
           name: form.name.trim(),
           domain: form.domain.trim(),
           language: form.language,
           region: form.region,
           auto_interlinking: form.auto_interlinking,
-        });
+        }).select("id").single();
         if (error) throw error;
+        // Auto-activate new project
+        if (data?.id) {
+          localStorage.setItem("active_project_id", data.id);
+          setActiveProjectId(data.id);
+        }
       }
     },
     onSuccess: () => {
@@ -261,14 +266,6 @@ export default function ProjectsPage() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => deleteMutation.mutate(p.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
                     </div>
                   </div>
                 </CardHeader>
@@ -291,15 +288,6 @@ export default function ProjectsPage() {
                   </div>
                   <div className="flex gap-2 pt-1">
                     <Button
-                      variant={isActive ? "secondary" : "default"}
-                      size="sm"
-                      className="flex-1 text-xs h-8 gap-1.5"
-                      onClick={() => handleSetActive(p.id)}
-                    >
-                      {isActive ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
-                      {isActive ? t("projects.isActive") : t("projects.setActive")}
-                    </Button>
-                    <Button
                       variant="outline"
                       size="sm"
                       className="flex-1 text-xs h-8 gap-1.5"
@@ -307,6 +295,23 @@ export default function ProjectsPage() {
                     >
                       <Eye className="h-3.5 w-3.5" />
                       {t("projects.viewArticles")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 text-xs h-8 gap-1.5 text-destructive hover:text-destructive"
+                      onClick={() => {
+                        if (confirm(t("projects.confirmDelete"))) {
+                          deleteMutation.mutate(p.id);
+                          if (activeProjectId === p.id) {
+                            localStorage.removeItem("active_project_id");
+                            setActiveProjectId(null);
+                          }
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t("projects.delete")}
                     </Button>
                   </div>
 
