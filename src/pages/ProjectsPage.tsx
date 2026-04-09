@@ -155,15 +155,20 @@ export default function ProjectsPage() {
           .eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("projects").insert({
+        const { data, error } = await supabase.from("projects").insert({
           user_id: user.id,
           name: form.name.trim(),
           domain: form.domain.trim(),
           language: form.language,
           region: form.region,
           auto_interlinking: form.auto_interlinking,
-        });
+        }).select("id").single();
         if (error) throw error;
+        // Auto-activate new project
+        if (data?.id) {
+          localStorage.setItem("active_project_id", data.id);
+          setActiveProjectId(data.id);
+        }
       }
     },
     onSuccess: () => {
