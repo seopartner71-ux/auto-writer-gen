@@ -1,0 +1,334 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
+import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
+import { PlanGate } from "@/shared/components/PlanGate";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import {
+  Plus, Pencil, Trash2, Globe, Link2, FolderOpen, Loader2, FileText
+} from "lucide-react";
+
+interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  domain: string;
+  language: string;
+  region: string;
+  auto_interlinking: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+const LANGUAGES = [
+  { value: "ru", label: "Русский" },
+  { value: "en", label: "English" },
+  { value: "de", label: "Deutsch" },
+  { value: "fr", label: "Français" },
+  { value: "es", label: "Español" },
+  { value: "pt", label: "Português" },
+  { value: "it", label: "Italiano" },
+  { value: "tr", label: "Türkçe" },
+  { value: "pl", label: "Polski" },
+  { value: "uk", label: "Українська" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "zh", label: "中文" },
+  { value: "ar", label: "العربية" },
+];
+
+const REGIONS = [
+  "RU", "US", "GB", "DE", "FR", "ES", "BR", "IN", "JP", "IT",
+  "TR", "PL", "UA", "KZ", "AZ", "GE", "UZ", "TH", "ID", "VN",
+  "AE", "SA", "AU", "CA", "NL", "KR", "CO", "MX", "AR",
+];
+
+const defaultForm = {
+  name: "",
+  domain: "",
+  language: "ru",
+  region: "RU",
+  auto_interlinking: true,
+};
+
+export default function ProjectsPage() {
+  const { user } = useAuth();
+  const { t } = useI18n();
+  const { limits, plan } = usePlanLimits();
+  const queryClient = useQueryClient();
+  const isFactory = plan === "pro"; // FACTORY = pro tier
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(defaultForm);
+
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Project[];
+    },
+    enabled: !!user,
+  });
+
+  // Count articles per project
+  const { data: articleCounts = {} } = useQuery({
+    queryKey: ["project-article-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("project_id")
+        .not("project_id", "is", null);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      (data || []).forEach((a: any) => {
+        counts[a.project_id] = (counts[a.project_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: !!user,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Not authenticated");
+      if (!form.name.trim()) throw new Error("Name is required");
+
+      if (editingId) {
+        const { error } = await supabase
+          .from("projects")
+          .update({
+            name: form.name.trim(),
+            domain: form.domain.trim(),
+            language: form.language,
+            region: form.region,
+            auto_interlinking: form.auto_interlinking,
+          })
+          .eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("projects").insert({
+          user_id: user.id,
+          name: form.name.trim(),
+          domain: form.domain.trim(),
+          language: form.language,
+          region: form.region,
+          auto_interlinking: form.auto_interlinking,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setDialogOpen(false);
+      setEditingId(null);
+      setForm(defaultForm);
+      toast.success(editingId ? t("projects.updated") : t("projects.created"));
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("projects").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      toast.success(t("projects.deleted"));
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const openEdit = (p: Project) => {
+    setEditingId(p.id);
+    setForm({
+      name: p.name,
+      domain: p.domain,
+      language: p.language,
+      region: p.region,
+      auto_interlinking: p.auto_interlinking,
+    });
+    setDialogOpen(true);
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(defaultForm);
+    setDialogOpen(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t("projects.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("projects.subtitle")}</p>
+        </div>
+        <PlanGate allowed={isFactory} featureName={t("projects.title")} requiredPlan="FACTORY">
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="h-4 w-4" /> {t("projects.create")}
+          </Button>
+        </PlanGate>
+      </div>
+
+      <PlanGate allowed={isFactory} featureName={t("projects.title")} requiredPlan="FACTORY">
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : projects.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+              <FolderOpen className="h-12 w-12 text-muted-foreground" />
+              <p className="text-muted-foreground">{t("projects.empty")}</p>
+              <Button onClick={openCreate} variant="outline" className="gap-2">
+                <Plus className="h-4 w-4" /> {t("projects.createFirst")}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((p) => (
+              <Card key={p.id} className="group hover:border-primary/40 transition-colors">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 min-w-0">
+                      <CardTitle className="text-base truncate">{p.name}</CardTitle>
+                      <CardDescription className="flex items-center gap-1.5 text-xs">
+                        <Globe className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{p.domain || "—"}</span>
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => deleteMutation.mutate(p.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary" className="text-xs">{p.language.toUpperCase()}</Badge>
+                    <Badge variant="outline" className="text-xs">{p.region}</Badge>
+                    {p.auto_interlinking && (
+                      <Badge variant="default" className="text-xs gap-1">
+                        <Link2 className="h-3 w-3" /> {t("projects.interlinking")}
+                      </Badge>
+                    )}
+                  </div>
+                  <Separator />
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>{articleCounts[p.id] || 0} {t("projects.articlesCount")}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </PlanGate>
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingId ? t("projects.edit") : t("projects.createNew")}</DialogTitle>
+            <DialogDescription>{t("projects.dialogDesc")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>{t("projects.name")}</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder={t("projects.namePlaceholder")}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t("projects.domain")}</Label>
+              <Input
+                value={form.domain}
+                onChange={(e) => setForm({ ...form, domain: e.target.value })}
+                placeholder="example.com"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>{t("projects.language")}</Label>
+                <Select value={form.language} onValueChange={(v) => setForm({ ...form, language: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((l) => (
+                      <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t("projects.region")}</Label>
+                <Select value={form.region} onValueChange={(v) => setForm({ ...form, region: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {REGIONS.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">{t("projects.autoInterlinking")}</Label>
+                <p className="text-xs text-muted-foreground">{t("projects.autoInterlinkingDesc")}</p>
+              </div>
+              <Switch
+                checked={form.auto_interlinking}
+                onCheckedChange={(v) => setForm({ ...form, auto_interlinking: v })}
+              />
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || !form.name.trim()}
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              {editingId ? t("common.save") : t("common.create")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
