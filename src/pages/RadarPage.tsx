@@ -1,5 +1,6 @@
-import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -238,7 +239,11 @@ export default function RadarPage() {
   const [responseOpen, setResponseOpen] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [runProgress, setRunProgress] = useState<{ completed: number; total: number; model: string; prompt: string } | null>(null);
+  const [geoPlanOpen, setGeoPlanOpen] = useState(false);
+  const [geoPlanContent, setGeoPlanContent] = useState("");
+  const [geoPlanLoading, setGeoPlanLoading] = useState(false);
   const responseRef = useRef<HTMLDivElement>(null);
+  const geoPlanRef = useRef<HTMLDivElement>(null);
 
   /* ── Realtime progress subscription ── */
   useEffect(() => {
@@ -620,6 +625,82 @@ export default function RadarPage() {
       queryClient.invalidateQueries({ queryKey: ["radar-results"] });
     },
   });
+
+  const generateGeoPlan = useCallback(async () => {
+    setGeoPlanOpen(true);
+    setGeoPlanContent("");
+    setGeoPlanLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const radarData = {
+        overallVisibility,
+        somData: somData.map(d => ({ model: d.label, visibility: d.value, status: d.status })),
+        radarAxes: radarChartData,
+        sentimentData: sentimentDonut.map(s => ({ name: s.name, pct: s.pct })),
+        sovData: sovDonut.map(s => ({ name: s.name, pct: s.pct })),
+        competitors: competitorLeaderboard.slice(0, 10).map(c => ({ name: c.name, visibility: c.visibility, sentiment: c.sentiment, isBrand: c.isBrand })),
+        tips: [],
+      };
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-geo-plan`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ project_id: activeProject?.id, radar_data: radarData }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Error" }));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error("No stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              fullText += content;
+              setGeoPlanContent(fullText);
+            }
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+
+      setGeoPlanLoading(false);
+    } catch (e: any) {
+      setGeoPlanLoading(false);
+      toast.error(e.message);
+    }
+  }, [activeProject, overallVisibility, somData, radarChartData, sentimentDonut, sovDonut, competitorLeaderboard]);
 
   const toggleModel = (model: string) => {
     setActiveModels(prev =>
@@ -1175,6 +1256,16 @@ export default function RadarPage() {
                     </div>
                   ));
                 })()}
+                <Separator className="my-2" />
+                <Button
+                  onClick={generateGeoPlan}
+                  disabled={geoPlanLoading}
+                  className="w-full gap-2 bg-gradient-to-r from-yellow-500/80 to-orange-500/80 hover:from-yellow-500 hover:to-orange-500 text-white border-0"
+                  size="sm"
+                >
+                  {geoPlanLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  {lang === "ru" ? "Сгенерировать GEO-план" : "Generate GEO Plan"}
+                </Button>
               </div>
             )}
           </CardContent>
@@ -1274,6 +1365,38 @@ export default function RadarPage() {
               <div ref={responseRef} className="mt-2 p-4 rounded-lg bg-muted/30 border border-border text-xs leading-relaxed whitespace-pre-wrap max-h-[40vh] overflow-y-auto" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlightBrand(viewResponseData?.text || "", activeProject?.brand_name || "", activeProject?.domain || "")) }} />
             </CollapsibleContent>
           </Collapsible>
+        </DialogContent>
+      </Dialog>
+
+      {/* GEO Plan Dialog */}
+      <Dialog open={geoPlanOpen} onOpenChange={setGeoPlanOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-yellow-400" />
+              {lang === "ru" ? "GEO План действий" : "GEO Action Plan"}
+              {geoPlanLoading && <Loader2 className="h-4 w-4 animate-spin text-primary ml-2" />}
+            </DialogTitle>
+            <DialogDescription>
+              {lang === "ru"
+                ? `Персональный план для ${activeProject?.brand_name || "бренда"} на основе данных радара`
+                : `Personalized plan for ${activeProject?.brand_name || "brand"} based on radar data`}
+            </DialogDescription>
+          </DialogHeader>
+          <div ref={geoPlanRef} className="mt-2">
+            {geoPlanContent ? (
+              <div className="prose prose-sm prose-invert max-w-none [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_p]:text-sm [&_p]:text-muted-foreground [&_p]:leading-relaxed [&_li]:text-sm [&_li]:text-muted-foreground [&_ul]:space-y-1 [&_ol]:space-y-1 [&_strong]:text-foreground">
+                <ReactMarkdown>{geoPlanContent}</ReactMarkdown>
+              </div>
+            ) : geoPlanLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  {lang === "ru" ? "Анализирую данные и генерирую план..." : "Analyzing data and generating plan..."}
+                </p>
+              </div>
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
