@@ -239,7 +239,11 @@ export default function RadarPage() {
   const [responseOpen, setResponseOpen] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [runProgress, setRunProgress] = useState<{ completed: number; total: number; model: string; prompt: string } | null>(null);
+  const [geoPlanOpen, setGeoPlanOpen] = useState(false);
+  const [geoPlanContent, setGeoPlanContent] = useState("");
+  const [geoPlanLoading, setGeoPlanLoading] = useState(false);
   const responseRef = useRef<HTMLDivElement>(null);
+  const geoPlanRef = useRef<HTMLDivElement>(null);
 
   /* ── Realtime progress subscription ── */
   useEffect(() => {
