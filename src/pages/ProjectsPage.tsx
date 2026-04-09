@@ -68,11 +68,16 @@ export default function ProjectsPage() {
   const { t } = useI18n();
   const { limits, plan } = usePlanLimits();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const isFactory = plan === "pro"; // FACTORY = pro tier
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(defaultForm);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(
+    () => localStorage.getItem("active_project_id")
+  );
+  const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
