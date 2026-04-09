@@ -1002,17 +1002,20 @@ serve(async (req) => {
       if (project && project.auto_interlinking) {
         const { data: projectArticles } = await supabaseAdmin
           .from("articles")
-          .select("title, id")
+          .select("title, id, published_url")
           .eq("project_id", project_id)
           .eq("status", "completed")
           .not("title", "is", null)
           .order("created_at", { ascending: false })
           .limit(30);
         
-        const articleLinks = (projectArticles || []).map((a: any) => ({
-          title: a.title || "",
-          url: project.domain ? `https://${project.domain.replace(/^https?:\/\//, "")}/${a.id}` : `#${a.id}`,
-        }));
+        const domainBase = project.domain ? `https://${project.domain.replace(/^https?:\/\//, "")}` : "";
+        const articleLinks = (projectArticles || [])
+          .filter((a: any) => a.published_url || domainBase)
+          .map((a: any) => ({
+            title: a.title || "",
+            url: a.published_url || `${domainBase}/${a.id}`,
+          }));
         
         if (articleLinks.length > 0) {
           interlinkingContext = {
