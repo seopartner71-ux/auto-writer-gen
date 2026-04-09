@@ -822,6 +822,7 @@ export default function ArticlesPage() {
         content,
         meta_description: metaDescription || null,
         anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
+        published_url: publishedUrl.trim() || null,
         project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
         seo_score: {
           readability,
