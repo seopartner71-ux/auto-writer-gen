@@ -68,14 +68,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastFetchedUserId.current = null;
       }
 
-      supabase.from("user_stats").upsert(
-        { user_id: userId, last_activity_at: new Date().toISOString() },
-        { onConflict: "user_id" }
-      ).then(({ error }) => {
-        if (error) console.error("[useAuth] user_stats upsert error:", error.message);
-      }).catch((error) => {
-        console.error("[useAuth] user_stats upsert error:", error);
-      });
+      void (async () => {
+        try {
+          const { error } = await supabase.from("user_stats").upsert(
+            { user_id: userId, last_activity_at: new Date().toISOString() },
+            { onConflict: "user_id" }
+          );
+
+          if (error) console.error("[useAuth] user_stats upsert error:", error.message);
+        } catch (error) {
+          console.error("[useAuth] user_stats upsert error:", error);
+        }
+      })();
     } finally {
       inFlightUserId.current = null;
     }
