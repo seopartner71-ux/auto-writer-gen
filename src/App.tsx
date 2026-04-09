@@ -39,6 +39,7 @@ const RadarPage = lazy(() => import("@/pages/RadarPage"));
 const WikiPage = lazy(() => import("@/pages/WikiPage"));
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
 const SupportPage = lazy(() => import("@/pages/SupportPage"));
+const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const OfferPage = lazy(() => import("@/pages/OfferPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
@@ -126,6 +127,7 @@ const App = () => (
                   <Route path="/wiki" element={<WikiPage />} />
                   <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="/support" element={<SupportPage />} />
+                  <Route path="/projects" element={<ProjectsPage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>
