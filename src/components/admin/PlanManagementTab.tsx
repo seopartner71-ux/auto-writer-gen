@@ -7,8 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, DollarSign, Plus, Trash2, GripVertical } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Save, DollarSign, Plus, Trash2, GripVertical, Shield, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { FEATURE_FLAG_LABELS, DEFAULT_PLAN_CONFIG, PlanConfig } from "@/shared/api/types";
 
 interface Feature {
   text_ru: string;
@@ -25,13 +28,36 @@ interface Plan {
   description_ru: string | null;
   description_en: string | null;
   features: Feature[] | null;
+  feature_flags: Record<string, unknown> | null;
 }
+
+const BOOLEAN_FLAGS = [
+  "hasCalendar",
+  "hasUniquenessCheck",
+  "hasJsonLdSchema",
+  "hasFullSerp",
+  "hasAntiAiCheck",
+  "hasBulkMode",
+  "hasWordPress",
+  "hasProImageGen",
+  "hasMiralinks",
+  "hasGoGetLinks",
+  "hasProjects",
+  "hasRadar",
+] as const;
+
+const NUMERIC_FLAGS = [
+  { key: "maxAuthorProfiles", label: { ru: "Макс. авторских профилей (-1 = безлимит)", en: "Max author profiles (-1 = unlimited)" } },
+  { key: "maxProImages", label: { ru: "Макс. PRO изображений (0 = выкл)", en: "Max PRO images (0 = disabled)" } },
+] as const;
 
 export function PlanManagementTab() {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, Partial<Plan>>>({});
   const [featureEdits, setFeatureEdits] = useState<Record<string, Feature[]>>({});
+  const [flagEdits, setFlagEdits] = useState<Record<string, Record<string, unknown>>>({});
+  const [modelsEdits, setModelsEdits] = useState<Record<string, string>>({});
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ["admin-subscription-plans"],
@@ -82,10 +108,31 @@ export function PlanManagementTab() {
     setFeatures(planId, features);
   };
 
+  // Feature flags helpers
+  const getFlags = (plan: Plan): Record<string, unknown> => {
+    const base = plan.feature_flags ?? DEFAULT_PLAN_CONFIG;
+    return { ...DEFAULT_PLAN_CONFIG, ...base, ...(flagEdits[plan.id] ?? {}) };
+  };
+
+  const setFlag = (planId: string, key: string, value: unknown) => {
+    setFlagEdits((prev) => ({
+      ...prev,
+      [planId]: { ...(prev[planId] ?? {}), [key]: value },
+    }));
+  };
+
+  const getModelsString = (plan: Plan): string => {
+    if (modelsEdits[plan.id] !== undefined) return modelsEdits[plan.id];
+    const flags = getFlags(plan);
+    return Array.isArray(flags.models) ? (flags.models as string[]).join(", ") : "";
+  };
+
   const hasChanges = (planId: string) => {
     const fieldChanges = edits[planId] && Object.keys(edits[planId]).length > 0;
     const featChanges = !!featureEdits[planId];
-    return fieldChanges || featChanges;
+    const flagChanges = !!flagEdits[planId];
+    const modelChanges = modelsEdits[planId] !== undefined;
+    return fieldChanges || featChanges || flagChanges || modelChanges;
   };
 
   const handleSave = async (plan: Plan) => {
@@ -98,6 +145,22 @@ export function PlanManagementTab() {
         changes.features = featureEdits[plan.id];
       }
 
+      // Build feature_flags
+      if (flagEdits[plan.id] || modelsEdits[plan.id] !== undefined) {
+        const currentFlags = { ...DEFAULT_PLAN_CONFIG, ...(plan.feature_flags ?? {}) };
+        const merged = { ...currentFlags, ...(flagEdits[plan.id] ?? {}) };
+        
+        // Parse models from text
+        if (modelsEdits[plan.id] !== undefined) {
+          merged.models = modelsEdits[plan.id]
+            .split(",")
+            .map((s: string) => s.trim())
+            .filter(Boolean);
+        }
+        
+        changes.feature_flags = merged;
+      }
+
       const { error } = await supabase
         .from("subscription_plans")
         .update(changes)
@@ -107,9 +170,12 @@ export function PlanManagementTab() {
       toast.success(`Тариф «${plan.name}» обновлён`);
       setEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
       setFeatureEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
+      setFlagEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
+      setModelsEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
       queryClient.invalidateQueries({ queryKey: ["admin-subscription-plans"] });
       queryClient.invalidateQueries({ queryKey: ["subscription-plans"] });
       queryClient.invalidateQueries({ queryKey: ["subscription-plans-landing"] });
+      queryClient.invalidateQueries({ queryKey: ["plan-feature-flags"] });
     } catch (err) {
       console.error(err);
       toast.error("Не удалось сохранить изменения");
@@ -129,12 +195,13 @@ export function PlanManagementTab() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        Редактируйте цены, описания, лимиты и фичи тарифных планов. Изменения сразу отобразятся на странице Pricing.
+        Редактируйте цены, описания, лимиты, фичи и <strong>привязку функционала</strong> к тарифным планам. Изменения сразу отобразятся на странице Pricing и в логике доступа.
       </p>
 
       <div className="space-y-8">
         {plans?.map((plan) => {
           const features = getFeatures(plan);
+          const flags = getFlags(plan);
           const isSaving = saving === plan.id;
           const changed = hasChanges(plan.id);
 
@@ -143,7 +210,8 @@ export function PlanManagementTab() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <DollarSign className="h-5 w-5 text-primary" />
-                  {(getVal(plan, "name") as string) || plan.name} ({plan.id})
+                  {(getVal(plan, "name") as string) || plan.name}
+                  <Badge variant="outline" className="text-xs font-mono">{plan.id}</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -188,9 +256,74 @@ export function PlanManagementTab() {
                   </div>
                 </div>
 
-                {/* Features */}
+                <Separator />
+
+                {/* Feature Flags - the new section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-semibold">Привязка функционала</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Включайте/выключайте доступ к функциям для этого тарифа. Изменения применяются мгновенно после сохранения.
+                  </p>
+
+                  {/* Boolean flags grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {BOOLEAN_FLAGS.map((flagKey) => {
+                      const label = FEATURE_FLAG_LABELS[flagKey];
+                      const isEnabled = Boolean(flags[flagKey]);
+                      return (
+                        <div
+                          key={flagKey}
+                          className="flex items-center justify-between rounded-md border border-border bg-muted/30 p-2.5"
+                        >
+                          <span className="text-xs font-medium">{label?.ru ?? flagKey}</span>
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={(v) => setFlag(plan.id, flagKey, v)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Numeric flags */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {NUMERIC_FLAGS.map((nf) => (
+                      <div key={nf.key} className="space-y-1.5">
+                        <Label className="text-xs">{nf.label.ru}</Label>
+                        <Input
+                          type="number"
+                          value={String(flags[nf.key] ?? 0)}
+                          onChange={(e) => setFlag(plan.id, nf.key, Number(e.target.value))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Models */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Label className="text-xs font-semibold">Доступные AI модели</Label>
+                    </div>
+                    <Textarea
+                      rows={2}
+                      className="text-xs font-mono"
+                      placeholder="google/gemini-2.5-flash, openai/gpt-5-nano"
+                      value={getModelsString(plan)}
+                      onChange={(e) => setModelsEdits((prev) => ({ ...prev, [plan.id]: e.target.value }))}
+                    />
+                    <p className="text-[10px] text-muted-foreground">Через запятую. Пример: google/gemini-2.5-flash, openai/gpt-5</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Features (pricing page display) */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Фичи тарифа</Label>
+                  <Label className="text-xs font-semibold">Фичи тарифа (отображение на Pricing)</Label>
                   <div className="space-y-2">
                     {features.map((feat, i) => (
                       <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-2">

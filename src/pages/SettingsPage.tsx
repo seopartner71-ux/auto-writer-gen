@@ -62,7 +62,7 @@ export default function SettingsPage() {
         .select("monthly_article_limit")
         .eq("id", currentPlan)
         .single();
-      return data?.monthly_article_limit ?? limits.maxGenerations;
+      return data?.monthly_article_limit ?? 5;
     },
   });
 
@@ -185,7 +185,7 @@ export default function SettingsPage() {
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("settings.genLimit")}</span>
-                  <span className="text-foreground font-medium text-xs">{planLimit ?? limits.maxGenerations} {t("settings.perMonth")}</span>
+                  <span className="text-foreground font-medium text-xs">{planLimit ?? 5} {t("settings.perMonth")}</span>
                 </div>
               </div>
             </CardContent>
