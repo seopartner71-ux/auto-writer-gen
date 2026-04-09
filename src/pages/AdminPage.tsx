@@ -36,7 +36,7 @@ export default function AdminPage() {
           <TabsTrigger value="content">{t("admin.content")}</TabsTrigger>
           <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
           <TabsTrigger value="plans">Тарифы</TabsTrigger>
-          <TabsTrigger value="polar">Polar</TabsTrigger>
+          <TabsTrigger value="polar">Платежи</TabsTrigger>
           <TabsTrigger value="support">Поддержка</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
           <TabsTrigger value="legal">Юр. страницы</TabsTrigger>
