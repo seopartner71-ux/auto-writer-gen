@@ -1058,7 +1058,45 @@ export default function ArticlesPage() {
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+        {/* Interlinking articles panel */}
+        {selectedProjectId && selectedProjectId !== "none" && projectArticlesForLinks.length > 0 && (
+          <div className="mb-3 pb-3 border-b border-border">
+            <button
+              type="button"
+              onClick={() => setShowInterlinkingArticles(!showInterlinkingArticles)}
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              <span>{lang === "ru" ? "Статьи для перелинковки" : "Articles for interlinking"} ({projectArticlesForLinks.length})</span>
+              {showInterlinkingArticles ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+            </button>
+            {showInterlinkingArticles && (
+              <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+                {projectArticlesForLinks.map((article: any) => (
+                  <div key={article.id} className="flex items-center gap-2 text-xs p-1.5 rounded bg-muted/50">
+                    <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span className="truncate flex-1 font-medium">{article.title}</span>
+                    {article.published_url ? (
+                      <a href={article.published_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1 shrink-0">
+                        <ExternalLink className="h-3 w-3" />
+                        <span className="max-w-[200px] truncate">{article.published_url}</span>
+                      </a>
+                    ) : (
+                      <span className="text-destructive/70 text-[10px] shrink-0">{lang === "ru" ? "URL не указан" : "No URL"}</span>
+                    )}
+                  </div>
+                ))}
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {lang === "ru"
+                    ? "Укажите Published URL у каждой статьи (в редакторе → SEO/Meta) для корректной перелинковки."
+                    : "Set Published URL for each article (in editor → SEO/Meta) for proper interlinking."}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">{t("articles.keyword")}</Label>
             <Select value={selectedKeywordId} onValueChange={setSelectedKeywordId}>
