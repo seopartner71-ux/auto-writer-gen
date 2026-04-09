@@ -1459,6 +1459,7 @@ export type Database = {
           created_at: string | null
           description_en: string | null
           description_ru: string | null
+          feature_flags: Json
           features: Json | null
           id: string
           monthly_article_limit: number
@@ -1473,6 +1474,7 @@ export type Database = {
           created_at?: string | null
           description_en?: string | null
           description_ru?: string | null
+          feature_flags?: Json
           features?: Json | null
           id: string
           monthly_article_limit: number
@@ -1487,6 +1489,7 @@ export type Database = {
           created_at?: string | null
           description_en?: string | null
           description_ru?: string | null
+          feature_flags?: Json
           features?: Json | null
           id?: string
           monthly_article_limit?: number
