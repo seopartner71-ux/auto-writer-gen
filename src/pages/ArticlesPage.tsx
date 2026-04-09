@@ -289,6 +289,20 @@ export default function ArticlesPage() {
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
   const [transferEmail, setTransferEmail] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+
+  // Projects
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects-for-writer"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Data fetching
   const { data: keywords = [] } = useQuery({
@@ -646,6 +660,7 @@ export default function ArticlesPage() {
           seo_keywords: seoKeywords.trim() || null,
           geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
           custom_instructions: customInstructions.trim() || null,
+          project_id: selectedProjectId || null,
         }),
         signal: controller.signal,
       });
