@@ -94,7 +94,7 @@ export default function PricingPage() {
       description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
       badge: null,
       credits: fmtCredits("free", 5),
-      prodamusLink: null as string | null,
+      prodamusLink: prodamusNanoLink,
       showShield: false,
       features: getFeatures("free", [
         { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
