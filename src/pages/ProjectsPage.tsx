@@ -237,12 +237,21 @@ export default function ProjectsPage() {
           </Card>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((p) => (
-              <Card key={p.id} className="group hover:border-primary/40 transition-colors">
+            {projects.map((p) => {
+              const isActive = activeProjectId === p.id;
+              return (
+              <Card key={p.id} className={`group transition-colors ${isActive ? "border-primary ring-1 ring-primary/30" : "hover:border-primary/40"}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1 min-w-0">
-                      <CardTitle className="text-base truncate">{p.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base truncate">{p.name}</CardTitle>
+                        {isActive && (
+                          <Badge variant="default" className="text-[10px] px-1.5 py-0 gap-1 shrink-0">
+                            <Zap className="h-2.5 w-2.5" /> {t("projects.active")}
+                          </Badge>
+                        )}
+                      </div>
                       <CardDescription className="flex items-center gap-1.5 text-xs">
                         <Globe className="h-3 w-3 shrink-0" />
                         <span className="truncate">{p.domain || "—"}</span>
@@ -274,13 +283,71 @@ export default function ProjectsPage() {
                     )}
                   </div>
                   <Separator />
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <FileText className="h-3.5 w-3.5" />
-                    <span>{articleCounts[p.id] || 0} {t("projects.articlesCount")}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <FileText className="h-3.5 w-3.5" />
+                      <span>{articleCounts[p.id] || 0} {t("projects.articlesCount")}</span>
+                    </div>
                   </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      variant={isActive ? "secondary" : "default"}
+                      size="sm"
+                      className="flex-1 text-xs h-8 gap-1.5"
+                      onClick={() => handleSetActive(p.id)}
+                    >
+                      {isActive ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
+                      {isActive ? t("projects.isActive") : t("projects.setActive")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs h-8 gap-1.5"
+                      onClick={() => setViewingProjectId(viewingProjectId === p.id ? null : p.id)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      {t("projects.viewArticles")}
+                    </Button>
+                  </div>
+
+                  {/* Inline articles list */}
+                  {viewingProjectId === p.id && (
+                    <div className="mt-2 space-y-2 border-t border-border pt-3">
+                      {articlesLoading ? (
+                        <div className="flex justify-center py-4">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : projectArticles.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-3">{t("projects.noArticles")}</p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                          {projectArticles.map((a: any) => (
+                            <div
+                              key={a.id}
+                              className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                              onClick={() => navigate(`/articles?edit=${a.id}`)}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium truncate text-foreground">
+                                  {a.title || t("projects.untitled")}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {new Date(a.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <Badge variant={a.status === "completed" ? "default" : "secondary"} className="text-[10px] shrink-0">
+                                {a.status || "draft"}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </PlanGate>
