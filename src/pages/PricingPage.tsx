@@ -197,15 +197,15 @@ export default function PricingPage() {
       </div>
 
       {/* Plans grid */}
-      <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto px-2">
+      <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto px-2 pt-4">
         {plans.map((plan) => {
           const isCurrentPlan = currentPlan === plan.id;
           const Icon = plan.icon;
           const isPopular = plan.badge === t("pricing.popular");
           return (
-            <Card key={plan.id} className={`relative bg-card border-border flex flex-col overflow-hidden ${isPopular ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary" : ""}`}>
+            <Card key={plan.id} className={`relative bg-card border-border flex flex-col overflow-visible ${isPopular ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary" : ""}`}>
               {plan.badge && (
-                <Badge className={`absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 z-10 ${isPopular ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>{plan.badge}</Badge>
+                <Badge className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 z-10 ${isPopular ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}`}>{plan.badge}</Badge>
               )}
               <CardHeader className="text-center pb-2 pt-6">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
