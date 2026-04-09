@@ -289,7 +289,9 @@ export default function ArticlesPage() {
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
   const [transferEmail, setTransferEmail] = useState("");
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(
+    () => localStorage.getItem("active_project_id") || ""
+  );
 
   // Projects
   const { data: projects = [] } = useQuery({

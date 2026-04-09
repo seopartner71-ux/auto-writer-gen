@@ -1133,6 +1133,14 @@ const translations: Record<string, Record<Lang, string>> = {
   "projects.selectProject": { ru: "Выберите проект", en: "Select Project" },
   "projects.noProject": { ru: "Без проекта", en: "No project" },
   "projects.contextMap": { ru: "Контекстная карта проекта", en: "Project context map" },
+  "projects.active": { ru: "Активный", en: "Active" },
+  "projects.activated": { ru: "Проект активирован", en: "Project activated" },
+  "projects.deactivated": { ru: "Проект деактивирован", en: "Project deactivated" },
+  "projects.setActive": { ru: "Активировать", en: "Set Active" },
+  "projects.isActive": { ru: "Активен", en: "Active" },
+  "projects.viewArticles": { ru: "Статьи", en: "Articles" },
+  "projects.noArticles": { ru: "Нет статей в этом проекте", en: "No articles in this project" },
+  "projects.untitled": { ru: "Без названия", en: "Untitled" },
   "nav.projects": { ru: "Проекты", en: "Projects" },
 };
 
