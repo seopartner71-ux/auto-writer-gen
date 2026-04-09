@@ -1017,7 +1017,7 @@ serve(async (req) => {
           .from("articles")
           .select("title, id, published_url")
           .eq("project_id", project_id)
-          .eq("status", "completed")
+          .in("status", ["completed", "published"])
           .not("title", "is", null)
           .order("created_at", { ascending: false })
           .limit(30);
