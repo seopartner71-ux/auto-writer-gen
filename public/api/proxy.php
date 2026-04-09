@@ -153,6 +153,7 @@ curl_setopt_array($ch, [
         $ignoredResponseHeaders = [
             'transfer-encoding' => true,
             'content-length' => true,
+            'content-encoding' => true,
             'connection' => true,
             'keep-alive' => true,
             'server' => true,
