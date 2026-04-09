@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2, Shield, Atom } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
 
 export default function PricingPage() {
   const { profile, user } = useAuth();
@@ -18,19 +17,14 @@ export default function PricingPage() {
   const currentPlan = profile?.plan ?? "free";
   const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  const { data: polarSettings } = useQuery({
-    queryKey: ["app-settings", "polar"],
+  const { data: paymentSettings } = useQuery({
+    queryKey: ["app-settings", "prodamus"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("app_settings")
         .select("key, value")
-        .in("key", [
-          "polar_basic_product_id", "polar_pro_product_id",
-          "prodamus_basic_link", "prodamus_pro_link",
-        ]);
+        .in("key", ["prodamus_basic_link", "prodamus_pro_link"]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((s: { key: string; value: string }) => (map[s.key] = s.value));
@@ -54,47 +48,18 @@ export default function PricingPage() {
     },
   });
 
-  const basicProductId = polarSettings?.polar_basic_product_id ?? null;
-  const proProductId = polarSettings?.polar_pro_product_id ?? null;
-  const prodamusBasicLink = polarSettings?.prodamus_basic_link ?? null;
-  const prodamusProLink = polarSettings?.prodamus_pro_link ?? null;
-
-  useEffect(() => {
-    const checkoutId = searchParams.get("checkout_id");
-    if (!checkoutId || !user) return;
-
-    const verifyCheckout = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("polar-checkout", {
-          body: { action: "verify", checkoutId },
-        });
-        if (error) throw error;
-        if (data?.status === "succeeded") {
-          toast.success(isEn ? "Payment successful! Your plan has been upgraded." : "Оплата прошла успешно! Ваш тариф обновлен.");
-          queryClient.invalidateQueries({ queryKey: ["profile"] });
-        } else if (data?.status === "failed") {
-          toast.error(isEn ? "Payment failed. Please try again." : "Оплата не прошла. Попробуйте снова.");
-        }
-      } catch (err) {
-        console.error("Checkout verification error:", err);
-      }
-      setSearchParams({});
-    };
-
-    verifyCheckout();
-  }, [searchParams, user]);
+  const prodamusBasicLink = paymentSettings?.prodamus_basic_link ?? null;
+  const prodamusProLink = paymentSettings?.prodamus_pro_link ?? null;
 
   const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
 
-  const fmtPrice = (id: string, fallbackUsd: number, fallbackRub: number) => {
+  const fmtPrice = (id: string, fallbackRub: number) => {
     const db = getDbPlan(id);
-    if (isEn) return `$${db?.price_usd ?? fallbackUsd}`;
     const rub = db?.price_rub ?? fallbackRub;
     return `${rub.toLocaleString("ru-RU")} ₽`;
   };
 
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
-
   const fmtName = (id: string, fallback: string) => getDbPlan(id)?.name ?? fallback;
 
   const fmtDesc = (id: string, fallbackRu: string, fallbackEn: string) => {
@@ -122,13 +87,12 @@ export default function PricingPage() {
     {
       id: "free" as const,
       name: fmtName("free", "NANO"),
-      price: fmtPrice("free", 15, 990),
+      price: fmtPrice("free", 990),
       period: t("pricing.perMonth"),
       icon: Atom,
       description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
       badge: null,
       credits: fmtCredits("free", 5),
-      polarProductId: null as string | null,
       prodamusLink: null as string | null,
       showShield: false,
       features: getFeatures("free", [
@@ -140,13 +104,12 @@ export default function PricingPage() {
     {
       id: "basic" as const,
       name: fmtName("basic", "PRO"),
-      price: fmtPrice("basic", 65, 5900),
+      price: fmtPrice("basic", 5900),
       period: t("pricing.perMonth"),
       icon: Zap,
       description: fmtDesc("basic", "Идеальный баланс для SEO-профи", "Perfect balance for SEO pros"),
       badge: t("pricing.popular"),
       credits: fmtCredits("basic", 40),
-      polarProductId: basicProductId,
       prodamusLink: prodamusBasicLink,
       showShield: true,
       features: getFeatures("basic", [
@@ -158,13 +121,12 @@ export default function PricingPage() {
     {
       id: "pro" as const,
       name: fmtName("pro", "FACTORY"),
-      price: fmtPrice("pro", 220, 19900),
+      price: fmtPrice("pro", 19900),
       period: t("pricing.perMonth"),
       icon: Crown,
       description: fmtDesc("pro", "Контентный завод для агентств", "Content factory for agencies"),
       badge: t("pricing.maximum"),
       credits: fmtCredits("pro", 150),
-      polarProductId: proProductId,
       prodamusLink: prodamusProLink,
       showShield: true,
       features: getFeatures("pro", [
@@ -175,7 +137,7 @@ export default function PricingPage() {
     },
   ];
 
-  const handleSelectPlan = async (planId: string, method: "polar" | "prodamus" = "polar") => {
+  const handleSelectPlan = async (planId: string) => {
     if (!user) {
       toast.error(t("pricing.loginRequired"));
       return;
@@ -195,42 +157,16 @@ export default function PricingPage() {
       return;
     }
 
-    if (method === "prodamus") {
-      const link = selectedPlan?.prodamusLink;
-      if (!link) {
-        toast.error(isEn ? "Prodamus payment not configured." : "Оплата через Prodamus не настроена.");
-        return;
-      }
-      // Append user email as a query param for tracking
-      const url = new URL(link);
-      if (user.email) url.searchParams.set("customer_email", user.email);
-      url.searchParams.set("customer_extra", user.id);
-      window.open(url.toString(), "_blank");
+    const link = selectedPlan?.prodamusLink;
+    if (!link) {
+      toast.error(isEn ? "Payment not configured yet. Please contact the administrator." : "Оплата ещё не настроена. Обратитесь к администратору.");
       return;
     }
 
-    if (!selectedPlan?.polarProductId) {
-      toast.error(isEn ? "Payment not configured yet. Please contact the administrator." : "Оплата еще не настроена. Обратитесь к администратору.");
-      return;
-    }
-
-    setLoadingPlan(planId);
-    try {
-      const { data, error } = await supabase.functions.invoke("polar-checkout", {
-        body: { action: "create", productId: selectedPlan.polarProductId },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      } else {
-        throw new Error("No checkout URL returned");
-      }
-    } catch (err) {
-      console.error("Checkout error:", err);
-      toast.error(isEn ? "Failed to create checkout. Please try again." : "Не удалось создать сессию оплаты. Попробуйте снова.");
-    } finally {
-      setLoadingPlan(null);
-    }
+    const url = new URL(link);
+    if (user.email) url.searchParams.set("customer_email", user.email);
+    url.searchParams.set("customer_extra", user.id);
+    window.open(url.toString(), "_blank");
   };
 
   return (
@@ -260,14 +196,12 @@ export default function PricingPage() {
         </Card>
       </div>
 
-
       {/* Plans grid */}
       <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto px-2">
         {plans.map((plan) => {
           const isCurrentPlan = currentPlan === plan.id;
           const Icon = plan.icon;
           const isPopular = plan.badge === t("pricing.popular");
-          const isLoading = loadingPlan === plan.id;
           return (
             <Card key={plan.id} className={`relative bg-card border-border flex flex-col overflow-hidden ${isPopular ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary" : ""}`}>
               {plan.badge && (
@@ -313,35 +247,14 @@ export default function PricingPage() {
                     {t("pricing.selectPlan")}
                   </Button>
                 ) : (
-                  <div className="space-y-2">
-                    {plan.prodamusLink && (
-                      <Button
-                        className="w-full"
-                        variant={isPopular ? "default" : "outline"}
-                        disabled={isLoading}
-                        onClick={() => handleSelectPlan(plan.id, "prodamus")}
-                      >
-                        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                        {isEn ? "Pay in ₽ (Russia)" : "Оплатить в ₽"}
-                      </Button>
-                    )}
-                    {plan.polarProductId && (
-                      <Button
-                        className="w-full"
-                        variant={plan.prodamusLink ? "outline" : (isPopular ? "default" : "outline")}
-                        disabled={isLoading}
-                        onClick={() => handleSelectPlan(plan.id, "polar")}
-                      >
-                        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                        {isEn ? "Pay in $ (International)" : "Оплатить в $ (International)"}
-                      </Button>
-                    )}
-                    {!plan.prodamusLink && !plan.polarProductId && (
-                      <Button className="w-full" variant="outline" disabled>
-                        {isEn ? "Coming soon" : "Скоро"}
-                      </Button>
-                    )}
-                  </div>
+                  <Button
+                    className="w-full"
+                    variant={isPopular ? "default" : "outline"}
+                    onClick={() => handleSelectPlan(plan.id)}
+                    disabled={!plan.prodamusLink}
+                  >
+                    {isEn ? "Pay" : "Оплатить"}
+                  </Button>
                 )}
               </CardContent>
             </Card>
