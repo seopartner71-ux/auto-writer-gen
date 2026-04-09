@@ -175,7 +175,7 @@ export default function PricingPage() {
     },
   ];
 
-  const handleSelectPlan = async (planId: string) => {
+  const handleSelectPlan = async (planId: string, method: "polar" | "prodamus" = "polar") => {
     if (!user) {
       toast.error(t("pricing.loginRequired"));
       return;
@@ -192,6 +192,20 @@ export default function PricingPage() {
         toast.success(`${t("pricing.planChanged")} NANO.`);
         queryClient.invalidateQueries({ queryKey: ["profile"] });
       }
+      return;
+    }
+
+    if (method === "prodamus") {
+      const link = selectedPlan?.prodamusLink;
+      if (!link) {
+        toast.error(isEn ? "Prodamus payment not configured." : "Оплата через Prodamus не настроена.");
+        return;
+      }
+      // Append user email as a query param for tracking
+      const url = new URL(link);
+      if (user.email) url.searchParams.set("customer_email", user.email);
+      url.searchParams.set("customer_extra", user.id);
+      window.open(url.toString(), "_blank");
       return;
     }
 
