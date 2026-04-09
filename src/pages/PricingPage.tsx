@@ -304,15 +304,45 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  className="w-full"
-                  variant={isCurrentPlan ? "secondary" : isPopular ? "default" : "outline"}
-                  disabled={isCurrentPlan || isLoading}
-                  onClick={() => handleSelectPlan(plan.id)}
-                >
-                  {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {isCurrentPlan ? t("pricing.currentPlan") : t("pricing.selectPlan")}
-                </Button>
+                {isCurrentPlan ? (
+                  <Button className="w-full" variant="secondary" disabled>
+                    {t("pricing.currentPlan")}
+                  </Button>
+                ) : plan.id === "free" ? (
+                  <Button className="w-full" variant="outline" onClick={() => handleSelectPlan(plan.id)}>
+                    {t("pricing.selectPlan")}
+                  </Button>
+                ) : (
+                  <div className="space-y-2">
+                    {plan.prodamusLink && (
+                      <Button
+                        className="w-full"
+                        variant={isPopular ? "default" : "outline"}
+                        disabled={isLoading}
+                        onClick={() => handleSelectPlan(plan.id, "prodamus")}
+                      >
+                        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        {isEn ? "Pay in ₽ (Russia)" : "Оплатить в ₽"}
+                      </Button>
+                    )}
+                    {plan.polarProductId && (
+                      <Button
+                        className="w-full"
+                        variant={plan.prodamusLink ? "outline" : (isPopular ? "default" : "outline")}
+                        disabled={isLoading}
+                        onClick={() => handleSelectPlan(plan.id, "polar")}
+                      >
+                        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        {isEn ? "Pay in $ (International)" : "Оплатить в $ (International)"}
+                      </Button>
+                    )}
+                    {!plan.prodamusLink && !plan.polarProductId && (
+                      <Button className="w-full" variant="outline" disabled>
+                        {isEn ? "Coming soon" : "Скоро"}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
