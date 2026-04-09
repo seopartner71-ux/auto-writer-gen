@@ -38,7 +38,7 @@ export default function RegisterPage() {
       email,
       password,
       options: {
-        emailRedirectTo: "https://auto-writer-gen.vercel.app/login",
+        emailRedirectTo: `${window.location.origin}/login`,
         data: { full_name: fullName },
       },
     });
