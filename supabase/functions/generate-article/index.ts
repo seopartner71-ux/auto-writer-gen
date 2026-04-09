@@ -744,7 +744,6 @@ ${articleList}
 - Анкоры должны быть органичной частью предложения.
 - Учитывай SEO и удобство пользователя.`;
   }
-  }
 
   return { system: systemPrompt, user: "" }; // user prompt built separately
 }
