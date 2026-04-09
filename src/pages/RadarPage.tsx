@@ -1,5 +1,6 @@
-import { useState, useMemo, useRef, useEffect, lazy, Suspense } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
