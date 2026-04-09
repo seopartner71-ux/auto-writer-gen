@@ -56,6 +56,8 @@ export default function PricingPage() {
 
   const basicProductId = polarSettings?.polar_basic_product_id ?? null;
   const proProductId = polarSettings?.polar_pro_product_id ?? null;
+  const prodamusBasicLink = polarSettings?.prodamus_basic_link ?? null;
+  const prodamusProLink = polarSettings?.prodamus_pro_link ?? null;
 
   useEffect(() => {
     const checkoutId = searchParams.get("checkout_id");
