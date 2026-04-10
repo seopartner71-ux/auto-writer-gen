@@ -469,7 +469,8 @@ export default function RadarPage() {
     if (results.length === 0) return 1;
     const hasCompetitors = competitorLeaderboard.length > 1;
     if (!hasCompetitors) return 2;
-    return 3;
+    // Steps 3 (prompts) and 4 (recommendations) are always reachable once competitors are found
+    return 4; // all steps complete
   }, [activeProject, keywords, results, competitorLeaderboard]);
 
   const overallVisibility = useMemo(() => {
