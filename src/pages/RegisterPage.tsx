@@ -32,6 +32,7 @@ export default function RegisterPage() {
     }
     setLoading(true);
     // Check registration limits (email aliases + IP)
+    let registrationIp: string | null = null;
     try {
       const { data: checkResult } = await supabase.functions.invoke("check-registration", {
         body: { email },
@@ -41,11 +42,9 @@ export default function RegisterPage() {
         setLoading(false);
         return;
       }
-      // Store IP for registration tracking
-      var registrationIp = checkResult?.ip || null;
+      registrationIp = checkResult?.ip || null;
     } catch {
       // If check fails, allow registration to proceed
-      var registrationIp = null;
     }
 
     const { error } = await supabase.auth.signUp({
