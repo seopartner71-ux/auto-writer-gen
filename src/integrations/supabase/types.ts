@@ -1794,7 +1794,6 @@ export type Database = {
           language: string | null
           meta_description: string | null
           published_url: string | null
-          share_token: string | null
           title: string | null
           updated_at: string | null
         }
@@ -1808,7 +1807,6 @@ export type Database = {
           language?: string | null
           meta_description?: string | null
           published_url?: string | null
-          share_token?: string | null
           title?: string | null
           updated_at?: string | null
         }
@@ -1822,7 +1820,6 @@ export type Database = {
           language?: string | null
           meta_description?: string | null
           published_url?: string | null
-          share_token?: string | null
           title?: string | null
           updated_at?: string | null
         }
