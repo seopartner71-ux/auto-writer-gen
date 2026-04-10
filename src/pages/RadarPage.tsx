@@ -1015,7 +1015,7 @@ export default function RadarPage() {
                   <p className="text-[10px] text-muted-foreground text-center mb-1">{lang === "ru" ? "Тональность" : "Sentiment"}</p>
                   <ResponsiveContainer width="100%" height={110}>
                     <PieChart>
-                      <Pie data={sentimentDonut} dataKey="value" cx="50%" cy="50%" innerRadius={28} outerRadius={45} paddingAngle={2} strokeWidth={0}>
+                      <Pie data={sentimentDonut} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={28} outerRadius={45} paddingAngle={2} strokeWidth={0} isAnimationActive={false}>
                         {sentimentDonut.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
                       <Tooltip
@@ -1038,7 +1038,7 @@ export default function RadarPage() {
                   <p className="text-[10px] text-muted-foreground text-center mb-1">Share of Voice</p>
                   <ResponsiveContainer width="100%" height={110}>
                     <PieChart>
-                      <Pie data={sovDonut} dataKey="value" cx="50%" cy="50%" innerRadius={28} outerRadius={45} paddingAngle={2} strokeWidth={0}>
+                      <Pie data={sovDonut} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={28} outerRadius={45} paddingAngle={2} strokeWidth={0} isAnimationActive={false}>
                         {sovDonut.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
                       <Tooltip
