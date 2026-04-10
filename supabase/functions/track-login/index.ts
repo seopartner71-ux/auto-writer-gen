@@ -32,31 +32,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Try multiple header sources for real client IP
-    const xff = req.headers.get("x-forwarded-for");
-    const xRealIp = req.headers.get("x-real-ip");
-    const cfIp = req.headers.get("cf-connecting-ip");
-    const trueClientIp = req.headers.get("true-client-ip");
-    const xEnvoyExternalAddress = req.headers.get("x-envoy-external-address");
+    // Try to get IP from request body (client-side detected) or headers
+    let clientIp = "unknown";
+    try {
+      const body = await req.json();
+      if (body?.client_ip && body.client_ip !== "unknown") {
+        clientIp = body.client_ip;
+      }
+    } catch { /* no body */ }
 
-    console.log("IP Headers:", JSON.stringify({
-      "x-forwarded-for": xff,
-      "x-real-ip": xRealIp,
-      "cf-connecting-ip": cfIp,
-      "true-client-ip": trueClientIp,
-      "x-envoy-external-address": xEnvoyExternalAddress,
-    }));
+    if (clientIp === "unknown") {
+      const cfIp = req.headers.get("cf-connecting-ip");
+      const trueClientIp = req.headers.get("true-client-ip");
+      const xff = req.headers.get("x-forwarded-for");
+      clientIp = cfIp || trueClientIp || (xff ? xff.split(",")[0].trim() : "unknown");
+    }
 
-    // x-forwarded-for often has: client, proxy1, proxy2 — take the first one
-    const ip =
-      cfIp ||
-      trueClientIp ||
-      xEnvoyExternalAddress ||
-      xRealIp ||
-      (xff ? xff.split(",")[0].trim() : null) ||
-      "unknown";
+    console.log("Resolved IP:", clientIp);
 
-    console.log("Resolved IP:", ip);
+    const ip = clientIp;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
