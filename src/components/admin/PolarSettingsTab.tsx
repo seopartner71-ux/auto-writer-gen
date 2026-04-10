@@ -53,8 +53,16 @@ export function PolarSettingsTab() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const existingValues = Object.fromEntries(
+        settings.map((setting) => [setting.key, setting.value ?? ""])
+      ) as Record<string, string>;
+
       for (const key of ALL_KEYS) {
-        const value = values[key] ?? "";
+        const rawValue = values[key] ?? "";
+        const value = key === "prodamus_api_key" && !rawValue.trim()
+          ? (existingValues[key] ?? "")
+          : rawValue;
+
         const { error } = await supabase
           .from("app_settings")
           .upsert(
