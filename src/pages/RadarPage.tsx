@@ -135,7 +135,6 @@ const STEPS = [
   { key: "launch", ru: "Запуск", en: "Launch Check" },
   { key: "visibility", ru: "Видимость", en: "Analyze Visibility" },
   { key: "competitors", ru: "Конкуренты", en: "Competitors" },
-  { key: "traffic", ru: "Трафик", en: "Traffic" },
   { key: "prompts", ru: "Промпт-группы", en: "Prompt Groups" },
   { key: "recommendations", ru: "Рекомендации", en: "Recommendations" },
 ];
