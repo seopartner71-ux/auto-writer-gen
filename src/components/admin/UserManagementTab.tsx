@@ -96,10 +96,10 @@ export function UserManagementTab() {
   });
 
   const updateUser = useMutation({
-    mutationFn: async ({ userId, plan, limit }: { userId: string; plan: string; limit: number }) => {
+    mutationFn: async ({ userId, plan, limit, credits }: { userId: string; plan: string; limit: number; credits: number }) => {
       const { error } = await supabase
         .from("profiles")
-        .update({ plan, monthly_limit: limit })
+        .update({ plan, monthly_limit: limit, credits_amount: credits })
         .eq("id", userId);
       if (error) throw error;
     },
