@@ -92,6 +92,41 @@ export function BulkGenerationMode() {
     }
   }, [bulkJobs, activeJobId]);
 
+  // Auto-resume stalled jobs: if status is "processing" but no item changed in 30s, re-invoke
+  const lastItemsHashRef = useRef<string>("");
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoResumeInFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (!activeJob || activeJob.status !== "processing") {
+      if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
+      lastItemsHashRef.current = "";
+      autoResumeInFlightRef.current = false;
+      return;
+    }
+
+    const currentHash = jobItems.map(i => `${i.id}:${i.status}`).join(",");
+    if (currentHash !== lastItemsHashRef.current) {
+      lastItemsHashRef.current = currentHash;
+      autoResumeInFlightRef.current = false;
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = setTimeout(() => {
+        if (!autoResumeInFlightRef.current && activeJob.status === "processing") {
+          const hasQueued = jobItems.some(i => i.status === "queued");
+          if (hasQueued) {
+            console.log("[BulkGen] Auto-resuming stalled job", activeJob.id);
+            autoResumeInFlightRef.current = true;
+            supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: activeJob.id } })
+              .then(() => { autoResumeInFlightRef.current = false; })
+              .catch(() => { autoResumeInFlightRef.current = false; });
+          }
+        }
+      }, 30000);
+    }
+
+    return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
+  }, [activeJob, jobItems]);
+
   useEffect(() => {
     if (!activeJobId) return;
     const channel = supabase.channel(`bulk-items-${activeJobId}`)
