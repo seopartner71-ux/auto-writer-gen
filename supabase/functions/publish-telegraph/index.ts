@@ -262,12 +262,17 @@ Deno.serve(async (req) => {
       resultToken = created.token;
     }
 
-    // Save telegraph data to article
+    // Save telegraph data - path/url to articles, token to secure table
     await admin.from("articles").update({
       telegraph_path: resultPath,
-      telegraph_access_token: resultToken,
       telegraph_url: resultUrl,
     } as any).eq("id", article_id);
+
+    // Upsert token in secure table
+    await admin.from("article_telegraph_tokens").upsert({
+      article_id,
+      access_token: resultToken,
+    }, { onConflict: "article_id" });
 
     // Log publish action
     await admin.from("usage_logs").insert({
