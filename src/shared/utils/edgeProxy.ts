@@ -121,7 +121,9 @@ export function installEdgeProxy(): void {
   if (!isPreviewHost(hostname)) {
     window.fetch = patchedFetch as typeof window.fetch;
     (globalThis as typeof window).fetch = patchedFetch as typeof fetch;
-    console.info("[EdgeProxy] Installed on", hostname, "— proxying ALL backend requests through", PROXY_BASE);
+    console.info("[EdgeProxy] Installed on", hostname, "— proxying backend requests through", PROXY_BASE);
+    // Fire-and-forget health check to pre-warm proxy status
+    void checkProxyHealth();
   } else {
     console.info("[EdgeProxy] Skipped — preview host:", hostname);
   }
