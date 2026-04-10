@@ -133,6 +133,20 @@ export function NotificationBell() {
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
 
+  const deleteNotification = async (id: string) => {
+    await supabase.from("notifications").delete().eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  };
+
+  const deleteAllNotifications = async () => {
+    if (!notifications.length) return;
+    await supabase
+      .from("notifications")
+      .delete()
+      .in("id", notifications.map((n) => n.id));
+    queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
