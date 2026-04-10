@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json();
+    const { email, client_ip } = await req.json();
 
     if (!email || typeof email !== "string") {
       return new Response(
@@ -21,11 +21,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      req.headers.get("cf-connecting-ip") ||
-      "unknown";
+    // Prefer client-detected IP, fallback to headers
+    let ip = (client_ip && client_ip !== "unknown") ? client_ip : "unknown";
+    if (ip === "unknown") {
+      ip =
+        req.headers.get("cf-connecting-ip") ||
+        req.headers.get("true-client-ip") ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        "unknown";
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
