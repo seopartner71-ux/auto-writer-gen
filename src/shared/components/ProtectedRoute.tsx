@@ -51,6 +51,10 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
             пользователей вручную. В течение 15 минут инженер активирует ваш профиль и начислит{" "}
             <span className="text-primary font-semibold">10 приветственных кредитов</span> на тест.
           </p>
+          <p className="text-xs text-destructive/80 leading-relaxed">
+            ⚠️ Внимание: аккаунты, не активированные в течение 7 дней с момента регистрации, автоматически удаляются.
+            После использования 10 бесплатных кредитов необходимо выбрать тарифный план для продолжения работы.
+          </p>
           <div className="flex flex-col items-center gap-3 pt-2">
             <a
               href="https://t.me/sin0ptick"
