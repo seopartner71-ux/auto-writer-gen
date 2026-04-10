@@ -12,6 +12,7 @@ import { SupportManagementTab } from "@/components/admin/SupportManagementTab";
 import { SeoIntegrationsTab } from "@/components/admin/SeoIntegrationsTab";
 import { LegalPagesTab } from "@/components/admin/LegalPagesTab";
 import { QueueMonitorTab } from "@/components/admin/QueueMonitorTab";
+import { PaymentLogsTab } from "@/components/admin/PaymentLogsTab";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -41,6 +42,7 @@ export default function AdminPage() {
           <TabsTrigger value="seo">SEO</TabsTrigger>
           <TabsTrigger value="legal">Юр. страницы</TabsTrigger>
           <TabsTrigger value="queue">Очередь</TabsTrigger>
+          <TabsTrigger value="payments">💰 Платежи-лог</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
@@ -55,6 +57,7 @@ export default function AdminPage() {
         <TabsContent value="seo" className="mt-4"><SeoIntegrationsTab /></TabsContent>
         <TabsContent value="legal" className="mt-4"><LegalPagesTab /></TabsContent>
         <TabsContent value="queue" className="mt-4"><QueueMonitorTab /></TabsContent>
+        <TabsContent value="payments" className="mt-4"><PaymentLogsTab /></TabsContent>
       </Tabs>
     </div>
   );
