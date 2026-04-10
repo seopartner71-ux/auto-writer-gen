@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell } from "lucide-react";
+import { Bell, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -133,6 +133,20 @@ export function NotificationBell() {
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
   };
 
+  const deleteNotification = async (id: string) => {
+    await supabase.from("notifications").delete().eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  };
+
+  const deleteAllNotifications = async () => {
+    if (!notifications.length) return;
+    await supabase
+      .from("notifications")
+      .delete()
+      .in("id", notifications.map((n) => n.id));
+    queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -148,11 +162,18 @@ export function NotificationBell() {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between border-b border-border px-4 py-2">
           <span className="text-sm font-medium">Уведомления</span>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllRead}>
-              Прочитать все
-            </Button>
-          )}
+          <div className="flex gap-1">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllRead}>
+                Прочитать все
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={deleteAllNotifications} title="Удалить все">
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
         <ScrollArea className="max-h-72">
           {notifications.length === 0 ? (
@@ -163,11 +184,19 @@ export function NotificationBell() {
             notifications.map((n) => (
               <div
                 key={n.id}
-                className={`border-b border-border px-4 py-3 text-sm ${
+                className={`border-b border-border px-4 py-3 text-sm group relative ${
                   !n.is_read ? "bg-accent/30" : ""
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  onClick={() => deleteNotification(n.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+                <div className="flex items-start justify-between gap-2 pr-5">
                   <span className="font-medium">{n.title}</span>
                   {!n.is_read && (
                     <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
