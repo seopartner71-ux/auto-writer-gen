@@ -184,11 +184,19 @@ export function NotificationBell() {
             notifications.map((n) => (
               <div
                 key={n.id}
-                className={`border-b border-border px-4 py-3 text-sm ${
+                className={`border-b border-border px-4 py-3 text-sm group relative ${
                   !n.is_read ? "bg-accent/30" : ""
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  onClick={() => deleteNotification(n.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+                <div className="flex items-start justify-between gap-2 pr-5">
                   <span className="font-medium">{n.title}</span>
                   {!n.is_read && (
                     <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
