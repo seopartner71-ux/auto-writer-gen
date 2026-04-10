@@ -92,6 +92,8 @@ export function BulkGenerationMode() {
     }
   }, [bulkJobs, activeJobId]);
 
+  const activeJob = bulkJobs.find((j) => j.id === activeJobId);
+
   // Auto-resume stalled jobs: if status is "processing" but no item changed in 30s, re-invoke
   const lastItemsHashRef = useRef<string>("");
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,7 +113,7 @@ export function BulkGenerationMode() {
       autoResumeInFlightRef.current = false;
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       stallTimerRef.current = setTimeout(() => {
-        if (!autoResumeInFlightRef.current && activeJob.status === "processing") {
+        if (!autoResumeInFlightRef.current) {
           const hasQueued = jobItems.some(i => i.status === "queued");
           if (hasQueued) {
             console.log("[BulkGen] Auto-resuming stalled job", activeJob.id);
