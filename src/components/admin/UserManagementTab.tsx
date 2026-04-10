@@ -328,10 +328,11 @@ export function UserManagementTab() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => {
+                            onClick={() => {
                                 setEditingUser(p.id);
                                 setEditPlan(p.plan);
                                 setEditLimit(String(p.monthly_limit));
+                                setEditCredits(String(p.credits_amount));
                               }}
                             >
                               Изменить
