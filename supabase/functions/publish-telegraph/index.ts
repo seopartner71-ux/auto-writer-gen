@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
     }
 
     const existingPath = (article as any).telegraph_path;
-    const existingToken = (article as any).telegraph_access_token;
+    const existingToken = tokenRow?.access_token;
     let resultUrl: string;
     let resultPath: string;
     let resultToken: string;
