@@ -948,6 +948,42 @@ export type Database = {
           },
         ]
       }
+      payment_logs: {
+        Row: {
+          amount_rub: number
+          created_at: string
+          email: string | null
+          id: string
+          order_id: string | null
+          plan_id: string | null
+          raw_payload: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount_rub?: number
+          created_at?: string
+          email?: string | null
+          id?: string
+          order_id?: string | null
+          plan_id?: string | null
+          raw_payload?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount_rub?: number
+          created_at?: string
+          email?: string | null
+          id?: string
+          order_id?: string | null
+          plan_id?: string | null
+          raw_payload?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
