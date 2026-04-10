@@ -44,6 +44,7 @@ export function UserManagementTab() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editPlan, setEditPlan] = useState("");
   const [editLimit, setEditLimit] = useState("");
+  const [editCredits, setEditCredits] = useState("");
   const [creditsUser, setCreditsUser] = useState<{ id: string; email: string | null; credits_amount: number } | null>(null);
 
   const { data: planNames = {} } = useQuery({
