@@ -175,6 +175,7 @@ export function UserManagementTab() {
                 <TableHead>Имя</TableHead>
                 <TableHead>Регистрация</TableHead>
                 <TableHead>Активность</TableHead>
+                <TableHead>IP</TableHead>
                 <TableHead>Тариф</TableHead>
                 <TableHead className="text-center">Активен</TableHead>
                 <TableHead className="text-right">Токены</TableHead>
