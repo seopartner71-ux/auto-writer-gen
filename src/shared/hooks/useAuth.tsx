@@ -87,9 +87,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           let clientIp = "unknown";
           try {
             const ipRes = await fetch("https://api.ipify.org?format=json");
-            const ipData = await ipRes.json();
-            clientIp = ipData.ip || "unknown";
-          } catch { /* ignore */ }
+            if (ipRes.ok) {
+              const text = await ipRes.text();
+              try {
+                const ipData = JSON.parse(text);
+                clientIp = ipData.ip || "unknown";
+              } catch {
+                // ipify sometimes returns plain text IP
+                const cleaned = text.trim();
+                if (/^\d{1,3}(\.\d{1,3}){3}$/.test(cleaned)) {
+                  clientIp = cleaned;
+                }
+              }
+            }
+          } catch { /* ignore network errors */ }
           await supabase.functions.invoke("track-login", {
             body: { client_ip: clientIp },
           });

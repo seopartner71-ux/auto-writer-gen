@@ -35,8 +35,18 @@ export default function RegisterPage() {
     let registrationIp: string | null = null;
     try {
       const ipRes = await fetch("https://api.ipify.org?format=json");
-      const ipData = await ipRes.json();
-      registrationIp = ipData.ip || null;
+      if (ipRes.ok) {
+        const text = await ipRes.text();
+        try {
+          const ipData = JSON.parse(text);
+          registrationIp = ipData.ip || null;
+        } catch {
+          const cleaned = text.trim();
+          if (/^\d{1,3}(\.\d{1,3}){3}$/.test(cleaned)) {
+            registrationIp = cleaned;
+          }
+        }
+      }
     } catch { /* ignore */ }
 
     // Check registration limits (email aliases + IP)
