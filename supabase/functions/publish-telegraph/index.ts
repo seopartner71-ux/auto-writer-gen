@@ -176,16 +176,22 @@ Deno.serve(async (req) => {
       throw new Error("article_id is required");
     }
 
-    // Get article with telegraph fields
+    // Get article
     const { data: article, error: articleError } = await admin
       .from("articles")
-      .select("title, content, telegraph_path, telegraph_access_token, telegraph_url, anchor_target_url")
+      .select("title, content, telegraph_path, telegraph_url, anchor_target_url")
       .eq("id", article_id)
       .eq("user_id", user.id)
       .single();
 
     if (articleError || !article) throw new Error(lang === "ru" ? "Статья не найдена" : "Article not found");
 
+    // Get telegraph token from separate secure table
+    const { data: tokenRow } = await admin
+      .from("article_telegraph_tokens")
+      .select("access_token")
+      .eq("article_id", article_id)
+      .single();
     // Parse saved anchor links if no body links provided
     let effectiveLinks = anchor_links;
     if (!effectiveLinks.length && (article as any).anchor_target_url) {
@@ -212,7 +218,7 @@ Deno.serve(async (req) => {
     }
 
     const existingPath = (article as any).telegraph_path;
-    const existingToken = (article as any).telegraph_access_token;
+    const existingToken = tokenRow?.access_token;
     let resultUrl: string;
     let resultPath: string;
     let resultToken: string;
@@ -256,12 +262,17 @@ Deno.serve(async (req) => {
       resultToken = created.token;
     }
 
-    // Save telegraph data to article
+    // Save telegraph data - path/url to articles, token to secure table
     await admin.from("articles").update({
       telegraph_path: resultPath,
-      telegraph_access_token: resultToken,
       telegraph_url: resultUrl,
     } as any).eq("id", article_id);
+
+    // Upsert token in secure table
+    await admin.from("article_telegraph_tokens").upsert({
+      article_id,
+      access_token: resultToken,
+    }, { onConflict: "article_id" });
 
     // Log publish action
     await admin.from("usage_logs").insert({

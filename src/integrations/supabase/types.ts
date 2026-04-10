@@ -167,6 +167,39 @@ export type Database = {
           },
         ]
       }
+      article_telegraph_tokens: {
+        Row: {
+          access_token: string
+          article_id: string
+          created_at: string | null
+        }
+        Insert: {
+          access_token: string
+          article_id: string
+          created_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          article_id?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_telegraph_tokens_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: true
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "article_telegraph_tokens_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: true
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       article_versions: {
         Row: {
           article_id: string
@@ -226,7 +259,6 @@ export type Database = {
           share_token: string | null
           status: string | null
           suggested_outline: Json | null
-          telegraph_access_token: string | null
           telegraph_path: string | null
           telegraph_url: string | null
           title: string | null
@@ -255,7 +287,6 @@ export type Database = {
           share_token?: string | null
           status?: string | null
           suggested_outline?: Json | null
-          telegraph_access_token?: string | null
           telegraph_path?: string | null
           telegraph_url?: string | null
           title?: string | null
@@ -284,7 +315,6 @@ export type Database = {
           share_token?: string | null
           status?: string | null
           suggested_outline?: Json | null
-          telegraph_access_token?: string | null
           telegraph_path?: string | null
           telegraph_url?: string | null
           title?: string | null
@@ -1794,7 +1824,6 @@ export type Database = {
           language: string | null
           meta_description: string | null
           published_url: string | null
-          share_token: string | null
           title: string | null
           updated_at: string | null
         }
@@ -1808,7 +1837,6 @@ export type Database = {
           language?: string | null
           meta_description?: string | null
           published_url?: string | null
-          share_token?: string | null
           title?: string | null
           updated_at?: string | null
         }
@@ -1822,7 +1850,6 @@ export type Database = {
           language?: string | null
           meta_description?: string | null
           published_url?: string | null
-          share_token?: string | null
           title?: string | null
           updated_at?: string | null
         }
