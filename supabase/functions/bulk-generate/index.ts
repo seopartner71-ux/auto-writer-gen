@@ -108,21 +108,26 @@ async function scheduleNextChunk(params: {
 }) {
   await sleep(NEXT_BATCH_DELAY_MS);
 
-  const response = await fetchWithTimeout(`${params.supabaseUrl}/functions/v1/bulk-generate`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${params.serviceKey}`,
-      apikey: params.publicKey,
-      "Content-Type": "application/json",
-      "x-bulk-user-id": params.userId,
-    },
-    body: JSON.stringify({ bulk_job_id: params.bulkJobId }),
-  }, 10000);
+  // Fire-and-forget: don't wait for the full response, just ensure the request is sent
+  try {
+    const response = await fetchWithTimeout(`${params.supabaseUrl}/functions/v1/bulk-generate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.serviceKey}`,
+        apikey: params.publicKey,
+        "Content-Type": "application/json",
+        "x-bulk-user-id": params.userId,
+      },
+      body: JSON.stringify({ bulk_job_id: params.bulkJobId }),
+    }, 15000);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Failed to schedule next bulk chunk:", response.status, errorText);
-    throw new Error(`Failed to schedule next chunk: ${response.status}`);
+    // Just check status, don't consume body to avoid hanging
+    if (!response.ok) {
+      console.error("Failed to schedule next bulk chunk:", response.status);
+    }
+  } catch (err) {
+    console.error("scheduleNextChunk fetch error (will rely on frontend auto-resume):", err);
+    // Don't throw — frontend auto-resume will pick up stalled jobs
   }
 }
 
