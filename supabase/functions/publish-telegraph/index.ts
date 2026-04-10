@@ -176,16 +176,22 @@ Deno.serve(async (req) => {
       throw new Error("article_id is required");
     }
 
-    // Get article with telegraph fields
+    // Get article
     const { data: article, error: articleError } = await admin
       .from("articles")
-      .select("title, content, telegraph_path, telegraph_access_token, telegraph_url, anchor_target_url")
+      .select("title, content, telegraph_path, telegraph_url, anchor_target_url")
       .eq("id", article_id)
       .eq("user_id", user.id)
       .single();
 
     if (articleError || !article) throw new Error(lang === "ru" ? "Статья не найдена" : "Article not found");
 
+    // Get telegraph token from separate secure table
+    const { data: tokenRow } = await admin
+      .from("article_telegraph_tokens")
+      .select("access_token")
+      .eq("article_id", article_id)
+      .single();
     // Parse saved anchor links if no body links provided
     let effectiveLinks = anchor_links;
     if (!effectiveLinks.length && (article as any).anchor_target_url) {
