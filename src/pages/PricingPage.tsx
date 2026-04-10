@@ -237,7 +237,7 @@ export default function PricingPage() {
                     className="w-full"
                     variant={isPopular ? "default" : "outline"}
                     onClick={() => handleSelectPlan(plan.id)}
-                    disabled={!plan.prodamusLink}
+                    disabled={false}
                   >
                     {isEn ? "Pay" : "Оплатить"}
                   </Button>
