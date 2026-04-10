@@ -217,7 +217,6 @@ export function UserManagementTab() {
                     <TableCell className="font-mono text-[11px] text-muted-foreground">
                       {p.last_ip || '—'}
                     </TableCell>
-                    </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Select value={editPlan} onValueChange={setEditPlan}>
