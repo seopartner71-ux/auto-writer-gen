@@ -53,15 +53,11 @@ export function PolarSettingsTab() {
         const value = values[key] ?? "";
         const { error } = await supabase
           .from("app_settings")
-          .update({ value, updated_at: new Date().toISOString() })
-          .eq("key", key);
-
-        if (error) {
-          const { error: insertError } = await supabase
-            .from("app_settings")
-            .insert({ key, value });
-          if (insertError) throw insertError;
-        }
+          .upsert(
+            { key, value, updated_at: new Date().toISOString() },
+            { onConflict: "key" }
+          );
+        if (error) throw error;
       }
       toast.success("Настройки Prodamus сохранены");
       queryClient.invalidateQueries({ queryKey: ["app-settings"] });
