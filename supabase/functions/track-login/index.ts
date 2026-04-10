@@ -20,7 +20,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Decode JWT to get user_id
     const token = authHeader.replace("Bearer ", "");
     const payloadBase64 = token.split(".")[1];
     const payload = JSON.parse(atob(payloadBase64.replace(/-/g, "+").replace(/_/g, "/")));
@@ -33,12 +32,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get IP from headers (proxied requests)
+    // Try multiple header sources for real client IP
+    const xff = req.headers.get("x-forwarded-for");
+    const xRealIp = req.headers.get("x-real-ip");
+    const cfIp = req.headers.get("cf-connecting-ip");
+    const trueClientIp = req.headers.get("true-client-ip");
+    const xEnvoyExternalAddress = req.headers.get("x-envoy-external-address");
+
+    console.log("IP Headers:", JSON.stringify({
+      "x-forwarded-for": xff,
+      "x-real-ip": xRealIp,
+      "cf-connecting-ip": cfIp,
+      "true-client-ip": trueClientIp,
+      "x-envoy-external-address": xEnvoyExternalAddress,
+    }));
+
+    // x-forwarded-for often has: client, proxy1, proxy2 — take the first one
     const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      req.headers.get("cf-connecting-ip") ||
+      cfIp ||
+      trueClientIp ||
+      xEnvoyExternalAddress ||
+      xRealIp ||
+      (xff ? xff.split(",")[0].trim() : null) ||
       "unknown";
+
+    console.log("Resolved IP:", ip);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -49,7 +67,7 @@ Deno.serve(async (req) => {
       .update({ last_ip: ip, last_login_at: new Date().toISOString() })
       .eq("id", userId);
 
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ ok: true, ip }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
