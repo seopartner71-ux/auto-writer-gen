@@ -259,7 +259,6 @@ export type Database = {
           share_token: string | null
           status: string | null
           suggested_outline: Json | null
-          telegraph_access_token: string | null
           telegraph_path: string | null
           telegraph_url: string | null
           title: string | null
@@ -288,7 +287,6 @@ export type Database = {
           share_token?: string | null
           status?: string | null
           suggested_outline?: Json | null
-          telegraph_access_token?: string | null
           telegraph_path?: string | null
           telegraph_url?: string | null
           title?: string | null
@@ -317,7 +315,6 @@ export type Database = {
           share_token?: string | null
           status?: string | null
           suggested_outline?: Json | null
-          telegraph_access_token?: string | null
           telegraph_path?: string | null
           telegraph_url?: string | null
           title?: string | null
