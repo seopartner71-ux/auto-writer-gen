@@ -31,12 +31,28 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
+    // Check registration limits (email aliases + IP)
+    let registrationIp: string | null = null;
+    try {
+      const { data: checkResult } = await supabase.functions.invoke("check-registration", {
+        body: { email },
+      });
+      if (checkResult && !checkResult.allowed) {
+        toast.error(checkResult.reason || "Регистрация заблокирована");
+        setLoading(false);
+        return;
+      }
+      registrationIp = checkResult?.ip || null;
+    } catch {
+      // If check fails, allow registration to proceed
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/login`,
-        data: { full_name: fullName },
+        data: { full_name: fullName, registration_ip: registrationIp },
       },
     });
     setLoading(false);

@@ -936,6 +936,7 @@ export type Database = {
           monthly_limit: number | null
           plan: string | null
           preferred_language: string | null
+          registration_ip: string | null
           theme_preference: string | null
         }
         Insert: {
@@ -955,6 +956,7 @@ export type Database = {
           monthly_limit?: number | null
           plan?: string | null
           preferred_language?: string | null
+          registration_ip?: string | null
           theme_preference?: string | null
         }
         Update: {
@@ -974,6 +976,7 @@ export type Database = {
           monthly_limit?: number | null
           plan?: string | null
           preferred_language?: string | null
+          registration_ip?: string | null
           theme_preference?: string | null
         }
         Relationships: []
