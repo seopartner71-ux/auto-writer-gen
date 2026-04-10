@@ -196,6 +196,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch user profile and admins
+    const { data: userProfile } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("id", userId)
+      .single();
+
     // Log payment
     const orderIdRaw = (body.order_id as string) || (body.order_num as string) || "";
     await supabase.from("payment_logs").insert({
@@ -222,12 +229,6 @@ Deno.serve(async (req) => {
       .from("user_roles")
       .select("user_id")
       .eq("role", "admin");
-
-    const { data: userProfile } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("id", userId)
-      .single();
 
     for (const admin of admins || []) {
       await supabase.from("notifications").insert({
