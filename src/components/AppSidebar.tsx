@@ -63,7 +63,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { role, profile } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   const handleNavClick = () => {
     if (isMobile) setOpenMobile(false);
