@@ -27,6 +27,8 @@ interface UserProfile {
   is_active: boolean;
   credits_amount: number;
   created_at: string;
+  last_ip: string | null;
+  last_login_at: string | null;
 }
 
 interface UserUsage {
@@ -173,6 +175,7 @@ export function UserManagementTab() {
                 <TableHead>Имя</TableHead>
                 <TableHead>Регистрация</TableHead>
                 <TableHead>Активность</TableHead>
+                <TableHead>IP</TableHead>
                 <TableHead>Тариф</TableHead>
                 <TableHead className="text-center">Активен</TableHead>
                 <TableHead className="text-right">Токены</TableHead>
@@ -210,6 +213,9 @@ export function UserManagementTab() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {getLastActivity(p.id)}
+                    </TableCell>
+                    <TableCell className="font-mono text-[11px] text-muted-foreground">
+                      {p.last_ip || '—'}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (

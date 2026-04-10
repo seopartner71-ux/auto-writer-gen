@@ -80,6 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("[useAuth] user_stats upsert error:", error);
         }
       })();
+
+      // Track IP address on login
+      void supabase.functions.invoke("track-login").catch(() => {});
     } finally {
       inFlightUserId.current = null;
     }
