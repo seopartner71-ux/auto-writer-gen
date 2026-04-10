@@ -196,6 +196,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Log payment
+    const orderIdRaw = (body.order_id as string) || (body.order_num as string) || "";
+    await supabase.from("payment_logs").insert({
+      user_id: userId,
+      email: userProfile?.email || (body.customer_email as string) || null,
+      plan_id: matchedPlan.id,
+      amount_rub: paymentSum,
+      order_id: orderIdRaw,
+      status: "success",
+      raw_payload: body,
+    });
+
     console.log(`[prodamus-webhook] User ${userId} upgraded to ${matchedPlan.name}, credits: ${matchedPlan.monthly_article_limit}`);
 
     // Send notification to user
