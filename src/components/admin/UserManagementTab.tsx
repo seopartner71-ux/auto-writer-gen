@@ -46,6 +46,18 @@ export function UserManagementTab() {
   const [editLimit, setEditLimit] = useState("");
   const [creditsUser, setCreditsUser] = useState<{ id: string; email: string | null; credits_amount: number } | null>(null);
 
+  const { data: planNames = {} } = useQuery({
+    queryKey: ["admin-plan-names"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("subscription_plans").select("id, name");
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      for (const row of data || []) map[row.id] = row.name;
+      return map;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ["admin-profiles"],
     queryFn: async () => {
