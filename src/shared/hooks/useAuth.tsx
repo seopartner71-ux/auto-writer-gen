@@ -81,8 +81,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })();
 
-      // Track IP address on login
-      void supabase.functions.invoke("track-login").catch(() => {});
+      // Track IP address on login — fetch real client IP first
+      void (async () => {
+        try {
+          let clientIp = "unknown";
+          try {
+            const ipRes = await fetch("https://api.ipify.org?format=json");
+            const ipData = await ipRes.json();
+            clientIp = ipData.ip || "unknown";
+          } catch { /* ignore */ }
+          await supabase.functions.invoke("track-login", {
+            body: { client_ip: clientIp },
+          });
+        } catch { /* ignore */ }
+      })();
     } finally {
       inFlightUserId.current = null;
     }
