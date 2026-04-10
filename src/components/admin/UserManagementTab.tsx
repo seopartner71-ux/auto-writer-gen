@@ -301,7 +301,7 @@ export function UserManagementTab() {
                       <div className="flex gap-1">
                         {isEditing ? (
                           <>
-                            <Button
+                           <Button
                               size="sm"
                               variant="ghost"
                               onClick={() =>
@@ -309,6 +309,7 @@ export function UserManagementTab() {
                                   userId: p.id,
                                   plan: editPlan,
                                   limit: parseInt(editLimit) || 30,
+                                  credits: parseInt(editCredits) || 0,
                                 })
                               }
                             >
