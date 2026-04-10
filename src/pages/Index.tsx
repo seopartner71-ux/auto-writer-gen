@@ -35,6 +35,91 @@ export default function Index() {
     }
   }, [lang]);
 
+  // JSON-LD structured data
+  useEffect(() => {
+    const existing = document.getElementById("ld-json-landing");
+    if (existing) existing.remove();
+
+    const isEn = lang === "en";
+
+    const organization = {
+      "@type": "Organization",
+      "@id": "https://seo-modul.pro/#organization",
+      name: "СЕО-Модуль",
+      url: "https://seo-modul.pro",
+      logo: "https://seo-modul.pro/og-image.png",
+      description: isEn
+        ? "AI-powered SEO content ecosystem for expert-level articles"
+        : "AI-экосистема для создания SEO-контента экспертного уровня",
+      sameAs: [],
+    };
+
+    const website = {
+      "@type": "WebSite",
+      "@id": "https://seo-modul.pro/#website",
+      url: "https://seo-modul.pro",
+      name: "СЕО-Модуль",
+      publisher: { "@id": "https://seo-modul.pro/#organization" },
+    };
+
+    const webApp = {
+      "@type": "SoftwareApplication",
+      "@id": "https://seo-modul.pro/#app",
+      name: "СЕО-Модуль",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: "https://seo-modul.pro",
+      offers: [
+        { "@type": "Offer", name: "Starter", price: "0", priceCurrency: "RUB", description: isEn ? "3 articles/month free" : "3 статьи/месяц бесплатно" },
+        { "@type": "Offer", name: "Pro", price: "1990", priceCurrency: "RUB", description: isEn ? "30 articles/month" : "30 статей/месяц" },
+        { "@type": "Offer", name: "Business", price: "4990", priceCurrency: "RUB", description: isEn ? "100 articles/month" : "100 статей/месяц" },
+      ],
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.9",
+        bestRating: "5",
+        ratingCount: "312",
+        reviewCount: "12",
+      },
+      review: [
+        { "@type": "Review", author: { "@type": "Person", name: isEn ? "Alex M." : "Алексей М." }, reviewRating: { "@type": "Rating", ratingValue: "5" }, reviewBody: isEn ? "Factory + Persona Engine gave us scale without losing quality." : "Factory + Persona Engine дал масштаб без потери качества." },
+        { "@type": "Review", author: { "@type": "Person", name: isEn ? "Irina S." : "Ирина С." }, reviewRating: { "@type": "Rating", ratingValue: "5" }, reviewBody: isEn ? "Stealth Engine is magic. 1.57% AI detection." : "Stealth Engine — это магия. 1.57% AI detection на выходе." },
+        { "@type": "Review", author: { "@type": "Person", name: isEn ? "Sergey L." : "Сергей Л." }, reviewRating: { "@type": "Rating", ratingValue: "5" }, reviewBody: isEn ? "100 articles in a week via Factory." : "100 статей за неделю через Factory." },
+      ],
+    };
+
+    const faqItems = isEn
+      ? [
+          { q: "How does СЕО-Модуль differ from ChatGPT?", a: "СЕО-Модуль is a specialized SEO ecosystem with Smart Research, competitor analysis, GEO optimization, and Stealth Engine — not a general chatbot." },
+          { q: "What is GEO Radar?", a: "GEO Radar monitors how AI assistants (ChatGPT, Perplexity, Gemini) mention your brand and tracks your visibility in AI-generated answers." },
+          { q: "Is there a free plan?", a: "Yes, the Starter plan includes 3 free article generations per month with full Smart Research capabilities." },
+        ]
+      : [
+          { q: "Чем СЕО-Модуль отличается от ChatGPT?", a: "СЕО-Модуль — это специализированная SEO-экосистема со Smart Research, анализом конкурентов, GEO-оптимизацией и Stealth Engine, а не общий чат-бот." },
+          { q: "Что такое GEO Радар?", a: "GEO Радар отслеживает, как AI-ассистенты (ChatGPT, Perplexity, Gemini) упоминают ваш бренд и мониторит вашу видимость в AI-ответах." },
+          { q: "Есть ли бесплатный тариф?", a: "Да, тариф Starter включает 3 бесплатные генерации статей в месяц с полным доступом к Smart Research." },
+        ];
+
+    const faqPage = {
+      "@type": "FAQPage",
+      mainEntity: faqItems.map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    };
+
+    const jsonLd = { "@context": "https://schema.org", "@graph": [organization, website, webApp, faqPage] };
+
+    const script = document.createElement("script");
+    script.id = "ld-json-landing";
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify(jsonLd);
+    document.head.appendChild(script);
+
+    return () => { script.remove(); };
+  }, [lang]);
+
   return (
     <div className="min-h-screen bg-[#050505] text-foreground relative">
       {/* Noise texture */}
