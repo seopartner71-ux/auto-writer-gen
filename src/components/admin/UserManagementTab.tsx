@@ -236,14 +236,14 @@ export function UserManagementTab() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="free">Free</SelectItem>
-                            <SelectItem value="basic">Basic</SelectItem>
-                            <SelectItem value="pro">Pro</SelectItem>
+                            <SelectItem value="free">{planNames["free"] || "Free"}</SelectItem>
+                            <SelectItem value="basic">{planNames["basic"] || "Basic"}</SelectItem>
+                            <SelectItem value="pro">{planNames["pro"] || "Pro"}</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
                         <span className="text-xs font-medium text-primary uppercase">
-                          {p.plan}
+                          {planNames[p.plan] || p.plan}
                         </span>
                       )}
                     </TableCell>
