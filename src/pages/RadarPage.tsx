@@ -135,7 +135,6 @@ const STEPS = [
   { key: "launch", ru: "Запуск", en: "Launch Check" },
   { key: "visibility", ru: "Видимость", en: "Analyze Visibility" },
   { key: "competitors", ru: "Конкуренты", en: "Competitors" },
-  { key: "traffic", ru: "Трафик", en: "Traffic" },
   { key: "prompts", ru: "Промпт-группы", en: "Prompt Groups" },
   { key: "recommendations", ru: "Рекомендации", en: "Recommendations" },
 ];
@@ -470,7 +469,8 @@ export default function RadarPage() {
     if (results.length === 0) return 1;
     const hasCompetitors = competitorLeaderboard.length > 1;
     if (!hasCompetitors) return 2;
-    return 3;
+    // Steps 3 (prompts) and 4 (recommendations) are always reachable once competitors are found
+    return 4; // all steps complete
   }, [activeProject, keywords, results, competitorLeaderboard]);
 
   const overallVisibility = useMemo(() => {
