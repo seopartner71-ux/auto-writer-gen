@@ -50,10 +50,10 @@ serve(async (req) => {
 
     // --- SYSTEM PROMPT ---
     const systemPrompt = isSerpDominance
-      ? `### SYSTEM INSTRUCTION FOR SERPblueprint FAQ ENGINE v2.0 ###
+      ? `### SYSTEM INSTRUCTION FOR СЕО-Модуль FAQ ENGINE v2.0 ###
 
 CONTEXT:
-You are the "Information Gain Engine" of SERPblueprint. Your goal is to generate a FAQ section that guarantees high visibility in Google SGE, AI Overviews, and featured snippets (2026 standards).
+You are the "Information Gain Engine" of СЕО-Модуль. Your goal is to generate a FAQ section that guarantees high visibility in Google SGE, AI Overviews, and featured snippets (2026 standards).
 
 TASK:
 Based on the provided article content, keyword, and People Also Ask data, generate 3-5 high-intent questions and expert answers, then wrap them in JSON-LD Schema.org FAQPage markup.
