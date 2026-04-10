@@ -31,18 +31,25 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
-    // Check registration limits (email aliases + IP)
+    // Detect real client IP
     let registrationIp: string | null = null;
     try {
+      const ipRes = await fetch("https://api.ipify.org?format=json");
+      const ipData = await ipRes.json();
+      registrationIp = ipData.ip || null;
+    } catch { /* ignore */ }
+
+    // Check registration limits (email aliases + IP)
+    try {
       const { data: checkResult } = await supabase.functions.invoke("check-registration", {
-        body: { email },
+        body: { email, client_ip: registrationIp },
       });
       if (checkResult && !checkResult.allowed) {
         toast.error(checkResult.reason || "Регистрация заблокирована");
         setLoading(false);
         return;
       }
-      registrationIp = checkResult?.ip || null;
+      registrationIp = checkResult?.ip || registrationIp;
     } catch {
       // If check fails, allow registration to proceed
     }
