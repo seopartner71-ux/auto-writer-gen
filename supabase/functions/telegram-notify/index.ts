@@ -67,6 +67,13 @@ serve(async (req) => {
         `📊 Использовано: ${usage}\n` +
         `🔒 Лимит: ${limit}\n` +
         `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
+    } else if (type === 'payment_received') {
+      const { email, plan, sum } = data;
+      text = `💰 <b>Новая оплата!</b>\n\n` +
+        `📧 Email: ${email}\n` +
+        `📦 Тариф: ${plan}\n` +
+        `💵 Сумма: ${sum} ₽\n` +
+        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
     } else {
       text = `ℹ️ ${type}: ${JSON.stringify(data)}`;
     }
