@@ -44,6 +44,7 @@ export function UserManagementTab() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editPlan, setEditPlan] = useState("");
   const [editLimit, setEditLimit] = useState("");
+  const [editCredits, setEditCredits] = useState("");
   const [creditsUser, setCreditsUser] = useState<{ id: string; email: string | null; credits_amount: number } | null>(null);
 
   const { data: planNames = {} } = useQuery({
@@ -95,10 +96,10 @@ export function UserManagementTab() {
   });
 
   const updateUser = useMutation({
-    mutationFn: async ({ userId, plan, limit }: { userId: string; plan: string; limit: number }) => {
+    mutationFn: async ({ userId, plan, limit, credits }: { userId: string; plan: string; limit: number; credits: number }) => {
       const { error } = await supabase
         .from("profiles")
-        .update({ plan, monthly_limit: limit })
+        .update({ plan, monthly_limit: limit, credits_amount: credits })
         .eq("id", userId);
       if (error) throw error;
     },
@@ -262,18 +263,27 @@ export function UserManagementTab() {
                       ${cost}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="font-mono text-xs">{p.credits_amount}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-primary"
-                          title="Начислить кредиты"
-                          onClick={() => setCreditsUser({ id: p.id, email: p.email, credits_amount: p.credits_amount })}
-                        >
-                          <Coins className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          className="h-8 w-20 text-right"
+                          value={editCredits}
+                          onChange={(e) => setEditCredits(e.target.value)}
+                        />
+                      ) : (
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="font-mono text-xs">{p.credits_amount}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-primary"
+                            title="Начислить кредиты"
+                            onClick={() => setCreditsUser({ id: p.id, email: p.email, credits_amount: p.credits_amount })}
+                          >
+                            <Coins className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {isEditing ? (
@@ -291,7 +301,7 @@ export function UserManagementTab() {
                       <div className="flex gap-1">
                         {isEditing ? (
                           <>
-                            <Button
+                           <Button
                               size="sm"
                               variant="ghost"
                               onClick={() =>
@@ -299,6 +309,7 @@ export function UserManagementTab() {
                                   userId: p.id,
                                   plan: editPlan,
                                   limit: parseInt(editLimit) || 30,
+                                  credits: parseInt(editCredits) || 0,
                                 })
                               }
                             >
@@ -317,10 +328,11 @@ export function UserManagementTab() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => {
+                            onClick={() => {
                                 setEditingUser(p.id);
                                 setEditPlan(p.plan);
                                 setEditLimit(String(p.monthly_limit));
+                                setEditCredits(String(p.credits_amount));
                               }}
                             >
                               Изменить
