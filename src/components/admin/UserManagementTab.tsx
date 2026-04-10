@@ -27,6 +27,8 @@ interface UserProfile {
   is_active: boolean;
   credits_amount: number;
   created_at: string;
+  last_ip: string | null;
+  last_login_at: string | null;
 }
 
 interface UserUsage {
