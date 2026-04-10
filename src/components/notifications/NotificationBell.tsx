@@ -162,11 +162,18 @@ export function NotificationBell() {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between border-b border-border px-4 py-2">
           <span className="text-sm font-medium">Уведомления</span>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllRead}>
-              Прочитать все
-            </Button>
-          )}
+          <div className="flex gap-1">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllRead}>
+                Прочитать все
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={deleteAllNotifications} title="Удалить все">
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
         <ScrollArea className="max-h-72">
           {notifications.length === 0 ? (
