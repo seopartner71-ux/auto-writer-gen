@@ -167,6 +167,39 @@ export type Database = {
           },
         ]
       }
+      article_telegraph_tokens: {
+        Row: {
+          access_token: string
+          article_id: string
+          created_at: string | null
+        }
+        Insert: {
+          access_token: string
+          article_id: string
+          created_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          article_id?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_telegraph_tokens_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: true
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "article_telegraph_tokens_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: true
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       article_versions: {
         Row: {
           article_id: string
