@@ -930,6 +930,8 @@ export type Database = {
           gsc_json_key: string | null
           id: string
           is_active: boolean
+          last_ip: string | null
+          last_login_at: string | null
           medium_token: string | null
           monthly_limit: number | null
           plan: string | null
@@ -947,6 +949,8 @@ export type Database = {
           gsc_json_key?: string | null
           id: string
           is_active?: boolean
+          last_ip?: string | null
+          last_login_at?: string | null
           medium_token?: string | null
           monthly_limit?: number | null
           plan?: string | null
@@ -964,6 +968,8 @@ export type Database = {
           gsc_json_key?: string | null
           id?: string
           is_active?: boolean
+          last_ip?: string | null
+          last_login_at?: string | null
           medium_token?: string | null
           monthly_limit?: number | null
           plan?: string | null
