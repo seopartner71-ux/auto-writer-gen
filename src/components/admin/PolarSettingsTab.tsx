@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +30,7 @@ export function PolarSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
 
-  const { isLoading } = useQuery({
+  const { data: settings = [], isLoading } = useQuery({
     queryKey: ["app-settings", "payments"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -38,13 +38,17 @@ export function PolarSettingsTab() {
         .select("*")
         .in("key", ALL_KEYS);
       if (error) throw error;
-      const result = (data ?? []) as AppSetting[];
-      const initial: Record<string, string> = {};
-      result.forEach((s) => (initial[s.key] = s.value));
-      setValues(initial);
-      return result;
+      return (data ?? []) as AppSetting[];
     },
   });
+
+  useEffect(() => {
+    const initial: Record<string, string> = {};
+    settings.forEach((setting) => {
+      initial[setting.key] = setting.value ?? "";
+    });
+    setValues(initial);
+  }, [settings]);
 
   const handleSave = async () => {
     setSaving(true);
