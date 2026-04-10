@@ -981,8 +981,10 @@ export default function RadarPage() {
                   <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} width={80} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                    wrapperStyle={{ zIndex: 50 }}
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12, color: "hsl(var(--foreground))" }}
                     formatter={(value: number) => [`${value}%`, lang === "ru" ? "Видимость" : "Visibility"]}
+                    itemStyle={{ color: "hsl(var(--foreground))" }}
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
                     {visibilityBarData.map((entry, i) => (
@@ -1019,8 +1021,11 @@ export default function RadarPage() {
                         {sentimentDonut.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                        wrapperStyle={{ zIndex: 50 }}
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, color: "hsl(var(--foreground))" }}
                         formatter={(value: number, name: string, item: any) => [`${item.payload.pct}%`, name]}
+                        itemStyle={{ color: "hsl(var(--foreground))" }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1042,8 +1047,11 @@ export default function RadarPage() {
                         {sovDonut.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                        wrapperStyle={{ zIndex: 50 }}
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, color: "hsl(var(--foreground))" }}
                         formatter={(value: number, name: string, item: any) => [`${item.payload.pct}%`, name]}
+                        itemStyle={{ color: "hsl(var(--foreground))" }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
