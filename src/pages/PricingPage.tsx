@@ -156,6 +156,7 @@ export default function PricingPage() {
     const url = new URL(link);
     if (user.email) url.searchParams.set("customer_email", user.email);
     url.searchParams.set("customer_extra", user.id);
+    url.searchParams.set("order_id", `plan_${planId}`);
     window.open(url.toString(), "_blank");
   };
 
