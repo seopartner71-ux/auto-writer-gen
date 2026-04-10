@@ -47,7 +47,7 @@ export default function SettingsPage() {
       queryClient.clear();
       toast.success(t("settings.cacheCleared"));
     } catch {
-      toast.error("Error");
+      toast.error("Ошибка");
     } finally {
       setTimeout(() => setIsClearingCache(false), 1000);
     }

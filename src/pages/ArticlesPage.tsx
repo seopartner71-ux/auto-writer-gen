@@ -1018,7 +1018,7 @@ export default function ArticlesPage() {
             size="sm"
             onClick={() => {
               if (!limits.hasBulkMode) {
-                toast.error("Factory Mode - PRO only");
+                toast.error("Массовая генерация доступна только на тарифе FACTORY");
                 return;
               }
               setMode("bulk");
@@ -2108,7 +2108,7 @@ export default function ArticlesPage() {
                 })()}
                 onFixIssue={async (issueKey, instruction) => {
                   if (!selectedKeywordId || !content.trim()) {
-                    toast.error("No content to fix");
+                    toast.error("Нет контента для исправления");
                     return;
                   }
                   setFixingIssue(issueKey);
@@ -2288,7 +2288,7 @@ export default function ArticlesPage() {
 
                       // Auto-generate SEO Title via AI
                       generateSeoTitle(fullContent);
-                      toast.success("Article optimized against TOP-10 benchmark");
+                      toast.success("Статья оптимизирована по ТОП-10 бенчмарку");
                     } catch (e: any) {
                       if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
                       else { toast.error(e.message); setContent(prevContent); }
