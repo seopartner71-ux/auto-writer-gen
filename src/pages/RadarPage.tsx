@@ -1019,8 +1019,11 @@ export default function RadarPage() {
                         {sentimentDonut.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                        wrapperStyle={{ zIndex: 50 }}
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, color: "hsl(var(--foreground))" }}
                         formatter={(value: number, name: string, item: any) => [`${item.payload.pct}%`, name]}
+                        itemStyle={{ color: "hsl(var(--foreground))" }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -1042,8 +1045,11 @@ export default function RadarPage() {
                         {sovDonut.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                        wrapperStyle={{ zIndex: 50 }}
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11, color: "hsl(var(--foreground))" }}
                         formatter={(value: number, name: string, item: any) => [`${item.payload.pct}%`, name]}
+                        itemStyle={{ color: "hsl(var(--foreground))" }}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
