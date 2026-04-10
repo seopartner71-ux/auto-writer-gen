@@ -178,7 +178,7 @@ export default function AuthorProfilesPage() {
           {!authors.some(a => a.is_miralinks_profile) && limits.hasMiralinks && (
             <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
               const { data: { user } } = await supabase.auth.getUser();
-              if (!user) { toast.error("Not authenticated"); return; }
+if (!user) { toast.error("Не авторизован"); return; }
               const { error } = await supabase.from("author_profiles").insert({
                 user_id: user.id, name: "Miralinks Expert", type: "custom",
                 is_miralinks_profile: true, is_gogetlinks_profile: false,
@@ -194,7 +194,7 @@ export default function AuthorProfilesPage() {
           {!authors.some(a => a.is_gogetlinks_profile) && limits.hasGoGetLinks && (
             <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
               const { data: { user } } = await supabase.auth.getUser();
-              if (!user) { toast.error("Not authenticated"); return; }
+              if (!user) { toast.error("Не авторизован"); return; }
               const { error } = await supabase.from("author_profiles").insert({
                 user_id: user.id, name: "GoGetLinks Expert", type: "custom",
                 is_gogetlinks_profile: true, is_miralinks_profile: false,
