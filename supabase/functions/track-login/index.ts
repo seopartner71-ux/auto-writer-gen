@@ -20,7 +20,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Decode JWT to get user_id
     const token = authHeader.replace("Bearer ", "");
     const payloadBase64 = token.split(".")[1];
     const payload = JSON.parse(atob(payloadBase64.replace(/-/g, "+").replace(/_/g, "/")));
@@ -33,12 +32,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get IP from headers (proxied requests)
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      req.headers.get("cf-connecting-ip") ||
-      "unknown";
+    // Try to get IP from request body (client-side detected) or headers
+    let clientIp = "unknown";
+    try {
+      const body = await req.json();
+      if (body?.client_ip && body.client_ip !== "unknown") {
+        clientIp = body.client_ip;
+      }
+    } catch { /* no body */ }
+
+    if (clientIp === "unknown") {
+      const cfIp = req.headers.get("cf-connecting-ip");
+      const trueClientIp = req.headers.get("true-client-ip");
+      const xff = req.headers.get("x-forwarded-for");
+      clientIp = cfIp || trueClientIp || (xff ? xff.split(",")[0].trim() : "unknown");
+    }
+
+    console.log("Resolved IP:", clientIp);
+
+    const ip = clientIp;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -49,7 +61,7 @@ Deno.serve(async (req) => {
       .update({ last_ip: ip, last_login_at: new Date().toISOString() })
       .eq("id", userId);
 
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ ok: true, ip }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
