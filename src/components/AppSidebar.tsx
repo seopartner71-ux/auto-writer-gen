@@ -79,7 +79,7 @@ export function AppSidebar() {
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
-    { title: "Мои статьи", url: "/my-articles", icon: BookMarked },
+    { title: t("nav.myArticles"), url: "/my-articles", icon: BookMarked },
     { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
     { title: "AI Radar", url: "/radar", icon: Radar },
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
@@ -89,11 +89,11 @@ export function AppSidebar() {
   const settingsItems = [
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
     { title: t("nav.wordpress"), url: "/wordpress", icon: Globe },
-    { title: "Интеграции", url: "/integrations", icon: Plug },
+    { title: t("nav.integrations"), url: "/integrations", icon: Plug },
     { title: t("nav.indexing"), url: "/indexing", icon: Zap },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
-    { title: "Поддержка", url: "/support", icon: LifeBuoy },
+    { title: t("nav.support"), url: "/support", icon: LifeBuoy },
   ];
 
   const adminItems = [
