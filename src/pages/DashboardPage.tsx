@@ -29,6 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 /* ──────────── Service Load Panel ──────────── */
 function ServiceLoadPanel() {
+  const { t } = useI18n();
   const { data, isLoading } = useQuery({
     queryKey: ["admin-service-load"],
     queryFn: async () => {
@@ -65,13 +66,13 @@ function ServiceLoadPanel() {
   const s = data || { gens24h: 0, gens1h: 0, activeUsers24h: 0, queued: 0, processing: 0, retry: 0, queueTotal: 0 };
   const queuePressure = s.queueTotal > 10 ? "high" : s.queueTotal > 3 ? "medium" : "low";
   const pressureColor = queuePressure === "high" ? "text-destructive" : queuePressure === "medium" ? "text-yellow-500" : "text-emerald-500";
-  const pressureLabel = queuePressure === "high" ? "Высокая" : queuePressure === "medium" ? "Средняя" : "Низкая";
+  const pressureLabel = queuePressure === "high" ? t("adminDash.pressureHigh") : queuePressure === "medium" ? t("adminDash.pressureMedium") : t("adminDash.pressureLow");
 
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
-          <Zap className="h-4 w-4 text-primary" /> Нагрузка на сервис
+          <Zap className="h-4 w-4 text-primary" /> {t("adminDash.serviceLoad")}
           <Badge variant="outline" className={`text-[10px] ${pressureColor} border-current`}>{pressureLabel}</Badge>
         </CardTitle>
       </CardHeader>
@@ -81,13 +82,13 @@ function ServiceLoadPanel() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
             {[
-              { label: "Генераций / 24ч", value: s.gens24h, color: "text-primary" },
-              { label: "Генераций / 1ч", value: s.gens1h, color: "text-emerald-500" },
-              { label: "Актив. юзеров 24ч", value: s.activeUsers24h, color: "text-accent" },
-              { label: "В очереди", value: s.queued, color: "text-yellow-500" },
-              { label: "В работе", value: s.processing, color: "text-primary" },
-              { label: "Повтор", value: s.retry, color: "text-orange-500" },
-              { label: "Всего в очереди", value: s.queueTotal, color: pressureColor },
+              { label: t("adminDash.gens24h"), value: s.gens24h, color: "text-primary" },
+              { label: t("adminDash.gens1h"), value: s.gens1h, color: "text-emerald-500" },
+              { label: t("adminDash.activeUsers24h"), value: s.activeUsers24h, color: "text-accent" },
+              { label: t("adminDash.inQueue"), value: s.queued, color: "text-yellow-500" },
+              { label: t("adminDash.processing"), value: s.processing, color: "text-primary" },
+              { label: t("adminDash.retry"), value: s.retry, color: "text-orange-500" },
+              { label: t("adminDash.totalInQueue"), value: s.queueTotal, color: pressureColor },
             ].map((m) => (
               <div key={m.label} className="text-center">
                 <p className={`text-xl font-bold ${m.color}`}>{m.value}</p>
@@ -103,6 +104,7 @@ function ServiceLoadPanel() {
 
 /* ──────────── Queue Monitor ──────────── */
 function QueueMonitor() {
+  const { t } = useI18n();
   const { data: queueStats, refetch, isLoading } = useQuery({
     queryKey: ["admin-queue-stats"],
     queryFn: async () => {
@@ -137,20 +139,20 @@ function QueueMonitor() {
     <Card className="bg-card border-border">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-sm flex items-center gap-2">
-          <ListOrdered className="h-4 w-4 text-primary" /> Очередь генерации
+          <ListOrdered className="h-4 w-4 text-primary" /> {t("adminDash.genQueue")}
         </CardTitle>
         <button onClick={handleTrigger} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} /> Обработать
+          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} /> {t("adminDash.process")}
         </button>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           {[
-            { label: "В очереди", value: s.queued, color: "text-yellow-500" },
-            { label: "В работе", value: s.processing, color: "text-primary" },
-            { label: "Повтор", value: s.retry, color: "text-orange-500" },
-            { label: "Готово", value: s.completed, color: "text-emerald-500" },
-            { label: "Ошибки", value: s.failed, color: "text-destructive" },
+            { label: t("adminDash.inQueue"), value: s.queued, color: "text-yellow-500" },
+            { label: t("adminDash.processing"), value: s.processing, color: "text-primary" },
+            { label: t("adminDash.retry"), value: s.retry, color: "text-orange-500" },
+            { label: t("adminDash.done"), value: s.completed, color: "text-emerald-500" },
+            { label: t("adminDash.errors"), value: s.failed, color: "text-destructive" },
           ].map((m) => (
             <div key={m.label} className="text-center">
               <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
@@ -162,7 +164,7 @@ function QueueMonitor() {
           <div className="mt-3">
             <Progress value={((s.completed / s.total) * 100)} className="h-1.5" />
             <p className="text-[10px] text-muted-foreground mt-1 text-center">
-              {s.completed} из {s.total} завершено ({s.processing} обрабатывается)
+              {s.completed} {t("adminDash.completedOf")} {s.total} {t("adminDash.completed")} ({s.processing} {t("adminDash.beingProcessed")})
             </p>
           </div>
         )}
