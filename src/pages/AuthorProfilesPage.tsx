@@ -142,7 +142,7 @@ export default function AuthorProfilesPage() {
       }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success("Профиль Miralinks сброшен к эталонным настройкам"); setResettingId(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success(t("authorPage.miralinksReset")); setResettingId(null); },
     onError: (e) => { toast.error(e.message); setResettingId(null); },
   });
 
@@ -158,7 +158,7 @@ export default function AuthorProfilesPage() {
       }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success("Профиль GoGetLinks сброшен к эталонным настройкам"); setResettingId(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); toast.success(t("authorPage.gogetlinksReset")); setResettingId(null); },
     onError: (e) => { toast.error(e.message); setResettingId(null); },
   });
 
@@ -178,7 +178,7 @@ export default function AuthorProfilesPage() {
           {!authors.some(a => a.is_miralinks_profile) && limits.hasMiralinks && (
             <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
               const { data: { user } } = await supabase.auth.getUser();
-if (!user) { toast.error("Не авторизован"); return; }
+if (!user) { toast.error(t("authorPage.notAuth")); return; }
               const { error } = await supabase.from("author_profiles").insert({
                 user_id: user.id, name: "Miralinks Expert", type: "custom",
                 is_miralinks_profile: true, is_gogetlinks_profile: false,
@@ -186,7 +186,7 @@ if (!user) { toast.error("Не авторизован"); return; }
               });
               if (error) { toast.error(error.message); return; }
               queryClient.invalidateQueries({ queryKey: ["author-profiles"] });
-              toast.success("Профиль Miralinks Expert создан");
+              toast.success(t("authorPage.miralinksCreated"));
             }}>
               <Link2 className="h-3.5 w-3.5" />Miralinks Expert
             </Button>
@@ -194,7 +194,7 @@ if (!user) { toast.error("Не авторизован"); return; }
           {!authors.some(a => a.is_gogetlinks_profile) && limits.hasGoGetLinks && (
             <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
               const { data: { user } } = await supabase.auth.getUser();
-              if (!user) { toast.error("Не авторизован"); return; }
+              if (!user) { toast.error(t("authorPage.notAuth")); return; }
               const { error } = await supabase.from("author_profiles").insert({
                 user_id: user.id, name: "GoGetLinks Expert", type: "custom",
                 is_gogetlinks_profile: true, is_miralinks_profile: false,
@@ -202,7 +202,7 @@ if (!user) { toast.error("Не авторизован"); return; }
               });
               if (error) { toast.error(error.message); return; }
               queryClient.invalidateQueries({ queryKey: ["author-profiles"] });
-              toast.success("Профиль GoGetLinks Expert создан");
+              toast.success(t("authorPage.gogetlinksCreated"));
             }}>
               <Link2 className="h-3.5 w-3.5" />GoGetLinks Expert
             </Button>
@@ -296,7 +296,7 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
       const { error } = await supabase.from("author_profiles").update({ system_instruction: editInstruction.trim() || null }).eq("id", author.id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); setInstructionDirty(false); toast.success("Промпт сохранён"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); setInstructionDirty(false); toast.success(t("authorPage.promptSaved")); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -337,13 +337,13 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
             {onResetMiralinks && (
               <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={() => { onResetMiralinks(); handleResetInstruction(); }} disabled={isResetting}>
                 {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                Сброс
+                {t("authorPage.reset")}
               </Button>
             )}
             {onResetGoGetLinks && (
               <Button variant="ghost" size="sm" className="text-xs gap-1 text-muted-foreground hover:text-primary" onClick={() => { onResetGoGetLinks(); handleResetInstruction(); }} disabled={isResetting}>
                 {isResetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                Сброс
+                {t("authorPage.reset")}
               </Button>
             )}
             <Button variant="ghost" size="icon" onClick={onToggle}>{expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</Button>
@@ -362,7 +362,7 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={handleResetInstruction}>
                     <RotateCcw className="h-3 w-3" />
-                    По умолчанию
+                    {t("authorPage.defaults")}
                   </Button>
                 </div>
               </div>
@@ -371,18 +371,18 @@ function AuthorCard({ author, expanded, onToggle, onDelete, onAnalyze, isAnalyzi
                 onChange={(e) => { setEditInstruction(e.target.value); setInstructionDirty(true); }}
                 rows={8}
                 className="bg-background font-mono text-sm leading-relaxed"
-                placeholder="Системный промпт для генерации..."
+                placeholder={t("authorPage.systemPromptPlaceholder")}
               />
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{editInstruction.length} зн.</p>
+                <p className="text-xs text-muted-foreground">{editInstruction.length} {t("authorPage.chars2")}</p>
                 <div className="flex gap-2">
                   {instructionDirty && (
                     <Button size="sm" onClick={() => saveInstruction.mutate()} disabled={saveInstruction.isPending}>
-                      {saveInstruction.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                      Сохранить
+                       {saveInstruction.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                       {t("authorPage.saveBtn")}
                     </Button>
                   )}
-                  {!instructionDirty && <span className="flex items-center text-xs text-success gap-1"><CheckCircle2 className="h-3 w-3" />Сохранено</span>}
+                  {!instructionDirty && <span className="flex items-center text-xs text-success gap-1"><CheckCircle2 className="h-3 w-3" />{t("authorPage.promptSavedState")}</span>}
                 </div>
               </div>
               {author.temperature && <p className="text-xs text-muted-foreground">Temperature: {Number(author.temperature)}</p>}
