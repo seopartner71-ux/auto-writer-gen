@@ -1408,24 +1408,8 @@ const translations: Record<string, Record<Lang, string>> = {
   "adminDash.articleDeleted": { ru: "Статья удалена", en: "Article deleted" },
   "adminDash.refresh": { ru: "Обновить", en: "Refresh" },
 
-  // Metrica
-  "metrica.title": { ru: "Яндекс.Метрика", en: "Yandex.Metrica" },
-  "metrica.today": { ru: "Сегодня", en: "Today" },
-  "metrica.yesterday": { ru: "Вчера", en: "Yesterday" },
-  "metrica.week": { ru: "Неделя", en: "Week" },
-  "metrica.month": { ru: "Месяц", en: "Month" },
-  "metrica.visits": { ru: "Визиты", en: "Visits" },
-  "metrica.visitors": { ru: "Посетители", en: "Visitors" },
-  "metrica.pageviews": { ru: "Просмотры", en: "Pageviews" },
-  "metrica.bounceRate": { ru: "Отказы", en: "Bounces" },
-  "metrica.time": { ru: "Время", en: "Time" },
-  "metrica.depth": { ru: "Глубина", en: "Depth" },
-  "metrica.goals": { ru: "Цели", en: "Goals" },
+  // Metrica (non-duplicate additions)
   "metrica.noGoals": { ru: "Цели не настроены в Метрике", en: "Goals not configured in Metrica" },
-  "metrica.loadError": { ru: "Ошибка загрузки", en: "Load error" },
-  "metrica.trafficChannels": { ru: "Каналы трафика", en: "Traffic Channels" },
-  "metrica.dailyVisits": { ru: "Посещаемость по дням", en: "Daily Visits" },
-  "metrica.sec": { ru: "сек", en: "sec" },
   "metrica.usersLabel": { ru: "Пользователи", en: "Users" },
 
   // Integrations Page
@@ -1475,21 +1459,11 @@ const translations: Record<string, Record<Lang, string>> = {
   "articles.boutique": { ru: "Boutique", en: "Boutique" },
   "articles.factory": { ru: "Factory", en: "Factory" },
   "articles.bulkProOnly": { ru: "Массовая генерация доступна только на тарифе FACTORY", en: "Bulk generation is available only on FACTORY plan" },
-  "articles.expertQuote": { ru: "Экспертная цитата", en: "Expert Quote" },
-  "articles.comparisonTable": { ru: "Таблица сравнения", en: "Comparison Table" },
   "articles.seoKeywords": { ru: "SEO ключевые слова (через запятую)", en: "SEO keywords (comma separated)" },
-  "articles.seoKeywordsPlaceholder": { ru: "Напр.: моторное масло для трактора, купить масло оптом", en: "E.g.: motor oil for tractor, buy oil wholesale" },
   "articles.addGeo": { ru: "Добавить гео-привязку", en: "Add geo-targeting" },
-  "articles.targetRegion": { ru: "Целевой регион/город", en: "Target region/city" },
-  "articles.targetRegionPlaceholder": { ru: "Напр.: Москва и МО, Екатеринбург, Arizona", en: "E.g.: Moscow, Yekaterinburg, Arizona" },
-  "articles.customInstructions": { ru: "Дополнительные пожелания (необязательно)", en: "Custom instructions (optional)" },
-  "articles.customInstructionsPlaceholder": { ru: "Напр.: упомянуть сертификат GMP, сослаться на бренд LA ROSSA", en: "E.g.: mention GMP certificate, reference LA ROSSA brand" },
   "articles.imagesInserted": { ru: "Вставлено иллюстраций", en: "Images inserted" },
   "articles.generatingImages": { ru: "Генерируем иллюстрации для статьи...", en: "Generating illustrations for article..." },
-  "articles.docDownloaded": { ru: "Файл .doc скачан — откройте в Google Docs", en: ".doc file downloaded — open in Google Docs" },
   "articles.faqGenerated": { ru: "FAQ и JSON-LD Schema сгенерированы", en: "FAQ and JSON-LD Schema generated" },
-  "articles.miralinksProOnly": { ru: "Miralinks Integration доступна только на тарифе PRO", en: "Miralinks Integration is available on PRO plan only" },
-  "articles.gogetlinksProOnly": { ru: "GoGetLinks Integration доступна только на тарифе PRO", en: "GoGetLinks Integration is available on PRO plan only" },
 };
 
 interface I18nContextValue {
