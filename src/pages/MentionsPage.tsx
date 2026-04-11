@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Download, CheckCircle2, XCircle, TrendingUp, Minus, Eye } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { motion } from "framer-motion";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 const AI_MODELS = [
   { key: "chatgpt", name: "ChatGPT", color: "#10a37f" },
@@ -22,14 +23,16 @@ const AI_MODELS = [
   { key: "llama", name: "Llama", color: "#8B5CF6" },
 ];
 
-const SENTIMENT_BADGE: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
-  positive: { label: "Позитив", variant: "default" },
-  negative: { label: "Негатив", variant: "destructive" },
-  neutral: { label: "Нейтрал", variant: "secondary" },
+const getSentimentBadge = (t: (k: string) => string): Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> => ({
+  positive: { label: t("mentions.sentPositive"), variant: "default" },
+  negative: { label: t("mentions.sentNegative"), variant: "destructive" },
+  neutral: { label: t("mentions.sentNeutral"), variant: "secondary" },
   not_found: { label: "—", variant: "secondary" },
-};
+});
 
 export default function MentionsPage({ projectId }: { projectId?: string }) {
+  const { t } = useI18n();
+  const SENTIMENT_BADGE = getSentimentBadge(t);
   const [selectedModel, setSelectedModel] = useState("all");
   const [selectedGroup, setSelectedGroup] = useState("all");
   const [sentimentFilter, setSentimentFilter] = useState("all");
@@ -167,52 +170,52 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
   };
 
   if (!projectId) {
-    return <div className="text-center py-12 text-muted-foreground">Выберите проект для просмотра позиций</div>;
+    return <div className="text-center py-12 text-muted-foreground">{t("mentions.selectProject")}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Позиции и Упоминания</h2>
-          <p className="text-muted-foreground text-sm">Отслеживание присутствия бренда в ответах AI</p>
+          <h2 className="text-xl font-bold tracking-tight">{t("mentions.title")}</h2>
+          <p className="text-muted-foreground text-sm">{t("mentions.subtitle")}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-2" />Экспорт CSV</Button>
+        <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-2" />{t("mentions.exportCsv")}</Button>
       </div>
 
       <Card>
         <CardContent className="pt-4 pb-3">
           <div className="flex flex-wrap gap-3">
             <Select value={selectedModel} onValueChange={setSelectedModel}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="AI Модель" /></SelectTrigger>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder={t("mentions.aiModelPlaceholder")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все модели</SelectItem>
+                <SelectItem value="all">{t("mentions.allModels")}</SelectItem>
                 {AI_MODELS.map(m => <SelectItem key={m.key} value={m.key}>{m.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Группа" /></SelectTrigger>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder={t("mentions.groupPlaceholder")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="unassigned">Без группы</SelectItem>
+                <SelectItem value="all">{t("mentions.all")}</SelectItem>
+                <SelectItem value="unassigned">{t("mentions.noGroup")}</SelectItem>
                 {groups.map((g: any) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={mentionFilter} onValueChange={setMentionFilter}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Упоминание" /></SelectTrigger>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder={t("mentions.mentionPlaceholder")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="yes">Упомянут</SelectItem>
-                <SelectItem value="no">Не упомянут</SelectItem>
+                <SelectItem value="all">{t("mentions.all")}</SelectItem>
+                <SelectItem value="yes">{t("mentions.mentionedLabel")}</SelectItem>
+                <SelectItem value="no">{t("mentions.notMentionedLabel")}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={sentimentFilter} onValueChange={setSentimentFilter}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Тональность" /></SelectTrigger>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder={t("mentions.sentimentPlaceholder")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="positive">Позитив</SelectItem>
-                <SelectItem value="negative">Негатив</SelectItem>
-                <SelectItem value="neutral">Нейтрал</SelectItem>
+                <SelectItem value="all">{t("mentions.all")}</SelectItem>
+                <SelectItem value="positive">{t("mentions.sentPositive")}</SelectItem>
+                <SelectItem value="negative">{t("mentions.sentNegative")}</SelectItem>
+                <SelectItem value="neutral">{t("mentions.sentNeutral")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -221,18 +224,18 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
 
       <Tabs defaultValue="summary" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="summary">Сводка</TabsTrigger>
-          <TabsTrigger value="brand-history">История бренда</TabsTrigger>
-          <TabsTrigger value="site-history">Динамика</TabsTrigger>
+          <TabsTrigger value="summary">{t("mentions.summary")}</TabsTrigger>
+          <TabsTrigger value="brand-history">{t("mentions.brandHistory")}</TabsTrigger>
+          <TabsTrigger value="site-history">{t("mentions.dynamics")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="summary" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
-              { label: "Видимость", value: `${visibilityPct}%`, icon: TrendingUp },
-              { label: "Всего проверок", value: totalChecks, icon: CheckCircle2 },
-              { label: "Упоминания", value: totalMentions, icon: CheckCircle2 },
-              { label: "Позитивных", value: `${positivePct}%`, icon: TrendingUp },
+              { label: t("mentions.visibility"), value: `${visibilityPct}%`, icon: TrendingUp },
+              { label: t("mentions.totalChecks"), value: totalChecks, icon: CheckCircle2 },
+              { label: t("mentions.mentionsCount"), value: totalMentions, icon: CheckCircle2 },
+              { label: t("mentions.positiveLabel"), value: `${positivePct}%`, icon: TrendingUp },
             ].map((kpi, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                 <Card>
@@ -249,13 +252,13 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
           </div>
 
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Детали по запросам</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">{t("mentions.queryDetails")}</CardTitle></CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[250px]">Запрос</TableHead>
+                      <TableHead className="min-w-[250px]">{t("mentions.queryLabel")}</TableHead>
                       {visibleModels.map(m => (
                         <TableHead key={m.key} className="text-center min-w-[100px]">{m.name}</TableHead>
                       ))}
@@ -276,7 +279,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
                                 <button
                                   onClick={() => setViewResult({ ...r, queryText: item.text, modelName: m.name })}
                                   className="flex flex-col items-center gap-1 mx-auto cursor-pointer hover:opacity-80 transition-opacity group"
-                                  title="Нажмите для просмотра ответа"
+                                  title={t("mentions.clickToView")}
                                 >
                                   {mentioned ? <CheckCircle2 className="h-4 w-4 text-green-500 group-hover:scale-110 transition-transform" /> : <XCircle className="h-4 w-4 text-destructive group-hover:scale-110 transition-transform" />}
                                   <Badge variant={SENTIMENT_BADGE[r.sentiment]?.variant || "secondary"} className="text-[10px] px-1.5 cursor-pointer">
@@ -290,7 +293,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
                       );
                     })}
                     {filteredItems.length === 0 && (
-                      <TableRow><TableCell colSpan={visibleModels.length + 1} className="text-center text-muted-foreground py-8">Добавьте промпты или запросы для анализа</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={visibleModels.length + 1} className="text-center text-muted-foreground py-8">{t("mentions.addPrompts")}</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -301,7 +304,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
 
         <TabsContent value="brand-history">
           <Card>
-            <CardHeader><CardTitle className="text-base">Видимость бренда по моделям</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t("mentions.brandByModels")}</CardTitle></CardHeader>
             <CardContent>
               <div className="h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -320,7 +323,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
 
         <TabsContent value="site-history">
           <Card>
-            <CardHeader><CardTitle className="text-base">Динамика позиций по дням</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t("mentions.dynamicsByDays")}</CardTitle></CardHeader>
             <CardContent>
               <div className="h-[350px]">
                 {historyData.length > 0 ? (
@@ -338,7 +341,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                    Запустите сканирование для получения данных
+                    {t("mentions.runScanForData")}
                   </div>
                 )}
               </div>
@@ -353,7 +356,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-4 w-4" />
-              Ответ {viewResult?.modelName}
+              {t("mentions.response")} {viewResult?.modelName}
               {viewResult?.sentiment && (
                 <Badge variant={SENTIMENT_BADGE[viewResult.sentiment]?.variant || "secondary"} className="ml-2">
                   {SENTIMENT_BADGE[viewResult.sentiment]?.label || viewResult.sentiment}
@@ -361,7 +364,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
               )}
             </DialogTitle>
             <DialogDescription>
-              Запрос: <span className="font-medium text-foreground">{viewResult?.queryText}</span>
+              {t("mentions.queryLabel")}: <span className="font-medium text-foreground">{viewResult?.queryText}</span>
               <span className="text-xs ml-2">
                 {viewResult?.checked_at && new Date(viewResult.checked_at).toLocaleString()}
               </span>
@@ -372,19 +375,19 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2 text-xs">
                 <Badge variant={viewResult.is_brand_found || viewResult.brand_mentioned ? "default" : "destructive"}>
-                  {viewResult.is_brand_found || viewResult.brand_mentioned ? "✓ Бренд найден" : "✗ Бренд не найден"}
+                  {viewResult.is_brand_found || viewResult.brand_mentioned ? `✓ ${t("mentions.brandFound")}` : `✗ ${t("mentions.brandNotFound")}`}
                 </Badge>
                 {(viewResult.is_domain_found || viewResult.domain_linked) && (
-                  <Badge variant="default">✓ Домен найден</Badge>
+                  <Badge variant="default">✓ {t("mentions.domainFound")}</Badge>
                 )}
                 {viewResult.competitor_domains?.length > 0 && (
-                  <Badge variant="secondary">Конкуренты: {viewResult.competitor_domains.join(", ")}</Badge>
+                  <Badge variant="secondary">{t("mentions.competitors")}: {viewResult.competitor_domains.join(", ")}</Badge>
                 )}
               </div>
 
               {viewResult.matched_snippets?.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium mb-2">Найденные фрагменты:</p>
+                  <p className="text-sm font-medium mb-2">{t("mentions.foundSnippets")}:</p>
                   <div className="space-y-1">
                     {viewResult.matched_snippets.map((s: string, i: number) => (
                       <div key={i} className="text-sm bg-primary/10 rounded px-3 py-1.5 border-l-2 border-primary">
@@ -397,7 +400,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
 
               {viewResult.ai_response_text && (
                 <div>
-                  <p className="text-sm font-medium mb-2">Полный ответ ИИ:</p>
+                  <p className="text-sm font-medium mb-2">{t("mentions.fullAiResponse")}:</p>
                   <div className="text-sm whitespace-pre-wrap bg-muted/30 rounded-lg p-4 border border-border max-h-[400px] overflow-y-auto leading-relaxed">
                     {viewResult.ai_response_text}
                   </div>
@@ -406,7 +409,7 @@ export default function MentionsPage({ projectId }: { projectId?: string }) {
 
               {viewResult.sources && Array.isArray(viewResult.sources) && viewResult.sources.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium mb-2">Источники:</p>
+                  <p className="text-sm font-medium mb-2">{t("mentions.sources")}:</p>
                   <div className="space-y-1">
                     {viewResult.sources.map((src: any, i: number) => (
                       <a key={i} href={typeof src === "string" ? src : src.url} target="_blank" rel="noopener noreferrer"
