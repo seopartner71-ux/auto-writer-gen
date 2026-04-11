@@ -531,7 +531,7 @@ export default function ArticlesPage() {
       const h2Count = (articleContent.match(/^##\s+/gm) || []).length;
       if (h2Count === 0) return;
 
-      toast.info("Генерируем иллюстрации для статьи...");
+      toast.info(t("articles.generatingImages"));
 
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pro-image`, {
         method: "POST",
@@ -572,7 +572,7 @@ export default function ArticlesPage() {
           }
           return result;
         });
-        toast.success(`Вставлено ${images.length} иллюстраций`);
+        toast.success(`${t("articles.imagesInserted")}: ${images.length}`);
       }
     } catch {
       // Best-effort, don't block the flow
@@ -618,12 +618,12 @@ export default function ArticlesPage() {
     const isMiralinks = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile;
     if (isMiralinks) {
       if (!limits.hasMiralinks) {
-        toast.error("Miralinks Integration доступна только на тарифе PRO");
+        toast.error(t("articles.miralinksProOnly"));
         return;
       }
       const filledLinks = miralinksLinks.filter(l => l.url.trim() && l.anchor.trim());
       if (filledLinks.length === 0) {
-        toast.error("Заполните минимум одну ссылку (URL + Анкор) в виджете Miralinks");
+        toast.error(t("articles.miralinksMinLink"));
         return;
       }
     }
@@ -632,12 +632,12 @@ export default function ArticlesPage() {
     const isGoGetLinks = selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile;
     if (isGoGetLinks) {
       if (!limits.hasGoGetLinks) {
-        toast.error("GoGetLinks Integration доступна только на тарифе PRO");
+        toast.error(t("articles.gogetlinksProOnly"));
         return;
       }
       const filledLinks = gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim());
       if (filledLinks.length === 0) {
-        toast.error("Заполните минимум одну ссылку (URL + Анкор) в виджете GoGetLinks");
+        toast.error(t("articles.gogetlinksMinLink"));
         return;
       }
     }
@@ -921,7 +921,7 @@ export default function ArticlesPage() {
       if (data.faq_schema) schemas.push(data.faq_schema);
       setSchemaJson(JSON.stringify(schemas, null, 2));
       if (data.faq_text_block) setFaqTextBlock(data.faq_text_block);
-      toast.success("FAQ и JSON-LD Schema сгенерированы");
+      toast.success(t("articles.faqGenerated"));
     },
     onError: (e) => toast.error(e.message),
   });
@@ -1018,7 +1018,7 @@ export default function ArticlesPage() {
             size="sm"
             onClick={() => {
               if (!limits.hasBulkMode) {
-                toast.error("Массовая генерация доступна только на тарифе FACTORY");
+                toast.error(t("articles.bulkProOnly"));
                 return;
               }
               setMode("bulk");
@@ -1150,7 +1150,7 @@ export default function ArticlesPage() {
             }`}
           >
             <Quote className={`h-3.5 w-3.5 ${includeExpertQuote ? 'text-purple-400' : 'text-slate-500'}`} />
-            Экспертная цитата
+            {t("articles.expertQuote")}
           </button>
           <button
             type="button"
@@ -1162,7 +1162,7 @@ export default function ArticlesPage() {
             }`}
           >
             <Table2 className={`h-3.5 w-3.5 ${includeComparisonTable ? 'text-purple-400' : 'text-slate-500'}`} />
-            Таблица сравнения
+            {t("articles.comparisonTable")}
           </button>
         </div>
 
@@ -1171,12 +1171,12 @@ export default function ArticlesPage() {
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <Search className="h-3 w-3" />
-              SEO ключевые слова (через запятую)
+              {t("articles.seoKeywords")}
             </Label>
             <Input
               value={seoKeywords}
               onChange={(e) => setSeoKeywords(e.target.value)}
-              placeholder="Напр.: моторное масло для трактора, купить масло оптом"
+              placeholder={t("articles.seoKeywordsPlaceholder")}
               className="h-8 text-sm bg-muted/30"
             />
           </div>
@@ -1190,17 +1190,17 @@ export default function ArticlesPage() {
             />
             <label htmlFor="geo-toggle" className="text-sm text-foreground cursor-pointer flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-              Добавить гео-привязку
+              {t("articles.addGeo")}
             </label>
           </div>
 
           {enableGeo && (
             <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-              <Label className="text-[11px] text-muted-foreground">Целевой регион/город</Label>
+              <Label className="text-[11px] text-muted-foreground">{t("articles.targetRegion")}</Label>
               <Input
                 value={geoLocation}
                 onChange={(e) => setGeoLocation(e.target.value)}
-                placeholder="Напр.: Москва и МО, Екатеринбург, Arizona"
+                placeholder={t("articles.targetRegionPlaceholder")}
                 className="h-8 text-sm bg-muted/30"
               />
             </div>
@@ -1209,12 +1209,12 @@ export default function ArticlesPage() {
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <MessageSquarePlus className="h-3 w-3" />
-              Дополнительные пожелания (необязательно)
+              {t("articles.customInstructions")}
             </Label>
             <Textarea
               value={customInstructions}
               onChange={(e) => setCustomInstructions(e.target.value)}
-              placeholder="Напр.: упомянуть сертификат GMP, сослаться на бренд LA ROSSA"
+              placeholder={t("articles.customInstructionsPlaceholder")}
               className="min-h-[72px] text-sm bg-muted/30 resize-y"
               rows={3}
             />
@@ -1458,7 +1458,7 @@ export default function ArticlesPage() {
                         a.download = `${(title || "article").replace(/[^a-zA-Zа-яА-ЯёЁ0-9_-]/g, "_")}.doc`;
                         a.click();
                         URL.revokeObjectURL(url);
-                        toast.success("Файл .doc скачан — откройте в Google Docs");
+                        toast.success(t("articles.docDownloaded"));
                       }}
                     >
                       <FileText className="h-3 w-3 mr-1" />

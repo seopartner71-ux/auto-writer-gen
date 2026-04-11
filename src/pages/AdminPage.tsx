@@ -34,17 +34,17 @@ export default function AdminPage() {
           <TabsTrigger value="vault">API Vault</TabsTrigger>
           <TabsTrigger value="routing">Model Routing</TabsTrigger>
           <TabsTrigger value="health">Health Check</TabsTrigger>
-          <TabsTrigger value="errors">🔴 Логи ошибок</TabsTrigger>
+          <TabsTrigger value="errors">{t("admin.tabErrors")}</TabsTrigger>
           <TabsTrigger value="users">{t("admin.users")}</TabsTrigger>
           <TabsTrigger value="content">{t("admin.content")}</TabsTrigger>
           <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
-          <TabsTrigger value="plans">Тарифы</TabsTrigger>
-          <TabsTrigger value="polar">Платежи</TabsTrigger>
-          <TabsTrigger value="support">Поддержка</TabsTrigger>
+          <TabsTrigger value="plans">{t("admin.tabPlans")}</TabsTrigger>
+          <TabsTrigger value="polar">{t("admin.tabPayments")}</TabsTrigger>
+          <TabsTrigger value="support">{t("admin.tabSupport")}</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
-          <TabsTrigger value="legal">Юр. страницы</TabsTrigger>
-          <TabsTrigger value="queue">Очередь</TabsTrigger>
-          <TabsTrigger value="payments">💰 Платежи-лог</TabsTrigger>
+          <TabsTrigger value="legal">{t("admin.tabLegal")}</TabsTrigger>
+          <TabsTrigger value="queue">{t("admin.tabQueue")}</TabsTrigger>
+          <TabsTrigger value="payments">{t("admin.tabPaymentLogs")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
