@@ -80,6 +80,89 @@ async function testSerper(apiKey: string): Promise<TestResult> {
   }
 }
 
+async function fetchErrorLogs(supabaseUrl: string, supabaseServiceKey: string, source: string) {
+  const apiUrl = `${supabaseUrl}/analytics/v1/query`;
+  const headers = {
+    "Content-Type": "application/json",
+    "apikey": supabaseServiceKey,
+    "Authorization": `Bearer ${supabaseServiceKey}`,
+  };
+
+  let query = "";
+  if (source === "db") {
+    query = `select id, postgres_logs.timestamp, event_message, parsed.error_severity from postgres_logs
+      cross join unnest(metadata) as m
+      cross join unnest(m.parsed) as parsed
+      where parsed.error_severity in ('ERROR', 'FATAL', 'PANIC', 'WARNING')
+      order by timestamp desc
+      limit 50`;
+  } else if (source === "edge") {
+    query = `select id, function_edge_logs.timestamp, event_message, response.status_code, m.function_id, m.execution_time_ms from function_edge_logs
+      cross join unnest(metadata) as m
+      cross join unnest(m.response) as response
+      where response.status_code >= 400
+      order by timestamp desc
+      limit 50`;
+  } else if (source === "auth") {
+    query = `select id, auth_logs.timestamp, event_message, metadata.level, metadata.status, metadata.path, metadata.msg as msg, metadata.error from auth_logs
+      cross join unnest(metadata) as metadata
+      where metadata.error is not null or metadata.status::int >= 400
+      order by timestamp desc
+      limit 50`;
+  }
+
+  if (!query) return [];
+
+  try {
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query }),
+    });
+
+    if (!res.ok) {
+      console.error("Analytics query failed:", res.status, await res.text());
+      return [];
+    }
+
+    const data = await res.json();
+    const rows = data?.result || data || [];
+
+    return rows.map((row: Record<string, unknown>, i: number) => {
+      if (source === "db") {
+        return {
+          id: String(row.id || i),
+          timestamp: String(row.timestamp || ""),
+          message: String(row.event_message || ""),
+          level: String(row.error_severity || "ERROR"),
+          source: "PostgreSQL",
+        };
+      } else if (source === "edge") {
+        return {
+          id: String(row.id || i),
+          timestamp: String(row.timestamp || ""),
+          message: String(row.event_message || ""),
+          level: Number(row.status_code) >= 500 ? "ERROR" : "WARNING",
+          source: `Function ${String(row.function_id || "unknown").slice(0, 8)}`,
+          details: `Status: ${row.status_code}, Time: ${row.execution_time_ms}ms`,
+        };
+      } else {
+        return {
+          id: String(row.id || i),
+          timestamp: String(row.timestamp || ""),
+          message: String(row.error || row.msg || row.event_message || ""),
+          level: String(row.level || "error").toUpperCase(),
+          source: `Auth ${row.path || ""}`,
+          details: row.status ? `Status: ${row.status}` : undefined,
+        };
+      }
+    });
+  } catch (e) {
+    console.error("Error fetching logs:", e);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -110,7 +193,23 @@ serve(async (req) => {
 
     if (!roleData) throw new Error("Forbidden: admin role required");
 
-    // Get all API keys
+    // Check if this is an error-logs request
+    let body: Record<string, unknown> = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body = health check request
+    }
+
+    if (body.action === "error-logs") {
+      const source = String(body.source || "db");
+      const logs = await fetchErrorLogs(supabaseUrl, supabaseServiceKey, source);
+      return new Response(JSON.stringify({ logs }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Original health check logic
     const { data: keys, error: keysError } = await supabaseAdmin
       .from("api_keys")
       .select("*");
@@ -136,7 +235,6 @@ serve(async (req) => {
         const result = await tester(key.api_key);
         results.push(result);
 
-        // Update is_valid and last_checked_at
         await supabaseAdmin
           .from("api_keys")
           .update({
