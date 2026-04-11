@@ -395,6 +395,7 @@ function MetricaWidget() {
 
 /* ──────────── Online Users Panel ──────────── */
 function OnlineUsersPanel() {
+  const { t } = useI18n();
   const { data, isLoading } = useQuery({
     queryKey: ["admin-online-users"],
     queryFn: async () => {
@@ -435,7 +436,7 @@ function OnlineUsersPanel() {
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Users className="h-4 w-4 text-emerald-500" />
-          Онлайн сейчас
+          {t("adminDash.onlineNow")}
           <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/50">{users.length}</Badge>
         </CardTitle>
       </CardHeader>
@@ -443,7 +444,7 @@ function OnlineUsersPanel() {
         {isLoading ? (
           <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
         ) : users.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-3">Нет активных пользователей</p>
+          <p className="text-xs text-muted-foreground text-center py-3">{t("adminDash.noActiveUsers")}</p>
         ) : (
           <div className="space-y-2">
             {users.map((u: any) => (
@@ -463,6 +464,7 @@ function OnlineUsersPanel() {
 
 /* ──────────── Admin Dashboard ──────────── */
 function AdminDashboard() {
+  const { t } = useI18n();
   const { data: profiles = [] } = useQuery({
     queryKey: ["admin-dashboard-profiles"],
     queryFn: async () => {
@@ -580,17 +582,17 @@ function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Панель управления</h1>
-        <p className="text-muted-foreground mt-1">Обзор платформы и пользователей</p>
+        <h1 className="text-2xl font-semibold">{t("adminDash.title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("adminDash.subtitle")}</p>
       </div>
 
       {/* KPI */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Всего пользователей", value: stats.total, icon: Users, color: "text-primary" },
-          { label: "Активных", value: stats.active, icon: UserCheck, color: "text-emerald-500" },
-          { label: "Ожидают активации", value: stats.pending, icon: UserX, color: "text-yellow-500" },
-          { label: "Всего статей", value: stats.totalArticles, icon: FileText, color: "text-accent" },
+          { label: t("adminDash.totalUsers"), value: stats.total, icon: Users, color: "text-primary" },
+          { label: t("adminDash.activeUsers"), value: stats.active, icon: UserCheck, color: "text-emerald-500" },
+          { label: t("adminDash.pendingActivation"), value: stats.pending, icon: UserX, color: "text-yellow-500" },
+          { label: t("adminDash.totalArticles"), value: stats.totalArticles, icon: FileText, color: "text-accent" },
         ].map((s) => (
           <Card key={s.label} className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -608,16 +610,16 @@ function AdminDashboard() {
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" /> Активность сегодня
+            <Zap className="h-4 w-4 text-primary" /> {t("adminDash.todayActivity")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: "Новых юзеров", value: stats.regToday, color: "text-primary" },
-              { label: "Статей создано", value: stats.articlesToday, color: "text-emerald-500" },
-              { label: "Генераций", value: stats.gensToday, color: "text-yellow-500" },
-              { label: "Токенов", value: stats.tokensToday.toLocaleString(), color: "text-accent" },
+              { label: t("adminDash.newUsers"), value: stats.regToday, color: "text-primary" },
+              { label: t("adminDash.articlesCreated"), value: stats.articlesToday, color: "text-emerald-500" },
+              { label: t("adminDash.generations"), value: stats.gensToday, color: "text-yellow-500" },
+              { label: t("adminDash.tokens"), value: stats.tokensToday.toLocaleString(), color: "text-accent" },
             ].map((m) => (
               <div key={m.label} className="text-center">
                 <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
@@ -632,18 +634,18 @@ function AdminDashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <CreditCard className="h-4 w-4" /> Кредиты в системе
+              <CreditCard className="h-4 w-4" /> {t("adminDash.creditsInSystem")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{stats.totalCredits}</p>
-            <p className="text-xs text-muted-foreground mt-1">Суммарный баланс всех пользователей</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("adminDash.totalBalance")}</p>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <Hash className="h-4 w-4" /> AI-токены
+              <Hash className="h-4 w-4" /> {t("adminDash.aiTokens")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -654,7 +656,7 @@ function AdminDashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" /> Тарифы
+              <TrendingUp className="h-4 w-4" /> {t("adminDash.tariffs")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -678,20 +680,20 @@ function AdminDashboard() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">Нет данных</p>
+              <p className="text-xs text-muted-foreground">{t("adminDash.noData")}</p>
             )}
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-              <Zap className="h-4 w-4" /> Доход / мес
+              <Zap className="h-4 w-4" /> {t("adminDash.revenueMonth")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{stats.monthlyRevenue.toLocaleString()} ₽</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Активные подписки × цена тарифа
+              {t("adminDash.activeSubscriptions")}
             </p>
           </CardContent>
         </Card>
@@ -700,7 +702,7 @@ function AdminDashboard() {
       {/* Registration chart */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Регистрации за 30 дней</CardTitle>
+          <CardTitle className="text-sm">{t("adminDash.reg30days")}</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={200}>
@@ -738,7 +740,7 @@ function AdminDashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" /> Топ пользователей по статьям
+              <BarChart3 className="h-4 w-4" /> {t("adminDash.topUsersByArticles")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -750,12 +752,12 @@ function AdminDashboard() {
                       <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
                       <span className="font-mono text-xs truncate max-w-[200px]">{u.email}</span>
                     </div>
-                    <Badge variant="outline" className="text-xs shrink-0">{u.count} статей</Badge>
+                    <Badge variant="outline" className="text-xs shrink-0">{u.count} {t("adminDash.articles")}</Badge>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">Нет данных</p>
+              <p className="text-xs text-muted-foreground text-center py-4">{t("adminDash.noData")}</p>
             )}
           </CardContent>
         </Card>
@@ -763,7 +765,7 @@ function AdminDashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Последние регистрации
+              <Clock className="h-4 w-4" /> {t("adminDash.recentRegistrations")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -775,7 +777,7 @@ function AdminDashboard() {
                       <span className="font-mono text-xs truncate max-w-[200px]">{u.email}</span>
                       {!u.is_active && (
                         <Badge variant="outline" className="text-[10px] border-yellow-500/50 text-yellow-500 px-1.5 py-0">
-                          Ожидает
+                          {t("adminDash.pending")}
                         </Badge>
                       )}
                     </div>
@@ -786,7 +788,7 @@ function AdminDashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-4">Нет данных</p>
+              <p className="text-xs text-muted-foreground text-center py-4">{t("adminDash.noData")}</p>
             )}
           </CardContent>
         </Card>
@@ -1035,7 +1037,7 @@ export default function DashboardPage() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Send className="h-4 w-4" /> Публикации
+              <Send className="h-4 w-4" /> {t("adminDash.publications")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1120,10 +1122,10 @@ export default function DashboardPage() {
                         title="Удалить"
                         onClick={async () => {
                           const { error } = await supabase.functions.invoke("delete-content", { body: { type: "keyword", id: kw.id } });
-                          if (error) { toast.error("Ошибка: " + error.message); return; }
+                          if (error) { toast.error(`${t("adminDash.errorDelete")}: ${error.message}`); return; }
                           queryClient.invalidateQueries({ queryKey: ["dashboard-keywords"] });
                           queryClient.invalidateQueries({ queryKey: ["dashboard-articles"] });
-                          toast.success("Ключевое слово удалено");
+                          toast.success(t("adminDash.keywordDeleted"));
                         }}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -1161,9 +1163,9 @@ export default function DashboardPage() {
                           title="Удалить"
                           onClick={async () => {
                             const { error } = await supabase.functions.invoke("delete-content", { body: { type: "article", id: a.id } });
-                            if (error) { toast.error("Ошибка: " + error.message); return; }
+                            if (error) { toast.error(`${t("adminDash.errorDelete")}: ${error.message}`); return; }
                             queryClient.invalidateQueries({ queryKey: ["dashboard-articles"] });
-                            toast.success("Статья удалена");
+                            toast.success(t("adminDash.articleDeleted"));
                           }}
                         >
                           <Trash2 className="h-3 w-3" />
