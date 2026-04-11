@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Copy, Trash2, Check, FileText, Loader2 } from "lucide-react";
@@ -47,9 +47,9 @@ export default function MyArticlesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-articles-list"] });
-      toast.success("Статья удалена");
+      toast.success(t("myArticles.deleted"));
     },
-    onError: () => toast.error("Ошибка удаления"),
+    onError: () => toast.error(t("myArticles.deleteError")),
   });
 
   const deleteAllMutation = useMutation({
@@ -61,16 +61,16 @@ export default function MyArticlesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-articles-list"] });
-      toast.success("Все статьи удалены");
+      toast.success(t("myArticles.allDeleted"));
     },
-    onError: () => toast.error("Ошибка удаления"),
+    onError: () => toast.error(t("myArticles.deleteError")),
   });
 
   const handleCopy = async (article: any) => {
     const text = article.content || article.title || "";
     await navigator.clipboard.writeText(text);
     setCopiedId(article.id);
-    toast.success("Скопировано в буфер обмена");
+    toast.success(t("myArticles.copied"));
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -78,9 +78,9 @@ export default function MyArticlesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Мои статьи</h1>
+          <h1 className="text-2xl font-bold">{t("myArticles.title")}</h1>
           <p className="text-muted-foreground text-sm">
-            Все сгенерированные статьи — {articles.length} шт.
+            {t("myArticles.subtitleCount")} — {articles.length} {t("myArticles.pcs")}
           </p>
         </div>
         {articles.length > 0 && (
@@ -88,23 +88,23 @@ export default function MyArticlesPage() {
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="sm" disabled={deleteAllMutation.isPending}>
                 <Trash2 className="h-4 w-4 mr-1" />
-                Удалить все
+                {t("myArticles.deleteAll")}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Удалить все статьи?</AlertDialogTitle>
+                <AlertDialogTitle>{t("myArticles.deleteAllTitle")}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Это действие необратимо. Все {articles.length} статей будут удалены навсегда.
+                  {t("myArticles.deleteAllDesc")} ({articles.length})
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => deleteAllMutation.mutate()}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  Удалить все
+                  {t("myArticles.deleteAll")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -121,17 +121,17 @@ export default function MyArticlesPage() {
           ) : articles.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <FileText className="h-12 w-12 mb-3 opacity-40" />
-              <p className="text-lg font-medium">Нет статей</p>
-              <p className="text-sm">Сгенерируйте первую статью в разделе «Статьи»</p>
+              <p className="text-lg font-medium">{t("myArticles.noArticles")}</p>
+              <p className="text-sm">{t("myArticles.generateFirst")}</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
                   <TableHead className="w-16">№</TableHead>
-                  <TableHead>Заголовок</TableHead>
-                  <TableHead className="w-40">Дата генерации</TableHead>
-                  <TableHead className="w-32 text-right">Действия</TableHead>
+                  <TableHead>{t("myArticles.heading")}</TableHead>
+                  <TableHead className="w-40">{t("myArticles.dateGen")}</TableHead>
+                  <TableHead className="w-32 text-right">{t("myArticles.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -142,7 +142,7 @@ export default function MyArticlesPage() {
                     </TableCell>
                     <TableCell className="font-medium max-w-[400px]">
                       <span className="line-clamp-2">
-                        {article.title || "Без заголовка"}
+                        {article.title || t("myArticles.noTitle")}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -156,7 +156,7 @@ export default function MyArticlesPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleCopy(article)}
-                          title="Копировать"
+                          title={t("common.copy")}
                         >
                           {copiedId === article.id ? (
                             <Check className="h-4 w-4 text-success" />
@@ -169,7 +169,7 @@ export default function MyArticlesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              title="Удалить"
+                              title={t("common.delete")}
                               disabled={deleteMutation.isPending}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -177,18 +177,18 @@ export default function MyArticlesPage() {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Удалить статью?</AlertDialogTitle>
+                              <AlertDialogTitle>{t("myArticles.deleteTitle")}</AlertDialogTitle>
                               <AlertDialogDescription>
-                                «{article.title || "Без заголовка"}» будет удалена навсегда.
+                                «{article.title || t("myArticles.noTitle")}» {t("myArticles.willBeDeleted")}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Отмена</AlertDialogCancel>
+                              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => deleteMutation.mutate(article.id)}
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               >
-                                Удалить
+                                {t("common.delete")}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
