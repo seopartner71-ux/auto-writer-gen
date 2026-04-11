@@ -53,9 +53,9 @@ export default function IntegrationsPage() {
         } as any)
         .eq("id", user.id);
       if (error) throw error;
-      toast.success("Интеграции сохранены");
+      toast.success(t("integrations.saved"));
     } catch (e: any) {
-      toast.error(e.message || "Ошибка сохранения");
+      toast.error(e.message || t("integrations.saveError"));
     } finally {
       setIsSaving(false);
     }
@@ -65,8 +65,8 @@ export default function IntegrationsPage() {
     {
       name: "Telegra.ph",
       badge: "success" as const,
-      status: "Готово",
-      description: "Моментальная публикация без авторизации. Статья публикуется в один клик прямо из редактора.",
+      status: t("integrations.telegraphReady"),
+      description: t("integrations.telegraphPlatformDesc"),
       configured: true,
       docUrl: "https://telegra.ph",
       docLabel: "telegra.ph",
@@ -74,17 +74,17 @@ export default function IntegrationsPage() {
     {
       name: "Ghost",
       badge: ghostUrl && ghostApiKey ? "success" as const : "outline" as const,
-      status: ghostUrl && ghostApiKey ? "Настроено" : "Требует настройки",
-      description: "Популярная SEO-платформа для блогов. Статьи публикуются как черновики через Admin API.",
+      status: ghostUrl && ghostApiKey ? t("integrations.ghostConfigured") : t("integrations.ghostNotConfigured"),
+      description: t("integrations.ghostPlatformDesc"),
       configured: !!(ghostUrl && ghostApiKey),
       docUrl: "https://ghost.org/docs/admin-api/",
-      docLabel: "Документация Ghost",
+      docLabel: t("integrations.ghostDocLabel"),
     },
     {
       name: "Miralinks",
       badge: "success" as const,
-      status: "Встроено",
-      description: "Биржа ссылок. Выберите профиль 'Miralinks Expert' при генерации — статья будет соответствовать требованиям модерации.",
+      status: t("integrations.builtIn"),
+      description: t("integrations.miralinksPlatformDesc"),
       configured: true,
       docUrl: "https://miralinks.ru",
       docLabel: "miralinks.ru",
@@ -92,8 +92,8 @@ export default function IntegrationsPage() {
     {
       name: "GoGetLinks",
       badge: "success" as const,
-      status: "Встроено",
-      description: "Биржа контекстных ссылок. Выберите профиль 'GoGetLinks Expert' при генерации — статья будет соответствовать требованиям.",
+      status: t("integrations.builtIn"),
+      description: t("integrations.gogetlinksPlatformDesc"),
       configured: true,
       docUrl: "https://gogetlinks.net",
       docLabel: "gogetlinks.net",
@@ -101,7 +101,7 @@ export default function IntegrationsPage() {
   ];
 
   return (
-    <PlanGate allowed={limits.hasProImageGen} featureName="Интеграции" requiredPlan="PRO">
+    <PlanGate allowed={limits.hasProImageGen} featureName={t("integrations.title")} requiredPlan="PRO">
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
         <div className="flex items-center gap-3 mb-1">
@@ -109,8 +109,8 @@ export default function IntegrationsPage() {
             <Globe className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold">Интеграции</h1>
-            <p className="text-sm text-muted-foreground">Подключите блог-платформы для публикации статей в один клик</p>
+            <h1 className="text-2xl font-semibold">{t("integrations.title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("integrations.subtitle")}</p>
           </div>
         </div>
       </div>
@@ -148,9 +148,9 @@ export default function IntegrationsPage() {
       {/* Ghost settings */}
       <Card className="bg-card border-border overflow-hidden">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base">Настройка Ghost</CardTitle>
+          <CardTitle className="text-base">{t("integrations.ghostTitle")}</CardTitle>
           <CardDescription className="text-xs">
-            Введите URL вашего Ghost-блога и Admin API Key. Ключ можно создать в Ghost Admin → Settings → Integrations → Custom.
+            {t("integrations.ghostDesc")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -178,21 +178,20 @@ export default function IntegrationsPage() {
         </CardContent>
       </Card>
 
-
       {/* Telegra.ph info */}
       <Card className="bg-card border-primary/15 overflow-hidden">
         <div className="h-0.5 bg-primary/60" />
         <CardHeader className="pb-4">
           <CardTitle className="text-base">Telegra.ph</CardTitle>
           <CardDescription className="text-xs">
-            Не требует настройки. Нажмите кнопку «Telegra.ph» в редакторе статьи — публикация произойдёт мгновенно.
+            {t("integrations.telegraphDesc")}
           </CardDescription>
         </CardHeader>
       </Card>
 
       <Button onClick={handleSave} disabled={isSaving} className="w-full">
         <Save className="h-4 w-4 mr-2" />
-        {isSaving ? "Сохранение..." : "Сохранить интеграции"}
+        {isSaving ? t("integrations.saving") : t("integrations.save")}
       </Button>
     </div>
     </PlanGate>

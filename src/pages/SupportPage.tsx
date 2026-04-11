@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,15 +12,16 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { LifeBuoy, Send, Clock, CheckCircle2, AlertCircle, MessageCircle, ChevronDown, ChevronUp, User, ShieldCheck } from "lucide-react";
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock }> = {
-  open: { label: "Открыт", variant: "default", icon: Clock },
-  in_progress: { label: "В работе", variant: "secondary", icon: AlertCircle },
-  resolved: { label: "Решён", variant: "outline", icon: CheckCircle2 },
-};
-
 export default function SupportPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
+
+  const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock }> = {
+    open: { label: t("support.statusOpen"), variant: "default", icon: Clock },
+    in_progress: { label: t("support.statusInProgress"), variant: "secondary", icon: AlertCircle },
+    resolved: { label: t("support.statusResolved"), variant: "outline", icon: CheckCircle2 },
+  };
 
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -69,14 +71,12 @@ export default function SupportPage() {
         .single();
       if (error) throw error;
 
-      // Insert initial message into thread
       await supabase.from("ticket_messages").insert({
         ticket_id: ticket.id,
         sender_role: "user",
         message: message.trim(),
       });
 
-      // Notify admin via telegram (fire & forget)
       supabase.functions.invoke("telegram-notify", {
         body: {
           type: "new_support_ticket",
@@ -84,12 +84,12 @@ export default function SupportPage() {
         },
       });
 
-      toast.success("Запрос отправлен! Мы ответим в ближайшее время.");
+      toast.success(t("support.sent"));
       setSubject("");
       setMessage("");
       queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
     } catch (err: any) {
-      toast.error("Ошибка при отправке: " + err.message);
+      toast.error(`${t("support.sendError")}: ${err.message}`);
     } finally {
       setSending(false);
     }
@@ -105,10 +105,8 @@ export default function SupportPage() {
         message: replyText.trim(),
       });
 
-      // Reopen ticket when user replies
       await supabase.from("support_tickets").update({ status: "open" }).eq("id", ticketId);
 
-      // Notify admin
       const ticket = tickets.find((t) => t.id === ticketId);
       supabase.functions.invoke("telegram-notify", {
         body: {
@@ -117,12 +115,12 @@ export default function SupportPage() {
         },
       });
 
-      toast.success("Сообщение отправлено");
+      toast.success(t("support.messageSent"));
       setReplyText("");
       queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticketId] });
       queryClient.invalidateQueries({ queryKey: ["support-tickets"] });
     } catch (err: any) {
-      toast.error("Ошибка: " + err.message);
+      toast.error(`${t("support.sendError")}: ${err.message}`);
     } finally {
       setReplyingSending(false);
     }
@@ -133,8 +131,8 @@ export default function SupportPage() {
       <div className="flex items-center gap-3">
         <LifeBuoy className="h-7 w-7 text-primary" />
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Поддержка</h1>
-          <p className="text-sm text-muted-foreground">Опишите проблему или задайте вопрос — мы поможем</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("support.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("support.subtitle")}</p>
         </div>
       </div>
 
@@ -142,22 +140,22 @@ export default function SupportPage() {
         <CardHeader className="pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
             <Send className="h-4 w-4" />
-            Новый запрос
+            {t("support.newRequest")}
           </CardTitle>
-          <CardDescription>Заполните форму и мы свяжемся с вами</CardDescription>
+          <CardDescription>{t("support.newRequestDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="subject">Тема</Label>
-              <Input id="subject" placeholder="Кратко опишите проблему..." value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} required />
+              <Label htmlFor="subject">{t("support.subject")}</Label>
+              <Input id="subject" placeholder={t("support.subjectPlaceholder")} value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="message">Сообщение</Label>
-              <Textarea id="message" placeholder="Опишите подробнее, что произошло..." value={message} onChange={(e) => setMessage(e.target.value)} rows={5} maxLength={2000} required />
+              <Label htmlFor="message">{t("support.message")}</Label>
+              <Textarea id="message" placeholder={t("support.messagePlaceholder")} value={message} onChange={(e) => setMessage(e.target.value)} rows={5} maxLength={2000} required />
             </div>
             <Button type="submit" disabled={sending || !subject.trim() || !message.trim()}>
-              {sending ? "Отправка..." : "Отправить запрос"}
+              {sending ? t("support.sending") : t("support.submit")}
             </Button>
           </form>
         </CardContent>
@@ -167,14 +165,14 @@ export default function SupportPage() {
         <CardHeader className="pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
-            Мои обращения
+            {t("support.myTickets")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Загрузка...</p>
+            <p className="text-sm text-muted-foreground">{t("support.loading")}</p>
           ) : tickets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">У вас пока нет обращений</p>
+            <p className="text-sm text-muted-foreground">{t("support.noTickets")}</p>
           ) : (
             <div className="space-y-3">
               {tickets.map((ticket) => {
@@ -205,7 +203,6 @@ export default function SupportPage() {
 
                     {isExpanded && (
                       <div className="border-t px-4 py-3 space-y-3">
-                        {/* Chat messages */}
                         <div className="space-y-2 max-h-[400px] overflow-y-auto">
                           {messages.map((msg: any) => (
                             <div
@@ -220,7 +217,7 @@ export default function SupportPage() {
                                     <User className="h-3 w-3 text-muted-foreground" />
                                   )}
                                   <span className="text-xs font-medium">
-                                    {msg.sender_role === "admin" ? "Поддержка" : "Вы"}
+                                    {msg.sender_role === "admin" ? t("support.supportTeam") : t("support.you")}
                                   </span>
                                   <span className="text-xs text-muted-foreground">
                                     {new Date(msg.created_at).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
@@ -232,11 +229,10 @@ export default function SupportPage() {
                           ))}
                         </div>
 
-                        {/* Reply input */}
                         {ticket.status !== "resolved" && (
                           <div className="flex gap-2">
                             <Textarea
-                              placeholder="Написать сообщение..."
+                              placeholder={t("support.writeMessage")}
                               value={replyText}
                               onChange={(e) => setReplyText(e.target.value)}
                               rows={2}
@@ -254,7 +250,7 @@ export default function SupportPage() {
                           </div>
                         )}
                         {ticket.status === "resolved" && (
-                          <p className="text-xs text-muted-foreground text-center">Обращение закрыто. Создайте новый запрос если нужна помощь.</p>
+                          <p className="text-xs text-muted-foreground text-center">{t("support.ticketClosed")}</p>
                         )}
                       </div>
                     )}
