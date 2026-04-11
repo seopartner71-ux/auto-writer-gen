@@ -13,6 +13,7 @@ import { SeoIntegrationsTab } from "@/components/admin/SeoIntegrationsTab";
 import { LegalPagesTab } from "@/components/admin/LegalPagesTab";
 import { QueueMonitorTab } from "@/components/admin/QueueMonitorTab";
 import { PaymentLogsTab } from "@/components/admin/PaymentLogsTab";
+import { ErrorLogsTab } from "@/components/admin/ErrorLogsTab";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -33,6 +34,7 @@ export default function AdminPage() {
           <TabsTrigger value="vault">API Vault</TabsTrigger>
           <TabsTrigger value="routing">Model Routing</TabsTrigger>
           <TabsTrigger value="health">Health Check</TabsTrigger>
+          <TabsTrigger value="errors">🔴 Логи ошибок</TabsTrigger>
           <TabsTrigger value="users">{t("admin.users")}</TabsTrigger>
           <TabsTrigger value="content">{t("admin.content")}</TabsTrigger>
           <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
@@ -48,6 +50,7 @@ export default function AdminPage() {
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
         <TabsContent value="routing" className="mt-4"><ModelRoutingTab /></TabsContent>
         <TabsContent value="health" className="mt-4"><HealthCheckTab /></TabsContent>
+        <TabsContent value="errors" className="mt-4"><ErrorLogsTab /></TabsContent>
         <TabsContent value="users" className="mt-4"><UserManagementTab /></TabsContent>
         <TabsContent value="content" className="mt-4"><UserContentTab /></TabsContent>
         <TabsContent value="wiki" className="mt-4"><FaqManagementTab /></TabsContent>
