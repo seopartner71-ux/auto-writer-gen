@@ -1222,7 +1222,7 @@ export default function ArticlesPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_280px] xl:grid-cols-[1fr_320px]">
         {/* Left: Editor */}
         <div className="space-y-4">
           {/* Pro Image Cover Generator */}
@@ -1841,7 +1841,7 @@ export default function ArticlesPage() {
         </div>
 
         {/* Right: SEO Dashboard */}
-        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-auto overflow-x-hidden scrollbar-hide">
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
           <Tabs defaultValue="dashboard">
             <TabsList className="w-full h-8">
               <TabsTrigger value="dashboard" className="text-xs gap-1 flex-1">
