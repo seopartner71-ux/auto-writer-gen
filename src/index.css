@@ -12,7 +12,7 @@ html {
   :root,
   .dark {
     --background: 220 18% 7%;
-    --foreground: 210 20% 92%;
+    --foreground: 0 0% 98%;
 
     --card: 220 16% 10%;
     --card-foreground: 210 20% 92%;
