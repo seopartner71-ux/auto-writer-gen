@@ -1000,8 +1000,11 @@ export type Database = {
           last_login_at: string | null
           medium_token: string | null
           monthly_limit: number | null
+          onboarding_niche: string | null
           plan: string | null
+          planned_articles_month: number | null
           preferred_language: string | null
+          referral_source: string | null
           registration_ip: string | null
           theme_preference: string | null
         }
@@ -1020,8 +1023,11 @@ export type Database = {
           last_login_at?: string | null
           medium_token?: string | null
           monthly_limit?: number | null
+          onboarding_niche?: string | null
           plan?: string | null
+          planned_articles_month?: number | null
           preferred_language?: string | null
+          referral_source?: string | null
           registration_ip?: string | null
           theme_preference?: string | null
         }
@@ -1040,8 +1046,11 @@ export type Database = {
           last_login_at?: string | null
           medium_token?: string | null
           monthly_limit?: number | null
+          onboarding_niche?: string | null
           plan?: string | null
+          planned_articles_month?: number | null
           preferred_language?: string | null
+          referral_source?: string | null
           registration_ip?: string | null
           theme_preference?: string | null
         }
@@ -1910,6 +1919,7 @@ export type Database = {
         }
         Returns: Json
       }
+      auto_activate_users: { Args: never; Returns: undefined }
       check_credits: { Args: { p_user_id: string }; Returns: number }
       check_rate_limit: {
         Args: {
