@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Hexagon } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 
+const TURNSTILE_SITE_KEY = "0x4AAAAAAC84aeQX5SSFSSdh";
+
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,8 +22,46 @@ export default function RegisterPage() {
   const [referralSource, setReferralSource] = useState("");
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { t, lang } = useI18n();
+
+  const renderTurnstile = useCallback(() => {
+    if (!turnstileRef.current || !(window as any).turnstile) return;
+    // Clear previous widget
+    if (widgetIdRef.current) {
+      try { (window as any).turnstile.remove(widgetIdRef.current); } catch {}
+      widgetIdRef.current = null;
+    }
+    widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token: string) => setTurnstileToken(token),
+      "expired-callback": () => setTurnstileToken(null),
+      "error-callback": () => setTurnstileToken(null),
+      theme: "dark",
+      language: lang === "ru" ? "ru" : "en",
+    });
+  }, [lang]);
+
+  useEffect(() => {
+    // Load Turnstile script if not already loaded
+    if ((window as any).turnstile) {
+      renderTurnstile();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad";
+    script.async = true;
+    (window as any).onTurnstileLoad = () => renderTurnstile();
+    document.head.appendChild(script);
+    return () => {
+      if (widgetIdRef.current) {
+        try { (window as any).turnstile?.remove(widgetIdRef.current); } catch {}
+      }
+    };
+  }, [renderTurnstile]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +75,10 @@ export default function RegisterPage() {
     }
     if (password !== confirmPassword) {
       toast.error(t("auth.passwordsMismatch"));
+      return;
+    }
+    if (!turnstileToken) {
+      toast.error(lang === "ru" ? "Пожалуйста, пройдите проверку CAPTCHA" : "Please complete the CAPTCHA check");
       return;
     }
     setLoading(true);
@@ -56,13 +100,18 @@ export default function RegisterPage() {
       }
     } catch { /* ignore */ }
 
-    // Check registration limits (email aliases + IP)
+    // Check registration limits + Turnstile verification
     try {
       const { data: checkResult } = await supabase.functions.invoke("check-registration", {
-        body: { email, client_ip: registrationIp },
+        body: { email, client_ip: registrationIp, turnstile_token: turnstileToken },
       });
       if (checkResult && !checkResult.allowed) {
         toast.error(checkResult.reason || (lang === "ru" ? "Регистрация заблокирована" : "Registration blocked"));
+        // Reset Turnstile for retry
+        setTurnstileToken(null);
+        if (widgetIdRef.current && (window as any).turnstile) {
+          (window as any).turnstile.reset(widgetIdRef.current);
+        }
         setLoading(false);
         return;
       }
@@ -93,8 +142,14 @@ export default function RegisterPage() {
         "Password should be at least 6 characters.": "Пароль должен быть не менее 6 символов.",
         "Unable to validate email address: invalid format": "Неверный формат email адреса.",
         "Signup requires a valid password": "Необходимо указать пароль.",
+        "Password is too weak. It has been found in a database of compromised passwords.": "Пароль обнаружен в базе скомпрометированных паролей. Выберите другой.",
       };
       toast.error(lang === "ru" ? (ruErrors[error.message] || error.message) : error.message);
+      // Reset Turnstile
+      setTurnstileToken(null);
+      if (widgetIdRef.current && (window as any).turnstile) {
+        (window as any).turnstile.reset(widgetIdRef.current);
+      }
     } else {
       toast.success(t("auth.registerSuccess"), { duration: 8000 });
       navigate("/login");
@@ -196,6 +251,11 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {/* Cloudflare Turnstile CAPTCHA */}
+            <div className="flex justify-center">
+              <div ref={turnstileRef} />
+            </div>
+
             <div className="flex items-start gap-2">
               <Checkbox
                 id="terms"
@@ -216,7 +276,7 @@ export default function RegisterPage() {
               </label>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading || !agreed}>
+            <Button type="submit" className="w-full" disabled={loading || !agreed || !turnstileToken}>
               {loading ? t("auth.registering") : t("auth.register")}
             </Button>
           </form>

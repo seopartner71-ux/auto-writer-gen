@@ -12,13 +12,41 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, client_ip } = await req.json();
+    const { email, client_ip, turnstile_token } = await req.json();
 
     if (!email || typeof email !== "string") {
       return new Response(
         JSON.stringify({ allowed: false, reason: "Invalid email" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Verify Turnstile CAPTCHA token
+    const turnstileSecret = Deno.env.get("TURNSTILE_SECRET_KEY");
+    if (turnstileSecret) {
+      if (!turnstile_token) {
+        return new Response(
+          JSON.stringify({ allowed: false, reason: "Пожалуйста, пройдите проверку CAPTCHA" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          secret: turnstileSecret,
+          response: turnstile_token,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+      if (!verifyData.success) {
+        return new Response(
+          JSON.stringify({ allowed: false, reason: "Проверка CAPTCHA не пройдена. Попробуйте снова." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Prefer client-detected IP, fallback to headers
@@ -35,8 +63,7 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check accounts with this email (Supabase Auth handles exact duplicates,
-    // but we also check for "+" alias tricks like user+1@gmail.com)
+    // Check accounts with this email (+ alias tricks)
     const baseEmail = email.split("@")[0].replace(/\+.*$/, "").toLowerCase();
     const domain = email.split("@")[1]?.toLowerCase();
 
@@ -47,7 +74,6 @@ Deno.serve(async (req) => {
 
     if (emailErr) throw emailErr;
 
-    // Count profiles with same base email (ignoring + aliases)
     const sameEmailCount = (emailProfiles || []).filter((p) => {
       if (!p.email) return false;
       const pBase = p.email.split("@")[0].replace(/\+.*$/, "").toLowerCase();
