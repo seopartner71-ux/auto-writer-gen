@@ -15,6 +15,9 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [niche, setNiche] = useState("");
+  const [plannedArticles, setPlannedArticles] = useState("");
+  const [referralSource, setReferralSource] = useState("");
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const navigate = useNavigate();
@@ -23,11 +26,15 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreed) {
-      toast.error(lang === "ru" ? "Необходимо принять условия оферты и политику конфиденциальности" : "You must accept the terms and privacy policy");
+      toast.error(t("auth.acceptTerms"));
+      return;
+    }
+    if (!fullName.trim() || !niche.trim() || !plannedArticles.trim() || !referralSource.trim()) {
+      toast.error(t("auth.fillAllFields"));
       return;
     }
     if (password !== confirmPassword) {
-      toast.error("Пароли не совпадают");
+      toast.error(t("auth.passwordsMismatch"));
       return;
     }
     setLoading(true);
@@ -55,7 +62,7 @@ export default function RegisterPage() {
         body: { email, client_ip: registrationIp },
       });
       if (checkResult && !checkResult.allowed) {
-        toast.error(checkResult.reason || "Регистрация заблокирована");
+        toast.error(checkResult.reason || (lang === "ru" ? "Регистрация заблокирована" : "Registration blocked"));
         setLoading(false);
         return;
       }
@@ -69,7 +76,13 @@ export default function RegisterPage() {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/login`,
-        data: { full_name: fullName, registration_ip: registrationIp },
+        data: {
+          full_name: fullName,
+          registration_ip: registrationIp,
+          onboarding_niche: niche.trim(),
+          planned_articles_month: parseInt(plannedArticles) || 0,
+          referral_source: referralSource.trim(),
+        },
       },
     });
     setLoading(false);
@@ -81,9 +94,9 @@ export default function RegisterPage() {
         "Unable to validate email address: invalid format": "Неверный формат email адреса.",
         "Signup requires a valid password": "Необходимо указать пароль.",
       };
-      toast.error(ruErrors[error.message] || error.message);
+      toast.error(lang === "ru" ? (ruErrors[error.message] || error.message) : error.message);
     } else {
-      toast.success("Вы успешно зарегистрированы! Проверьте вашу почту для подтверждения аккаунта.", { duration: 8000 });
+      toast.success(t("auth.registerSuccess"), { duration: 8000 });
       navigate("/login");
     }
   };
@@ -109,6 +122,7 @@ export default function RegisterPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder={t("auth.namePlaceholder")}
+                required
               />
             </div>
             <div className="space-y-2">
@@ -135,16 +149,51 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">{lang === "ru" ? "Повторите пароль" : "Confirm password"}</Label>
+              <Label htmlFor="confirmPassword">{t("auth.confirmPassword")}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder={lang === "ru" ? "Повторите пароль" : "Confirm password"}
+                placeholder={t("auth.confirmPassword")}
                 minLength={6}
                 required
               />
+            </div>
+
+            <div className="border-t border-border pt-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="niche">{t("auth.onboardingNiche")}</Label>
+                <Input
+                  id="niche"
+                  value={niche}
+                  onChange={(e) => setNiche(e.target.value)}
+                  placeholder={t("auth.onboardingNichePlaceholder")}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="plannedArticles">{t("auth.plannedArticles")}</Label>
+                <Input
+                  id="plannedArticles"
+                  type="number"
+                  min={1}
+                  value={plannedArticles}
+                  onChange={(e) => setPlannedArticles(e.target.value)}
+                  placeholder={t("auth.plannedArticlesPlaceholder")}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="referralSource">{t("auth.referralSource")}</Label>
+                <Input
+                  id="referralSource"
+                  value={referralSource}
+                  onChange={(e) => setReferralSource(e.target.value)}
+                  placeholder={t("auth.referralSourcePlaceholder")}
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex items-start gap-2">

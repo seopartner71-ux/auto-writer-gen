@@ -57,6 +57,17 @@ const translations: Record<string, Record<Lang, string>> = {
   "auth.passwordPlaceholder": { ru: "Минимум 6 символов", en: "At least 6 characters" },
   "auth.googleSignIn": { ru: "Войти через Google", en: "Sign in with Google" },
   "auth.checkEmail": { ru: "Проверьте почту для подтверждения!", en: "Check your email for confirmation!" },
+  "auth.onboardingNiche": { ru: "Тематика вашего сайта", en: "Your website niche" },
+  "auth.onboardingNichePlaceholder": { ru: "Например: технологии, здоровье, финансы", en: "E.g.: technology, health, finance" },
+  "auth.plannedArticles": { ru: "Сколько статей в месяц планируете?", en: "How many articles per month do you plan?" },
+  "auth.plannedArticlesPlaceholder": { ru: "Например: 10", en: "E.g.: 10" },
+  "auth.referralSource": { ru: "Откуда узнали о сервисе?", en: "How did you hear about us?" },
+  "auth.referralSourcePlaceholder": { ru: "Например: Telegram, поиск Google, рекомендация", en: "E.g.: Telegram, Google search, recommendation" },
+  "auth.fillAllFields": { ru: "Пожалуйста, заполните все поля", en: "Please fill in all fields" },
+  "auth.registerSuccess": { ru: "Вы успешно зарегистрированы! Проверьте почту для подтверждения. Аккаунт будет активирован автоматически через 2 минуты.", en: "Registration successful! Check your email for confirmation. Your account will be activated automatically in 2 minutes." },
+  "auth.confirmPassword": { ru: "Повторите пароль", en: "Confirm password" },
+  "auth.passwordsMismatch": { ru: "Пароли не совпадают", en: "Passwords do not match" },
+  "auth.acceptTerms": { ru: "Необходимо принять условия оферты и политику конфиденциальности", en: "You must accept the terms and privacy policy" },
 
   // Dashboard
   "dashboard.title": { ru: "Дашборд", en: "Dashboard" },
