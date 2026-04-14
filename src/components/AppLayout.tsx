@@ -6,11 +6,16 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";
 import { LogOut, Sun, Moon, MessageCircle } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { useTrialStatus } from "@/shared/hooks/useTrialStatus";
+import { TrialBanner } from "@/components/trial/TrialBanner";
+import { PaywallModal } from "@/components/trial/PaywallModal";
+import { NudgeNotification } from "@/components/trial/NudgeNotification";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
+  const { showBanner, showPaywall, paywallReason, showNudge } = useTrialStatus();
 
   return (
     <SidebarProvider>
@@ -53,11 +58,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </Button>
             </div>
           </header>
+          {showNudge && <NudgeNotification />}
+          {showBanner && <TrialBanner />}
           <main className="flex-1 overflow-auto p-6">
             {children}
           </main>
         </div>
       </div>
+      {showPaywall && paywallReason && (
+        <PaywallModal reason={paywallReason as "no_credits" | "trial_expired"} />
+      )}
     </SidebarProvider>
   );
 }
