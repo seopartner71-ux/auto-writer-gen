@@ -32,6 +32,7 @@ import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
+import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -1034,6 +1035,14 @@ export default function ArticlesPage() {
           </Button>
         </div>
       </div>
+
+      {keywords.length === 0 && (
+        <OnboardingHint
+          message={t("onboarding.hintWriter")}
+          actionLabel={t("onboarding.startWithResearch")}
+          actionPath="/keywords"
+        />
+      )}
 
       {mode === "bulk" ? (
         <BulkGenerationMode />
