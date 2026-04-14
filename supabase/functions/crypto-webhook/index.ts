@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
       .eq("key", "cryptomus_api_key")
       .single();
 
-    const apiKey = settingsData?.value;
+    const apiKey = settingsData?.value || Deno.env.get("CRYPTOMUS_API_KEY");
     if (!apiKey) {
       console.error("CRYPTOMUS_API_KEY not found in app_settings");
       return new Response("OK", { status: 200 });
