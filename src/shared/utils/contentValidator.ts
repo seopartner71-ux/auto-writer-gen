@@ -223,6 +223,162 @@ export function validateContent(content: string): ValidationResult {
   };
 }
 
+// ─── EN Stealth Post-Processor ─────────────────────────────────────
+
+const EN_BANNED_PHRASES: [RegExp, string][] = [
+  [/\bIt is worth noting that\b/gi, "Here's the thing —"],
+  [/\bIn conclusion\b/gi, "Bottom line"],
+  [/\bFurthermore\b/gi, "And"],
+  [/\bIt is important to\b/gi, "You'll want to"],
+  [/\bThis is because\b/gi, "That's because"],
+  [/\bIn summary\b/gi, "So"],
+  [/\bIt should be noted\b/gi, "Worth knowing —"],
+  [/\bOne of the key\b/gi, "A big"],
+  [/\bIn order to\b/gi, "To"],
+  [/\bIt goes without saying\b/gi, "Obviously"],
+  [/\bPlays a crucial role\b/gi, "matters a lot"],
+  [/\bPlays an important role\b/gi, "really matters"],
+  [/\bA wide range of\b/gi, "plenty of"],
+  [/\bIt is essential\b/gi, "You need to"],
+  [/\bMoreover\b/gi, "Plus"],
+  [/\bAdditionally\b/gi, "Also"],
+  [/\bUtilize\b/gi, "Use"],
+  [/\bLeverage\b/gi, "Use"],
+  [/\bStreamline\b/gi, "Simplify"],
+  [/\bComprehensive\b/gi, "thorough"],
+  [/\bMeticulously\b/gi, "carefully"],
+];
+
+const EN_CONTRACTION_FIXES: [RegExp, string][] = [
+  [/\bIt is\b/g, "It's"],
+  [/\bit is\b/g, "it's"],
+  [/\bDo not\b/g, "Don't"],
+  [/\bdo not\b/g, "don't"],
+  [/\bWill not\b/g, "Won't"],
+  [/\bwill not\b/g, "won't"],
+  [/\bCan not\b/g, "Can't"],
+  [/\bcan not\b/g, "can't"],
+  [/\bcannot\b/g, "can't"],
+  [/\bCannot\b/g, "Can't"],
+  [/\bShould not\b/g, "Shouldn't"],
+  [/\bshould not\b/g, "shouldn't"],
+  [/\bWould not\b/g, "Wouldn't"],
+  [/\bwould not\b/g, "wouldn't"],
+  [/\bCould not\b/g, "Couldn't"],
+  [/\bcould not\b/g, "couldn't"],
+  [/\bDoes not\b/g, "Doesn't"],
+  [/\bdoes not\b/g, "doesn't"],
+  [/\bDid not\b/g, "Didn't"],
+  [/\bdid not\b/g, "didn't"],
+  [/\bHave not\b/g, "Haven't"],
+  [/\bhave not\b/g, "haven't"],
+  [/\bHas not\b/g, "Hasn't"],
+  [/\bhas not\b/g, "hasn't"],
+  [/\bIs not\b/g, "Isn't"],
+  [/\bis not\b/g, "isn't"],
+  [/\bAre not\b/g, "Aren't"],
+  [/\bare not\b/g, "aren't"],
+  [/\bWas not\b/g, "Wasn't"],
+  [/\bwas not\b/g, "wasn't"],
+  [/\bWere not\b/g, "Weren't"],
+  [/\bwere not\b/g, "weren't"],
+  [/\bI am\b/g, "I'm"],
+  [/\bYou are\b/g, "You're"],
+  [/\byou are\b/g, "you're"],
+  [/\bThey are\b/g, "They're"],
+  [/\bthey are\b/g, "they're"],
+  [/\bWe are\b/g, "We're"],
+  [/\bwe are\b/g, "we're"],
+  [/\bI have\b/g, "I've"],
+  [/\bYou will\b/g, "You'll"],
+  [/\byou will\b/g, "you'll"],
+  [/\bI will\b/g, "I'll"],
+  [/\bWe will\b/g, "We'll"],
+  [/\bwe will\b/g, "we'll"],
+  [/\bThere is\b/g, "There's"],
+  [/\bthere is\b/g, "there's"],
+];
+
+const EN_INFORMAL_INJECTIONS = [
+  "Honestly, ", "Look, ", "Real talk — ", "Here's the deal: ",
+  "Spoiler alert — ", "Plot twist: ", "No surprise here — ",
+  "I mean, ", "To be fair, ", "Heads up — ",
+];
+
+/**
+ * EN Stealth Post-Processor: applies contraction fixes, bans AI phrases,
+ * shortens every 5th sentence, and injects informal openers.
+ */
+export function applyEnStealthPostProcessing(content: string): string {
+  if (content.length > 100_000) return content;
+  const isEnglish = /^[a-zA-Z\s.,!?;:\-'"()\[\]{}0-9#*/]/.test(content.trim().slice(0, 200));
+  if (!isEnglish) return content;
+
+  let result = content;
+
+  // 1. Replace banned AI phrases
+  for (const [pattern, replacement] of EN_BANNED_PHRASES) {
+    result = result.replace(pattern, replacement);
+  }
+
+  // 2. Force contractions
+  for (const [pattern, replacement] of EN_CONTRACTION_FIXES) {
+    result = result.replace(pattern, replacement);
+  }
+
+  // 3. Shorten every 5th sentence in body paragraphs
+  const lines = result.split("\n");
+  let sentenceCounter = 0;
+  const processedLines = lines.map(line => {
+    if (/^#{1,6}\s|^[-*]\s|^\d+\.\s|^>|^```|^!\[|^\|/.test(line.trim())) return line;
+    if (line.trim().length < 20) return line;
+
+    const sentences = line.match(/[^.!?]+[.!?]+/g);
+    if (!sentences || sentences.length < 2) {
+      sentenceCounter++;
+      return line;
+    }
+
+    return sentences.map(s => {
+      sentenceCounter++;
+      if (sentenceCounter % 5 === 0) {
+        const words = s.trim().split(/\s+/);
+        if (words.length > 10) {
+          return words.slice(0, 6).join(" ").replace(/[,;:\-]$/, "") + ".";
+        }
+      }
+      return s;
+    }).join(" ");
+  });
+  result = processedLines.join("\n");
+
+  // 4. Inject 2-3 informal openers per ~1000 words
+  const wordCount = result.split(/\s+/).length;
+  const injectCount = Math.min(3, Math.max(2, Math.floor(wordCount / 1000) * 2));
+  const paragraphs = result.split("\n\n");
+  
+  if (paragraphs.length > 4 && injectCount > 0) {
+    const step = Math.max(2, Math.floor(paragraphs.length / (injectCount + 1)));
+    let injected = 0;
+    for (let i = step; i < paragraphs.length - 1 && injected < injectCount; i += step) {
+      const p = paragraphs[i];
+      if (p && !p.startsWith("#") && !p.startsWith("-") && !p.startsWith(">") && !p.startsWith("|") && !p.startsWith("!") && p.length > 30) {
+        const phrase = EN_INFORMAL_INJECTIONS[injected % EN_INFORMAL_INJECTIONS.length];
+        const firstChar = p.charAt(0);
+        if (/[A-Z]/.test(firstChar)) {
+          paragraphs[i] = phrase + firstChar.toLowerCase() + p.slice(1);
+        } else {
+          paragraphs[i] = phrase + p;
+        }
+        injected++;
+      }
+    }
+    result = paragraphs.join("\n\n");
+  }
+
+  return result;
+}
+
 /** Quick check without fixes - returns just the status */
 export function quickFactCheck(content: string): "verified" | "warning" {
   const result = validateContent(content);

@@ -295,30 +295,54 @@ ${isRussian
   "прогресс не стоит на месте" → ЗАПРЕЩЕНО. Никогда.
   "давайте посмотрим правде в глаза" → ЗАПРЕЩЕНО. Никогда.
 - Replace formal AI-links with natural, spoken transitions: "Вот в чём дело...", "Давайте начистоту...", "Суть проста..."`
-  : `- BANNED AI transitions and clichés (CLICHÉ KILLER):
+  : `- BANNED AI transitions and clichés (CLICHÉ KILLER - ZERO TOLERANCE):
+  "It is worth noting that" → BANNED. Never use.
+  "In conclusion" → BANNED. Never use.
+  "Furthermore" → BANNED. Never use.
+  "It is important to" → BANNED. Never use.
+  "This is because" → BANNED. Use "here's why", "the reason?", "that's down to"
+  "In summary" → BANNED. Never use.
+  "It should be noted" → BANNED. Never use.
+  "One of the key" → BANNED. Use "a big one", "what stands out", "the real deal"
   "In today's world" → BANNED. Never use.
   "Delve" → "dig into", "explore", "break down"
   "Uncover" → "find", "spot", "stumble upon"
   "Meticulously" → "carefully", "with precision"
   "Comprehensive guide" → BANNED. Never use.
-  "in conclusion" → "bottom line", "here's the takeaway", "cutting to the chase"
   "it's important to note" → "here's what matters", "don't miss this"
-  "furthermore" → "and here's the kicker", "on top of that", "what's more interesting"
   "moreover" → "plus", "add to that"
   "additionally" → "also", "and another thing"
   "utilize" → "use", "tap into", "lean on"
   "comprehensive" → "thorough", "deep-dive"
   "leverage" → "take advantage of", "build on", "harness"
   "streamline" → "simplify", "cut the fat"
-- Replace formal AI-links with natural transitions: "Now, here's the thing...", "Let's be real...", "The bottom line is..."`}
+  "It goes without saying" → BANNED. Never use.
+  "Plays a crucial role" → "matters a lot", "is a big deal"
+  "In order to" → "to"
+  "A wide range of" → "lots of", "plenty of"
+  "At the end of the day" → "when it comes down to it", "honestly"
+  "Essentially" → BANNED. Never use.
+- Replace formal AI-links with natural transitions: "Now, here's the thing...", "Let's be real...", "The bottom line is..."
+
+ENGLISH STEALTH PROTOCOL (CRITICAL - Anti-Originality.ai):
+- ALWAYS use contractions: it's, don't, you'll, can't, won't, I've, we've, they're, isn't, wasn't, wouldn't, shouldn't. NEVER write "it is", "do not", "you will" etc. in full form. This is the #1 AI detection signal.
+- AGGRESSIVE sentence length variation: alternate SHORT (2-5 words) and LONG (20-30 words) sentences. Pattern: short-long-medium-short-long. Example: "Dead simple. But when you actually sit down and work through the numbers with a real dataset, you'll spot patterns that completely change how you think about this problem. Takes practice though."
+- ADD rhetorical questions every 2-3 paragraphs: "So what does that actually mean?", "Sound familiar?", "But here's the real question:", "Why does this matter?"
+- FIRST PERSON is mandatory: "I've seen", "In my experience", "From what I've tested", "I'd argue", "We found that". Address the reader directly with "you": "you'll notice", "you might think", "here's what you need to know".
+- START sentences with conjunctions freely: "And that's exactly why...", "But don't take my word for it.", "So the trick is...", "Or better yet..."
+- ADD specific numbers and personal experience references: "after testing 47 variations", "over the past 3 years", "in roughly 8 out of 10 cases I've handled"
+- INJECT 2-3 informal phrases per 1000 words: "no-brainer", "game changer", "the kicker", "long story short", "real talk", "heads up", "here's the deal", "spoiler alert", "plot twist"
+- VARY paragraph openings aggressively — NEVER start 2 consecutive paragraphs the same way. Mix: question, statement, "And...", personal anecdote, data point, "Look,", "Here's the thing."
+- Use DASHES (—) and PARENTHESES for asides (like this one) to simulate stream-of-consciousness thinking.`}
 
 SYNTACTIC INVERSION (Unpredictable Word Order):
 - Occasionally change the standard word order (SVO) to more natural, emphatic structures.
 ${isRussian
   ? `- Используй нишевый сленг и разговорные обороты: "чертовщина", "база", "звоночки", "нюанс в том, что", "по классике".
 - Инверсии: "Работает это так:" вместо "Это работает следующим образом". "Проблема? Вот она:" вместо "Проблема заключается в следующем".`
-  : `- Use niche-specific vernacular and slang: "game-changer", "kicker", "no-brainer", "the deal is", "here's the catch".
-- Inversions: "Works like this:" instead of "It operates in the following manner". "The problem? Simple:" instead of "The problem consists of the following".`}
+  : `- Use niche-specific vernacular and slang: "game-changer", "kicker", "no-brainer", "the deal is", "here's the catch", "plot twist", "heads up".
+- Inversions: "Works like this:" instead of "It operates in the following manner". "The problem? Simple:" instead of "The problem consists of the following".
+- CONTRACTIONS ARE MANDATORY. Write "it's" not "it is", "don't" not "do not", "you'll" not "you will". This is non-negotiable for every sentence.`}
 
 ЗАПРЕЩЁННЫЕ ПАТТЕРНЫ (нарушение = провал проверки):
 - НЕ используй списки из 5+ пунктов одинаковой длины. Варьируй: один пункт - 3 слова, другой - целое предложение.
@@ -339,10 +363,12 @@ ${isRussian
 - Включи личные мнения от первого лица ("Я считаю", "По моему опыту", "На мой взгляд", "Меня это удивило").
 - Активный залог доминирует. Пассив - максимум 10% предложений.
 - Эмоциональная вовлечённость: показывай энтузиазм, скептицизм, удивление.`
-  : `- Use colloquial expressions, idioms naturally.
-- Include personal opinions ("I believe", "In my experience", "From what I've seen", "This surprised me").
+  : `- Use colloquial expressions, idioms, and contractions naturally — write like you talk.
+- Include personal opinions ("I believe", "In my experience", "From what I've seen", "This surprised me", "I'd bet money on this").
 - Active voice dominant. Passive - max 10% of sentences.
-- Show emotional engagement: enthusiasm, skepticism, surprise where appropriate.`}
+- Show emotional engagement: enthusiasm, skepticism, surprise where appropriate.
+- Address the reader directly: "you", "your", "you'll want to", "here's what you should know".
+- Use filler phrases sparingly for authenticity: "honestly", "look", "I mean", "to be fair", "real talk".`}
 
 РАНДОМИЗАЦИЯ (обязательно):
 - Случайным образом измени порядок двух любых аргументов в тексте.
@@ -526,9 +552,10 @@ ${isRussian
   ? `- ЗАПРЕЩЕНО: "В заключение", "Важно отметить", "Следует подчеркнуть", "В современном мире", "Давайте разберёмся", "Является", "Данный", "На сегодняшний день", "Комплексный подход", "Прогресс не стоит на месте", "Давайте посмотрим правде в глаза", "Не секрет, что", "Как известно", "Стоит отметить", "Нельзя не упомянуть", "Всё больше и больше", "Играет важную роль", "Представляет собой", "Обусловлено тем", "Необходимо подчеркнуть".
 - За каждое использование клише из списка выше статья теряет качество. Используй КРЕАТИВНЫЕ, человечные переходы вместо штампов.
 - Примеры хороших переходов: риторические вопросы, неожиданные сравнения, личные наблюдения, конкретные факты как мостик между идеями.`
-  : `- BANNED: "In conclusion", "It's important to note", "In today's world", "Unlock", "Comprehensive guide", "Essentially", "Furthermore", "Moreover", "Additionally", "Let's face the truth", "Progress doesn't stand still", "It goes without saying", "It's no secret that", "Plays an important role", "It's worth mentioning".
+  : `- BANNED (ABSOLUTE - any occurrence = article rejection): "In conclusion", "It is worth noting that", "It's important to note", "In today's world", "Unlock", "Comprehensive guide", "Essentially", "Furthermore", "Moreover", "Additionally", "Let's face the truth", "Progress doesn't stand still", "It goes without saying", "It's no secret that", "Plays an important role", "It's worth mentioning", "It should be noted", "In summary", "This is because", "One of the key", "In order to", "A wide range of", "Plays a crucial role", "It is important to".
 - Each cliché used degrades the article. Use CREATIVE, human-like transitions instead.
-- Good transitions: rhetorical questions, unexpected analogies, personal observations, concrete facts as bridges between ideas.`}
+- Good transitions: rhetorical questions ("So what does this mean for you?"), unexpected analogies, personal observations ("I've noticed that..."), concrete facts as bridges between ideas, casual connectors ("And here's the kicker", "Plot twist though").
+- ALWAYS use contractions in EN text. "It's" not "It is", "don't" not "do not", "won't" not "will not". This is the single most important anti-AI rule for English.`}
 - Не будь "helpful" как типичный ИИ. Будь решительным, авторитетным и стилистическим.
 - NO META-COMMENTARY. NO INTROS типа "В этой статье мы рассмотрим...". ТОЛЬКО КОНТЕНТ.
 

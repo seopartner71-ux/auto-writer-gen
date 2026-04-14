@@ -30,7 +30,7 @@ import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
-import { validateContent } from "@/shared/utils/contentValidator";
+import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 
 // Readability helpers
@@ -766,6 +766,9 @@ export default function ArticlesPage() {
       generateSeoTitle(fullContent);
 
       toast.success(t("articles.articleGenerated"));
+
+      // EN Stealth post-processing: contractions, banned phrases, sentence shortening
+      fullContent = applyEnStealthPostProcessing(fullContent);
 
       // Fact-check analysis: detect suspicious hallucination patterns
       // Post-generation validator: detect & auto-fix fake experts/stats
