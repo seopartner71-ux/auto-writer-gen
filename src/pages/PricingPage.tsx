@@ -18,6 +18,7 @@ export default function PricingPage() {
   const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [loadingCrypto, setLoadingCrypto] = useState<string | null>(null);
 
   const { data: paymentSettings } = useQuery({
     queryKey: ["app-settings", "payments-all"],
