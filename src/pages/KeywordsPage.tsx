@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -147,6 +148,10 @@ export default function KeywordsPage() {
           </p>
         </div>
       </div>
+
+      {!keyword.trim() && !results && (
+        <OnboardingHint message={t("onboarding.hintKeyword")} />
+      )}
 
       {/* Search Form */}
       <div className="rounded-lg border border-border bg-card p-5">
