@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Loader2, ShieldCheck, ExternalLink, Globe } from "lucide-react";
+import { Save, Loader2, ShieldCheck, ExternalLink, Globe, Bitcoin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -26,6 +26,8 @@ const ALL_KEYS = [
   "polar_nano_product_id",
   "polar_basic_product_id",
   "polar_pro_product_id",
+  "cryptomus_merchant_id",
+  "cryptomus_api_key",
 ];
 
 export function PolarSettingsTab() {
