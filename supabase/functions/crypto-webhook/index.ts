@@ -1,0 +1,118 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const body = await req.json();
+    console.log("Cryptomus webhook received:", JSON.stringify(body));
+
+    const apiKey = Deno.env.get("CRYPTOMUS_API_KEY");
+    if (!apiKey) {
+      console.error("CRYPTOMUS_API_KEY not set");
+      return new Response("OK", { status: 200 });
+    }
+
+    // Verify signature
+    const receivedSign = body.sign;
+    if (!receivedSign) {
+      console.error("No sign in webhook payload");
+      return new Response("OK", { status: 200 });
+    }
+
+    // Remove sign from body, sort keys, base64 encode, then md5 with apiKey
+    const payload = { ...body };
+    delete payload.sign;
+
+    // Sort keys
+    const sorted: Record<string, unknown> = {};
+    Object.keys(payload).sort().forEach((k) => {
+      sorted[k] = payload[k];
+    });
+
+    const jsonBase64 = btoa(JSON.stringify(sorted));
+    const signString = jsonBase64 + apiKey;
+    const encoder = new TextEncoder();
+    const hashBuf = await crypto.subtle.digest("MD5", encoder.encode(signString));
+    const computedSign = Array.from(new Uint8Array(hashBuf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    if (computedSign !== receivedSign) {
+      console.error("Invalid signature", { computedSign, receivedSign });
+      return new Response("OK", { status: 200 });
+    }
+
+    // Check payment status
+    const status = body.status;
+    if (status !== "paid" && status !== "paid_over") {
+      console.log("Payment status not paid:", status);
+      return new Response("OK", { status: 200 });
+    }
+
+    // Extract additional_data
+    let additionalData: { user_id: string; plan: string; credits: number };
+    try {
+      additionalData = JSON.parse(body.additional_data || "{}");
+    } catch {
+      console.error("Failed to parse additional_data");
+      return new Response("OK", { status: 200 });
+    }
+
+    const { user_id, plan, credits } = additionalData;
+    if (!user_id || !plan || !credits) {
+      console.error("Missing data in additional_data", additionalData);
+      return new Response("OK", { status: 200 });
+    }
+
+    // Use service role to update user
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Update plan and credits
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        plan: plan,
+        credits_amount: credits,
+      })
+      .eq("id", user_id);
+
+    if (updateError) {
+      console.error("Failed to update profile:", updateError);
+      return new Response("OK", { status: 200 });
+    }
+
+    // Log payment
+    await supabase.from("payment_logs").insert({
+      user_id,
+      amount_rub: parseFloat(body.payment_amount_usd || body.amount || "0"),
+      status: "success",
+      order_id: body.order_id,
+      plan_id: plan,
+      raw_payload: body,
+    });
+
+    // Notify user
+    await supabase.from("notifications").insert({
+      user_id,
+      title: "Payment Successful! 🎉",
+      message: `Your ${plan.toUpperCase()} plan has been activated with ${credits} credits. Payment via cryptocurrency.`,
+    });
+
+    console.log(`Crypto payment success: user=${user_id}, plan=${plan}, credits=${credits}`);
+
+    return new Response("OK", { status: 200 });
+  } catch (err) {
+    console.error("crypto-webhook error:", err);
+    return new Response("OK", { status: 200 });
+  }
+});
