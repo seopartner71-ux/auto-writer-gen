@@ -305,6 +305,67 @@ const EN_INFORMAL_INJECTIONS = [
   "I mean, ", "To be fair, ", "Heads up — ",
 ];
 
+export interface EnStealthStats {
+  bannedPhrasesFound: number;
+  bannedPhrasesList: string[];
+  contractionsApplied: number;
+  contractionsList: string[];
+  informalInjectionsAdded: number;
+  sentencesShortened: number;
+}
+
+/**
+ * Analyze content and return stats on how many AI phrases and contractions would be fixed.
+ * Does NOT modify content — read-only analysis.
+ */
+export function getEnStealthStats(content: string): EnStealthStats {
+  const isEnglish = /^[a-zA-Z\s.,!?;:\-'"()\[\]{}0-9#*/]/.test(content.trim().slice(0, 200));
+  if (!isEnglish) return { bannedPhrasesFound: 0, bannedPhrasesList: [], contractionsApplied: 0, contractionsList: [], informalInjectionsAdded: 0, sentencesShortened: 0 };
+
+  const bannedPhrasesList: string[] = [];
+  for (const [pattern] of EN_BANNED_PHRASES) {
+    const matches = content.match(pattern);
+    if (matches) {
+      bannedPhrasesList.push(...matches);
+    }
+  }
+
+  const contractionsList: string[] = [];
+  for (const [pattern] of EN_CONTRACTION_FIXES) {
+    const matches = content.match(pattern);
+    if (matches) {
+      contractionsList.push(...matches);
+    }
+  }
+
+  // Estimate sentence shortenings
+  const lines = content.split("\n");
+  let sentenceCounter = 0;
+  let shortened = 0;
+  for (const line of lines) {
+    if (/^#{1,6}\s|^[-*]\s|^\d+\.\s|^>|^```|^!\[|^\|/.test(line.trim())) continue;
+    if (line.trim().length < 20) continue;
+    const sentences = line.match(/[^.!?]+[.!?]+/g);
+    if (!sentences || sentences.length < 2) { sentenceCounter++; continue; }
+    for (const s of sentences) {
+      sentenceCounter++;
+      if (sentenceCounter % 5 === 0 && s.trim().split(/\s+/).length > 10) shortened++;
+    }
+  }
+
+  const wordCount = content.split(/\s+/).length;
+  const injectCount = Math.min(3, Math.max(2, Math.floor(wordCount / 1000) * 2));
+
+  return {
+    bannedPhrasesFound: bannedPhrasesList.length,
+    bannedPhrasesList: [...new Set(bannedPhrasesList)],
+    contractionsApplied: contractionsList.length,
+    contractionsList: [...new Set(contractionsList)],
+    informalInjectionsAdded: injectCount,
+    sentencesShortened: shortened,
+  };
+}
+
 /**
  * EN Stealth Post-Processor: applies contraction fixes, bans AI phrases,
  * shortens every 5th sentence, and injects informal openers.
