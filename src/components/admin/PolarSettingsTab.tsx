@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Loader2, ShieldCheck, ExternalLink, Globe } from "lucide-react";
+import { Save, Loader2, ShieldCheck, ExternalLink, Globe, Bitcoin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -26,6 +26,8 @@ const ALL_KEYS = [
   "polar_nano_product_id",
   "polar_basic_product_id",
   "polar_pro_product_id",
+  "cryptomus_merchant_id",
+  "cryptomus_api_key",
 ];
 
 export function PolarSettingsTab() {
@@ -225,6 +227,52 @@ export function PolarSettingsTab() {
                 onChange={(e) => setValues((v) => ({ ...v, polar_pro_product_id: e.target.value }))}
               />
               <p className="text-xs text-muted-foreground">$249/mo</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cryptomus (Crypto) */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Bitcoin className="h-5 w-5 text-orange-500" />
+              Cryptomus — Crypto Payments (EN)
+            </CardTitle>
+            <Badge variant="outline" className="text-orange-500 border-orange-500/30">USDT / BTC</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Крипто-оплата для EN пользователей.{" "}
+            <a href="https://cryptomus.com" target="_blank" rel="noopener noreferrer" className="text-primary underline inline-flex items-center gap-1">
+              Cryptomus <ExternalLink className="h-3 w-3" />
+            </a>
+            . Merchant UUID и API Key берутся из Cryptomus Dashboard.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="cryptomus_merchant_id">Merchant UUID</Label>
+              <Input
+                id="cryptomus_merchant_id"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                value={values["cryptomus_merchant_id"] ?? ""}
+                onChange={(e) => setValues((v) => ({ ...v, cryptomus_merchant_id: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">UUID мерчанта из Cryptomus</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cryptomus_api_key">Payment API Key</Label>
+              <Input
+                id="cryptomus_api_key"
+                type="password"
+                placeholder="••••••••••••••••"
+                value={values["cryptomus_api_key"] ?? ""}
+                onChange={(e) => setValues((v) => ({ ...v, cryptomus_api_key: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Ключ для подписи платежей</p>
             </div>
           </div>
         </CardContent>

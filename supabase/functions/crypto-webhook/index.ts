@@ -14,9 +14,20 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log("Cryptomus webhook received:", JSON.stringify(body));
 
-    const apiKey = Deno.env.get("CRYPTOMUS_API_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminDb = createClient(supabaseUrl, serviceKey);
+
+    // Fetch API key from app_settings
+    const { data: settingsData } = await adminDb
+      .from("app_settings")
+      .select("key, value")
+      .eq("key", "cryptomus_api_key")
+      .single();
+
+    const apiKey = settingsData?.value;
     if (!apiKey) {
-      console.error("CRYPTOMUS_API_KEY not set");
+      console.error("CRYPTOMUS_API_KEY not found in app_settings");
       return new Response("OK", { status: 200 });
     }
 
@@ -27,7 +38,6 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
-    // Remove sign from body, sort keys, base64 encode, then md5 with apiKey
     const payload = { ...body };
     delete payload.sign;
 
@@ -72,13 +82,8 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
-    // Use service role to update user
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
-
     // Update plan and credits
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminDb
       .from("profiles")
       .update({
         plan: plan,
@@ -92,7 +97,7 @@ Deno.serve(async (req) => {
     }
 
     // Log payment
-    await supabase.from("payment_logs").insert({
+    await adminDb.from("payment_logs").insert({
       user_id,
       amount_rub: parseFloat(body.payment_amount_usd || body.amount || "0"),
       status: "success",
@@ -102,7 +107,7 @@ Deno.serve(async (req) => {
     });
 
     // Notify user
-    await supabase.from("notifications").insert({
+    await adminDb.from("notifications").insert({
       user_id,
       title: "Payment Successful! 🎉",
       message: `Your ${plan.toUpperCase()} plan has been activated with ${credits} credits. Payment via cryptocurrency.`,
