@@ -21,6 +21,12 @@ export const AI_STOP_WORDS_EN = [
   "delve", "uncover", "meticulously", "comprehensive guide",
   "it goes without saying", "it's no secret that",
   "plays an important role",
+  "it is worth noting that", "this is because", "in summary",
+  "it should be noted", "one of the key", "it is important to",
+  "essentially", "indeed", "notably", "significantly",
+  "consequently", "subsequently", "nevertheless",
+  "it is crucial", "it is vital", "paramount",
+  "a plethora of", "myriad", "multifaceted",
 ];
 
 export const ALL_AI_STOP_WORDS = [...AI_STOP_WORDS_RU, ...AI_STOP_WORDS_EN];
