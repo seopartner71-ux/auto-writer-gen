@@ -33,6 +33,7 @@ import { MiralinksWidget, type MiralinksLink } from "@/components/article/Mirali
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Readability helpers
 function countWords(text: string): number {
@@ -1860,10 +1861,19 @@ export default function ArticlesPage() {
                 <BarChart3 className="h-3 w-3" />
                 Dashboard
               </TabsTrigger>
-              <TabsTrigger value="human" className="text-xs gap-1 flex-1">
-                <Shield className="h-3 w-3" />
-                Human Score
-              </TabsTrigger>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="human" className="text-xs gap-1 flex-1">
+                      <Shield className="h-3 w-3" />
+                      Human Score
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px] text-center">
+                    <p>{lang === "ru" ? "Проверка текста на AI-детекторы. Используйте после генерации статьи" : "AI detector check. Use after generating an article"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               {!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile) ? (
                 <TabsTrigger value="miralinks" className="text-xs gap-1 flex-1">
                   <Link2 className="h-3 w-3" />
@@ -1875,10 +1885,19 @@ export default function ArticlesPage() {
                   GoGetLinks
                 </TabsTrigger>
               ) : (
-                <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
-                  <Target className="h-3 w-3" />
-                  Benchmark
-                </TabsTrigger>
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
+                        <Target className="h-3 w-3" />
+                        Benchmark
+                      </TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[240px] text-center">
+                      <p>{lang === "ru" ? "Сравнение вашей статьи с ТОП-10 конкурентами. Требует данных из Smart Research" : "Compare your article with TOP-10 competitors. Requires Smart Research data"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </TabsList>
 
