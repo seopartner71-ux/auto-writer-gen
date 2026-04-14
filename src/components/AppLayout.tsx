@@ -10,12 +10,17 @@ import { useTrialStatus } from "@/shared/hooks/useTrialStatus";
 import { TrialBanner } from "@/components/trial/TrialBanner";
 import { PaywallModal } from "@/components/trial/PaywallModal";
 import { NudgeNotification } from "@/components/trial/NudgeNotification";
+import { useOnboarding } from "@/shared/hooks/useOnboarding";
+import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
+import { OnboardingProgressBar } from "@/components/onboarding/OnboardingProgressBar";
+import { OnboardingReminderToast } from "@/components/onboarding/OnboardingReminderToast";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { lang, setLang, t } = useI18n();
   const { showBanner, showPaywall, paywallReason, showNudge } = useTrialStatus();
+  const onboarding = useOnboarding();
 
   return (
     <SidebarProvider>
@@ -60,14 +65,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </header>
           {showNudge && <NudgeNotification />}
           {showBanner && <TrialBanner />}
+          {onboarding.isNewUser && onboarding.completedSteps < 3 && (
+            <OnboardingProgressBar
+              completedSteps={onboarding.completedSteps}
+              researchDone={onboarding.state.researchDone}
+              structureDone={onboarding.state.structureDone}
+              articleDone={onboarding.state.articleDone}
+              showCongrats={onboarding.showCongrats}
+              onCongratsShown={onboarding.markCongratsShown}
+            />
+          )}
           <main className="flex-1 overflow-auto p-6">
             {children}
           </main>
         </div>
       </div>
+      {onboarding.showModal && (
+        <OnboardingModal open={true} onDismiss={onboarding.dismiss} />
+      )}
       {showPaywall && paywallReason && (
         <PaywallModal reason={paywallReason as "no_credits" | "trial_expired"} />
       )}
+      <OnboardingReminderToast
+        show={onboarding.shouldShowReminder}
+        onShown={onboarding.markReminderShown}
+      />
     </SidebarProvider>
   );
 }
