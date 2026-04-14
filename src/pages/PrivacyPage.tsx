@@ -36,7 +36,7 @@ function PrivacyFallbackEn() {
       <p>We collect the following categories of personal data:</p>
       <ul className="list-disc pl-6 space-y-1">
         <li>Account information: email address, full name</li>
-        <li>Payment data: processed securely through Polar (card payments) and Cryptomus (cryptocurrency), we do not store card details</li>
+        <li>Payment data: processed securely through Polar (card payments), we do not store card details</li>
         <li>Technical data: IP address, browser type, device information, cookies</li>
         <li>Usage data: features used, articles generated, preferences</li>
       </ul>
@@ -57,7 +57,7 @@ function PrivacyFallbackEn() {
       <h2 className="text-lg font-bold text-foreground">5. Data Sharing</h2>
       <p>We do not sell your personal data. We may share data with:</p>
       <ul className="list-disc pl-6 space-y-1">
-        <li>Payment processors (Polar, Cryptomus) for transaction processing</li>
+        <li>Payment processors (Polar) for transaction processing</li>
         <li>Cloud infrastructure providers for hosting</li>
         <li>Law enforcement when required by applicable law</li>
       </ul>

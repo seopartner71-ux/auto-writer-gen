@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2, Shield, Atom, Bitcoin } from "lucide-react";
+import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2, Shield, Atom } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ export default function PricingPage() {
   const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [loadingCrypto, setLoadingCrypto] = useState<string | null>(null);
 
   const { data: paymentSettings } = useQuery({
     queryKey: ["app-settings", "payments-all"],
@@ -201,29 +200,6 @@ export default function PricingPage() {
     }
   };
 
-  const handleCryptoCheckout = async (planId: string) => {
-    if (!user) {
-      toast.error(t("pricing.loginRequired"));
-      return;
-    }
-    if (planId === currentPlan) return;
-
-    setLoadingCrypto(planId);
-    try {
-      const { data, error } = await supabase.functions.invoke("crypto-checkout", {
-        body: { plan: planId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Crypto payment error");
-    } finally {
-      setLoadingCrypto(null);
-    }
-  };
 
   return (
     <div className="space-y-8 overflow-x-hidden scrollbar-hide">
@@ -266,7 +242,6 @@ export default function PricingPage() {
           const Icon = plan.icon;
           const isPopular = plan.badge === t("pricing.popular");
           const isLoading = loadingPlan === plan.id;
-          const isCryptoLoading = loadingCrypto === plan.id;
           return (
             <Card key={plan.id} className={`relative bg-card border-border flex flex-col overflow-visible ${isPopular ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary" : ""}`}>
               {plan.badge && (
@@ -307,27 +282,6 @@ export default function PricingPage() {
                   <Button className="w-full" variant="secondary" disabled>
                   {t("pricing.currentPlan")}
                   </Button>
-                ) : isEn ? (
-                  <div className="space-y-2">
-                    <Button
-                      className="w-full"
-                      variant={isPopular ? "default" : "outline"}
-                      onClick={() => handleSelectPlan(plan.id)}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
-                      Pay with Card $
-                    </Button>
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => handleCryptoCheckout(plan.id)}
-                      disabled={isCryptoLoading}
-                    >
-                      {isCryptoLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Bitcoin className="h-4 w-4 mr-2" />}
-                      Pay with Crypto USDT
-                    </Button>
-                  </div>
                 ) : (
                   <Button
                     className="w-full"
@@ -336,7 +290,7 @@ export default function PricingPage() {
                     disabled={isLoading}
                   >
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Оплатить
+                    {isEn ? "Subscribe" : "Оплатить"}
                   </Button>
                 )}
               </CardContent>
