@@ -54,8 +54,12 @@ export default function PricingPage() {
 
   const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
 
-  const fmtPrice = (id: string, fallbackRub: number) => {
+  const fmtPrice = (id: string, fallbackRub: number, fallbackUsd: number) => {
     const db = getDbPlan(id);
+    if (isEn) {
+      const usd = db?.price_usd ?? fallbackUsd;
+      return `$${usd}`;
+    }
     const rub = db?.price_rub ?? fallbackRub;
     return `${rub.toLocaleString("ru-RU")} ₽`;
   };
