@@ -644,6 +644,7 @@ export default function ArticlesPage() {
       }
     }
 
+    setCurrentArticleId(null); // Reset so auto-save creates a NEW article & deducts credit
     setIsStreaming(true);
     setStreamPhase("thinking");
     setContent("");
