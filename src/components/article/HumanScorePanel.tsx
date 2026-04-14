@@ -163,6 +163,10 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
   const perplexity = useMemo(() => computePerplexity(content), [content]);
   const symmetry = useMemo(() => computeSymmetry(content), [content]);
   const stopWords = useMemo(() => findAiStopWords(content), [content]);
+  const stealthStats = useMemo<EnStealthStats | null>(() => {
+    if (contentLang !== "en") return null;
+    return getEnStealthStats(content);
+  }, [content, contentLang]);
 
   const allLsiKeywords = useMemo(
     () => [...lsiKeywords, ...customKeywords],
