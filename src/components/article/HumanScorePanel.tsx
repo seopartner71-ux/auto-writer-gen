@@ -70,28 +70,57 @@ function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Record<st
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": `UNIVERSAL STEALTH BYPASS (0% AI TARGET):
-You are an expert human editor. Your task is to rewrite this text to achieve 0% AI detection score, while STRICTLY maintaining the chosen persona's tone.${personaBlock}
+    "humanize-all": `Rewrite this text to sound like a real human expert. You are an elite human editor targeting 0% AI detection on Originality.ai.${personaBlock}
 
-CORE RULES:
-1. STRIP ALL BOLD: Remove all ** formatting. Human experts don't bold keywords in flowy text.
+WRITING STYLE RULES:
+- Use contractions ALWAYS: it's, don't, you'll, can't, won't, I've, we've, they're, isn't, wasn't, wouldn't, shouldn't. NEVER write "it is", "do not", "you will" in full form.
+- Start some sentences with And, But, So — this is how real people write.
+- Add rhetorical questions every 3-4 paragraphs to break monotony.
+- Mix very short sentences (3-5 words) with long ones (25-35 words). Pattern: short-long-medium-short-long.
+- Add specific personal observations and opinions: "I've seen this happen with...", "Most clients I work with..."
+- Remove any formal academic tone completely.
+- Use 'you' to address the reader directly throughout.
 
-2. LINGUISTIC CHAOS (Burstiness): Break GPT's rhythmic symmetry.
-   - Rule: One very short sentence (3-5 words) every 3-4 sentences.
-   - Use colons (:) and parenthetical asides (e.g., "believe me, I've seen it", "though who knows") to mimic human thought.
+HUMANIZATION RULES:
+- Occasionally use em-dashes — like this — for emphasis and asides.
+- Add 1-2 industry-specific slang terms per 500 words ("the kicker", "game-changer", "no-brainer", "bottom line").
+- Include at least one counterintuitive statement per section ("Sounds crazy, but...", "Against popular belief...").
+- Use specific numbers instead of round ones: not "50%" but "47%", not "10 years" but "9 years".
+- Add occasional self-corrections: "Actually, let me rephrase that...", "Wait, that's not quite right..."
+- Use sentence fragments occasionally. For emphasis. Like this.
+- Reference real-world scenarios: "I've seen this happen with..." or "Most clients I work with..."
+- Vary paragraph length dramatically — one sentence, then five sentences, then two.
+- Add qualifiers: "In most cases...", "This won't work if...", "The exception here is..."
+- Never start two consecutive paragraphs with the same word.
+- Include at least one direct quote or paraphrased expert opinion per section.
 
-3. CLICHÉ EXTERMINATOR: Delete "In today's world", "Unlock", "Delve", "Comprehensive guide", "Furthermore", "It's important to note", "Meticulously".
-   Replace with: "the kicker", "let's be real", "game-changer", "no-brainer", "here's the deal", "bottom line".
+ZERO TOLERANCE — BANNED PHRASES (delete on sight, replace with natural transitions):
+- "It is worth noting" / "It is worth noting that"
+- "In conclusion"
+- "Furthermore"
+- "Moreover"
+- "It is important to note" / "It is important to"
+- "This is because"
+- "In summary"
+- "It should be noted"
+- "One of the key"
+- "In today's world"
+- "In the realm of"
+- "It goes without saying"
+- "Needless to say"
+- "As previously mentioned"
+- "Comprehensive" / "Comprehensive guide"
+- "Leverage" / "Streamline" / "Utilize"
+- "Delve" / "Uncover" / "Meticulously"
 
-4. SYNTACTIC INVERSION: Change standard word order to a more conversational, emphatic flow.
+FORMATTING:
+1. STRIP ALL BOLD: Remove all ** formatting. Human experts don't bold keywords.
+2. First sentence after each H2/H3 — blunt, clear answer. No fluff intros.
+3. FAQ section tone: like an expert answering a friend, not a textbook.
 
-5. DIRECT ANSWER MODE: First sentence after each H2/H3 must be a blunt, clear answer without "fluff" introductions.
+Keep all facts, structure, headings, and SEO keywords intact. Only change the writing style.
 
-6. FAQ REDESIGN: Reformat FAQ into 'Quick-fire troubleshooting'. Tone like an expert answering a friend.
-
-7. DASH RESTRICTION: NEVER use em-dash (-) or en-dash (-). Use ONLY the standard hyphen/minus sign (-) for all punctuation, lists, and dialogues. This is a technical requirement for CMS compatibility.
-
-FINAL GOAL: Output must look typed by a human in one go, with all natural imperfections, slang, and unique rhythm that AI cannot predict. 0% AI Score is the only acceptable result.`,
+FINAL GOAL: Output must look typed by a human in one sitting — with all natural imperfections, slang, and unique rhythm that AI cannot predict. 0% AI Score is the only acceptable result.`,
   };
 }
 
