@@ -275,6 +275,62 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
         </TooltipProvider>
       )}
 
+      {/* ─── EN Stealth Stats (only for English content) ──────────── */}
+      {stealthStats && (stealthStats.bannedPhrasesFound > 0 || stealthStats.contractionsApplied > 0) && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              Stealth Post-Processing
+              <Badge variant="outline" className={`ml-auto text-[10px] ${
+                stealthStats.bannedPhrasesFound === 0 && stealthStats.contractionsApplied === 0
+                  ? "text-green-500" : "text-yellow-500"
+              }`}>
+                {stealthStats.bannedPhrasesFound + stealthStats.contractionsApplied} fixes pending
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md border border-border p-2 text-center">
+                <div className="text-lg font-bold text-red-400">{stealthStats.bannedPhrasesFound}</div>
+                <div className="text-[10px] text-muted-foreground">AI phrases found</div>
+              </div>
+              <div className="rounded-md border border-border p-2 text-center">
+                <div className="text-lg font-bold text-yellow-400">{stealthStats.contractionsApplied}</div>
+                <div className="text-[10px] text-muted-foreground">Contractions needed</div>
+              </div>
+              <div className="rounded-md border border-border p-2 text-center">
+                <div className="text-lg font-bold text-blue-400">{stealthStats.sentencesShortened}</div>
+                <div className="text-[10px] text-muted-foreground">Sentences to shorten</div>
+              </div>
+              <div className="rounded-md border border-border p-2 text-center">
+                <div className="text-lg font-bold text-purple-400">{stealthStats.informalInjectionsAdded}</div>
+                <div className="text-[10px] text-muted-foreground">Informal hooks to add</div>
+              </div>
+            </div>
+            {stealthStats.bannedPhrasesList.length > 0 && (
+              <div className="text-[10px] text-muted-foreground">
+                <span className="font-medium text-red-400">Banned: </span>
+                {stealthStats.bannedPhrasesList.slice(0, 5).map((p, i) => (
+                  <span key={i}>"{p}"{i < Math.min(4, stealthStats.bannedPhrasesList.length - 1) ? ", " : ""}</span>
+                ))}
+                {stealthStats.bannedPhrasesList.length > 5 && ` +${stealthStats.bannedPhrasesList.length - 5} more`}
+              </div>
+            )}
+            {stealthStats.contractionsList.length > 0 && (
+              <div className="text-[10px] text-muted-foreground">
+                <span className="font-medium text-yellow-400">Expand: </span>
+                {stealthStats.contractionsList.slice(0, 5).map((p, i) => (
+                  <span key={i}>"{p}"{i < Math.min(4, stealthStats.contractionsList.length - 1) ? ", " : ""}</span>
+                ))}
+                {stealthStats.contractionsList.length > 5 && ` +${stealthStats.contractionsList.length - 5} more`}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* ─── Quick Fix All Button ──────────────────────────────────── */}
       {hasFixableIssues && onFixIssue && (
         <Button
