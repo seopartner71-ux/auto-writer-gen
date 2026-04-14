@@ -201,6 +201,30 @@ export default function PricingPage() {
     }
   };
 
+  const handleCryptoCheckout = async (planId: string) => {
+    if (!user) {
+      toast.error(t("pricing.loginRequired"));
+      return;
+    }
+    if (planId === currentPlan) return;
+
+    setLoadingCrypto(planId);
+    try {
+      const { data, error } = await supabase.functions.invoke("crypto-checkout", {
+        body: { plan: planId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Crypto payment error");
+    } finally {
+      setLoadingCrypto(null);
+    }
+  };
+
   return (
     <div className="space-y-8 overflow-x-hidden scrollbar-hide">
       <div className="text-center space-y-2">
