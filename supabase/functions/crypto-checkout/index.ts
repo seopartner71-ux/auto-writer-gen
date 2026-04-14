@@ -18,6 +18,10 @@ function md5(input: string): string {
   return hash.toString("hex");
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -58,7 +62,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch Cryptomus credentials from app_settings
     const adminDb = createClient(supabaseUrl, serviceKey);
     const { data: settingsData } = await adminDb
       .from("app_settings")
@@ -70,12 +73,19 @@ Deno.serve(async (req) => {
       settingsMap[s.key] = s.value;
     });
 
-    const merchantId = settingsMap["cryptomus_merchant_id"] || Deno.env.get("CRYPTOMUS_MERCHANT_ID");
-    const apiKey = settingsMap["cryptomus_api_key"] || Deno.env.get("CRYPTOMUS_API_KEY");
+    const merchantId = settingsMap["cryptomus_merchant_id"]?.trim() || Deno.env.get("CRYPTOMUS_MERCHANT_ID")?.trim();
+    const apiKey = settingsMap["cryptomus_api_key"]?.trim() || Deno.env.get("CRYPTOMUS_API_KEY")?.trim();
 
     if (!merchantId || !apiKey) {
-      return new Response(JSON.stringify({ error: "Cryptomus not configured. Admin must add credentials in settings." }), {
+      return new Response(JSON.stringify({ error: "Cryptomus is not configured. Add Merchant UUID and API Key in Admin → Payments → Cryptomus." }), {
         status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!isUuid(merchantId)) {
+      return new Response(JSON.stringify({ error: "Cryptomus Merchant UUID is invalid. Update it in Admin → Payments → Cryptomus." }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -93,7 +103,6 @@ Deno.serve(async (req) => {
       additional_data: JSON.stringify({ user_id: user.id, plan, credits }),
     };
 
-    // Cryptomus signing: base64(JSON) + apiKey → MD5
     const jsonBase64 = btoa(JSON.stringify(paymentData));
     const sign = md5(jsonBase64 + apiKey);
 
@@ -104,7 +113,7 @@ Deno.serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         merchant: merchantId,
-        sign: sign,
+        sign,
       },
       body: JSON.stringify(paymentData),
     });
@@ -112,8 +121,29 @@ Deno.serve(async (req) => {
     if (!cryptoRes.ok) {
       const errText = await cryptoRes.text();
       console.error("Cryptomus API error:", errText);
-      return new Response(JSON.stringify({ error: "Failed to create crypto payment" }), {
-        status: 500,
+
+      let errorMessage = "Failed to create crypto payment";
+      try {
+        const parsed = JSON.parse(errText);
+        const apiMessage = parsed?.message ?? parsed?.errors?.[0]?.message;
+        if (typeof apiMessage === "string" && apiMessage.trim()) {
+          errorMessage = apiMessage.trim();
+        }
+      } catch {
+        if (errText.trim()) {
+          errorMessage = errText.trim();
+        }
+      }
+
+      const normalizedMessage = errorMessage.toLowerCase();
+      if (normalizedMessage.includes("merchant uuid")) {
+        errorMessage = "Cryptomus Merchant UUID is invalid. Update it in Admin → Payments → Cryptomus.";
+      } else if (normalizedMessage.includes("api key")) {
+        errorMessage = "Cryptomus API Key is invalid. Update it in Admin → Payments → Cryptomus.";
+      }
+
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status: cryptoRes.status === 400 ? 400 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

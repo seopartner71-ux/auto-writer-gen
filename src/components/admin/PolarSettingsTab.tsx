@@ -64,7 +64,9 @@ export function PolarSettingsTab() {
 
       for (const key of ALL_KEYS) {
         const rawValue = values[key] ?? "";
-        const value = key === "prodamus_api_key" && !rawValue.trim()
+        const shouldPreserveExistingSecret =
+          (key === "prodamus_api_key" || key === "cryptomus_api_key") && !rawValue.trim();
+        const value = shouldPreserveExistingSecret
           ? (existingValues[key] ?? "")
           : rawValue;
 
