@@ -11,29 +11,6 @@ const PLAN_PRICES: Record<string, { amount: number; credits: number }> = {
   pro: { amount: 249, credits: 150 },
 };
 
-function md5Hex(data: Uint8Array): string {
-  const hashBuffer = new Uint8Array(16);
-  // Use SubtleCrypto for hashing
-  // Fallback: manual approach not needed, we'll use crypto.subtle
-  // Actually Deno supports crypto.subtle
-  return "";
-}
-
-async function signPayload(payload: string, apiKey: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(apiKey),
-    { name: "HMAC", hash: "SHA-512" },
-  	false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -50,6 +27,8 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -72,10 +51,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    const merchantId = Deno.env.get("CRYPTOMUS_MERCHANT_ID");
-    const apiKey = Deno.env.get("CRYPTOMUS_API_KEY");
+    // Fetch Cryptomus credentials from app_settings (admin-managed)
+    const adminDb = createClient(supabaseUrl, serviceKey);
+    const { data: settingsData } = await adminDb
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["cryptomus_merchant_id", "cryptomus_api_key"]);
+
+    const settingsMap: Record<string, string> = {};
+    (settingsData ?? []).forEach((s: { key: string; value: string }) => {
+      settingsMap[s.key] = s.value;
+    });
+
+    const merchantId = settingsMap["cryptomus_merchant_id"];
+    const apiKey = settingsMap["cryptomus_api_key"];
+
     if (!merchantId || !apiKey) {
-      return new Response(JSON.stringify({ error: "Cryptomus not configured" }), {
+      return new Response(JSON.stringify({ error: "Cryptomus not configured. Admin must add credentials in settings." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -94,10 +86,9 @@ Deno.serve(async (req) => {
       additional_data: JSON.stringify({ user_id: user.id, plan, credits }),
     };
 
-    // Cryptomus uses base64(JSON) + md5 for signing
+    // Cryptomus signing: base64(JSON) + apiKey → MD5
     const jsonBase64 = btoa(JSON.stringify(paymentData));
     const signString = jsonBase64 + apiKey;
-    // MD5 hash
     const encoder = new TextEncoder();
     const hashBuf = await crypto.subtle.digest("MD5", encoder.encode(signString));
     const sign = Array.from(new Uint8Array(hashBuf))
