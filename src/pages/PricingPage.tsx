@@ -54,8 +54,12 @@ export default function PricingPage() {
 
   const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
 
-  const fmtPrice = (id: string, fallbackRub: number) => {
+  const fmtPrice = (id: string, fallbackRub: number, fallbackUsd: number) => {
     const db = getDbPlan(id);
+    if (isEn) {
+      const usd = db?.price_usd ?? fallbackUsd;
+      return `$${usd}`;
+    }
     const rub = db?.price_rub ?? fallbackRub;
     return `${rub.toLocaleString("ru-RU")} ₽`;
   };
@@ -88,7 +92,7 @@ export default function PricingPage() {
     {
       id: "free" as const,
       name: fmtName("free", "NANO"),
-      price: fmtPrice("free", 990),
+      price: fmtPrice("free", 990, 15),
       period: t("pricing.perMonth"),
       icon: Atom,
       description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
@@ -105,7 +109,7 @@ export default function PricingPage() {
     {
       id: "basic" as const,
       name: fmtName("basic", "PRO"),
-      price: fmtPrice("basic", 5900),
+      price: fmtPrice("basic", 5900, 65),
       period: t("pricing.perMonth"),
       icon: Zap,
       description: fmtDesc("basic", "Идеальный баланс для SEO-профи", "Perfect balance for SEO pros"),
@@ -122,7 +126,7 @@ export default function PricingPage() {
     {
       id: "pro" as const,
       name: fmtName("pro", "FACTORY"),
-      price: fmtPrice("pro", 19900),
+      price: fmtPrice("pro", 19900, 220),
       period: t("pricing.perMonth"),
       icon: Crown,
       description: fmtDesc("pro", "Контентный завод для агентств", "Content factory for agencies"),
