@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as hexEncode } from "https://deno.land/std@0.224.0/encoding/hex.ts";
+import { crypto as stdCrypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,10 +92,10 @@ Deno.serve(async (req) => {
     const jsonBase64 = btoa(JSON.stringify(paymentData));
     const signString = jsonBase64 + apiKey;
     const encoder = new TextEncoder();
-    const hashBuf = await crypto.subtle.digest("MD5", encoder.encode(signString));
-    const sign = Array.from(new Uint8Array(hashBuf))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    const hashBuf = await stdCrypto.subtle.digest("MD5", encoder.encode(signString));
+    const sign = new TextDecoder().decode(hexEncode(new Uint8Array(hashBuf)));
+
+    console.log(`Creating Cryptomus payment: plan=${plan}, amount=${amount}, orderId=${orderId}`);
 
     const cryptoRes = await fetch("https://api.cryptomus.com/v1/payment", {
       method: "POST",
@@ -115,6 +117,7 @@ Deno.serve(async (req) => {
     }
 
     const result = await cryptoRes.json();
+    console.log("Cryptomus response:", JSON.stringify(result));
 
     return new Response(JSON.stringify({ url: result.result?.url }), {
       status: 200,

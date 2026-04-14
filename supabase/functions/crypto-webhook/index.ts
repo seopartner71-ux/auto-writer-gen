@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as hexEncode } from "https://deno.land/std@0.224.0/encoding/hex.ts";
+import { crypto as stdCrypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,10 +52,8 @@ Deno.serve(async (req) => {
     const jsonBase64 = btoa(JSON.stringify(sorted));
     const signString = jsonBase64 + apiKey;
     const encoder = new TextEncoder();
-    const hashBuf = await crypto.subtle.digest("MD5", encoder.encode(signString));
-    const computedSign = Array.from(new Uint8Array(hashBuf))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    const hashBuf = await stdCrypto.subtle.digest("MD5", encoder.encode(signString));
+    const computedSign = new TextDecoder().decode(hexEncode(new Uint8Array(hashBuf)));
 
     if (computedSign !== receivedSign) {
       console.error("Invalid signature", { computedSign, receivedSign });
