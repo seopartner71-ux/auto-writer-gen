@@ -1477,7 +1477,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "articles.faqGenerated": { ru: "FAQ и JSON-LD Schema сгенерированы", en: "FAQ and JSON-LD Schema generated" },
 
   // Trial / Paywall
-  "trial.bannerLastCredit": { ru: "Остался 1 бесплатный кредит. Перейдите на PRO — 40 статей за 5 900 ₽/мес", en: "1 free credit left. Upgrade to PRO — 40 articles for $59/mo" },
+  "trial.bannerLastCredit": { ru: "Остался 1 бесплатный кредит. Перейдите на PRO — 40 статей за 5 900 ₽/мес", en: "1 free credit left. Upgrade to PRO — 40 articles for $65/mo" },
   "trial.goToPro": { ru: "Перейти на PRO", en: "Upgrade to PRO" },
   "trial.expired": { ru: "Пробный период истёк", en: "Trial expired" },
   "trial.expiredDesc": { ru: "Ваш 7-дневный бесплатный период закончился. Выберите тариф, чтобы продолжить.", en: "Your 7-day free trial has ended. Choose a plan to continue." },
@@ -1487,9 +1487,9 @@ const translations: Record<string, Record<Lang, string>> = {
   "trial.declineLater": { ru: "Позже", en: "Later" },
   "trial.nudgeTitle": { ru: "Вы ещё не попробовали генерацию!", en: "You haven't tried generation yet!" },
   "trial.nudgeDesc": { ru: "Создайте первую SEO-статью за 3 минуты →", en: "Create your first SEO article in 3 minutes →" },
-  "trial.nano": { ru: "NANO — 990 ₽/мес", en: "NANO — $9/mo" },
-  "trial.pro": { ru: "PRO — 5 900 ₽/мес", en: "PRO — $59/mo" },
-  "trial.factory": { ru: "FACTORY — 19 900 ₽/мес", en: "FACTORY — $199/mo" },
+  "trial.nano": { ru: "NANO — 990 ₽/мес", en: "NANO — $15/mo" },
+  "trial.pro": { ru: "PRO — 5 900 ₽/мес", en: "PRO — $65/mo" },
+  "trial.factory": { ru: "FACTORY — 19 900 ₽/мес", en: "FACTORY — $220/mo" },
   "trial.nanoDesc": { ru: "5 статей в месяц", en: "5 articles per month" },
   "trial.proDesc": { ru: "40 статей + Stealth Engine + Fact-Check", en: "40 articles + Stealth Engine + Fact-Check" },
   "trial.factoryDesc": { ru: "150 статей + Bulk + авто-публикация", en: "150 articles + Bulk + auto-publish" },
