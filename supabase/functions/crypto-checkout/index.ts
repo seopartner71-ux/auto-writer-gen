@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
       settingsMap[s.key] = s.value;
     });
 
-    const merchantId = settingsMap["cryptomus_merchant_id"];
-    const apiKey = settingsMap["cryptomus_api_key"];
+    const merchantId = settingsMap["cryptomus_merchant_id"] || Deno.env.get("CRYPTOMUS_MERCHANT_ID");
+    const apiKey = settingsMap["cryptomus_api_key"] || Deno.env.get("CRYPTOMUS_API_KEY");
 
     if (!merchantId || !apiKey) {
       return new Response(JSON.stringify({ error: "Cryptomus not configured. Admin must add credentials in settings." }), {
