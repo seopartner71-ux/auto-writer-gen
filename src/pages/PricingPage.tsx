@@ -11,20 +11,24 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export default function PricingPage() {
-  const { profile, user } = useAuth();
+  const { profile, user, session } = useAuth();
   const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const currentPlan = profile?.plan ?? "free";
   const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const { data: paymentSettings } = useQuery({
-    queryKey: ["app-settings", "prodamus"],
+    queryKey: ["app-settings", "payments-all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("app_settings")
         .select("key, value")
-        .in("key", ["prodamus_nano_link", "prodamus_basic_link", "prodamus_pro_link"]);
+        .in("key", [
+          "prodamus_nano_link", "prodamus_basic_link", "prodamus_pro_link",
+          "polar_nano_product_id", "polar_basic_product_id", "polar_pro_product_id",
+        ]);
       if (error) throw error;
       const map: Record<string, string> = {};
       (data ?? []).forEach((s: { key: string; value: string }) => (map[s.key] = s.value));
@@ -47,10 +51,6 @@ export default function PricingPage() {
       }>;
     },
   });
-
-  const prodamusNanoLink = paymentSettings?.prodamus_nano_link ?? null;
-  const prodamusBasicLink = paymentSettings?.prodamus_basic_link ?? null;
-  const prodamusProLink = paymentSettings?.prodamus_pro_link ?? null;
 
   const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
 
@@ -88,17 +88,29 @@ export default function PricingPage() {
     return `${n} статей / мес`;
   };
 
+  // Map plan IDs to Prodamus links and Polar product IDs
+  const prodamusLinks: Record<string, string | null> = {
+    free: paymentSettings?.prodamus_nano_link ?? null,
+    basic: paymentSettings?.prodamus_basic_link ?? null,
+    pro: paymentSettings?.prodamus_pro_link ?? null,
+  };
+
+  const polarProductIds: Record<string, string | null> = {
+    free: paymentSettings?.polar_nano_product_id || null,
+    basic: paymentSettings?.polar_basic_product_id || null,
+    pro: paymentSettings?.polar_pro_product_id || null,
+  };
+
   const plans = [
     {
       id: "free" as const,
       name: fmtName("free", "NANO"),
-      price: fmtPrice("free", 990, 15),
+      price: fmtPrice("free", 990, 19),
       period: t("pricing.perMonth"),
       icon: Atom,
       description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
       badge: null,
       credits: fmtCredits("free", 5),
-      prodamusLink: prodamusNanoLink,
       showShield: false,
       features: getFeatures("free", [
         { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
@@ -109,13 +121,12 @@ export default function PricingPage() {
     {
       id: "basic" as const,
       name: fmtName("basic", "PRO"),
-      price: fmtPrice("basic", 5900, 65),
+      price: fmtPrice("basic", 5900, 79),
       period: t("pricing.perMonth"),
       icon: Zap,
       description: fmtDesc("basic", "Идеальный баланс для SEO-профи", "Perfect balance for SEO pros"),
       badge: t("pricing.popular"),
       credits: fmtCredits("basic", 40),
-      prodamusLink: prodamusBasicLink,
       showShield: true,
       features: getFeatures("basic", [
         { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
@@ -126,13 +137,12 @@ export default function PricingPage() {
     {
       id: "pro" as const,
       name: fmtName("pro", "FACTORY"),
-      price: fmtPrice("pro", 19900, 220),
+      price: fmtPrice("pro", 19900, 249),
       period: t("pricing.perMonth"),
       icon: Crown,
       description: fmtDesc("pro", "Контентный завод для агентств", "Content factory for agencies"),
       badge: t("pricing.maximum"),
       credits: fmtCredits("pro", 150),
-      prodamusLink: prodamusProLink,
       showShield: true,
       features: getFeatures("pro", [
         { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
@@ -149,20 +159,45 @@ export default function PricingPage() {
     }
     if (planId === currentPlan) return;
 
-    const selectedPlan = plans.find(p => p.id === planId);
-
-    const link = selectedPlan?.prodamusLink;
-    if (!link) {
-      toast.error(isEn ? "Payment not configured yet. Please contact the administrator." : "Оплата ещё не настроена. Обратитесь к администратору.");
-      return;
+    if (isEn) {
+      // --- POLAR CHECKOUT (USD) ---
+      const productId = polarProductIds[planId];
+      if (!productId) {
+        toast.error("Payment not configured yet. Please contact the administrator.");
+        return;
+      }
+      setLoadingPlan(planId);
+      try {
+        const { data, error } = await supabase.functions.invoke("polar-checkout", {
+          body: {
+            product_id: productId,
+            success_url: `${window.location.origin}/payment-success?checkout_id={CHECKOUT_ID}`,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        if (data?.url) {
+          window.open(data.url, "_blank");
+        }
+      } catch (err: any) {
+        toast.error(err.message || "Payment error");
+      } finally {
+        setLoadingPlan(null);
+      }
+    } else {
+      // --- PRODAMUS CHECKOUT (RUB) ---
+      const link = prodamusLinks[planId];
+      if (!link) {
+        toast.error("Оплата ещё не настроена. Обратитесь к администратору.");
+        return;
+      }
+      const url = new URL(link);
+      if (user.email) url.searchParams.set("customer_email", user.email);
+      url.searchParams.set("customer_extra", user.id);
+      url.searchParams.set("order_id", `plan_${planId}`);
+      url.searchParams.set("do", window.location.origin + "/payment-success");
+      window.open(url.toString(), "_blank");
     }
-
-    const url = new URL(link);
-    if (user.email) url.searchParams.set("customer_email", user.email);
-    url.searchParams.set("customer_extra", user.id);
-    url.searchParams.set("order_id", `plan_${planId}`);
-    url.searchParams.set("do", window.location.origin + "/payment-success");
-    window.open(url.toString(), "_blank");
   };
 
   return (
@@ -192,12 +227,20 @@ export default function PricingPage() {
         </Card>
       </div>
 
+      {/* Payment method indicator */}
+      <div className="text-center">
+        <Badge variant="secondary" className="text-xs">
+          {isEn ? "💳 Payments via Polar (USD)" : "💳 Оплата через Prodamus (₽)"}
+        </Badge>
+      </div>
+
       {/* Plans grid */}
       <div className="grid gap-6 lg:grid-cols-3 max-w-5xl mx-auto px-2 pt-4">
         {plans.map((plan) => {
           const isCurrentPlan = currentPlan === plan.id;
           const Icon = plan.icon;
           const isPopular = plan.badge === t("pricing.popular");
+          const isLoading = loadingPlan === plan.id;
           return (
             <Card key={plan.id} className={`relative bg-card border-border flex flex-col overflow-visible ${isPopular ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary" : ""}`}>
               {plan.badge && (
@@ -243,9 +286,12 @@ export default function PricingPage() {
                     className="w-full"
                     variant={isPopular ? "default" : "outline"}
                     onClick={() => handleSelectPlan(plan.id)}
-                    disabled={false}
+                    disabled={isLoading}
                   >
-                    {isEn ? "Pay" : "Оплатить"}
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    {isEn ? "Upgrade" : "Оплатить"}
                   </Button>
                 )}
               </CardContent>
