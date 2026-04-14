@@ -2,22 +2,30 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LandingFooter } from "@/components/landing/LandingFooter";
+import { useI18n } from "@/shared/hooks/useI18n";
 import DOMPurify from "dompurify";
 
 interface Props {
   slug: string;
   fallbackTitle: string;
+  fallbackTitleEn?: string;
   fallback: React.ReactNode;
+  fallbackEn?: React.ReactNode;
 }
 
-export function DynamicLegalPage({ slug, fallbackTitle, fallback }: Props) {
+export function DynamicLegalPage({ slug, fallbackTitle, fallbackTitleEn, fallback, fallbackEn }: Props) {
+  const { lang } = useI18n();
+  const resolvedSlug = lang === "en" ? `${slug}-en` : slug;
+  const resolvedFallbackTitle = lang === "en" && fallbackTitleEn ? fallbackTitleEn : fallbackTitle;
+  const resolvedFallback = lang === "en" && fallbackEn ? fallbackEn : fallback;
+
   const { data: page, isLoading } = useQuery({
-    queryKey: ["legal-page", slug],
+    queryKey: ["legal-page", resolvedSlug],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("legal_pages")
         .select("title, content")
-        .eq("slug", slug)
+        .eq("slug", resolvedSlug)
         .single();
       if (error) throw error;
       return data;
@@ -32,7 +40,7 @@ export function DynamicLegalPage({ slug, fallbackTitle, fallback }: Props) {
       <LandingNav />
       <div className="container mx-auto px-4 max-w-3xl pt-24 pb-20">
         <h1 className="text-3xl font-black mb-8" style={{ letterSpacing: "-0.04em" }}>
-          {hasDbContent ? page.title || fallbackTitle : fallbackTitle}
+          {hasDbContent ? page.title || resolvedFallbackTitle : resolvedFallbackTitle}
         </h1>
         {hasDbContent ? (
           <div
@@ -41,7 +49,7 @@ export function DynamicLegalPage({ slug, fallbackTitle, fallback }: Props) {
           />
         ) : (
           <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground/80 leading-relaxed">
-            {fallback}
+            {resolvedFallback}
           </div>
         )}
       </div>
