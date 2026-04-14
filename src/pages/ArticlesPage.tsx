@@ -767,6 +767,9 @@ export default function ArticlesPage() {
 
       toast.success(t("articles.articleGenerated"));
 
+      // EN Stealth post-processing: contractions, banned phrases, sentence shortening
+      fullContent = applyEnStealthPostProcessing(fullContent);
+
       // Fact-check analysis: detect suspicious hallucination patterns
       // Post-generation validator: detect & auto-fix fake experts/stats
       const validation = validateContent(fullContent);
