@@ -1,9 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createHash } from "https://deno.land/std@0.119.0/hash/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+function md5(input: string): string {
+  const hash = createHash("md5");
+  hash.update(input);
+  return hash.toString("hex");
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -41,33 +48,25 @@ Deno.serve(async (req) => {
     const payload = { ...body };
     delete payload.sign;
 
-    // Sort keys
     const sorted: Record<string, unknown> = {};
     Object.keys(payload).sort().forEach((k) => {
       sorted[k] = payload[k];
     });
 
     const jsonBase64 = btoa(JSON.stringify(sorted));
-    const signString = jsonBase64 + apiKey;
-    const encoder = new TextEncoder();
-    const hashBuf = await crypto.subtle.digest("MD5", encoder.encode(signString));
-    const computedSign = Array.from(new Uint8Array(hashBuf))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    const computedSign = md5(jsonBase64 + apiKey);
 
     if (computedSign !== receivedSign) {
       console.error("Invalid signature", { computedSign, receivedSign });
       return new Response("OK", { status: 200 });
     }
 
-    // Check payment status
     const status = body.status;
     if (status !== "paid" && status !== "paid_over") {
       console.log("Payment status not paid:", status);
       return new Response("OK", { status: 200 });
     }
 
-    // Extract additional_data
     let additionalData: { user_id: string; plan: string; credits: number };
     try {
       additionalData = JSON.parse(body.additional_data || "{}");
@@ -82,13 +81,9 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
-    // Update plan and credits
     const { error: updateError } = await adminDb
       .from("profiles")
-      .update({
-        plan: plan,
-        credits_amount: credits,
-      })
+      .update({ plan, credits_amount: credits })
       .eq("id", user_id);
 
     if (updateError) {
@@ -96,7 +91,6 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
-    // Log payment
     await adminDb.from("payment_logs").insert({
       user_id,
       amount_rub: parseFloat(body.payment_amount_usd || body.amount || "0"),
@@ -106,7 +100,6 @@ Deno.serve(async (req) => {
       raw_payload: body,
     });
 
-    // Notify user
     await adminDb.from("notifications").insert({
       user_id,
       title: "Payment Successful! 🎉",
@@ -114,7 +107,6 @@ Deno.serve(async (req) => {
     });
 
     console.log(`Crypto payment success: user=${user_id}, plan=${plan}, credits=${credits}`);
-
     return new Response("OK", { status: 200 });
   } catch (err) {
     console.error("crypto-webhook error:", err);

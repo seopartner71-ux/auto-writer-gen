@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createHash } from "https://deno.land/std@0.119.0/hash/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,12 @@ const PLAN_PRICES: Record<string, { amount: number; credits: number }> = {
   basic: { amount: 79, credits: 40 },
   pro: { amount: 249, credits: 150 },
 };
+
+function md5(input: string): string {
+  const hash = createHash("md5");
+  hash.update(input);
+  return hash.toString("hex");
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -51,7 +58,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch Cryptomus credentials from app_settings (admin-managed)
+    // Fetch Cryptomus credentials from app_settings
     const adminDb = createClient(supabaseUrl, serviceKey);
     const { data: settingsData } = await adminDb
       .from("app_settings")
@@ -88,12 +95,9 @@ Deno.serve(async (req) => {
 
     // Cryptomus signing: base64(JSON) + apiKey → MD5
     const jsonBase64 = btoa(JSON.stringify(paymentData));
-    const signString = jsonBase64 + apiKey;
-    const encoder = new TextEncoder();
-    const hashBuf = await crypto.subtle.digest("MD5", encoder.encode(signString));
-    const sign = Array.from(new Uint8Array(hashBuf))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    const sign = md5(jsonBase64 + apiKey);
+
+    console.log(`Creating Cryptomus payment: plan=${plan}, amount=${amount}, orderId=${orderId}`);
 
     const cryptoRes = await fetch("https://api.cryptomus.com/v1/payment", {
       method: "POST",
@@ -115,6 +119,7 @@ Deno.serve(async (req) => {
     }
 
     const result = await cryptoRes.json();
+    console.log("Cryptomus response:", JSON.stringify(result));
 
     return new Response(JSON.stringify({ url: result.result?.url }), {
       status: 200,
