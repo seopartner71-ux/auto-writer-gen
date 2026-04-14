@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -143,6 +144,14 @@ export default function PlanBuilderPage() {
           <p className="text-sm text-muted-foreground">{t("planBuilder.subtitle")}</p>
         </div>
       </div>
+
+      {keywords.length === 0 && (
+        <OnboardingHint
+          message={t("onboarding.hintStructure")}
+          actionLabel={t("onboarding.goToResearch")}
+          actionPath="/keywords"
+        />
+      )}
 
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-end gap-4">
