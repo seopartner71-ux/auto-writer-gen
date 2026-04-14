@@ -303,23 +303,3 @@ export default function PricingPage() {
     </div>
   );
 }
-                  <Button
-                    className="w-full"
-                    variant={isPopular ? "default" : "outline"}
-                    onClick={() => handleSelectPlan(plan.id)}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Оплатить
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="text-center text-xs text-muted-foreground max-w-lg mx-auto">{t("pricing.creditNote")}</div>
-    </div>
-  );
-}
