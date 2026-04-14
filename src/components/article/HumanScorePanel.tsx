@@ -14,6 +14,7 @@ import {
   computeSymmetry, findAiStopWords, getKeywordDensity, getLocalizedLabels,
 } from "./humanScore/analysis";
 import { detectContentLanguage } from "./humanScore/constants";
+import { getEnStealthStats, type EnStealthStats } from "@/shared/utils/contentValidator";
 
 interface HumanScorePanelProps {
   content: string;
