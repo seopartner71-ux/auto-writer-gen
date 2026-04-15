@@ -696,21 +696,65 @@ export default function SiteFactoryPage() {
         </Card>
       </div>
 
-      {/* Preview Dialog */}
+      {/* Preview Dialog — matches published site design */}
       <Dialog open={!!previewArticle} onOpenChange={() => setPreviewArticle(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{previewArticle?.title || "Preview"}</DialogTitle>
-          </DialogHeader>
-          {previewArticle?.meta_description && (
-            <p className="text-sm text-muted-foreground italic">{previewArticle.meta_description}</p>
-          )}
-          {previewArticle?.content && (
-            <div
-              className="prose prose-invert max-w-none mt-4"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(previewArticle.content) }}
-            />
-          )}
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0 bg-gray-50 border-0">
+          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden m-4">
+            {/* Gradient Hero */}
+            <div className="w-full h-40 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center p-6">
+              <h2 className="text-xl sm:text-2xl font-black text-white text-center leading-tight drop-shadow-lg max-w-xl">
+                {previewArticle?.title || "Preview"}
+              </h2>
+            </div>
+            <div className="p-6 sm:p-8">
+              <DialogHeader className="mb-4">
+                <DialogTitle className="text-2xl font-black tracking-tight text-gray-900 leading-tight">
+                  {previewArticle?.title || "Preview"}
+                </DialogTitle>
+              </DialogHeader>
+              {previewArticle?.keywords && previewArticle.keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {previewArticle.keywords.map((kw) => (
+                    <span key={kw} className="inline-block px-2.5 py-0.5 text-xs font-medium rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {previewArticle?.meta_description && (
+                <p className="text-base text-gray-500 leading-relaxed mb-6">{previewArticle.meta_description}</p>
+              )}
+              {previewArticle?.content && (
+                <div
+                  className="prose prose-gray prose-lg max-w-none
+                    prose-headings:text-gray-900 prose-headings:font-bold
+                    prose-a:text-violet-600
+                    prose-strong:text-gray-900
+                    prose-blockquote:border-l-violet-400 prose-blockquote:bg-violet-50/50 prose-blockquote:rounded-r-xl prose-blockquote:not-italic prose-blockquote:py-3 prose-blockquote:px-4
+                    prose-table:rounded-xl prose-table:overflow-hidden prose-table:shadow-sm
+                    prose-th:bg-violet-600 prose-th:text-white prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:py-3 prose-th:px-4
+                    prose-td:py-3 prose-td:px-4 prose-td:border-t prose-td:border-gray-100
+                    prose-code:text-violet-700 prose-code:bg-violet-50 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5
+                    prose-li:marker:text-violet-400
+                  "
+                  dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(previewArticle.content) }}
+                />
+              )}
+              {/* Author block */}
+              <div className="mt-10 pt-6 border-t border-gray-100">
+                <div className="bg-gradient-to-br from-gray-50 to-violet-50/30 rounded-2xl p-5 flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg">
+                    <span className="text-sm font-bold text-white">АП</span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-violet-600 uppercase tracking-wider mb-0.5">Об авторе</p>
+                    <h4 className="text-sm font-bold text-gray-900">Алексей Петров</h4>
+                    <p className="text-xs text-gray-600 mt-0.5">SEO-эксперт с 12-летним стажем. Работал с крупнейшими e-commerce проектами Рунета.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
