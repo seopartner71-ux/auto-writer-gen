@@ -312,6 +312,7 @@ export default function SiteFactoryPage() {
             language: projLang,
             geo: projLang === "ru" ? "RU" : "US",
             keywords: [kw],
+            author_profile_id: selectedAuthorId && selectedAuthorId !== "none" ? selectedAuthorId : null,
           })
           .select("id")
           .single();
@@ -426,6 +427,7 @@ export default function SiteFactoryPage() {
           project_id: selectedProjectId,
           generate_images: generateImages,
           image_count: imageCount,
+          author_profile_id: selectedAuthorId && selectedAuthorId !== "none" ? selectedAuthorId : null,
         },
       });
       if (error) throw error;
