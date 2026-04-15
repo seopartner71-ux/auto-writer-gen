@@ -925,13 +925,6 @@ export default function SiteFactoryPage() {
                     {lang === "ru" ? "Обновить служебные страницы" : "Update service pages"}
                   </Button>
                 )}
-                      handleInitRepo();
-                    }}
-                  >
-                    <Rocket className="h-3 w-3 mr-1" />
-                    {lang === "ru" ? "Обновить служебные страницы" : "Update service pages"}
-                  </Button>
-                )}
               </div>
             )}
 
