@@ -912,7 +912,6 @@ export default function SiteFactoryPage() {
                   </div>
                 )}
               </div>
-              </div>
             )}
 
             <div>
