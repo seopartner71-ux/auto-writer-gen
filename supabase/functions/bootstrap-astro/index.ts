@@ -362,26 +362,51 @@ interface Props {
   title: string;
   description?: string;
   jsonLd?: string;
+  faqJsonLd?: string;
+  ogImage?: string;
+  author?: string;
+  publishedTime?: string;
+  keywords?: string[];
 }
-const { title, description = '${siteAbout}', jsonLd } = Astro.props;
+const { title, description = '${siteAbout}', jsonLd, faqJsonLd, ogImage, author, publishedTime, keywords } = Astro.props;
 const currentPath = Astro.url.pathname;
 const siteName = '${siteName}';
 const siteCopyright = '${siteCopyright}';
+const canonicalUrl = Astro.url.href;
 ---
 <!doctype html>
 <html lang="${i.htmlLang}" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  <link rel="canonical" href={canonicalUrl} />
   <meta name="description" content={description} />
+  {keywords && keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
+  {author && <meta name="author" content={author} />}
+
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
   <meta property="og:type" content="article" />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:site_name" content={siteName} />
+  <meta property="og:locale" content="${i.htmlLang === 'ru' ? 'ru_RU' : 'en_US'}" />
+  {ogImage && <meta property="og:image" content={ogImage} />}
+  {ogImage && <meta property="og:image:width" content="1200" />}
+  {ogImage && <meta property="og:image:height" content="600" />}
+  {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+  {author && <meta property="article:author" content={author} />}
+
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  {ogImage && <meta name="twitter:image" content={ogImage} />}
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="${font.googleUrl}" rel="stylesheet" />
   {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
+  {faqJsonLd && <script type="application/ld+json" set:html={faqJsonLd} />}
   <title>{title} - {siteName}</title>
   <style>
     #reading-progress {
