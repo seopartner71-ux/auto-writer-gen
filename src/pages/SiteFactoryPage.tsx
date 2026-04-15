@@ -790,6 +790,8 @@ export default function SiteFactoryPage() {
                     <Rocket className="h-3 w-3 mr-1" />
                     {lang === "ru" ? "Обновить служебные страницы" : "Update service pages"}
                   </Button>
+                )}
+              </div>
             )}
 
             {/* Custom Domain */}
