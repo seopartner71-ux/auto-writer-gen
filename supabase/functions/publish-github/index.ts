@@ -17,6 +17,23 @@ const EXPERTS = [
 
 // ── helpers ──
 
+async function searchUnsplashImage(query: string, unsplashKey: string): Promise<string | null> {
+  try {
+    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape&content_filter=high`;
+    const r = await fetch(url, {
+      headers: { Authorization: `Client-ID ${unsplashKey}` },
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const photo = d.results?.[0];
+    if (!photo) return null;
+    // Use regular size (w=1200) for hero, includes UTM for Unsplash guidelines
+    return `${photo.urls?.regular}&w=1200&h=600&fit=crop`;
+  } catch {
+    return null;
+  }
+}
+
 function transliterate(text: string): string {
   const map: Record<string, string> = {
     а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh",
@@ -221,11 +238,12 @@ serve(async (req) => {
       const { data: apiKeys } = await supabase
         .from("api_keys")
         .select("provider, api_key")
-        .in("provider", ["fal_ai", "openrouter"]);
+        .in("provider", ["fal_ai", "openrouter", "unsplash"]);
 
       const keyMap = Object.fromEntries((apiKeys || []).map((k: any) => [k.provider, k.api_key]));
       const falKey = keyMap["fal_ai"];
       const openrouterKey = keyMap["openrouter"] || Deno.env.get("OPENROUTER_API_KEY");
+      const unsplashKey = keyMap["unsplash"] || "";
 
       if (falKey && openrouterKey) {
         const desiredCount = Math.min(image_count || 3, 5);
@@ -404,8 +422,15 @@ serve(async (req) => {
             cleanContent = cleanContent.replace(h2Pattern, `$1\n\n![${img.heading}](${img.path})\n`);
           }
         } else {
-          console.warn("[publish-github] No image generation keys available, using picsum fallback");
-          heroImagePath = `https://picsum.photos/seed/${encodeURIComponent(slug)}/1600/900`;
+          console.warn("[publish-github] No image generation keys available, using Unsplash/picsum fallback");
+          // Try Unsplash for hero
+          const keyword = (article.keywords?.[0] || article.title || "business").replace(/[^a-zA-Zа-яА-ЯёЁ0-9\s]/g, "").substring(0, 50);
+          if (unsplashKey) {
+            const unsplashHero = await searchUnsplashImage(keyword, unsplashKey);
+            if (unsplashHero) heroImagePath = unsplashHero;
+          }
+          if (!heroImagePath) heroImagePath = `https://picsum.photos/seed/${encodeURIComponent(slug)}/1600/900`;
+          
           const sections = parseH2Sections(cleanContent).filter(
             (s) => !s.heading.toLowerCase().includes("faq") && !s.heading.toLowerCase().includes("часто задаваемые")
           );
@@ -417,15 +442,34 @@ serve(async (req) => {
           }
           for (const section of selected) {
             const seedSlug = transliterate(section.heading) || "img";
-            const imgMarkdown = `\n\n![${section.heading}](https://picsum.photos/seed/${encodeURIComponent(seedSlug)}/800/450)\n`;
+            let inlineUrl = `https://picsum.photos/seed/${encodeURIComponent(seedSlug)}/800/450`;
+            if (unsplashKey) {
+              const u = await searchUnsplashImage(section.heading, unsplashKey);
+              if (u) inlineUrl = u;
+            }
+            const imgMarkdown = `\n\n![${section.heading}](${inlineUrl})\n`;
             const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
             cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
           }
         }
       }
     } else {
-      // generate_images is OFF – still add 2-3 picsum placeholder images
-      heroImagePath = `https://picsum.photos/seed/${encodeURIComponent(slug)}/1600/900`;
+      // generate_images is OFF – still add 2-3 Unsplash/picsum placeholder images
+      // Check for Unsplash key in vault
+      const { data: unsplashRow } = await supabase
+        .from("api_keys")
+        .select("api_key")
+        .eq("provider", "unsplash")
+        .maybeSingle();
+      const unsplashKey = unsplashRow?.api_key || "";
+      
+      const keyword = (article.keywords?.[0] || article.title || "business").replace(/[^a-zA-Zа-яА-ЯёЁ0-9\s]/g, "").substring(0, 50);
+      if (unsplashKey) {
+        const unsplashHero = await searchUnsplashImage(keyword, unsplashKey);
+        if (unsplashHero) heroImagePath = unsplashHero;
+      }
+      if (!heroImagePath) heroImagePath = `https://picsum.photos/seed/${encodeURIComponent(slug)}/1600/900`;
+
       const sections = parseH2Sections(cleanContent).filter(
         (s) => !s.heading.toLowerCase().includes("faq") && !s.heading.toLowerCase().includes("часто задаваемые")
       );
@@ -437,7 +481,12 @@ serve(async (req) => {
       }
       for (const section of selected) {
         const seedSlug = transliterate(section.heading) || "img";
-        const imgMarkdown = `\n\n![${section.heading}](https://picsum.photos/seed/${encodeURIComponent(seedSlug)}/800/450)\n`;
+        let inlineUrl = `https://picsum.photos/seed/${encodeURIComponent(seedSlug)}/800/450`;
+        if (unsplashKey) {
+          const u = await searchUnsplashImage(section.heading, unsplashKey);
+          if (u) inlineUrl = u;
+        }
+        const imgMarkdown = `\n\n![${section.heading}](${inlineUrl})\n`;
         const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
         cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
       }

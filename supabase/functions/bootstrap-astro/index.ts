@@ -14,6 +14,7 @@ interface I18n {
   toc: string;
   readMore: string;
   allArticles: string;
+  backToBlog: string;
   noPosts: string;
   minRead: string;
   aboutAuthor: string;
@@ -25,6 +26,14 @@ interface I18n {
   contactsPageContent: string;
   welcomeTitle: string;
   welcomeDesc: string;
+  publishedOn: string;
+  author: string;
+  relatedPosts: string;
+  ourBlog: string;
+  formName: string;
+  formMessage: string;
+  formSend: string;
+  formSent: string;
 }
 
 const i18nMap: Record<string, I18n> = {
@@ -35,17 +44,26 @@ const i18nMap: Record<string, I18n> = {
     toc: "Содержание",
     readMore: "Читать далее",
     allArticles: "Все статьи",
+    backToBlog: "Назад в блог",
     noPosts: "Статьи пока не опубликованы",
     minRead: "мин чтения",
     aboutAuthor: "Об авторе",
     expertReviewer: "Эксперт-рецензент",
     madeWith: "Создано с помощью",
     aboutPageTitle: "О нас",
-    aboutPageContent: "Мы - команда экспертов, которая помогает бизнесу расти через качественный контент и SEO-оптимизацию.",
+    aboutPageContent: "Мы — команда экспертов, которая помогает бизнесу расти через качественный контент и SEO-оптимизацию.",
     contactsPageTitle: "Контакты",
     contactsPageContent: "Свяжитесь с нами для сотрудничества или по любым вопросам.",
     welcomeTitle: "Добро пожаловать на блог",
     welcomeDesc: "Первая статья вашего нового блога",
+    publishedOn: "Опубликовано",
+    author: "Автор",
+    relatedPosts: "Похожие статьи",
+    ourBlog: "Наш блог",
+    formName: "Имя",
+    formMessage: "Сообщение",
+    formSend: "Отправить",
+    formSent: "Сообщение отправлено! Мы свяжемся с вами в ближайшее время.",
   },
   en: {
     htmlLang: "en",
@@ -54,6 +72,7 @@ const i18nMap: Record<string, I18n> = {
     toc: "Table of Contents",
     readMore: "Read more",
     allArticles: "All articles",
+    backToBlog: "Back to blog",
     noPosts: "No articles published yet",
     minRead: "min read",
     aboutAuthor: "About the author",
@@ -65,63 +84,98 @@ const i18nMap: Record<string, I18n> = {
     contactsPageContent: "Get in touch with us for collaboration or any questions.",
     welcomeTitle: "Welcome to our blog",
     welcomeDesc: "The first article of your new blog",
+    publishedOn: "Published on",
+    author: "Author",
+    relatedPosts: "Related Posts",
+    ourBlog: "Our Blog",
+    formName: "Name",
+    formMessage: "Message",
+    formSend: "Send message",
+    formSent: "Message sent! We will get back to you soon.",
   },
   de: {
     htmlLang: "de",
     dateLocale: "de-DE",
-    nav: { blog: "Blog", about: "Uber uns", contacts: "Kontakt" },
+    nav: { blog: "Blog", about: "Über uns", contacts: "Kontakt" },
     toc: "Inhaltsverzeichnis",
     readMore: "Weiterlesen",
     allArticles: "Alle Artikel",
-    noPosts: "Noch keine Artikel veroffentlicht",
+    backToBlog: "Zurück zum Blog",
+    noPosts: "Noch keine Artikel veröffentlicht",
     minRead: "Min. Lesezeit",
-    aboutAuthor: "Uber den Autor",
+    aboutAuthor: "Über den Autor",
     expertReviewer: "Fachgutachter",
     madeWith: "Erstellt mit",
-    aboutPageTitle: "Uber uns",
+    aboutPageTitle: "Über uns",
     aboutPageContent: "Wir sind ein Expertenteam, das Unternehmen durch hochwertigen Content und SEO-Optimierung zum Wachstum verhilft.",
     contactsPageTitle: "Kontakt",
-    contactsPageContent: "Kontaktieren Sie uns fur Zusammenarbeit oder Fragen.",
+    contactsPageContent: "Kontaktieren Sie uns für Zusammenarbeit oder Fragen.",
     welcomeTitle: "Willkommen im Blog",
     welcomeDesc: "Der erste Artikel Ihres neuen Blogs",
+    publishedOn: "Veröffentlicht am",
+    author: "Autor",
+    relatedPosts: "Ähnliche Artikel",
+    ourBlog: "Unser Blog",
+    formName: "Name",
+    formMessage: "Nachricht",
+    formSend: "Senden",
+    formSent: "Nachricht gesendet! Wir melden uns in Kürze.",
   },
   fr: {
     htmlLang: "fr",
     dateLocale: "fr-FR",
-    nav: { blog: "Blog", about: "A propos", contacts: "Contact" },
+    nav: { blog: "Blog", about: "À propos", contacts: "Contact" },
     toc: "Sommaire",
     readMore: "Lire la suite",
     allArticles: "Tous les articles",
-    noPosts: "Aucun article publie pour le moment",
+    backToBlog: "Retour au blog",
+    noPosts: "Aucun article publié pour le moment",
     minRead: "min de lecture",
-    aboutAuthor: "A propos de l'auteur",
+    aboutAuthor: "À propos de l'auteur",
     expertReviewer: "Expert Reviewer",
-    madeWith: "Propulse par",
-    aboutPageTitle: "A propos",
-    aboutPageContent: "Nous sommes une equipe d'experts qui aide les entreprises a croitre grace au contenu de qualite et au SEO.",
+    madeWith: "Propulsé par",
+    aboutPageTitle: "À propos",
+    aboutPageContent: "Nous sommes une équipe d'experts qui aide les entreprises à croître grâce au contenu de qualité et au SEO.",
     contactsPageTitle: "Contact",
     contactsPageContent: "Contactez-nous pour toute collaboration ou question.",
     welcomeTitle: "Bienvenue sur le blog",
     welcomeDesc: "Le premier article de votre nouveau blog",
+    publishedOn: "Publié le",
+    author: "Auteur",
+    relatedPosts: "Articles similaires",
+    ourBlog: "Notre Blog",
+    formName: "Nom",
+    formMessage: "Message",
+    formSend: "Envoyer",
+    formSent: "Message envoyé ! Nous vous répondrons rapidement.",
   },
   es: {
     htmlLang: "es",
     dateLocale: "es-ES",
     nav: { blog: "Blog", about: "Sobre nosotros", contacts: "Contacto" },
     toc: "Tabla de contenidos",
-    readMore: "Leer mas",
-    allArticles: "Todos los articulos",
-    noPosts: "No hay articulos publicados aun",
+    readMore: "Leer más",
+    allArticles: "Todos los artículos",
+    backToBlog: "Volver al blog",
+    noPosts: "No hay artículos publicados aún",
     minRead: "min de lectura",
     aboutAuthor: "Sobre el autor",
     expertReviewer: "Revisor experto",
     madeWith: "Creado con",
     aboutPageTitle: "Sobre nosotros",
-    aboutPageContent: "Somos un equipo de expertos que ayuda a las empresas a crecer a traves de contenido de calidad y optimizacion SEO.",
+    aboutPageContent: "Somos un equipo de expertos que ayuda a las empresas a crecer a través de contenido de calidad y optimización SEO.",
     contactsPageTitle: "Contacto",
-    contactsPageContent: "Contactenos para colaboracion o cualquier pregunta.",
+    contactsPageContent: "Contáctenos para colaboración o cualquier pregunta.",
     welcomeTitle: "Bienvenido al blog",
-    welcomeDesc: "El primer articulo de tu nuevo blog",
+    welcomeDesc: "El primer artículo de tu nuevo blog",
+    publishedOn: "Publicado el",
+    author: "Autor",
+    relatedPosts: "Artículos relacionados",
+    ourBlog: "Nuestro Blog",
+    formName: "Nombre",
+    formMessage: "Mensaje",
+    formSend: "Enviar",
+    formSent: "¡Mensaje enviado! Nos pondremos en contacto pronto.",
   },
 };
 
@@ -333,11 +387,11 @@ const posts = (await getCollection('blog')).sort(
 const siteName = '${siteName}';
 const siteAbout = '${siteAbout}';
 ---
-<Layout title={siteName} description={siteAbout}>
+<Layout title={"${i.ourBlog} — " + siteName} description={siteAbout}>
   <div class="max-w-screen-xl mx-auto px-6 py-20">
     <div class="max-w-2xl mb-16">
       <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight text-neutral-900 leading-[1.05]">
-        {siteName}
+        ${i.ourBlog}
       </h1>
       <p class="text-lg text-neutral-500 mt-5 leading-relaxed">
         {siteAbout}
@@ -353,7 +407,6 @@ const siteAbout = '${siteAbout}';
     <div class="grid gap-px bg-neutral-100 border border-neutral-100 rounded-2xl overflow-hidden">
       {posts.map((post) => {
         const pubDate = post.data.pubDate || post.data.date;
-        const kw = (post.data.keywords && post.data.keywords[0]) || post.data.title || 'business';
         const heroSrc = post.data.heroImage || \`https://picsum.photos/seed/\${encodeURIComponent(post.data.title || post.id)}/800/400\`;
         return (
           <a href={\`/blog/\${post.id}/\`}
@@ -369,7 +422,7 @@ const siteAbout = '${siteAbout}';
                   </time>
                 )}
                 {post.data.author && (
-                  <span class="text-xs text-neutral-400">- {post.data.author}</span>
+                  <span class="text-xs text-neutral-400">— {post.data.author}</span>
                 )}
               </div>
               <h2 class="text-xl font-bold text-neutral-900 group-hover:text-neutral-600 transition-colors leading-snug tracking-tight">
@@ -425,10 +478,9 @@ const siteName = '${siteName}';
 
     <form id="contact-form" class="mt-10 space-y-5 max-w-lg">
       <div>
-        <label for="name" class="block text-sm font-medium text-neutral-700 mb-1.5">${lang === "ru" ? "Имя" : lang === "de" ? "Name" : lang === "fr" ? "Nom" : lang === "es" ? "Nombre" : "Name"}</label>
+        <label for="name" class="block text-sm font-medium text-neutral-700 mb-1.5">${i.formName}</label>
         <input type="text" id="name" name="name" required
-          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all"
-          placeholder="${lang === "ru" ? "Ваше имя" : "Your name"}" />
+          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all" />
       </div>
       <div>
         <label for="email" class="block text-sm font-medium text-neutral-700 mb-1.5">Email</label>
@@ -437,14 +489,13 @@ const siteName = '${siteName}';
           placeholder="email@example.com" />
       </div>
       <div>
-        <label for="message" class="block text-sm font-medium text-neutral-700 mb-1.5">${lang === "ru" ? "Сообщение" : lang === "de" ? "Nachricht" : lang === "fr" ? "Message" : lang === "es" ? "Mensaje" : "Message"}</label>
+        <label for="message" class="block text-sm font-medium text-neutral-700 mb-1.5">${i.formMessage}</label>
         <textarea id="message" name="message" rows="5" required
-          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all resize-none"
-          placeholder="${lang === "ru" ? "Ваше сообщение..." : "Your message..."}"></textarea>
+          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all resize-none"></textarea>
       </div>
       <button type="submit"
         class="w-full px-6 py-3 bg-neutral-900 text-white font-medium rounded-xl hover:bg-neutral-800 transition-colors">
-        ${lang === "ru" ? "Отправить" : lang === "de" ? "Senden" : lang === "fr" ? "Envoyer" : lang === "es" ? "Enviar" : "Send message"}
+        ${i.formSend}
       </button>
       <p id="form-status" class="text-sm text-center hidden"></p>
     </form>
@@ -460,10 +511,10 @@ const siteName = '${siteName}';
           setTimeout(() => {
             status.classList.remove('hidden');
             status.classList.add('text-green-600');
-            status.textContent = '${lang === "ru" ? "Сообщение отправлено! Мы свяжемся с вами в ближайшее время." : "Message sent! We will get back to you soon."}';
+            status.textContent = '${i.formSent}';
             e.target.reset();
             btn.disabled = false;
-            btn.textContent = '${lang === "ru" ? "Отправить" : "Send message"}';
+            btn.textContent = '${i.formSend}';
           }, 1000);
         }
       });
@@ -524,7 +575,7 @@ const jsonLd = JSON.stringify({
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
         </svg>
-        ${i.allArticles}
+        ${i.backToBlog}
       </a>
 
       <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-[-0.04em] text-neutral-900 leading-[1.08]">
@@ -532,9 +583,9 @@ const jsonLd = JSON.stringify({
       </h1>
 
       <div class="flex flex-wrap items-center gap-4 mt-6 pb-8 border-b border-neutral-100">
-        <span class="text-sm text-neutral-400">{authorName}</span>
+        <span class="text-sm text-neutral-400">${i.author}: {authorName}</span>
         {formattedDate && (
-          <span class="text-sm text-neutral-300">{formattedDate}</span>
+          <span class="text-sm text-neutral-300">${i.publishedOn} {formattedDate}</span>
         )}
         <span class="text-sm text-neutral-300">{readingTime} ${i.minRead}</span>
         {post.data.keywords && post.data.keywords.length > 0 && (
@@ -610,7 +661,7 @@ const jsonLd = JSON.stringify({
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
               </svg>
-              ${i.allArticles}
+              ${i.backToBlog}
             </a>
           </div>
         </div>
