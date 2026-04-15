@@ -1209,7 +1209,7 @@ export default function SiteFactoryPage() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0 bg-gray-50 border-0">
           <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden m-4">
             {/* Gradient Hero */}
-            <div className="w-full h-40 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center p-6">
+            <div className="w-full h-40 flex items-center justify-center p-6" style={{ background: `linear-gradient(135deg, ${selectedProject?.primary_color || "#8b5cf6"}, ${selectedProject?.primary_color ? selectedProject.primary_color + "99" : "#a78bfa"})` }}>
               <h2 className="text-xl sm:text-2xl font-black text-white text-center leading-tight drop-shadow-lg max-w-xl">
                 {previewArticle?.title || "Preview"}
               </h2>
