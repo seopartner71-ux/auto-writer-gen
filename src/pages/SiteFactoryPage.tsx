@@ -402,6 +402,8 @@ export default function SiteFactoryPage() {
         body: {
           article_id: article.id,
           project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
         },
       });
       if (error) throw error;
