@@ -615,6 +615,7 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
+            {selectedProjectId && !isGitHubConfigured && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
                   ? "Для этого проекта не настроен GitHub Token и Repo. Публикация недоступна."
