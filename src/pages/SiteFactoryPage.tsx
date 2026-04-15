@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ interface QueueArticle {
   meta_description: string | null;
   status: string | null;
   published_url: string | null;
+  keywords: string[] | null;
   created_at: string | null;
 }
 
@@ -42,6 +43,7 @@ export default function SiteFactoryPage() {
   const [articles, setArticles] = useState<QueueArticle[]>([]);
   const [previewArticle, setPreviewArticle] = useState<QueueArticle | null>(null);
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -68,18 +70,63 @@ export default function SiteFactoryPage() {
   }, [user]);
 
   // Load articles for selected project
-  useEffect(() => {
+  const loadArticles = useCallback(async () => {
     if (!user || !selectedProjectId) { setArticles([]); return; }
-    (async () => {
-      const { data } = await supabase
-        .from("articles")
-        .select("id, title, content, meta_description, status, published_url, created_at")
-        .eq("user_id", user.id)
-        .eq("project_id", selectedProjectId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (data) setArticles(data);
-    })();
+    const { data } = await supabase
+      .from("articles")
+      .select("id, title, content, meta_description, status, published_url, keywords, created_at")
+      .eq("user_id", user.id)
+      .eq("project_id", selectedProjectId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setArticles(data);
+  }, [user, selectedProjectId]);
+
+  useEffect(() => { loadArticles(); }, [loadArticles]);
+
+  // Realtime subscription for article updates
+  useEffect(() => {
+    if (!user || !selectedProjectId) return;
+    const channel = supabase
+      .channel(`factory-articles-${selectedProjectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "articles",
+          filter: `project_id=eq.${selectedProjectId}`,
+        },
+        (payload) => {
+          const updated = payload.new as QueueArticle & { user_id?: string };
+          if (updated?.user_id && updated.user_id !== user.id) return;
+
+          if (payload.eventType === "INSERT") {
+            setArticles((prev) => {
+              if (prev.find((a) => a.id === updated.id)) return prev;
+              return [updated, ...prev];
+            });
+          } else if (payload.eventType === "UPDATE") {
+            setArticles((prev) =>
+              prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+            );
+            // Remove from generatingIds when completed
+            if (updated.status === "completed" || updated.status === "published") {
+              setGeneratingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(updated.id);
+                return next;
+              });
+            }
+          } else if (payload.eventType === "DELETE") {
+            const old = payload.old as { id: string };
+            setArticles((prev) => prev.filter((a) => a.id !== old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user, selectedProjectId]);
 
   // Load stats
@@ -111,35 +158,170 @@ export default function SiteFactoryPage() {
     })();
   }, [user, articles]);
 
+  // Parse SSE stream and return full content
+  const parseSSEStream = async (response: Response): Promise<string> => {
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("No response body");
+    const decoder = new TextDecoder();
+    let fullContent = "";
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta?.content;
+          if (delta) fullContent += delta;
+        } catch { /* skip malformed chunks */ }
+      }
+    }
+    return fullContent;
+  };
+
   const handleGenerate = async () => {
-    if (!selectedProjectId || !keywords.trim()) return;
+    if (!selectedProjectId || !keywords.trim() || !user) return;
     setGenerating(true);
     try {
       const kws = keywords.split("\n").map((k) => k.trim()).filter(Boolean);
+      const selectedProj = projects.find((p) => p.id === selectedProjectId);
+      const projLang = selectedProj?.domain?.endsWith(".ru") ? "ru" : "en";
+
       for (const kw of kws) {
-        await supabase.functions.invoke("generate-article", {
-          body: {
-            keyword: kw,
+        // 1. Create keyword record
+        const { data: kwRecord, error: kwErr } = await supabase
+          .from("keywords")
+          .insert({
+            user_id: user.id,
+            seed_keyword: kw,
+            language: projLang,
+            geo: projLang === "ru" ? "ru" : "US",
+          })
+          .select("id")
+          .single();
+        if (kwErr || !kwRecord) {
+          console.error("Failed to create keyword:", kwErr);
+          continue;
+        }
+
+        // 2. Create article record with status "generating"
+        const { data: artRecord, error: artErr } = await supabase
+          .from("articles")
+          .insert({
+            user_id: user.id,
+            keyword_id: kwRecord.id,
             project_id: selectedProjectId,
-            language: "ru",
-            geo: "RU",
-          },
-        });
+            title: kw,
+            status: "generating",
+            language: projLang,
+            geo: projLang === "ru" ? "RU" : "US",
+            keywords: [kw],
+          })
+          .select("id")
+          .single();
+        if (artErr || !artRecord) {
+          console.error("Failed to create article:", artErr);
+          continue;
+        }
+
+        setGeneratingIds((prev) => new Set(prev).add(artRecord.id));
+
+        // 3. Call generate-article edge function (in background)
+        (async () => {
+          try {
+            const { data: session } = await supabase.auth.getSession();
+            const token = session?.session?.access_token;
+            if (!token) return;
+
+            const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+            const res = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/generate-article`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  keyword_id: kwRecord.id,
+                  project_id: selectedProjectId,
+                  language: projLang,
+                }),
+              }
+            );
+
+            if (!res.ok) {
+              const errText = await res.text();
+              console.error("generate-article error:", errText);
+              await supabase.from("articles").update({ status: "draft" }).eq("id", artRecord.id);
+              setGeneratingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(artRecord.id);
+                return next;
+              });
+              return;
+            }
+
+            // 4. Parse SSE stream
+            const content = await parseSSEStream(res);
+
+            // 5. Extract title from first H1
+            let title = kw;
+            const h1Match = content.match(/^#\s+(.+)$/m);
+            if (h1Match) title = h1Match[1].trim();
+
+            // 6. Extract meta description (first paragraph after title)
+            let metaDesc = "";
+            const paragraphs = content.split("\n").filter((l) => l.trim() && !l.startsWith("#"));
+            if (paragraphs.length > 0) {
+              metaDesc = paragraphs[0].replace(/\*\*/g, "").replace(/\*/g, "").substring(0, 160);
+            }
+
+            // 7. Update article with content
+            await supabase
+              .from("articles")
+              .update({
+                content,
+                title,
+                meta_description: metaDesc,
+                status: "completed",
+              })
+              .eq("id", artRecord.id);
+
+            // Deduct credit
+            await supabase.rpc("deduct_credit", { p_user_id: user.id });
+
+            setGeneratingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(artRecord.id);
+              return next;
+            });
+          } catch (err) {
+            console.error("Background generation error:", err);
+            await supabase.from("articles").update({ status: "draft" }).eq("id", artRecord.id);
+            setGeneratingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(artRecord.id);
+              return next;
+            });
+          }
+        })();
       }
+
       toast({
         title: lang === "ru" ? "Генерация запущена" : "Generation started",
         description: lang === "ru" ? `${kws.length} статей в очереди` : `${kws.length} articles queued`,
       });
       setKeywords("");
-      // Refresh articles
-      const { data } = await supabase
-        .from("articles")
-        .select("id, title, content, meta_description, status, published_url, created_at")
-        .eq("user_id", user!.id)
-        .eq("project_id", selectedProjectId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (data) setArticles(data);
     } catch {
       toast({ title: lang === "ru" ? "Ошибка генерации" : "Generation error", variant: "destructive" });
     } finally {
@@ -197,6 +379,36 @@ export default function SiteFactoryPage() {
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
       .replace(/\n/g, "<br/>");
     return DOMPurify.sanitize(html);
+  };
+
+  const getStatusBadge = (article: QueueArticle) => {
+    const isGenerating = generatingIds.has(article.id) || article.status === "generating";
+    if (isGenerating) {
+      return (
+        <Badge variant="secondary" className="text-xs animate-pulse bg-primary/20 text-primary">
+          {lang === "ru" ? "Генерируется..." : "Generating..."}
+        </Badge>
+      );
+    }
+    if (article.status === "published") {
+      return (
+        <Badge variant="default" className="text-xs">
+          {lang === "ru" ? "Опубликовано" : "Published"}
+        </Badge>
+      );
+    }
+    if (article.status === "completed") {
+      return (
+        <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-400">
+          {lang === "ru" ? "Готово к публикации" : "Ready to publish"}
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary" className="text-xs">
+        {article.status ?? "draft"}
+      </Badge>
+    );
   };
 
   return (
@@ -309,7 +521,7 @@ export default function SiteFactoryPage() {
               className="w-full"
             >
               {generating ? (
-                <><Loader2 className="h-4 w-4 animate-spin mr-2" />{lang === "ru" ? "Генерация..." : "Generating..."}</>
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />{lang === "ru" ? "Создание задач..." : "Creating tasks..."}</>
               ) : (
                 <><Rocket className="h-4 w-4 mr-2" />{lang === "ru" ? "Запустить генерацию" : "Start generation"}</>
               )}
@@ -331,65 +543,62 @@ export default function SiteFactoryPage() {
               </p>
             ) : (
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                {articles.map((article) => (
-                  <div
-                    key={article.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">
-                        {article.title || (lang === "ru" ? "Без названия" : "Untitled")}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge
-                          variant={article.status === "published" ? "default" : "secondary"}
-                          className="text-xs"
+                {articles.map((article) => {
+                  const isGen = generatingIds.has(article.id) || article.status === "generating";
+                  return (
+                    <div
+                      key={article.id}
+                      className={`flex items-center justify-between gap-3 rounded-lg border p-3 ${
+                        isGen ? "border-primary/30 bg-primary/5" : "border-border"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">
+                          {article.title || (lang === "ru" ? "Без названия" : "Untitled")}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {getStatusBadge(article)}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {article.published_url && (
+                          <Button size="icon" variant="ghost" asChild>
+                            <a href={article.published_url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setPreviewArticle(article)}
+                          disabled={!article.content || isGen}
                         >
-                          {article.status === "published"
-                            ? lang === "ru" ? "Опубликовано" : "Published"
-                            : article.status === "completed"
-                            ? lang === "ru" ? "Готово" : "Ready"
-                            : article.status ?? "draft"}
-                        </Badge>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handlePublish(article)}
+                          disabled={
+                            !isGitHubConfigured ||
+                            article.status === "published" ||
+                            !article.content ||
+                            isGen ||
+                            publishing === article.id
+                          }
+                        >
+                          {publishing === article.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>{lang === "ru" ? "Опубликовать" : "Publish"}</>
+                          )}
+                        </Button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {article.published_url && (
-                        <Button size="icon" variant="ghost" asChild>
-                          <a href={article.published_url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      )}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setPreviewArticle(article)}
-                        disabled={!article.content}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => handlePublish(article)}
-                        disabled={
-                          !isGitHubConfigured ||
-                          article.status === "published" ||
-                          !article.content ||
-                          publishing === article.id
-                        }
-                      >
-                        {publishing === article.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>{lang === "ru" ? "Опубликовать" : "Publish"}</>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
