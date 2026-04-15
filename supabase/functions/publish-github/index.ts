@@ -304,7 +304,28 @@ serve(async (req) => {
           }
         }
       } else {
-        console.warn("[publish-github] Missing fal_ai or openrouter keys, skipping image generation");
+        console.warn("[publish-github] Missing fal_ai or openrouter keys, using Unsplash fallback images");
+
+        // Fallback: use Unsplash keyword-based hero
+        const keyword = (article.keywords && article.keywords[0]) || article.title || "business";
+        heroImagePath = `https://source.unsplash.com/1600x900/?${encodeURIComponent(keyword)}`;
+
+        // Fallback: insert Unsplash images after H2 sections
+        const sections = parseH2Sections(cleanContent).filter(
+          (s) => !s.heading.toLowerCase().includes("faq") && !s.heading.toLowerCase().includes("часто задаваемые")
+        );
+        const desiredCount = Math.min(image_count || 3, 5);
+        const step = Math.max(1, Math.floor(sections.length / desiredCount));
+        const selected: typeof sections = [];
+        for (let i = 0; selected.length < desiredCount && i < sections.length; i += step) {
+          selected.push(sections[i]);
+        }
+        for (const section of selected) {
+          const query = encodeURIComponent(section.heading);
+          const imgMarkdown = `\n\n![${section.heading}](https://source.unsplash.com/800x450/?${query})\n`;
+          const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
+          cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
+        }
       }
     }
 
