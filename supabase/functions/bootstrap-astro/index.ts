@@ -587,7 +587,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { project_id, action } = await req.json();
+    const { project_id, action, site_name, site_copyright, site_about } = await req.json();
     if (!project_id) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), { status: 400, headers: corsHeaders });
     }
