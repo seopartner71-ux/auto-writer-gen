@@ -143,14 +143,14 @@ export default function SiteFactoryPage() {
     })();
   }, [user]);
 
-  // Load author profiles
+  // Load author profiles (own + presets)
   useEffect(() => {
     if (!user) return;
     (async () => {
       const { data } = await supabase
         .from("author_profiles")
         .select("id, name, type, avatar_icon")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},type.eq.preset`)
         .order("name");
       if (data) setAuthorProfiles(data);
     })();
