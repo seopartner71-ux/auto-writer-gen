@@ -17,6 +17,23 @@ const EXPERTS = [
 
 // ── helpers ──
 
+async function searchUnsplashImage(query: string, unsplashKey: string): Promise<string | null> {
+  try {
+    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape&content_filter=high`;
+    const r = await fetch(url, {
+      headers: { Authorization: `Client-ID ${unsplashKey}` },
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const photo = d.results?.[0];
+    if (!photo) return null;
+    // Use regular size (w=1200) for hero, includes UTM for Unsplash guidelines
+    return `${photo.urls?.regular}&w=1200&h=600&fit=crop`;
+  } catch {
+    return null;
+  }
+}
+
 function transliterate(text: string): string {
   const map: Record<string, string> = {
     а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh",
