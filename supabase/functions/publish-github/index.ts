@@ -308,7 +308,7 @@ serve(async (req) => {
 
         // Fallback: use Unsplash keyword-based hero
         const keyword = (article.keywords && article.keywords[0]) || article.title || "business";
-        heroImagePath = `https://images.unsplash.com/1600x900/?${encodeURIComponent(keyword)}`;
+        heroImagePath = `https://source.unsplash.com/1600x900/?${encodeURIComponent(keyword)}`;
 
         // Fallback: insert Unsplash images after H2 sections
         const sections = parseH2Sections(cleanContent).filter(
