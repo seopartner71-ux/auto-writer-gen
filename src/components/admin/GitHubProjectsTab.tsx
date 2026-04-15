@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Plus, Trash2 } from "lucide-react";
 
 interface ProjectGH {
   id: string;
@@ -25,6 +25,9 @@ export function GitHubProjectsTab() {
   const [saving, setSaving] = useState<string | null>(null);
   const [repoStatus, setRepoStatus] = useState<Record<string, RepoStatus>>({});
   const [repoError, setRepoError] = useState<Record<string, string>>({});
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newProject, setNewProject] = useState({ name: "", domain: "", repo: "", token: "" });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -42,51 +45,82 @@ export function GitHubProjectsTab() {
     }
   };
 
+  const handleCreateProject = async () => {
+    if (!newProject.name.trim()) {
+      toast({ title: "Введите название проекта", variant: "destructive" });
+      return;
+    }
+    setCreating(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({ title: "Не авторизован", variant: "destructive" });
+      setCreating(false);
+      return;
+    }
+    const { error } = await supabase.from("projects").insert({
+      name: newProject.name.trim(),
+      domain: newProject.domain.trim() || newProject.name.trim().toLowerCase().replace(/\s+/g, "-"),
+      github_repo: newProject.repo.trim() || null,
+      github_token: newProject.token.trim() || null,
+      user_id: user.id,
+    });
+    setCreating(false);
+    if (error) {
+      toast({ title: "Ошибка создания", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Проект создан" });
+      setNewProject({ name: "", domain: "", repo: "", token: "" });
+      setShowNewForm(false);
+      await loadProjects();
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    if (!confirm(`Удалить проект "${projectName}"? Это действие необратимо.`)) return;
+    const { error } = await supabase.from("projects").delete().eq("id", projectId);
+    if (error) {
+      toast({ title: "Ошибка удаления", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Проект удален" });
+      await loadProjects();
+    }
+  };
+
   const checkAndInitRepo = async (projectId: string) => {
     setRepoStatus((prev) => ({ ...prev, [projectId]: "checking" }));
     setRepoError((prev) => ({ ...prev, [projectId]: "" }));
-
     try {
-      // 1. Check repo status
       const { data: checkData, error: checkErr } = await supabase.functions.invoke("bootstrap-astro", {
         body: { project_id: projectId, action: "check" },
       });
-
       if (checkErr) throw new Error(checkErr.message);
-
       if (checkData?.status === "ready") {
         setRepoStatus((prev) => ({ ...prev, [projectId]: "ready" }));
         toast({ title: "Репозиторий уже инициализирован", description: "Сайт готов к работе" });
         return;
       }
-
       if (checkData?.status === "empty") {
-        // 2. Auto-initialize
         setRepoStatus((prev) => ({ ...prev, [projectId]: "initializing" }));
         toast({ title: "Пустой репозиторий обнаружен", description: "Загружаем шаблон Astro..." });
-
         const { data: initData, error: initErr } = await supabase.functions.invoke("bootstrap-astro", {
           body: { project_id: projectId, action: "initialize" },
         });
-
         if (initErr) throw new Error(initErr.message);
-
         if (initData?.success) {
           setRepoStatus((prev) => ({ ...prev, [projectId]: "ready" }));
-          toast({ title: "Сайт инициализирован! 🎉", description: "Шаблон Astro загружен в репозиторий. Vercel задеплоит сайт автоматически." });
+          toast({ title: "Сайт инициализирован!", description: "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." });
         } else {
           const failedFiles = initData?.results?.filter((r: any) => r.status !== "ok") || [];
           const errMsg = failedFiles.map((f: any) => `${f.file}: ${f.status}`).join("; ");
           setRepoStatus((prev) => ({ ...prev, [projectId]: "error" }));
-          setRepoError((prev) => ({ ...prev, [projectId]: errMsg || "Неизвестная ошибка при загрузке файлов" }));
+          setRepoError((prev) => ({ ...prev, [projectId]: errMsg || "Неизвестная ошибка" }));
           toast({ title: "Ошибка инициализации", description: errMsg, variant: "destructive" });
         }
       } else {
         setRepoStatus((prev) => ({ ...prev, [projectId]: "error" }));
-        setRepoError((prev) => ({ ...prev, [projectId]: checkData?.message || "Не удалось проверить репозиторий" }));
+        setRepoError((prev) => ({ ...prev, [projectId]: checkData?.message || "Не удалось проверить" }));
       }
     } catch (err: any) {
-      console.error("[checkAndInitRepo]", err);
       setRepoStatus((prev) => ({ ...prev, [projectId]: "error" }));
       setRepoError((prev) => ({ ...prev, [projectId]: err?.message || String(err) }));
       toast({ title: "Ошибка", description: err?.message, variant: "destructive" });
@@ -107,8 +141,6 @@ export function GitHubProjectsTab() {
     } else {
       toast({ title: "Настройки GitHub сохранены" });
       await loadProjects();
-
-      // Auto-trigger repo check & init if both fields are filled
       if (vals.repo && vals.token) {
         checkAndInitRepo(projectId);
       }
@@ -118,64 +150,87 @@ export function GitHubProjectsTab() {
   const getStatusBadge = (projectId: string) => {
     const status = repoStatus[projectId];
     if (!status || status === "idle") return null;
-
-    switch (status) {
-      case "checking":
-        return (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <Loader2 className="h-3 w-3 animate-spin" /> Проверка репозитория...
-          </Badge>
-        );
-      case "empty":
-        return (
-          <Badge variant="secondary" className="text-xs gap-1 bg-yellow-500/20 text-yellow-400">
-            <AlertCircle className="h-3 w-3" /> Пустой репозиторий
-          </Badge>
-        );
-      case "initializing":
-        return (
-          <Badge variant="secondary" className="text-xs gap-1 bg-primary/20 text-primary animate-pulse">
-            <Loader2 className="h-3 w-3 animate-spin" /> Инициализация...
-          </Badge>
-        );
-      case "ready":
-        return (
-          <Badge variant="secondary" className="text-xs gap-1 bg-green-500/20 text-green-400">
-            <CheckCircle className="h-3 w-3" /> Готов к работе
-          </Badge>
-        );
-      case "error":
-        return (
-          <Badge variant="destructive" className="text-xs gap-1">
-            <AlertCircle className="h-3 w-3" /> Ошибка
-          </Badge>
-        );
-      default:
-        return null;
-    }
+    const map: Record<string, { cls: string; icon: React.ReactNode; text: string }> = {
+      checking: { cls: "", icon: <Loader2 className="h-3 w-3 animate-spin" />, text: "Проверка..." },
+      empty: { cls: "bg-yellow-500/20 text-yellow-400", icon: <AlertCircle className="h-3 w-3" />, text: "Пустой" },
+      initializing: { cls: "bg-primary/20 text-primary animate-pulse", icon: <Loader2 className="h-3 w-3 animate-spin" />, text: "Инициализация..." },
+      ready: { cls: "bg-green-500/20 text-green-400", icon: <CheckCircle className="h-3 w-3" />, text: "Готов" },
+      error: { cls: "", icon: <AlertCircle className="h-3 w-3" />, text: "Ошибка" },
+    };
+    const s = map[status];
+    if (!s) return null;
+    return (
+      <Badge variant={status === "error" ? "destructive" : "secondary"} className={`text-xs gap-1 ${s.cls}`}>
+        {s.icon} {s.text}
+      </Badge>
+    );
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Github className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-semibold">GitHub Publishing Settings</h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Github className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">GitHub Publishing Settings</h2>
+        </div>
+        <Button size="sm" onClick={() => setShowNewForm(!showNewForm)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Добавить проект
+        </Button>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
         Настройте GitHub Token и Repository для каждого проекта. При сохранении система автоматически проверит и инициализирует репозиторий шаблоном Astro.
       </p>
 
-      {projects.length === 0 && <p className="text-sm text-muted-foreground">Проектов не найдено.</p>}
+      {showNewForm && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Новый проект</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Название проекта *</label>
+                <Input value={newProject.name} onChange={(e) => setNewProject((p) => ({ ...p, name: e.target.value }))} placeholder="Мой блог" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Домен</label>
+                <Input value={newProject.domain} onChange={(e) => setNewProject((p) => ({ ...p, domain: e.target.value }))} placeholder="my-blog.com" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Repository (owner/repo)</label>
+                <Input value={newProject.repo} onChange={(e) => setNewProject((p) => ({ ...p, repo: e.target.value }))} placeholder="username/my-blog" />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">GitHub Token</label>
+                <Input type="password" value={newProject.token} onChange={(e) => setNewProject((p) => ({ ...p, token: e.target.value }))} placeholder="ghp_..." />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleCreateProject} disabled={creating} size="sm">
+                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                Создать
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowNewForm(false)}>Отмена</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {projects.length === 0 && !showNewForm && <p className="text-sm text-muted-foreground">Проектов не найдено.</p>}
 
       {projects.map((project) => (
         <Card key={project.id}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               {project.name}
-              {project.domain && (
-                <span className="text-xs text-muted-foreground font-normal">({project.domain})</span>
-              )}
+              {project.domain && <span className="text-xs text-muted-foreground font-normal">({project.domain})</span>}
               {getStatusBadge(project.id)}
+              <Button variant="ghost" size="icon" className="ml-auto h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteProject(project.id, project.name)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -183,12 +238,7 @@ export function GitHubProjectsTab() {
               <label className="text-sm font-medium mb-1 block">Repository (owner/repo)</label>
               <Input
                 value={editing[project.id]?.repo || ""}
-                onChange={(e) =>
-                  setEditing((prev) => ({
-                    ...prev,
-                    [project.id]: { ...prev[project.id], repo: e.target.value },
-                  }))
-                }
+                onChange={(e) => setEditing((prev) => ({ ...prev, [project.id]: { ...prev[project.id], repo: e.target.value } }))}
                 placeholder="username/my-blog"
               />
             </div>
@@ -198,45 +248,25 @@ export function GitHubProjectsTab() {
                 <Input
                   type={showToken[project.id] ? "text" : "password"}
                   value={editing[project.id]?.token || ""}
-                  onChange={(e) =>
-                    setEditing((prev) => ({
-                      ...prev,
-                      [project.id]: { ...prev[project.id], token: e.target.value },
-                    }))
-                  }
+                  onChange={(e) => setEditing((prev) => ({ ...prev, [project.id]: { ...prev[project.id], token: e.target.value } }))}
                   placeholder="ghp_..."
                 />
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setShowToken((prev) => ({ ...prev, [project.id]: !prev[project.id] }))}
-                >
+                <Button size="icon" variant="ghost" onClick={() => setShowToken((prev) => ({ ...prev, [project.id]: !prev[project.id] }))}>
                   {showToken[project.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
-
             {repoStatus[project.id] === "error" && repoError[project.id] && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-                {repoError[project.id]}
-              </div>
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">{repoError[project.id]}</div>
             )}
-
             <div className="flex gap-2">
               <Button onClick={() => handleSave(project.id)} disabled={saving === project.id || repoStatus[project.id] === "initializing"} size="sm">
                 <Save className="h-4 w-4 mr-1" />
                 {saving === project.id ? "Сохранение..." : "Сохранить"}
               </Button>
               {project.github_repo && project.github_token && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => checkAndInitRepo(project.id)}
-                  disabled={repoStatus[project.id] === "checking" || repoStatus[project.id] === "initializing"}
-                >
-                  {repoStatus[project.id] === "checking" || repoStatus[project.id] === "initializing" ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  ) : null}
+                <Button variant="outline" size="sm" onClick={() => checkAndInitRepo(project.id)} disabled={repoStatus[project.id] === "checking" || repoStatus[project.id] === "initializing"}>
+                  {(repoStatus[project.id] === "checking" || repoStatus[project.id] === "initializing") && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                   Проверить репозиторий
                 </Button>
               )}
