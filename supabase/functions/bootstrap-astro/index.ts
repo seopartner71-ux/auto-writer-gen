@@ -6,66 +6,161 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const EXPERTS = [
-  { name: "Алексей Петров", bio: "SEO-эксперт с 12-летним стажем. Работал с крупнейшими e-commerce проектами Рунета.", avatar: "AP" },
-  { name: "Мария Козлова", bio: "Специалист по контент-маркетингу и поисковой оптимизации. Автор курса «SEO для бизнеса».", avatar: "MK" },
-  { name: "Дмитрий Волков", bio: "Технический SEO-консультант. Помог 200+ компаниям увеличить органический трафик.", avatar: "DV" },
-  { name: "Елена Смирнова", bio: "Руководитель отдела контента в digital-агентстве. 8 лет в SEO и копирайтинге.", avatar: "ES" },
-  { name: "Иван Новиков", bio: "Аналитик поисковых систем, эксперт Google и Яндекс. Спикер профильных конференций.", avatar: "IN" },
-];
+// ─── i18n ────────────────────────────────────────────────────────────
+interface I18n {
+  htmlLang: string;
+  dateLocale: string;
+  nav: { blog: string; about: string; contacts: string };
+  toc: string;
+  readMore: string;
+  allArticles: string;
+  noPosts: string;
+  minRead: string;
+  aboutAuthor: string;
+  expertReviewer: string;
+  madeWith: string;
+  aboutPageTitle: string;
+  aboutPageContent: string;
+  contactsPageTitle: string;
+  contactsPageContent: string;
+  welcomeTitle: string;
+  welcomeDesc: string;
+}
 
-const WELCOME_ARTICLE = `---
-title: "Добро пожаловать на блог"
-description: "Первая статья вашего нового SEO-блога, созданного с помощью СЕО-Модуля"
+const i18nMap: Record<string, I18n> = {
+  ru: {
+    htmlLang: "ru",
+    dateLocale: "ru-RU",
+    nav: { blog: "Блог", about: "О нас", contacts: "Контакты" },
+    toc: "Содержание",
+    readMore: "Читать далее",
+    allArticles: "Все статьи",
+    noPosts: "Статьи пока не опубликованы",
+    minRead: "мин чтения",
+    aboutAuthor: "Об авторе",
+    expertReviewer: "Эксперт-рецензент",
+    madeWith: "Создано с помощью",
+    aboutPageTitle: "О нас",
+    aboutPageContent: "Мы - команда экспертов, которая помогает бизнесу расти через качественный контент и SEO-оптимизацию.",
+    contactsPageTitle: "Контакты",
+    contactsPageContent: "Свяжитесь с нами для сотрудничества или по любым вопросам.",
+    welcomeTitle: "Добро пожаловать на блог",
+    welcomeDesc: "Первая статья вашего нового блога",
+  },
+  en: {
+    htmlLang: "en",
+    dateLocale: "en-US",
+    nav: { blog: "Blog", about: "About", contacts: "Contacts" },
+    toc: "Table of Contents",
+    readMore: "Read more",
+    allArticles: "All articles",
+    noPosts: "No articles published yet",
+    minRead: "min read",
+    aboutAuthor: "About the author",
+    expertReviewer: "Expert Reviewer",
+    madeWith: "Powered by",
+    aboutPageTitle: "About Us",
+    aboutPageContent: "We are a team of experts helping businesses grow through quality content and SEO optimization.",
+    contactsPageTitle: "Contacts",
+    contactsPageContent: "Get in touch with us for collaboration or any questions.",
+    welcomeTitle: "Welcome to our blog",
+    welcomeDesc: "The first article of your new blog",
+  },
+  de: {
+    htmlLang: "de",
+    dateLocale: "de-DE",
+    nav: { blog: "Blog", about: "Uber uns", contacts: "Kontakt" },
+    toc: "Inhaltsverzeichnis",
+    readMore: "Weiterlesen",
+    allArticles: "Alle Artikel",
+    noPosts: "Noch keine Artikel veroffentlicht",
+    minRead: "Min. Lesezeit",
+    aboutAuthor: "Uber den Autor",
+    expertReviewer: "Fachgutachter",
+    madeWith: "Erstellt mit",
+    aboutPageTitle: "Uber uns",
+    aboutPageContent: "Wir sind ein Expertenteam, das Unternehmen durch hochwertigen Content und SEO-Optimierung zum Wachstum verhilft.",
+    contactsPageTitle: "Kontakt",
+    contactsPageContent: "Kontaktieren Sie uns fur Zusammenarbeit oder Fragen.",
+    welcomeTitle: "Willkommen im Blog",
+    welcomeDesc: "Der erste Artikel Ihres neuen Blogs",
+  },
+  fr: {
+    htmlLang: "fr",
+    dateLocale: "fr-FR",
+    nav: { blog: "Blog", about: "A propos", contacts: "Contact" },
+    toc: "Sommaire",
+    readMore: "Lire la suite",
+    allArticles: "Tous les articles",
+    noPosts: "Aucun article publie pour le moment",
+    minRead: "min de lecture",
+    aboutAuthor: "A propos de l'auteur",
+    expertReviewer: "Expert Reviewer",
+    madeWith: "Propulse par",
+    aboutPageTitle: "A propos",
+    aboutPageContent: "Nous sommes une equipe d'experts qui aide les entreprises a croitre grace au contenu de qualite et au SEO.",
+    contactsPageTitle: "Contact",
+    contactsPageContent: "Contactez-nous pour toute collaboration ou question.",
+    welcomeTitle: "Bienvenue sur le blog",
+    welcomeDesc: "Le premier article de votre nouveau blog",
+  },
+  es: {
+    htmlLang: "es",
+    dateLocale: "es-ES",
+    nav: { blog: "Blog", about: "Sobre nosotros", contacts: "Contacto" },
+    toc: "Tabla de contenidos",
+    readMore: "Leer mas",
+    allArticles: "Todos los articulos",
+    noPosts: "No hay articulos publicados aun",
+    minRead: "min de lectura",
+    aboutAuthor: "Sobre el autor",
+    expertReviewer: "Revisor experto",
+    madeWith: "Creado con",
+    aboutPageTitle: "Sobre nosotros",
+    aboutPageContent: "Somos un equipo de expertos que ayuda a las empresas a crecer a traves de contenido de calidad y optimizacion SEO.",
+    contactsPageTitle: "Contacto",
+    contactsPageContent: "Contactenos para colaboracion o cualquier pregunta.",
+    welcomeTitle: "Bienvenido al blog",
+    welcomeDesc: "El primer articulo de tu nuevo blog",
+  },
+};
+
+function getI18n(lang: string): I18n {
+  return i18nMap[lang] || i18nMap["en"];
+}
+
+// ─── File generators ─────────────────────────────────────────────────
+
+function generateFiles(lang: string, siteName: string, siteAbout: string, siteCopyright: string): Record<string, string> {
+  const i = getI18n(lang);
+
+  const WELCOME_ARTICLE = `---
+title: "${i.welcomeTitle}"
+description: "${i.welcomeDesc}"
 pubDate: "${new Date().toISOString().split("T")[0]}"
-keywords: ["блог", "seo", "старт"]
-author: "${EXPERTS[0].name}"
+keywords: ["blog", "seo"]
 ---
 
-# Добро пожаловать!
+# ${i.welcomeTitle}
 
-Это ваш новый SEO-блог, автоматически созданный с помощью платформы **СЕО-Модуль**.
-
-## Как это работает
-
-Все статьи публикуются автоматически через Фабрику сайтов. Вам достаточно:
-
-1. Ввести ключевые слова
-2. Нажать "Запустить генерацию"
-3. Опубликовать готовую статью одним кликом
-
-## Преимущества платформы
-
-| Функция | Описание |
-|---------|----------|
-| AI-генерация | Уникальные статьи за минуты |
-| SEO-оптимизация | Автоматический анализ ключевых слов |
-| Публикация | Один клик для деплоя на сайт |
-
-> Сайт обновится автоматически после каждой публикации.
+${i.welcomeDesc}.
 `;
 
-const FILES: Record<string, string> = {
-  "package.json": JSON.stringify({
-    name: "seo-factor-blog",
-    type: "module",
-    version: "1.0.0",
-    scripts: {
-      dev: "astro dev",
-      start: "astro dev",
-      build: "astro build",
-      preview: "astro preview",
-      astro: "astro"
-    },
-    dependencies: {
-      "astro": "^5.9.3",
-      "@astrojs/tailwind": "^6.0.2",
-      "tailwindcss": "^3.4.17",
-      "@tailwindcss/typography": "^0.5.16"
-    }
-  }, null, 2),
+  return {
+    "package.json": JSON.stringify({
+      name: "seo-factor-blog",
+      type: "module",
+      version: "1.0.0",
+      scripts: { dev: "astro dev", start: "astro dev", build: "astro build", preview: "astro preview", astro: "astro" },
+      dependencies: {
+        "astro": "^5.9.3",
+        "@astrojs/tailwind": "^6.0.2",
+        "tailwindcss": "^3.4.17",
+        "@tailwindcss/typography": "^0.5.16"
+      }
+    }, null, 2),
 
-  "astro.config.mjs": `import { defineConfig } from 'astro/config';
+    "astro.config.mjs": `import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
 
 export default defineConfig({
@@ -73,24 +168,15 @@ export default defineConfig({
 });
 `,
 
-  "tailwind.config.mjs": `/** @type {import('tailwindcss').Config} */
+    "tailwind.config.mjs": `/** @type {import('tailwindcss').Config} */
 export default {
   content: ['./src/**/*.{astro,html,js,jsx,md,mdx,svelte,ts,tsx,vue}'],
   theme: {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        serif: ['Georgia', 'Cambria', 'Times New Roman', 'serif'],
       },
-      colors: {
-        neutral: {
-          925: '#121212',
-          950: '#0a0a0a',
-        },
-      },
-      maxWidth: {
-        article: '48rem',
-      },
+      maxWidth: { article: '48rem' },
       typography: ({ theme }) => ({
         DEFAULT: {
           css: {
@@ -102,64 +188,22 @@ export default {
             lineHeight: '1.8',
             h1: { fontWeight: '800', letterSpacing: '-0.04em', lineHeight: '1.1', fontSize: '2.25rem' },
             h2: { fontWeight: '700', letterSpacing: '-0.025em', marginTop: '2.5em', marginBottom: '0.75em', fontSize: '1.5rem', paddingBottom: '0.5em', borderBottom: '1px solid ' + theme('colors.neutral.100') },
-            h3: { fontWeight: '600', marginTop: '2em', fontSize: '1.2rem', letterSpacing: '-0.01em' },
+            h3: { fontWeight: '600', marginTop: '2em', fontSize: '1.2rem' },
             p: { marginTop: '1.25em', marginBottom: '1.25em' },
             'code::before': { content: 'none' },
             'code::after': { content: 'none' },
-            code: {
-              backgroundColor: theme('colors.neutral.100'),
-              color: theme('colors.neutral.800'),
-              padding: '0.2em 0.4em',
-              borderRadius: '0.375rem',
-              fontSize: '0.875em',
-              fontWeight: '500',
-            },
-            blockquote: {
-              borderLeftWidth: '3px',
-              borderLeftColor: theme('colors.neutral.200'),
-              padding: '0 0 0 1.25rem',
-              fontStyle: 'normal',
-              color: theme('colors.neutral.500'),
-              fontSize: '1.0625rem',
-            },
+            code: { backgroundColor: theme('colors.neutral.100'), color: theme('colors.neutral.800'), padding: '0.2em 0.4em', borderRadius: '0.375rem', fontSize: '0.875em', fontWeight: '500' },
+            blockquote: { borderLeftWidth: '3px', borderLeftColor: theme('colors.neutral.200'), padding: '0 0 0 1.25rem', fontStyle: 'normal', color: theme('colors.neutral.500') },
             'blockquote p:first-of-type::before': { content: 'none' },
             'blockquote p:last-of-type::after': { content: 'none' },
-            table: {
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: '0.9375rem',
-            },
-            thead: {
-              borderBottom: '2px solid ' + theme('colors.neutral.200'),
-            },
-            'thead th': {
-              padding: '0.75rem 1rem',
-              fontWeight: '600',
-              fontSize: '0.8125rem',
-              color: theme('colors.neutral.500'),
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            },
-            'tbody td': {
-              padding: '0.75rem 1rem',
-              borderBottom: '1px solid ' + theme('colors.neutral.100'),
-            },
+            table: { width: '100%', borderCollapse: 'collapse', fontSize: '0.9375rem' },
+            thead: { borderBottom: '2px solid ' + theme('colors.neutral.200') },
+            'thead th': { padding: '0.75rem 1rem', fontWeight: '600', fontSize: '0.8125rem', color: theme('colors.neutral.500'), textTransform: 'uppercase', letterSpacing: '0.05em' },
+            'tbody td': { padding: '0.75rem 1rem', borderBottom: '1px solid ' + theme('colors.neutral.100') },
             'tbody tr:last-child td': { borderBottom: 'none' },
-            img: {
-              borderRadius: '1.5rem',
-              boxShadow: '0 8px 30px -6px rgb(0 0 0 / 0.08)',
-            },
-            hr: { borderColor: theme('colors.neutral.150'), marginTop: '3em', marginBottom: '3em' },
-            a: {
-              color: theme('colors.neutral.900'),
-              textDecoration: 'underline',
-              textDecorationColor: theme('colors.neutral.300'),
-              textUnderlineOffset: '3px',
-              transition: 'text-decoration-color 0.2s',
-            },
-            'a:hover': {
-              textDecorationColor: theme('colors.neutral.900'),
-            },
+            img: { borderRadius: '1.5rem', boxShadow: '0 8px 30px -6px rgb(0 0 0 / 0.08)' },
+            a: { color: theme('colors.neutral.900'), textDecoration: 'underline', textDecorationColor: theme('colors.neutral.300'), textUnderlineOffset: '3px', transition: 'text-decoration-color 0.2s' },
+            'a:hover': { textDecorationColor: theme('colors.neutral.900') },
             'ul > li::marker': { color: theme('colors.neutral.400') },
             'ol > li::marker': { color: theme('colors.neutral.500'), fontWeight: '600' },
             strong: { color: theme('colors.neutral.900'), fontWeight: '600' },
@@ -168,15 +212,13 @@ export default {
       }),
     },
   },
-  plugins: [
-    require('@tailwindcss/typography'),
-  ],
+  plugins: [require('@tailwindcss/typography')],
 };
 `,
 
-  "tsconfig.json": JSON.stringify({ extends: "astro/tsconfigs/strict" }, null, 2),
+    "tsconfig.json": JSON.stringify({ extends: "astro/tsconfigs/strict" }, null, 2),
 
-  "src/content.config.ts": `import { defineCollection, z } from 'astro:content';
+    "src/content.config.ts": `import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 
 const blog = defineCollection({
@@ -195,19 +237,19 @@ const blog = defineCollection({
 export const collections = { blog };
 `,
 
-  "src/layouts/Layout.astro": `---
+    "src/layouts/Layout.astro": `---
 interface Props {
   title: string;
   description?: string;
   jsonLd?: string;
 }
-const { title, description = 'Экспертный блог', jsonLd } = Astro.props;
+const { title, description = '${siteAbout}', jsonLd } = Astro.props;
 const currentPath = Astro.url.pathname;
-const siteName = 'SEO-Factor';
-const siteCopyright = siteName;
+const siteName = '${siteName}';
+const siteCopyright = '${siteCopyright}';
 ---
 <!doctype html>
-<html lang="ru" class="scroll-smooth">
+<html lang="${i.htmlLang}" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -227,54 +269,42 @@ const siteCopyright = siteName;
       background: #000;
       transition: width 0.1s linear; width: 0%;
     }
-    .toc-link.active {
-      color: #000;
-      font-weight: 600;
-    }
+    .toc-link.active { color: #000; font-weight: 600; }
   </style>
 </head>
 <body class="font-sans bg-white text-neutral-900 antialiased min-h-screen flex flex-col">
-  <!-- Reading Progress -->
   <div id="reading-progress"></div>
 
-  <!-- Header -->
   <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-100">
     <nav class="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between">
       <a href="/" class="text-lg font-extrabold tracking-tight text-neutral-900 hover:opacity-70 transition-opacity">
         {siteName}
       </a>
       <div class="flex items-center gap-8">
-        <a href="/"
-          class:list={[
-            "text-[13px] font-medium tracking-wide uppercase transition-colors",
-            currentPath === "/" ? "text-neutral-900" : "text-neutral-400 hover:text-neutral-600"
-          ]}>
-          Блог
+        <a href="/" class:list={["text-[13px] font-medium tracking-wide uppercase transition-colors", currentPath === "/" ? "text-neutral-900" : "text-neutral-400 hover:text-neutral-600"]}>
+          ${i.nav.blog}
         </a>
-        <a href="/"
-          class:list={[
-            "text-[13px] font-medium tracking-wide uppercase transition-colors",
-            "text-neutral-400 hover:text-neutral-600"
-          ]}>
-          Статьи
+        <a href="/about/" class:list={["text-[13px] font-medium tracking-wide uppercase transition-colors", currentPath.startsWith("/about") ? "text-neutral-900" : "text-neutral-400 hover:text-neutral-600"]}>
+          ${i.nav.about}
+        </a>
+        <a href="/contacts/" class:list={["text-[13px] font-medium tracking-wide uppercase transition-colors", currentPath.startsWith("/contacts") ? "text-neutral-900" : "text-neutral-400 hover:text-neutral-600"]}>
+          ${i.nav.contacts}
         </a>
       </div>
     </nav>
   </header>
 
-  <!-- Main -->
   <main class="flex-1 w-full">
     <slot />
   </main>
 
-  <!-- Footer -->
   <footer class="border-t border-neutral-100">
     <div class="max-w-screen-xl mx-auto px-6 py-12">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <span class="text-sm font-semibold text-neutral-900">{siteName}</span>
         <p class="text-xs text-neutral-400">
-          &copy; {new Date().getFullYear()} {siteCopyright}. Создано с помощью
-          <a href="https://seo-modul.pro" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">СЕО-Модуля</a>.
+          &copy; {new Date().getFullYear()} {siteCopyright}. ${i.madeWith}
+          <a href="https://seo-modul.pro" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">SEO-Module</a>.
         </p>
       </div>
     </div>
@@ -293,19 +323,18 @@ const siteCopyright = siteName;
 </html>
 `,
 
-  "src/pages/index.astro": `---
+    "src/pages/index.astro": `---
 import Layout from '../layouts/Layout.astro';
 import { getCollection } from 'astro:content';
 
 const posts = (await getCollection('blog')).sort(
   (a, b) => new Date(b.data.pubDate || b.data.date || 0).getTime() - new Date(a.data.pubDate || a.data.date || 0).getTime()
 );
-const siteName = 'SEO-Factor';
-const siteAbout = 'Авторские статьи по SEO, маркетингу и продвижению - написаны экспертами, проверены практикой.';
+const siteName = '${siteName}';
+const siteAbout = '${siteAbout}';
 ---
 <Layout title={siteName} description={siteAbout}>
   <div class="max-w-screen-xl mx-auto px-6 py-20">
-    <!-- Hero -->
     <div class="max-w-2xl mb-16">
       <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight text-neutral-900 leading-[1.05]">
         {siteName}
@@ -317,38 +346,29 @@ const siteAbout = 'Авторские статьи по SEO, маркетинг�
 
     {posts.length === 0 && (
       <div class="text-center py-24">
-        <p class="text-neutral-400 text-lg">Статьи пока не опубликованы</p>
+        <p class="text-neutral-400 text-lg">${i.noPosts}</p>
       </div>
     )}
 
-    <!-- Articles Grid -->
     <div class="grid gap-px bg-neutral-100 border border-neutral-100 rounded-2xl overflow-hidden">
-      {posts.map((post, idx) => {
+      {posts.map((post) => {
         const pubDate = post.data.pubDate || post.data.date;
-        const kw = (post.data.keywords || [])[0] || 'article';
         const heroSrc = post.data.heroImage || \`https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&h=400&fit=crop&q=80\`;
         return (
           <a href={\`/blog/\${post.id}/\`}
             class="group flex flex-col sm:flex-row bg-white transition-colors hover:bg-neutral-50">
-            <!-- Thumbnail -->
             <div class="sm:w-72 shrink-0 overflow-hidden">
-              <img
-                src={heroSrc}
-                alt={post.data.title}
-                class="w-full h-48 sm:h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                loading="lazy"
-              />
+              <img src={heroSrc} alt={post.data.title} class="w-full h-48 sm:h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
             </div>
-            <!-- Content -->
             <div class="flex-1 p-6 sm:p-8 flex flex-col justify-center">
               <div class="flex items-center gap-3 mb-3">
                 {pubDate && (
                   <time class="text-xs text-neutral-400 tabular-nums uppercase tracking-wider">
-                    {new Date(pubDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {new Date(pubDate).toLocaleDateString('${i.dateLocale}', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </time>
                 )}
                 {post.data.author && (
-                  <span class="text-xs text-neutral-400">-  {post.data.author}</span>
+                  <span class="text-xs text-neutral-400">- {post.data.author}</span>
                 )}
               </div>
               <h2 class="text-xl font-bold text-neutral-900 group-hover:text-neutral-600 transition-colors leading-snug tracking-tight">
@@ -359,7 +379,7 @@ const siteAbout = 'Авторские статьи по SEO, маркетинг�
               )}
               <div class="mt-4">
                 <span class="text-xs font-medium text-neutral-400 group-hover:text-neutral-900 transition-colors uppercase tracking-wider">
-                  Читать далее &rarr;
+                  ${i.readMore} &rarr;
                 </span>
               </div>
             </div>
@@ -371,7 +391,44 @@ const siteAbout = 'Авторские статьи по SEO, маркетинг�
 </Layout>
 `,
 
-  "src/pages/blog/[...slug].astro": `---
+    "src/pages/about.astro": `---
+import Layout from '../layouts/Layout.astro';
+const siteName = '${siteName}';
+const siteAbout = '${siteAbout}';
+---
+<Layout title="${i.aboutPageTitle}" description={siteAbout}>
+  <div class="max-w-article mx-auto px-6 py-20">
+    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-neutral-900 leading-[1.08] mb-8">
+      ${i.aboutPageTitle}
+    </h1>
+    <div class="prose prose-neutral prose-lg max-w-none">
+      <p class="text-xl text-neutral-500 leading-relaxed mb-8">{siteAbout}</p>
+      <p>${i.aboutPageContent}</p>
+    </div>
+  </div>
+</Layout>
+`,
+
+    "src/pages/contacts.astro": `---
+import Layout from '../layouts/Layout.astro';
+const siteName = '${siteName}';
+---
+<Layout title="${i.contactsPageTitle}">
+  <div class="max-w-article mx-auto px-6 py-20">
+    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-neutral-900 leading-[1.08] mb-8">
+      ${i.contactsPageTitle}
+    </h1>
+    <div class="prose prose-neutral prose-lg max-w-none">
+      <p>${i.contactsPageContent}</p>
+      <div class="mt-10 p-8 bg-neutral-50 rounded-2xl border border-neutral-100">
+        <p class="text-neutral-600 mb-2"><strong>Email:</strong> info@{siteName.toLowerCase().replace(/\\s+/g, '')}.com</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+`,
+
+    "src/pages/blog/[...slug].astro": `---
 import Layout from '../../layouts/Layout.astro';
 import { getCollection, render } from 'astro:content';
 
@@ -388,34 +445,20 @@ const { Content, headings } = await render(post);
 
 const pubDate = post.data.pubDate || post.data.date;
 const formattedDate = pubDate
-  ? new Date(pubDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+  ? new Date(pubDate).toLocaleDateString('${i.dateLocale}', { day: 'numeric', month: 'long', year: 'numeric' })
   : null;
 
-// Reading time estimate
 const wordCount = post.body ? post.body.split(/\\s+/).length : 0;
 const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
-// Expert author
-const experts = [
-  { name: "Алексей Петров", bio: "SEO-эксперт с 12-летним стажем", initials: "АП" },
-  { name: "Мария Козлова", bio: "Специалист по контент-маркетингу", initials: "МК" },
-  { name: "Дмитрий Волков", bio: "Технический SEO-консультант", initials: "ДВ" },
-  { name: "Елена Смирнова", bio: "Руководитель отдела контента", initials: "ЕС" },
-  { name: "Иван Новиков", bio: "Аналитик поисковых систем", initials: "ИН" },
-];
+const authorName = post.data.author || 'Expert';
+const initials = authorName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-const authorName = post.data.author || experts[0].name;
-const expert = experts.find(e => e.name === authorName) || experts[Math.floor(post.id.length % experts.length)];
-
-// TOC
 const tocItems = headings.filter(h => h.depth === 2);
 const hasToc = tocItems.length >= 3;
 
-// Unsplash fallback cover
-const kw = (post.data.keywords || [])[0] || 'technology';
 const heroImage = post.data.heroImage || \`https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&h=600&fit=crop&q=80\`;
 
-// JSON-LD
 const jsonLd = JSON.stringify({
   "@context": "https://schema.org",
   "@type": "BlogPosting",
@@ -423,36 +466,32 @@ const jsonLd = JSON.stringify({
   "description": post.data.description || "",
   "datePublished": pubDate || new Date().toISOString(),
   "dateModified": pubDate || new Date().toISOString(),
-  "author": { "@type": "Person", "name": expert.name },
-  "publisher": { "@type": "Organization", "name": "SEO-Factor" },
+  "author": { "@type": "Person", "name": authorName },
+  "publisher": { "@type": "Organization", "name": "${siteName}" },
   "keywords": (post.data.keywords || []).join(", "),
   "mainEntityOfPage": { "@type": "WebPage", "@id": Astro.url.href },
 });
 ---
 <Layout title={post.data.title} description={post.data.description} jsonLd={jsonLd}>
   <article>
-    <!-- Hero Section -->
     <div class="max-w-article mx-auto px-6 pt-16 pb-8">
-      <!-- Back link -->
       <a href="/" class="inline-flex items-center gap-1 text-[13px] text-neutral-400 hover:text-neutral-900 transition-colors mb-10 uppercase tracking-wider font-medium">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
         </svg>
-        Все статьи
+        ${i.allArticles}
       </a>
 
-      <!-- Title -->
       <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-[-0.04em] text-neutral-900 leading-[1.08]">
         {post.data.title}
       </h1>
 
-      <!-- Meta line -->
       <div class="flex flex-wrap items-center gap-4 mt-6 pb-8 border-b border-neutral-100">
-        <span class="text-sm text-neutral-400">{expert.name}</span>
+        <span class="text-sm text-neutral-400">{authorName}</span>
         {formattedDate && (
           <span class="text-sm text-neutral-300">{formattedDate}</span>
         )}
-        <span class="text-sm text-neutral-300">{readingTime} мин чтения</span>
+        <span class="text-sm text-neutral-300">{readingTime} ${i.minRead}</span>
         {post.data.keywords && post.data.keywords.length > 0 && (
           <div class="flex gap-2 ml-auto">
             {post.data.keywords.slice(0, 3).map((kw: string) => (
@@ -465,27 +504,19 @@ const jsonLd = JSON.stringify({
       </div>
     </div>
 
-    <!-- Cover Image -->
     <div class="max-w-screen-lg mx-auto px-6 mb-12">
-      <img
-        src={heroImage}
-        alt={post.data.title}
-        class="w-full aspect-[2/1] object-cover rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]"
-        loading="eager"
-      />
+      <img src={heroImage} alt={post.data.title} class="w-full aspect-[2/1] object-cover rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]" loading="eager" />
     </div>
 
-    <!-- Content Area with optional TOC -->
     <div class="max-w-screen-xl mx-auto px-6 pb-20">
       <div class={\`flex gap-16 \${hasToc ? 'lg:flex-row' : ''} flex-col\`}>
 
-        <!-- TOC Sidebar -->
         {hasToc && (
           <aside class="hidden lg:block w-56 shrink-0 order-first">
             <nav class="sticky top-20">
-              <p class="text-[11px] font-semibold text-neutral-400 uppercase tracking-[0.15em] mb-4">Содержание</p>
+              <p class="text-[11px] font-semibold text-neutral-400 uppercase tracking-[0.15em] mb-4">${i.toc}</p>
               <ul class="space-y-2.5 border-l border-neutral-100 pl-4">
-                {tocItems.map((item, i) => (
+                {tocItems.map((item, idx) => (
                   <li>
                     <a href={\`#\${item.slug}\`} class="toc-link text-[13px] text-neutral-400 hover:text-neutral-900 transition-colors leading-snug block">
                       {item.text}
@@ -497,7 +528,6 @@ const jsonLd = JSON.stringify({
           </aside>
         )}
 
-        <!-- Main content -->
         <div class="flex-1 max-w-article mx-auto w-full">
           {post.data.description && (
             <p class="text-xl text-neutral-500 leading-relaxed mb-10 font-light">{post.data.description}</p>
@@ -518,26 +548,24 @@ const jsonLd = JSON.stringify({
             <Content />
           </div>
 
-          <!-- Author Block -->
           <div class="mt-16 pt-8 border-t border-neutral-100">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
-                <span class="text-sm font-semibold text-white">{expert.initials}</span>
+                <span class="text-sm font-semibold text-white">{initials}</span>
               </div>
               <div>
-                <p class="text-sm font-semibold text-neutral-900">{expert.name}</p>
-                <p class="text-xs text-neutral-400">Expert Reviewer</p>
+                <p class="text-sm font-semibold text-neutral-900">{authorName}</p>
+                <p class="text-xs text-neutral-400">${i.expertReviewer}</p>
               </div>
             </div>
           </div>
 
-          <!-- Back -->
           <div class="mt-10 pt-8 border-t border-neutral-100">
             <a href="/" class="inline-flex items-center gap-2 text-sm font-medium text-neutral-400 hover:text-neutral-900 transition-colors uppercase tracking-wider">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
               </svg>
-              Все статьи
+              ${i.allArticles}
             </a>
           </div>
         </div>
@@ -545,7 +573,6 @@ const jsonLd = JSON.stringify({
     </div>
   </article>
 
-  <!-- TOC highlight script -->
   <script>
     const tocLinks = document.querySelectorAll('.toc-link');
     if (tocLinks.length > 0) {
@@ -570,8 +597,11 @@ const jsonLd = JSON.stringify({
 </Layout>
 `,
 
-  "src/content/blog/dobro-pozhalovat.md": WELCOME_ARTICLE,
-};
+    "src/content/blog/welcome.md": WELCOME_ARTICLE,
+  };
+}
+
+// ─── Server ──────────────────────────────────────────────────────────
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -594,7 +624,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { project_id, action, site_name, site_copyright, site_about } = await req.json();
+    const { project_id, action, site_name, site_copyright, site_about, language } = await req.json();
     if (!project_id) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), { status: 400, headers: corsHeaders });
     }
@@ -632,23 +662,18 @@ serve(async (req) => {
       }
     }
 
-    // Apply dynamic site config
-    const sName = site_name || "SEO-Factor";
+    // Determine language from project record or param
+    const { data: projData } = await supabase.from("projects").select("language").eq("id", project_id).single();
+    const siteLang = language || projData?.language || "en";
+    const sName = site_name || "Blog";
     const sCopyright = site_copyright || sName;
-    const sAbout = site_about || "Авторские статьи по SEO, маркетингу и продвижению - написаны экспертами, проверены практикой.";
+    const sAbout = site_about || "";
 
-    const dynamicFiles: Record<string, string> = {};
-    for (const [path, content] of Object.entries(FILES)) {
-      dynamicFiles[path] = content
-        .replace(/const siteName = 'SEO-Factor';/g, `const siteName = '${sName.replace(/'/g, "\\'")}';`)
-        .replace(/const siteCopyright = siteName;/g, `const siteCopyright = '${sCopyright.replace(/'/g, "\\'")}';`)
-        .replace(/"publisher": \{ "@type": "Organization", "name": "SEO-Factor" \}/g, `"publisher": { "@type": "Organization", "name": "${sName}" }`)
-        .replace(/Авторские статьи по SEO, маркетингу и продвижению - написаны экспертами, проверены практикой\./g, sAbout);
-    }
+    const files = generateFiles(siteLang, sName, sAbout, sCopyright);
 
     const results: { file: string; status: string }[] = [];
 
-    for (const [filePath, content] of Object.entries(dynamicFiles)) {
+    for (const [filePath, content] of Object.entries(files)) {
       try {
         const encoded = btoa(unescape(encodeURIComponent(content)));
 

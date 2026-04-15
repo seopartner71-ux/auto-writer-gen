@@ -27,6 +27,7 @@ interface ProjectRow {
   id: string;
   name: string;
   domain: string;
+  language: string;
   github_repo: string | null;
   github_token: string | null;
   site_name: string | null;
@@ -143,6 +144,7 @@ export default function SiteFactoryPage() {
           site_name: siteConfig.site_name || selectedProject?.name || "Blog",
           site_copyright: siteConfig.site_copyright || "",
           site_about: siteConfig.site_about || "",
+          language: selectedProject?.language || "en",
         },
       });
       if (error) throw new Error(error.message);
@@ -150,7 +152,7 @@ export default function SiteFactoryPage() {
         setRepoStatus("ready");
         toast({ title: lang === "ru" ? "Сайт инициализирован!" : "Site initialized!", description: lang === "ru" ? "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." : "Astro template uploaded. Vercel will deploy automatically." });
         // Reload projects to get updated config
-        const { data: updated } = await supabase.from("projects").select("id, name, domain, github_repo, github_token, site_name, site_copyright, site_about").eq("user_id", user!.id);
+        const { data: updated } = await supabase.from("projects").select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about").eq("user_id", user!.id);
         if (updated) setProjects(updated as ProjectRow[]);
       } else {
         setRepoStatus("error");
@@ -171,7 +173,7 @@ export default function SiteFactoryPage() {
     (async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, domain, github_repo, github_token, site_name, site_copyright, site_about")
+        .select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about")
         .eq("user_id", user.id);
       if (data) setProjects(data as ProjectRow[]);
     })();
@@ -316,17 +318,32 @@ export default function SiteFactoryPage() {
     try {
       const kws = keywords.split("\n").map((k) => k.trim()).filter(Boolean);
       const selectedProj = projects.find((p) => p.id === selectedProjectId);
-      const projLang = selectedProj?.domain?.endsWith(".ru") ? "ru" : "en";
+
+      // Detect language from keyword text (Cyrillic = ru), not from domain
+      const detectLang = (text: string): string => {
+        if (/[а-яА-ЯёЁ]/.test(text)) return "ru";
+        if (/[äöüßÄÖÜ]/.test(text)) return "de";
+        if (/[àâéèêëïîôùûüÿçœæ]/i.test(text)) return "fr";
+        if (/[áéíóúñ¿¡]/i.test(text)) return "es";
+        if (/[ãõçâêô]/i.test(text)) return "pt";
+        return "en";
+      };
+      const defaultLang = selectedProj?.language || "en";
 
       for (const kw of kws) {
+        // Detect language per keyword
+        const kwLang = detectLang(kw) || defaultLang;
+        const geoMap: Record<string, string> = { ru: "RU", en: "US", de: "DE", fr: "FR", es: "ES", pt: "BR" };
+        const kwGeo = geoMap[kwLang] || "US";
+
         // 1. Create keyword record
         const { data: kwRecord, error: kwErr } = await supabase
           .from("keywords")
           .insert({
             user_id: user.id,
             seed_keyword: kw,
-            language: projLang,
-            geo: projLang === "ru" ? "ru" : "US",
+            language: kwLang,
+            geo: kwGeo,
           })
           .select("id")
           .single();
@@ -344,8 +361,8 @@ export default function SiteFactoryPage() {
             project_id: selectedProjectId,
             title: kw,
             status: "generating",
-            language: projLang,
-            geo: projLang === "ru" ? "RU" : "US",
+            language: kwLang,
+            geo: kwGeo,
             keywords: [kw],
             author_profile_id: selectedAuthorId && selectedAuthorId !== "none" ? selectedAuthorId : null,
           })
@@ -377,7 +394,7 @@ export default function SiteFactoryPage() {
                 body: JSON.stringify({
                   keyword_id: kwRecord.id,
                   project_id: selectedProjectId,
-                  language: projLang,
+                  language: kwLang,
                 }),
               }
             );
