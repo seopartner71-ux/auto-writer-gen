@@ -1021,7 +1021,15 @@ export default function SiteFactoryPage() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         {article.published_url && (
                           <Button size="icon" variant="ghost" asChild>
-                            <a href={article.published_url} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={
+                                selectedProject?.custom_domain
+                                  ? article.published_url.replace(/https?:\/\/[^/]+/, `https://${selectedProject.custom_domain}`)
+                                  : article.published_url
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           </Button>
