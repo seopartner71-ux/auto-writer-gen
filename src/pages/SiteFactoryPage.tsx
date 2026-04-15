@@ -622,6 +622,46 @@ export default function SiteFactoryPage() {
               />
             </div>
 
+            {/* Image Generation Controls */}
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-primary" />
+                  <Label htmlFor="gen-images" className="text-sm font-medium">
+                    {lang === "ru" ? "Генерировать фото" : "Generate images"}
+                  </Label>
+                </div>
+                <Switch
+                  id="gen-images"
+                  checked={generateImages}
+                  onCheckedChange={setGenerateImages}
+                />
+              </div>
+              {generateImages && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {lang === "ru" ? "Количество фото на статью" : "Images per article"}
+                    </span>
+                    <span className="text-sm font-semibold text-primary">{imageCount}</span>
+                  </div>
+                  <Slider
+                    value={[imageCount]}
+                    onValueChange={([v]) => setImageCount(v)}
+                    min={1}
+                    max={5}
+                    step={1}
+                    className="w-full"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    {lang === "ru"
+                      ? "При первой публикации также генерируется хедер сайта"
+                      : "Site header image is also generated on first publish"}
+                  </p>
+                </div>
+              )}
+            </div>
+
             <Button
               onClick={handleGenerate}
               disabled={!selectedProjectId || !keywords.trim() || generating}
