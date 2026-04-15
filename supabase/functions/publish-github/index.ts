@@ -364,8 +364,10 @@ serve(async (req) => {
 
     // Get project domain for URL
     const { data: project } = await supabase.from("projects").select("domain").eq("id", project_id).single();
-    const siteUrl = project?.domain
-      ? `https://${project.domain.replace(/^https?:\/\//, "")}/blog/${slug}`
+    const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    const domainBase = rawDomain.replace(/\/blog\/?$/, "");
+    const siteUrl = domainBase
+      ? `https://${domainBase}/blog/${slug}`
       : ghData.content?.html_url || "";
 
     // Update article status
