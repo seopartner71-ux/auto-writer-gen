@@ -644,7 +644,7 @@ serve(async (req) => {
 
     const results: { file: string; status: string }[] = [];
 
-    for (const [filePath, content] of Object.entries(FILES)) {
+    for (const [filePath, content] of Object.entries(dynamicFiles)) {
       try {
         const encoded = btoa(unescape(encodeURIComponent(content)));
 
