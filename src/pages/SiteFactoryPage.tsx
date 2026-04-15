@@ -59,6 +59,64 @@ export default function SiteFactoryPage() {
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
 
+  // Check repo status when project changes
+  useEffect(() => {
+    if (!selectedProjectId || !isGitHubConfigured) {
+      setRepoStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setRepoStatus("checking");
+      setRepoError("");
+      try {
+        const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
+          body: { project_id: selectedProjectId, action: "check" },
+        });
+        if (cancelled) return;
+        if (error) throw new Error(error.message);
+        if (data?.status === "ready") {
+          setRepoStatus("ready");
+        } else if (data?.status === "empty") {
+          setRepoStatus("empty");
+        } else {
+          setRepoStatus("error");
+          setRepoError(data?.message || "Неизвестная ошибка");
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setRepoStatus("error");
+          setRepoError(err?.message || String(err));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProjectId, isGitHubConfigured]);
+
+  const handleInitRepo = async () => {
+    if (!selectedProjectId) return;
+    setRepoStatus("initializing");
+    try {
+      const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
+        body: { project_id: selectedProjectId, action: "initialize" },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.success) {
+        setRepoStatus("ready");
+        toast({ title: lang === "ru" ? "Сайт инициализирован!" : "Site initialized!", description: lang === "ru" ? "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." : "Astro template uploaded. Vercel will deploy automatically." });
+      } else {
+        setRepoStatus("error");
+        const failedFiles = data?.results?.filter((r: any) => r.status !== "ok") || [];
+        setRepoError(failedFiles.map((f: any) => `${f.file}: ${f.status}`).join("; "));
+        toast({ title: lang === "ru" ? "Ошибка инициализации" : "Init error", variant: "destructive" });
+      }
+    } catch (err: any) {
+      setRepoStatus("error");
+      setRepoError(err?.message || String(err));
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
+    }
+  };
+
   // Load projects
   useEffect(() => {
     if (!user) return;
