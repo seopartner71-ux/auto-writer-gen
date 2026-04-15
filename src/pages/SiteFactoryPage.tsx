@@ -351,7 +351,24 @@ export default function SiteFactoryPage() {
             if (!res.ok) {
               const errText = await res.text();
               console.error("generate-article error:", errText);
-              await supabase.from("articles").update({ status: "draft" }).eq("id", artRecord.id);
+              
+              // Parse error message for user-friendly display
+              let errorMsg = lang === "ru" ? "Ошибка генерации статьи" : "Article generation failed";
+              try {
+                const errJson = JSON.parse(errText);
+                if (errJson.error?.includes("credits exhausted") || res.status === 402) {
+                  errorMsg = lang === "ru" 
+                    ? "Недостаточно кредитов для генерации. Пополните баланс." 
+                    : "Not enough credits. Please top up your balance.";
+                } else if (errJson.error) {
+                  errorMsg = errJson.error;
+                }
+              } catch { /* use default */ }
+              
+              toast({ title: errorMsg, variant: "destructive" });
+              
+              // Delete the empty article record instead of leaving as draft
+              await supabase.from("articles").delete().eq("id", artRecord.id);
               setGeneratingIds((prev) => {
                 const next = new Set(prev);
                 next.delete(artRecord.id);
@@ -396,7 +413,12 @@ export default function SiteFactoryPage() {
             });
           } catch (err) {
             console.error("Background generation error:", err);
-            await supabase.from("articles").update({ status: "draft" }).eq("id", artRecord.id);
+            toast({ 
+              title: lang === "ru" ? "Ошибка генерации" : "Generation error", 
+              description: String(err),
+              variant: "destructive" 
+            });
+            await supabase.from("articles").delete().eq("id", artRecord.id);
             setGeneratingIds((prev) => {
               const next = new Set(prev);
               next.delete(artRecord.id);
