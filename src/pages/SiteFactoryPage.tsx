@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,11 @@ export default function SiteFactoryPage() {
   const [customDomain, setCustomDomain] = useState("");
   const [showDnsHelper, setShowDnsHelper] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
+  const [editingArticle, setEditingArticle] = useState<QueueArticle | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editMeta, setEditMeta] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -226,7 +232,40 @@ export default function SiteFactoryPage() {
     }
   };
 
-  // Load projects
+  const handleDeleteArticle = async (articleId: string) => {
+    const { error } = await supabase.from("articles").delete().eq("id", articleId);
+    if (error) {
+      toast({ title: lang === "ru" ? "Ошибка удаления" : "Delete error", description: error.message, variant: "destructive" });
+    } else {
+      setArticles((prev) => prev.filter((a) => a.id !== articleId));
+      toast({ title: lang === "ru" ? "Статья удалена" : "Article deleted" });
+    }
+  };
+
+  const handleOpenEdit = (article: QueueArticle) => {
+    setEditingArticle(article);
+    setEditTitle(article.title || "");
+    setEditContent(article.content || "");
+    setEditMeta(article.meta_description || "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingArticle) return;
+    setSavingEdit(true);
+    const { error } = await supabase
+      .from("articles")
+      .update({ title: editTitle, content: editContent, meta_description: editMeta })
+      .eq("id", editingArticle.id);
+    setSavingEdit(false);
+    if (error) {
+      toast({ title: lang === "ru" ? "Ошибка сохранения" : "Save error", description: error.message, variant: "destructive" });
+    } else {
+      setArticles((prev) => prev.map((a) => a.id === editingArticle.id ? { ...a, title: editTitle, content: editContent, meta_description: editMeta } : a));
+      setEditingArticle(null);
+      toast({ title: lang === "ru" ? "Статья обновлена" : "Article updated" });
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -1152,7 +1191,7 @@ export default function SiteFactoryPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         {article.published_url && (
                           <Button size="icon" variant="ghost" asChild>
                             <a
@@ -1171,11 +1210,41 @@ export default function SiteFactoryPage() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => handleOpenEdit(article)}
+                          disabled={!article.content || isGen}
+                          title={lang === "ru" ? "Редактировать" : "Edit"}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => setPreviewArticle(article)}
                           disabled={!article.content || isGen}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" disabled={isGen} className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{lang === "ru" ? "Удалить статью?" : "Delete article?"}</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {lang === "ru" ? "Это действие нельзя отменить. Статья будет удалена из базы данных." : "This action cannot be undone. The article will be permanently deleted."}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{lang === "ru" ? "Отмена" : "Cancel"}</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteArticle(article.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                {lang === "ru" ? "Удалить" : "Delete"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         <Button
                           size="sm"
                           variant="default"
@@ -1270,6 +1339,36 @@ export default function SiteFactoryPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingArticle} onOpenChange={(open) => !open && setEditingArticle(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{lang === "ru" ? "Редактирование статьи" : "Edit article"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Заголовок" : "Title"}</Label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Мета-описание" : "Meta description"}</Label>
+              <Input value={editMeta} onChange={(e) => setEditMeta(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Контент (Markdown)" : "Content (Markdown)"}</Label>
+              <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={18} className="font-mono text-xs" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingArticle(null)}>{lang === "ru" ? "Отмена" : "Cancel"}</Button>
+              <Button onClick={handleSaveEdit} disabled={savingEdit}>
+                {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {lang === "ru" ? "Сохранить" : "Save"}
+              </Button>
             </div>
           </div>
         </DialogContent>
