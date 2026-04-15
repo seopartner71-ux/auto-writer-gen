@@ -1248,16 +1248,25 @@ export default function SiteFactoryPage() {
                   dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(previewArticle.content) }}
                 />
               )}
-              {/* Author block */}
               <div className="mt-10 pt-6 border-t border-gray-100">
                 <div className="bg-gradient-to-br from-gray-50 to-violet-50/30 rounded-2xl p-5 flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg">
-                    <span className="text-sm font-bold text-white">АП</span>
-                  </div>
+                  {selectedProject?.author_avatar ? (
+                    <img src={selectedProject.author_avatar} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-lg" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg" style={{ background: selectedProject?.primary_color || "#8b5cf6" }}>
+                      <span className="text-sm font-bold text-white">
+                        {(selectedProject?.author_name || "AП").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-xs font-semibold text-violet-600 uppercase tracking-wider mb-0.5">Об авторе</p>
-                    <h4 className="text-sm font-bold text-gray-900">Алексей Петров</h4>
-                    <p className="text-xs text-gray-600 mt-0.5">SEO-эксперт с 12-летним стажем. Работал с крупнейшими e-commerce проектами Рунета.</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: selectedProject?.primary_color || "#8b5cf6" }}>
+                      {lang === "ru" ? "Об авторе" : "About the author"}
+                    </p>
+                    <h4 className="text-sm font-bold text-gray-900">{selectedProject?.author_name || (lang === "ru" ? "Автор" : "Author")}</h4>
+                    {selectedProject?.author_bio && (
+                      <p className="text-xs text-gray-600 mt-0.5">{selectedProject.author_bio}</p>
+                    )}
                   </div>
                 </div>
               </div>
