@@ -17,6 +17,7 @@ import {
   BookMarked,
   Plug,
   LifeBuoy,
+  Factory,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -56,6 +57,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/admin": () => import("@/pages/AdminPage"),
   "/projects": () => import("@/pages/ProjectsPage"),
   "/my-articles": () => import("@/pages/MyArticlesPage"),
+  "/site-factory": () => import("@/pages/SiteFactoryPage"),
 };
 
 export function AppSidebar() {
@@ -80,6 +82,7 @@ export function AppSidebar() {
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     { title: t("nav.myArticles"), url: "/my-articles", icon: BookMarked },
+    { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
     { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
     { title: "AI Radar", url: "/radar", icon: Radar },
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },

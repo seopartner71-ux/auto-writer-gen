@@ -41,6 +41,7 @@ const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
 const SupportPage = lazy(() => import("@/pages/SupportPage"));
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const MyArticlesPage = lazy(() => import("@/pages/MyArticlesPage"));
+const SiteFactoryPage = lazy(() => import("@/pages/SiteFactoryPage"));
 const OfferPage = lazy(() => import("@/pages/OfferPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
@@ -132,6 +133,7 @@ const App = () => (
                   <Route path="/support" element={<SupportPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
                   <Route path="/my-articles" element={<MyArticlesPage />} />
+                  <Route path="/site-factory" element={<SiteFactoryPage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>
