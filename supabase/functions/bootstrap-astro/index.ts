@@ -387,11 +387,11 @@ const posts = (await getCollection('blog')).sort(
 const siteName = '${siteName}';
 const siteAbout = '${siteAbout}';
 ---
-<Layout title={siteName} description={siteAbout}>
+<Layout title={"${i.ourBlog} — " + siteName} description={siteAbout}>
   <div class="max-w-screen-xl mx-auto px-6 py-20">
     <div class="max-w-2xl mb-16">
       <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight text-neutral-900 leading-[1.05]">
-        {siteName}
+        ${i.ourBlog}
       </h1>
       <p class="text-lg text-neutral-500 mt-5 leading-relaxed">
         {siteAbout}
@@ -407,7 +407,6 @@ const siteAbout = '${siteAbout}';
     <div class="grid gap-px bg-neutral-100 border border-neutral-100 rounded-2xl overflow-hidden">
       {posts.map((post) => {
         const pubDate = post.data.pubDate || post.data.date;
-        const kw = (post.data.keywords && post.data.keywords[0]) || post.data.title || 'business';
         const heroSrc = post.data.heroImage || \`https://picsum.photos/seed/\${encodeURIComponent(post.data.title || post.id)}/800/400\`;
         return (
           <a href={\`/blog/\${post.id}/\`}
@@ -423,7 +422,7 @@ const siteAbout = '${siteAbout}';
                   </time>
                 )}
                 {post.data.author && (
-                  <span class="text-xs text-neutral-400">- {post.data.author}</span>
+                  <span class="text-xs text-neutral-400">— {post.data.author}</span>
                 )}
               </div>
               <h2 class="text-xl font-bold text-neutral-900 group-hover:text-neutral-600 transition-colors leading-snug tracking-tight">
@@ -479,10 +478,9 @@ const siteName = '${siteName}';
 
     <form id="contact-form" class="mt-10 space-y-5 max-w-lg">
       <div>
-        <label for="name" class="block text-sm font-medium text-neutral-700 mb-1.5">${lang === "ru" ? "Имя" : lang === "de" ? "Name" : lang === "fr" ? "Nom" : lang === "es" ? "Nombre" : "Name"}</label>
+        <label for="name" class="block text-sm font-medium text-neutral-700 mb-1.5">${i.formName}</label>
         <input type="text" id="name" name="name" required
-          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all"
-          placeholder="${lang === "ru" ? "Ваше имя" : "Your name"}" />
+          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all" />
       </div>
       <div>
         <label for="email" class="block text-sm font-medium text-neutral-700 mb-1.5">Email</label>
@@ -491,14 +489,13 @@ const siteName = '${siteName}';
           placeholder="email@example.com" />
       </div>
       <div>
-        <label for="message" class="block text-sm font-medium text-neutral-700 mb-1.5">${lang === "ru" ? "Сообщение" : lang === "de" ? "Nachricht" : lang === "fr" ? "Message" : lang === "es" ? "Mensaje" : "Message"}</label>
+        <label for="message" class="block text-sm font-medium text-neutral-700 mb-1.5">${i.formMessage}</label>
         <textarea id="message" name="message" rows="5" required
-          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all resize-none"
-          placeholder="${lang === "ru" ? "Ваше сообщение..." : "Your message..."}"></textarea>
+          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all resize-none"></textarea>
       </div>
       <button type="submit"
         class="w-full px-6 py-3 bg-neutral-900 text-white font-medium rounded-xl hover:bg-neutral-800 transition-colors">
-        ${lang === "ru" ? "Отправить" : lang === "de" ? "Senden" : lang === "fr" ? "Envoyer" : lang === "es" ? "Enviar" : "Send message"}
+        ${i.formSend}
       </button>
       <p id="form-status" class="text-sm text-center hidden"></p>
     </form>
@@ -514,10 +511,10 @@ const siteName = '${siteName}';
           setTimeout(() => {
             status.classList.remove('hidden');
             status.classList.add('text-green-600');
-            status.textContent = '${lang === "ru" ? "Сообщение отправлено! Мы свяжемся с вами в ближайшее время." : "Message sent! We will get back to you soon."}';
+            status.textContent = '${i.formSent}';
             e.target.reset();
             btn.disabled = false;
-            btn.textContent = '${lang === "ru" ? "Отправить" : "Send message"}';
+            btn.textContent = '${i.formSend}';
           }, 1000);
         }
       });
