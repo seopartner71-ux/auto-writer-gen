@@ -75,6 +75,17 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
+  // Sync siteConfig when project changes
+  useEffect(() => {
+    if (selectedProject) {
+      setSiteConfig({
+        site_name: selectedProject.site_name || "",
+        site_copyright: selectedProject.site_copyright || "",
+        site_about: selectedProject.site_about || "",
+      });
+    }
+  }, [selectedProject]);
+
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
 
   // Check repo status when project changes
