@@ -1067,6 +1067,9 @@ export type Database = {
           language: string
           name: string
           region: string
+          site_about: string | null
+          site_copyright: string | null
+          site_name: string | null
           updated_at: string
           user_id: string
         }
@@ -1080,6 +1083,9 @@ export type Database = {
           language?: string
           name: string
           region?: string
+          site_about?: string | null
+          site_copyright?: string | null
+          site_name?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1093,6 +1099,9 @@ export type Database = {
           language?: string
           name?: string
           region?: string
+          site_about?: string | null
+          site_copyright?: string | null
+          site_name?: string | null
           updated_at?: string
           user_id?: string
         }
