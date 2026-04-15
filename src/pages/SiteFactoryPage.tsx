@@ -1191,7 +1191,7 @@ export default function SiteFactoryPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         {article.published_url && (
                           <Button size="icon" variant="ghost" asChild>
                             <a
@@ -1210,11 +1210,41 @@ export default function SiteFactoryPage() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => handleOpenEdit(article)}
+                          disabled={!article.content || isGen}
+                          title={lang === "ru" ? "Редактировать" : "Edit"}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => setPreviewArticle(article)}
                           disabled={!article.content || isGen}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" disabled={isGen} className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{lang === "ru" ? "Удалить статью?" : "Delete article?"}</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {lang === "ru" ? "Это действие нельзя отменить. Статья будет удалена из базы данных." : "This action cannot be undone. The article will be permanently deleted."}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{lang === "ru" ? "Отмена" : "Cancel"}</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteArticle(article.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                {lang === "ru" ? "Удалить" : "Delete"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         <Button
                           size="sm"
                           variant="default"
