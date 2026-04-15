@@ -634,12 +634,12 @@ serve(async (req) => {
     const dynamicFiles: Record<string, string> = {};
     for (const [path, content] of Object.entries(FILES)) {
       dynamicFiles[path] = content
-        .replace(/SEO-Factor/g, sName)
+        .replace(/const siteName = 'SEO-Factor';/g, `const siteName = '${sName.replace(/'/g, "\\'")}';`)
+        .replace(/"publisher": \{ "@type": "Organization", "name": "SEO-Factor" \}/g, `"publisher": { "@type": "Organization", "name": "${sName}" }`)
         .replace(/Экспертный блог/g, sName)
         .replace(/Авторские статьи по SEO, маркетингу и продвижению — написаны экспертами, проверены практикой\./g, sAbout)
         .replace(/Экспертные статьи по SEO, маркетингу и продвижению сайтов/g, sAbout)
-        .replace(/SEO-блог — экспертные статьи/g, `${sName} - ${sAbout.substring(0, 50)}`)
-        .replace(/&copy; \{new Date\(\)\.getFullYear\(\)\} \{siteName\}/g, `&copy; {new Date().getFullYear()} ${sCopyright}`);
+        .replace(/SEO-блог — экспертные статьи/g, `${sName} - блог`);
     }
 
     const results: { file: string; status: string }[] = [];
