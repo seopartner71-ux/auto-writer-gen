@@ -67,6 +67,10 @@ export default function SiteFactoryPage() {
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
+  const [customDomain, setCustomDomain] = useState("");
+  const [showDnsHelper, setShowDnsHelper] = useState(false);
+  const [savingDomain, setSavingDomain] = useState(false);
+  const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
