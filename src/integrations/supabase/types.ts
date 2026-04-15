@@ -1058,15 +1058,20 @@ export type Database = {
       }
       projects: {
         Row: {
+          author_avatar: string | null
+          author_bio: string | null
+          author_name: string | null
           auto_interlinking: boolean
           created_at: string
           custom_domain: string | null
           domain: string
+          font_pair: string | null
           github_repo: string | null
           github_token: string | null
           id: string
           language: string
           name: string
+          primary_color: string | null
           region: string
           site_about: string | null
           site_copyright: string | null
@@ -1075,15 +1080,20 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          author_avatar?: string | null
+          author_bio?: string | null
+          author_name?: string | null
           auto_interlinking?: boolean
           created_at?: string
           custom_domain?: string | null
           domain?: string
+          font_pair?: string | null
           github_repo?: string | null
           github_token?: string | null
           id?: string
           language?: string
           name: string
+          primary_color?: string | null
           region?: string
           site_about?: string | null
           site_copyright?: string | null
@@ -1092,15 +1102,20 @@ export type Database = {
           user_id: string
         }
         Update: {
+          author_avatar?: string | null
+          author_bio?: string | null
+          author_name?: string | null
           auto_interlinking?: boolean
           created_at?: string
           custom_domain?: string | null
           domain?: string
+          font_pair?: string | null
           github_repo?: string | null
           github_token?: string | null
           id?: string
           language?: string
           name?: string
+          primary_color?: string | null
           region?: string
           site_about?: string | null
           site_copyright?: string | null
