@@ -15,6 +15,13 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import DOMPurify from "dompurify";
 
+interface AuthorProfile {
+  id: string;
+  name: string;
+  type: string;
+  avatar_icon: string | null;
+}
+
 interface ProjectRow {
   id: string;
   name: string;
@@ -51,6 +58,8 @@ export default function SiteFactoryPage() {
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
   const [imageCount, setImageCount] = useState(3);
+  const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
+  const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -131,6 +140,19 @@ export default function SiteFactoryPage() {
         .select("id, name, domain, github_repo, github_token")
         .eq("user_id", user.id);
       if (data) setProjects(data as ProjectRow[]);
+    })();
+  }, [user]);
+
+  // Load author profiles
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("author_profiles")
+        .select("id, name, type, avatar_icon")
+        .eq("user_id", user.id)
+        .order("name");
+      if (data) setAuthorProfiles(data);
     })();
   }, [user]);
 
@@ -290,6 +312,7 @@ export default function SiteFactoryPage() {
             language: projLang,
             geo: projLang === "ru" ? "RU" : "US",
             keywords: [kw],
+            author_profile_id: selectedAuthorId && selectedAuthorId !== "none" ? selectedAuthorId : null,
           })
           .select("id")
           .single();
@@ -404,6 +427,7 @@ export default function SiteFactoryPage() {
           project_id: selectedProjectId,
           generate_images: generateImages,
           image_count: imageCount,
+          author_profile_id: selectedAuthorId && selectedAuthorId !== "none" ? selectedAuthorId : null,
         },
       });
       if (error) throw error;
@@ -568,6 +592,30 @@ export default function SiteFactoryPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Author Profile Selector */}
+            {authorProfiles.length > 0 && (
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">
+                  {lang === "ru" ? "Профиль автора" : "Author profile"}
+                </label>
+                <Select value={selectedAuthorId} onValueChange={setSelectedAuthorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={lang === "ru" ? "По умолчанию (случайный)" : "Default (random)"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      {lang === "ru" ? "По умолчанию (случайный)" : "Default (random)"}
+                    </SelectItem>
+                    {authorProfiles.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.avatar_icon ? `${a.avatar_icon} ` : ""}{a.name} ({a.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {selectedProjectId && !isGitHubConfigured && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">

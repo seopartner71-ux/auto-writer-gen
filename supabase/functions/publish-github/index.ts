@@ -168,7 +168,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { article_id, project_id, generate_images, image_count } = await req.json();
+    const { article_id, project_id, generate_images, image_count, author_profile_id } = await req.json();
     if (!article_id || !project_id) {
       return new Response(JSON.stringify({ error: "Missing article_id or project_id" }), { status: 400, headers: corsHeaders });
     }
@@ -176,7 +176,7 @@ serve(async (req) => {
     // Get article
     const { data: article, error: artErr } = await supabase
       .from("articles")
-      .select("title, content, meta_description, keywords")
+      .select("title, content, meta_description, keywords, author_profile_id")
       .eq("id", article_id)
       .eq("user_id", user.id)
       .single();
@@ -197,8 +197,17 @@ serve(async (req) => {
     const date = new Date().toISOString().split("T")[0];
     const filename = `src/content/blog/${slug}.md`;
 
-    // Pick random author
-    const author = EXPERTS[Math.floor(Math.random() * EXPERTS.length)];
+    // Resolve author: use profile if provided, otherwise random
+    let author = EXPERTS[Math.floor(Math.random() * EXPERTS.length)];
+    const profileId = author_profile_id || article.author_profile_id;
+    if (profileId) {
+      const { data: profile } = await supabase
+        .from("author_profiles")
+        .select("name")
+        .eq("id", profileId)
+        .single();
+      if (profile?.name) author = profile.name;
+    }
 
     // Strip duplicate H1
     let cleanContent = (article.content || "").replace(/^#\s+.+\n?/m, "").trim();
