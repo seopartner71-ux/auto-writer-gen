@@ -164,6 +164,7 @@ export default function SiteFactoryPage() {
       .select("id, title, content, meta_description, status, published_url, keywords, created_at")
       .eq("user_id", user.id)
       .eq("project_id", selectedProjectId)
+      .in("status", ["completed", "published", "generating"])
       .order("created_at", { ascending: false })
       .limit(50);
     if (data) setArticles(data);
