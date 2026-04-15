@@ -1343,6 +1343,36 @@ export default function SiteFactoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingArticle} onOpenChange={(open) => !open && setEditingArticle(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{lang === "ru" ? "Редактирование статьи" : "Edit article"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Заголовок" : "Title"}</Label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Мета-описание" : "Meta description"}</Label>
+              <Input value={editMeta} onChange={(e) => setEditMeta(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">{lang === "ru" ? "Контент (Markdown)" : "Content (Markdown)"}</Label>
+              <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={18} className="font-mono text-xs" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingArticle(null)}>{lang === "ru" ? "Отмена" : "Cancel"}</Button>
+              <Button onClick={handleSaveEdit} disabled={savingEdit}>
+                {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {lang === "ru" ? "Сохранить" : "Save"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
