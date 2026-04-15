@@ -423,6 +423,24 @@ serve(async (req) => {
           }
         }
       }
+    } else {
+      // generate_images is OFF – still add 2-3 picsum placeholder images
+      heroImagePath = `https://picsum.photos/seed/${encodeURIComponent(slug)}/1600/900`;
+      const sections = parseH2Sections(cleanContent).filter(
+        (s) => !s.heading.toLowerCase().includes("faq") && !s.heading.toLowerCase().includes("часто задаваемые")
+      );
+      const fallbackCount = Math.min(3, sections.length);
+      const step = Math.max(1, Math.floor(sections.length / fallbackCount));
+      const selected: typeof sections = [];
+      for (let i = 0; selected.length < fallbackCount && i < sections.length; i += step) {
+        selected.push(sections[i]);
+      }
+      for (const section of selected) {
+        const seedSlug = transliterate(section.heading) || "img";
+        const imgMarkdown = `\n\n![${section.heading}](https://picsum.photos/seed/${encodeURIComponent(seedSlug)}/800/450)\n`;
+        const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
+        cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
+      }
     }
 
     // ═══ BUILD FRONTMATTER ═══
