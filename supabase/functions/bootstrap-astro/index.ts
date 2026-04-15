@@ -185,14 +185,76 @@ function getI18n(lang: string): I18n {
 
 // ─── File generators ─────────────────────────────────────────────────
 
-function generateFiles(lang: string, siteName: string, siteAbout: string, siteCopyright: string): Record<string, string> {
+// ─── Font pair configs ───────────────────────────────────────────────
+interface FontConfig { heading: string; body: string; googleUrl: string; cssFamilyHeading: string; cssFamilyBody: string }
+
+const FONT_CONFIGS: Record<string, FontConfig> = {
+  inter: {
+    heading: "Inter", body: "Inter",
+    googleUrl: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap",
+    cssFamilyHeading: "'Inter', system-ui, -apple-system, sans-serif",
+    cssFamilyBody: "'Inter', system-ui, -apple-system, sans-serif",
+  },
+  geist: {
+    heading: "Geist", body: "Geist",
+    googleUrl: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&display=swap",
+    cssFamilyHeading: "'Geist', system-ui, sans-serif",
+    cssFamilyBody: "'Geist', system-ui, sans-serif",
+  },
+  roboto: {
+    heading: "Roboto", body: "Roboto",
+    googleUrl: "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap",
+    cssFamilyHeading: "'Roboto', system-ui, sans-serif",
+    cssFamilyBody: "'Roboto', system-ui, sans-serif",
+  },
+  playfair: {
+    heading: "Playfair Display", body: "Inter",
+    googleUrl: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap",
+    cssFamilyHeading: "'Playfair Display', Georgia, serif",
+    cssFamilyBody: "'Inter', system-ui, sans-serif",
+  },
+  merriweather: {
+    heading: "Merriweather", body: "Open Sans",
+    googleUrl: "https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700;900&family=Open+Sans:wght@400;500;600;700&display=swap",
+    cssFamilyHeading: "'Merriweather', Georgia, serif",
+    cssFamilyBody: "'Open Sans', system-ui, sans-serif",
+  },
+};
+
+function getFontConfig(pair: string): FontConfig {
+  return FONT_CONFIGS[pair] || FONT_CONFIGS["inter"];
+}
+
+// ─── File generators ─────────────────────────────────────────────────
+
+function generateFiles(
+  lang: string,
+  siteName: string,
+  siteAbout: string,
+  siteCopyright: string,
+  authorName: string,
+  authorBio: string,
+  authorAvatar: string,
+  primaryColor: string,
+  fontPair: string,
+): Record<string, string> {
   const i = getI18n(lang);
+  const font = getFontConfig(fontPair);
+  const color = primaryColor || "#6366f1";
+  const authorDisplay = authorName || "Expert";
+  const authorBioText = authorBio || "";
+  const authorAvatarUrl = authorAvatar || "";
+
+  // Generate random layout variation
+  const authorAlign = Math.random() > 0.5 ? "items-center text-center" : "items-start";
+  const heroSpacing = Math.random() > 0.5 ? "py-20" : "py-24";
 
   const WELCOME_ARTICLE = `---
 title: "${i.welcomeTitle}"
 description: "${i.welcomeDesc}"
 pubDate: "${new Date().toISOString().split("T")[0]}"
 keywords: ["blog", "seo"]
+author: "${authorDisplay}"
 ---
 
 # ${i.welcomeTitle}
@@ -227,8 +289,12 @@ export default {
   content: ['./src/**/*.{astro,html,js,jsx,md,mdx,svelte,ts,tsx,vue}'],
   theme: {
     extend: {
+      colors: {
+        accent: '${color}',
+      },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        heading: [${font.cssFamilyHeading.split(',').map(f => f.trim()).map(f => f.startsWith("'") ? f : `'${f}'`).join(', ')}],
+        sans: [${font.cssFamilyBody.split(',').map(f => f.trim()).map(f => f.startsWith("'") ? f : `'${f}'`).join(', ')}],
       },
       maxWidth: { article: '48rem' },
       typography: ({ theme }) => ({
@@ -236,18 +302,18 @@ export default {
           css: {
             '--tw-prose-headings': theme('colors.neutral.900'),
             '--tw-prose-body': theme('colors.neutral.600'),
-            '--tw-prose-links': theme('colors.neutral.900'),
+            '--tw-prose-links': '${color}',
             maxWidth: 'none',
             fontSize: '1.0625rem',
             lineHeight: '1.8',
-            h1: { fontWeight: '800', letterSpacing: '-0.04em', lineHeight: '1.1', fontSize: '2.25rem' },
-            h2: { fontWeight: '700', letterSpacing: '-0.025em', marginTop: '2.5em', marginBottom: '0.75em', fontSize: '1.5rem', paddingBottom: '0.5em', borderBottom: '1px solid ' + theme('colors.neutral.100') },
-            h3: { fontWeight: '600', marginTop: '2em', fontSize: '1.2rem' },
+            h1: { fontFamily: theme('fontFamily.heading').join(', '), fontWeight: '800', letterSpacing: '-0.04em', lineHeight: '1.1', fontSize: '2.25rem' },
+            h2: { fontFamily: theme('fontFamily.heading').join(', '), fontWeight: '700', letterSpacing: '-0.025em', marginTop: '2.5em', marginBottom: '0.75em', fontSize: '1.5rem', paddingBottom: '0.5em', borderBottom: '1px solid ' + theme('colors.neutral.100') },
+            h3: { fontFamily: theme('fontFamily.heading').join(', '), fontWeight: '600', marginTop: '2em', fontSize: '1.2rem' },
             p: { marginTop: '1.25em', marginBottom: '1.25em' },
             'code::before': { content: 'none' },
             'code::after': { content: 'none' },
             code: { backgroundColor: theme('colors.neutral.100'), color: theme('colors.neutral.800'), padding: '0.2em 0.4em', borderRadius: '0.375rem', fontSize: '0.875em', fontWeight: '500' },
-            blockquote: { borderLeftWidth: '3px', borderLeftColor: theme('colors.neutral.200'), padding: '0 0 0 1.25rem', fontStyle: 'normal', color: theme('colors.neutral.500') },
+            blockquote: { borderLeftWidth: '3px', borderLeftColor: '${color}33', padding: '0 0 0 1.25rem', fontStyle: 'normal', color: theme('colors.neutral.500') },
             'blockquote p:first-of-type::before': { content: 'none' },
             'blockquote p:last-of-type::after': { content: 'none' },
             table: { width: '100%', borderCollapse: 'collapse', fontSize: '0.9375rem' },
@@ -256,8 +322,8 @@ export default {
             'tbody td': { padding: '0.75rem 1rem', borderBottom: '1px solid ' + theme('colors.neutral.100') },
             'tbody tr:last-child td': { borderBottom: 'none' },
             img: { borderRadius: '1.5rem', boxShadow: '0 8px 30px -6px rgb(0 0 0 / 0.08)' },
-            a: { color: theme('colors.neutral.900'), textDecoration: 'underline', textDecorationColor: theme('colors.neutral.300'), textUnderlineOffset: '3px', transition: 'text-decoration-color 0.2s' },
-            'a:hover': { textDecorationColor: theme('colors.neutral.900') },
+            a: { color: '${color}', textDecoration: 'underline', textDecorationColor: '${color}44', textUnderlineOffset: '3px', transition: 'text-decoration-color 0.2s' },
+            'a:hover': { textDecorationColor: '${color}' },
             'ul > li::marker': { color: theme('colors.neutral.400') },
             'ol > li::marker': { color: theme('colors.neutral.500'), fontWeight: '600' },
             strong: { color: theme('colors.neutral.900'), fontWeight: '600' },
@@ -314,16 +380,16 @@ const siteCopyright = '${siteCopyright}';
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="${font.googleUrl}" rel="stylesheet" />
   {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
   <title>{title} - {siteName}</title>
   <style>
     #reading-progress {
       position: fixed; top: 0; left: 0; height: 2px; z-index: 9999;
-      background: #000;
+      background: ${color};
       transition: width 0.1s linear; width: 0%;
     }
-    .toc-link.active { color: #000; font-weight: 600; }
+    .toc-link.active { color: ${color}; font-weight: 600; }
   </style>
 </head>
 <body class="font-sans bg-white text-neutral-900 antialiased min-h-screen flex flex-col">
@@ -720,7 +786,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { project_id, action, site_name, site_copyright, site_about, language } = await req.json();
+    const { project_id, action, site_name, site_copyright, site_about, language, author_name, author_bio, author_avatar, primary_color, font_pair } = await req.json();
     if (!project_id) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), { status: 400, headers: corsHeaders });
     }
@@ -739,33 +805,30 @@ serve(async (req) => {
           headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
         });
         if (checkRes.ok) {
-          return new Response(JSON.stringify({ status: "ready" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(JSON.stringify({ status: "ready" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         if (checkRes.status === 404) {
-          return new Response(JSON.stringify({ status: "empty" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(JSON.stringify({ status: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
-        return new Response(JSON.stringify({ status: "error", message: `GitHub API ${checkRes.status}` }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(JSON.stringify({ status: "error", message: `GitHub API ${checkRes.status}` }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
-        return new Response(JSON.stringify({ status: "error", message: String(e) }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(JSON.stringify({ status: "error", message: String(e) }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
     // Determine language from project record or param
-    const { data: projData } = await supabase.from("projects").select("language").eq("id", project_id).single();
+    const { data: projData } = await supabase.from("projects").select("language, author_name, author_bio, author_avatar, primary_color, font_pair").eq("id", project_id).single();
     const siteLang = language || projData?.language || "en";
     const sName = site_name || "Blog";
     const sCopyright = site_copyright || sName;
     const sAbout = site_about || "";
+    const aName = author_name || projData?.author_name || "";
+    const aBio = author_bio || projData?.author_bio || "";
+    const aAvatar = author_avatar || projData?.author_avatar || "";
+    const pColor = primary_color || projData?.primary_color || "#6366f1";
+    const fPair = font_pair || projData?.font_pair || "inter";
 
-    const files = generateFiles(siteLang, sName, sAbout, sCopyright);
+    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair);
 
     const results: { file: string; status: string }[] = [];
 

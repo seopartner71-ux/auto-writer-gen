@@ -214,8 +214,9 @@ serve(async (req) => {
     const date = new Date().toISOString().split("T")[0];
     const filename = `src/content/blog/${slug}.md`;
 
-    // Resolve author: use profile if provided, otherwise random
-    let author = EXPERTS[Math.floor(Math.random() * EXPERTS.length)];
+    // Resolve author: use project author_name first, then profile, then random
+    const { data: projInfo } = await supabase.from("projects").select("author_name, author_bio").eq("id", project_id).single();
+    let author = projInfo?.author_name || EXPERTS[Math.floor(Math.random() * EXPERTS.length)];
     const profileId = author_profile_id || article.author_profile_id;
     if (profileId) {
       const { data: profile } = await supabase

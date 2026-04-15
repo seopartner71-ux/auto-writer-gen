@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2 } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,38 @@ interface ProjectRow {
   site_copyright: string | null;
   site_about: string | null;
   custom_domain: string | null;
+  author_name: string | null;
+  author_bio: string | null;
+  author_avatar: string | null;
+  primary_color: string | null;
+  font_pair: string | null;
+}
+
+const FONT_PAIRS = [
+  { label: "Inter + System", value: "inter" },
+  { label: "Geist + Sans", value: "geist" },
+  { label: "Roboto + Sans", value: "roboto" },
+  { label: "Playfair Display + Inter", value: "playfair" },
+  { label: "Merriweather + Open Sans", value: "merriweather" },
+];
+
+const ACCENT_COLORS = [
+  { label: "Indigo", value: "#6366f1" },
+  { label: "Blue", value: "#3b82f6" },
+  { label: "Emerald", value: "#10b981" },
+  { label: "Amber", value: "#f59e0b" },
+  { label: "Rose", value: "#f43f5e" },
+  { label: "Violet", value: "#8b5cf6" },
+  { label: "Teal", value: "#14b8a6" },
+  { label: "Graphite", value: "#475569" },
+];
+
+function randomAccentColor(): string {
+  return ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)].value;
+}
+
+function randomFontPair(): string {
+  return FONT_PAIRS[Math.floor(Math.random() * FONT_PAIRS.length)].value;
 }
 
 interface QueueArticle {
@@ -63,7 +95,7 @@ export default function SiteFactoryPage() {
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
-  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "" });
+  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "" });
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
@@ -81,6 +113,8 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair";
+
   // Sync siteConfig when project changes
   useEffect(() => {
     if (selectedProject) {
@@ -88,6 +122,11 @@ export default function SiteFactoryPage() {
         site_name: selectedProject.site_name || "",
         site_copyright: selectedProject.site_copyright || "",
         site_about: selectedProject.site_about || "",
+        author_name: selectedProject.author_name || "",
+        author_bio: selectedProject.author_bio || "",
+        author_avatar: selectedProject.author_avatar || "",
+        primary_color: selectedProject.primary_color || "",
+        font_pair: selectedProject.font_pair || "",
       });
       setCustomDomain(selectedProject.custom_domain || "");
     }
@@ -133,14 +172,24 @@ export default function SiteFactoryPage() {
     if (!selectedProjectId) return;
     setRepoStatus("initializing");
     try {
+      // Auto-fill color/font if empty
+      const color = siteConfig.primary_color || randomAccentColor();
+      const font = siteConfig.font_pair || randomFontPair();
+
       // Save site config to project first
-      if (siteConfig.site_name || siteConfig.site_copyright || siteConfig.site_about) {
-        await supabase.from("projects").update({
-          site_name: siteConfig.site_name || null,
-          site_copyright: siteConfig.site_copyright || null,
-          site_about: siteConfig.site_about || null,
-        }).eq("id", selectedProjectId);
-      }
+      await supabase.from("projects").update({
+        site_name: siteConfig.site_name || null,
+        site_copyright: siteConfig.site_copyright || null,
+        site_about: siteConfig.site_about || null,
+        author_name: siteConfig.author_name || null,
+        author_bio: siteConfig.author_bio || null,
+        author_avatar: siteConfig.author_avatar || null,
+        primary_color: color,
+        font_pair: font,
+      }).eq("id", selectedProjectId);
+
+      // Update local state
+      setSiteConfig((prev) => ({ ...prev, primary_color: color, font_pair: font }));
 
       const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
         body: {
@@ -150,6 +199,11 @@ export default function SiteFactoryPage() {
           site_copyright: siteConfig.site_copyright || "",
           site_about: siteConfig.site_about || "",
           language: selectedProject?.language || "en",
+          author_name: siteConfig.author_name || "",
+          author_bio: siteConfig.author_bio || "",
+          author_avatar: siteConfig.author_avatar || "",
+          primary_color: color,
+          font_pair: font,
         },
       });
       if (error) throw new Error(error.message);
@@ -157,7 +211,7 @@ export default function SiteFactoryPage() {
         setRepoStatus("ready");
         toast({ title: lang === "ru" ? "Сайт инициализирован!" : "Site initialized!", description: lang === "ru" ? "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." : "Astro template uploaded. Vercel will deploy automatically." });
         // Reload projects to get updated config
-        const { data: updated } = await supabase.from("projects").select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain").eq("user_id", user!.id);
+        const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
         if (updated) setProjects(updated as ProjectRow[]);
       } else {
         setRepoStatus("error");
@@ -178,7 +232,7 @@ export default function SiteFactoryPage() {
     (async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain")
+        .select(PROJECT_SELECT)
         .eq("user_id", user.id);
       if (data) setProjects(data as ProjectRow[]);
     })();
@@ -758,8 +812,8 @@ export default function SiteFactoryPage() {
                   <Textarea
                     value={siteConfig.site_about}
                     onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_about: e.target.value }))}
-                    rows={3}
-                    placeholder={lang === "ru" ? "Мы - команда экспертов, которая помогает бизнесу расти через качественный контент и SEO-оптимизацию." : "We are a team of experts helping businesses grow through quality content and SEO."}
+                    rows={2}
+                    placeholder={lang === "ru" ? "Мы - команда экспертов..." : "We are a team of experts..."}
                   />
                 </div>
                 <div>
@@ -772,20 +826,100 @@ export default function SiteFactoryPage() {
                     placeholder={lang === "ru" ? "Мой Бренд" : "My Brand"}
                   />
                 </div>
+
+                {/* Author fields */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <User className="h-3 w-3" />
+                    {lang === "ru" ? "Автор сайта" : "Site author"}
+                  </p>
+                  <div className="space-y-2">
+                    <Input
+                      value={siteConfig.author_name}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, author_name: e.target.value }))}
+                      placeholder={lang === "ru" ? "Дмитрий Соколов" : "John Smith"}
+                    />
+                    <Input
+                      value={siteConfig.author_bio}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, author_bio: e.target.value }))}
+                      placeholder={lang === "ru" ? "SEO-эксперт с 10-летним стажем" : "SEO expert with 10 years experience"}
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={siteConfig.author_avatar}
+                        onChange={(e) => setSiteConfig((prev) => ({ ...prev, author_avatar: e.target.value }))}
+                        placeholder={lang === "ru" ? "URL аватара (необязательно)" : "Avatar URL (optional)"}
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        type="button"
+                        onClick={() => {
+                          const randomId = Math.floor(Math.random() * 70) + 1;
+                          const gender = Math.random() > 0.5 ? "men" : "women";
+                          setSiteConfig((prev) => ({ ...prev, author_avatar: `https://randomuser.me/api/portraits/${gender}/${randomId}.jpg` }));
+                        }}
+                      >
+                        <Shuffle className="h-3 w-3 mr-1" />
+                        {lang === "ru" ? "Случайное" : "Random"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Color & Font */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    {lang === "ru" ? "Дизайн (Anti-Footprint)" : "Design (Anti-Footprint)"}
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">
+                        {lang === "ru" ? "Акцентный цвет" : "Accent color"}
+                      </label>
+                      <div className="flex gap-2 items-center">
+                        <div className="flex gap-1 flex-wrap flex-1">
+                          {ACCENT_COLORS.map((c) => (
+                            <button
+                              key={c.value}
+                              type="button"
+                              onClick={() => setSiteConfig((prev) => ({ ...prev, primary_color: c.value }))}
+                              className={`w-7 h-7 rounded-lg border-2 transition-all ${siteConfig.primary_color === c.value ? "border-foreground scale-110" : "border-transparent"}`}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <Button size="sm" variant="ghost" type="button" onClick={() => setSiteConfig((prev) => ({ ...prev, primary_color: randomAccentColor() }))}>
+                          <Shuffle className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">
+                        {lang === "ru" ? "Пара шрифтов" : "Font pair"}
+                      </label>
+                      <Select value={siteConfig.font_pair} onValueChange={(v) => setSiteConfig((prev) => ({ ...prev, font_pair: v }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={lang === "ru" ? "Случайная пара" : "Random pair"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FONT_PAIRS.map((f) => (
+                            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
                 {repoStatus === "ready" && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={async () => {
-                      await supabase.from("projects").update({
-                        site_name: siteConfig.site_name || null,
-                        site_copyright: siteConfig.site_copyright || null,
-                        site_about: siteConfig.site_about || null,
-                      }).eq("id", selectedProjectId);
-                      // Re-initialize to apply changes
-                      handleInitRepo();
-                    }}
+                    onClick={() => handleInitRepo()}
                   >
                     <Rocket className="h-3 w-3 mr-1" />
                     {lang === "ru" ? "Обновить служебные страницы" : "Update service pages"}
@@ -844,7 +978,7 @@ export default function SiteFactoryPage() {
                         await supabase.from("projects").update({ custom_domain: domain || null }).eq("id", selectedProjectId);
                         setCustomDomain(domain);
                         // Reload projects
-                        const { data: updated } = await supabase.from("projects").select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain").eq("user_id", user!.id);
+                        const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
                         if (updated) setProjects(updated as ProjectRow[]);
                         toast({ title: lang === "ru" ? "Домен сохранен" : "Domain saved" });
                         setShowDnsHelper(true);
@@ -1075,7 +1209,7 @@ export default function SiteFactoryPage() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0 bg-gray-50 border-0">
           <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden m-4">
             {/* Gradient Hero */}
-            <div className="w-full h-40 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center p-6">
+            <div className="w-full h-40 flex items-center justify-center p-6" style={{ background: `linear-gradient(135deg, ${selectedProject?.primary_color || "#8b5cf6"}, ${selectedProject?.primary_color ? selectedProject.primary_color + "99" : "#a78bfa"})` }}>
               <h2 className="text-xl sm:text-2xl font-black text-white text-center leading-tight drop-shadow-lg max-w-xl">
                 {previewArticle?.title || "Preview"}
               </h2>
@@ -1114,16 +1248,25 @@ export default function SiteFactoryPage() {
                   dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(previewArticle.content) }}
                 />
               )}
-              {/* Author block */}
               <div className="mt-10 pt-6 border-t border-gray-100">
                 <div className="bg-gradient-to-br from-gray-50 to-violet-50/30 rounded-2xl p-5 flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg">
-                    <span className="text-sm font-bold text-white">АП</span>
-                  </div>
+                  {selectedProject?.author_avatar ? (
+                    <img src={selectedProject.author_avatar} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-lg" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg" style={{ background: selectedProject?.primary_color || "#8b5cf6" }}>
+                      <span className="text-sm font-bold text-white">
+                        {(selectedProject?.author_name || "AП").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-xs font-semibold text-violet-600 uppercase tracking-wider mb-0.5">Об авторе</p>
-                    <h4 className="text-sm font-bold text-gray-900">Алексей Петров</h4>
-                    <p className="text-xs text-gray-600 mt-0.5">SEO-эксперт с 12-летним стажем. Работал с крупнейшими e-commerce проектами Рунета.</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: selectedProject?.primary_color || "#8b5cf6" }}>
+                      {lang === "ru" ? "Об авторе" : "About the author"}
+                    </p>
+                    <h4 className="text-sm font-bold text-gray-900">{selectedProject?.author_name || (lang === "ru" ? "Автор" : "Author")}</h4>
+                    {selectedProject?.author_bio && (
+                      <p className="text-xs text-gray-600 mt-0.5">{selectedProject.author_bio}</p>
+                    )}
                   </div>
                 </div>
               </div>
