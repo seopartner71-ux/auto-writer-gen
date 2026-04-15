@@ -28,6 +28,9 @@ interface ProjectRow {
   domain: string;
   github_repo: string | null;
   github_token: string | null;
+  site_name: string | null;
+  site_copyright: string | null;
+  site_about: string | null;
 }
 
 interface QueueArticle {
@@ -57,6 +60,7 @@ export default function SiteFactoryPage() {
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
+  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "" });
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
