@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +49,8 @@ export default function SiteFactoryPage() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
+  const [generateImages, setGenerateImages] = useState(true);
+  const [imageCount, setImageCount] = useState(3);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -397,6 +402,8 @@ export default function SiteFactoryPage() {
         body: {
           article_id: article.id,
           project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
         },
       });
       if (error) throw error;
@@ -615,6 +622,46 @@ export default function SiteFactoryPage() {
                     : "buy sofa cheap\nhow to choose mattress\nbest beds 2025"
                 }
               />
+            </div>
+
+            {/* Image Generation Controls */}
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-primary" />
+                  <Label htmlFor="gen-images" className="text-sm font-medium">
+                    {lang === "ru" ? "Генерировать фото" : "Generate images"}
+                  </Label>
+                </div>
+                <Switch
+                  id="gen-images"
+                  checked={generateImages}
+                  onCheckedChange={setGenerateImages}
+                />
+              </div>
+              {generateImages && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {lang === "ru" ? "Количество фото на статью" : "Images per article"}
+                    </span>
+                    <span className="text-sm font-semibold text-primary">{imageCount}</span>
+                  </div>
+                  <Slider
+                    value={[imageCount]}
+                    onValueChange={([v]) => setImageCount(v)}
+                    min={1}
+                    max={5}
+                    step={1}
+                    className="w-full"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    {lang === "ru"
+                      ? "При первой публикации также генерируется хедер сайта"
+                      : "Site header image is also generated on first publish"}
+                  </p>
+                </div>
+              )}
             </div>
 
             <Button

@@ -214,6 +214,13 @@ interface Props {
 const { title, description = 'SEO-блог — экспертные статьи', jsonLd } = Astro.props;
 const currentPath = Astro.url.pathname;
 const siteName = 'SEO-Factor';
+
+// Check if custom header image exists
+let headerImageUrl = '';
+try {
+  const glob = import.meta.glob('/public/images/header.webp', { eager: true });
+  if (Object.keys(glob).length > 0) headerImageUrl = '/images/header.webp';
+} catch {}
 ---
 <!doctype html>
 <html lang="ru" class="scroll-smooth">
@@ -244,8 +251,16 @@ const siteName = 'SEO-Factor';
   <div id="reading-progress"></div>
 
   <!-- Glassmorphism Header -->
-  <header class="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
-    <nav class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+  <header class="sticky top-0 z-50 border-b border-gray-200/50 shadow-sm overflow-hidden">
+    {headerImageUrl ? (
+      <div class="absolute inset-0 z-0">
+        <img src={headerImageUrl} alt="" class="w-full h-full object-cover" />
+        <div class="absolute inset-0 bg-white/70 backdrop-blur-xl"></div>
+      </div>
+    ) : (
+      <div class="absolute inset-0 z-0 bg-white/70 backdrop-blur-xl"></div>
+    )}
+    <nav class="relative z-10 max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
       <a href="/" class="flex items-center gap-2.5 group">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-200/50 group-hover:shadow-violet-300/60 transition-all group-hover:scale-105">
           <svg class="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
