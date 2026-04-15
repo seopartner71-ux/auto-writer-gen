@@ -15,7 +15,12 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import DOMPurify from "dompurify";
 
-interface ProjectRow {
+interface AuthorProfile {
+  id: string;
+  name: string;
+  type: string;
+  avatar_icon: string | null;
+}
   id: string;
   name: string;
   domain: string;
@@ -51,6 +56,8 @@ export default function SiteFactoryPage() {
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
   const [imageCount, setImageCount] = useState(3);
+  const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
+  const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
