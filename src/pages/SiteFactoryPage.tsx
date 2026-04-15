@@ -591,7 +591,30 @@ export default function SiteFactoryPage() {
               </Select>
             </div>
 
-            {selectedProjectId && !isGitHubConfigured && (
+            {/* Author Profile Selector */}
+            {authorProfiles.length > 0 && (
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">
+                  {lang === "ru" ? "Профиль автора" : "Author profile"}
+                </label>
+                <Select value={selectedAuthorId} onValueChange={setSelectedAuthorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={lang === "ru" ? "По умолчанию (случайный)" : "Default (random)"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      {lang === "ru" ? "По умолчанию (случайный)" : "Default (random)"}
+                    </SelectItem>
+                    {authorProfiles.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.avatar_icon ? `${a.avatar_icon} ` : ""}{a.name} ({a.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
                   ? "Для этого проекта не настроен GitHub Token и Repo. Публикация недоступна."
