@@ -269,7 +269,37 @@ export default function SiteFactoryPage() {
     }
   };
 
-  useEffect(() => {
+  // Load unassigned articles for import
+  const loadUnassignedArticles = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("articles")
+      .select("id, title, content, meta_description, status, published_url, keywords, created_at")
+      .eq("user_id", user.id)
+      .is("project_id", null)
+      .in("status", ["completed", "published"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setUnassignedArticles(data);
+  }, [user]);
+
+  const handleImportArticle = async (articleId: string) => {
+    if (!selectedProjectId) return;
+    setImportingIds(prev => new Set(prev).add(articleId));
+    const { error } = await supabase
+      .from("articles")
+      .update({ project_id: selectedProjectId })
+      .eq("id", articleId);
+    if (error) {
+      toast({ title: lang === "ru" ? "Ошибка привязки" : "Import error", description: error.message, variant: "destructive" });
+    } else {
+      setUnassignedArticles(prev => prev.filter(a => a.id !== articleId));
+      loadArticles();
+      toast({ title: lang === "ru" ? "Статья добавлена в проект" : "Article added to project" });
+    }
+    setImportingIds(prev => { const n = new Set(prev); n.delete(articleId); return n; });
+  };
+
     if (!user) return;
     (async () => {
       const { data } = await supabase
