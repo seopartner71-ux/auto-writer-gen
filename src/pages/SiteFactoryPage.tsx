@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,6 +108,9 @@ export default function SiteFactoryPage() {
   const [editContent, setEditContent] = useState("");
   const [editMeta, setEditMeta] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [unassignedArticles, setUnassignedArticles] = useState<QueueArticle[]>([]);
+  const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -264,6 +267,37 @@ export default function SiteFactoryPage() {
       setEditingArticle(null);
       toast({ title: lang === "ru" ? "Статья обновлена" : "Article updated" });
     }
+  };
+
+  // Load unassigned articles for import
+  const loadUnassignedArticles = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("articles")
+      .select("id, title, content, meta_description, status, published_url, keywords, created_at")
+      .eq("user_id", user.id)
+      .is("project_id", null)
+      .in("status", ["completed", "published"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setUnassignedArticles(data);
+  }, [user]);
+
+  const handleImportArticle = async (articleId: string) => {
+    if (!selectedProjectId) return;
+    setImportingIds(prev => new Set(prev).add(articleId));
+    const { error } = await supabase
+      .from("articles")
+      .update({ project_id: selectedProjectId })
+      .eq("id", articleId);
+    if (error) {
+      toast({ title: lang === "ru" ? "Ошибка привязки" : "Import error", description: error.message, variant: "destructive" });
+    } else {
+      setUnassignedArticles(prev => prev.filter(a => a.id !== articleId));
+      loadArticles();
+      toast({ title: lang === "ru" ? "Статья добавлена в проект" : "Article added to project" });
+    }
+    setImportingIds(prev => { const n = new Set(prev); n.delete(articleId); return n; });
   };
 
   useEffect(() => {
@@ -1161,10 +1195,20 @@ export default function SiteFactoryPage() {
 
         {/* Right: Queue */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">
               {lang === "ru" ? "Очередь публикации" : "Publication queue"}
             </CardTitle>
+            {selectedProjectId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setImportOpen(true); loadUnassignedArticles(); }}
+              >
+                <FolderInput className="h-4 w-4 mr-1.5" />
+                {lang === "ru" ? "Импорт статей" : "Import articles"}
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {articles.length === 0 ? (
@@ -1371,6 +1415,46 @@ export default function SiteFactoryPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Articles Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{lang === "ru" ? "Импорт статей в проект" : "Import articles to project"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {lang === "ru"
+              ? "Статьи без привязки к проекту. Нажмите '+' чтобы добавить в текущий проект."
+              : "Articles without a project. Click '+' to add to current project."}
+          </p>
+          {unassignedArticles.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {lang === "ru" ? "Нет доступных статей для импорта" : "No articles available for import"}
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+              {unassignedArticles.map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{a.title || "Untitled"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={importingIds.has(a.id)}
+                    onClick={() => handleImportArticle(a.id)}
+                  >
+                    {importingIds.has(a.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
