@@ -6,6 +6,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const WELCOME_ARTICLE = `---
+title: "Добро пожаловать на блог"
+description: "Первая статья вашего нового SEO-блога, созданного с помощью СЕО-Модуля"
+date: "${new Date().toISOString().split("T")[0]}"
+keywords: ["блог", "seo", "старт"]
+---
+
+# Добро пожаловать!
+
+Это ваш новый SEO-блог, автоматически созданный с помощью платформы **СЕО-Модуль**.
+
+## Как это работает
+
+Все статьи публикуются автоматически через Фабрику сайтов. Вам достаточно:
+
+1. Ввести ключевые слова
+2. Нажать "Запустить генерацию"
+3. Опубликовать готовую статью одним кликом
+
+Сайт обновится автоматически после каждой публикации.
+`;
+
 const FILES: Record<string, string> = {
   "package.json": JSON.stringify({
     name: "my-seo-factor",
@@ -30,18 +52,6 @@ import tailwind from '@astrojs/tailwind';
 
 export default defineConfig({
   integrations: [tailwind()],
-  content: {
-    collections: {
-      blog: {
-        schema: ({ z }) => ({
-          title: z.string(),
-          description: z.string().optional(),
-          date: z.string().optional(),
-          keywords: z.array(z.string()).optional(),
-        }),
-      },
-    },
-  },
 });
 `,
 
@@ -53,9 +63,7 @@ export default {
 };
 `,
 
-  "tsconfig.json": JSON.stringify({
-    extends: "astro/tsconfigs/strict"
-  }, null, 2),
+  "tsconfig.json": JSON.stringify({ extends: "astro/tsconfigs/strict" }, null, 2),
 
   "src/content.config.ts": `import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
@@ -78,7 +86,7 @@ interface Props {
   title: string;
   description?: string;
 }
-const { title, description = 'SEO-Модуль - Фабрика сайтов' } = Astro.props;
+const { title, description = 'SEO-блог' } = Astro.props;
 ---
 <!doctype html>
 <html lang="ru">
@@ -100,7 +108,7 @@ const { title, description = 'SEO-Модуль - Фабрика сайтов' } 
   </main>
   <footer class="border-t border-gray-200 mt-16">
     <div class="max-w-4xl mx-auto px-4 py-6 text-center text-sm text-gray-500">
-      &copy; {new Date().getFullYear()} SEO-Factor. Создано с помощью СЕО-Модуля.
+      &copy; {new Date().getFullYear()} SEO-Factor
     </div>
   </footer>
 </body>
@@ -159,7 +167,7 @@ const { Content } = await render(post);
 </Layout>
 `,
 
-  "src/content/blog/.gitkeep": "",
+  "src/content/blog/dobro-pozhalovat.md": WELCOME_ARTICLE,
 };
 
 serve(async (req) => {
@@ -183,7 +191,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { project_id } = await req.json();
+    const { project_id, action } = await req.json();
     if (!project_id) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), { status: 400, headers: corsHeaders });
     }
@@ -194,13 +202,40 @@ serve(async (req) => {
     }
 
     const { github_token, github_repo } = config;
+
+    // Action: check - just check if repo has package.json
+    if (action === "check") {
+      try {
+        const checkRes = await fetch(`https://api.github.com/repos/${github_repo}/contents/package.json`, {
+          headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
+        });
+        if (checkRes.ok) {
+          return new Response(JSON.stringify({ status: "ready" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (checkRes.status === 404) {
+          return new Response(JSON.stringify({ status: "empty" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ status: "error", message: `GitHub API ${checkRes.status}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ status: "error", message: String(e) }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Action: initialize - push all template files
     const results: { file: string; status: string }[] = [];
 
     for (const [filePath, content] of Object.entries(FILES)) {
       try {
         const encoded = btoa(unescape(encodeURIComponent(content)));
 
-        // Check existing
         let sha: string | undefined;
         try {
           const checkRes = await fetch(`https://api.github.com/repos/${github_repo}/contents/${filePath}`, {
@@ -213,7 +248,7 @@ serve(async (req) => {
         } catch { /* doesn't exist */ }
 
         const body: Record<string, unknown> = {
-          message: `Add ${filePath}`,
+          message: `[SEO-Module] Add ${filePath}`,
           content: encoded,
           branch: "main",
         };
@@ -233,14 +268,17 @@ serve(async (req) => {
           results.push({ file: filePath, status: "ok" });
         } else {
           const errText = await res.text();
-          results.push({ file: filePath, status: `error: ${res.status} ${errText.substring(0, 100)}` });
+          console.error(`[bootstrap-astro] Failed ${filePath}:`, errText);
+          results.push({ file: filePath, status: `error: ${res.status}` });
         }
       } catch (e) {
+        console.error(`[bootstrap-astro] Exception ${filePath}:`, e);
         results.push({ file: filePath, status: `exception: ${String(e).substring(0, 100)}` });
       }
     }
 
-    return new Response(JSON.stringify({ success: true, results }), {
+    const allOk = results.every((r) => r.status === "ok");
+    return new Response(JSON.stringify({ success: allOk, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +44,8 @@ export default function SiteFactoryPage() {
   const [previewArticle, setPreviewArticle] = useState<QueueArticle | null>(null);
   const [publishing, setPublishing] = useState<string | null>(null);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
+  const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
+  const [repoError, setRepoError] = useState("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -56,6 +58,64 @@ export default function SiteFactoryPage() {
   );
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
+
+  // Check repo status when project changes
+  useEffect(() => {
+    if (!selectedProjectId || !isGitHubConfigured) {
+      setRepoStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setRepoStatus("checking");
+      setRepoError("");
+      try {
+        const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
+          body: { project_id: selectedProjectId, action: "check" },
+        });
+        if (cancelled) return;
+        if (error) throw new Error(error.message);
+        if (data?.status === "ready") {
+          setRepoStatus("ready");
+        } else if (data?.status === "empty") {
+          setRepoStatus("empty");
+        } else {
+          setRepoStatus("error");
+          setRepoError(data?.message || "Неизвестная ошибка");
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setRepoStatus("error");
+          setRepoError(err?.message || String(err));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProjectId, isGitHubConfigured]);
+
+  const handleInitRepo = async () => {
+    if (!selectedProjectId) return;
+    setRepoStatus("initializing");
+    try {
+      const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
+        body: { project_id: selectedProjectId, action: "initialize" },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.success) {
+        setRepoStatus("ready");
+        toast({ title: lang === "ru" ? "Сайт инициализирован!" : "Site initialized!", description: lang === "ru" ? "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." : "Astro template uploaded. Vercel will deploy automatically." });
+      } else {
+        setRepoStatus("error");
+        const failedFiles = data?.results?.filter((r: any) => r.status !== "ok") || [];
+        setRepoError(failedFiles.map((f: any) => `${f.file}: ${f.status}`).join("; "));
+        toast({ title: lang === "ru" ? "Ошибка инициализации" : "Init error", variant: "destructive" });
+      }
+    } catch (err: any) {
+      setRepoStatus("error");
+      setRepoError(err?.message || String(err));
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
+    }
+  };
 
   // Load projects
   useEffect(() => {
@@ -494,8 +554,39 @@ export default function SiteFactoryPage() {
             {selectedProjectId && !isGitHubConfigured && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
-                  ? "⚠️ Для этого проекта не настроен GitHub Token и Repo. Публикация недоступна. Обратитесь к администратору."
-                  : "⚠️ GitHub Token and Repo are not configured for this project. Publishing is unavailable. Contact your admin."}
+                  ? "Для этого проекта не настроен GitHub Token и Repo. Публикация недоступна."
+                  : "GitHub Token and Repo are not configured for this project."}
+              </div>
+            )}
+
+            {selectedProjectId && isGitHubConfigured && (
+              <div className={`rounded-md border p-3 text-sm flex items-center justify-between gap-2 ${
+                repoStatus === "ready" ? "border-green-500/30 bg-green-500/10 text-green-400" :
+                repoStatus === "empty" ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400" :
+                repoStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :
+                repoStatus === "checking" || repoStatus === "initializing" ? "border-primary/30 bg-primary/10 text-primary" :
+                "border-border"
+              }`}>
+                <div className="flex items-center gap-2">
+                  {repoStatus === "checking" && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {repoStatus === "initializing" && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {repoStatus === "ready" && <CheckCircle className="h-4 w-4" />}
+                  {repoStatus === "empty" && <AlertCircle className="h-4 w-4" />}
+                  {repoStatus === "error" && <AlertCircle className="h-4 w-4" />}
+                  <span>
+                    {repoStatus === "checking" && (lang === "ru" ? "Проверка репозитория..." : "Checking repo...")}
+                    {repoStatus === "initializing" && (lang === "ru" ? "Инициализация сайта..." : "Initializing site...")}
+                    {repoStatus === "ready" && (lang === "ru" ? "Сайт готов к работе" : "Site ready")}
+                    {repoStatus === "empty" && (lang === "ru" ? "Пустой репозиторий - требуется инициализация" : "Empty repo - needs initialization")}
+                    {repoStatus === "error" && (repoError || (lang === "ru" ? "Ошибка проверки" : "Check error"))}
+                  </span>
+                </div>
+                {repoStatus === "empty" && (
+                  <Button size="sm" variant="outline" onClick={handleInitRepo} className="shrink-0">
+                    <Rocket className="h-3 w-3 mr-1" />
+                    {lang === "ru" ? "Инициализировать" : "Initialize"}
+                  </Button>
+                )}
               </div>
             )}
 
