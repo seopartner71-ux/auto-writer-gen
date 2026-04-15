@@ -665,7 +665,7 @@ export default function SiteFactoryPage() {
                 <SelectContent>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.domain ? `(${p.domain})` : ""}
+                      {p.name} {p.custom_domain ? `(${p.custom_domain})` : p.domain ? `(${p.domain})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
