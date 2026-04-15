@@ -89,6 +89,7 @@ export default function SiteFactoryPage() {
         site_copyright: selectedProject.site_copyright || "",
         site_about: selectedProject.site_about || "",
       });
+      setCustomDomain(selectedProject.custom_domain || "");
     }
   }, [selectedProject]);
 
