@@ -1417,6 +1417,46 @@ export default function SiteFactoryPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Import Articles Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{lang === "ru" ? "Импорт статей в проект" : "Import articles to project"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {lang === "ru"
+              ? "Статьи без привязки к проекту. Нажмите '+' чтобы добавить в текущий проект."
+              : "Articles without a project. Click '+' to add to current project."}
+          </p>
+          {unassignedArticles.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {lang === "ru" ? "Нет доступных статей для импорта" : "No articles available for import"}
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+              {unassignedArticles.map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{a.title || "Untitled"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={importingIds.has(a.id)}
+                    onClick={() => handleImportArticle(a.id)}
+                  >
+                    {importingIds.has(a.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
