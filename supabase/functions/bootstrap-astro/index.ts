@@ -626,6 +626,22 @@ serve(async (req) => {
     }
 
     // Action: initialize or update - push all template files
+    // Apply dynamic site config to templates
+    const sName = site_name || "SEO-Factor";
+    const sCopyright = site_copyright || sName;
+    const sAbout = site_about || "Авторские статьи по SEO, маркетингу и продвижению - написаны экспертами, проверены практикой.";
+
+    const dynamicFiles: Record<string, string> = {};
+    for (const [path, content] of Object.entries(FILES)) {
+      dynamicFiles[path] = content
+        .replace(/SEO-Factor/g, sName)
+        .replace(/Экспертный блог/g, sName)
+        .replace(/Авторские статьи по SEO, маркетингу и продвижению — написаны экспертами, проверены практикой\./g, sAbout)
+        .replace(/Экспертные статьи по SEO, маркетингу и продвижению сайтов/g, sAbout)
+        .replace(/SEO-блог — экспертные статьи/g, `${sName} - ${sAbout.substring(0, 50)}`)
+        .replace(/&copy; \{new Date\(\)\.getFullYear\(\)\} \{siteName\}/g, `&copy; {new Date().getFullYear()} ${sCopyright}`);
+    }
+
     const results: { file: string; status: string }[] = [];
 
     for (const [filePath, content] of Object.entries(FILES)) {
