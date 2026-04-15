@@ -786,7 +786,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { project_id, action, site_name, site_copyright, site_about, language } = await req.json();
+    const { project_id, action, site_name, site_copyright, site_about, language, author_name, author_bio, author_avatar, primary_color, font_pair } = await req.json();
     if (!project_id) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), { status: 400, headers: corsHeaders });
     }
@@ -805,33 +805,30 @@ serve(async (req) => {
           headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
         });
         if (checkRes.ok) {
-          return new Response(JSON.stringify({ status: "ready" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(JSON.stringify({ status: "ready" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         if (checkRes.status === 404) {
-          return new Response(JSON.stringify({ status: "empty" }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(JSON.stringify({ status: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
-        return new Response(JSON.stringify({ status: "error", message: `GitHub API ${checkRes.status}` }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(JSON.stringify({ status: "error", message: `GitHub API ${checkRes.status}` }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
-        return new Response(JSON.stringify({ status: "error", message: String(e) }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(JSON.stringify({ status: "error", message: String(e) }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
     // Determine language from project record or param
-    const { data: projData } = await supabase.from("projects").select("language").eq("id", project_id).single();
+    const { data: projData } = await supabase.from("projects").select("language, author_name, author_bio, author_avatar, primary_color, font_pair").eq("id", project_id).single();
     const siteLang = language || projData?.language || "en";
     const sName = site_name || "Blog";
     const sCopyright = site_copyright || sName;
     const sAbout = site_about || "";
+    const aName = author_name || projData?.author_name || "";
+    const aBio = author_bio || projData?.author_bio || "";
+    const aAvatar = author_avatar || projData?.author_avatar || "";
+    const pColor = primary_color || projData?.primary_color || "#6366f1";
+    const fPair = font_pair || projData?.font_pair || "inter";
 
-    const files = generateFiles(siteLang, sName, sAbout, sCopyright);
+    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair);
 
     const results: { file: string; status: string }[] = [];
 
