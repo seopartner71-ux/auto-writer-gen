@@ -70,7 +70,6 @@ export default function SiteFactoryPage() {
   const [customDomain, setCustomDomain] = useState("");
   const [showDnsHelper, setShowDnsHelper] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
-  const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
