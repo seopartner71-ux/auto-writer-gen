@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2 } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,38 @@ interface ProjectRow {
   site_copyright: string | null;
   site_about: string | null;
   custom_domain: string | null;
+  author_name: string | null;
+  author_bio: string | null;
+  author_avatar: string | null;
+  primary_color: string | null;
+  font_pair: string | null;
+}
+
+const FONT_PAIRS = [
+  { label: "Inter + System", value: "inter" },
+  { label: "Geist + Sans", value: "geist" },
+  { label: "Roboto + Sans", value: "roboto" },
+  { label: "Playfair Display + Inter", value: "playfair" },
+  { label: "Merriweather + Open Sans", value: "merriweather" },
+];
+
+const ACCENT_COLORS = [
+  { label: "Indigo", value: "#6366f1" },
+  { label: "Blue", value: "#3b82f6" },
+  { label: "Emerald", value: "#10b981" },
+  { label: "Amber", value: "#f59e0b" },
+  { label: "Rose", value: "#f43f5e" },
+  { label: "Violet", value: "#8b5cf6" },
+  { label: "Teal", value: "#14b8a6" },
+  { label: "Graphite", value: "#475569" },
+];
+
+function randomAccentColor(): string {
+  return ACCENT_COLORS[Math.floor(Math.random() * ACCENT_COLORS.length)].value;
+}
+
+function randomFontPair(): string {
+  return FONT_PAIRS[Math.floor(Math.random() * FONT_PAIRS.length)].value;
 }
 
 interface QueueArticle {
