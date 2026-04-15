@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const EXPERTS = [
+  "Алексей Петров",
+  "Мария Козлова",
+  "Дмитрий Волков",
+  "Елена Смирнова",
+  "Иван Новиков",
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -21,7 +29,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
     const { data: { user }, error: authError } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) {
@@ -61,26 +68,35 @@ serve(async (req) => {
     const transliterate = (text: string) =>
       text.toLowerCase().split('').map(c => translitMap[c] ?? c).join('');
 
-    // Build markdown with frontmatter
+    // Build slug
     const slug = transliterate(article.title || "untitled")
       .replace(/[^a-z0-9\s-]/gi, "")
       .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
       .replace(/^-|-$/g, "")
       .substring(0, 80);
     const date = new Date().toISOString().split("T")[0];
     const filename = `src/content/blog/${slug}.md`;
 
+    // Pick random author for E-E-A-T
+    const author = EXPERTS[Math.floor(Math.random() * EXPERTS.length)];
+
+    // Strip duplicate H1 from content (the first # heading)
+    let cleanContent = (article.content || "").replace(/^#\s+.+\n?/m, "").trim();
+
+    // Build markdown with enhanced frontmatter
     const frontmatter = [
       "---",
       `title: "${(article.title || "").replace(/"/g, '\\"')}"`,
       `description: "${(article.meta_description || "").replace(/"/g, '\\"')}"`,
-      `date: "${date}"`,
+      `pubDate: "${date}"`,
       article.keywords?.length ? `keywords: [${article.keywords.map((k: string) => `"${k}"`).join(", ")}]` : "",
+      `author: "${author}"`,
       "---",
       "",
     ].filter(Boolean).join("\n");
 
-    const fileContent = frontmatter + (article.content || "");
+    const fileContent = frontmatter + cleanContent;
     const encodedContent = btoa(unescape(encodeURIComponent(fileContent)));
 
     // Check if file exists (for update)
@@ -93,11 +109,11 @@ serve(async (req) => {
         const existing = await checkRes.json();
         sha = existing.sha;
       }
-    } catch { /* file doesn't exist, that's fine */ }
+    } catch { /* file doesn't exist */ }
 
     // Create/update file via GitHub API
     const body: Record<string, unknown> = {
-      message: `Add article: ${article.title || slug}`,
+      message: `[SEO-Factor] ${sha ? 'Update' : 'Publish'}: ${article.title || slug}`,
       content: encodedContent,
       branch: "main",
     };
