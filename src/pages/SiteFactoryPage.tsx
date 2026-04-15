@@ -232,7 +232,40 @@ export default function SiteFactoryPage() {
     }
   };
 
-  // Load projects
+  const handleDeleteArticle = async (articleId: string) => {
+    const { error } = await supabase.from("articles").delete().eq("id", articleId);
+    if (error) {
+      toast({ title: lang === "ru" ? "Ошибка удаления" : "Delete error", description: error.message, variant: "destructive" });
+    } else {
+      setArticles((prev) => prev.filter((a) => a.id !== articleId));
+      toast({ title: lang === "ru" ? "Статья удалена" : "Article deleted" });
+    }
+  };
+
+  const handleOpenEdit = (article: QueueArticle) => {
+    setEditingArticle(article);
+    setEditTitle(article.title || "");
+    setEditContent(article.content || "");
+    setEditMeta(article.meta_description || "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingArticle) return;
+    setSavingEdit(true);
+    const { error } = await supabase
+      .from("articles")
+      .update({ title: editTitle, content: editContent, meta_description: editMeta })
+      .eq("id", editingArticle.id);
+    setSavingEdit(false);
+    if (error) {
+      toast({ title: lang === "ru" ? "Ошибка сохранения" : "Save error", description: error.message, variant: "destructive" });
+    } else {
+      setArticles((prev) => prev.map((a) => a.id === editingArticle.id ? { ...a, title: editTitle, content: editContent, meta_description: editMeta } : a));
+      setEditingArticle(null);
+      toast({ title: lang === "ru" ? "Статья обновлена" : "Article updated" });
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
     (async () => {
