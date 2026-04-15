@@ -1291,11 +1291,10 @@ export default function SiteFactoryPage() {
                         </AlertDialog>
                         <Button
                           size="sm"
-                          variant="default"
+                          variant={article.status === "published" ? "outline" : "default"}
                           onClick={() => handlePublish(article)}
                           disabled={
                             !isGitHubConfigured ||
-                            article.status === "published" ||
                             !article.content ||
                             isGen ||
                             publishing === article.id
@@ -1304,7 +1303,10 @@ export default function SiteFactoryPage() {
                           {publishing === article.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <>{lang === "ru" ? "Опубликовать" : "Publish"}</>
+                            <>{article.status === "published" 
+                              ? (lang === "ru" ? "Обновить" : "Update")
+                              : (lang === "ru" ? "Опубликовать" : "Publish")
+                            }</>
                           )}
                         </Button>
                       </div>
