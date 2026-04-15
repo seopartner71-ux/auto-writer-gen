@@ -413,7 +413,12 @@ export default function SiteFactoryPage() {
             });
           } catch (err) {
             console.error("Background generation error:", err);
-            await supabase.from("articles").update({ status: "draft" }).eq("id", artRecord.id);
+            toast({ 
+              title: lang === "ru" ? "Ошибка генерации" : "Generation error", 
+              description: String(err),
+              variant: "destructive" 
+            });
+            await supabase.from("articles").delete().eq("id", artRecord.id);
             setGeneratingIds((prev) => {
               const next = new Set(prev);
               next.delete(artRecord.id);
