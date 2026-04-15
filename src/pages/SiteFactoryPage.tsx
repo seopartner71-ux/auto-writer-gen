@@ -554,8 +554,39 @@ export default function SiteFactoryPage() {
             {selectedProjectId && !isGitHubConfigured && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
-                  ? "⚠️ Для этого проекта не настроен GitHub Token и Repo. Публикация недоступна. Обратитесь к администратору."
-                  : "⚠️ GitHub Token and Repo are not configured for this project. Publishing is unavailable. Contact your admin."}
+                  ? "Для этого проекта не настроен GitHub Token и Repo. Публикация недоступна."
+                  : "GitHub Token and Repo are not configured for this project."}
+              </div>
+            )}
+
+            {selectedProjectId && isGitHubConfigured && (
+              <div className={`rounded-md border p-3 text-sm flex items-center justify-between gap-2 ${
+                repoStatus === "ready" ? "border-green-500/30 bg-green-500/10 text-green-400" :
+                repoStatus === "empty" ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400" :
+                repoStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :
+                repoStatus === "checking" || repoStatus === "initializing" ? "border-primary/30 bg-primary/10 text-primary" :
+                "border-border"
+              }`}>
+                <div className="flex items-center gap-2">
+                  {repoStatus === "checking" && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {repoStatus === "initializing" && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {repoStatus === "ready" && <CheckCircle className="h-4 w-4" />}
+                  {repoStatus === "empty" && <AlertCircle className="h-4 w-4" />}
+                  {repoStatus === "error" && <AlertCircle className="h-4 w-4" />}
+                  <span>
+                    {repoStatus === "checking" && (lang === "ru" ? "Проверка репозитория..." : "Checking repo...")}
+                    {repoStatus === "initializing" && (lang === "ru" ? "Инициализация сайта..." : "Initializing site...")}
+                    {repoStatus === "ready" && (lang === "ru" ? "Сайт готов к работе" : "Site ready")}
+                    {repoStatus === "empty" && (lang === "ru" ? "Пустой репозиторий - требуется инициализация" : "Empty repo - needs initialization")}
+                    {repoStatus === "error" && (repoError || (lang === "ru" ? "Ошибка проверки" : "Check error"))}
+                  </span>
+                </div>
+                {repoStatus === "empty" && (
+                  <Button size="sm" variant="outline" onClick={handleInitRepo} className="shrink-0">
+                    <Rocket className="h-3 w-3 mr-1" />
+                    {lang === "ru" ? "Инициализировать" : "Initialize"}
+                  </Button>
+                )}
               </div>
             )}
 
