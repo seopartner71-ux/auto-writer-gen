@@ -102,6 +102,16 @@ async function generateImage(falKey: string, prompt: string): Promise<string> {
   return d.images?.[0]?.url || "";
 }
 
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 async function uploadImageToGitHub(
   token: string,
   repo: string,
@@ -113,7 +123,7 @@ async function uploadImageToGitHub(
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) return null;
   const buf = new Uint8Array(await imgRes.arrayBuffer());
-  const b64 = btoa(String.fromCharCode(...buf));
+  const b64 = uint8ToBase64(buf);
 
   // Check if exists
   let sha: string | undefined;
