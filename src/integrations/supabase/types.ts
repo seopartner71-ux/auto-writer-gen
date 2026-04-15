@@ -1061,6 +1061,8 @@ export type Database = {
           auto_interlinking: boolean
           created_at: string
           domain: string
+          github_repo: string | null
+          github_token: string | null
           id: string
           language: string
           name: string
@@ -1072,6 +1074,8 @@ export type Database = {
           auto_interlinking?: boolean
           created_at?: string
           domain?: string
+          github_repo?: string | null
+          github_token?: string | null
           id?: string
           language?: string
           name: string
@@ -1083,6 +1087,8 @@ export type Database = {
           auto_interlinking?: boolean
           created_at?: string
           domain?: string
+          github_repo?: string | null
+          github_token?: string | null
           id?: string
           language?: string
           name?: string
@@ -1934,6 +1940,10 @@ export type Database = {
       decrypt_sensitive: { Args: { ciphertext: string }; Returns: string }
       deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
       encrypt_sensitive: { Args: { plaintext: string }; Returns: string }
+      get_project_github_config: {
+        Args: { p_project_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
