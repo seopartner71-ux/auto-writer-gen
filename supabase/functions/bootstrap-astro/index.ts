@@ -380,16 +380,16 @@ const siteCopyright = '${siteCopyright}';
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="${font.googleUrl}" rel="stylesheet" />
   {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
   <title>{title} - {siteName}</title>
   <style>
     #reading-progress {
       position: fixed; top: 0; left: 0; height: 2px; z-index: 9999;
-      background: #000;
+      background: ${color};
       transition: width 0.1s linear; width: 0%;
     }
-    .toc-link.active { color: #000; font-weight: 600; }
+    .toc-link.active { color: ${color}; font-weight: 600; }
   </style>
 </head>
 <body class="font-sans bg-white text-neutral-900 antialiased min-h-screen flex flex-col">
