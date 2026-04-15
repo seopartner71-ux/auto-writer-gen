@@ -300,6 +300,7 @@ export default function SiteFactoryPage() {
     setImportingIds(prev => { const n = new Set(prev); n.delete(articleId); return n; });
   };
 
+  useEffect(() => {
     if (!user) return;
     (async () => {
       const { data } = await supabase
