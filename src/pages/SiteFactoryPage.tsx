@@ -33,6 +33,7 @@ interface ProjectRow {
   site_name: string | null;
   site_copyright: string | null;
   site_about: string | null;
+  custom_domain: string | null;
 }
 
 interface QueueArticle {
