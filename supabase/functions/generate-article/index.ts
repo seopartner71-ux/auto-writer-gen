@@ -634,6 +634,18 @@ FAQ (ОБЯЗАТЕЛЬНО):
 - Оберни секцию комментарием <!-- FAQ Schema -->
 - FAQ на том же языке, что и статья
 
+FAQ МИКРОРАЗМЕТКА (ОБЯЗАТЕЛЬНО - вставляй СРАЗУ после последнего ответа FAQ):
+- После последнего ответа в блоке FAQ добавь JSON-LD микроразметку FAQPage в HTML-теге <script>.
+- Формат (пример для 2 вопросов, ты генерируешь для ВСЕХ вопросов из FAQ):
+\`\`\`
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Текст вопроса 1?","acceptedAnswer":{"@type":"Answer","text":"Текст ответа 1."}},{"@type":"Question","name":"Текст вопроса 2?","acceptedAnswer":{"@type":"Answer","text":"Текст ответа 2."}}]}
+</script>
+\`\`\`
+- Вопросы и ответы в JSON-LD должны ТОЧНО совпадать с текстом FAQ выше.
+- В "text" ответа используй plain text без Markdown-форматирования.
+- Это ЕДИНСТВЕННОЕ исключение из правила "никакого HTML" - тег <script type="application/ld+json"> ОБЯЗАТЕЛЕН для микроразметки.
+
 ### [READABILITY OPTIMIZATION] (Flesch Ease 35-45 по формуле Оборневой)
 
 [SENTENCE LENGTH CONTROL]:
