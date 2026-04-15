@@ -421,10 +421,53 @@ const siteName = '${siteName}';
     </h1>
     <div class="prose prose-neutral prose-lg max-w-none">
       <p>${i.contactsPageContent}</p>
-      <div class="mt-10 p-8 bg-neutral-50 rounded-2xl border border-neutral-100">
-        <p class="text-neutral-600 mb-2"><strong>Email:</strong> info@{siteName.toLowerCase().replace(/\\s+/g, '')}.com</p>
-      </div>
     </div>
+
+    <form id="contact-form" class="mt-10 space-y-5 max-w-lg">
+      <div>
+        <label for="name" class="block text-sm font-medium text-neutral-700 mb-1.5">${lang === "ru" ? "Имя" : lang === "de" ? "Name" : lang === "fr" ? "Nom" : lang === "es" ? "Nombre" : "Name"}</label>
+        <input type="text" id="name" name="name" required
+          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all"
+          placeholder="${lang === "ru" ? "Ваше имя" : "Your name"}" />
+      </div>
+      <div>
+        <label for="email" class="block text-sm font-medium text-neutral-700 mb-1.5">Email</label>
+        <input type="email" id="email" name="email" required
+          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all"
+          placeholder="email@example.com" />
+      </div>
+      <div>
+        <label for="message" class="block text-sm font-medium text-neutral-700 mb-1.5">${lang === "ru" ? "Сообщение" : lang === "de" ? "Nachricht" : lang === "fr" ? "Message" : lang === "es" ? "Mensaje" : "Message"}</label>
+        <textarea id="message" name="message" rows="5" required
+          class="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-all resize-none"
+          placeholder="${lang === "ru" ? "Ваше сообщение..." : "Your message..."}"></textarea>
+      </div>
+      <button type="submit"
+        class="w-full px-6 py-3 bg-neutral-900 text-white font-medium rounded-xl hover:bg-neutral-800 transition-colors">
+        ${lang === "ru" ? "Отправить" : lang === "de" ? "Senden" : lang === "fr" ? "Envoyer" : lang === "es" ? "Enviar" : "Send message"}
+      </button>
+      <p id="form-status" class="text-sm text-center hidden"></p>
+    </form>
+
+    <script>
+      document.getElementById('contact-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const status = document.getElementById('form-status');
+        const btn = e.target.querySelector('button[type="submit"]');
+        if (status && btn) {
+          btn.disabled = true;
+          btn.textContent = '...';
+          setTimeout(() => {
+            status.classList.remove('hidden');
+            status.classList.add('text-green-600');
+            status.textContent = '${lang === "ru" ? "Сообщение отправлено! Мы свяжемся с вами в ближайшее время." : "Message sent! We will get back to you soon."}';
+            e.target.reset();
+            btn.disabled = false;
+            btn.textContent = '${lang === "ru" ? "Отправить" : "Send message"}';
+          }, 1000);
+        }
+      });
+    </script>
   </div>
 </Layout>
 `,

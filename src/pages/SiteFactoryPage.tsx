@@ -730,11 +730,11 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {/* Site Config Form - shown when repo needs initialization */}
-            {selectedProjectId && isGitHubConfigured && repoStatus === "empty" && (
+            {/* Site Config Form - shown when repo needs initialization or is ready */}
+            {selectedProjectId && isGitHubConfigured && (repoStatus === "empty" || repoStatus === "ready") && (
               <div className="rounded-lg border border-border p-4 space-y-3">
                 <p className="text-sm font-medium">
-                  {lang === "ru" ? "Настройки сайта" : "Site settings"}
+                  {lang === "ru" ? "Настройки сайта и служебные страницы" : "Site settings & service pages"}
                 </p>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">
@@ -748,13 +748,13 @@ export default function SiteFactoryPage() {
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">
-                    {lang === "ru" ? "О блоге (описание на главной)" : "About blog (homepage description)"}
+                    {lang === "ru" ? "Страница «О нас» (контент)" : "About page content"}
                   </label>
                   <Textarea
                     value={siteConfig.site_about}
                     onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_about: e.target.value }))}
-                    rows={2}
-                    placeholder={lang === "ru" ? "Авторские статьи по SEO, маркетингу и продвижению" : "Expert articles on SEO and marketing"}
+                    rows={3}
+                    placeholder={lang === "ru" ? "Мы - команда экспертов, которая помогает бизнесу расти через качественный контент и SEO-оптимизацию." : "We are a team of experts helping businesses grow through quality content and SEO."}
                   />
                 </div>
                 <div>
@@ -767,6 +767,25 @@ export default function SiteFactoryPage() {
                     placeholder={lang === "ru" ? "Мой Бренд" : "My Brand"}
                   />
                 </div>
+                {repoStatus === "ready" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={async () => {
+                      await supabase.from("projects").update({
+                        site_name: siteConfig.site_name || null,
+                        site_copyright: siteConfig.site_copyright || null,
+                        site_about: siteConfig.site_about || null,
+                      }).eq("id", selectedProjectId);
+                      // Re-initialize to apply changes
+                      handleInitRepo();
+                    }}
+                  >
+                    <Rocket className="h-3 w-3 mr-1" />
+                    {lang === "ru" ? "Обновить служебные страницы" : "Update service pages"}
+                  </Button>
+                )}
               </div>
             )}
 
