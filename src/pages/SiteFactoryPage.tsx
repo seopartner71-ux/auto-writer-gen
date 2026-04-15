@@ -812,8 +812,8 @@ export default function SiteFactoryPage() {
                   <Textarea
                     value={siteConfig.site_about}
                     onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_about: e.target.value }))}
-                    rows={3}
-                    placeholder={lang === "ru" ? "Мы - команда экспертов, которая помогает бизнесу расти через качественный контент и SEO-оптимизацию." : "We are a team of experts helping businesses grow through quality content and SEO."}
+                    rows={2}
+                    placeholder={lang === "ru" ? "Мы - команда экспертов..." : "We are a team of experts..."}
                   />
                 </div>
                 <div>
@@ -826,18 +826,105 @@ export default function SiteFactoryPage() {
                     placeholder={lang === "ru" ? "Мой Бренд" : "My Brand"}
                   />
                 </div>
+
+                {/* Author fields */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <User className="h-3 w-3" />
+                    {lang === "ru" ? "Автор сайта" : "Site author"}
+                  </p>
+                  <div className="space-y-2">
+                    <Input
+                      value={siteConfig.author_name}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, author_name: e.target.value }))}
+                      placeholder={lang === "ru" ? "Дмитрий Соколов" : "John Smith"}
+                    />
+                    <Input
+                      value={siteConfig.author_bio}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, author_bio: e.target.value }))}
+                      placeholder={lang === "ru" ? "SEO-эксперт с 10-летним стажем" : "SEO expert with 10 years experience"}
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={siteConfig.author_avatar}
+                        onChange={(e) => setSiteConfig((prev) => ({ ...prev, author_avatar: e.target.value }))}
+                        placeholder={lang === "ru" ? "URL аватара (необязательно)" : "Avatar URL (optional)"}
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        type="button"
+                        onClick={() => {
+                          const randomId = Math.floor(Math.random() * 70) + 1;
+                          const gender = Math.random() > 0.5 ? "men" : "women";
+                          setSiteConfig((prev) => ({ ...prev, author_avatar: `https://randomuser.me/api/portraits/${gender}/${randomId}.jpg` }));
+                        }}
+                      >
+                        <Shuffle className="h-3 w-3 mr-1" />
+                        {lang === "ru" ? "Случайное" : "Random"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Color & Font */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    {lang === "ru" ? "Дизайн (Anti-Footprint)" : "Design (Anti-Footprint)"}
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">
+                        {lang === "ru" ? "Акцентный цвет" : "Accent color"}
+                      </label>
+                      <div className="flex gap-2 items-center">
+                        <div className="flex gap-1 flex-wrap flex-1">
+                          {ACCENT_COLORS.map((c) => (
+                            <button
+                              key={c.value}
+                              type="button"
+                              onClick={() => setSiteConfig((prev) => ({ ...prev, primary_color: c.value }))}
+                              className={`w-7 h-7 rounded-lg border-2 transition-all ${siteConfig.primary_color === c.value ? "border-foreground scale-110" : "border-transparent"}`}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <Button size="sm" variant="ghost" type="button" onClick={() => setSiteConfig((prev) => ({ ...prev, primary_color: randomAccentColor() }))}>
+                          <Shuffle className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">
+                        {lang === "ru" ? "Пара шрифтов" : "Font pair"}
+                      </label>
+                      <Select value={siteConfig.font_pair} onValueChange={(v) => setSiteConfig((prev) => ({ ...prev, font_pair: v }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={lang === "ru" ? "Случайная пара" : "Random pair"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FONT_PAIRS.map((f) => (
+                            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
                 {repoStatus === "ready" && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={async () => {
-                      await supabase.from("projects").update({
-                        site_name: siteConfig.site_name || null,
-                        site_copyright: siteConfig.site_copyright || null,
-                        site_about: siteConfig.site_about || null,
-                      }).eq("id", selectedProjectId);
-                      // Re-initialize to apply changes
+                    onClick={() => handleInitRepo()}
+                  >
+                    <Rocket className="h-3 w-3 mr-1" />
+                    {lang === "ru" ? "Обновить служебные страницы" : "Update service pages"}
+                  </Button>
+                )}
                       handleInitRepo();
                     }}
                   >
