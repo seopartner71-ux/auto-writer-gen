@@ -143,6 +143,19 @@ export default function SiteFactoryPage() {
     })();
   }, [user]);
 
+  // Load author profiles
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("author_profiles")
+        .select("id, name, type, avatar_icon")
+        .eq("user_id", user.id)
+        .order("name");
+      if (data) setAuthorProfiles(data);
+    })();
+  }, [user]);
+
   // Load articles for selected project
   const loadArticles = useCallback(async () => {
     if (!user || !selectedProjectId) { setArticles([]); return; }
