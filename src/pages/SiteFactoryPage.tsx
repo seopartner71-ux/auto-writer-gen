@@ -21,6 +21,8 @@ interface AuthorProfile {
   type: string;
   avatar_icon: string | null;
 }
+
+interface ProjectRow {
   id: string;
   name: string;
   domain: string;
