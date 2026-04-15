@@ -144,6 +144,7 @@ export default function SiteFactoryPage() {
           site_name: siteConfig.site_name || selectedProject?.name || "Blog",
           site_copyright: siteConfig.site_copyright || "",
           site_about: siteConfig.site_about || "",
+          language: selectedProject?.language || "en",
         },
       });
       if (error) throw new Error(error.message);
