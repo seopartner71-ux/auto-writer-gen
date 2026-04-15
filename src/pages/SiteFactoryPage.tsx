@@ -115,13 +115,31 @@ export default function SiteFactoryPage() {
     if (!selectedProjectId) return;
     setRepoStatus("initializing");
     try {
+      // Save site config to project first
+      if (siteConfig.site_name || siteConfig.site_copyright || siteConfig.site_about) {
+        await supabase.from("projects").update({
+          site_name: siteConfig.site_name || null,
+          site_copyright: siteConfig.site_copyright || null,
+          site_about: siteConfig.site_about || null,
+        }).eq("id", selectedProjectId);
+      }
+
       const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
-        body: { project_id: selectedProjectId, action: "initialize" },
+        body: {
+          project_id: selectedProjectId,
+          action: "initialize",
+          site_name: siteConfig.site_name || selectedProject?.name || "Blog",
+          site_copyright: siteConfig.site_copyright || "",
+          site_about: siteConfig.site_about || "",
+        },
       });
       if (error) throw new Error(error.message);
       if (data?.success) {
         setRepoStatus("ready");
         toast({ title: lang === "ru" ? "Сайт инициализирован!" : "Site initialized!", description: lang === "ru" ? "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." : "Astro template uploaded. Vercel will deploy automatically." });
+        // Reload projects to get updated config
+        const { data: updated } = await supabase.from("projects").select("id, name, domain, github_repo, github_token, site_name, site_copyright, site_about").eq("user_id", user!.id);
+        if (updated) setProjects(updated as ProjectRow[]);
       } else {
         setRepoStatus("error");
         const failedFiles = data?.results?.filter((r: any) => r.status !== "ok") || [];
