@@ -354,7 +354,7 @@ const siteAbout = '${siteAbout}';
       {posts.map((post) => {
         const pubDate = post.data.pubDate || post.data.date;
         const kw = (post.data.keywords && post.data.keywords[0]) || post.data.title || 'business';
-        const heroSrc = post.data.heroImage || \`https://source.unsplash.com/800x400/?\${encodeURIComponent(kw)}\`;
+        const heroSrc = post.data.heroImage || \`https://picsum.photos/seed/\${encodeURIComponent(post.data.title || post.id)}/800/400\`;
         return (
           <a href={\`/blog/\${post.id}/\`}
             class="group flex flex-col sm:flex-row bg-white transition-colors hover:bg-neutral-50">
@@ -459,7 +459,7 @@ const tocItems = headings.filter(h => h.depth === 2);
 const hasToc = tocItems.length >= 3;
 
 const kw = (post.data.keywords && post.data.keywords[0]) || post.data.title || 'business';
-const heroImage = post.data.heroImage || \`https://source.unsplash.com/1200x600/?\${encodeURIComponent(kw)}\`;
+const heroImage = post.data.heroImage || \`https://picsum.photos/seed/\${encodeURIComponent(post.data.title || post.id)}/1200/600\`;
 
 const jsonLd = JSON.stringify({
   "@context": "https://schema.org",
