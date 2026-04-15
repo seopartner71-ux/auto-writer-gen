@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +29,9 @@ interface ProjectRow {
   domain: string;
   github_repo: string | null;
   github_token: string | null;
+  site_name: string | null;
+  site_copyright: string | null;
+  site_about: string | null;
 }
 
 interface QueueArticle {
@@ -57,6 +61,7 @@ export default function SiteFactoryPage() {
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
+  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "" });
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
@@ -70,6 +75,17 @@ export default function SiteFactoryPage() {
     () => projects.find((p) => p.id === selectedProjectId),
     [projects, selectedProjectId]
   );
+
+  // Sync siteConfig when project changes
+  useEffect(() => {
+    if (selectedProject) {
+      setSiteConfig({
+        site_name: selectedProject.site_name || "",
+        site_copyright: selectedProject.site_copyright || "",
+        site_about: selectedProject.site_about || "",
+      });
+    }
+  }, [selectedProject]);
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
 
@@ -111,13 +127,31 @@ export default function SiteFactoryPage() {
     if (!selectedProjectId) return;
     setRepoStatus("initializing");
     try {
+      // Save site config to project first
+      if (siteConfig.site_name || siteConfig.site_copyright || siteConfig.site_about) {
+        await supabase.from("projects").update({
+          site_name: siteConfig.site_name || null,
+          site_copyright: siteConfig.site_copyright || null,
+          site_about: siteConfig.site_about || null,
+        }).eq("id", selectedProjectId);
+      }
+
       const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
-        body: { project_id: selectedProjectId, action: "initialize" },
+        body: {
+          project_id: selectedProjectId,
+          action: "initialize",
+          site_name: siteConfig.site_name || selectedProject?.name || "Blog",
+          site_copyright: siteConfig.site_copyright || "",
+          site_about: siteConfig.site_about || "",
+        },
       });
       if (error) throw new Error(error.message);
       if (data?.success) {
         setRepoStatus("ready");
         toast({ title: lang === "ru" ? "Сайт инициализирован!" : "Site initialized!", description: lang === "ru" ? "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." : "Astro template uploaded. Vercel will deploy automatically." });
+        // Reload projects to get updated config
+        const { data: updated } = await supabase.from("projects").select("id, name, domain, github_repo, github_token, site_name, site_copyright, site_about").eq("user_id", user!.id);
+        if (updated) setProjects(updated as ProjectRow[]);
       } else {
         setRepoStatus("error");
         const failedFiles = data?.results?.filter((r: any) => r.status !== "ok") || [];
@@ -137,7 +171,7 @@ export default function SiteFactoryPage() {
     (async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, domain, github_repo, github_token")
+        .select("id, name, domain, github_repo, github_token, site_name, site_copyright, site_about")
         .eq("user_id", user.id);
       if (data) setProjects(data as ProjectRow[]);
     })();
@@ -676,6 +710,46 @@ export default function SiteFactoryPage() {
                     {lang === "ru" ? "Инициализировать" : "Initialize"}
                   </Button>
                 )}
+              </div>
+            )}
+
+            {/* Site Config Form - shown when repo needs initialization */}
+            {selectedProjectId && isGitHubConfigured && repoStatus === "empty" && (
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <p className="text-sm font-medium">
+                  {lang === "ru" ? "Настройки сайта" : "Site settings"}
+                </p>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "Название сайта" : "Site name"}
+                  </label>
+                  <Input
+                    value={siteConfig.site_name}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_name: e.target.value }))}
+                    placeholder={lang === "ru" ? "Мой SEO-блог" : "My SEO Blog"}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "О блоге (описание на главной)" : "About blog (homepage description)"}
+                  </label>
+                  <Textarea
+                    value={siteConfig.site_about}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_about: e.target.value }))}
+                    rows={2}
+                    placeholder={lang === "ru" ? "Авторские статьи по SEO, маркетингу и продвижению" : "Expert articles on SEO and marketing"}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "Копирайт (футер)" : "Copyright (footer)"}
+                  </label>
+                  <Input
+                    value={siteConfig.site_copyright}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_copyright: e.target.value }))}
+                    placeholder={lang === "ru" ? "Мой Бренд" : "My Brand"}
+                  />
+                </div>
               </div>
             )}
 

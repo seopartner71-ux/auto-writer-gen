@@ -587,7 +587,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { project_id, action } = await req.json();
+    const { project_id, action, site_name, site_copyright, site_about } = await req.json();
     if (!project_id) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), { status: 400, headers: corsHeaders });
     }
@@ -626,9 +626,25 @@ serve(async (req) => {
     }
 
     // Action: initialize or update - push all template files
+    // Apply dynamic site config to templates
+    const sName = site_name || "SEO-Factor";
+    const sCopyright = site_copyright || sName;
+    const sAbout = site_about || "Авторские статьи по SEO, маркетингу и продвижению - написаны экспертами, проверены практикой.";
+
+    const dynamicFiles: Record<string, string> = {};
+    for (const [path, content] of Object.entries(FILES)) {
+      dynamicFiles[path] = content
+        .replace(/const siteName = 'SEO-Factor';/g, `const siteName = '${sName.replace(/'/g, "\\'")}';`)
+        .replace(/"publisher": \{ "@type": "Organization", "name": "SEO-Factor" \}/g, `"publisher": { "@type": "Organization", "name": "${sName}" }`)
+        .replace(/Экспертный блог/g, sName)
+        .replace(/Авторские статьи по SEO, маркетингу и продвижению — написаны экспертами, проверены практикой\./g, sAbout)
+        .replace(/Экспертные статьи по SEO, маркетингу и продвижению сайтов/g, sAbout)
+        .replace(/SEO-блог — экспертные статьи/g, `${sName} - блог`);
+    }
+
     const results: { file: string; status: string }[] = [];
 
-    for (const [filePath, content] of Object.entries(FILES)) {
+    for (const [filePath, content] of Object.entries(dynamicFiles)) {
       try {
         const encoded = btoa(unescape(encodeURIComponent(content)));
 
