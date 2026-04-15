@@ -44,6 +44,8 @@ export default function SiteFactoryPage() {
   const [previewArticle, setPreviewArticle] = useState<QueueArticle | null>(null);
   const [publishing, setPublishing] = useState<string | null>(null);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
+  const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
+  const [repoError, setRepoError] = useState("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
