@@ -107,7 +107,10 @@ export default function SiteFactoryPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editMeta, setEditMeta] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingEdit, setSavingEdit] = false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [unassignedArticles, setUnassignedArticles] = useState<QueueArticle[]>([]);
+  const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
