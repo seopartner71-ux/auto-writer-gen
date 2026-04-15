@@ -712,6 +712,46 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
+            {/* Site Config Form - shown when repo needs initialization */}
+            {selectedProjectId && isGitHubConfigured && repoStatus === "empty" && (
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <p className="text-sm font-medium">
+                  {lang === "ru" ? "Настройки сайта" : "Site settings"}
+                </p>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "Название сайта" : "Site name"}
+                  </label>
+                  <Input
+                    value={siteConfig.site_name}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_name: e.target.value }))}
+                    placeholder={lang === "ru" ? "Мой SEO-блог" : "My SEO Blog"}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "О блоге (описание на главной)" : "About blog (homepage description)"}
+                  </label>
+                  <Textarea
+                    value={siteConfig.site_about}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_about: e.target.value }))}
+                    rows={2}
+                    placeholder={lang === "ru" ? "Авторские статьи по SEO, маркетингу и продвижению" : "Expert articles on SEO and marketing"}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "Копирайт (футер)" : "Copyright (footer)"}
+                  </label>
+                  <Input
+                    value={siteConfig.site_copyright}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_copyright: e.target.value }))}
+                    placeholder={lang === "ru" ? "Мой Бренд" : "My Brand"}
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium mb-1.5 block">
                 {lang === "ru" ? "Ключевые слова (по одному на строку)" : "Keywords (one per line)"}
