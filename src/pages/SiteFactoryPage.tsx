@@ -431,12 +431,23 @@ export default function SiteFactoryPage() {
   };
 
   const renderMarkdownPreview = (content: string) => {
-    const html = content
+    let html = content
+      // Tables
+      .replace(/^\|(.+)\|\s*\n\|[-| :]+\|\s*\n((?:\|.+\|\s*\n?)*)/gm, (_match, header, body) => {
+        const headers = header.split('|').map((h: string) => h.trim()).filter(Boolean);
+        const rows = body.trim().split('\n').map((r: string) =>
+          r.split('|').map((c: string) => c.trim()).filter(Boolean)
+        );
+        return `<table><thead><tr>${headers.map((h: string) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r: string[], i: number) => `<tr${i % 2 === 1 ? ' style="background:#f9fafb"' : ''}>${r.map((c: string) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      })
       .replace(/^### (.*$)/gim, "<h3>$1</h3>")
       .replace(/^## (.*$)/gim, "<h2>$1</h2>")
       .replace(/^# (.*$)/gim, "<h1>$1</h1>")
+      .replace(/^> (.*$)/gim, "<blockquote>$1</blockquote>")
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(/^\d+\.\s(.+)$/gim, "<li>$1</li>")
+      .replace(/^- (.+)$/gim, "<li>$1</li>")
       .replace(/\n/g, "<br/>");
     return DOMPurify.sanitize(html);
   };
