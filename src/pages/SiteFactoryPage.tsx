@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
