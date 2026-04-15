@@ -3,8 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Github, Save, Eye, EyeOff } from "lucide-react";
+import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 
 interface ProjectGH {
   id: string;
@@ -14,12 +15,16 @@ interface ProjectGH {
   github_token: string | null;
 }
 
+type RepoStatus = "idle" | "checking" | "empty" | "initializing" | "ready" | "error";
+
 export function GitHubProjectsTab() {
   const { toast } = useToast();
   const [projects, setProjects] = useState<ProjectGH[]>([]);
   const [editing, setEditing] = useState<Record<string, { repo: string; token: string }>>({});
   const [showToken, setShowToken] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [repoStatus, setRepoStatus] = useState<Record<string, RepoStatus>>({});
+  const [repoError, setRepoError] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadProjects();
@@ -37,6 +42,57 @@ export function GitHubProjectsTab() {
     }
   };
 
+  const checkAndInitRepo = async (projectId: string) => {
+    setRepoStatus((prev) => ({ ...prev, [projectId]: "checking" }));
+    setRepoError((prev) => ({ ...prev, [projectId]: "" }));
+
+    try {
+      // 1. Check repo status
+      const { data: checkData, error: checkErr } = await supabase.functions.invoke("bootstrap-astro", {
+        body: { project_id: projectId, action: "check" },
+      });
+
+      if (checkErr) throw new Error(checkErr.message);
+
+      if (checkData?.status === "ready") {
+        setRepoStatus((prev) => ({ ...prev, [projectId]: "ready" }));
+        toast({ title: "Репозиторий уже инициализирован", description: "Сайт готов к работе" });
+        return;
+      }
+
+      if (checkData?.status === "empty") {
+        // 2. Auto-initialize
+        setRepoStatus((prev) => ({ ...prev, [projectId]: "initializing" }));
+        toast({ title: "Пустой репозиторий обнаружен", description: "Загружаем шаблон Astro..." });
+
+        const { data: initData, error: initErr } = await supabase.functions.invoke("bootstrap-astro", {
+          body: { project_id: projectId, action: "initialize" },
+        });
+
+        if (initErr) throw new Error(initErr.message);
+
+        if (initData?.success) {
+          setRepoStatus((prev) => ({ ...prev, [projectId]: "ready" }));
+          toast({ title: "Сайт инициализирован! 🎉", description: "Шаблон Astro загружен в репозиторий. Vercel задеплоит сайт автоматически." });
+        } else {
+          const failedFiles = initData?.results?.filter((r: any) => r.status !== "ok") || [];
+          const errMsg = failedFiles.map((f: any) => `${f.file}: ${f.status}`).join("; ");
+          setRepoStatus((prev) => ({ ...prev, [projectId]: "error" }));
+          setRepoError((prev) => ({ ...prev, [projectId]: errMsg || "Неизвестная ошибка при загрузке файлов" }));
+          toast({ title: "Ошибка инициализации", description: errMsg, variant: "destructive" });
+        }
+      } else {
+        setRepoStatus((prev) => ({ ...prev, [projectId]: "error" }));
+        setRepoError((prev) => ({ ...prev, [projectId]: checkData?.message || "Не удалось проверить репозиторий" }));
+      }
+    } catch (err: any) {
+      console.error("[checkAndInitRepo]", err);
+      setRepoStatus((prev) => ({ ...prev, [projectId]: "error" }));
+      setRepoError((prev) => ({ ...prev, [projectId]: err?.message || String(err) }));
+      toast({ title: "Ошибка", description: err?.message, variant: "destructive" });
+    }
+  };
+
   const handleSave = async (projectId: string) => {
     const vals = editing[projectId];
     if (!vals) return;
@@ -47,10 +103,55 @@ export function GitHubProjectsTab() {
       .eq("id", projectId);
     setSaving(null);
     if (error) {
-      toast({ title: "Error saving", description: error.message, variant: "destructive" });
+      toast({ title: "Ошибка сохранения", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Saved" });
-      loadProjects();
+      toast({ title: "Настройки GitHub сохранены" });
+      await loadProjects();
+
+      // Auto-trigger repo check & init if both fields are filled
+      if (vals.repo && vals.token) {
+        checkAndInitRepo(projectId);
+      }
+    }
+  };
+
+  const getStatusBadge = (projectId: string) => {
+    const status = repoStatus[projectId];
+    if (!status || status === "idle") return null;
+
+    switch (status) {
+      case "checking":
+        return (
+          <Badge variant="secondary" className="text-xs gap-1">
+            <Loader2 className="h-3 w-3 animate-spin" /> Проверка репозитория...
+          </Badge>
+        );
+      case "empty":
+        return (
+          <Badge variant="secondary" className="text-xs gap-1 bg-yellow-500/20 text-yellow-400">
+            <AlertCircle className="h-3 w-3" /> Пустой репозиторий
+          </Badge>
+        );
+      case "initializing":
+        return (
+          <Badge variant="secondary" className="text-xs gap-1 bg-primary/20 text-primary animate-pulse">
+            <Loader2 className="h-3 w-3 animate-spin" /> Инициализация...
+          </Badge>
+        );
+      case "ready":
+        return (
+          <Badge variant="secondary" className="text-xs gap-1 bg-green-500/20 text-green-400">
+            <CheckCircle className="h-3 w-3" /> Готов к работе
+          </Badge>
+        );
+      case "error":
+        return (
+          <Badge variant="destructive" className="text-xs gap-1">
+            <AlertCircle className="h-3 w-3" /> Ошибка
+          </Badge>
+        );
+      default:
+        return null;
     }
   };
 
@@ -61,10 +162,10 @@ export function GitHubProjectsTab() {
         <h2 className="text-lg font-semibold">GitHub Publishing Settings</h2>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
-        Configure GitHub Token and Repository for each project to enable publishing via Site Factory.
+        Настройте GitHub Token и Repository для каждого проекта. При сохранении система автоматически проверит и инициализирует репозиторий шаблоном Astro.
       </p>
 
-      {projects.length === 0 && <p className="text-sm text-muted-foreground">No projects found.</p>}
+      {projects.length === 0 && <p className="text-sm text-muted-foreground">Проектов не найдено.</p>}
 
       {projects.map((project) => (
         <Card key={project.id}>
@@ -74,6 +175,7 @@ export function GitHubProjectsTab() {
               {project.domain && (
                 <span className="text-xs text-muted-foreground font-normal">({project.domain})</span>
               )}
+              {getStatusBadge(project.id)}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -113,10 +215,32 @@ export function GitHubProjectsTab() {
                 </Button>
               </div>
             </div>
-            <Button onClick={() => handleSave(project.id)} disabled={saving === project.id} size="sm">
-              <Save className="h-4 w-4 mr-1" />
-              {saving === project.id ? "Saving..." : "Save"}
-            </Button>
+
+            {repoStatus[project.id] === "error" && repoError[project.id] && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+                {repoError[project.id]}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button onClick={() => handleSave(project.id)} disabled={saving === project.id || repoStatus[project.id] === "initializing"} size="sm">
+                <Save className="h-4 w-4 mr-1" />
+                {saving === project.id ? "Сохранение..." : "Сохранить"}
+              </Button>
+              {project.github_repo && project.github_token && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => checkAndInitRepo(project.id)}
+                  disabled={repoStatus[project.id] === "checking" || repoStatus[project.id] === "initializing"}
+                >
+                  {repoStatus[project.id] === "checking" || repoStatus[project.id] === "initializing" ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : null}
+                  Проверить репозиторий
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}
