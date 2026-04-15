@@ -196,7 +196,7 @@ export default function SiteFactoryPage() {
         setRepoStatus("ready");
         toast({ title: lang === "ru" ? "Сайт инициализирован!" : "Site initialized!", description: lang === "ru" ? "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." : "Astro template uploaded. Vercel will deploy automatically." });
         // Reload projects to get updated config
-        const { data: updated } = await supabase.from("projects").select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain").eq("user_id", user!.id);
+        const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
         if (updated) setProjects(updated as ProjectRow[]);
       } else {
         setRepoStatus("error");
@@ -217,7 +217,7 @@ export default function SiteFactoryPage() {
     (async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain")
+        .select(PROJECT_SELECT)
         .eq("user_id", user.id);
       if (data) setProjects(data as ProjectRow[]);
     })();
@@ -883,7 +883,7 @@ export default function SiteFactoryPage() {
                         await supabase.from("projects").update({ custom_domain: domain || null }).eq("id", selectedProjectId);
                         setCustomDomain(domain);
                         // Reload projects
-                        const { data: updated } = await supabase.from("projects").select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain").eq("user_id", user!.id);
+                        const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
                         if (updated) setProjects(updated as ProjectRow[]);
                         toast({ title: lang === "ru" ? "Домен сохранен" : "Domain saved" });
                         setShowDnsHelper(true);
