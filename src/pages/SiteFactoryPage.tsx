@@ -103,6 +103,11 @@ export default function SiteFactoryPage() {
   const [customDomain, setCustomDomain] = useState("");
   const [showDnsHelper, setShowDnsHelper] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
+  const [editingArticle, setEditingArticle] = useState<QueueArticle | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editMeta, setEditMeta] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
