@@ -353,7 +353,8 @@ const siteAbout = '${siteAbout}';
     <div class="grid gap-px bg-neutral-100 border border-neutral-100 rounded-2xl overflow-hidden">
       {posts.map((post) => {
         const pubDate = post.data.pubDate || post.data.date;
-        const heroSrc = post.data.heroImage || \`https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&h=400&fit=crop&q=80\`;
+        const kw = (post.data.keywords && post.data.keywords[0]) || post.data.title || 'business';
+        const heroSrc = post.data.heroImage || \`https://images.unsplash.com/1600x900/?\${encodeURIComponent(kw)}\`;
         return (
           <a href={\`/blog/\${post.id}/\`}
             class="group flex flex-col sm:flex-row bg-white transition-colors hover:bg-neutral-50">
@@ -457,7 +458,8 @@ const initials = authorName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpp
 const tocItems = headings.filter(h => h.depth === 2);
 const hasToc = tocItems.length >= 3;
 
-const heroImage = post.data.heroImage || \`https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&h=600&fit=crop&q=80\`;
+const kw = (post.data.keywords && post.data.keywords[0]) || post.data.title || 'business';
+const heroImage = post.data.heroImage || \`https://images.unsplash.com/1600x900/?\${encodeURIComponent(kw)}\`;
 
 const jsonLd = JSON.stringify({
   "@context": "https://schema.org",
