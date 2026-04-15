@@ -141,7 +141,7 @@ export default function SiteFactoryPage() {
     (async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, domain, github_repo, github_token")
+        .select("id, name, domain, github_repo, github_token, site_name, site_copyright, site_about")
         .eq("user_id", user.id);
       if (data) setProjects(data as ProjectRow[]);
     })();
