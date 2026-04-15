@@ -454,8 +454,22 @@ serve(async (req) => {
         }
       }
     } else {
-      // generate_images is OFF – still add 2-3 picsum placeholder images
-      heroImagePath = `https://picsum.photos/seed/${encodeURIComponent(slug)}/1600/900`;
+      // generate_images is OFF – still add 2-3 Unsplash/picsum placeholder images
+      // Check for Unsplash key in vault
+      const { data: unsplashRow } = await supabase
+        .from("api_keys")
+        .select("api_key")
+        .eq("provider", "unsplash")
+        .maybeSingle();
+      const unsplashKey = unsplashRow?.api_key || "";
+      
+      const keyword = (article.keywords?.[0] || article.title || "business").replace(/[^a-zA-Zа-яА-ЯёЁ0-9\s]/g, "").substring(0, 50);
+      if (unsplashKey) {
+        const unsplashHero = await searchUnsplashImage(keyword, unsplashKey);
+        if (unsplashHero) heroImagePath = unsplashHero;
+      }
+      if (!heroImagePath) heroImagePath = `https://picsum.photos/seed/${encodeURIComponent(slug)}/1600/900`;
+
       const sections = parseH2Sections(cleanContent).filter(
         (s) => !s.heading.toLowerCase().includes("faq") && !s.heading.toLowerCase().includes("часто задаваемые")
       );
@@ -467,7 +481,12 @@ serve(async (req) => {
       }
       for (const section of selected) {
         const seedSlug = transliterate(section.heading) || "img";
-        const imgMarkdown = `\n\n![${section.heading}](https://picsum.photos/seed/${encodeURIComponent(seedSlug)}/800/450)\n`;
+        let inlineUrl = `https://picsum.photos/seed/${encodeURIComponent(seedSlug)}/800/450`;
+        if (unsplashKey) {
+          const u = await searchUnsplashImage(section.heading, unsplashKey);
+          if (u) inlineUrl = u;
+        }
+        const imgMarkdown = `\n\n![${section.heading}](${inlineUrl})\n`;
         const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
         cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
       }
