@@ -172,14 +172,24 @@ export default function SiteFactoryPage() {
     if (!selectedProjectId) return;
     setRepoStatus("initializing");
     try {
+      // Auto-fill color/font if empty
+      const color = siteConfig.primary_color || randomAccentColor();
+      const font = siteConfig.font_pair || randomFontPair();
+
       // Save site config to project first
-      if (siteConfig.site_name || siteConfig.site_copyright || siteConfig.site_about) {
-        await supabase.from("projects").update({
-          site_name: siteConfig.site_name || null,
-          site_copyright: siteConfig.site_copyright || null,
-          site_about: siteConfig.site_about || null,
-        }).eq("id", selectedProjectId);
-      }
+      await supabase.from("projects").update({
+        site_name: siteConfig.site_name || null,
+        site_copyright: siteConfig.site_copyright || null,
+        site_about: siteConfig.site_about || null,
+        author_name: siteConfig.author_name || null,
+        author_bio: siteConfig.author_bio || null,
+        author_avatar: siteConfig.author_avatar || null,
+        primary_color: color,
+        font_pair: font,
+      }).eq("id", selectedProjectId);
+
+      // Update local state
+      setSiteConfig((prev) => ({ ...prev, primary_color: color, font_pair: font }));
 
       const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
         body: {
@@ -189,6 +199,11 @@ export default function SiteFactoryPage() {
           site_copyright: siteConfig.site_copyright || "",
           site_about: siteConfig.site_about || "",
           language: selectedProject?.language || "en",
+          author_name: siteConfig.author_name || "",
+          author_bio: siteConfig.author_bio || "",
+          author_avatar: siteConfig.author_avatar || "",
+          primary_color: color,
+          font_pair: font,
         },
       });
       if (error) throw new Error(error.message);
