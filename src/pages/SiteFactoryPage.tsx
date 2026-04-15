@@ -216,7 +216,7 @@ export default function SiteFactoryPage() {
         </Card>
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
-            <FileText className="h-8 w-8 text-emerald-500" />
+            <FileText className="h-8 w-8 text-primary" />
             <div>
               <p className="text-2xl font-bold">{totalArticles}</p>
               <p className="text-sm text-muted-foreground">
@@ -227,7 +227,7 @@ export default function SiteFactoryPage() {
         </Card>
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
-            <Upload className="h-8 w-8 text-blue-500" />
+            <Upload className="h-8 w-8 text-primary" />
             <div>
               <p className="text-2xl font-bold">{todayPublished}</p>
               <p className="text-sm text-muted-foreground">
@@ -267,7 +267,7 @@ export default function SiteFactoryPage() {
             </div>
 
             {selectedProjectId && !isGitHubConfigured && (
-              <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
                   ? "⚠️ Для этого проекта не настроен GitHub Token и Repo. Публикация недоступна. Обратитесь к администратору."
                   : "⚠️ GitHub Token and Repo are not configured for this project. Publishing is unavailable. Contact your admin."}
