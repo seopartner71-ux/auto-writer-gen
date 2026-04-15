@@ -158,18 +158,31 @@ export default function SiteFactoryPage() {
         },
       });
       if (error) throw error;
+      if (data?.error) {
+        toast({
+          title: lang === "ru" ? "Ошибка GitHub API" : "GitHub API Error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
-        title: lang === "ru" ? "Опубликовано!" : "Published!",
-        description: data?.url || "",
+        title: lang === "ru" ? "Статья опубликована! 🎉" : "Article published! 🎉",
+        description: lang === "ru"
+          ? "Сайт обновится через минуту"
+          : "Site will update in a minute",
       });
-      // Update local state
       setArticles((prev) =>
         prev.map((a) =>
           a.id === article.id ? { ...a, status: "published", published_url: data?.url ?? a.published_url } : a
         )
       );
-    } catch {
-      toast({ title: lang === "ru" ? "Ошибка публикации" : "Publish error", variant: "destructive" });
+    } catch (err: any) {
+      toast({
+        title: lang === "ru" ? "Ошибка публикации" : "Publish error",
+        description: err?.message || String(err),
+        variant: "destructive",
+      });
     } finally {
       setPublishing(null);
     }
