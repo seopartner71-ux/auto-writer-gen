@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ interface ProjectRow {
   site_name: string | null;
   site_copyright: string | null;
   site_about: string | null;
+  custom_domain: string | null;
 }
 
 interface QueueArticle {
@@ -66,6 +67,9 @@ export default function SiteFactoryPage() {
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
+  const [customDomain, setCustomDomain] = useState("");
+  const [showDnsHelper, setShowDnsHelper] = useState(false);
+  const [savingDomain, setSavingDomain] = useState(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -85,6 +89,7 @@ export default function SiteFactoryPage() {
         site_copyright: selectedProject.site_copyright || "",
         site_about: selectedProject.site_about || "",
       });
+      setCustomDomain(selectedProject.custom_domain || "");
     }
   }, [selectedProject]);
 
@@ -152,7 +157,7 @@ export default function SiteFactoryPage() {
         setRepoStatus("ready");
         toast({ title: lang === "ru" ? "Сайт инициализирован!" : "Site initialized!", description: lang === "ru" ? "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." : "Astro template uploaded. Vercel will deploy automatically." });
         // Reload projects to get updated config
-        const { data: updated } = await supabase.from("projects").select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about").eq("user_id", user!.id);
+        const { data: updated } = await supabase.from("projects").select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain").eq("user_id", user!.id);
         if (updated) setProjects(updated as ProjectRow[]);
       } else {
         setRepoStatus("error");
@@ -173,7 +178,7 @@ export default function SiteFactoryPage() {
     (async () => {
       const { data } = await supabase
         .from("projects")
-        .select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about")
+        .select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain")
         .eq("user_id", user.id);
       if (data) setProjects(data as ProjectRow[]);
     })();
@@ -660,7 +665,7 @@ export default function SiteFactoryPage() {
                 <SelectContent>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.domain ? `(${p.domain})` : ""}
+                      {p.name} {p.custom_domain ? `(${p.custom_domain})` : p.domain ? `(${p.domain})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -789,6 +794,128 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
+            {/* Custom Domain */}
+            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && (
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">
+                    {lang === "ru" ? "Кастомный домен" : "Custom domain"}
+                  </p>
+                  <button
+                    onClick={() => setShowDnsHelper(!showDnsHelper)}
+                    className="ml-auto text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {selectedProject?.custom_domain && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <ShieldCheck className="h-3.5 w-3.5 text-green-400" />
+                    <span className="text-green-400 font-medium">SSL {lang === "ru" ? "защищен" : "secured"}</span>
+                    <span className="text-muted-foreground">-</span>
+                    <a
+                      href={`https://${selectedProject.custom_domain}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {selectedProject.custom_domain}
+                    </a>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Input
+                    value={customDomain}
+                    onChange={(e) => setCustomDomain(e.target.value)}
+                    placeholder="example.com"
+                    className="flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={savingDomain || !customDomain.trim()}
+                    onClick={async () => {
+                      setSavingDomain(true);
+                      try {
+                        const domain = customDomain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+                        await supabase.from("projects").update({ custom_domain: domain || null }).eq("id", selectedProjectId);
+                        setCustomDomain(domain);
+                        // Reload projects
+                        const { data: updated } = await supabase.from("projects").select("id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain").eq("user_id", user!.id);
+                        if (updated) setProjects(updated as ProjectRow[]);
+                        toast({ title: lang === "ru" ? "Домен сохранен" : "Domain saved" });
+                        setShowDnsHelper(true);
+                      } catch (err: any) {
+                        toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
+                      } finally {
+                        setSavingDomain(false);
+                      }
+                    }}
+                  >
+                    {savingDomain ? <Loader2 className="h-4 w-4 animate-spin" /> : (lang === "ru" ? "Привязать" : "Bind")}
+                  </Button>
+                </div>
+
+                {showDnsHelper && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3 text-sm">
+                    <p className="font-medium text-primary">
+                      {lang === "ru"
+                        ? "Добавьте следующие DNS-записи у вашего регистратора доменов:"
+                        : "Add these DNS records at your domain registrar:"}
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-primary/20">
+                            <th className="py-2 px-3 text-left text-primary/80 font-semibold">{lang === "ru" ? "Тип" : "Type"}</th>
+                            <th className="py-2 px-3 text-left text-primary/80 font-semibold">{lang === "ru" ? "Имя" : "Name"}</th>
+                            <th className="py-2 px-3 text-left text-primary/80 font-semibold">{lang === "ru" ? "Значение" : "Value"}</th>
+                            <th className="py-2 px-3 text-right"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-border/50">
+                            <td className="py-2 px-3 font-mono text-primary font-bold">A</td>
+                            <td className="py-2 px-3 font-mono">@</td>
+                            <td className="py-2 px-3 font-mono text-primary">76.76.21.21</td>
+                            <td className="py-2 px-3 text-right">
+                              <button
+                                onClick={() => { navigator.clipboard.writeText("76.76.21.21"); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }}
+                                className="text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 px-3 font-mono text-primary font-bold">CNAME</td>
+                            <td className="py-2 px-3 font-mono">www</td>
+                            <td className="py-2 px-3 font-mono text-primary">cname.vercel-dns.com</td>
+                            <td className="py-2 px-3 text-right">
+                              <button
+                                onClick={() => { navigator.clipboard.writeText("cname.vercel-dns.com"); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }}
+                                className="text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {lang === "ru"
+                        ? "После добавления записей Vercel автоматически выпустит SSL-сертификат (до 24 часов). Также добавьте домен в настройках проекта на Vercel."
+                        : "After adding records, Vercel will automatically issue an SSL certificate (up to 24 hours). Also add the domain in your Vercel project settings."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium mb-1.5 block">
                 {lang === "ru" ? "Ключевые слова (по одному на строку)" : "Keywords (one per line)"}
@@ -894,7 +1021,15 @@ export default function SiteFactoryPage() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         {article.published_url && (
                           <Button size="icon" variant="ghost" asChild>
-                            <a href={article.published_url} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={
+                                selectedProject?.custom_domain
+                                  ? article.published_url.replace(/https?:\/\/[^/]+/, `https://${selectedProject.custom_domain}`)
+                                  : article.published_url
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           </Button>

@@ -1060,6 +1060,7 @@ export type Database = {
         Row: {
           auto_interlinking: boolean
           created_at: string
+          custom_domain: string | null
           domain: string
           github_repo: string | null
           github_token: string | null
@@ -1076,6 +1077,7 @@ export type Database = {
         Insert: {
           auto_interlinking?: boolean
           created_at?: string
+          custom_domain?: string | null
           domain?: string
           github_repo?: string | null
           github_token?: string | null
@@ -1092,6 +1094,7 @@ export type Database = {
         Update: {
           auto_interlinking?: boolean
           created_at?: string
+          custom_domain?: string | null
           domain?: string
           github_repo?: string | null
           github_token?: string | null
