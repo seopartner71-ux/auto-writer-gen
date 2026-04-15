@@ -316,7 +316,17 @@ export default function SiteFactoryPage() {
     try {
       const kws = keywords.split("\n").map((k) => k.trim()).filter(Boolean);
       const selectedProj = projects.find((p) => p.id === selectedProjectId);
-      const projLang = selectedProj?.domain?.endsWith(".ru") ? "ru" : "en";
+
+      // Detect language from keyword text (Cyrillic = ru), not from domain
+      const detectLang = (text: string): string => {
+        if (/[а-яА-ЯёЁ]/.test(text)) return "ru";
+        if (/[äöüßÄÖÜ]/.test(text)) return "de";
+        if (/[àâéèêëïîôùûüÿçœæ]/i.test(text)) return "fr";
+        if (/[áéíóúñ¿¡]/i.test(text)) return "es";
+        if (/[ãõçâêô]/i.test(text)) return "pt";
+        return "en";
+      };
+      const defaultLang = selectedProj?.language || "en";
 
       for (const kw of kws) {
         // 1. Create keyword record
