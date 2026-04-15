@@ -80,99 +80,89 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['Georgia', 'Cambria', 'Times New Roman', 'serif'],
       },
       colors: {
-        brand: {
-          50: '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          800: '#5b21b6',
-          900: '#4c1d95',
+        neutral: {
+          925: '#121212',
+          950: '#0a0a0a',
         },
       },
-      borderRadius: {
-        '2xl': '1rem',
-        '3xl': '1.5rem',
+      maxWidth: {
+        article: '48rem',
       },
       typography: ({ theme }) => ({
         DEFAULT: {
           css: {
-            '--tw-prose-headings': theme('colors.gray.900'),
-            '--tw-prose-body': theme('colors.gray.700'),
-            '--tw-prose-links': theme('colors.violet.600'),
+            '--tw-prose-headings': theme('colors.neutral.900'),
+            '--tw-prose-body': theme('colors.neutral.600'),
+            '--tw-prose-links': theme('colors.neutral.900'),
             maxWidth: 'none',
-            h1: { fontWeight: '800', letterSpacing: '-0.03em', lineHeight: '1.1' },
-            h2: { fontWeight: '700', letterSpacing: '-0.02em', marginTop: '2.5em', marginBottom: '0.8em', fontSize: '1.5em' },
-            h3: { fontWeight: '600', marginTop: '2em', fontSize: '1.25em' },
+            fontSize: '1.0625rem',
+            lineHeight: '1.8',
+            h1: { fontWeight: '800', letterSpacing: '-0.04em', lineHeight: '1.1', fontSize: '2.25rem' },
+            h2: { fontWeight: '700', letterSpacing: '-0.025em', marginTop: '2.5em', marginBottom: '0.75em', fontSize: '1.5rem', paddingBottom: '0.5em', borderBottom: '1px solid ' + theme('colors.neutral.100') },
+            h3: { fontWeight: '600', marginTop: '2em', fontSize: '1.2rem', letterSpacing: '-0.01em' },
+            p: { marginTop: '1.25em', marginBottom: '1.25em' },
             'code::before': { content: 'none' },
             'code::after': { content: 'none' },
             code: {
-              backgroundColor: theme('colors.violet.50'),
-              color: theme('colors.violet.700'),
+              backgroundColor: theme('colors.neutral.100'),
+              color: theme('colors.neutral.800'),
               padding: '0.2em 0.4em',
               borderRadius: '0.375rem',
               fontSize: '0.875em',
               fontWeight: '500',
             },
             blockquote: {
-              borderLeftWidth: '4px',
-              borderLeftColor: theme('colors.violet.400'),
-              backgroundColor: theme('colors.violet.50'),
-              padding: '1.25rem 1.5rem',
-              borderRadius: '0 0.75rem 0.75rem 0',
+              borderLeftWidth: '3px',
+              borderLeftColor: theme('colors.neutral.200'),
+              padding: '0 0 0 1.25rem',
               fontStyle: 'normal',
-              color: theme('colors.gray.700'),
+              color: theme('colors.neutral.500'),
+              fontSize: '1.0625rem',
             },
             'blockquote p:first-of-type::before': { content: 'none' },
             'blockquote p:last-of-type::after': { content: 'none' },
             table: {
               width: '100%',
-              borderCollapse: 'separate',
-              borderSpacing: '0',
-              overflow: 'hidden',
-              borderRadius: '1rem',
-              boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+              borderCollapse: 'collapse',
+              fontSize: '0.9375rem',
             },
             thead: {
-              background: 'linear-gradient(135deg, ' + theme('colors.violet.600') + ', ' + theme('colors.purple.600') + ')',
+              borderBottom: '2px solid ' + theme('colors.neutral.200'),
             },
             'thead th': {
-              padding: '0.875rem 1.25rem',
+              padding: '0.75rem 1rem',
               fontWeight: '600',
-              fontSize: '0.8rem',
-              color: '#ffffff',
+              fontSize: '0.8125rem',
+              color: theme('colors.neutral.500'),
               textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              borderBottom: 'none',
+              letterSpacing: '0.05em',
             },
             'tbody td': {
-              padding: '0.875rem 1.25rem',
-              borderBottom: '1px solid ' + theme('colors.gray.100'),
+              padding: '0.75rem 1rem',
+              borderBottom: '1px solid ' + theme('colors.neutral.100'),
             },
             'tbody tr:last-child td': { borderBottom: 'none' },
-            'tbody tr:nth-child(even)': { backgroundColor: theme('colors.gray.50') },
-            'tbody tr': { transition: 'background-color 0.15s' },
             img: {
-              borderRadius: '1rem',
-              boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)',
+              borderRadius: '1.5rem',
+              boxShadow: '0 8px 30px -6px rgb(0 0 0 / 0.08)',
             },
-            hr: { borderColor: theme('colors.gray.200'), marginTop: '3em', marginBottom: '3em' },
+            hr: { borderColor: theme('colors.neutral.150'), marginTop: '3em', marginBottom: '3em' },
             a: {
-              textDecoration: 'none',
-              borderBottom: '1px solid ' + theme('colors.violet.200'),
-              transition: 'border-color 0.2s, color 0.2s',
+              color: theme('colors.neutral.900'),
+              textDecoration: 'underline',
+              textDecorationColor: theme('colors.neutral.300'),
+              textUnderlineOffset: '3px',
+              transition: 'text-decoration-color 0.2s',
             },
             'a:hover': {
-              borderBottomColor: theme('colors.violet.500'),
+              textDecorationColor: theme('colors.neutral.900'),
             },
-            'ul > li::marker': { color: theme('colors.violet.400') },
-            'ol > li::marker': { color: theme('colors.violet.500'), fontWeight: '600' },
-            strong: { color: theme('colors.gray.900'), fontWeight: '700' },
+            'ul > li::marker': { color: theme('colors.neutral.400') },
+            'ol > li::marker': { color: theme('colors.neutral.500'), fontWeight: '600' },
+            strong: { color: theme('colors.neutral.900'), fontWeight: '600' },
           },
         },
       }),
@@ -211,16 +201,10 @@ interface Props {
   description?: string;
   jsonLd?: string;
 }
-const { title, description = 'SEO-блог — экспертные статьи', jsonLd } = Astro.props;
+const { title, description = 'Экспертный блог', jsonLd } = Astro.props;
 const currentPath = Astro.url.pathname;
 const siteName = 'SEO-Factor';
-
-// Check if custom header image exists
-let headerImageUrl = '';
-try {
-  const glob = import.meta.glob('/public/images/header.webp', { eager: true });
-  if (Object.keys(glob).length > 0) headerImageUrl = '/images/header.webp';
-} catch {}
+const siteCopyright = siteName;
 ---
 <!doctype html>
 <html lang="ru" class="scroll-smooth">
@@ -236,46 +220,41 @@ try {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
-  <title>{title} — {siteName}</title>
+  <title>{title} - {siteName}</title>
   <style>
     #reading-progress {
-      position: fixed; top: 0; left: 0; height: 3px; z-index: 9999;
-      background: linear-gradient(90deg, #8b5cf6, #a78bfa, #c084fc);
+      position: fixed; top: 0; left: 0; height: 2px; z-index: 9999;
+      background: #000;
       transition: width 0.1s linear; width: 0%;
-      box-shadow: 0 0 8px rgba(139,92,246,0.5);
+    }
+    .toc-link.active {
+      color: #000;
+      font-weight: 600;
     }
   </style>
 </head>
-<body class="font-sans bg-gray-50 text-gray-900 antialiased min-h-screen flex flex-col">
+<body class="font-sans bg-white text-neutral-900 antialiased min-h-screen flex flex-col">
   <!-- Reading Progress -->
   <div id="reading-progress"></div>
 
-  <!-- Glassmorphism Header -->
-  <header class="sticky top-0 z-50 border-b border-gray-200/50 shadow-sm overflow-hidden">
-    {headerImageUrl ? (
-      <div class="absolute inset-0 z-0">
-        <img src={headerImageUrl} alt="" class="w-full h-full object-cover" />
-        <div class="absolute inset-0 bg-white/70 backdrop-blur-xl"></div>
-      </div>
-    ) : (
-      <div class="absolute inset-0 z-0 bg-white/70 backdrop-blur-xl"></div>
-    )}
-    <nav class="relative z-10 max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-2.5 group">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-200/50 group-hover:shadow-violet-300/60 transition-all group-hover:scale-105">
-          <svg class="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-          </svg>
-        </div>
-        <span class="text-lg font-extrabold bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
-          {siteName}
-        </span>
+  <!-- Header -->
+  <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-100">
+    <nav class="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="text-lg font-extrabold tracking-tight text-neutral-900 hover:opacity-70 transition-opacity">
+        {siteName}
       </a>
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-8">
         <a href="/"
           class:list={[
-            "text-sm font-medium transition-colors hover:text-violet-600",
-            currentPath === "/" ? "text-violet-600" : "text-gray-500"
+            "text-[13px] font-medium tracking-wide uppercase transition-colors",
+            currentPath === "/" ? "text-neutral-900" : "text-neutral-400 hover:text-neutral-600"
+          ]}>
+          Блог
+        </a>
+        <a href="/"
+          class:list={[
+            "text-[13px] font-medium tracking-wide uppercase transition-colors",
+            "text-neutral-400 hover:text-neutral-600"
           ]}>
           Статьи
         </a>
@@ -289,20 +268,13 @@ try {
   </main>
 
   <!-- Footer -->
-  <footer class="border-t border-gray-200/60 bg-white">
-    <div class="max-w-4xl mx-auto px-6 py-10">
+  <footer class="border-t border-neutral-100">
+    <div class="max-w-screen-xl mx-auto px-6 py-12">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div class="flex items-center gap-2.5">
-          <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-            <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-            </svg>
-          </div>
-          <span class="text-sm font-bold text-gray-800">{siteName}</span>
-        </div>
-        <p class="text-xs text-gray-400">
-          &copy; {new Date().getFullYear()} {siteName}. Создано с помощью
-          <a href="https://seo-modul.pro" target="_blank" rel="noopener" class="text-violet-500 hover:text-violet-600 transition-colors ml-1">СЕО-Модуля</a>.
+        <span class="text-sm font-semibold text-neutral-900">{siteName}</span>
+        <p class="text-xs text-neutral-400">
+          &copy; {new Date().getFullYear()} {siteCopyright}. Создано с помощью
+          <a href="https://seo-modul.pro" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">СЕО-Модуля</a>.
         </p>
       </div>
     </div>
@@ -328,59 +300,67 @@ import { getCollection } from 'astro:content';
 const posts = (await getCollection('blog')).sort(
   (a, b) => new Date(b.data.pubDate || b.data.date || 0).getTime() - new Date(a.data.pubDate || a.data.date || 0).getTime()
 );
+const siteName = 'SEO-Factor';
+const siteAbout = 'Авторские статьи по SEO, маркетингу и продвижению - написаны экспертами, проверены практикой.';
 ---
-<Layout title="Блог" description="Экспертные статьи по SEO, маркетингу и продвижению сайтов">
-  <div class="max-w-4xl mx-auto px-6 py-16">
+<Layout title={siteName} description={siteAbout}>
+  <div class="max-w-screen-xl mx-auto px-6 py-20">
     <!-- Hero -->
-    <div class="mb-14">
-      <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-gray-900 mb-4">
-        Экспертный блог
+    <div class="max-w-2xl mb-16">
+      <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight text-neutral-900 leading-[1.05]">
+        {siteName}
       </h1>
-      <p class="text-lg text-gray-500 max-w-xl leading-relaxed">
-        Авторские статьи по SEO, маркетингу и продвижению — написаны экспертами, проверены практикой.
+      <p class="text-lg text-neutral-500 mt-5 leading-relaxed">
+        {siteAbout}
       </p>
     </div>
 
     {posts.length === 0 && (
       <div class="text-center py-24">
-        <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center mx-auto mb-6">
-          <svg class="w-10 h-10 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-          </svg>
-        </div>
-        <p class="text-gray-400 text-lg">Статьи пока не опубликованы</p>
+        <p class="text-neutral-400 text-lg">Статьи пока не опубликованы</p>
       </div>
     )}
 
-    <div class="grid gap-6">
-      {posts.map((post) => {
+    <!-- Articles Grid -->
+    <div class="grid gap-px bg-neutral-100 border border-neutral-100 rounded-2xl overflow-hidden">
+      {posts.map((post, idx) => {
         const pubDate = post.data.pubDate || post.data.date;
+        const kw = (post.data.keywords || [])[0] || 'article';
+        const heroSrc = post.data.heroImage || \`https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&h=400&fit=crop&q=80\`;
         return (
           <a href={\`/blog/\${post.id}/\`}
-            class="group block bg-white rounded-3xl p-6 sm:p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-violet-200/60">
-            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div class="min-w-0 flex-1">
-                <h2 class="text-xl font-bold text-gray-900 group-hover:text-violet-600 transition-colors leading-snug">
-                  {post.data.title}
-                </h2>
-                {post.data.description && (
-                  <p class="text-sm text-gray-500 mt-2 line-clamp-2 leading-relaxed">{post.data.description}</p>
+            class="group flex flex-col sm:flex-row bg-white transition-colors hover:bg-neutral-50">
+            <!-- Thumbnail -->
+            <div class="sm:w-72 shrink-0 overflow-hidden">
+              <img
+                src={heroSrc}
+                alt={post.data.title}
+                class="w-full h-48 sm:h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                loading="lazy"
+              />
+            </div>
+            <!-- Content -->
+            <div class="flex-1 p-6 sm:p-8 flex flex-col justify-center">
+              <div class="flex items-center gap-3 mb-3">
+                {pubDate && (
+                  <time class="text-xs text-neutral-400 tabular-nums uppercase tracking-wider">
+                    {new Date(pubDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </time>
                 )}
-                <div class="flex flex-wrap items-center gap-2 mt-3">
-                  {pubDate && (
-                    <time class="text-xs text-gray-400 tabular-nums">
-                      {new Date(pubDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </time>
-                  )}
-                  {post.data.author && (
-                    <span class="text-xs text-gray-400">• {post.data.author}</span>
-                  )}
-                </div>
+                {post.data.author && (
+                  <span class="text-xs text-neutral-400">-  {post.data.author}</span>
+                )}
               </div>
-              <div class="shrink-0 w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
-                <svg class="w-5 h-5 text-violet-400 group-hover:text-violet-600 transition-colors transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
+              <h2 class="text-xl font-bold text-neutral-900 group-hover:text-neutral-600 transition-colors leading-snug tracking-tight">
+                {post.data.title}
+              </h2>
+              {post.data.description && (
+                <p class="text-sm text-neutral-500 mt-2 line-clamp-2 leading-relaxed">{post.data.description}</p>
+              )}
+              <div class="mt-4">
+                <span class="text-xs font-medium text-neutral-400 group-hover:text-neutral-900 transition-colors uppercase tracking-wider">
+                  Читать далее &rarr;
+                </span>
               </div>
             </div>
           </a>
@@ -411,21 +391,29 @@ const formattedDate = pubDate
   ? new Date(pubDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
   : null;
 
-// Expert author block data
+// Reading time estimate
+const wordCount = post.body ? post.body.split(/\\s+/).length : 0;
+const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+// Expert author
 const experts = [
-  { name: "Алексей Петров", bio: "SEO-эксперт с 12-летним стажем. Работал с крупнейшими e-commerce проектами Рунета.", initials: "АП", color: "from-violet-500 to-purple-600" },
-  { name: "Мария Козлова", bio: "Специалист по контент-маркетингу и поисковой оптимизации. Автор курса «SEO для бизнеса».", initials: "МК", color: "from-fuchsia-500 to-pink-600" },
-  { name: "Дмитрий Волков", bio: "Технический SEO-консультант. Помог 200+ компаниям увеличить органический трафик.", initials: "ДВ", color: "from-blue-500 to-cyan-600" },
-  { name: "Елена Смирнова", bio: "Руководитель отдела контента в digital-агентстве. 8 лет в SEO и копирайтинге.", initials: "ЕС", color: "from-emerald-500 to-teal-600" },
-  { name: "Иван Новиков", bio: "Аналитик поисковых систем, эксперт Google и Яндекс. Спикер профильных конференций.", initials: "ИН", color: "from-amber-500 to-orange-600" },
+  { name: "Алексей Петров", bio: "SEO-эксперт с 12-летним стажем", initials: "АП" },
+  { name: "Мария Козлова", bio: "Специалист по контент-маркетингу", initials: "МК" },
+  { name: "Дмитрий Волков", bio: "Технический SEO-консультант", initials: "ДВ" },
+  { name: "Елена Смирнова", bio: "Руководитель отдела контента", initials: "ЕС" },
+  { name: "Иван Новиков", bio: "Аналитик поисковых систем", initials: "ИН" },
 ];
 
 const authorName = post.data.author || experts[0].name;
 const expert = experts.find(e => e.name === authorName) || experts[Math.floor(post.id.length % experts.length)];
 
-// TOC from headings
+// TOC
 const tocItems = headings.filter(h => h.depth === 2);
 const hasToc = tocItems.length >= 3;
+
+// Unsplash fallback cover
+const kw = (post.data.keywords || [])[0] || 'technology';
+const heroImage = post.data.heroImage || \`https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&h=600&fit=crop&q=80\`;
 
 // JSON-LD
 const jsonLd = JSON.stringify({
@@ -442,124 +430,143 @@ const jsonLd = JSON.stringify({
 });
 ---
 <Layout title={post.data.title} description={post.data.description} jsonLd={jsonLd}>
-  <article class="max-w-4xl mx-auto px-6 py-12">
-    <!-- Back -->
-    <a href="/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-violet-600 transition-colors mb-8 group">
-      <svg class="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-      </svg>
-      Все статьи
-    </a>
+  <article>
+    <!-- Hero Section -->
+    <div class="max-w-article mx-auto px-6 pt-16 pb-8">
+      <!-- Back link -->
+      <a href="/" class="inline-flex items-center gap-1 text-[13px] text-neutral-400 hover:text-neutral-900 transition-colors mb-10 uppercase tracking-wider font-medium">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+        </svg>
+        Все статьи
+      </a>
 
-    <!-- Article Card -->
-    <div class="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-      <!-- Hero Image / Gradient Placeholder -->
-      {post.data.heroImage ? (
-        <img src={post.data.heroImage} alt={post.data.title} class="w-full h-64 sm:h-80 object-cover" />
-      ) : (
-        <div class="w-full h-48 sm:h-64 bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center p-8">
-          <h2 class="text-2xl sm:text-3xl font-black text-white text-center leading-tight drop-shadow-lg max-w-2xl">
-            {post.data.title}
-          </h2>
-        </div>
-      )}
+      <!-- Title -->
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-[-0.04em] text-neutral-900 leading-[1.08]">
+        {post.data.title}
+      </h1>
 
-      <div class="p-6 sm:p-10 lg:p-12">
-        <!-- Header -->
-        <header class="mb-10">
-          <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-gray-900 leading-[1.15]">
-            {post.data.title}
-          </h1>
-
-          <div class="flex flex-wrap items-center gap-3 mt-5">
-            <div class="flex items-center gap-2">
-              <div class={\`w-8 h-8 rounded-full bg-gradient-to-br \${expert.color} flex items-center justify-center\`}>
-                <span class="text-xs font-bold text-white">{expert.initials}</span>
-              </div>
-              <span class="text-sm font-medium text-gray-700">{expert.name}</span>
-            </div>
-            {formattedDate && (
-              <span class="text-sm text-gray-400">• {formattedDate}</span>
-            )}
+      <!-- Meta line -->
+      <div class="flex flex-wrap items-center gap-4 mt-6 pb-8 border-b border-neutral-100">
+        <span class="text-sm text-neutral-400">{expert.name}</span>
+        {formattedDate && (
+          <span class="text-sm text-neutral-300">{formattedDate}</span>
+        )}
+        <span class="text-sm text-neutral-300">{readingTime} мин чтения</span>
+        {post.data.keywords && post.data.keywords.length > 0 && (
+          <div class="flex gap-2 ml-auto">
+            {post.data.keywords.slice(0, 3).map((kw: string) => (
+              <span class="text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full border border-neutral-200 text-neutral-500">
+                {kw}
+              </span>
+            ))}
           </div>
+        )}
+      </div>
+    </div>
 
-          {post.data.keywords && post.data.keywords.length > 0 && (
-            <div class="flex flex-wrap gap-2 mt-4">
-              {post.data.keywords.map((kw: string) => (
-                <span class="inline-block px-3 py-1 text-xs font-medium rounded-full bg-violet-50 text-violet-600 border border-violet-100">
-                  {kw}
-                </span>
-              ))}
-            </div>
-          )}
+    <!-- Cover Image -->
+    <div class="max-w-screen-lg mx-auto px-6 mb-12">
+      <img
+        src={heroImage}
+        alt={post.data.title}
+        class="w-full aspect-[2/1] object-cover rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]"
+        loading="eager"
+      />
+    </div>
 
-          {post.data.description && (
-            <p class="mt-5 text-lg text-gray-500 leading-relaxed">{post.data.description}</p>
-          )}
-        </header>
+    <!-- Content Area with optional TOC -->
+    <div class="max-w-screen-xl mx-auto px-6 pb-20">
+      <div class={\`flex gap-16 \${hasToc ? 'lg:flex-row' : ''} flex-col\`}>
 
-        <!-- Table of Contents -->
+        <!-- TOC Sidebar -->
         {hasToc && (
-          <nav class="mb-10 p-6 bg-gray-50 rounded-2xl border border-gray-100">
-            <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Содержание</h3>
-            <ol class="space-y-2">
-              {tocItems.map((item, i) => (
-                <li>
-                  <a href={\`#\${item.slug}\`} class="text-sm text-gray-600 hover:text-violet-600 transition-colors flex items-start gap-2">
-                    <span class="text-violet-400 font-semibold shrink-0">{i + 1}.</span>
-                    <span>{item.text}</span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </nav>
+          <aside class="hidden lg:block w-56 shrink-0 order-first">
+            <nav class="sticky top-20">
+              <p class="text-[11px] font-semibold text-neutral-400 uppercase tracking-[0.15em] mb-4">Содержание</p>
+              <ul class="space-y-2.5 border-l border-neutral-100 pl-4">
+                {tocItems.map((item, i) => (
+                  <li>
+                    <a href={\`#\${item.slug}\`} class="toc-link text-[13px] text-neutral-400 hover:text-neutral-900 transition-colors leading-snug block">
+                      {item.text}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </aside>
         )}
 
-        <!-- Content -->
-        <div class="prose prose-lg prose-gray max-w-none
-          prose-headings:scroll-mt-24
-          prose-a:text-violet-600 prose-a:no-underline prose-a:border-b prose-a:border-violet-200 hover:prose-a:border-violet-500
-          prose-img:rounded-2xl prose-img:shadow-lg
-          prose-pre:bg-gray-950 prose-pre:rounded-2xl
-          prose-code:text-violet-700 prose-code:bg-violet-50 prose-code:rounded-md prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-medium prose-code:before:content-none prose-code:after:content-none
-          prose-blockquote:border-l-violet-400 prose-blockquote:bg-violet-50/50 prose-blockquote:rounded-r-xl prose-blockquote:not-italic
-          prose-table:overflow-hidden prose-table:rounded-2xl prose-table:shadow-sm
-          prose-thead:bg-gradient-to-r prose-thead:from-violet-600 prose-thead:to-purple-600
-          prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:text-white prose-th:font-semibold prose-th:py-3.5 prose-th:px-5
-          prose-td:py-3.5 prose-td:px-5 prose-td:border-t prose-td:border-gray-100
-          prose-strong:text-gray-900
-          prose-hr:border-gray-200
-          prose-li:marker:text-violet-400
-        ">
-          <Content />
-        </div>
+        <!-- Main content -->
+        <div class="flex-1 max-w-article mx-auto w-full">
+          {post.data.description && (
+            <p class="text-xl text-neutral-500 leading-relaxed mb-10 font-light">{post.data.description}</p>
+          )}
 
-        <!-- Author E-E-A-T Block -->
-        <div class="mt-14 pt-8 border-t border-gray-100">
-          <div class="bg-gradient-to-br from-gray-50 to-violet-50/30 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start gap-5">
-            <div class={\`w-16 h-16 rounded-2xl bg-gradient-to-br \${expert.color} flex items-center justify-center shrink-0 shadow-lg\`}>
-              <span class="text-xl font-bold text-white">{expert.initials}</span>
-            </div>
-            <div>
-              <p class="text-xs font-semibold text-violet-600 uppercase tracking-wider mb-1">Об авторе</p>
-              <h4 class="text-lg font-bold text-gray-900">{expert.name}</h4>
-              <p class="text-sm text-gray-600 mt-1 leading-relaxed">{expert.bio}</p>
+          <div class="prose prose-neutral prose-lg max-w-none
+            prose-headings:scroll-mt-24
+            prose-a:text-neutral-900 prose-a:underline prose-a:decoration-neutral-300 prose-a:underline-offset-[3px] hover:prose-a:decoration-neutral-900
+            prose-img:rounded-3xl prose-img:shadow-lg
+            prose-pre:bg-neutral-950 prose-pre:rounded-2xl
+            prose-code:text-neutral-800 prose-code:bg-neutral-100 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-medium prose-code:before:content-none prose-code:after:content-none
+            prose-blockquote:border-l-neutral-200 prose-blockquote:not-italic prose-blockquote:text-neutral-500
+            prose-strong:text-neutral-900 prose-strong:font-semibold
+            prose-hr:border-neutral-100
+            prose-li:marker:text-neutral-400
+            prose-h2:border-b prose-h2:border-neutral-100 prose-h2:pb-3
+          ">
+            <Content />
+          </div>
+
+          <!-- Author Block -->
+          <div class="mt-16 pt-8 border-t border-neutral-100">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
+                <span class="text-sm font-semibold text-white">{expert.initials}</span>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-neutral-900">{expert.name}</p>
+                <p class="text-xs text-neutral-400">Expert Reviewer</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Bottom nav -->
-        <div class="mt-10 pt-8 border-t border-gray-100">
-          <a href="/" class="inline-flex items-center gap-2 text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors group">
-            <svg class="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-            Назад к списку статей
-          </a>
+          <!-- Back -->
+          <div class="mt-10 pt-8 border-t border-neutral-100">
+            <a href="/" class="inline-flex items-center gap-2 text-sm font-medium text-neutral-400 hover:text-neutral-900 transition-colors uppercase tracking-wider">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+              Все статьи
+            </a>
+          </div>
         </div>
       </div>
     </div>
   </article>
+
+  <!-- TOC highlight script -->
+  <script>
+    const tocLinks = document.querySelectorAll('.toc-link');
+    if (tocLinks.length > 0) {
+      const headings = Array.from(tocLinks).map(link => {
+        const id = link.getAttribute('href')?.replace('#', '');
+        return id ? document.getElementById(id) : null;
+      }).filter(Boolean);
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(l => l.classList.remove('active'));
+            const activeLink = document.querySelector(\`.toc-link[href="#\${entry.target.id}"]\`);
+            if (activeLink) activeLink.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-80px 0px -70% 0px' });
+
+      headings.forEach(h => { if (h) observer.observe(h); });
+    }
+  </script>
 </Layout>
 `,
 
@@ -625,8 +632,7 @@ serve(async (req) => {
       }
     }
 
-    // Action: initialize or update - push all template files
-    // Apply dynamic site config to templates
+    // Apply dynamic site config
     const sName = site_name || "SEO-Factor";
     const sCopyright = site_copyright || sName;
     const sAbout = site_about || "Авторские статьи по SEO, маркетингу и продвижению - написаны экспертами, проверены практикой.";
@@ -635,11 +641,9 @@ serve(async (req) => {
     for (const [path, content] of Object.entries(FILES)) {
       dynamicFiles[path] = content
         .replace(/const siteName = 'SEO-Factor';/g, `const siteName = '${sName.replace(/'/g, "\\'")}';`)
+        .replace(/const siteCopyright = siteName;/g, `const siteCopyright = '${sCopyright.replace(/'/g, "\\'")}';`)
         .replace(/"publisher": \{ "@type": "Organization", "name": "SEO-Factor" \}/g, `"publisher": { "@type": "Organization", "name": "${sName}" }`)
-        .replace(/Экспертный блог/g, sName)
-        .replace(/Авторские статьи по SEO, маркетингу и продвижению — написаны экспертами, проверены практикой\./g, sAbout)
-        .replace(/Экспертные статьи по SEO, маркетингу и продвижению сайтов/g, sAbout)
-        .replace(/SEO-блог — экспертные статьи/g, `${sName} - блог`);
+        .replace(/Авторские статьи по SEO, маркетингу и продвижению - написаны экспертами, проверены практикой\./g, sAbout);
     }
 
     const results: { file: string; status: string }[] = [];
@@ -660,7 +664,7 @@ serve(async (req) => {
         } catch { /* doesn't exist */ }
 
         const body: Record<string, unknown> = {
-          message: `[SEO-Factor] ${sha ? 'Update' : 'Add'} ${filePath}`,
+          message: `[SEO-Module] ${sha ? 'Update' : 'Add'} ${filePath}`,
           content: encoded,
           branch: "main",
         };
