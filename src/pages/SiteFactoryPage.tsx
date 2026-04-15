@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +49,8 @@ export default function SiteFactoryPage() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
+  const [generateImages, setGenerateImages] = useState(true);
+  const [imageCount, setImageCount] = useState(3);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
