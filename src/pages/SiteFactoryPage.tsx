@@ -330,14 +330,19 @@ export default function SiteFactoryPage() {
       const defaultLang = selectedProj?.language || "en";
 
       for (const kw of kws) {
+        // Detect language per keyword
+        const kwLang = detectLang(kw) || defaultLang;
+        const geoMap: Record<string, string> = { ru: "RU", en: "US", de: "DE", fr: "FR", es: "ES", pt: "BR" };
+        const kwGeo = geoMap[kwLang] || "US";
+
         // 1. Create keyword record
         const { data: kwRecord, error: kwErr } = await supabase
           .from("keywords")
           .insert({
             user_id: user.id,
             seed_keyword: kw,
-            language: projLang,
-            geo: projLang === "ru" ? "ru" : "US",
+            language: kwLang,
+            geo: kwGeo,
           })
           .select("id")
           .single();
@@ -355,8 +360,8 @@ export default function SiteFactoryPage() {
             project_id: selectedProjectId,
             title: kw,
             status: "generating",
-            language: projLang,
-            geo: projLang === "ru" ? "RU" : "US",
+            language: kwLang,
+            geo: kwGeo,
             keywords: [kw],
             author_profile_id: selectedAuthorId && selectedAuthorId !== "none" ? selectedAuthorId : null,
           })
@@ -388,7 +393,7 @@ export default function SiteFactoryPage() {
                 body: JSON.stringify({
                   keyword_id: kwRecord.id,
                   project_id: selectedProjectId,
-                  language: projLang,
+                  language: kwLang,
                 }),
               }
             );
