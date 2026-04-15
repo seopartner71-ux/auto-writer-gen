@@ -27,6 +27,7 @@ interface ProjectRow {
   id: string;
   name: string;
   domain: string;
+  language: string;
   github_repo: string | null;
   github_token: string | null;
   site_name: string | null;
