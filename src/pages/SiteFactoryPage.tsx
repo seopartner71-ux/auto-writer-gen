@@ -666,7 +666,7 @@ export default function SiteFactoryPage() {
                     </SelectItem>
                     {authorProfiles.map((a) => (
                       <SelectItem key={a.id} value={a.id}>
-                        {a.avatar_icon ? `${a.avatar_icon} ` : ""}{a.name} ({a.type})
+                        {a.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
