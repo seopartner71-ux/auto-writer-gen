@@ -1195,10 +1195,20 @@ export default function SiteFactoryPage() {
 
         {/* Right: Queue */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">
               {lang === "ru" ? "Очередь публикации" : "Publication queue"}
             </CardTitle>
+            {selectedProjectId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setImportOpen(true); loadUnassignedArticles(); }}
+              >
+                <FolderInput className="h-4 w-4 mr-1.5" />
+                {lang === "ru" ? "Импорт статей" : "Import articles"}
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {articles.length === 0 ? (
