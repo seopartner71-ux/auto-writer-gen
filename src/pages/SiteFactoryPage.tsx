@@ -95,7 +95,7 @@ export default function SiteFactoryPage() {
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
-  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "" });
+  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "" });
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
@@ -113,6 +113,8 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair";
+
   // Sync siteConfig when project changes
   useEffect(() => {
     if (selectedProject) {
@@ -120,6 +122,11 @@ export default function SiteFactoryPage() {
         site_name: selectedProject.site_name || "",
         site_copyright: selectedProject.site_copyright || "",
         site_about: selectedProject.site_about || "",
+        author_name: selectedProject.author_name || "",
+        author_bio: selectedProject.author_bio || "",
+        author_avatar: selectedProject.author_avatar || "",
+        primary_color: selectedProject.primary_color || "",
+        font_pair: selectedProject.font_pair || "",
       });
       setCustomDomain(selectedProject.custom_domain || "");
     }
