@@ -646,20 +646,39 @@ const hasToc = tocItems.length >= 3;
 const kw = (post.data.keywords && post.data.keywords[0]) || post.data.title || 'business';
 const heroImage = post.data.heroImage || \`https://picsum.photos/seed/\${encodeURIComponent(post.data.title || post.id)}/1200/600\`;
 
+// Extract FAQ JSON-LD from article content if embedded
+let faqJsonLd: string | undefined;
+if (post.body) {
+  const faqMatch = post.body.match(/<script\\s+type="application\\/ld\\+json">[\\s\\S]*?"@type"\\s*:\\s*"FAQPage"[\\s\\S]*?<\\/script>/i);
+  if (faqMatch) {
+    const jsonMatch = faqMatch[0].match(/<script[^>]*>([\\s\\S]*?)<\\/script>/);
+    if (jsonMatch && jsonMatch[1]) {
+      try {
+        JSON.parse(jsonMatch[1].trim());
+        faqJsonLd = jsonMatch[1].trim();
+      } catch {}
+    }
+  }
+}
+
 const jsonLd = JSON.stringify({
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   "headline": post.data.title,
   "description": post.data.description || "",
+  "image": heroImage,
   "datePublished": pubDate || new Date().toISOString(),
   "dateModified": pubDate || new Date().toISOString(),
   "author": { "@type": "Person", "name": authorName },
   "publisher": { "@type": "Organization", "name": "${siteName}" },
   "keywords": (post.data.keywords || []).join(", "),
   "mainEntityOfPage": { "@type": "WebPage", "@id": Astro.url.href },
+  "wordCount": wordCount,
+  "inLanguage": "${i.htmlLang}",
 });
+const pubDateISO = pubDate ? new Date(pubDate).toISOString() : undefined;
 ---
-<Layout title={post.data.title} description={post.data.description} jsonLd={jsonLd}>
+<Layout title={post.data.title} description={post.data.description} jsonLd={jsonLd} faqJsonLd={faqJsonLd} ogImage={heroImage} author={authorName} publishedTime={pubDateISO} keywords={post.data.keywords}>
   <article>
     <div class="max-w-article mx-auto px-6 pt-16 pb-8">
       <a href="/" class="inline-flex items-center gap-1 text-[13px] text-neutral-400 hover:text-neutral-900 transition-colors mb-10 uppercase tracking-wider font-medium">
