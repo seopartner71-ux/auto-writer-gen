@@ -322,7 +322,7 @@ serve(async (req) => {
         }
         for (const section of selected) {
           const query = encodeURIComponent(section.heading);
-          const imgMarkdown = `\n\n![${section.heading}](https://images.unsplash.com/800x450/?${query})\n`;
+          const imgMarkdown = `\n\n![${section.heading}](https://source.unsplash.com/800x450/?${query})\n`;
           const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
           cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
         }
