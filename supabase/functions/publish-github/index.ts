@@ -304,27 +304,123 @@ serve(async (req) => {
           }
         }
       } else {
-        console.warn("[publish-github] Missing fal_ai or openrouter keys, using Unsplash fallback images");
+        // Try Lovable AI image generation as fallback
+        const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+        if (lovableKey) {
+          console.log("[publish-github] Using Lovable AI for image generation (no fal_ai key)");
 
-        // Fallback: use Unsplash keyword-based hero
-        const keyword = (article.keywords && article.keywords[0]) || article.title || "business";
-        heroImagePath = `https://source.unsplash.com/1600x900/?${encodeURIComponent(keyword)}`;
+          // Helper: generate image via Lovable AI
+          const generateLovableImage = async (prompt: string): Promise<string | null> => {
+            try {
+              const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash-image",
+                  messages: [{ role: "user", content: prompt }],
+                  modalities: ["image", "text"],
+                }),
+              });
+              if (!r.ok) {
+                console.error("[publish-github] Lovable AI error:", r.status);
+                return null;
+              }
+              const d = await r.json();
+              const imgData = d.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+              if (!imgData) return null;
 
-        // Fallback: insert Unsplash images after H2 sections
-        const sections = parseH2Sections(cleanContent).filter(
-          (s) => !s.heading.toLowerCase().includes("faq") && !s.heading.toLowerCase().includes("часто задаваемые")
-        );
-        const desiredCount = Math.min(image_count || 3, 5);
-        const step = Math.max(1, Math.floor(sections.length / desiredCount));
-        const selected: typeof sections = [];
-        for (let i = 0; selected.length < desiredCount && i < sections.length; i += step) {
-          selected.push(sections[i]);
-        }
-        for (const section of selected) {
-          const query = encodeURIComponent(section.heading);
-          const imgMarkdown = `\n\n![${section.heading}](https://source.unsplash.com/800x450/?${query})\n`;
-          const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
-          cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
+              // Upload base64 image to GitHub
+              const base64 = imgData.replace(/^data:image\/\w+;base64,/, "");
+              return base64;
+            } catch (e) {
+              console.error("[publish-github] Lovable AI image error:", e);
+              return null;
+            }
+          };
+
+          // Generate hero image
+          try {
+            const heroPrompt = `Generate a professional, high-quality photo for an article titled "${article.title}". The image should directly illustrate the topic. No text, no watermarks. Photorealistic business style.`;
+            const heroBase64 = await generateLovableImage(heroPrompt);
+            if (heroBase64) {
+              const heroPath = `public/images/${slug}-hero.webp`;
+              let sha: string | undefined;
+              try {
+                const check = await fetch(`https://api.github.com/repos/${github_repo}/contents/${heroPath}`, {
+                  headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
+                });
+                if (check.ok) { sha = (await check.json()).sha; }
+              } catch {}
+              const body: Record<string, unknown> = { message: `[SEO-Module] Hero: ${article.title}`, content: heroBase64, branch: "main" };
+              if (sha) body.sha = sha;
+              const res = await fetch(`https://api.github.com/repos/${github_repo}/contents/${heroPath}`, {
+                method: "PUT",
+                headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              });
+              if (res.ok) heroImagePath = `/images/${slug}-hero.webp`;
+            }
+          } catch (e) { console.error("[publish-github] Hero via Lovable AI error:", e); }
+
+          // Generate inline images for H2 sections
+          const desiredCount = Math.min(image_count || 3, 5);
+          const sections = parseH2Sections(cleanContent).filter(
+            (s) => !s.heading.toLowerCase().includes("faq") && !s.heading.toLowerCase().includes("часто задаваемые")
+          );
+          const step = Math.max(1, Math.floor(sections.length / desiredCount));
+          const selected: typeof sections = [];
+          for (let i = 0; selected.length < desiredCount && i < sections.length; i += step) {
+            selected.push(sections[i]);
+          }
+          for (const section of selected) {
+            try {
+              const prompt = `Generate a professional illustration for an article section: "${section.heading}". Context: ${section.text}. Photorealistic, no text, no watermarks.`;
+              const imgBase64 = await generateLovableImage(prompt);
+              if (!imgBase64) continue;
+              const imgSlug = transliterate(section.heading) || "section";
+              const imgPath = `public/images/${slug}-${imgSlug}.webp`;
+              let sha: string | undefined;
+              try {
+                const check = await fetch(`https://api.github.com/repos/${github_repo}/contents/${imgPath}`, {
+                  headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
+                });
+                if (check.ok) { sha = (await check.json()).sha; }
+              } catch {}
+              const body: Record<string, unknown> = { message: `[SEO-Module] Image: ${section.heading}`, content: imgBase64, branch: "main" };
+              if (sha) body.sha = sha;
+              const res = await fetch(`https://api.github.com/repos/${github_repo}/contents/${imgPath}`, {
+                method: "PUT",
+                headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json", "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              });
+              if (res.ok) {
+                generatedImagePaths.push({ heading: section.heading, path: `/images/${slug}-${imgSlug}.webp` });
+              }
+            } catch (e) { console.error(`[publish-github] Section image via Lovable AI error:`, e); }
+          }
+          // Insert images into content
+          for (const img of generatedImagePaths) {
+            const h2Pattern = new RegExp(`(## ${img.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
+            cleanContent = cleanContent.replace(h2Pattern, `$1\n\n![${img.heading}](${img.path})\n`);
+          }
+        } else {
+          console.warn("[publish-github] No image generation keys available, using picsum fallback");
+          heroImagePath = `https://picsum.photos/seed/${encodeURIComponent(slug)}/1600/900`;
+          const sections = parseH2Sections(cleanContent).filter(
+            (s) => !s.heading.toLowerCase().includes("faq") && !s.heading.toLowerCase().includes("часто задаваемые")
+          );
+          const desiredCount = Math.min(image_count || 3, 5);
+          const step = Math.max(1, Math.floor(sections.length / desiredCount));
+          const selected: typeof sections = [];
+          for (let i = 0; selected.length < desiredCount && i < sections.length; i += step) {
+            selected.push(sections[i]);
+          }
+          for (const section of selected) {
+            const seedSlug = transliterate(section.heading) || "img";
+            const imgMarkdown = `\n\n![${section.heading}](https://picsum.photos/seed/${encodeURIComponent(seedSlug)}/800/450)\n`;
+            const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
+            cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
+          }
         }
       }
     }
