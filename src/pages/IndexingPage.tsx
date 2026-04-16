@@ -12,36 +12,39 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
 import { Send, Key, CheckCircle2, XCircle, Clock, Loader2, Upload, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 export default function IndexingPage() {
-  const { user, profile } = useAuth();
-  const { t } = useI18n();
+  const { user, profile, refreshProfile } = useAuth();
+  const { t, lang } = useI18n();
   const { isPro } = usePlanLimits();
   const [url, setUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [gscKey, setGscKey] = useState("");
   const [savingKey, setSavingKey] = useState(false);
+  const [isReplacingKey, setIsReplacingKey] = useState(false);
 
   // Load logs
   const { data: logs = [], refetch: refetchLogs } = useQuery({
-    queryKey: ["indexing-logs"],
+    queryKey: ["indexing-logs", user?.id],
     queryFn: async () => {
+      if (!user) return [];
+
       const { data, error } = await supabase
         .from("indexing_logs")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data as any[];
     },
-    enabled: isPro,
+    enabled: isPro && !!user,
   });
 
   // Check if GSC key is configured
-  const hasGscKey = !!(profile as any)?.gsc_json_key;
+  const hasGscKey = !!profile?.gsc_json_key;
 
   const handleSaveGscKey = async () => {
     if (!gscKey.trim()) return;
@@ -61,8 +64,10 @@ export default function IndexingPage() {
         .update({ gsc_json_key: encData.encrypted } as any)
         .eq("id", user!.id);
       if (error) throw error;
+      await refreshProfile();
       toast.success(t("indexing.keySaved"));
       setGscKey("");
+      setIsReplacingKey(false);
     } catch (e: any) {
       toast.error(e.message || "Invalid JSON");
     } finally {
@@ -74,28 +79,16 @@ export default function IndexingPage() {
     if (!url.trim()) return;
     setSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
-
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-indexing`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ url: url.trim() }),
-        }
-      );
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || "Error");
+      const { data, error } = await supabase.functions.invoke("submit-indexing", {
+        body: { url: url.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       const successCount = data.results?.filter((r: any) => r.status === "success").length || 0;
       toast.success(`${t("indexing.submitted")} (${successCount}/${data.results?.length || 0})`);
       setUrl("");
-      refetchLogs();
+      await refetchLogs();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -140,20 +133,51 @@ export default function IndexingPage() {
                   <Badge variant="secondary">{t("indexing.notConfigured")}</Badge>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label>{t("indexing.gscJsonKey")}</Label>
-                <Textarea
-                  value={gscKey}
-                  onChange={(e) => setGscKey(e.target.value)}
-                  placeholder={t("indexing.gscPlaceholder")}
-                  rows={4}
-                  className="font-mono text-xs"
-                />
+              {hasGscKey && !isReplacingKey ? (
+                <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  {lang === "ru"
+                    ? "Ключ уже сохранён. Поле ввода откроется только если вы захотите заменить его новым JSON-файлом."
+                    : "The key is already saved. Open the input only when you want to replace it with a new JSON file."}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>{t("indexing.gscJsonKey")}</Label>
+                  <Textarea
+                    value={gscKey}
+                    onChange={(e) => setGscKey(e.target.value)}
+                    placeholder={hasGscKey
+                      ? (lang === "ru" ? "Вставьте новый JSON-ключ для замены текущего..." : "Paste a new JSON key to replace the current one...")
+                      : t("indexing.gscPlaceholder")}
+                    rows={4}
+                    className="font-mono text-xs"
+                  />
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {hasGscKey && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsReplacingKey((current) => {
+                        const next = !current;
+                        if (!next) setGscKey("");
+                        return next;
+                      });
+                    }}
+                  >
+                    {isReplacingKey
+                      ? (lang === "ru" ? "Отмена" : "Cancel")
+                      : (lang === "ru" ? "Заменить ключ" : "Replace key")}
+                  </Button>
+                )}
+                {(!hasGscKey || isReplacingKey) && (
+                  <Button onClick={handleSaveGscKey} disabled={savingKey || !gscKey.trim()} size="sm">
+                    {savingKey ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                    {t("indexing.saveKey")}
+                  </Button>
+                )}
               </div>
-              <Button onClick={handleSaveGscKey} disabled={savingKey || !gscKey.trim()} size="sm">
-                {savingKey ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                {t("indexing.saveKey")}
-              </Button>
             </CardContent>
           </Card>
 

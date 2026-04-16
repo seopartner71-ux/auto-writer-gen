@@ -9,6 +9,7 @@ interface AuthContextType {
   profile: Profile | null;
   role: AppRole | null;
   loading: boolean;
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   role: null,
   loading: true,
+  refreshProfile: async () => {},
   signOut: async () => {},
 });
 
@@ -29,8 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lastFetchedUserId = useRef<string | null>(null);
   const inFlightUserId = useRef<string | null>(null);
 
-  const fetchUserData = useCallback(async (userId: string) => {
-    if (lastFetchedUserId.current === userId || inFlightUserId.current === userId) return;
+  const fetchUserData = useCallback(async (userId: string, force = false) => {
+    if (inFlightUserId.current === userId) return;
+    if (!force && lastFetchedUserId.current === userId) return;
 
     inFlightUserId.current = userId;
 
@@ -111,6 +114,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (!session?.user?.id) return;
+
+    lastFetchedUserId.current = null;
+    await fetchUserData(session.user.id, true);
+  }, [fetchUserData, session?.user?.id]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -160,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, profile, role, loading, signOut }}
+      value={{ session, user: session?.user ?? null, profile, role, loading, refreshProfile, signOut }}
     >
       {children}
     </AuthContext.Provider>
