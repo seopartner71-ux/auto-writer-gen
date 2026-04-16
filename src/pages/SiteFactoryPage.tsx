@@ -664,6 +664,28 @@ export default function SiteFactoryPage() {
 
   const platformLabel = HOSTING_PLATFORMS.find((p) => p.value === hostingPlatform)?.label || "Vercel";
 
+  const triggerCloudflare = async () => {
+    if (hostingPlatform !== "cloudflare" || !selectedProjectId) return;
+    addDeployLog("publishing", lang === "ru" ? "Запуск деплоя на Cloudflare Pages..." : "Triggering Cloudflare Pages deploy...");
+    try {
+      const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare", {
+        body: { project_id: selectedProjectId },
+      });
+      if (cfErr) throw cfErr;
+      if (cfData?.error) {
+        addDeployLog("error", `Cloudflare: ${cfData.error}`);
+        toast({ title: "Cloudflare Error", description: cfData.error, variant: "destructive" });
+        return;
+      }
+      const msg = cfData?.message || (lang === "ru" ? "Деплой запущен" : "Deploy triggered");
+      addDeployLog("success", `Cloudflare: ${msg}`);
+      toast({ title: lang === "ru" ? "Cloudflare Pages" : "Cloudflare Pages", description: msg });
+    } catch (err: any) {
+      addDeployLog("error", `Cloudflare: ${err?.message || String(err)}`);
+      toast({ title: "Cloudflare Error", description: err?.message || String(err), variant: "destructive" });
+    }
+  };
+
   const handlePublish = async (article: QueueArticle) => {
     if (!selectedProjectId || !article.content) return;
     setPublishing(article.id);
@@ -698,6 +720,8 @@ export default function SiteFactoryPage() {
           a.id === article.id ? { ...a, status: "published", published_url: data?.url ?? a.published_url } : a
         )
       );
+      // Trigger Cloudflare deploy if applicable
+      await triggerCloudflare();
     } catch (err: any) {
       addDeployLog("error", err?.message || String(err));
       toast({
@@ -745,6 +769,8 @@ export default function SiteFactoryPage() {
         )
       );
       setSelectedIds(new Set());
+      // Trigger Cloudflare deploy if applicable
+      await triggerCloudflare();
     } catch (err: any) {
       addDeployLog("error", err?.message || String(err));
       toast({
