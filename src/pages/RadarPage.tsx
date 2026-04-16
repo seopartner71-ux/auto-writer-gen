@@ -950,6 +950,7 @@ export default function RadarPage() {
                 brandName: activeProject?.brand_name || "Brand",
                 domain: activeProject?.domain || "",
                 date: today,
+                lang,
                 overallVisibility,
                 somData,
                 radarChartData,
