@@ -619,12 +619,17 @@ serve(async (req) => {
 
       let domainBase = "";
       if (project?.hosting_platform === "cloudflare") {
-        // Use pages.dev URL based on project name
         if (project.custom_domain) {
           domainBase = project.custom_domain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
         } else {
-          const cfName = sanitizeProjectName(project.name || "site");
-          domainBase = `${cfName}.pages.dev`;
+          // Prefer domain field if it contains .pages.dev
+          const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/blog\/?$/, "");
+          if (rawDomain.includes(".pages.dev")) {
+            domainBase = rawDomain;
+          } else {
+            const cfName = sanitizeProjectName(project.name || "site");
+            domainBase = `${cfName}.pages.dev`;
+          }
         }
       } else {
         const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
@@ -738,8 +743,13 @@ serve(async (req) => {
       if (project.custom_domain) {
         domainBase = project.custom_domain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
       } else {
-        const cfName = sanitizeProjectName(project.name || "site");
-        domainBase = `${cfName}.pages.dev`;
+        const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/blog\/?$/, "");
+        if (rawDomain.includes(".pages.dev")) {
+          domainBase = rawDomain;
+        } else {
+          const cfName = sanitizeProjectName(project.name || "site");
+          domainBase = `${cfName}.pages.dev`;
+        }
       }
     } else {
       const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
