@@ -566,7 +566,7 @@ const siteName = '${siteName}';
       ${i.contactsPageTitle}
     </h1>
     <div class="prose prose-neutral prose-lg max-w-none">
-      <p>${i.contactsPageContent}</p>
+      <p>${siteContacts || i.contactsPageContent}</p>
     </div>
 
     <form id="contact-form" class="mt-10 space-y-5 max-w-lg">
@@ -612,6 +612,23 @@ const siteName = '${siteName}';
         }
       });
     </script>
+  </div>
+</Layout>
+`,
+
+    "src/pages/privacy.astro": `---
+import Layout from '../layouts/Layout.astro';
+const siteName = '${siteName}';
+const privacyTitle = '${lang === "ru" ? "Политика конфиденциальности" : "Privacy Policy"}';
+---
+<Layout title={privacyTitle}>
+  <div class="max-w-article mx-auto px-6 py-20">
+    <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-neutral-900 leading-[1.08] mb-8">
+      {privacyTitle}
+    </h1>
+    <div class="prose prose-neutral prose-lg max-w-none">
+      <p>${sitePrivacy || (lang === "ru" ? "Настоящая политика конфиденциальности определяет порядок обработки и защиты персональных данных пользователей сайта." : "This privacy policy defines the procedures for processing and protecting personal data of website users.")}</p>
+    </div>
   </div>
 </Layout>
 `,
