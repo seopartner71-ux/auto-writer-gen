@@ -146,6 +146,9 @@ export default function SiteFactoryPage() {
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPublishing, setBatchPublishing] = useState(false);
+  const [injectionLinks, setInjectionLinks] = useState<{ url: string; anchor: string }[]>([]);
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newLinkAnchor, setNewLinkAnchor] = useState("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -178,6 +181,7 @@ export default function SiteFactoryPage() {
       });
       setCustomDomain(selectedProject.custom_domain || "");
       setHostingPlatform(selectedProject.hosting_platform || "vercel");
+      setInjectionLinks(selectedProject.injection_links || []);
     }
   }, [selectedProject]);
 
