@@ -329,7 +329,7 @@ export default function SiteFactoryPage() {
       if (error) throw new Error(error.message);
       if (data?.success) {
         setVerificationDeployed(true);
-        toast({ title: lang === "ru" ? "Верификация задеплоена!" : "Verification deployed!", description: lang === "ru" ? "Мета-тег google-site-verification добавлен на сайт" : "google-site-verification meta tag pushed to site" });
+        toast({ title: lang === "ru" ? "Верификация задеплоена!" : "Verification deployed!", description: lang === "ru" ? "Мета-тег и HTML-файл верификации добавлены на сайт" : "Meta tag and verification HTML file pushed to site" });
       } else {
         throw new Error("Deploy failed");
       }
@@ -1360,8 +1360,8 @@ export default function SiteFactoryPage() {
                     />
                     <p className="text-[10px] text-muted-foreground">
                       {lang === "ru"
-                        ? "Код автоматически добавится в <head> вашего сайта"
-                        : "Code will be auto-injected into your site's <head>"}
+                        ? "Код добавится в <head> и как HTML-файл в корень сайта (google{код}.html)"
+                        : "Code will be injected into <head> and as HTML file at site root (google{code}.html)"}
                     </p>
                     <div className="flex items-center gap-2">
                       {siteConfig.google_verification ? (
