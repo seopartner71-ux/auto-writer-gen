@@ -239,6 +239,7 @@ function generateFiles(
   fontPair: string,
   siteContacts: string,
   sitePrivacy: string,
+  footerLink?: { url: string; text: string } | null,
 ): Record<string, string> {
   const i = getI18n(lang);
   const font = getFontConfig(fontPair);
@@ -449,10 +450,11 @@ const canonicalUrl = Astro.url.href;
     <div class="max-w-screen-xl mx-auto px-6 py-12">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <span class="text-sm font-semibold text-neutral-900">{siteName}</span>
-        <p class="text-xs text-neutral-400">
-          &copy; {new Date().getFullYear()} {siteCopyright}. ${i.madeWith}
-          <a href="https://seo-modul.pro" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">SEO-Module</a>.
-        </p>
+        <div class="flex items-center gap-3 text-xs text-neutral-400">
+          ${footerLink ? `<a href="${footerLink.url}" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">${footerLink.text}</a> &middot;` : ""}
+          <span>&copy; {new Date().getFullYear()} {siteCopyright}. ${i.madeWith}
+          <a href="https://seo-modul.pro" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">SEO-Module</a>.</span>
+        </div>
       </div>
     </div>
   </footer>
@@ -880,7 +882,7 @@ serve(async (req) => {
     }
 
     // Determine language from project record or param
-    const { data: projData } = await supabase.from("projects").select("language, author_name, author_bio, author_avatar, primary_color, font_pair").eq("id", project_id).single();
+    const { data: projData } = await supabase.from("projects").select("language, author_name, author_bio, author_avatar, primary_color, font_pair, footer_link").eq("id", project_id).single();
     const siteLang = language || projData?.language || "en";
     const sName = site_name || "Blog";
     const sCopyright = site_copyright || sName;
@@ -890,8 +892,9 @@ serve(async (req) => {
     const aAvatar = author_avatar || projData?.author_avatar || "";
     const pColor = primary_color || projData?.primary_color || "#6366f1";
     const fPair = font_pair || projData?.font_pair || "inter";
+    const footerLink = projData?.footer_link || null;
 
-    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "");
+    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink);
 
     const results: { file: string; status: string }[] = [];
 

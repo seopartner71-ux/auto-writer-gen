@@ -44,6 +44,8 @@ interface ProjectRow {
   primary_color: string | null;
   font_pair: string | null;
   hosting_platform: string | null;
+  injection_links: { url: string; anchor: string }[] | null;
+  footer_link: { url: string; text: string } | null;
 }
 
 type DeployStatus = "idle" | "publishing" | "success" | "error";
@@ -125,7 +127,7 @@ export default function SiteFactoryPage() {
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
-  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "" });
+  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "", footer_link_url: "", footer_link_text: "" });
   const [hostingPlatform, setHostingPlatform] = useState("vercel");
   const [deployLogs, setDeployLogs] = useState<DeployLog[]>([]);
   const [imageCount, setImageCount] = useState(3);
@@ -144,6 +146,9 @@ export default function SiteFactoryPage() {
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPublishing, setBatchPublishing] = useState(false);
+  const [injectionLinks, setInjectionLinks] = useState<{ url: string; anchor: string }[]>([]);
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newLinkAnchor, setNewLinkAnchor] = useState("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -155,7 +160,7 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
-  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform";
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link";
 
   // Sync siteConfig when project changes
   useEffect(() => {
@@ -171,9 +176,12 @@ export default function SiteFactoryPage() {
         author_avatar: selectedProject.author_avatar || "",
         primary_color: selectedProject.primary_color || "",
         font_pair: selectedProject.font_pair || "",
+        footer_link_url: selectedProject.footer_link?.url || "",
+        footer_link_text: selectedProject.footer_link?.text || "",
       });
       setCustomDomain(selectedProject.custom_domain || "");
       setHostingPlatform(selectedProject.hosting_platform || "vercel");
+      setInjectionLinks(selectedProject.injection_links || []);
     }
   }, [selectedProject]);
 
@@ -239,6 +247,8 @@ export default function SiteFactoryPage() {
         primary_color: color,
         font_pair: font,
         hosting_platform: hostingPlatform,
+        injection_links: injectionLinks.length > 0 ? injectionLinks : [],
+        footer_link: siteConfig.footer_link_url ? { url: siteConfig.footer_link_url, text: siteConfig.footer_link_text || siteConfig.footer_link_url } : null,
       }).eq("id", selectedProjectId);
 
       // Update local state
@@ -1239,6 +1249,90 @@ export default function SiteFactoryPage() {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+                </div>
+
+                {/* Footer Link */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Link2 className="h-3 w-3" />
+                    {lang === "ru" ? "Сквозная ссылка в подвале" : "Footer link (site-wide)"}
+                  </p>
+                  <div className="space-y-2">
+                    <Input
+                      value={siteConfig.footer_link_url}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, footer_link_url: e.target.value }))}
+                      placeholder="https://example.com"
+                    />
+                    <Input
+                      value={siteConfig.footer_link_text}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, footer_link_text: e.target.value }))}
+                      placeholder={lang === "ru" ? "Текст ссылки" : "Link text"}
+                    />
+                  </div>
+                </div>
+
+                {/* Injection Links */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Link2 className="h-3 w-3" />
+                    {lang === "ru" ? "Ссылки для вставки в статьи (Link Injection)" : "Links to inject into articles"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    {lang === "ru"
+                      ? "2-3 случайные ссылки из списка будут автоматически вставлены в каждую статью при публикации"
+                      : "2-3 random links from this list will be auto-injected into each article on publish"}
+                  </p>
+                  {injectionLinks.map((link, i) => (
+                    <div key={i} className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs truncate flex-1 text-muted-foreground" title={link.url}>
+                        <span className="font-medium text-foreground">{link.anchor}</span> → {link.url}
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                        onClick={async () => {
+                          const updated = injectionLinks.filter((_, idx) => idx !== i);
+                          setInjectionLinks(updated);
+                          if (selectedProjectId) {
+                            await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={newLinkUrl}
+                      onChange={(e) => setNewLinkUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="flex-1 text-xs"
+                    />
+                    <Input
+                      value={newLinkAnchor}
+                      onChange={(e) => setNewLinkAnchor(e.target.value)}
+                      placeholder={lang === "ru" ? "Анкор" : "Anchor"}
+                      className="w-32 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!newLinkUrl.trim() || !newLinkAnchor.trim()}
+                      onClick={async () => {
+                        const updated = [...injectionLinks, { url: newLinkUrl.trim(), anchor: newLinkAnchor.trim() }];
+                        setInjectionLinks(updated);
+                        setNewLinkUrl("");
+                        setNewLinkAnchor("");
+                        if (selectedProjectId) {
+                          await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
+                        }
+                      }}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
 

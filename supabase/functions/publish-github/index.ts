@@ -226,8 +226,8 @@ async function prepareArticle(
   const date = new Date().toISOString().split("T")[0];
   const filename = `src/content/blog/${slug}.md`;
 
-  // Resolve author
-  const { data: projInfo } = await supabase.from("projects").select("author_name, author_bio").eq("id", projectId).single();
+  // Resolve author + injection links
+  const { data: projInfo } = await supabase.from("projects").select("author_name, author_bio, injection_links").eq("id", projectId).single();
   let author = projInfo?.author_name || EXPERTS[Math.floor(Math.random() * EXPERTS.length)];
   const profileId = authorProfileIdOverride || article.author_profile_id;
   if (profileId) {
@@ -440,6 +440,44 @@ async function prepareArticle(
       const imgMarkdown = `\n\n![${section.heading}](${inlineUrl})\n`;
       const h2Pattern = new RegExp(`(## ${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^\n]*)`, "m");
       cleanContent = cleanContent.replace(h2Pattern, `$1${imgMarkdown}`);
+    }
+  }
+
+  // ═══ LINK INJECTION (Anti-Footprint SEO) ═══
+  const injectionLinks: { url: string; anchor: string }[] = projInfo?.injection_links || [];
+  if (injectionLinks.length > 0) {
+    // Pick 2-3 random links
+    const shuffled = [...injectionLinks].sort(() => Math.random() - 0.5);
+    const linksToInject = shuffled.slice(0, Math.min(2 + Math.floor(Math.random() * 2), shuffled.length));
+    
+    // Find paragraphs (lines that are plain text, not headings/lists/images/code)
+    const lines = cleanContent.split("\n");
+    const paragraphIndices: number[] = [];
+    for (let idx = 0; idx < lines.length; idx++) {
+      const line = lines[idx].trim();
+      if (line.length > 80 && !line.startsWith("#") && !line.startsWith("-") && !line.startsWith("*") && 
+          !line.startsWith("|") && !line.startsWith("!") && !line.startsWith("```") && !line.startsWith(">")) {
+        paragraphIndices.push(idx);
+      }
+    }
+    
+    if (paragraphIndices.length > 0) {
+      // Distribute links evenly across paragraphs
+      const step = Math.max(1, Math.floor(paragraphIndices.length / (linksToInject.length + 1)));
+      for (let li = 0; li < linksToInject.length; li++) {
+        const pIdx = paragraphIndices[Math.min((li + 1) * step, paragraphIndices.length - 1)];
+        const link = linksToInject[li];
+        // Insert link naturally at the end of a sentence
+        const sentences = lines[pIdx].split(". ");
+        if (sentences.length > 1) {
+          const insertAt = Math.floor(sentences.length / 2);
+          sentences[insertAt] = sentences[insertAt] + ` [${link.anchor}](${link.url})`;
+          lines[pIdx] = sentences.join(". ");
+        } else {
+          lines[pIdx] += ` [${link.anchor}](${link.url})`;
+        }
+      }
+      cleanContent = lines.join("\n");
     }
   }
 
