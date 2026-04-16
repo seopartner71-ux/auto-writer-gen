@@ -165,8 +165,8 @@ export default function NetworkMonitorPage() {
   const bestProject = projects.length > 0
     ? projects.reduce((best, p) => ((p.total_views || 0) > (best.total_views || 0) ? p : best), projects[0])
     : null;
-  const totalIndexed = Object.values(indexedCounts).reduce((a, b) => a.sent + b.sent, 0);
-  const totalArticles = Object.values(indexedCounts).reduce((a, b) => a.total + b.total, 0);
+  const totalIndexed = Object.values(indexedCounts).reduce((sum, b) => sum + b.sent, 0);
+  const totalArticles = Object.values(indexedCounts).reduce((sum, b) => sum + b.total, 0);
 
   return (
     <div className="space-y-6">
