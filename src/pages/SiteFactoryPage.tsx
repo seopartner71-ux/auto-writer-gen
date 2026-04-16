@@ -823,6 +823,13 @@ export default function SiteFactoryPage() {
         </Badge>
       );
     }
+    if (article.status === "failed") {
+      return (
+        <Badge variant="destructive" className="text-xs">
+          {lang === "ru" ? "Ошибка" : "Failed"}
+        </Badge>
+      );
+    }
     return (
       <Badge variant="secondary" className="text-xs">
         {article.status ?? "draft"}
@@ -1400,6 +1407,8 @@ export default function SiteFactoryPage() {
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {articles.map((article) => {
                   const isGen = generatingIds.has(article.id) || article.status === "generating";
+                  const stuckGenerating = article.status === "generating" && article.created_at && (Date.now() - new Date(article.created_at).getTime() > 30 * 60 * 1000);
+                  const canDelete = !isGen || stuckGenerating || article.status === "failed";
                   const isPublishable = !isGen && article.content && (article.status === "completed" || article.status === "published");
                   return (
                     <div
@@ -1460,7 +1469,7 @@ export default function SiteFactoryPage() {
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost" disabled={isGen} className="text-destructive hover:text-destructive">
+                            <Button size="icon" variant="ghost" disabled={!canDelete} className="text-destructive hover:text-destructive">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
