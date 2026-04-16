@@ -298,18 +298,41 @@ export default function RadarPage() {
     enabled: !!activeProject,
   });
 
-  const keywordIdsKey = keywords.map((k: any) => k.id).sort().join(",");
-  const { data: results = [], isLoading: loadingResults, refetch: refetchResults } = useQuery({
-    queryKey: ["radar-results", activeProject?.id, keywordIdsKey],
+  const { data: prompts = [], refetch: refetchPrompts } = useQuery({
+    queryKey: ["radar-prompts", activeProject?.id],
     queryFn: async () => {
       if (!activeProject) return [];
-      const kwIds = keywords.map((k: any) => k.id);
-      if (kwIds.length === 0) return [];
-      const { data, error } = await supabase.from("radar_results").select("*").in("keyword_id", kwIds).order("checked_at", { ascending: false });
+      const { data, error } = await supabase.from("radar_prompts").select("*").eq("project_id", activeProject.id).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!activeProject && keywords.length > 0,
+    enabled: !!activeProject,
+  });
+
+  const keywordIdsKey = keywords.map((k: any) => k.id).sort().join(",");
+  const promptIdsKey = prompts.map((p: any) => p.id).sort().join(",");
+  const { data: results = [], isLoading: loadingResults, refetch: refetchResults } = useQuery({
+    queryKey: ["radar-results", activeProject?.id, keywordIdsKey, promptIdsKey],
+    queryFn: async () => {
+      if (!activeProject) return [];
+      const kwIds = keywords.map((k: any) => k.id);
+      const prIds = prompts.map((p: any) => p.id);
+      if (kwIds.length === 0 && prIds.length === 0) return [];
+      let allResults: any[] = [];
+      if (kwIds.length > 0) {
+        const { data, error } = await supabase.from("radar_results").select("*").in("keyword_id", kwIds).order("checked_at", { ascending: false });
+        if (error) throw error;
+        allResults = data || [];
+      }
+      if (prIds.length > 0) {
+        const { data, error } = await supabase.from("radar_results").select("*").in("prompt_id", prIds).order("checked_at", { ascending: false });
+        if (error) throw error;
+        const existing = new Set(allResults.map((r: any) => r.id));
+        (data || []).forEach((r: any) => { if (!existing.has(r.id)) allResults.push(r); });
+      }
+      return allResults;
+    },
+    enabled: !!activeProject && (keywords.length > 0 || prompts.length > 0),
   });
 
   /* ── Filtered results by active models ── */
@@ -557,20 +580,23 @@ export default function RadarPage() {
       const userId = session?.user?.id;
       if (!token || !userId) throw new Error("Not authenticated");
 
-      // Create analysis run
-      const totalPrompts = keywords.length * 7; // 7 models per keyword
+      // Calculate total: keywords + prompts, each scanned across 7 models
+      const totalItems = (keywords.length + prompts.length) * 7;
+      if (totalItems === 0) throw new Error(lang === "ru" ? "Нет запросов или промптов для сканирования" : "No keywords or prompts to scan");
+
       const { data: run, error: runErr } = await supabase.from("radar_analysis_runs").insert({
         user_id: userId,
         project_id: activeProject?.id,
         status: "running",
-        total_prompts: totalPrompts,
+        total_prompts: totalItems,
         completed_prompts: 0,
       } as any).select().single();
       if (runErr) throw runErr;
 
       setActiveRunId(run.id);
-      setRunProgress({ completed: 0, total: totalPrompts, model: '', prompt: '' });
+      setRunProgress({ completed: 0, total: totalItems, model: '', prompt: '' });
 
+      // Scan keywords
       for (const kw of keywords) {
         setScanningKeywordId(kw.id);
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
@@ -584,12 +610,26 @@ export default function RadarPage() {
         }
       }
 
+      // Scan prompts
+      for (const pr of prompts) {
+        setScanningKeywordId(pr.id);
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+          body: JSON.stringify({ prompt_id: pr.id, prompt_text: pr.text, project_id: activeProject?.id, run_id: run.id }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          console.warn(`Scan failed for prompt ${pr.text}:`, err);
+        }
+      }
+
       // Mark run as completed
       await supabase.from("radar_analysis_runs").update({ status: "completed", completed_at: new Date().toISOString() } as any).eq("id", run.id);
     },
     onSuccess: async () => {
       setScanningKeywordId(null);
-      await refetchKeywords(); await refetchResults();
+      await refetchKeywords(); await refetchResults(); await refetchPrompts();
       queryClient.invalidateQueries({ queryKey: ["radar-results"] });
       toast.success(lang === "ru" ? "Полное сканирование завершено" : "Full scan complete");
     },
@@ -784,12 +824,12 @@ export default function RadarPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => scanAll.mutate()} disabled={scanAll.isPending || keywords.length === 0} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => scanAll.mutate()} disabled={scanAll.isPending || (keywords.length === 0 && prompts.length === 0)} className="gap-1.5">
             {scanAll.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {lang === "ru" ? "Сканировать всё" : "Scan All"}
-            {keywords.length > 0 && (
+            {lang === "ru" ? "Сканировать все" : "Scan All"}
+            {(keywords.length + prompts.length) > 0 && (
               <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-1">
-                {keywords.length} {lang === "ru" ? "кр." : "cr."}
+                {keywords.length + prompts.length}
               </Badge>
             )}
           </Button>

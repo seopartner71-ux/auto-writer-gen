@@ -1336,7 +1336,7 @@ export type Database = {
           id: string
           is_brand_found: boolean | null
           is_domain_found: boolean | null
-          keyword_id: string
+          keyword_id: string | null
           matched_snippets: string[] | null
           model: string
           prompt_id: string | null
@@ -1355,7 +1355,7 @@ export type Database = {
           id?: string
           is_brand_found?: boolean | null
           is_domain_found?: boolean | null
-          keyword_id: string
+          keyword_id?: string | null
           matched_snippets?: string[] | null
           model: string
           prompt_id?: string | null
@@ -1374,7 +1374,7 @@ export type Database = {
           id?: string
           is_brand_found?: boolean | null
           is_domain_found?: boolean | null
-          keyword_id?: string
+          keyword_id?: string | null
           matched_snippets?: string[] | null
           model?: string
           prompt_id?: string | null
