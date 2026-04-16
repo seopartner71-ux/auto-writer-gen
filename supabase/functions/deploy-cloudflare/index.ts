@@ -7,15 +7,102 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function transliterate(text: string): string {
+  const map: Record<string, string> = {
+    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh",
+    з: "z", и: "i", й: "j", к: "k", л: "l", м: "m", н: "n", о: "o",
+    п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "kh", ц: "ts",
+    ч: "ch", ш: "sh", щ: "shch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+  };
+
+  return text
+    .toLowerCase()
+    .split("")
+    .map((c) => map[c] ?? c)
+    .join("");
+}
+
 function sanitizeProjectName(name: string): string {
-  return name
+  return transliterate(name)
     .replace(/[^a-z0-9\s-]/gi, "")
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .toLowerCase()
-    .substring(0, 58);
+    .substring(0, 58) || "site";
+}
+
+function normalizeHost(value: string | null | undefined): string {
+  return (value || "")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/.*$/, "")
+    .toLowerCase();
+}
+
+function extractPagesProjectName(
+  domain: string | null | undefined,
+  customDomain: string | null | undefined,
+  fallbackName: string,
+): string {
+  const candidates = [domain, customDomain];
+
+  for (const candidate of candidates) {
+    const host = normalizeHost(candidate);
+    const match = host.match(/^([a-z0-9-]+)\.pages\.dev$/i);
+    if (match?.[1]) {
+      return match[1].toLowerCase();
+    }
+  }
+
+  return sanitizeProjectName(fallbackName);
+}
+
+function parseJsonSafely(text: string): any | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const cleaned = trimmed
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, "");
+
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function readResponsePayload(response: Response): Promise<{ data: any | null; text: string }> {
+  const text = await response.text();
+  return {
+    text,
+    data: parseJsonSafely(text),
+  };
+}
+
+function getCloudflareErrorMessage(payload: any | null, fallbackText: string, status: number): string {
+  if (payload?.errors?.length) {
+    return payload.errors.map((e: any) => e.message).join("; ");
+  }
+
+  if (payload?.message) {
+    return String(payload.message);
+  }
+
+  if (fallbackText.trim()) {
+    return fallbackText.trim();
+  }
+
+  return `HTTP ${status}`;
 }
 
 serve(async (req) => {
@@ -47,7 +134,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabase
       .from("projects")
-      .select("name, domain, github_repo, hosting_platform")
+      .select("name, domain, custom_domain, github_repo, hosting_platform")
       .eq("id", project_id)
       .eq("user_id", user.id)
       .single();
@@ -64,7 +151,6 @@ serve(async (req) => {
       });
     }
 
-    // Get Cloudflare credentials
     const { data: apiKeys } = await supabase
       .from("api_keys")
       .select("provider, api_key")
@@ -85,8 +171,12 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Use project NAME (not domain) for Cloudflare project name
-    const cfProjectName = sanitizeProjectName(project.name || "site");
+    const cfProjectName = extractPagesProjectName(
+      project.domain,
+      project.custom_domain,
+      project.name || "site",
+    );
+
     if (!cfProjectName) {
       return new Response(JSON.stringify({ error: "Invalid project name. Update the project name in settings." }), {
         status: 400, headers: corsHeaders,
@@ -96,12 +186,10 @@ serve(async (req) => {
     const pagesDevUrl = `https://${cfProjectName}.pages.dev`;
     const cfBaseUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`;
 
-    // Check if project exists
     console.log(`[deploy-cloudflare] Checking project: ${cfProjectName}`);
     const checkRes = await fetch(`${cfBaseUrl}/${cfProjectName}`, { headers: cfHeaders });
 
     if (!checkRes.ok && checkRes.status === 404) {
-      // Create the project linked to GitHub
       console.log(`[deploy-cloudflare] Creating project: ${cfProjectName}`);
 
       const ghRepo = project.github_repo || "";
@@ -135,13 +223,12 @@ serve(async (req) => {
         body: JSON.stringify(createBody),
       });
 
-      const createData = await createRes.json();
+      const { data: createData, text: createText } = await readResponsePayload(createRes);
 
       if (!createRes.ok) {
-        const errMsg = createData?.errors?.map((e: any) => e.message).join("; ") || JSON.stringify(createData);
+        const errMsg = getCloudflareErrorMessage(createData, createText, createRes.status);
         console.error(`[deploy-cloudflare] Create project failed:`, errMsg);
 
-        // Check if name conflict (project exists under another account)
         if (errMsg.includes("already exists") || errMsg.includes("already been taken") || createRes.status === 409) {
           return new Response(JSON.stringify({
             error: "name_conflict",
@@ -167,24 +254,23 @@ serve(async (req) => {
     }
 
     if (!checkRes.ok) {
-      const errData = await checkRes.json().catch(() => ({}));
-      const errMsg = errData?.errors?.map((e: any) => e.message).join("; ") || `HTTP ${checkRes.status}`;
+      const { data: errData, text: errText } = await readResponsePayload(checkRes);
+      const errMsg = getCloudflareErrorMessage(errData, errText, checkRes.status);
       return new Response(JSON.stringify({
         error: `Cloudflare API error: ${errMsg}`,
       }), { status: 400, headers: corsHeaders });
     }
 
-    // Project exists - trigger deployment
     const hookUrl = `${cfBaseUrl}/${cfProjectName}/deployments`;
     const deployRes = await fetch(hookUrl, {
       method: "POST",
       headers: cfHeaders,
     });
 
-    const deployData = await deployRes.json();
+    const { data: deployData, text: deployText } = await readResponsePayload(deployRes);
 
     if (!deployRes.ok) {
-      const errMsg = deployData?.errors?.map((e: any) => e.message).join("; ") || JSON.stringify(deployData);
+      const errMsg = getCloudflareErrorMessage(deployData, deployText, deployRes.status);
       if (errMsg.includes("GitHub") || errMsg.includes("source")) {
         return new Response(JSON.stringify({
           success: true,
