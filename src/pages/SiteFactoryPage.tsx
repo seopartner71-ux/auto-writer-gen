@@ -296,7 +296,48 @@ export default function SiteFactoryPage() {
     }
   };
 
-  const handleDeleteArticle = async (articleId: string) => {
+  // Deploy google verification to live site (re-init Layout.astro)
+  const handleDeployVerification = async () => {
+    if (!selectedProjectId || !siteConfig.google_verification.trim()) return;
+    setDeployingVerification(true);
+    try {
+      // Save verification code to DB
+      await supabase.from("projects").update({
+        google_verification: siteConfig.google_verification.trim(),
+      }).eq("id", selectedProjectId);
+
+      // Re-init to push updated Layout.astro with the meta tag
+      const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
+        body: {
+          project_id: selectedProjectId,
+          action: "initialize",
+          site_name: siteConfig.site_name || selectedProject?.name || "Blog",
+          site_copyright: siteConfig.site_copyright || "",
+          site_about: siteConfig.site_about || "",
+          site_contacts: siteConfig.site_contacts || "",
+          site_privacy: siteConfig.site_privacy || "",
+          language: selectedProject?.language || "en",
+          author_name: siteConfig.author_name || "",
+          author_bio: siteConfig.author_bio || "",
+          author_avatar: siteConfig.author_avatar || "",
+          primary_color: siteConfig.primary_color || "",
+          font_pair: siteConfig.font_pair || "",
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.success) {
+        toast({ title: lang === "ru" ? "Верификация задеплоена!" : "Verification deployed!", description: lang === "ru" ? "Мета-тег google-site-verification добавлен на сайт" : "google-site-verification meta tag pushed to site" });
+      } else {
+        throw new Error("Deploy failed");
+      }
+    } catch (err: any) {
+      toast({ title: lang === "ru" ? "Ошибка деплоя" : "Deploy error", description: err?.message, variant: "destructive" });
+    } finally {
+      setDeployingVerification(false);
+    }
+  };
+
+
     const { error } = await supabase.from("articles").delete().eq("id", articleId);
     if (error) {
       toast({ title: lang === "ru" ? "Ошибка удаления" : "Delete error", description: error.message, variant: "destructive" });
