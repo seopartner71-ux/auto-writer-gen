@@ -1400,6 +1400,8 @@ export default function SiteFactoryPage() {
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {articles.map((article) => {
                   const isGen = generatingIds.has(article.id) || article.status === "generating";
+                  const stuckGenerating = article.status === "generating" && article.created_at && (Date.now() - new Date(article.created_at).getTime() > 30 * 60 * 1000);
+                  const canDelete = !isGen || stuckGenerating || article.status === "failed";
                   const isPublishable = !isGen && article.content && (article.status === "completed" || article.status === "published");
                   return (
                     <div
