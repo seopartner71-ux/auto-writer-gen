@@ -127,7 +127,7 @@ export function GitHubProjectsTab() {
       toast({ title: "Ошибка создания", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Проект создан" });
-      setNewProject({ name: "", domain: "", repo: "", token: "" });
+      setNewProject({ name: "", domain: "", repo: "", token: "", hostingPlatform: "vercel" });
       setShowNewForm(false);
       await loadProjects();
     }
@@ -191,7 +191,7 @@ export function GitHubProjectsTab() {
     setSaving(projectId);
     const { error } = await supabase
       .from("projects")
-      .update({ github_repo: vals.repo || null, github_token: vals.token || null })
+      .update({ github_repo: vals.repo || null, github_token: vals.token || null, hosting_platform: (projects.find((p) => p.id === projectId)?.hosting_platform || "vercel") })
       .eq("id", projectId);
     setSaving(null);
     if (error) {
@@ -379,6 +379,18 @@ export function GitHubProjectsTab() {
                 <Input type="password" value={newProject.token} onChange={(e) => setNewProject((p) => ({ ...p, token: e.target.value }))} placeholder="ghp_..." />
               </div>
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Платформа хостинга по умолчанию</label>
+              <Select value={newProject.hostingPlatform} onValueChange={(value) => setNewProject((p) => ({ ...p, hostingPlatform: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vercel">Vercel</SelectItem>
+                  <SelectItem value="cloudflare">Cloudflare Pages</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2">
               <Button onClick={handleCreateProject} disabled={creating} size="sm">
                 {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
@@ -405,6 +417,21 @@ export function GitHubProjectsTab() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Платформа хостинга по умолчанию</label>
+              <Select
+                value={project.hosting_platform || "vercel"}
+                onValueChange={(value) => setProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, hosting_platform: value } : p))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vercel">Vercel</SelectItem>
+                  <SelectItem value="cloudflare">Cloudflare Pages</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Repository (owner/repo)</label>
               <Input
