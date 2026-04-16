@@ -662,9 +662,12 @@ export default function SiteFactoryPage() {
     }
   };
 
+  const platformLabel = HOSTING_PLATFORMS.find((p) => p.value === hostingPlatform)?.label || "Vercel";
+
   const handlePublish = async (article: QueueArticle) => {
     if (!selectedProjectId || !article.content) return;
     setPublishing(article.id);
+    addDeployLog("publishing", lang === "ru" ? `Публикация: ${article.title}...` : `Publishing: ${article.title}...`);
     try {
       const { data, error } = await supabase.functions.invoke("publish-github", {
         body: {
@@ -677,6 +680,7 @@ export default function SiteFactoryPage() {
       });
       if (error) throw error;
       if (data?.error) {
+        addDeployLog("error", data.error);
         toast({
           title: lang === "ru" ? "Ошибка GitHub API" : "GitHub API Error",
           description: data.error,
@@ -684,9 +688,10 @@ export default function SiteFactoryPage() {
         });
         return;
       }
+      addDeployLog("success", lang === "ru" ? `Сайт на ${platformLabel} обновлен - ${article.title}` : `Site on ${platformLabel} updated - ${article.title}`);
       toast({
         title: lang === "ru" ? "Статья опубликована!" : "Article published!",
-        description: lang === "ru" ? "Сайт обновится через минуту" : "Site will update in a minute",
+        description: lang === "ru" ? `Сборка на ${platformLabel}...` : `Building on ${platformLabel}...`,
       });
       setArticles((prev) =>
         prev.map((a) =>
@@ -694,6 +699,7 @@ export default function SiteFactoryPage() {
         )
       );
     } catch (err: any) {
+      addDeployLog("error", err?.message || String(err));
       toast({
         title: lang === "ru" ? "Ошибка публикации" : "Publish error",
         description: err?.message || String(err),
