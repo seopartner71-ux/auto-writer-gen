@@ -33,6 +33,14 @@ async function searchUnsplashImage(query: string, unsplashKey: string): Promise<
   }
 }
 
+function sanitizeProjectName(name: string): string {
+  return transliterate(name)
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .substring(0, 58) || "site";
+}
+
 function transliterate(text: string): string {
   const map: Record<string, string> = {
     а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh",
