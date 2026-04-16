@@ -747,19 +747,25 @@ serve(async (req) => {
       // Create single commit via Trees API
       const { commitSha, treeSha } = await getLatestCommitSha(github_token, github_repo);
 
-      // Create blobs for all files
+      // Create blobs for all files (parallel for speed)
       const treeItems: { path: string; sha: string }[] = [];
 
+      const blobJobs: Promise<{ path: string; sha: string }>[] = [];
       for (const p of prepared) {
-        // MD file blob
-        const mdBlob = await createBlob(github_token, github_repo, p.fileContent, "utf-8");
-        treeItems.push({ path: p.filename, sha: mdBlob });
-
-        // Image blobs
+        blobJobs.push(
+          createBlob(github_token, github_repo, p.fileContent, "utf-8").then((sha) => ({ path: p.filename, sha }))
+        );
         for (const img of p.imageBlobs) {
-          const imgBlobSha = await createBlob(github_token, github_repo, img.base64, "base64");
-          treeItems.push({ path: img.path, sha: imgBlobSha });
+          blobJobs.push(
+            createBlob(github_token, github_repo, img.base64, "base64").then((sha) => ({ path: img.path, sha }))
+          );
         }
+      }
+      // Run blob uploads in chunks of 5 to avoid GitHub rate limits
+      for (let i = 0; i < blobJobs.length; i += 5) {
+        const chunk = blobJobs.slice(i, i + 5);
+        const results = await Promise.all(chunk);
+        treeItems.push(...results);
       }
 
       // Create tree, commit, and update ref
