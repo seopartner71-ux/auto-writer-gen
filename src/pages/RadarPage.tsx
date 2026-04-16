@@ -32,8 +32,9 @@ import {
   Eye, Trash2, RefreshCw, Shield, AlertTriangle,
   Sparkles, Globe, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown,
   Lightbulb, Wand2, Languages, BarChart3, Target, Zap, ExternalLink,
-  Check, CircleDot, Crosshair, MessageSquareText, Link2
+  Check, CircleDot, Crosshair, MessageSquareText, Link2, FileDown
 } from "lucide-react";
+import { generateRadarPdf } from "@/shared/utils/radarPdfReport";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   Radar as RechartsRadar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
