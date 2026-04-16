@@ -113,7 +113,6 @@ export function AppSidebar() {
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
   ];
 
-  const plan = profile?.plan ?? "free";
   const limits = PLAN_LIMITS[plan as "free" | "basic" | "pro"];
 
   return (
