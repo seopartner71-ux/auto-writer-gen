@@ -337,7 +337,7 @@ export default function SiteFactoryPage() {
     }
   };
 
-
+  const handleDeleteArticle = async (articleId: string) => {
     const { error } = await supabase.from("articles").delete().eq("id", articleId);
     if (error) {
       toast({ title: lang === "ru" ? "Ошибка удаления" : "Delete error", description: error.message, variant: "destructive" });
