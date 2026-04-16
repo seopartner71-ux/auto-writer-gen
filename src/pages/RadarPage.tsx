@@ -580,20 +580,23 @@ export default function RadarPage() {
       const userId = session?.user?.id;
       if (!token || !userId) throw new Error("Not authenticated");
 
-      // Create analysis run
-      const totalPrompts = keywords.length * 7; // 7 models per keyword
+      // Calculate total: keywords + prompts, each scanned across 7 models
+      const totalItems = (keywords.length + prompts.length) * 7;
+      if (totalItems === 0) throw new Error(lang === "ru" ? "Нет запросов или промптов для сканирования" : "No keywords or prompts to scan");
+
       const { data: run, error: runErr } = await supabase.from("radar_analysis_runs").insert({
         user_id: userId,
         project_id: activeProject?.id,
         status: "running",
-        total_prompts: totalPrompts,
+        total_prompts: totalItems,
         completed_prompts: 0,
       } as any).select().single();
       if (runErr) throw runErr;
 
       setActiveRunId(run.id);
-      setRunProgress({ completed: 0, total: totalPrompts, model: '', prompt: '' });
+      setRunProgress({ completed: 0, total: totalItems, model: '', prompt: '' });
 
+      // Scan keywords
       for (const kw of keywords) {
         setScanningKeywordId(kw.id);
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
@@ -607,12 +610,26 @@ export default function RadarPage() {
         }
       }
 
+      // Scan prompts
+      for (const pr of prompts) {
+        setScanningKeywordId(pr.id);
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-check`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+          body: JSON.stringify({ prompt_id: pr.id, prompt_text: pr.text, project_id: activeProject?.id, run_id: run.id }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          console.warn(`Scan failed for prompt ${pr.text}:`, err);
+        }
+      }
+
       // Mark run as completed
       await supabase.from("radar_analysis_runs").update({ status: "completed", completed_at: new Date().toISOString() } as any).eq("id", run.id);
     },
     onSuccess: async () => {
       setScanningKeywordId(null);
-      await refetchKeywords(); await refetchResults();
+      await refetchKeywords(); await refetchResults(); await refetchPrompts();
       queryClient.invalidateQueries({ queryKey: ["radar-results"] });
       toast.success(lang === "ru" ? "Полное сканирование завершено" : "Full scan complete");
     },
