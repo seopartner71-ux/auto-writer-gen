@@ -327,6 +327,7 @@ export default function SiteFactoryPage() {
       });
       if (error) throw new Error(error.message);
       if (data?.success) {
+        setVerificationDeployed(true);
         toast({ title: lang === "ru" ? "Верификация задеплоена!" : "Verification deployed!", description: lang === "ru" ? "Мета-тег google-site-verification добавлен на сайт" : "google-site-verification meta tag pushed to site" });
       } else {
         throw new Error("Deploy failed");
@@ -1364,10 +1365,17 @@ export default function SiteFactoryPage() {
                     <div className="flex items-center gap-2">
                       {siteConfig.google_verification ? (
                         <>
-                          <Badge variant="default" className="gap-1 text-[10px]">
-                            <CheckCircle className="h-3 w-3" />
-                            {lang === "ru" ? "Код указан" : "Code set"}
-                          </Badge>
+                          {verificationDeployed ? (
+                            <Badge className="gap-1 text-[10px] bg-green-600 hover:bg-green-700 text-white">
+                              <CheckCircle className="h-3 w-3" />
+                              {lang === "ru" ? "Задеплоен на сайт" : "Deployed to site"}
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="gap-1 text-[10px]">
+                              <CheckCircle className="h-3 w-3" />
+                              {lang === "ru" ? "Код указан" : "Code set"}
+                            </Badge>
+                          )}
                           {repoStatus === "ready" && (
                             <Button
                               size="sm"
