@@ -92,6 +92,15 @@ function randomFontPair(): string {
   return FONT_PAIRS[Math.floor(Math.random() * FONT_PAIRS.length)].value;
 }
 
+const PUBLISH_DESTINATIONS = [
+  { label: "WordPress", icon: Network },
+  { label: "GitHub Pages", icon: Github },
+  { label: "Cloudflare Pages", icon: Cloud },
+  { label: "Vercel", icon: Rocket },
+  { label: "Ghost", icon: Newspaper },
+  { label: "Telegraph", icon: Send },
+];
+
 interface QueueArticle {
   id: string;
   title: string | null;
