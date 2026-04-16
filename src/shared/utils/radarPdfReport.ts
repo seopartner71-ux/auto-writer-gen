@@ -78,8 +78,10 @@ function addHeader(doc: jsPDF, brandName: string, domain: string, date: string, 
   doc.rect(0, 40, 210, 1.5, "F");
 
   doc.setTextColor(...TEXT_WHITE);
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(18);
   doc.text(t("GEO Радар — Отчёт", "GEO Radar Report", lang), 15, 18);
+  doc.setFont("Roboto", "normal");
 
   doc.setFontSize(10);
   doc.setTextColor(...TEXT_MUTED);
