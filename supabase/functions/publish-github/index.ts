@@ -711,18 +711,33 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "All articles have empty titles or content" }), { status: 400, headers: corsHeaders });
       }
 
-      // Prepare all articles
+      // Prepare all articles in parallel batches (concurrency limit) to avoid edge timeout
       const prepared: PreparedArticle[] = [];
       const errors: { articleId: string; error: string }[] = [];
+      // Reduce inline image count for batches to avoid edge function timeout
+      const effectiveImageCount = generate_images
+        ? Math.max(1, Math.min(image_count || 3, validArticles.length > 5 ? 1 : 2))
+        : (image_count || 3);
+      const CONCURRENCY = 3;
+      console.log(`[publish-github] Preparing ${validArticles.length} articles, concurrency=${CONCURRENCY}, imagesPerArticle=${effectiveImageCount}`);
 
-      for (const art of validArticles) {
-        try {
-          const p = await prepareArticle(supabase, art, project_id, author_profile_id, generate_images, image_count || 3, github_token, github_repo);
-          prepared.push(p);
-        } catch (e: any) {
-          errors.push({ articleId: art.id, error: e?.message || String(e) });
-          console.error(`[publish-github] Error preparing article ${art.id}:`, e);
-        }
+      for (let i = 0; i < validArticles.length; i += CONCURRENCY) {
+        const slice = validArticles.slice(i, i + CONCURRENCY);
+        const settled = await Promise.allSettled(
+          slice.map((art: any) =>
+            prepareArticle(supabase, art, project_id, author_profile_id, generate_images, effectiveImageCount, github_token, github_repo)
+          )
+        );
+        settled.forEach((res, idx) => {
+          const art = slice[idx];
+          if (res.status === "fulfilled") {
+            prepared.push(res.value);
+          } else {
+            const msg = res.reason?.message || String(res.reason);
+            errors.push({ articleId: art.id, error: msg });
+            console.error(`[publish-github] Error preparing article ${art.id}:`, msg);
+          }
+        });
       }
 
       if (prepared.length === 0) {
