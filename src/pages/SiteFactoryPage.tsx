@@ -672,14 +672,41 @@ export default function SiteFactoryPage() {
         body: { project_id: selectedProjectId },
       });
       if (cfErr) throw cfErr;
+
+      // Handle name conflict
+      if (cfData?.error === "name_conflict") {
+        addDeployLog("error", `Cloudflare: ${cfData.message}`);
+        toast({
+          title: lang === "ru" ? "Имя занято" : "Name taken",
+          description: lang === "ru"
+            ? `Проект "${cfData.project_name}" уже существует на Cloudflare. Измените название проекта в настройках.`
+            : cfData.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (cfData?.error) {
         addDeployLog("error", `Cloudflare: ${cfData.error}`);
         toast({ title: "Cloudflare Error", description: cfData.error, variant: "destructive" });
         return;
       }
+
+      // Update project domain with pages.dev URL
+      if (cfData?.url && selectedProjectId) {
+        await supabase
+          .from("projects")
+          .update({ custom_domain: cfData.url })
+          .eq("id", selectedProjectId);
+
+        setSelectedProject((prev) =>
+          prev ? { ...prev, custom_domain: cfData.url } : prev
+        );
+      }
+
       const msg = cfData?.message || (lang === "ru" ? "Деплой запущен" : "Deploy triggered");
       addDeployLog("success", `Cloudflare: ${msg}`);
-      toast({ title: lang === "ru" ? "Cloudflare Pages" : "Cloudflare Pages", description: msg });
+      toast({ title: "Cloudflare Pages", description: msg });
     } catch (err: any) {
       addDeployLog("error", `Cloudflare: ${err?.message || String(err)}`);
       toast({ title: "Cloudflare Error", description: err?.message || String(err), variant: "destructive" });
