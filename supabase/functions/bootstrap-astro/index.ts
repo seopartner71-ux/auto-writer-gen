@@ -833,6 +833,15 @@ const pubDateISO = pubDate ? new Date(pubDate).toISOString() : undefined;
 
     "src/content/blog/welcome.md": WELCOME_ARTICLE,
   };
+
+  // Add Google verification HTML file to public/ for file-based verification
+  if (googleVerification && googleVerification.trim()) {
+    const code = googleVerification.trim();
+    // Google expects file named google{code}.html with specific content
+    files[`public/google${code}.html`] = `google-site-verification: google${code}.html`;
+  }
+
+  return files;
 }
 
 // ─── Server ──────────────────────────────────────────────────────────
