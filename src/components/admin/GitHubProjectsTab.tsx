@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Plus, Trash2 } from "lucide-react";
+import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Cloud, Key } from "lucide-react";
 
 interface ProjectGH {
   id: string;
@@ -16,6 +16,14 @@ interface ProjectGH {
 }
 
 type RepoStatus = "idle" | "checking" | "empty" | "initializing" | "ready" | "error";
+
+const HOSTING_KEYS = [
+  { provider: "cloudflare_account_id", label: "Cloudflare Account ID", placeholder: "ваш Account ID из Cloudflare Dashboard", secret: false },
+  { provider: "cloudflare_api_token", label: "Cloudflare API Token", placeholder: "токен с правами Cloudflare Pages: Edit", secret: true },
+  { provider: "vercel_api_token", label: "Vercel API Token", placeholder: "токен из Vercel Settings > Tokens", secret: true },
+  { provider: "vercel_team_id", label: "Vercel Team ID (опционально)", placeholder: "team_...", secret: false },
+  { provider: "netlify_api_token", label: "Netlify API Token", placeholder: "токен из Netlify User Settings > Applications", secret: true },
+];
 
 export function GitHubProjectsTab() {
   const { toast } = useToast();
@@ -29,8 +37,15 @@ export function GitHubProjectsTab() {
   const [newProject, setNewProject] = useState({ name: "", domain: "", repo: "", token: "" });
   const [creating, setCreating] = useState(false);
 
+  // Hosting keys state
+  const [hostingKeys, setHostingKeys] = useState<Record<string, string>>({});
+  const [hostingKeysOriginal, setHostingKeysOriginal] = useState<Record<string, string>>({});
+  const [showHostingKey, setShowHostingKey] = useState<Record<string, boolean>>({});
+  const [savingHosting, setSavingHosting] = useState(false);
+
   useEffect(() => {
     loadProjects();
+    loadHostingKeys();
   }, []);
 
   const loadProjects = async () => {
@@ -42,6 +57,46 @@ export function GitHubProjectsTab() {
         ed[p.id] = { repo: p.github_repo || "", token: p.github_token || "" };
       });
       setEditing(ed);
+    }
+  };
+
+  const loadHostingKeys = async () => {
+    const providers = HOSTING_KEYS.map((k) => k.provider);
+    const { data } = await supabase.from("api_keys").select("provider, api_key").in("provider", providers);
+    const map: Record<string, string> = {};
+    (data || []).forEach((row: any) => {
+      map[row.provider] = row.api_key;
+    });
+    setHostingKeys({ ...map });
+    setHostingKeysOriginal({ ...map });
+  };
+
+  const handleSaveHostingKeys = async () => {
+    setSavingHosting(true);
+    try {
+      for (const keyDef of HOSTING_KEYS) {
+        const val = (hostingKeys[keyDef.provider] || "").trim();
+        const orig = hostingKeysOriginal[keyDef.provider] || "";
+
+        if (val === orig) continue; // no change
+
+        if (!val && orig) {
+          // delete
+          await supabase.from("api_keys").delete().eq("provider", keyDef.provider);
+        } else if (val && !orig) {
+          // insert
+          await supabase.from("api_keys").insert({ provider: keyDef.provider, api_key: val, label: keyDef.label });
+        } else if (val && orig && val !== orig) {
+          // update
+          await supabase.from("api_keys").update({ api_key: val }).eq("provider", keyDef.provider);
+        }
+      }
+      toast({ title: "Ключи хостинга сохранены" });
+      await loadHostingKeys();
+    } catch (err: any) {
+      toast({ title: "Ошибка сохранения", description: err?.message, variant: "destructive" });
+    } finally {
+      setSavingHosting(false);
     }
   };
 
@@ -108,7 +163,7 @@ export function GitHubProjectsTab() {
         if (initErr) throw new Error(initErr.message);
         if (initData?.success) {
           setRepoStatus((prev) => ({ ...prev, [projectId]: "ready" }));
-          toast({ title: "Сайт инициализирован!", description: "Шаблон Astro загружен. Vercel задеплоит сайт автоматически." });
+          toast({ title: "Сайт инициализирован!", description: "Шаблон Astro загружен. Деплой запустится автоматически." });
         } else {
           const failedFiles = initData?.results?.filter((r: any) => r.status !== "ok") || [];
           const errMsg = failedFiles.map((f: any) => `${f.file}: ${f.status}`).join("; ");
@@ -166,8 +221,121 @@ export function GitHubProjectsTab() {
     );
   };
 
+  const hostingKeysChanged = HOSTING_KEYS.some(
+    (k) => (hostingKeys[k.provider] || "").trim() !== (hostingKeysOriginal[k.provider] || "")
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* ── Hosting API Keys ── */}
+      <Card className="border-primary/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Key className="h-5 w-5 text-primary" />
+            Ключи хостинг-платформ
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            API-ключи для автоматического деплоя сайтов. Используются при публикации через Фабрику сайтов.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4">
+            {/* Cloudflare section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Cloud className="h-4 w-4 text-orange-400" />
+                Cloudflare Pages
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                {HOSTING_KEYS.filter((k) => k.provider.startsWith("cloudflare")).map((keyDef) => (
+                  <div key={keyDef.provider}>
+                    <label className="text-xs text-muted-foreground mb-1 block">{keyDef.label}</label>
+                    <div className="flex gap-1">
+                      <Input
+                        type={keyDef.secret && !showHostingKey[keyDef.provider] ? "password" : "text"}
+                        value={hostingKeys[keyDef.provider] || ""}
+                        onChange={(e) => setHostingKeys((prev) => ({ ...prev, [keyDef.provider]: e.target.value }))}
+                        placeholder={keyDef.placeholder}
+                        className="text-sm"
+                      />
+                      {keyDef.secret && (
+                        <Button size="icon" variant="ghost" className="shrink-0" onClick={() => setShowHostingKey((prev) => ({ ...prev, [keyDef.provider]: !prev[keyDef.provider] }))}>
+                          {showHostingKey[keyDef.provider] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Vercel section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <svg className="h-4 w-4" viewBox="0 0 76 65" fill="currentColor"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
+                Vercel
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                {HOSTING_KEYS.filter((k) => k.provider.startsWith("vercel")).map((keyDef) => (
+                  <div key={keyDef.provider}>
+                    <label className="text-xs text-muted-foreground mb-1 block">{keyDef.label}</label>
+                    <div className="flex gap-1">
+                      <Input
+                        type={keyDef.secret && !showHostingKey[keyDef.provider] ? "password" : "text"}
+                        value={hostingKeys[keyDef.provider] || ""}
+                        onChange={(e) => setHostingKeys((prev) => ({ ...prev, [keyDef.provider]: e.target.value }))}
+                        placeholder={keyDef.placeholder}
+                        className="text-sm"
+                      />
+                      {keyDef.secret && (
+                        <Button size="icon" variant="ghost" className="shrink-0" onClick={() => setShowHostingKey((prev) => ({ ...prev, [keyDef.provider]: !prev[keyDef.provider] }))}>
+                          {showHostingKey[keyDef.provider] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Netlify section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <svg className="h-4 w-4" viewBox="0 0 256 256" fill="currentColor"><path d="M128 0L256 128L128 256L0 128L128 0Z"/></svg>
+                Netlify
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
+                {HOSTING_KEYS.filter((k) => k.provider.startsWith("netlify")).map((keyDef) => (
+                  <div key={keyDef.provider}>
+                    <label className="text-xs text-muted-foreground mb-1 block">{keyDef.label}</label>
+                    <div className="flex gap-1">
+                      <Input
+                        type={keyDef.secret && !showHostingKey[keyDef.provider] ? "password" : "text"}
+                        value={hostingKeys[keyDef.provider] || ""}
+                        onChange={(e) => setHostingKeys((prev) => ({ ...prev, [keyDef.provider]: e.target.value }))}
+                        placeholder={keyDef.placeholder}
+                        className="text-sm"
+                      />
+                      {keyDef.secret && (
+                        <Button size="icon" variant="ghost" className="shrink-0" onClick={() => setShowHostingKey((prev) => ({ ...prev, [keyDef.provider]: !prev[keyDef.provider] }))}>
+                          {showHostingKey[keyDef.provider] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <Button onClick={handleSaveHostingKeys} disabled={savingHosting || !hostingKeysChanged} size="sm">
+            {savingHosting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+            Сохранить ключи хостинга
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* ── GitHub Projects ── */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Github className="h-5 w-5 text-primary" />
