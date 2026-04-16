@@ -823,6 +823,13 @@ export default function SiteFactoryPage() {
         </Badge>
       );
     }
+    if (article.status === "failed") {
+      return (
+        <Badge variant="destructive" className="text-xs">
+          {lang === "ru" ? "Ошибка" : "Failed"}
+        </Badge>
+      );
+    }
     return (
       <Badge variant="secondary" className="text-xs">
         {article.status ?? "draft"}
