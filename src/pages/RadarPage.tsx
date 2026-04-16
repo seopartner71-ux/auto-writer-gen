@@ -32,8 +32,9 @@ import {
   Eye, Trash2, RefreshCw, Shield, AlertTriangle,
   Sparkles, Globe, ArrowUpRight, Minus, CheckCircle2, XCircle, ChevronDown,
   Lightbulb, Wand2, Languages, BarChart3, Target, Zap, ExternalLink,
-  Check, CircleDot, Crosshair, MessageSquareText, Link2
+  Check, CircleDot, Crosshair, MessageSquareText, Link2, FileDown
 } from "lucide-react";
+import { generateRadarPdf } from "@/shared/utils/radarPdfReport";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   Radar as RechartsRadar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
@@ -919,24 +920,55 @@ export default function RadarPage() {
 
       {/* Module Tabs */}
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="bg-muted/50 border border-border p-1 h-auto flex-wrap">
-          <TabsTrigger value="dashboard" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <RadarIcon className="h-3.5 w-3.5" />
-            {lang === "ru" ? "Дашборд" : "Dashboard"}
-          </TabsTrigger>
-          <TabsTrigger value="mentions" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Crosshair className="h-3.5 w-3.5" />
-            {lang === "ru" ? "Позиции" : "Positions"}
-          </TabsTrigger>
-          <TabsTrigger value="prompts" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <MessageSquareText className="h-3.5 w-3.5" />
-            {lang === "ru" ? "Промпты" : "Prompts"}
-          </TabsTrigger>
-          <TabsTrigger value="sources" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Link2 className="h-3.5 w-3.5" />
-            {lang === "ru" ? "Источники" : "Sources"}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center gap-3 flex-wrap">
+          <TabsList className="bg-muted/50 border border-border p-1 h-auto flex-wrap">
+            <TabsTrigger value="dashboard" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <RadarIcon className="h-3.5 w-3.5" />
+              {lang === "ru" ? "Дашборд" : "Dashboard"}
+            </TabsTrigger>
+            <TabsTrigger value="mentions" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Crosshair className="h-3.5 w-3.5" />
+              {lang === "ru" ? "Позиции" : "Positions"}
+            </TabsTrigger>
+            <TabsTrigger value="prompts" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <MessageSquareText className="h-3.5 w-3.5" />
+              {lang === "ru" ? "Промпты" : "Prompts"}
+            </TabsTrigger>
+            <TabsTrigger value="sources" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Link2 className="h-3.5 w-3.5" />
+              {lang === "ru" ? "Источники" : "Sources"}
+            </TabsTrigger>
+          </TabsList>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 ml-auto"
+            disabled={filteredResults.length === 0}
+            onClick={() => {
+              const today = new Date().toISOString().slice(0, 10);
+              generateRadarPdf({
+                brandName: activeProject?.brand_name || "Brand",
+                domain: activeProject?.domain || "",
+                date: today,
+                overallVisibility,
+                somData,
+                radarChartData,
+                sentimentDonut,
+                sovDonut,
+                competitorLeaderboard,
+                keywordSummary: keywordSummary.map((ks: any) => ({
+                  keyword: ks.keyword,
+                  mainStatus: ks.mainStatus,
+                  models: (ks.latestResults || []).map((r: any) => ({ model: r.model, status: r.status })),
+                })),
+              });
+              toast.success(lang === "ru" ? "PDF отчет скачан" : "PDF report downloaded");
+            }}
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            {lang === "ru" ? "Скачать PDF" : "Download PDF"}
+          </Button>
+        </div>
 
         <TabsContent value="dashboard" className="space-y-6 mt-0">
 

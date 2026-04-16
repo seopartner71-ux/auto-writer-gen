@@ -6,7 +6,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExternalLink, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ExternalLink, Search, FileDown } from "lucide-react";
+import { generateSourcesPdf } from "@/shared/utils/radarPdfReport";
+import { toast } from "sonner";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { motion } from "framer-motion";
 
@@ -130,9 +133,30 @@ export default function SourcesPage({ projectId }: { projectId?: string }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold tracking-tight">Источники AI</h2>
-        <p className="text-muted-foreground text-sm">Анализ источников информации AI моделей</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Источники AI</h2>
+          <p className="text-muted-foreground text-sm">Анализ источников информации AI моделей</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          disabled={aggregatedSources.length === 0}
+          onClick={() => {
+            const today = new Date().toISOString().slice(0, 10);
+            generateSourcesPdf({
+              sources: aggregatedSources.map(s => ({ ...s, typeLabel: SOURCE_TYPES[s.type]?.label || s.type })),
+              pieData,
+              totalSources: aggregatedSources.length,
+              totalOccurrences,
+            }, "AI Sources", today);
+            toast.success("PDF отчет скачан");
+          }}
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Скачать PDF
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
