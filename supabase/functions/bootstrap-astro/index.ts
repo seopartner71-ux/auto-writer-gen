@@ -239,6 +239,7 @@ function generateFiles(
   fontPair: string,
   siteContacts: string,
   sitePrivacy: string,
+  footerLink?: { url: string; text: string } | null,
 ): Record<string, string> {
   const i = getI18n(lang);
   const font = getFontConfig(fontPair);
@@ -449,10 +450,11 @@ const canonicalUrl = Astro.url.href;
     <div class="max-w-screen-xl mx-auto px-6 py-12">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
         <span class="text-sm font-semibold text-neutral-900">{siteName}</span>
-        <p class="text-xs text-neutral-400">
-          &copy; {new Date().getFullYear()} {siteCopyright}. ${i.madeWith}
-          <a href="https://seo-modul.pro" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">SEO-Module</a>.
-        </p>
+        <div class="flex items-center gap-3 text-xs text-neutral-400">
+          ${footerLink ? `<a href="${footerLink.url}" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">${footerLink.text}</a> &middot;` : ""}
+          <span>&copy; {new Date().getFullYear()} {siteCopyright}. ${i.madeWith}
+          <a href="https://seo-modul.pro" target="_blank" rel="noopener" class="text-neutral-500 hover:text-neutral-900 transition-colors underline underline-offset-2">SEO-Module</a>.</span>
+        </div>
       </div>
     </div>
   </footer>
