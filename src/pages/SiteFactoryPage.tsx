@@ -185,6 +185,7 @@ export default function SiteFactoryPage() {
         google_verification: selectedProject.google_verification || "",
       });
       setCustomDomain(selectedProject.custom_domain || "");
+      setVerificationDeployed(false);
       setHostingPlatform(selectedProject.hosting_platform || "vercel");
       setInjectionLinks(selectedProject.injection_links || []);
     }
