@@ -1,5 +1,14 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ROBOTO_REGULAR, ROBOTO_BOLD } from "./robotoFontData";
+
+function registerCyrillicFont(doc: jsPDF) {
+  doc.addFileToVFS("Roboto-Regular.ttf", ROBOTO_REGULAR);
+  doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
+  doc.addFileToVFS("Roboto-Bold.ttf", ROBOTO_BOLD);
+  doc.addFont("Roboto-Bold.ttf", "Roboto", "bold");
+  doc.setFont("Roboto", "normal");
+}
 
 interface RadarReportData {
   brandName: string;
@@ -69,8 +78,10 @@ function addHeader(doc: jsPDF, brandName: string, domain: string, date: string, 
   doc.rect(0, 40, 210, 1.5, "F");
 
   doc.setTextColor(...TEXT_WHITE);
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(18);
   doc.text(t("GEO Радар — Отчёт", "GEO Radar Report", lang), 15, 18);
+  doc.setFont("Roboto", "normal");
 
   doc.setFontSize(10);
   doc.setTextColor(...TEXT_MUTED);
@@ -86,8 +97,10 @@ function addSectionTitle(doc: jsPDF, title: string, y: number): number {
   doc.setFillColor(...BRAND_COLOR);
   doc.rect(15, y, 3, 8, "F");
   doc.setTextColor(...TEXT_WHITE);
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(13);
   doc.text(title, 22, y + 6);
+  doc.setFont("Roboto", "normal");
   return y + 14;
 }
 
@@ -138,6 +151,7 @@ function addFooters(doc: jsPDF, lang: string) {
 
 export function generateRadarPdf(data: RadarReportData) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  registerCyrillicFont(doc);
   const lang = data.lang || "ru";
 
   doc.setFillColor(...DARK_BG);
@@ -165,7 +179,7 @@ export function generateRadarPdf(data: RadarReportData) {
     head: [[t("Модель", "Model", lang), t("Видимость %", "Visibility %", lang), t("Статус", "Status", lang)]],
     body: data.somData.map(d => [d.label, `${d.value}%`, getStatusLabel(d.status, lang)]),
     theme: "plain",
-    styles: { textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 9, cellPadding: 3 },
+    styles: { font: "Roboto", textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 9, cellPadding: 3 },
     headStyles: { fillColor: CARD_BG, textColor: BRAND_COLOR, fontStyle: "bold" },
     alternateRowStyles: { fillColor: [20, 20, 28] },
     margin: { left: 15, right: 15 },
@@ -181,7 +195,7 @@ export function generateRadarPdf(data: RadarReportData) {
       head: [[t("Ось", "Dimension", lang), t("Балл", "Score", lang)]],
       body: data.radarChartData.map(d => [d.axis, `${d.value}%`]),
       theme: "plain",
-      styles: { textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 9, cellPadding: 3 },
+      styles: { font: "Roboto", textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: CARD_BG, textColor: BRAND_COLOR, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [20, 20, 28] },
       margin: { left: 15, right: 15 },
@@ -227,7 +241,7 @@ export function generateRadarPdf(data: RadarReportData) {
         getSentimentLabel(c.sentiment, lang),
       ]),
       theme: "plain",
-      styles: { textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 9, cellPadding: 3 },
+      styles: { font: "Roboto", textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: CARD_BG, textColor: BRAND_COLOR, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [20, 20, 28] },
       margin: { left: 15, right: 15 },
@@ -272,7 +286,7 @@ export function generateRadarPdf(data: RadarReportData) {
         ];
       }),
       theme: "plain",
-      styles: { textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 7, cellPadding: 2 },
+      styles: { font: "Roboto", textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 7, cellPadding: 2 },
       headStyles: { fillColor: CARD_BG, textColor: BRAND_COLOR, fontStyle: "bold", fontSize: 7 },
       alternateRowStyles: { fillColor: [20, 20, 28] },
       margin: { left: 15, right: 15 },
@@ -314,6 +328,7 @@ export function generateRadarPdf(data: RadarReportData) {
 
 export function generateSourcesPdf(data: SourcesReportData, brandName: string, date: string, lang: string = "ru") {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  registerCyrillicFont(doc);
 
   doc.setFillColor(...DARK_BG);
   doc.rect(0, 0, 210, 297, "F");
@@ -341,7 +356,7 @@ export function generateSourcesPdf(data: SourcesReportData, brandName: string, d
         return [d.name, String(d.value), `${Math.round((d.value / total) * 100)}%`];
       }),
       theme: "plain",
-      styles: { textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 9, cellPadding: 3 },
+      styles: { font: "Roboto", textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: CARD_BG, textColor: BRAND_COLOR, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [20, 20, 28] },
       margin: { left: 15, right: 15 },
@@ -357,7 +372,7 @@ export function generateSourcesPdf(data: SourcesReportData, brandName: string, d
     head: [["#", t("Домен", "Domain", lang), t("Тип", "Type", lang), t("Упоминания", "Mentions", lang)]],
     body: topSources.map((s, i) => [String(i + 1), s.domain, s.typeLabel, String(s.occurrenceCount)]),
     theme: "plain",
-    styles: { textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 8, cellPadding: 2.5 },
+    styles: { font: "Roboto", textColor: TEXT_WHITE, fillColor: DARK_BG, fontSize: 8, cellPadding: 2.5 },
     headStyles: { fillColor: CARD_BG, textColor: BRAND_COLOR, fontStyle: "bold" },
     alternateRowStyles: { fillColor: [20, 20, 28] },
     margin: { left: 15, right: 15 },
