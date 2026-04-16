@@ -147,6 +147,7 @@ function addFooters(doc: jsPDF, lang: string) {
 
 export function generateRadarPdf(data: RadarReportData) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  registerCyrillicFont(doc);
   const lang = data.lang || "ru";
 
   doc.setFillColor(...DARK_BG);
@@ -323,6 +324,7 @@ export function generateRadarPdf(data: RadarReportData) {
 
 export function generateSourcesPdf(data: SourcesReportData, brandName: string, date: string, lang: string = "ru") {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  registerCyrillicFont(doc);
 
   doc.setFillColor(...DARK_BG);
   doc.rect(0, 0, 210, 297, "F");
