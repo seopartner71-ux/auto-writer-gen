@@ -13,6 +13,7 @@ export interface Profile {
   avatar_url: string | null;
   preferred_language: string | null;
   theme_preference: string | null;
+  gsc_json_key?: string | null;
   created_at: string;
 }
 
