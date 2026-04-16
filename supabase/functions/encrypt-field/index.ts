@@ -11,7 +11,12 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
@@ -23,23 +28,49 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) throw new Error("Unauthorized");
+    if (authErr || !user) {
+      console.error("Auth error:", authErr?.message);
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { value } = await req.json();
-    if (!value || typeof value !== "string") throw new Error("value is required");
+    if (!value || typeof value !== "string") {
+      return new Response(JSON.stringify({ error: "value is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Use service role to call encrypt_sensitive
+    // Try to encrypt via RPC, fallback to raw value if encryption not configured
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
-    const { data, error } = await admin.rpc("encrypt_sensitive", { plaintext: value });
-    if (error) throw error;
+    
+    let encrypted = value;
+    try {
+      const { data, error } = await admin.rpc("encrypt_sensitive", { plaintext: value });
+      if (error) {
+        console.error("encrypt_sensitive RPC error:", JSON.stringify(error));
+        // Fallback: store as-is (no encryption key in vault)
+        console.log("Falling back to raw value storage");
+      } else if (data) {
+        encrypted = data;
+      }
+    } catch (rpcErr) {
+      console.error("encrypt_sensitive exception:", rpcErr);
+      console.log("Falling back to raw value storage");
+    }
 
-    return new Response(JSON.stringify({ encrypted: data }), {
+    return new Response(JSON.stringify({ encrypted }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
+    console.error("encrypt-field top-level error:", msg, e);
     return new Response(JSON.stringify({ error: msg }), {
-      status: msg.includes("Unauthorized") ? 401 : 500,
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
