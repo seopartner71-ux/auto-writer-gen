@@ -237,6 +237,8 @@ function generateFiles(
   authorAvatar: string,
   primaryColor: string,
   fontPair: string,
+  siteContacts: string,
+  sitePrivacy: string,
 ): Record<string, string> {
   const i = getI18n(lang);
   const font = getFontConfig(fontPair);
