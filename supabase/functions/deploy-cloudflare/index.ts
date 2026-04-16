@@ -7,6 +7,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function sanitizeProjectName(name: string): string {
+  return name
+    .replace(/[^a-z0-9\s-]/gi, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase()
+    .substring(0, 58);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -20,24 +31,20 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: corsHeaders,
+        status: 401, headers: corsHeaders,
       });
     }
 
     const { project_id } = await req.json();
     if (!project_id) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), {
-        status: 400,
-        headers: corsHeaders,
+        status: 400, headers: corsHeaders,
       });
     }
 
-    // Get project config
     const { data: project, error: projErr } = await supabase
       .from("projects")
       .select("name, domain, github_repo, hosting_platform")
@@ -47,19 +54,17 @@ serve(async (req) => {
 
     if (projErr || !project) {
       return new Response(JSON.stringify({ error: "Project not found" }), {
-        status: 404,
-        headers: corsHeaders,
+        status: 404, headers: corsHeaders,
       });
     }
 
     if (project.hosting_platform !== "cloudflare") {
       return new Response(JSON.stringify({ error: "Project is not using Cloudflare Pages" }), {
-        status: 400,
-        headers: corsHeaders,
+        status: 400, headers: corsHeaders,
       });
     }
 
-    // Get Cloudflare credentials from api_keys table
+    // Get Cloudflare credentials
     const { data: apiKeys } = await supabase
       .from("api_keys")
       .select("provider, api_key")
@@ -71,7 +76,7 @@ serve(async (req) => {
 
     if (!accountId || !apiToken) {
       return new Response(JSON.stringify({
-        error: "Cloudflare credentials not configured. Add cloudflare_account_id and cloudflare_api_token in Admin > API Vault.",
+        error: "Cloudflare credentials not configured. Add cloudflare_account_id and cloudflare_api_token in Admin > GitHub > Hosting Keys.",
       }), { status: 400, headers: corsHeaders });
     }
 
@@ -80,18 +85,18 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Derive project name from domain (e.g. "example.com" -> "example-com")
-    const cfProjectName = (project.domain || project.name || "site")
-      .replace(/^https?:\/\//, "")
-      .replace(/[^a-z0-9-]/gi, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
-      .toLowerCase()
-      .substring(0, 58);
+    // Use project NAME (not domain) for Cloudflare project name
+    const cfProjectName = sanitizeProjectName(project.name || "site");
+    if (!cfProjectName) {
+      return new Response(JSON.stringify({ error: "Invalid project name. Update the project name in settings." }), {
+        status: 400, headers: corsHeaders,
+      });
+    }
 
+    const pagesDevUrl = `https://${cfProjectName}.pages.dev`;
     const cfBaseUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`;
 
-    // Step 1: Check if project exists
+    // Check if project exists
     console.log(`[deploy-cloudflare] Checking project: ${cfProjectName}`);
     const checkRes = await fetch(`${cfBaseUrl}/${cfProjectName}`, { headers: cfHeaders });
 
@@ -112,7 +117,6 @@ serve(async (req) => {
         },
       };
 
-      // If GitHub repo is configured, link it as source
       if (ghOwner && ghRepoName) {
         createBody.source = {
           type: "github",
@@ -136,6 +140,16 @@ serve(async (req) => {
       if (!createRes.ok) {
         const errMsg = createData?.errors?.map((e: any) => e.message).join("; ") || JSON.stringify(createData);
         console.error(`[deploy-cloudflare] Create project failed:`, errMsg);
+
+        // Check if name conflict (project exists under another account)
+        if (errMsg.includes("already exists") || errMsg.includes("already been taken") || createRes.status === 409) {
+          return new Response(JSON.stringify({
+            error: "name_conflict",
+            message: `Project name "${cfProjectName}" is already taken on Cloudflare. Please change the project name in settings.`,
+            project_name: cfProjectName,
+          }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
         return new Response(JSON.stringify({
           error: `Cloudflare create project failed: ${errMsg}`,
         }), { status: 400, headers: corsHeaders });
@@ -147,8 +161,8 @@ serve(async (req) => {
         success: true,
         action: "created",
         project_name: cfProjectName,
-        url: createData?.result?.subdomain ? `https://${createData.result.subdomain}` : null,
-        message: "Cloudflare Pages project created and linked to GitHub. Deployments will trigger automatically on push.",
+        url: pagesDevUrl,
+        message: `Cloudflare Pages project created. Site: ${pagesDevUrl}`,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -160,13 +174,7 @@ serve(async (req) => {
       }), { status: 400, headers: corsHeaders });
     }
 
-    // Step 2: Project exists - trigger a deployment hook
-    // When source is GitHub, Cloudflare auto-deploys on push.
-    // We can also create a deploy hook or just confirm the status.
-    const projectData = await checkRes.json();
-    const latestDeployment = projectData?.result?.latest_deployment;
-
-    // Trigger deployment via deploy hook (create one if needed)
+    // Project exists - trigger deployment
     const hookUrl = `${cfBaseUrl}/${cfProjectName}/deployments`;
     const deployRes = await fetch(hookUrl, {
       method: "POST",
@@ -177,14 +185,13 @@ serve(async (req) => {
 
     if (!deployRes.ok) {
       const errMsg = deployData?.errors?.map((e: any) => e.message).join("; ") || JSON.stringify(deployData);
-      // If it fails because of GitHub source, it's fine - auto-deploys on push
       if (errMsg.includes("GitHub") || errMsg.includes("source")) {
         return new Response(JSON.stringify({
           success: true,
           action: "auto_deploy",
           project_name: cfProjectName,
-          message: "GitHub push detected. Cloudflare Pages will auto-deploy.",
-          latest_status: latestDeployment?.latest_stage?.name || "unknown",
+          url: pagesDevUrl,
+          message: `GitHub auto-deploy triggered. Site: ${pagesDevUrl}`,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -194,16 +201,14 @@ serve(async (req) => {
       }), { status: 400, headers: corsHeaders });
     }
 
-    const deployUrl = deployData?.result?.url || null;
-    const deployId = deployData?.result?.id || null;
-
     return new Response(JSON.stringify({
       success: true,
       action: "deployed",
       project_name: cfProjectName,
-      deploy_id: deployId,
-      deploy_url: deployUrl,
-      message: "Cloudflare Pages deployment triggered.",
+      url: pagesDevUrl,
+      deploy_id: deployData?.result?.id || null,
+      deploy_url: deployData?.result?.url || pagesDevUrl,
+      message: `Cloudflare Pages deployment triggered. Site: ${pagesDevUrl}`,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err) {
