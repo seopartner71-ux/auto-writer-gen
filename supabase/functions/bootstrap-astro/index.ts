@@ -242,6 +242,7 @@ function generateFiles(
   footerLink?: { url: string; text: string } | null,
   projectId?: string,
   trackingUrl?: string,
+  googleVerification?: string,
 ): Record<string, string> {
   const i = getI18n(lang);
   const font = getFontConfig(fontPair);
@@ -386,6 +387,7 @@ const canonicalUrl = Astro.url.href;
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   ${projectId ? `<meta name="project-id" content="${projectId}" />` : ""}
+  ${googleVerification ? `<meta name="google-site-verification" content="${googleVerification}" />` : ""}
   <link rel="canonical" href={canonicalUrl} />
   <meta name="description" content={description} />
   {keywords && keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
@@ -887,7 +889,7 @@ serve(async (req) => {
     }
 
     // Determine language from project record or param
-    const { data: projData } = await supabase.from("projects").select("language, author_name, author_bio, author_avatar, primary_color, font_pair, footer_link").eq("id", project_id).single();
+    const { data: projData } = await supabase.from("projects").select("language, author_name, author_bio, author_avatar, primary_color, font_pair, footer_link, google_verification").eq("id", project_id).single();
     const siteLang = language || projData?.language || "en";
     const sName = site_name || "Blog";
     const sCopyright = site_copyright || sName;
@@ -898,10 +900,10 @@ serve(async (req) => {
     const pColor = primary_color || projData?.primary_color || "#6366f1";
     const fPair = font_pair || projData?.font_pair || "inter";
     const footerLink = projData?.footer_link || null;
+    const googleVerification = projData?.google_verification || "";
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://mwcejojlbqpolplshjgj.supabase.co";
-    const trackingUrl = `${supabaseUrl}/functions/v1/track-hit`;
-    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink, project_id, trackingUrl);
+    const trackingUrl2 = `${supabaseUrl}/functions/v1/track-hit`;
+    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink, project_id, trackingUrl2, googleVerification);
 
     const results: { file: string; status: string }[] = [];
 
