@@ -112,6 +112,8 @@ export default function SiteFactoryPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [unassignedArticles, setUnassignedArticles] = useState<QueueArticle[]>([]);
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchPublishing, setBatchPublishing] = useState(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
