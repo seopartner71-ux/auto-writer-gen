@@ -649,10 +649,8 @@ export default function SiteFactoryPage() {
         return;
       }
       toast({
-        title: lang === "ru" ? "Статья опубликована! 🎉" : "Article published! 🎉",
-        description: lang === "ru"
-          ? "Сайт обновится через минуту"
-          : "Site will update in a minute",
+        title: lang === "ru" ? "Статья опубликована!" : "Article published!",
+        description: lang === "ru" ? "Сайт обновится через минуту" : "Site will update in a minute",
       });
       setArticles((prev) =>
         prev.map((a) =>
@@ -667,6 +665,71 @@ export default function SiteFactoryPage() {
       });
     } finally {
       setPublishing(null);
+    }
+  };
+
+  const handleBatchPublish = async () => {
+    if (!selectedProjectId || selectedIds.size === 0) return;
+    setBatchPublishing(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { data, error } = await supabase.functions.invoke("publish-github", {
+        body: {
+          article_ids: ids,
+          project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
+          author_profile_id: selectedAuthorId && selectedAuthorId !== "none" ? selectedAuthorId : null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: lang === "ru" ? "Ошибка пакетной публикации" : "Batch publish error", description: data.error, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: lang === "ru" ? `Опубликовано ${data?.published || ids.length} статей одним коммитом` : `Published ${data?.published || ids.length} articles in one commit`,
+        description: lang === "ru" ? "Vercel запустит только одну сборку" : "Vercel will trigger only one build",
+      });
+      // Update local state
+      const publishedUrls = new Map((data?.results || []).map((r: any) => [r.articleId, r.url]));
+      setArticles((prev) =>
+        prev.map((a) =>
+          selectedIds.has(a.id)
+            ? { ...a, status: "published", published_url: publishedUrls.get(a.id) ?? a.published_url }
+            : a
+        )
+      );
+      setSelectedIds(new Set());
+    } catch (err: any) {
+      toast({
+        title: lang === "ru" ? "Ошибка пакетной публикации" : "Batch publish error",
+        description: err?.message || String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setBatchPublishing(false);
+    }
+  };
+
+  const toggleSelectArticle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const publishableArticles = articles.filter(
+    (a) => (a.status === "completed" || a.status === "published") && a.content && !generatingIds.has(a.id)
+  );
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === publishableArticles.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(publishableArticles.map((a) => a.id)));
     }
   };
 
