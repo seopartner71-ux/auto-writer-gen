@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { normalizeGoogleVerification } from "@/shared/utils/googleVerification";
 import DOMPurify from "dompurify";
 
 interface AuthorProfile {
@@ -182,7 +183,7 @@ export default function SiteFactoryPage() {
         font_pair: selectedProject.font_pair || "",
         footer_link_url: selectedProject.footer_link?.url || "",
         footer_link_text: selectedProject.footer_link?.text || "",
-        google_verification: selectedProject.google_verification || "",
+          google_verification: normalizeGoogleVerification(selectedProject.google_verification || ""),
       });
       setCustomDomain(selectedProject.custom_domain || "");
       setVerificationDeployed(false);
@@ -255,7 +256,7 @@ export default function SiteFactoryPage() {
         hosting_platform: hostingPlatform,
         injection_links: injectionLinks.length > 0 ? injectionLinks : [],
         footer_link: siteConfig.footer_link_url ? { url: siteConfig.footer_link_url, text: siteConfig.footer_link_text || siteConfig.footer_link_url } : null,
-        google_verification: siteConfig.google_verification || null,
+        google_verification: normalizeGoogleVerification(siteConfig.google_verification) || null,
       }).eq("id", selectedProjectId);
 
       // Update local state
@@ -300,13 +301,16 @@ export default function SiteFactoryPage() {
 
   // Deploy google verification to live site (re-init Layout.astro)
   const handleDeployVerification = async () => {
-    if (!selectedProjectId || !siteConfig.google_verification.trim()) return;
+    const normalizedGoogleVerification = normalizeGoogleVerification(siteConfig.google_verification);
+    if (!selectedProjectId || !normalizedGoogleVerification) return;
     setDeployingVerification(true);
     try {
       // Save verification code to DB
       await supabase.from("projects").update({
-        google_verification: siteConfig.google_verification.trim(),
+        google_verification: normalizedGoogleVerification,
       }).eq("id", selectedProjectId);
+
+      setSiteConfig((prev) => ({ ...prev, google_verification: normalizedGoogleVerification }));
 
       // Re-init to push updated Layout.astro with the meta tag
       const { data, error } = await supabase.functions.invoke("bootstrap-astro", {

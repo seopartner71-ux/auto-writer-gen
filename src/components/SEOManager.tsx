@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeGoogleVerification } from "@/shared/utils/googleVerification";
 
 interface SiteSettings {
   metrica_id: string | null;
@@ -41,7 +42,7 @@ export function SEOManager() {
     }
 
     // Google verification meta
-    const gv = settings.google_verification?.trim();
+    const gv = normalizeGoogleVerification(settings.google_verification);
     if (gv) {
       let meta = document.querySelector('meta[name="google-site-verification"]') as HTMLMetaElement | null;
       if (!meta) {

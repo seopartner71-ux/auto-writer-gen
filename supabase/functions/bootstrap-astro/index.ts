@@ -6,6 +6,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function normalizeGoogleVerification(value?: string | null): string {
+  const input = value?.trim() ?? "";
+
+  if (!input) {
+    return "";
+  }
+
+  const contentMatch = input.match(/content\s*=\s*["']([^"']+)["']/i);
+  if (contentMatch?.[1]) {
+    return normalizeGoogleVerification(contentMatch[1]);
+  }
+
+  const htmlFileMatch = input.match(/google-site-verification\s*:\s*google([A-Za-z0-9_-]+)\.html/i);
+  if (htmlFileMatch?.[1]) {
+    return htmlFileMatch[1].trim();
+  }
+
+  const assignmentMatch = input.match(/google-site-verification\s*=\s*([A-Za-z0-9_-]+)/i);
+  if (assignmentMatch?.[1]) {
+    return assignmentMatch[1].trim();
+  }
+
+  const bareFileMatch = input.match(/^google([A-Za-z0-9_-]+)\.html$/i);
+  if (bareFileMatch?.[1]) {
+    return bareFileMatch[1].trim();
+  }
+
+  return input.replace(/^['"]|['"]$/g, "");
+}
+
 // ─── i18n ────────────────────────────────────────────────────────────
 interface I18n {
   htmlLang: string;
@@ -247,6 +277,7 @@ function generateFiles(
   const i = getI18n(lang);
   const font = getFontConfig(fontPair);
   const color = primaryColor || "#6366f1";
+  const normalizedGoogleVerification = normalizeGoogleVerification(googleVerification);
   const authorDisplay = authorName || "Expert";
   const authorBioText = authorBio || "";
   const authorAvatarUrl = authorAvatar || "";
@@ -387,7 +418,7 @@ const canonicalUrl = Astro.url.href;
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   ${projectId ? `<meta name="project-id" content="${projectId}" />` : ""}
-  ${googleVerification ? `<meta name="google-site-verification" content="${googleVerification}" />` : ""}
+  ${normalizedGoogleVerification ? `<meta name="google-site-verification" content="${normalizedGoogleVerification}" />` : ""}
   <link rel="canonical" href={canonicalUrl} />
   <meta name="description" content={description} />
   {keywords && keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
@@ -835,8 +866,8 @@ const pubDateISO = pubDate ? new Date(pubDate).toISOString() : undefined;
   };
 
   // Add Google verification HTML file to public/ for file-based verification
-  if (googleVerification && googleVerification.trim()) {
-    const code = googleVerification.trim();
+  if (normalizedGoogleVerification) {
+    const code = normalizedGoogleVerification;
     // Google expects file named google{code}.html with specific content
     files[`public/google${code}.html`] = `google-site-verification: google${code}.html`;
   }
@@ -909,7 +940,7 @@ serve(async (req) => {
     const pColor = primary_color || projData?.primary_color || "#6366f1";
     const fPair = font_pair || projData?.font_pair || "inter";
     const footerLink = projData?.footer_link || null;
-    const googleVerification = projData?.google_verification || "";
+    const googleVerification = normalizeGoogleVerification(projData?.google_verification || "");
 
     const trackingUrl2 = `${supabaseUrl}/functions/v1/track-hit`;
     const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink, project_id, trackingUrl2, googleVerification);
