@@ -619,17 +619,17 @@ serve(async (req) => {
 
       let domainBase = "";
       if (project?.hosting_platform === "cloudflare") {
-        if (project.custom_domain) {
+        // 1) Use domain field if it contains .pages.dev (primary source)
+        const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/blog\/?$/, "");
+        if (rawDomain.includes(".pages.dev")) {
+          domainBase = rawDomain;
+        } else if (project.custom_domain && !project.custom_domain.includes(".pages.dev")) {
+          // 2) Use custom_domain only for real custom domains (not auto-generated .pages.dev)
           domainBase = project.custom_domain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
         } else {
-          // Prefer domain field if it contains .pages.dev
-          const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/blog\/?$/, "");
-          if (rawDomain.includes(".pages.dev")) {
-            domainBase = rawDomain;
-          } else {
-            const cfName = sanitizeProjectName(project.name || "site");
-            domainBase = `${cfName}.pages.dev`;
-          }
+          // 3) Fallback: build from project name
+          const cfName = sanitizeProjectName(project.name || "site");
+          domainBase = `${cfName}.pages.dev`;
         }
       } else {
         const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
@@ -740,16 +740,14 @@ serve(async (req) => {
     const { data: project } = await supabase.from("projects").select("domain, hosting_platform, name, custom_domain").eq("id", project_id).single();
     let domainBase = "";
     if (project?.hosting_platform === "cloudflare") {
-      if (project.custom_domain) {
+      const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/blog\/?$/, "");
+      if (rawDomain.includes(".pages.dev")) {
+        domainBase = rawDomain;
+      } else if (project.custom_domain && !project.custom_domain.includes(".pages.dev")) {
         domainBase = project.custom_domain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
       } else {
-        const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/blog\/?$/, "");
-        if (rawDomain.includes(".pages.dev")) {
-          domainBase = rawDomain;
-        } else {
-          const cfName = sanitizeProjectName(project.name || "site");
-          domainBase = `${cfName}.pages.dev`;
-        }
+        const cfName = sanitizeProjectName(project.name || "site");
+        domainBase = `${cfName}.pages.dev`;
       }
     } else {
       const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
