@@ -282,6 +282,7 @@ serve(async (req) => {
       if (!kw) throw new Error("Keyword not found");
       queryText = kw.keyword;
     }
+    if (!queryText && !keyword_id && !prompt_id) throw new Error("No query text provided");
     if (!queryText) throw new Error("No query text provided");
 
     const projectLanguage = (project as any).language || "en";
