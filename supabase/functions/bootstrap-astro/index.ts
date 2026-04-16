@@ -240,6 +240,8 @@ function generateFiles(
   siteContacts: string,
   sitePrivacy: string,
   footerLink?: { url: string; text: string } | null,
+  projectId?: string,
+  trackingUrl?: string,
 ): Record<string, string> {
   const i = getI18n(lang);
   const font = getFontConfig(fontPair);
@@ -383,6 +385,7 @@ const canonicalUrl = Astro.url.href;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  ${projectId ? `<meta name="project-id" content="${projectId}" />` : ""}
   <link rel="canonical" href={canonicalUrl} />
   <meta name="description" content={description} />
   {keywords && keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
@@ -467,6 +470,8 @@ const canonicalUrl = Astro.url.href;
         bar.style.width = h > 0 ? (window.scrollY / h * 100) + '%' : '0%';
       }, { passive: true });
     }
+    // Lightweight analytics pixel (no cookies, no PII)
+    (function(){try{var d={p:document.querySelector('meta[name="project-id"]')?.content||'',u:location.pathname};if(d.p){navigator.sendBeacon&&navigator.sendBeacon('${trackingUrl || "https://mwcejojlbqpolplshjgj.supabase.co/functions/v1/track-hit"}',JSON.stringify(d))}}catch(e){}})();
   </script>
 </body>
 </html>
@@ -894,7 +899,9 @@ serve(async (req) => {
     const fPair = font_pair || projData?.font_pair || "inter";
     const footerLink = projData?.footer_link || null;
 
-    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://mwcejojlbqpolplshjgj.supabase.co";
+    const trackingUrl = `${supabaseUrl}/functions/v1/track-hit`;
+    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink, project_id, trackingUrl);
 
     const results: { file: string; status: string }[] = [];
 
