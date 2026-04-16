@@ -252,6 +252,7 @@ export default function SiteFactoryPage() {
         hosting_platform: hostingPlatform,
         injection_links: injectionLinks.length > 0 ? injectionLinks : [],
         footer_link: siteConfig.footer_link_url ? { url: siteConfig.footer_link_url, text: siteConfig.footer_link_text || siteConfig.footer_link_url } : null,
+        google_verification: siteConfig.google_verification || null,
       }).eq("id", selectedProjectId);
 
       // Update local state
@@ -1298,7 +1299,38 @@ export default function SiteFactoryPage() {
                       onChange={(e) => setSiteConfig((prev) => ({ ...prev, footer_link_text: e.target.value }))}
                       placeholder={lang === "ru" ? "Текст ссылки" : "Link text"}
                     />
+                </div>
+
+                {/* Google Verification */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <ShieldCheck className="h-3 w-3" />
+                    {lang === "ru" ? "Google Search Console" : "Google Search Console"}
+                  </p>
+                  <div className="space-y-2">
+                    <Input
+                      value={siteConfig.google_verification}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, google_verification: e.target.value }))}
+                      placeholder={lang === "ru" ? "Вставьте код из мета-тега google-site-verification" : "Paste code from google-site-verification meta tag"}
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      {lang === "ru"
+                        ? "Код автоматически добавится в <head> вашего сайта при инициализации"
+                        : "Code will be auto-injected into your site's <head> on initialization"}
+                    </p>
+                    {siteConfig.google_verification ? (
+                      <Badge variant="default" className="gap-1 text-[10px]">
+                        <CheckCircle className="h-3 w-3" />
+                        {lang === "ru" ? "Google подтвержден" : "Google verified"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                        <AlertCircle className="h-3 w-3" />
+                        {lang === "ru" ? "Требуется верификация" : "Verification required"}
+                      </Badge>
+                    )}
                   </div>
+                </div>
                 </div>
 
                 {/* Injection Links */}
