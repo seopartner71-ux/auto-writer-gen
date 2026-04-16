@@ -910,6 +910,27 @@ export default function SiteFactoryPage() {
               </Select>
             </div>
 
+            {/* Hosting Platform Selector */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {lang === "ru" ? "Платформа хостинга" : "Hosting platform"}
+              </label>
+              <Select value={hostingPlatform} onValueChange={async (v) => {
+                setHostingPlatform(v);
+                if (selectedProjectId) {
+                  await supabase.from("projects").update({ hosting_platform: v }).eq("id", selectedProjectId);
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HOSTING_PLATFORMS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {/* Author Profile Selector */}
             {authorProfiles.length > 0 && (
               <div>
