@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Cloud, Key } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProjectGH {
   id: string;
@@ -13,6 +14,7 @@ interface ProjectGH {
   domain: string;
   github_repo: string | null;
   github_token: string | null;
+  hosting_platform: string | null;
 }
 
 type RepoStatus = "idle" | "checking" | "empty" | "initializing" | "ready" | "error";
@@ -34,7 +36,7 @@ export function GitHubProjectsTab() {
   const [repoStatus, setRepoStatus] = useState<Record<string, RepoStatus>>({});
   const [repoError, setRepoError] = useState<Record<string, string>>({});
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newProject, setNewProject] = useState({ name: "", domain: "", repo: "", token: "" });
+  const [newProject, setNewProject] = useState({ name: "", domain: "", repo: "", token: "", hostingPlatform: "vercel" });
   const [creating, setCreating] = useState(false);
 
   // Hosting keys state
@@ -49,7 +51,7 @@ export function GitHubProjectsTab() {
   }, []);
 
   const loadProjects = async () => {
-    const { data } = await supabase.from("projects").select("id, name, domain, github_repo, github_token");
+    const { data } = await supabase.from("projects").select("id, name, domain, github_repo, github_token, hosting_platform");
     if (data) {
       setProjects(data as ProjectGH[]);
       const ed: Record<string, { repo: string; token: string }> = {};
@@ -117,6 +119,7 @@ export function GitHubProjectsTab() {
       domain: newProject.domain.trim() || newProject.name.trim().toLowerCase().replace(/\s+/g, "-"),
       github_repo: newProject.repo.trim() || null,
       github_token: newProject.token.trim() || null,
+      hosting_platform: newProject.hostingPlatform,
       user_id: user.id,
     });
     setCreating(false);
@@ -124,7 +127,7 @@ export function GitHubProjectsTab() {
       toast({ title: "Ошибка создания", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Проект создан" });
-      setNewProject({ name: "", domain: "", repo: "", token: "" });
+      setNewProject({ name: "", domain: "", repo: "", token: "", hostingPlatform: "vercel" });
       setShowNewForm(false);
       await loadProjects();
     }
@@ -185,10 +188,17 @@ export function GitHubProjectsTab() {
   const handleSave = async (projectId: string) => {
     const vals = editing[projectId];
     if (!vals) return;
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+
     setSaving(projectId);
     const { error } = await supabase
       .from("projects")
-      .update({ github_repo: vals.repo || null, github_token: vals.token || null })
+      .update({
+        github_repo: vals.repo || null,
+        github_token: vals.token || null,
+        hosting_platform: project.hosting_platform || "vercel",
+      })
       .eq("id", projectId);
     setSaving(null);
     if (error) {
@@ -376,6 +386,18 @@ export function GitHubProjectsTab() {
                 <Input type="password" value={newProject.token} onChange={(e) => setNewProject((p) => ({ ...p, token: e.target.value }))} placeholder="ghp_..." />
               </div>
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Платформа хостинга по умолчанию</label>
+              <Select value={newProject.hostingPlatform} onValueChange={(value) => setNewProject((p) => ({ ...p, hostingPlatform: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vercel">Vercel</SelectItem>
+                  <SelectItem value="cloudflare">Cloudflare Pages</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2">
               <Button onClick={handleCreateProject} disabled={creating} size="sm">
                 {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
@@ -402,6 +424,21 @@ export function GitHubProjectsTab() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Платформа хостинга по умолчанию</label>
+              <Select
+                value={project.hosting_platform || "vercel"}
+                onValueChange={(value) => setProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, hosting_platform: value } : p))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vercel">Vercel</SelectItem>
+                  <SelectItem value="cloudflare">Cloudflare Pages</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Repository (owner/repo)</label>
               <Input
