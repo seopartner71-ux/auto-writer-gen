@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Save, Globe, BarChart3, Search } from "lucide-react";
 import { toast } from "sonner";
+import { normalizeGoogleVerification } from "@/shared/utils/googleVerification";
 
 export function SeoIntegrationsTab() {
   const [metricaId, setMetricaId] = useState("");
@@ -25,7 +26,7 @@ export function SeoIntegrationsTab() {
         setSettingsId(data.id);
         setMetricaId(data.metrica_id || "");
         setYandexVerification(data.yandex_verification || "");
-        setGoogleVerification(data.google_verification || "");
+          setGoogleVerification(normalizeGoogleVerification(data.google_verification || ""));
       }
     };
     load();
@@ -40,7 +41,7 @@ export function SeoIntegrationsTab() {
         .update({
           metrica_id: metricaId.trim(),
           yandex_verification: yandexVerification.trim(),
-          google_verification: googleVerification.trim(),
+          google_verification: normalizeGoogleVerification(googleVerification) || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", settingsId);
