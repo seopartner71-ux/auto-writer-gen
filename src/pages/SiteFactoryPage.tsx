@@ -224,11 +224,14 @@ export default function SiteFactoryPage() {
         site_name: siteConfig.site_name || null,
         site_copyright: siteConfig.site_copyright || null,
         site_about: siteConfig.site_about || null,
+        site_contacts: siteConfig.site_contacts || null,
+        site_privacy: siteConfig.site_privacy || null,
         author_name: siteConfig.author_name || null,
         author_bio: siteConfig.author_bio || null,
         author_avatar: siteConfig.author_avatar || null,
         primary_color: color,
         font_pair: font,
+        hosting_platform: hostingPlatform,
       }).eq("id", selectedProjectId);
 
       // Update local state
@@ -241,6 +244,8 @@ export default function SiteFactoryPage() {
           site_name: siteConfig.site_name || selectedProject?.name || "Blog",
           site_copyright: siteConfig.site_copyright || "",
           site_about: siteConfig.site_about || "",
+          site_contacts: siteConfig.site_contacts || "",
+          site_privacy: siteConfig.site_privacy || "",
           language: selectedProject?.language || "en",
           author_name: siteConfig.author_name || "",
           author_bio: siteConfig.author_bio || "",
