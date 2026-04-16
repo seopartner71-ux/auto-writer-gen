@@ -1462,7 +1462,7 @@ export default function SiteFactoryPage() {
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost" disabled={isGen} className="text-destructive hover:text-destructive">
+                            <Button size="icon" variant="ghost" disabled={!canDelete} className="text-destructive hover:text-destructive">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
