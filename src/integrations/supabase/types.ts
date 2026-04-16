@@ -1090,6 +1090,7 @@ export type Database = {
           footer_link: Json | null
           github_repo: string | null
           github_token: string | null
+          google_verification: string | null
           hosting_platform: string | null
           id: string
           injection_links: Json | null
@@ -1120,6 +1121,7 @@ export type Database = {
           footer_link?: Json | null
           github_repo?: string | null
           github_token?: string | null
+          google_verification?: string | null
           hosting_platform?: string | null
           id?: string
           injection_links?: Json | null
@@ -1150,6 +1152,7 @@ export type Database = {
           footer_link?: Json | null
           github_repo?: string | null
           github_token?: string | null
+          google_verification?: string | null
           hosting_platform?: string | null
           id?: string
           injection_links?: Json | null
