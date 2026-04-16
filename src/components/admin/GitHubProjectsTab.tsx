@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Cloud, Key } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProjectGH {
   id: string;
@@ -13,6 +14,7 @@ interface ProjectGH {
   domain: string;
   github_repo: string | null;
   github_token: string | null;
+  hosting_platform: string | null;
 }
 
 type RepoStatus = "idle" | "checking" | "empty" | "initializing" | "ready" | "error";
@@ -34,7 +36,7 @@ export function GitHubProjectsTab() {
   const [repoStatus, setRepoStatus] = useState<Record<string, RepoStatus>>({});
   const [repoError, setRepoError] = useState<Record<string, string>>({});
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newProject, setNewProject] = useState({ name: "", domain: "", repo: "", token: "" });
+  const [newProject, setNewProject] = useState({ name: "", domain: "", repo: "", token: "", hostingPlatform: "vercel" });
   const [creating, setCreating] = useState(false);
 
   // Hosting keys state
@@ -49,7 +51,7 @@ export function GitHubProjectsTab() {
   }, []);
 
   const loadProjects = async () => {
-    const { data } = await supabase.from("projects").select("id, name, domain, github_repo, github_token");
+    const { data } = await supabase.from("projects").select("id, name, domain, github_repo, github_token, hosting_platform");
     if (data) {
       setProjects(data as ProjectGH[]);
       const ed: Record<string, { repo: string; token: string }> = {};
@@ -117,6 +119,7 @@ export function GitHubProjectsTab() {
       domain: newProject.domain.trim() || newProject.name.trim().toLowerCase().replace(/\s+/g, "-"),
       github_repo: newProject.repo.trim() || null,
       github_token: newProject.token.trim() || null,
+      hosting_platform: newProject.hostingPlatform,
       user_id: user.id,
     });
     setCreating(false);
