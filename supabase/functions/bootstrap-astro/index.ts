@@ -849,7 +849,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { project_id, action, site_name, site_copyright, site_about, language, author_name, author_bio, author_avatar, primary_color, font_pair } = await req.json();
+    const { project_id, action, site_name, site_copyright, site_about, site_contacts, site_privacy, language, author_name, author_bio, author_avatar, primary_color, font_pair } = await req.json();
     if (!project_id) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), { status: 400, headers: corsHeaders });
     }
@@ -891,7 +891,7 @@ serve(async (req) => {
     const pColor = primary_color || projData?.primary_color || "#6366f1";
     const fPair = font_pair || projData?.font_pair || "inter";
 
-    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair);
+    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "");
 
     const results: { file: string; status: string }[] = [];
 
