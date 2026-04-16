@@ -692,16 +692,17 @@ export default function SiteFactoryPage() {
         return;
       }
 
-      // Update project custom_domain with pages.dev URL
-      if (cfData?.url && selectedProjectId) {
+      // Update project domain with correct pages.dev URL (don't touch custom_domain)
+      if (cfData?.project_name && selectedProjectId) {
+        const pagesDevDomain = `https://${cfData.project_name}.pages.dev/blog`;
         await supabase
           .from("projects")
-          .update({ custom_domain: cfData.url })
+          .update({ domain: pagesDevDomain })
           .eq("id", selectedProjectId);
 
         setProjects((prev) =>
           prev.map((p) =>
-            p.id === selectedProjectId ? { ...p, custom_domain: cfData.url } : p
+            p.id === selectedProjectId ? { ...p, domain: pagesDevDomain } : p
           )
         );
       }
