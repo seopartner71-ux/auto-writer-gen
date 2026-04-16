@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Send, Newspaper, Network } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,12 +93,9 @@ function randomFontPair(): string {
 }
 
 const PUBLISH_DESTINATIONS = [
-  { label: "WordPress", icon: Network },
   { label: "GitHub Pages", icon: Github },
   { label: "Cloudflare Pages", icon: Cloud },
   { label: "Vercel", icon: Rocket },
-  { label: "Ghost", icon: Newspaper },
-  { label: "Telegraph", icon: Send },
 ];
 
 interface QueueArticle {
