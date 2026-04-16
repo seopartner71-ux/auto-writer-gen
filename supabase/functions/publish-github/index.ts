@@ -510,6 +510,108 @@ async function prepareArticle(
   };
 }
 
+// ── Auto-Indexing (Google Indexing API + IndexNow) ──
+
+async function getGoogleAccessToken(keyData: any): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: keyData.client_email,
+    scope: "https://www.googleapis.com/auth/indexing",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  };
+  const encode = (obj: any) => btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unsignedToken = `${encode(header)}.${encode(payload)}`;
+  const pemContent = keyData.private_key
+    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+    .replace(/-----END PRIVATE KEY-----/g, "")
+    .replace(/\s/g, "");
+  const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8", binaryKey, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]
+  );
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, new TextEncoder().encode(unsignedToken));
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const jwt = `${unsignedToken}.${signatureB64}`;
+  const tokenResp = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+  const tokenData = await tokenResp.json();
+  if (!tokenData.access_token) throw new Error("Failed to get Google token");
+  return tokenData.access_token;
+}
+
+async function autoSubmitIndexing(
+  supabase: any,
+  userId: string,
+  articles: { articleId: string; url: string }[],
+  projectLang: string,
+): Promise<void> {
+  if (!articles.length) return;
+
+  // Get GSC key from user profile
+  const { data: profile } = await supabase.from("profiles").select("gsc_json_key").eq("id", userId).single();
+  const hasGscKey = !!profile?.gsc_json_key;
+
+  for (const { articleId, url } of articles) {
+    if (!url) continue;
+
+    // 1. Google Indexing API
+    if (hasGscKey) {
+      try {
+        const { data: decryptedKey, error: decErr } = await supabase.rpc("decrypt_sensitive", { ciphertext: profile.gsc_json_key });
+        const rawKey = decErr ? profile.gsc_json_key : (decryptedKey ?? profile.gsc_json_key);
+        const keyData = JSON.parse(rawKey);
+        const token = await getGoogleAccessToken(keyData);
+        const googleResp = await fetch("https://indexing.googleapis.com/v3/urlNotifications:publish", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ url, type: "URL_UPDATED" }),
+        });
+        const googleData = await googleResp.json();
+        const status = googleResp.ok ? "success" : "error";
+        const message = googleResp.ok
+          ? `Published: ${googleData.urlNotificationMetadata?.latestUpdate?.notifyTime || "OK"}`
+          : googleData.error?.message || "Unknown Google error";
+        await supabase.from("indexing_logs").insert({
+          user_id: userId, article_id: articleId, url, provider: "google", status, response_message: message,
+        });
+      } catch (e: any) {
+        await supabase.from("indexing_logs").insert({
+          user_id: userId, article_id: articleId, url, provider: "google", status: "error", response_message: e.message,
+        });
+      }
+    }
+
+    // 2. IndexNow (for RU projects - Yandex/Bing)
+    if (projectLang === "ru") {
+      try {
+        const indexNowKey = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+        const indexNowResp = await fetch(
+          `https://yandex.com/indexnow?url=${encodeURIComponent(url)}&key=${indexNowKey}`,
+          { method: "GET" }
+        );
+        const status = (indexNowResp.ok || indexNowResp.status === 202) ? "success" : "error";
+        const message = status === "success"
+          ? `Submitted to IndexNow (status ${indexNowResp.status})`
+          : `IndexNow HTTP ${indexNowResp.status}`;
+        await supabase.from("indexing_logs").insert({
+          user_id: userId, article_id: articleId, url, provider: "indexnow", status, response_message: message,
+        });
+      } catch (e: any) {
+        await supabase.from("indexing_logs").insert({
+          user_id: userId, article_id: articleId, url, provider: "indexnow", status: "error", response_message: e.message,
+        });
+      }
+    }
+  }
+}
+
 // ── main ──
 
 serve(async (req) => {
@@ -681,6 +783,10 @@ serve(async (req) => {
         results.push({ articleId: p.articleId, url: siteUrl });
       }
 
+      // ═══ AUTO-INDEXING after batch publish ═══
+      const projectLang = project?.language || "en";
+      await autoSubmitIndexing(supabase, user.id, results, projectLang);
+
       return new Response(JSON.stringify({
         success: true,
         published: results.length,
@@ -795,6 +901,11 @@ serve(async (req) => {
 
     // Update article status
     await supabase.from("articles").update({ status: "published", published_url: siteUrl }).eq("id", article_id);
+
+    // ═══ AUTO-INDEXING after single publish ═══
+    const { data: projLang } = await supabase.from("projects").select("language").eq("id", project_id).single();
+    const projectLang = projLang?.language || "en";
+    await autoSubmitIndexing(supabase, user.id, [{ articleId: article_id, url: siteUrl }], projectLang);
 
     return new Response(
       JSON.stringify({

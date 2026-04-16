@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Zap } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,6 +147,7 @@ export default function SiteFactoryPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPublishing, setBatchPublishing] = useState(false);
   const [injectionLinks, setInjectionLinks] = useState<{ url: string; anchor: string }[]>([]);
+  const [indexedArticleIds, setIndexedArticleIds] = useState<Set<string>>(new Set());
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkAnchor, setNewLinkAnchor] = useState("");
 
@@ -395,6 +396,23 @@ export default function SiteFactoryPage() {
   }, [user, selectedProjectId]);
 
   useEffect(() => { loadArticles(); }, [loadArticles]);
+
+  // Load indexing status for articles
+  useEffect(() => {
+    if (!user || articles.length === 0) { setIndexedArticleIds(new Set()); return; }
+    const articleIds = articles.map((a) => a.id);
+    (async () => {
+      const { data } = await supabase
+        .from("indexing_logs")
+        .select("article_id")
+        .eq("user_id", user.id)
+        .eq("status", "success")
+        .in("article_id", articleIds);
+      if (data) {
+        setIndexedArticleIds(new Set(data.map((d: any) => d.article_id)));
+      }
+    })();
+  }, [user, articles]);
 
   // Realtime subscription for article updates
   useEffect(() => {
@@ -875,6 +893,12 @@ export default function SiteFactoryPage() {
 
   const getStatusBadge = (article: QueueArticle) => {
     const isGenerating = generatingIds.has(article.id) || article.status === "generating";
+    const isIndexed = indexedArticleIds.has(article.id);
+    
+    const indexIcon = article.status === "published" ? (
+      <Zap className={`h-3 w-3 ml-1 ${isIndexed ? "text-green-400" : "text-muted-foreground/50"}`} />
+    ) : null;
+
     if (isGenerating) {
       return (
         <Badge variant="secondary" className="text-xs animate-pulse bg-primary/20 text-primary">
@@ -884,9 +908,12 @@ export default function SiteFactoryPage() {
     }
     if (article.status === "published") {
       return (
-        <Badge variant="default" className="text-xs">
-          {lang === "ru" ? "Опубликовано" : "Published"}
-        </Badge>
+        <span className="inline-flex items-center gap-0.5">
+          <Badge variant="default" className="text-xs">
+            {lang === "ru" ? "Опубликовано" : "Published"}
+          </Badge>
+          {indexIcon}
+        </span>
       );
     }
     if (article.status === "completed") {
