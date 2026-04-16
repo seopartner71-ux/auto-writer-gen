@@ -713,6 +713,7 @@ export default function SiteFactoryPage() {
   const handleBatchPublish = async () => {
     if (!selectedProjectId || selectedIds.size === 0) return;
     setBatchPublishing(true);
+    addDeployLog("publishing", lang === "ru" ? `Пакетная публикация ${selectedIds.size} статей...` : `Batch publishing ${selectedIds.size} articles...`);
     try {
       const ids = Array.from(selectedIds);
       const { data, error } = await supabase.functions.invoke("publish-github", {
@@ -726,14 +727,15 @@ export default function SiteFactoryPage() {
       });
       if (error) throw error;
       if (data?.error) {
+        addDeployLog("error", data.error);
         toast({ title: lang === "ru" ? "Ошибка пакетной публикации" : "Batch publish error", description: data.error, variant: "destructive" });
         return;
       }
+      addDeployLog("success", lang === "ru" ? `Сайт на ${platformLabel} обновлен - ${data?.published || ids.length} статей одним коммитом` : `Site on ${platformLabel} updated - ${data?.published || ids.length} articles in one commit`);
       toast({
         title: lang === "ru" ? `Опубликовано ${data?.published || ids.length} статей одним коммитом` : `Published ${data?.published || ids.length} articles in one commit`,
-        description: lang === "ru" ? "Vercel запустит только одну сборку" : "Vercel will trigger only one build",
+        description: lang === "ru" ? `${platformLabel} запустит только одну сборку` : `${platformLabel} will trigger only one build`,
       });
-      // Update local state
       const publishedUrls = new Map((data?.results || []).map((r: any) => [r.articleId, r.url]));
       setArticles((prev) =>
         prev.map((a) =>
@@ -744,6 +746,7 @@ export default function SiteFactoryPage() {
       );
       setSelectedIds(new Set());
     } catch (err: any) {
+      addDeployLog("error", err?.message || String(err));
       toast({
         title: lang === "ru" ? "Ошибка пакетной публикации" : "Batch publish error",
         description: err?.message || String(err),
