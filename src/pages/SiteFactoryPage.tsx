@@ -151,6 +151,7 @@ export default function SiteFactoryPage() {
   const [indexedArticleIds, setIndexedArticleIds] = useState<Set<string>>(new Set());
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkAnchor, setNewLinkAnchor] = useState("");
+  const [deployingVerification, setDeployingVerification] = useState(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
