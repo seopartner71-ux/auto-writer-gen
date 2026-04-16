@@ -1252,6 +1252,90 @@ export default function SiteFactoryPage() {
                   </div>
                 </div>
 
+                {/* Footer Link */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Link2 className="h-3 w-3" />
+                    {lang === "ru" ? "Сквозная ссылка в подвале" : "Footer link (site-wide)"}
+                  </p>
+                  <div className="space-y-2">
+                    <Input
+                      value={siteConfig.footer_link_url}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, footer_link_url: e.target.value }))}
+                      placeholder="https://example.com"
+                    />
+                    <Input
+                      value={siteConfig.footer_link_text}
+                      onChange={(e) => setSiteConfig((prev) => ({ ...prev, footer_link_text: e.target.value }))}
+                      placeholder={lang === "ru" ? "Текст ссылки" : "Link text"}
+                    />
+                  </div>
+                </div>
+
+                {/* Injection Links */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Link2 className="h-3 w-3" />
+                    {lang === "ru" ? "Ссылки для вставки в статьи (Link Injection)" : "Links to inject into articles"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    {lang === "ru"
+                      ? "2-3 случайные ссылки из списка будут автоматически вставлены в каждую статью при публикации"
+                      : "2-3 random links from this list will be auto-injected into each article on publish"}
+                  </p>
+                  {injectionLinks.map((link, i) => (
+                    <div key={i} className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs truncate flex-1 text-muted-foreground" title={link.url}>
+                        <span className="font-medium text-foreground">{link.anchor}</span> → {link.url}
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                        onClick={async () => {
+                          const updated = injectionLinks.filter((_, idx) => idx !== i);
+                          setInjectionLinks(updated);
+                          if (selectedProjectId) {
+                            await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      value={newLinkUrl}
+                      onChange={(e) => setNewLinkUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="flex-1 text-xs"
+                    />
+                    <Input
+                      value={newLinkAnchor}
+                      onChange={(e) => setNewLinkAnchor(e.target.value)}
+                      placeholder={lang === "ru" ? "Анкор" : "Anchor"}
+                      className="w-32 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!newLinkUrl.trim() || !newLinkAnchor.trim()}
+                      onClick={async () => {
+                        const updated = [...injectionLinks, { url: newLinkUrl.trim(), anchor: newLinkAnchor.trim() }];
+                        setInjectionLinks(updated);
+                        setNewLinkUrl("");
+                        setNewLinkAnchor("");
+                        if (selectedProjectId) {
+                          await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
+                        }
+                      }}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
                 {repoStatus === "ready" && (
                   <Button
                     variant="outline"
