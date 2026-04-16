@@ -1066,10 +1066,12 @@ export type Database = {
           custom_domain: string | null
           domain: string
           font_pair: string | null
+          footer_link: Json | null
           github_repo: string | null
           github_token: string | null
           hosting_platform: string | null
           id: string
+          injection_links: Json | null
           language: string
           name: string
           primary_color: string | null
@@ -1091,10 +1093,12 @@ export type Database = {
           custom_domain?: string | null
           domain?: string
           font_pair?: string | null
+          footer_link?: Json | null
           github_repo?: string | null
           github_token?: string | null
           hosting_platform?: string | null
           id?: string
+          injection_links?: Json | null
           language?: string
           name: string
           primary_color?: string | null
@@ -1116,10 +1120,12 @@ export type Database = {
           custom_domain?: string | null
           domain?: string
           font_pair?: string | null
+          footer_link?: Json | null
           github_repo?: string | null
           github_token?: string | null
           hosting_platform?: string | null
           id?: string
+          injection_links?: Json | null
           language?: string
           name?: string
           primary_color?: string | null
