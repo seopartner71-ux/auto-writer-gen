@@ -77,6 +77,9 @@ export function AppSidebar() {
     routePrefetchMap[url]?.();
   }, []);
 
+  const plan = profile?.plan ?? "free";
+  const isFactory = plan === "pro";
+
   const mainItems = [
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
     { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
@@ -84,19 +87,23 @@ export function AppSidebar() {
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     { title: t("nav.myArticles"), url: "/my-articles", icon: BookMarked },
-    { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
-    { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
-    { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
-    { title: "AI Radar", url: "/radar", icon: Radar },
+    ...(isFactory ? [
+      { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
+      { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
+      { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
+      { title: "AI Radar", url: "/radar", icon: Radar },
+    ] : []),
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
     { title: t("nav.wiki"), url: "/wiki", icon: BookMarked },
   ];
 
   const settingsItems = [
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
-    { title: t("nav.wordpress"), url: "/wordpress", icon: Globe },
-    { title: t("nav.integrations"), url: "/integrations", icon: Plug },
-    { title: t("nav.indexing"), url: "/indexing", icon: Zap },
+    ...(isFactory ? [
+      { title: t("nav.wordpress"), url: "/wordpress", icon: Globe },
+      { title: t("nav.integrations"), url: "/integrations", icon: Plug },
+      { title: t("nav.indexing"), url: "/indexing", icon: Zap },
+    ] : []),
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
     { title: t("nav.support"), url: "/support", icon: LifeBuoy },
@@ -106,7 +113,6 @@ export function AppSidebar() {
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
   ];
 
-  const plan = profile?.plan ?? "free";
   const limits = PLAN_LIMITS[plan as "free" | "basic" | "pro"];
 
   return (
