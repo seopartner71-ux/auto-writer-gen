@@ -893,6 +893,12 @@ export default function SiteFactoryPage() {
 
   const getStatusBadge = (article: QueueArticle) => {
     const isGenerating = generatingIds.has(article.id) || article.status === "generating";
+    const isIndexed = indexedArticleIds.has(article.id);
+    
+    const indexIcon = article.status === "published" ? (
+      <Zap className={`h-3 w-3 ml-1 ${isIndexed ? "text-green-400" : "text-muted-foreground/50"}`} />
+    ) : null;
+
     if (isGenerating) {
       return (
         <Badge variant="secondary" className="text-xs animate-pulse bg-primary/20 text-primary">
@@ -902,9 +908,12 @@ export default function SiteFactoryPage() {
     }
     if (article.status === "published") {
       return (
-        <Badge variant="default" className="text-xs">
-          {lang === "ru" ? "Опубликовано" : "Published"}
-        </Badge>
+        <span className="inline-flex items-center gap-0.5">
+          <Badge variant="default" className="text-xs">
+            {lang === "ru" ? "Опубликовано" : "Published"}
+          </Badge>
+          {indexIcon}
+        </span>
       );
     }
     if (article.status === "completed") {
