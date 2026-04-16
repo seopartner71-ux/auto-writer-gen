@@ -917,7 +917,22 @@ export default function SiteFactoryPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      <Card className="border-border/60 bg-card/50">
+        <CardContent className="flex flex-wrap items-center gap-3 p-3 md:p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            {lang === "ru" ? "Куда публикуем" : "Publishing targets"}
+          </p>
+          {PUBLISH_DESTINATIONS.map(({ label, icon: Icon }) => (
+            <div
+              key={label}
+              className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3 py-2 text-sm text-foreground shadow-sm"
+            >
+              <Icon className="h-4 w-4 text-primary" />
+              <span>{label}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
