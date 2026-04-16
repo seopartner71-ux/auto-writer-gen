@@ -41,6 +41,27 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_logs: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          url?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          url?: string
+        }
+        Relationships: []
+      }
       api_keys: {
         Row: {
           api_key: string
@@ -1073,6 +1094,8 @@ export type Database = {
           id: string
           injection_links: Json | null
           language: string
+          last_ping_at: string | null
+          last_ping_status: string | null
           name: string
           primary_color: string | null
           region: string
@@ -1081,6 +1104,7 @@ export type Database = {
           site_copyright: string | null
           site_name: string | null
           site_privacy: string | null
+          total_views: number | null
           updated_at: string
           user_id: string
         }
@@ -1100,6 +1124,8 @@ export type Database = {
           id?: string
           injection_links?: Json | null
           language?: string
+          last_ping_at?: string | null
+          last_ping_status?: string | null
           name: string
           primary_color?: string | null
           region?: string
@@ -1108,6 +1134,7 @@ export type Database = {
           site_copyright?: string | null
           site_name?: string | null
           site_privacy?: string | null
+          total_views?: number | null
           updated_at?: string
           user_id: string
         }
@@ -1127,6 +1154,8 @@ export type Database = {
           id?: string
           injection_links?: Json | null
           language?: string
+          last_ping_at?: string | null
+          last_ping_status?: string | null
           name?: string
           primary_color?: string | null
           region?: string
@@ -1135,6 +1164,7 @@ export type Database = {
           site_copyright?: string | null
           site_name?: string | null
           site_privacy?: string | null
+          total_views?: number | null
           updated_at?: string
           user_id?: string
         }
