@@ -696,7 +696,7 @@ export default function SiteFactoryPage() {
       setArticles((prev) =>
         prev.map((a) =>
           selectedIds.has(a.id)
-            ? { ...a, status: "published", published_url: publishedUrls.get(a.id) ?? a.published_url }
+            ? { ...a, status: "published", published_url: (publishedUrls.get(a.id) as string) ?? a.published_url }
             : a
         )
       );
