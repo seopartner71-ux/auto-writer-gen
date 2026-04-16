@@ -129,6 +129,7 @@ export default function SiteFactoryPage() {
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
   const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "", footer_link_url: "", footer_link_text: "", google_verification: "" });
+  const [verificationDeployed, setVerificationDeployed] = useState(false);
   const [hostingPlatform, setHostingPlatform] = useState("vercel");
   const [deployLogs, setDeployLogs] = useState<DeployLog[]>([]);
   const [imageCount, setImageCount] = useState(3);
@@ -184,6 +185,7 @@ export default function SiteFactoryPage() {
         google_verification: selectedProject.google_verification || "",
       });
       setCustomDomain(selectedProject.custom_domain || "");
+      setVerificationDeployed(false);
       setHostingPlatform(selectedProject.hosting_platform || "vercel");
       setInjectionLinks(selectedProject.injection_links || []);
     }
@@ -326,6 +328,7 @@ export default function SiteFactoryPage() {
       });
       if (error) throw new Error(error.message);
       if (data?.success) {
+        setVerificationDeployed(true);
         toast({ title: lang === "ru" ? "Верификация задеплоена!" : "Verification deployed!", description: lang === "ru" ? "Мета-тег google-site-verification добавлен на сайт" : "google-site-verification meta tag pushed to site" });
       } else {
         throw new Error("Deploy failed");
@@ -1363,10 +1366,17 @@ export default function SiteFactoryPage() {
                     <div className="flex items-center gap-2">
                       {siteConfig.google_verification ? (
                         <>
-                          <Badge variant="default" className="gap-1 text-[10px]">
-                            <CheckCircle className="h-3 w-3" />
-                            {lang === "ru" ? "Код указан" : "Code set"}
-                          </Badge>
+                          {verificationDeployed ? (
+                            <Badge className="gap-1 text-[10px] bg-green-600 hover:bg-green-700 text-white">
+                              <CheckCircle className="h-3 w-3" />
+                              {lang === "ru" ? "Задеплоен на сайт" : "Deployed to site"}
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="gap-1 text-[10px]">
+                              <CheckCircle className="h-3 w-3" />
+                              {lang === "ru" ? "Код указан" : "Code set"}
+                            </Badge>
+                          )}
                           {repoStatus === "ready" && (
                             <Button
                               size="sm"
