@@ -298,18 +298,41 @@ export default function RadarPage() {
     enabled: !!activeProject,
   });
 
-  const keywordIdsKey = keywords.map((k: any) => k.id).sort().join(",");
-  const { data: results = [], isLoading: loadingResults, refetch: refetchResults } = useQuery({
-    queryKey: ["radar-results", activeProject?.id, keywordIdsKey],
+  const { data: prompts = [], refetch: refetchPrompts } = useQuery({
+    queryKey: ["radar-prompts", activeProject?.id],
     queryFn: async () => {
       if (!activeProject) return [];
-      const kwIds = keywords.map((k: any) => k.id);
-      if (kwIds.length === 0) return [];
-      const { data, error } = await supabase.from("radar_results").select("*").in("keyword_id", kwIds).order("checked_at", { ascending: false });
+      const { data, error } = await supabase.from("radar_prompts").select("*").eq("project_id", activeProject.id).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!activeProject && keywords.length > 0,
+    enabled: !!activeProject,
+  });
+
+  const keywordIdsKey = keywords.map((k: any) => k.id).sort().join(",");
+  const promptIdsKey = prompts.map((p: any) => p.id).sort().join(",");
+  const { data: results = [], isLoading: loadingResults, refetch: refetchResults } = useQuery({
+    queryKey: ["radar-results", activeProject?.id, keywordIdsKey, promptIdsKey],
+    queryFn: async () => {
+      if (!activeProject) return [];
+      const kwIds = keywords.map((k: any) => k.id);
+      const prIds = prompts.map((p: any) => p.id);
+      if (kwIds.length === 0 && prIds.length === 0) return [];
+      let allResults: any[] = [];
+      if (kwIds.length > 0) {
+        const { data, error } = await supabase.from("radar_results").select("*").in("keyword_id", kwIds).order("checked_at", { ascending: false });
+        if (error) throw error;
+        allResults = data || [];
+      }
+      if (prIds.length > 0) {
+        const { data, error } = await supabase.from("radar_results").select("*").in("prompt_id", prIds).order("checked_at", { ascending: false });
+        if (error) throw error;
+        const existing = new Set(allResults.map((r: any) => r.id));
+        (data || []).forEach((r: any) => { if (!existing.has(r.id)) allResults.push(r); });
+      }
+      return allResults;
+    },
+    enabled: !!activeProject && (keywords.length > 0 || prompts.length > 0),
   });
 
   /* ── Filtered results by active models ── */
