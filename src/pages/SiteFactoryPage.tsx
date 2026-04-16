@@ -151,6 +151,7 @@ export default function SiteFactoryPage() {
   const [indexedArticleIds, setIndexedArticleIds] = useState<Set<string>>(new Set());
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkAnchor, setNewLinkAnchor] = useState("");
+  const [deployingVerification, setDeployingVerification] = useState(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -292,6 +293,47 @@ export default function SiteFactoryPage() {
       setRepoStatus("error");
       setRepoError(err?.message || String(err));
       toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
+    }
+  };
+
+  // Deploy google verification to live site (re-init Layout.astro)
+  const handleDeployVerification = async () => {
+    if (!selectedProjectId || !siteConfig.google_verification.trim()) return;
+    setDeployingVerification(true);
+    try {
+      // Save verification code to DB
+      await supabase.from("projects").update({
+        google_verification: siteConfig.google_verification.trim(),
+      }).eq("id", selectedProjectId);
+
+      // Re-init to push updated Layout.astro with the meta tag
+      const { data, error } = await supabase.functions.invoke("bootstrap-astro", {
+        body: {
+          project_id: selectedProjectId,
+          action: "initialize",
+          site_name: siteConfig.site_name || selectedProject?.name || "Blog",
+          site_copyright: siteConfig.site_copyright || "",
+          site_about: siteConfig.site_about || "",
+          site_contacts: siteConfig.site_contacts || "",
+          site_privacy: siteConfig.site_privacy || "",
+          language: selectedProject?.language || "en",
+          author_name: siteConfig.author_name || "",
+          author_bio: siteConfig.author_bio || "",
+          author_avatar: siteConfig.author_avatar || "",
+          primary_color: siteConfig.primary_color || "",
+          font_pair: siteConfig.font_pair || "",
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.success) {
+        toast({ title: lang === "ru" ? "Верификация задеплоена!" : "Verification deployed!", description: lang === "ru" ? "Мета-тег google-site-verification добавлен на сайт" : "google-site-verification meta tag pushed to site" });
+      } else {
+        throw new Error("Deploy failed");
+      }
+    } catch (err: any) {
+      toast({ title: lang === "ru" ? "Ошибка деплоя" : "Deploy error", description: err?.message, variant: "destructive" });
+    } finally {
+      setDeployingVerification(false);
     }
   };
 
@@ -1315,20 +1357,36 @@ export default function SiteFactoryPage() {
                     />
                     <p className="text-[10px] text-muted-foreground">
                       {lang === "ru"
-                        ? "Код автоматически добавится в <head> вашего сайта при инициализации"
-                        : "Code will be auto-injected into your site's <head> on initialization"}
+                        ? "Код автоматически добавится в <head> вашего сайта"
+                        : "Code will be auto-injected into your site's <head>"}
                     </p>
-                    {siteConfig.google_verification ? (
-                      <Badge variant="default" className="gap-1 text-[10px]">
-                        <CheckCircle className="h-3 w-3" />
-                        {lang === "ru" ? "Google подтвержден" : "Google verified"}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="gap-1 text-[10px]">
-                        <AlertCircle className="h-3 w-3" />
-                        {lang === "ru" ? "Требуется верификация" : "Verification required"}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {siteConfig.google_verification ? (
+                        <>
+                          <Badge variant="default" className="gap-1 text-[10px]">
+                            <CheckCircle className="h-3 w-3" />
+                            {lang === "ru" ? "Код указан" : "Code set"}
+                          </Badge>
+                          {repoStatus === "ready" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[10px] gap-1"
+                              disabled={deployingVerification}
+                              onClick={handleDeployVerification}
+                            >
+                              {deployingVerification ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
+                              {lang === "ru" ? "Задеплоить на сайт" : "Deploy to site"}
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 text-[10px]">
+                          <AlertCircle className="h-3 w-3" />
+                          {lang === "ru" ? "Требуется верификация" : "Verification required"}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
                 </div>
