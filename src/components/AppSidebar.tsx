@@ -77,6 +77,7 @@ export function AppSidebar() {
     routePrefetchMap[url]?.();
   }, []);
 
+  const plan = profile?.plan ?? "free";
   const isFactory = plan === "pro";
 
   const mainItems = [
