@@ -129,6 +129,7 @@ export default function SiteFactoryPage() {
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
   const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "", footer_link_url: "", footer_link_text: "", google_verification: "" });
+  const [verificationDeployed, setVerificationDeployed] = useState(false);
   const [hostingPlatform, setHostingPlatform] = useState("vercel");
   const [deployLogs, setDeployLogs] = useState<DeployLog[]>([]);
   const [imageCount, setImageCount] = useState(3);
