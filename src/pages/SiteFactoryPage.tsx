@@ -1510,6 +1510,34 @@ export default function SiteFactoryPage() {
         </Card>
       </div>
 
+      {/* Deploy Status Bar */}
+      {deployLogs.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              {deployLogs[0]?.status === "publishing" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              {deployLogs[0]?.status === "success" && <CheckCircle className="h-4 w-4 text-green-400" />}
+              {deployLogs[0]?.status === "error" && <AlertCircle className="h-4 w-4 text-destructive" />}
+              {lang === "ru" ? "Статус деплоя" : "Deploy status"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-0 pb-3">
+            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              {deployLogs.map((log, i) => (
+                <div key={i} className={`text-xs flex items-center gap-2 ${
+                  log.status === "error" ? "text-destructive" : log.status === "success" ? "text-green-400" : "text-muted-foreground"
+                }`}>
+                  <span className="text-[10px] opacity-60 tabular-nums shrink-0">
+                    {log.timestamp.toLocaleTimeString()}
+                  </span>
+                  <span className="truncate">{log.message}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Preview Dialog — matches published site design */}
       <Dialog open={!!previewArticle} onOpenChange={() => setPreviewArticle(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0 bg-gray-50 border-0">
