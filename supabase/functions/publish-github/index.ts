@@ -681,6 +681,10 @@ serve(async (req) => {
         results.push({ articleId: p.articleId, url: siteUrl });
       }
 
+      // ═══ AUTO-INDEXING after batch publish ═══
+      const projectLang = project?.language || "en";
+      await autoSubmitIndexing(supabase, user.id, results, projectLang);
+
       return new Response(JSON.stringify({
         success: true,
         published: results.length,
@@ -795,6 +799,11 @@ serve(async (req) => {
 
     // Update article status
     await supabase.from("articles").update({ status: "published", published_url: siteUrl }).eq("id", article_id);
+
+    // ═══ AUTO-INDEXING after single publish ═══
+    const { data: projLang } = await supabase.from("projects").select("language").eq("id", project_id).single();
+    const projectLang = projLang?.language || "en";
+    await autoSubmitIndexing(supabase, user.id, [{ articleId: article_id, url: siteUrl }], projectLang);
 
     return new Response(
       JSON.stringify({
