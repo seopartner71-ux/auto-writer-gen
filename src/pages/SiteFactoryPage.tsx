@@ -397,6 +397,23 @@ export default function SiteFactoryPage() {
 
   useEffect(() => { loadArticles(); }, [loadArticles]);
 
+  // Load indexing status for articles
+  useEffect(() => {
+    if (!user || articles.length === 0) { setIndexedArticleIds(new Set()); return; }
+    const articleIds = articles.map((a) => a.id);
+    (async () => {
+      const { data } = await supabase
+        .from("indexing_logs")
+        .select("article_id")
+        .eq("user_id", user.id)
+        .eq("status", "success")
+        .in("article_id", articleIds);
+      if (data) {
+        setIndexedArticleIds(new Set(data.map((d: any) => d.article_id)));
+      }
+    })();
+  }, [user, articles]);
+
   // Realtime subscription for article updates
   useEffect(() => {
     if (!user || !selectedProjectId) return;
