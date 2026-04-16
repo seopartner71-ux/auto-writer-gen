@@ -247,6 +247,8 @@ export default function SiteFactoryPage() {
         primary_color: color,
         font_pair: font,
         hosting_platform: hostingPlatform,
+        injection_links: injectionLinks.length > 0 ? injectionLinks : [],
+        footer_link: siteConfig.footer_link_url ? { url: siteConfig.footer_link_url, text: siteConfig.footer_link_text || siteConfig.footer_link_url } : null,
       }).eq("id", selectedProjectId);
 
       // Update local state
