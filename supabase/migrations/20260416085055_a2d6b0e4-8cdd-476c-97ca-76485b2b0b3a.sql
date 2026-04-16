@@ -1,0 +1,1 @@
+ALTER TABLE public.radar_results ALTER COLUMN keyword_id DROP NOT NULL;
