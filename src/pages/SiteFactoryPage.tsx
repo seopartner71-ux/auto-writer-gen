@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Send, Newspaper, Network } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,6 +91,15 @@ function randomAccentColor(): string {
 function randomFontPair(): string {
   return FONT_PAIRS[Math.floor(Math.random() * FONT_PAIRS.length)].value;
 }
+
+const PUBLISH_DESTINATIONS = [
+  { label: "WordPress", icon: Network },
+  { label: "GitHub Pages", icon: Github },
+  { label: "Cloudflare Pages", icon: Cloud },
+  { label: "Vercel", icon: Rocket },
+  { label: "Ghost", icon: Newspaper },
+  { label: "Telegraph", icon: Send },
+];
 
 interface QueueArticle {
   id: string;
@@ -908,7 +917,22 @@ export default function SiteFactoryPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      <Card className="border-border/60 bg-card/50">
+        <CardContent className="flex flex-wrap items-center gap-3 p-3 md:p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            {lang === "ru" ? "Куда публикуем" : "Publishing targets"}
+          </p>
+          {PUBLISH_DESTINATIONS.map(({ label, icon: Icon }) => (
+            <div
+              key={label}
+              className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3 py-2 text-sm text-foreground shadow-sm"
+            >
+              <Icon className="h-4 w-4 text-primary" />
+              <span>{label}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
