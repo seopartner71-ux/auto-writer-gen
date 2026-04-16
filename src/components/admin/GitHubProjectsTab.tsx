@@ -188,10 +188,17 @@ export function GitHubProjectsTab() {
   const handleSave = async (projectId: string) => {
     const vals = editing[projectId];
     if (!vals) return;
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+
     setSaving(projectId);
     const { error } = await supabase
       .from("projects")
-      .update({ github_repo: vals.repo || null, github_token: vals.token || null, hosting_platform: (projects.find((p) => p.id === projectId)?.hosting_platform || "vercel") })
+      .update({
+        github_repo: vals.repo || null,
+        github_token: vals.token || null,
+        hosting_platform: project.hosting_platform || "vercel",
+      })
       .eq("id", projectId);
     setSaving(null);
     if (error) {
