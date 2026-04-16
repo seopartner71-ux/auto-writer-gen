@@ -824,12 +824,12 @@ export default function RadarPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => scanAll.mutate()} disabled={scanAll.isPending || keywords.length === 0} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => scanAll.mutate()} disabled={scanAll.isPending || (keywords.length === 0 && prompts.length === 0)} className="gap-1.5">
             {scanAll.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {lang === "ru" ? "Сканировать всё" : "Scan All"}
-            {keywords.length > 0 && (
+            {lang === "ru" ? "Сканировать все" : "Scan All"}
+            {(keywords.length + prompts.length) > 0 && (
               <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-1">
-                {keywords.length} {lang === "ru" ? "кр." : "cr."}
+                {keywords.length + prompts.length}
               </Badge>
             )}
           </Button>
