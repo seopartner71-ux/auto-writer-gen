@@ -173,6 +173,8 @@ export default function SiteFactoryPage() {
         author_avatar: selectedProject.author_avatar || "",
         primary_color: selectedProject.primary_color || "",
         font_pair: selectedProject.font_pair || "",
+        footer_link_url: selectedProject.footer_link?.url || "",
+        footer_link_text: selectedProject.footer_link?.text || "",
       });
       setCustomDomain(selectedProject.custom_domain || "");
       setHostingPlatform(selectedProject.hosting_platform || "vercel");
