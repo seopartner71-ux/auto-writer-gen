@@ -35,13 +35,35 @@ interface ProjectRow {
   site_name: string | null;
   site_copyright: string | null;
   site_about: string | null;
+  site_contacts: string | null;
+  site_privacy: string | null;
   custom_domain: string | null;
   author_name: string | null;
   author_bio: string | null;
   author_avatar: string | null;
   primary_color: string | null;
   font_pair: string | null;
+  hosting_platform: string | null;
 }
+
+type DeployStatus = "idle" | "publishing" | "success" | "error";
+interface DeployLog {
+  status: DeployStatus;
+  message: string;
+  timestamp: Date;
+}
+
+const HOSTING_PLATFORMS = [
+  { value: "vercel", label: "Vercel" },
+  { value: "cloudflare", label: "Cloudflare Pages" },
+  { value: "netlify", label: "Netlify" },
+];
+
+const DNS_CONFIGS: Record<string, { a: string; cname: string; cnameValue: string }> = {
+  vercel: { a: "76.76.21.21", cname: "www", cnameValue: "cname.vercel-dns.com" },
+  cloudflare: { a: "", cname: "@", cnameValue: "your-project.pages.dev" },
+  netlify: { a: "75.2.60.5", cname: "www", cnameValue: "your-site.netlify.app" },
+};
 
 const FONT_PAIRS = [
   { label: "Inter + System", value: "inter" },
@@ -97,7 +119,9 @@ export default function SiteFactoryPage() {
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
-  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "" });
+  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "" });
+  const [hostingPlatform, setHostingPlatform] = useState("vercel");
+  const [deployLogs, setDeployLogs] = useState<DeployLog[]>([]);
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
@@ -125,7 +149,7 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
-  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair";
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform";
 
   // Sync siteConfig when project changes
   useEffect(() => {
@@ -134,6 +158,8 @@ export default function SiteFactoryPage() {
         site_name: selectedProject.site_name || "",
         site_copyright: selectedProject.site_copyright || "",
         site_about: selectedProject.site_about || "",
+        site_contacts: selectedProject.site_contacts || "",
+        site_privacy: selectedProject.site_privacy || "",
         author_name: selectedProject.author_name || "",
         author_bio: selectedProject.author_bio || "",
         author_avatar: selectedProject.author_avatar || "",
@@ -141,8 +167,13 @@ export default function SiteFactoryPage() {
         font_pair: selectedProject.font_pair || "",
       });
       setCustomDomain(selectedProject.custom_domain || "");
+      setHostingPlatform(selectedProject.hosting_platform || "vercel");
     }
   }, [selectedProject]);
+
+  const addDeployLog = (status: DeployStatus, message: string) => {
+    setDeployLogs((prev) => [{ status, message, timestamp: new Date() }, ...prev].slice(0, 20));
+  };
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
 
@@ -193,11 +224,14 @@ export default function SiteFactoryPage() {
         site_name: siteConfig.site_name || null,
         site_copyright: siteConfig.site_copyright || null,
         site_about: siteConfig.site_about || null,
+        site_contacts: siteConfig.site_contacts || null,
+        site_privacy: siteConfig.site_privacy || null,
         author_name: siteConfig.author_name || null,
         author_bio: siteConfig.author_bio || null,
         author_avatar: siteConfig.author_avatar || null,
         primary_color: color,
         font_pair: font,
+        hosting_platform: hostingPlatform,
       }).eq("id", selectedProjectId);
 
       // Update local state
@@ -210,6 +244,8 @@ export default function SiteFactoryPage() {
           site_name: siteConfig.site_name || selectedProject?.name || "Blog",
           site_copyright: siteConfig.site_copyright || "",
           site_about: siteConfig.site_about || "",
+          site_contacts: siteConfig.site_contacts || "",
+          site_privacy: siteConfig.site_privacy || "",
           language: selectedProject?.language || "en",
           author_name: siteConfig.author_name || "",
           author_bio: siteConfig.author_bio || "",
@@ -626,9 +662,12 @@ export default function SiteFactoryPage() {
     }
   };
 
+  const platformLabel = HOSTING_PLATFORMS.find((p) => p.value === hostingPlatform)?.label || "Vercel";
+
   const handlePublish = async (article: QueueArticle) => {
     if (!selectedProjectId || !article.content) return;
     setPublishing(article.id);
+    addDeployLog("publishing", lang === "ru" ? `Публикация: ${article.title}...` : `Publishing: ${article.title}...`);
     try {
       const { data, error } = await supabase.functions.invoke("publish-github", {
         body: {
@@ -641,6 +680,7 @@ export default function SiteFactoryPage() {
       });
       if (error) throw error;
       if (data?.error) {
+        addDeployLog("error", data.error);
         toast({
           title: lang === "ru" ? "Ошибка GitHub API" : "GitHub API Error",
           description: data.error,
@@ -648,9 +688,10 @@ export default function SiteFactoryPage() {
         });
         return;
       }
+      addDeployLog("success", lang === "ru" ? `Сайт на ${platformLabel} обновлен - ${article.title}` : `Site on ${platformLabel} updated - ${article.title}`);
       toast({
         title: lang === "ru" ? "Статья опубликована!" : "Article published!",
-        description: lang === "ru" ? "Сайт обновится через минуту" : "Site will update in a minute",
+        description: lang === "ru" ? `Сборка на ${platformLabel}...` : `Building on ${platformLabel}...`,
       });
       setArticles((prev) =>
         prev.map((a) =>
@@ -658,6 +699,7 @@ export default function SiteFactoryPage() {
         )
       );
     } catch (err: any) {
+      addDeployLog("error", err?.message || String(err));
       toast({
         title: lang === "ru" ? "Ошибка публикации" : "Publish error",
         description: err?.message || String(err),
@@ -671,6 +713,7 @@ export default function SiteFactoryPage() {
   const handleBatchPublish = async () => {
     if (!selectedProjectId || selectedIds.size === 0) return;
     setBatchPublishing(true);
+    addDeployLog("publishing", lang === "ru" ? `Пакетная публикация ${selectedIds.size} статей...` : `Batch publishing ${selectedIds.size} articles...`);
     try {
       const ids = Array.from(selectedIds);
       const { data, error } = await supabase.functions.invoke("publish-github", {
@@ -684,14 +727,15 @@ export default function SiteFactoryPage() {
       });
       if (error) throw error;
       if (data?.error) {
+        addDeployLog("error", data.error);
         toast({ title: lang === "ru" ? "Ошибка пакетной публикации" : "Batch publish error", description: data.error, variant: "destructive" });
         return;
       }
+      addDeployLog("success", lang === "ru" ? `Сайт на ${platformLabel} обновлен - ${data?.published || ids.length} статей одним коммитом` : `Site on ${platformLabel} updated - ${data?.published || ids.length} articles in one commit`);
       toast({
         title: lang === "ru" ? `Опубликовано ${data?.published || ids.length} статей одним коммитом` : `Published ${data?.published || ids.length} articles in one commit`,
-        description: lang === "ru" ? "Vercel запустит только одну сборку" : "Vercel will trigger only one build",
+        description: lang === "ru" ? `${platformLabel} запустит только одну сборку` : `${platformLabel} will trigger only one build`,
       });
-      // Update local state
       const publishedUrls = new Map((data?.results || []).map((r: any) => [r.articleId, r.url]));
       setArticles((prev) =>
         prev.map((a) =>
@@ -702,6 +746,7 @@ export default function SiteFactoryPage() {
       );
       setSelectedIds(new Set());
     } catch (err: any) {
+      addDeployLog("error", err?.message || String(err));
       toast({
         title: lang === "ru" ? "Ошибка пакетной публикации" : "Batch publish error",
         description: err?.message || String(err),
@@ -865,6 +910,27 @@ export default function SiteFactoryPage() {
               </Select>
             </div>
 
+            {/* Hosting Platform Selector */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                {lang === "ru" ? "Платформа хостинга" : "Hosting platform"}
+              </label>
+              <Select value={hostingPlatform} onValueChange={async (v) => {
+                setHostingPlatform(v);
+                if (selectedProjectId) {
+                  await supabase.from("projects").update({ hosting_platform: v }).eq("id", selectedProjectId);
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HOSTING_PLATFORMS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {/* Author Profile Selector */}
             {authorProfiles.length > 0 && (
               <div>
@@ -963,6 +1029,28 @@ export default function SiteFactoryPage() {
                     value={siteConfig.site_copyright}
                     onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_copyright: e.target.value }))}
                     placeholder={lang === "ru" ? "Мой Бренд" : "My Brand"}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "Контакты (контент страницы)" : "Contacts page content"}
+                  </label>
+                  <Textarea
+                    value={siteConfig.site_contacts}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_contacts: e.target.value }))}
+                    rows={2}
+                    placeholder={lang === "ru" ? "Email: info@example.com, Телефон: +7..." : "Email: info@example.com, Phone: +1..."}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "Политика конфиденциальности" : "Privacy policy content"}
+                  </label>
+                  <Textarea
+                    value={siteConfig.site_privacy}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_privacy: e.target.value }))}
+                    rows={2}
+                    placeholder={lang === "ru" ? "Настоящая политика определяет порядок обработки..." : "This policy defines the processing procedures..."}
                   />
                 </div>
 
@@ -1132,12 +1220,14 @@ export default function SiteFactoryPage() {
                   </Button>
                 </div>
 
-                {showDnsHelper && (
+                {showDnsHelper && (() => {
+                  const dns = DNS_CONFIGS[hostingPlatform] || DNS_CONFIGS.vercel;
+                  return (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3 text-sm">
                     <p className="font-medium text-primary">
                       {lang === "ru"
-                        ? "Добавьте следующие DNS-записи у вашего регистратора доменов:"
-                        : "Add these DNS records at your domain registrar:"}
+                        ? `DNS-записи для ${platformLabel}:`
+                        : `DNS records for ${platformLabel}:`}
                     </p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
@@ -1150,28 +1240,24 @@ export default function SiteFactoryPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr className="border-b border-border/50">
-                            <td className="py-2 px-3 font-mono text-primary font-bold">A</td>
-                            <td className="py-2 px-3 font-mono">@</td>
-                            <td className="py-2 px-3 font-mono text-primary">76.76.21.21</td>
-                            <td className="py-2 px-3 text-right">
-                              <button
-                                onClick={() => { navigator.clipboard.writeText("76.76.21.21"); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }}
-                                className="text-muted-foreground hover:text-primary transition-colors"
-                              >
-                                <Copy className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                          </tr>
+                          {dns.a && (
+                            <tr className="border-b border-border/50">
+                              <td className="py-2 px-3 font-mono text-primary font-bold">A</td>
+                              <td className="py-2 px-3 font-mono">@</td>
+                              <td className="py-2 px-3 font-mono text-primary">{dns.a}</td>
+                              <td className="py-2 px-3 text-right">
+                                <button onClick={() => { navigator.clipboard.writeText(dns.a); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }} className="text-muted-foreground hover:text-primary transition-colors">
+                                  <Copy className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          )}
                           <tr>
                             <td className="py-2 px-3 font-mono text-primary font-bold">CNAME</td>
-                            <td className="py-2 px-3 font-mono">www</td>
-                            <td className="py-2 px-3 font-mono text-primary">cname.vercel-dns.com</td>
+                            <td className="py-2 px-3 font-mono">{dns.cname}</td>
+                            <td className="py-2 px-3 font-mono text-primary">{dns.cnameValue}</td>
                             <td className="py-2 px-3 text-right">
-                              <button
-                                onClick={() => { navigator.clipboard.writeText("cname.vercel-dns.com"); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }}
-                                className="text-muted-foreground hover:text-primary transition-colors"
-                              >
+                              <button onClick={() => { navigator.clipboard.writeText(dns.cnameValue); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }} className="text-muted-foreground hover:text-primary transition-colors">
                                 <Copy className="h-3.5 w-3.5" />
                               </button>
                             </td>
@@ -1181,11 +1267,12 @@ export default function SiteFactoryPage() {
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       {lang === "ru"
-                        ? "После добавления записей Vercel автоматически выпустит SSL-сертификат (до 24 часов). Также добавьте домен в настройках проекта на Vercel."
-                        : "After adding records, Vercel will automatically issue an SSL certificate (up to 24 hours). Also add the domain in your Vercel project settings."}
+                        ? `После добавления записей ${platformLabel} автоматически выпустит SSL-сертификат (до 24 часов). Также добавьте домен в настройках проекта на ${platformLabel}.`
+                        : `After adding records, ${platformLabel} will automatically issue an SSL certificate (up to 24 hours). Also add the domain in your ${platformLabel} project settings.`}
                     </p>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             )}
 
@@ -1422,6 +1509,34 @@ export default function SiteFactoryPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Deploy Status Bar */}
+      {deployLogs.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              {deployLogs[0]?.status === "publishing" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              {deployLogs[0]?.status === "success" && <CheckCircle className="h-4 w-4 text-green-400" />}
+              {deployLogs[0]?.status === "error" && <AlertCircle className="h-4 w-4 text-destructive" />}
+              {lang === "ru" ? "Статус деплоя" : "Deploy status"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-0 pb-3">
+            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              {deployLogs.map((log, i) => (
+                <div key={i} className={`text-xs flex items-center gap-2 ${
+                  log.status === "error" ? "text-destructive" : log.status === "success" ? "text-green-400" : "text-muted-foreground"
+                }`}>
+                  <span className="text-[10px] opacity-60 tabular-nums shrink-0">
+                    {log.timestamp.toLocaleTimeString()}
+                  </span>
+                  <span className="truncate">{log.message}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Preview Dialog — matches published site design */}
       <Dialog open={!!previewArticle} onOpenChange={() => setPreviewArticle(null)}>
