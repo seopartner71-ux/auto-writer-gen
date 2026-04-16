@@ -18,6 +18,7 @@ import {
   Plug,
   LifeBuoy,
   Factory,
+  Activity,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -83,6 +84,7 @@ export function AppSidebar() {
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     { title: t("nav.myArticles"), url: "/my-articles", icon: BookMarked },
     { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
+    { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
     { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
     { title: "AI Radar", url: "/radar", icon: Radar },
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
