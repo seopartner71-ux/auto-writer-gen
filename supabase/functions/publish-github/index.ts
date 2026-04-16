@@ -612,6 +612,22 @@ async function autoSubmitIndexing(
   }
 }
 
+function queueAutoSubmitIndexing(
+  supabase: any,
+  userId: string,
+  articles: { articleId: string; url: string }[],
+  projectLang: string,
+) {
+  const backgroundTask = autoSubmitIndexing(supabase, userId, articles, projectLang)
+    .catch((error) => console.error("[publish-github] Auto-indexing background error:", error));
+  const edgeRuntime = (globalThis as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) {
+    edgeRuntime.waitUntil(backgroundTask);
+    return;
+  }
+  void backgroundTask;
+}
+
 // ── main ──
 
 serve(async (req) => {
@@ -776,7 +792,7 @@ serve(async (req) => {
       await updateRef(github_token, github_repo, newCommitSha);
 
       // Update article statuses
-      const { data: project } = await supabase.from("projects").select("domain, hosting_platform, name, custom_domain").eq("id", project_id).single();
+      const { data: project } = await supabase.from("projects").select("domain, hosting_platform, name, custom_domain, language").eq("id", project_id).single();
 
       let domainBase = "";
       if (project?.hosting_platform === "cloudflare") {
@@ -806,7 +822,7 @@ serve(async (req) => {
 
       // ═══ AUTO-INDEXING after batch publish ═══
       const projectLang = project?.language || "en";
-      await autoSubmitIndexing(supabase, user.id, results, projectLang);
+      queueAutoSubmitIndexing(supabase, user.id, results, projectLang);
 
       return new Response(JSON.stringify({
         success: true,
@@ -926,7 +942,7 @@ serve(async (req) => {
     // ═══ AUTO-INDEXING after single publish ═══
     const { data: projLang } = await supabase.from("projects").select("language").eq("id", project_id).single();
     const projectLang = projLang?.language || "en";
-    await autoSubmitIndexing(supabase, user.id, [{ articleId: article_id, url: siteUrl }], projectLang);
+    queueAutoSubmitIndexing(supabase, user.id, [{ articleId: article_id, url: siteUrl }], projectLang);
 
     return new Response(
       JSON.stringify({
