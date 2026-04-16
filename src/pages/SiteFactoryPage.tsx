@@ -769,6 +769,8 @@ export default function SiteFactoryPage() {
         )
       );
       setSelectedIds(new Set());
+      // Trigger Cloudflare deploy if applicable
+      await triggerCloudflare();
     } catch (err: any) {
       addDeployLog("error", err?.message || String(err));
       toast({
