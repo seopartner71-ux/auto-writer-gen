@@ -899,7 +899,9 @@ serve(async (req) => {
     const fPair = font_pair || projData?.font_pair || "inter";
     const footerLink = projData?.footer_link || null;
 
-    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://mwcejojlbqpolplshjgj.supabase.co";
+    const trackingUrl = `${supabaseUrl}/functions/v1/track-hit`;
+    const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink, project_id, trackingUrl);
 
     const results: { file: string; status: string }[] = [];
 
