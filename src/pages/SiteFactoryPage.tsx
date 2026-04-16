@@ -35,13 +35,35 @@ interface ProjectRow {
   site_name: string | null;
   site_copyright: string | null;
   site_about: string | null;
+  site_contacts: string | null;
+  site_privacy: string | null;
   custom_domain: string | null;
   author_name: string | null;
   author_bio: string | null;
   author_avatar: string | null;
   primary_color: string | null;
   font_pair: string | null;
+  hosting_platform: string | null;
 }
+
+type DeployStatus = "idle" | "publishing" | "success" | "error";
+interface DeployLog {
+  status: DeployStatus;
+  message: string;
+  timestamp: Date;
+}
+
+const HOSTING_PLATFORMS = [
+  { value: "vercel", label: "Vercel" },
+  { value: "cloudflare", label: "Cloudflare Pages" },
+  { value: "netlify", label: "Netlify" },
+];
+
+const DNS_CONFIGS: Record<string, { a: string; cname: string; cnameValue: string }> = {
+  vercel: { a: "76.76.21.21", cname: "www", cnameValue: "cname.vercel-dns.com" },
+  cloudflare: { a: "", cname: "@", cnameValue: "your-project.pages.dev" },
+  netlify: { a: "75.2.60.5", cname: "www", cnameValue: "your-site.netlify.app" },
+};
 
 const FONT_PAIRS = [
   { label: "Inter + System", value: "inter" },
@@ -97,7 +119,9 @@ export default function SiteFactoryPage() {
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
-  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "" });
+  const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "" });
+  const [hostingPlatform, setHostingPlatform] = useState("vercel");
+  const [deployLogs, setDeployLogs] = useState<DeployLog[]>([]);
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>("");
@@ -125,7 +149,7 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
-  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair";
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform";
 
   // Sync siteConfig when project changes
   useEffect(() => {
@@ -134,6 +158,8 @@ export default function SiteFactoryPage() {
         site_name: selectedProject.site_name || "",
         site_copyright: selectedProject.site_copyright || "",
         site_about: selectedProject.site_about || "",
+        site_contacts: selectedProject.site_contacts || "",
+        site_privacy: selectedProject.site_privacy || "",
         author_name: selectedProject.author_name || "",
         author_bio: selectedProject.author_bio || "",
         author_avatar: selectedProject.author_avatar || "",
@@ -141,8 +167,13 @@ export default function SiteFactoryPage() {
         font_pair: selectedProject.font_pair || "",
       });
       setCustomDomain(selectedProject.custom_domain || "");
+      setHostingPlatform(selectedProject.hosting_platform || "vercel");
     }
   }, [selectedProject]);
+
+  const addDeployLog = (status: DeployStatus, message: string) => {
+    setDeployLogs((prev) => [{ status, message, timestamp: new Date() }, ...prev].slice(0, 20));
+  };
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
 
