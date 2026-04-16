@@ -1357,20 +1357,36 @@ export default function SiteFactoryPage() {
                     />
                     <p className="text-[10px] text-muted-foreground">
                       {lang === "ru"
-                        ? "Код автоматически добавится в <head> вашего сайта при инициализации"
-                        : "Code will be auto-injected into your site's <head> on initialization"}
+                        ? "Код автоматически добавится в <head> вашего сайта"
+                        : "Code will be auto-injected into your site's <head>"}
                     </p>
-                    {siteConfig.google_verification ? (
-                      <Badge variant="default" className="gap-1 text-[10px]">
-                        <CheckCircle className="h-3 w-3" />
-                        {lang === "ru" ? "Google подтвержден" : "Google verified"}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="gap-1 text-[10px]">
-                        <AlertCircle className="h-3 w-3" />
-                        {lang === "ru" ? "Требуется верификация" : "Verification required"}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {siteConfig.google_verification ? (
+                        <>
+                          <Badge variant="default" className="gap-1 text-[10px]">
+                            <CheckCircle className="h-3 w-3" />
+                            {lang === "ru" ? "Код указан" : "Code set"}
+                          </Badge>
+                          {repoStatus === "ready" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[10px] gap-1"
+                              disabled={deployingVerification}
+                              onClick={handleDeployVerification}
+                            >
+                              {deployingVerification ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
+                              {lang === "ru" ? "Задеплоить на сайт" : "Deploy to site"}
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 text-[10px]">
+                          <AlertCircle className="h-3 w-3" />
+                          {lang === "ru" ? "Требуется верификация" : "Verification required"}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
                 </div>
