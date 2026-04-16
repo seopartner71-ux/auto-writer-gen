@@ -240,6 +240,8 @@ function generateFiles(
   siteContacts: string,
   sitePrivacy: string,
   footerLink?: { url: string; text: string } | null,
+  projectId?: string,
+  trackingUrl?: string,
 ): Record<string, string> {
   const i = getI18n(lang);
   const font = getFontConfig(fontPair);
@@ -383,6 +385,7 @@ const canonicalUrl = Astro.url.href;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  ${projectId ? `<meta name="project-id" content="${projectId}" />` : ""}
   <link rel="canonical" href={canonicalUrl} />
   <meta name="description" content={description} />
   {keywords && keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
