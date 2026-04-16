@@ -607,9 +607,21 @@ serve(async (req) => {
       await updateRef(github_token, github_repo, newCommitSha);
 
       // Update article statuses
-      const { data: project } = await supabase.from("projects").select("domain").eq("id", project_id).single();
-      const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
-      const domainBase = rawDomain.replace(/\/blog\/?$/, "");
+      const { data: project } = await supabase.from("projects").select("domain, hosting_platform, name, custom_domain").eq("id", project_id).single();
+
+      let domainBase = "";
+      if (project?.hosting_platform === "cloudflare") {
+        // Use pages.dev URL based on project name
+        if (project.custom_domain) {
+          domainBase = project.custom_domain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+        } else {
+          const cfName = sanitizeProjectName(project.name || "site");
+          domainBase = `${cfName}.pages.dev`;
+        }
+      } else {
+        const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+        domainBase = rawDomain.replace(/\/blog\/?$/, "");
+      }
 
       const results: { articleId: string; url: string }[] = [];
       for (const p of prepared) {
@@ -712,9 +724,19 @@ serve(async (req) => {
     await updateRef(github_token, github_repo, newCommitSha);
 
     // Get project domain for URL
-    const { data: project } = await supabase.from("projects").select("domain").eq("id", project_id).single();
-    const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
-    const domainBase = rawDomain.replace(/\/blog\/?$/, "");
+    const { data: project } = await supabase.from("projects").select("domain, hosting_platform, name, custom_domain").eq("id", project_id).single();
+    let domainBase = "";
+    if (project?.hosting_platform === "cloudflare") {
+      if (project.custom_domain) {
+        domainBase = project.custom_domain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+      } else {
+        const cfName = sanitizeProjectName(project.name || "site");
+        domainBase = `${cfName}.pages.dev`;
+      }
+    } else {
+      const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
+      domainBase = rawDomain.replace(/\/blog\/?$/, "");
+    }
     const siteUrl = domainBase ? `https://${domainBase}/blog/${prepared.slug}` : "";
 
     // Update article status
