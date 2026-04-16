@@ -711,18 +711,33 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "All articles have empty titles or content" }), { status: 400, headers: corsHeaders });
       }
 
-      // Prepare all articles
+      // Prepare all articles in parallel batches (concurrency limit) to avoid edge timeout
       const prepared: PreparedArticle[] = [];
       const errors: { articleId: string; error: string }[] = [];
+      // Reduce inline image count for batches to avoid edge function timeout
+      const effectiveImageCount = generate_images
+        ? Math.max(1, Math.min(image_count || 3, validArticles.length > 5 ? 1 : 2))
+        : (image_count || 3);
+      const CONCURRENCY = 3;
+      console.log(`[publish-github] Preparing ${validArticles.length} articles, concurrency=${CONCURRENCY}, imagesPerArticle=${effectiveImageCount}`);
 
-      for (const art of validArticles) {
-        try {
-          const p = await prepareArticle(supabase, art, project_id, author_profile_id, generate_images, image_count || 3, github_token, github_repo);
-          prepared.push(p);
-        } catch (e: any) {
-          errors.push({ articleId: art.id, error: e?.message || String(e) });
-          console.error(`[publish-github] Error preparing article ${art.id}:`, e);
-        }
+      for (let i = 0; i < validArticles.length; i += CONCURRENCY) {
+        const slice = validArticles.slice(i, i + CONCURRENCY);
+        const settled = await Promise.allSettled(
+          slice.map((art: any) =>
+            prepareArticle(supabase, art, project_id, author_profile_id, generate_images, effectiveImageCount, github_token, github_repo)
+          )
+        );
+        settled.forEach((res, idx) => {
+          const art = slice[idx];
+          if (res.status === "fulfilled") {
+            prepared.push(res.value);
+          } else {
+            const msg = res.reason?.message || String(res.reason);
+            errors.push({ articleId: art.id, error: msg });
+            console.error(`[publish-github] Error preparing article ${art.id}:`, msg);
+          }
+        });
       }
 
       if (prepared.length === 0) {
@@ -732,19 +747,25 @@ serve(async (req) => {
       // Create single commit via Trees API
       const { commitSha, treeSha } = await getLatestCommitSha(github_token, github_repo);
 
-      // Create blobs for all files
+      // Create blobs for all files (parallel for speed)
       const treeItems: { path: string; sha: string }[] = [];
 
+      const blobJobs: Promise<{ path: string; sha: string }>[] = [];
       for (const p of prepared) {
-        // MD file blob
-        const mdBlob = await createBlob(github_token, github_repo, p.fileContent, "utf-8");
-        treeItems.push({ path: p.filename, sha: mdBlob });
-
-        // Image blobs
+        blobJobs.push(
+          createBlob(github_token, github_repo, p.fileContent, "utf-8").then((sha) => ({ path: p.filename, sha }))
+        );
         for (const img of p.imageBlobs) {
-          const imgBlobSha = await createBlob(github_token, github_repo, img.base64, "base64");
-          treeItems.push({ path: img.path, sha: imgBlobSha });
+          blobJobs.push(
+            createBlob(github_token, github_repo, img.base64, "base64").then((sha) => ({ path: img.path, sha }))
+          );
         }
+      }
+      // Run blob uploads in chunks of 5 to avoid GitHub rate limits
+      for (let i = 0; i < blobJobs.length; i += 5) {
+        const chunk = blobJobs.slice(i, i + 5);
+        const results = await Promise.all(chunk);
+        treeItems.push(...results);
       }
 
       // Create tree, commit, and update ref
