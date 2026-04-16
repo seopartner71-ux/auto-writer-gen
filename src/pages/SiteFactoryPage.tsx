@@ -182,6 +182,7 @@ export default function SiteFactoryPage() {
   };
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
+  const isPlatformLocked = selectedProject?.hosting_platform === "cloudflare";
 
   // Check repo status when project changes
   useEffect(() => {
@@ -994,12 +995,18 @@ export default function SiteFactoryPage() {
               <label className="text-sm font-medium mb-1.5 block">
                 {lang === "ru" ? "Платформа хостинга" : "Hosting platform"}
               </label>
-              <Select value={hostingPlatform} onValueChange={async (v) => {
-                setHostingPlatform(v);
-                if (selectedProjectId) {
-                  await supabase.from("projects").update({ hosting_platform: v }).eq("id", selectedProjectId);
-                }
-              }}>
+              <Select
+                value={hostingPlatform}
+                onValueChange={async (v) => {
+                  if (isPlatformLocked) return;
+                  setHostingPlatform(v);
+                  if (selectedProjectId) {
+                    await supabase.from("projects").update({ hosting_platform: v }).eq("id", selectedProjectId);
+                    setProjects((prev) => prev.map((project) => project.id === selectedProjectId ? { ...project, hosting_platform: v } : project));
+                  }
+                }}
+                disabled={!selectedProjectId || isPlatformLocked}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1009,7 +1016,22 @@ export default function SiteFactoryPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedProjectId && isPlatformLocked && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {lang === "ru"
+                    ? "Для этого проекта зафиксирован Cloudflare Pages по умолчанию."
+                    : "Cloudflare Pages is locked as the default hosting platform for this project."}
+                </p>
+              )}
             </div>
+
+            {selectedProjectId && (
+              <div className={`rounded-md border p-3 text-sm ${isGitHubConfigured ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-destructive/30 bg-destructive/10 text-destructive"}`}>
+                {isGitHubConfigured
+                  ? (lang === "ru" ? "Сайт готов к работе" : "Site ready")
+                  : (lang === "ru" ? "Проект не настроен в Админ-панели" : "Project is not configured in Admin")}
+              </div>
+            )}
             {/* Author Profile Selector */}
             {authorProfiles.length > 0 && (
               <div>
@@ -1037,8 +1059,8 @@ export default function SiteFactoryPage() {
             {selectedProjectId && !isGitHubConfigured && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
-                  ? "Для этого проекта не настроен GitHub Token и Repo. Публикация недоступна."
-                  : "GitHub Token and Repo are not configured for this project."}
+                  ? "Проект не настроен в Админ-панели"
+                  : "Project is not configured in Admin"}
               </div>
             )}
 
