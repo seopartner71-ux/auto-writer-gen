@@ -1031,6 +1031,28 @@ export default function SiteFactoryPage() {
                     placeholder={lang === "ru" ? "Мой Бренд" : "My Brand"}
                   />
                 </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "Контакты (контент страницы)" : "Contacts page content"}
+                  </label>
+                  <Textarea
+                    value={siteConfig.site_contacts}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_contacts: e.target.value }))}
+                    rows={2}
+                    placeholder={lang === "ru" ? "Email: info@example.com, Телефон: +7..." : "Email: info@example.com, Phone: +1..."}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    {lang === "ru" ? "Политика конфиденциальности" : "Privacy policy content"}
+                  </label>
+                  <Textarea
+                    value={siteConfig.site_privacy}
+                    onChange={(e) => setSiteConfig((prev) => ({ ...prev, site_privacy: e.target.value }))}
+                    rows={2}
+                    placeholder={lang === "ru" ? "Настоящая политика определяет порядок обработки..." : "This policy defines the processing procedures..."}
+                  />
+                </div>
 
                 {/* Author fields */}
                 <div className="border-t border-border pt-3 mt-3">
