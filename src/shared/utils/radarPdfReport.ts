@@ -97,8 +97,10 @@ function addSectionTitle(doc: jsPDF, title: string, y: number): number {
   doc.setFillColor(...BRAND_COLOR);
   doc.rect(15, y, 3, 8, "F");
   doc.setTextColor(...TEXT_WHITE);
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(13);
   doc.text(title, 22, y + 6);
+  doc.setFont("Roboto", "normal");
   return y + 14;
 }
 
