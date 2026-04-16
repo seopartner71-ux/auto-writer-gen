@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +112,8 @@ export default function SiteFactoryPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [unassignedArticles, setUnassignedArticles] = useState<QueueArticle[]>([]);
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchPublishing, setBatchPublishing] = useState(false);
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -646,10 +649,8 @@ export default function SiteFactoryPage() {
         return;
       }
       toast({
-        title: lang === "ru" ? "Статья опубликована! 🎉" : "Article published! 🎉",
-        description: lang === "ru"
-          ? "Сайт обновится через минуту"
-          : "Site will update in a minute",
+        title: lang === "ru" ? "Статья опубликована!" : "Article published!",
+        description: lang === "ru" ? "Сайт обновится через минуту" : "Site will update in a minute",
       });
       setArticles((prev) =>
         prev.map((a) =>
@@ -664,6 +665,71 @@ export default function SiteFactoryPage() {
       });
     } finally {
       setPublishing(null);
+    }
+  };
+
+  const handleBatchPublish = async () => {
+    if (!selectedProjectId || selectedIds.size === 0) return;
+    setBatchPublishing(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { data, error } = await supabase.functions.invoke("publish-github", {
+        body: {
+          article_ids: ids,
+          project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
+          author_profile_id: selectedAuthorId && selectedAuthorId !== "none" ? selectedAuthorId : null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast({ title: lang === "ru" ? "Ошибка пакетной публикации" : "Batch publish error", description: data.error, variant: "destructive" });
+        return;
+      }
+      toast({
+        title: lang === "ru" ? `Опубликовано ${data?.published || ids.length} статей одним коммитом` : `Published ${data?.published || ids.length} articles in one commit`,
+        description: lang === "ru" ? "Vercel запустит только одну сборку" : "Vercel will trigger only one build",
+      });
+      // Update local state
+      const publishedUrls = new Map((data?.results || []).map((r: any) => [r.articleId, r.url]));
+      setArticles((prev) =>
+        prev.map((a) =>
+          selectedIds.has(a.id)
+            ? { ...a, status: "published", published_url: (publishedUrls.get(a.id) as string) ?? a.published_url }
+            : a
+        )
+      );
+      setSelectedIds(new Set());
+    } catch (err: any) {
+      toast({
+        title: lang === "ru" ? "Ошибка пакетной публикации" : "Batch publish error",
+        description: err?.message || String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setBatchPublishing(false);
+    }
+  };
+
+  const toggleSelectArticle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const publishableArticles = articles.filter(
+    (a) => (a.status === "completed" || a.status === "published") && a.content && !generatingIds.has(a.id)
+  );
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === publishableArticles.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(publishableArticles.map((a) => a.id)));
     }
   };
 
@@ -1195,20 +1261,35 @@ export default function SiteFactoryPage() {
 
         {/* Right: Queue */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-lg">
               {lang === "ru" ? "Очередь публикации" : "Publication queue"}
             </CardTitle>
-            {selectedProjectId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { setImportOpen(true); loadUnassignedArticles(); }}
-              >
-                <FolderInput className="h-4 w-4 mr-1.5" />
-                {lang === "ru" ? "Импорт статей" : "Import articles"}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <Button
+                  size="sm"
+                  onClick={handleBatchPublish}
+                  disabled={batchPublishing || !isGitHubConfigured}
+                >
+                  {batchPublishing ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{lang === "ru" ? "Публикация..." : "Publishing..."}</>
+                  ) : (
+                    <><PackageCheck className="h-4 w-4 mr-1.5" />{lang === "ru" ? `Опубликовать выбранное (${selectedIds.size})` : `Publish selected (${selectedIds.size})`}</>
+                  )}
+                </Button>
+              )}
+              {selectedProjectId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setImportOpen(true); loadUnassignedArticles(); }}
+                >
+                  <FolderInput className="h-4 w-4 mr-1.5" />
+                  {lang === "ru" ? "Импорт" : "Import"}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {articles.length === 0 ? (
@@ -1216,16 +1297,38 @@ export default function SiteFactoryPage() {
                 {lang === "ru" ? "Нет статей для этого проекта" : "No articles for this project"}
               </p>
             ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              <>
+                {/* Select all */}
+                {publishableArticles.length > 1 && (
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                    <Checkbox
+                      checked={selectedIds.size === publishableArticles.length && publishableArticles.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {lang === "ru" ? "Выбрать все" : "Select all"} ({publishableArticles.length})
+                    </span>
+                  </div>
+                )}
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {articles.map((article) => {
                   const isGen = generatingIds.has(article.id) || article.status === "generating";
+                  const isPublishable = !isGen && article.content && (article.status === "completed" || article.status === "published");
                   return (
                     <div
                       key={article.id}
                       className={`flex items-center justify-between gap-3 rounded-lg border p-3 ${
-                        isGen ? "border-primary/30 bg-primary/5" : "border-border"
+                        isGen ? "border-primary/30 bg-primary/5" : selectedIds.has(article.id) ? "border-primary/50 bg-primary/5" : "border-border"
                       }`}
                     >
+                      {/* Checkbox */}
+                      <div className="shrink-0">
+                        <Checkbox
+                          checked={selectedIds.has(article.id)}
+                          onCheckedChange={() => toggleSelectArticle(article.id)}
+                          disabled={!isPublishable}
+                        />
+                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">
                           {article.title || (lang === "ru" ? "Без названия" : "Untitled")}
@@ -1314,6 +1417,7 @@ export default function SiteFactoryPage() {
                   );
                 })}
               </div>
+              </>
             )}
           </CardContent>
         </Card>
