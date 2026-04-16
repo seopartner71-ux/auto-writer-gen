@@ -471,7 +471,7 @@ const canonicalUrl = Astro.url.href;
       }, { passive: true });
     }
     // Lightweight analytics pixel (no cookies, no PII)
-    (function(){try{var d={p:document.querySelector('meta[name="project-id"]')?.content||'',u:location.pathname};if(d.p){navigator.sendBeacon&&navigator.sendBeacon('${supabaseUrl || "https://mwcejojlbqpolplshjgj.supabase.co"}/functions/v1/track-hit',JSON.stringify(d))}}catch(e){}})();
+    (function(){try{var d={p:document.querySelector('meta[name="project-id"]')?.content||'',u:location.pathname};if(d.p){navigator.sendBeacon&&navigator.sendBeacon('${trackingUrl || "https://mwcejojlbqpolplshjgj.supabase.co/functions/v1/track-hit"}',JSON.stringify(d))}}catch(e){}})();
   </script>
 </body>
 </html>
