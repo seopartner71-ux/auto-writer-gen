@@ -1220,12 +1220,14 @@ export default function SiteFactoryPage() {
                   </Button>
                 </div>
 
-                {showDnsHelper && (
+                {showDnsHelper && (() => {
+                  const dns = DNS_CONFIGS[hostingPlatform] || DNS_CONFIGS.vercel;
+                  return (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3 text-sm">
                     <p className="font-medium text-primary">
                       {lang === "ru"
-                        ? "Добавьте следующие DNS-записи у вашего регистратора доменов:"
-                        : "Add these DNS records at your domain registrar:"}
+                        ? `DNS-записи для ${platformLabel}:`
+                        : `DNS records for ${platformLabel}:`}
                     </p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
@@ -1238,28 +1240,24 @@ export default function SiteFactoryPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr className="border-b border-border/50">
-                            <td className="py-2 px-3 font-mono text-primary font-bold">A</td>
-                            <td className="py-2 px-3 font-mono">@</td>
-                            <td className="py-2 px-3 font-mono text-primary">76.76.21.21</td>
-                            <td className="py-2 px-3 text-right">
-                              <button
-                                onClick={() => { navigator.clipboard.writeText("76.76.21.21"); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }}
-                                className="text-muted-foreground hover:text-primary transition-colors"
-                              >
-                                <Copy className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                          </tr>
+                          {dns.a && (
+                            <tr className="border-b border-border/50">
+                              <td className="py-2 px-3 font-mono text-primary font-bold">A</td>
+                              <td className="py-2 px-3 font-mono">@</td>
+                              <td className="py-2 px-3 font-mono text-primary">{dns.a}</td>
+                              <td className="py-2 px-3 text-right">
+                                <button onClick={() => { navigator.clipboard.writeText(dns.a); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }} className="text-muted-foreground hover:text-primary transition-colors">
+                                  <Copy className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          )}
                           <tr>
                             <td className="py-2 px-3 font-mono text-primary font-bold">CNAME</td>
-                            <td className="py-2 px-3 font-mono">www</td>
-                            <td className="py-2 px-3 font-mono text-primary">cname.vercel-dns.com</td>
+                            <td className="py-2 px-3 font-mono">{dns.cname}</td>
+                            <td className="py-2 px-3 font-mono text-primary">{dns.cnameValue}</td>
                             <td className="py-2 px-3 text-right">
-                              <button
-                                onClick={() => { navigator.clipboard.writeText("cname.vercel-dns.com"); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }}
-                                className="text-muted-foreground hover:text-primary transition-colors"
-                              >
+                              <button onClick={() => { navigator.clipboard.writeText(dns.cnameValue); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }} className="text-muted-foreground hover:text-primary transition-colors">
                                 <Copy className="h-3.5 w-3.5" />
                               </button>
                             </td>
@@ -1269,11 +1267,12 @@ export default function SiteFactoryPage() {
                     </div>
                     <p className="text-[11px] text-muted-foreground">
                       {lang === "ru"
-                        ? "После добавления записей Vercel автоматически выпустит SSL-сертификат (до 24 часов). Также добавьте домен в настройках проекта на Vercel."
-                        : "After adding records, Vercel will automatically issue an SSL certificate (up to 24 hours). Also add the domain in your Vercel project settings."}
+                        ? `После добавления записей ${platformLabel} автоматически выпустит SSL-сертификат (до 24 часов). Также добавьте домен в настройках проекта на ${platformLabel}.`
+                        : `After adding records, ${platformLabel} will automatically issue an SSL certificate (up to 24 hours). Also add the domain in your ${platformLabel} project settings.`}
                     </p>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             )}
 
