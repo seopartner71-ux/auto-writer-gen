@@ -1261,20 +1261,35 @@ export default function SiteFactoryPage() {
 
         {/* Right: Queue */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-lg">
               {lang === "ru" ? "Очередь публикации" : "Publication queue"}
             </CardTitle>
-            {selectedProjectId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { setImportOpen(true); loadUnassignedArticles(); }}
-              >
-                <FolderInput className="h-4 w-4 mr-1.5" />
-                {lang === "ru" ? "Импорт статей" : "Import articles"}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <Button
+                  size="sm"
+                  onClick={handleBatchPublish}
+                  disabled={batchPublishing || !isGitHubConfigured}
+                >
+                  {batchPublishing ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{lang === "ru" ? "Публикация..." : "Publishing..."}</>
+                  ) : (
+                    <><PackageCheck className="h-4 w-4 mr-1.5" />{lang === "ru" ? `Опубликовать выбранное (${selectedIds.size})` : `Publish selected (${selectedIds.size})`}</>
+                  )}
+                </Button>
+              )}
+              {selectedProjectId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setImportOpen(true); loadUnassignedArticles(); }}
+                >
+                  <FolderInput className="h-4 w-4 mr-1.5" />
+                  {lang === "ru" ? "Импорт" : "Import"}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {articles.length === 0 ? (
@@ -1282,16 +1297,38 @@ export default function SiteFactoryPage() {
                 {lang === "ru" ? "Нет статей для этого проекта" : "No articles for this project"}
               </p>
             ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              <>
+                {/* Select all */}
+                {publishableArticles.length > 1 && (
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                    <Checkbox
+                      checked={selectedIds.size === publishableArticles.length && publishableArticles.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {lang === "ru" ? "Выбрать все" : "Select all"} ({publishableArticles.length})
+                    </span>
+                  </div>
+                )}
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                 {articles.map((article) => {
                   const isGen = generatingIds.has(article.id) || article.status === "generating";
+                  const isPublishable = !isGen && article.content && (article.status === "completed" || article.status === "published");
                   return (
                     <div
                       key={article.id}
                       className={`flex items-center justify-between gap-3 rounded-lg border p-3 ${
-                        isGen ? "border-primary/30 bg-primary/5" : "border-border"
+                        isGen ? "border-primary/30 bg-primary/5" : selectedIds.has(article.id) ? "border-primary/50 bg-primary/5" : "border-border"
                       }`}
                     >
+                      {/* Checkbox */}
+                      <div className="shrink-0">
+                        <Checkbox
+                          checked={selectedIds.has(article.id)}
+                          onCheckedChange={() => toggleSelectArticle(article.id)}
+                          disabled={!isPublishable}
+                        />
+                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">
                           {article.title || (lang === "ru" ? "Без названия" : "Untitled")}
