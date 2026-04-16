@@ -743,8 +743,13 @@ serve(async (req) => {
       if (project.custom_domain) {
         domainBase = project.custom_domain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
       } else {
-        const cfName = sanitizeProjectName(project.name || "site");
-        domainBase = `${cfName}.pages.dev`;
+        const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/blog\/?$/, "");
+        if (rawDomain.includes(".pages.dev")) {
+          domainBase = rawDomain;
+        } else {
+          const cfName = sanitizeProjectName(project.name || "site");
+          domainBase = `${cfName}.pages.dev`;
+        }
       }
     } else {
       const rawDomain = (project?.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "");
