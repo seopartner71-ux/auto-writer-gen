@@ -1068,14 +1068,17 @@ export type Database = {
           font_pair: string | null
           github_repo: string | null
           github_token: string | null
+          hosting_platform: string | null
           id: string
           language: string
           name: string
           primary_color: string | null
           region: string
           site_about: string | null
+          site_contacts: string | null
           site_copyright: string | null
           site_name: string | null
+          site_privacy: string | null
           updated_at: string
           user_id: string
         }
@@ -1090,14 +1093,17 @@ export type Database = {
           font_pair?: string | null
           github_repo?: string | null
           github_token?: string | null
+          hosting_platform?: string | null
           id?: string
           language?: string
           name: string
           primary_color?: string | null
           region?: string
           site_about?: string | null
+          site_contacts?: string | null
           site_copyright?: string | null
           site_name?: string | null
+          site_privacy?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1112,14 +1118,17 @@ export type Database = {
           font_pair?: string | null
           github_repo?: string | null
           github_token?: string | null
+          hosting_platform?: string | null
           id?: string
           language?: string
           name?: string
           primary_color?: string | null
           region?: string
           site_about?: string | null
+          site_contacts?: string | null
           site_copyright?: string | null
           site_name?: string | null
+          site_privacy?: string | null
           updated_at?: string
           user_id?: string
         }
