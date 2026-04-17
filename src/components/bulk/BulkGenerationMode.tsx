@@ -31,6 +31,21 @@ export function BulkGenerationMode() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [publishingItemId, setPublishingItemId] = useState<string | null>(null);
+  const [autoPublishBlogger, setAutoPublishBlogger] = useState(false);
+
+  const { data: bloggerConn } = useQuery({
+    queryKey: ["blogger-connection"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from("blogger_connections" as any)
+        .select("default_blog_id, default_blog_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      return data as { default_blog_id: string | null; default_blog_name: string | null } | null;
+    },
+  });
 
   const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; className: string }> = {
     queued: { label: t("bulk.inQueue"), icon: FileText, className: "bg-muted text-muted-foreground" },
