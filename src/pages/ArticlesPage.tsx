@@ -1548,6 +1548,40 @@ export default function ArticlesPage() {
                           {publishingTo === "ghost" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
                           Ghost
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={publishingTo !== null}
+                          onClick={async () => {
+                            setPublishingTo("blogger");
+                            try {
+                              const { data, error } = await supabase.functions.invoke("blogger-publish", {
+                                body: { article_id: currentArticleId },
+                              });
+                              if (error || !data?.success) {
+                                const msg = data?.error || error?.message || "";
+                                if (/not connected/i.test(msg)) {
+                                  toast.error(t("integrations.bloggerNotConnected"));
+                                } else {
+                                  throw new Error(msg || "Ошибка публикации");
+                                }
+                                return;
+                              }
+                              const successMsg = data.is_update ? t("integrations.bloggerUpdated") : t("integrations.bloggerPublished");
+                              toast.success(successMsg, {
+                                description: data.url,
+                                action: data.url ? { label: lang === "ru" ? "Открыть" : "Open", onClick: () => window.open(data.url, "_blank") } : undefined,
+                              });
+                            } catch (e: any) {
+                              toast.error(e.message || "Ошибка Blogger");
+                            } finally {
+                              setPublishingTo(null);
+                            }
+                          }}
+                        >
+                          {publishingTo === "blogger" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Send className="h-3 w-3 mr-1" />}
+                          Blogger
+                        </Button>
                       </>
                     )}
                   </div>
