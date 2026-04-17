@@ -1443,6 +1443,28 @@ const translations: Record<string, Record<Lang, string>> = {
   "integrations.gogetlinksPlatformDesc": { ru: "Биржа контекстных ссылок. Выберите профиль 'GoGetLinks Expert' при генерации — статья будет соответствовать требованиям.", en: "Contextual link exchange. Select 'GoGetLinks Expert' profile when generating — article will meet requirements." },
   "integrations.ghostDocLabel": { ru: "Документация Ghost", en: "Ghost Documentation" },
 
+  // Blogger
+  "integrations.bloggerPlatformDesc": { ru: "Бесплатная платформа Google для блогов. Подключите Google-аккаунт — публикация в один клик с поддержкой массовой генерации.", en: "Google's free blogging platform. Connect your Google account — one-click publishing with bulk-mode support." },
+  "integrations.bloggerConfigured": { ru: "Подключено", en: "Connected" },
+  "integrations.bloggerNotConfigured": { ru: "Требует подключения", en: "Needs connection" },
+  "integrations.bloggerDesc": { ru: "Авторизуйтесь через Google и выберите блог по умолчанию. Используется OAuth со scope blogger.", en: "Sign in with Google and pick your default blog. Uses OAuth with the blogger scope." },
+  "integrations.bloggerConnect": { ru: "Подключить Blogger", en: "Connect Blogger" },
+  "integrations.bloggerReconnect": { ru: "Переподключить", en: "Reconnect" },
+  "integrations.bloggerDisconnect": { ru: "Отключить", en: "Disconnect" },
+  "integrations.bloggerDisconnected": { ru: "Blogger отключён", en: "Blogger disconnected" },
+  "integrations.bloggerRefreshed": { ru: "Список блогов обновлён", en: "Blog list refreshed" },
+  "integrations.bloggerDefaultSet": { ru: "Блог по умолчанию обновлён", en: "Default blog updated" },
+  "integrations.bloggerDefaultBlog": { ru: "Блог по умолчанию", en: "Default blog" },
+  "integrations.bloggerSelectBlog": { ru: "Выберите блог", en: "Select a blog" },
+  "integrations.bloggerNoBlogs": { ru: "Блоги не найдены. Создайте блог на blogger.com", en: "No blogs found. Create one at blogger.com" },
+  "integrations.bloggerPublish": { ru: "Опубликовать в Blogger", en: "Publish to Blogger" },
+  "integrations.bloggerUpdate": { ru: "Обновить в Blogger", en: "Update in Blogger" },
+  "integrations.bloggerPublished": { ru: "Опубликовано в Blogger!", en: "Published to Blogger!" },
+  "integrations.bloggerUpdated": { ru: "Пост в Blogger обновлён", en: "Blogger post updated" },
+  "integrations.bloggerNotConnected": { ru: "Сначала подключите Blogger в разделе Интеграции", en: "Connect Blogger first in Integrations" },
+  "integrations.bloggerAutoPublish": { ru: "Авто-публикация в Blogger", en: "Auto-publish to Blogger" },
+  "integrations.bloggerAutoPublishHint": { ru: "Каждая статья будет автоматически опубликована в выбранный блог сразу после генерации (с естественной задержкой).", en: "Each article will auto-publish to the selected blog right after generation (with natural delay)." },
+
   // Admin Page tabs
   "admin.tabErrors": { ru: "🔴 Логи ошибок", en: "🔴 Error Logs" },
   "admin.tabPlans": { ru: "Тарифы", en: "Plans" },

@@ -166,11 +166,39 @@ serve(async (req) => {
               completed_at: new Date().toISOString(),
             }).eq("id", item.id);
 
+            // Auto-publish to Blogger if requested
+            let bloggerUrl: string | null = null;
+            if (article?.id && (payload as any).auto_publish_blogger) {
+              try {
+                // Throttle: 2-5 min spacing simulated by sleeping a small jitter
+                const jitterMs = 1000 + Math.floor(Math.random() * 3000);
+                await new Promise(r => setTimeout(r, jitterMs));
+                const pubRes = await fetch(`${supabaseUrl}/functions/v1/blogger-publish`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${serviceKey}`,
+                    "x-queue-user-id": item.user_id,
+                  },
+                  body: JSON.stringify({
+                    article_id: article.id,
+                    blog_id: (payload as any).blogger_blog_id || undefined,
+                  }),
+                });
+                const pubData = await pubRes.json();
+                if (pubRes.ok && pubData?.url) bloggerUrl = pubData.url;
+              } catch (pubErr) {
+                console.error("Auto-publish to Blogger failed:", pubErr);
+              }
+            }
+
             // Notify user
             await admin.from("notifications").insert({
               user_id: item.user_id,
               title: "📝 Статья готова!",
-              message: `Статья "${title}" успешно сгенерирована из очереди.`,
+              message: bloggerUrl
+                ? `Статья "${title}" сгенерирована и опубликована в Blogger: ${bloggerUrl}`
+                : `Статья "${title}" успешно сгенерирована из очереди.`,
             });
 
             results.push({ id: item.id, status: "completed" });

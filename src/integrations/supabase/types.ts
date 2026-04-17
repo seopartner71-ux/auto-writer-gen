@@ -552,6 +552,8 @@ export type Database = {
       bulk_jobs: {
         Row: {
           author_profile_id: string | null
+          auto_publish_blogger: boolean
+          blogger_blog_id: string | null
           completed_items: number
           created_at: string | null
           id: string
@@ -562,6 +564,8 @@ export type Database = {
         }
         Insert: {
           author_profile_id?: string | null
+          auto_publish_blogger?: boolean
+          blogger_blog_id?: string | null
           completed_items?: number
           created_at?: string | null
           id?: string
@@ -572,6 +576,8 @@ export type Database = {
         }
         Update: {
           author_profile_id?: string | null
+          auto_publish_blogger?: boolean
+          blogger_blog_id?: string | null
           completed_items?: number
           created_at?: string | null
           id?: string
