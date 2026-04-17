@@ -1236,7 +1236,7 @@ export default function ArticlesPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px] xl:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
         {/* Left: Editor */}
         <div className="space-y-4">
           {/* Pro Image Cover Generator */}
