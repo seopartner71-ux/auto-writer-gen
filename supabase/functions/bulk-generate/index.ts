@@ -292,6 +292,32 @@ Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
       status: "published",
     }).select("id").single();
 
+    // Optional: auto-publish to Blogger with natural delay
+    if (articleRecord?.id && (job as any).auto_publish_blogger) {
+      try {
+        // Natural jitter: 2-5 minutes... but for serverless we use shorter 5-30s to fit edge runtime
+        // The cron-like spacing happens because items are processed one-by-one already
+        const jitterMs = 5000 + Math.floor(Math.random() * 25000);
+        await sleep(jitterMs);
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        await fetch(`${supabaseUrl}/functions/v1/blogger-publish`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+            "x-queue-user-id": userId,
+          },
+          body: JSON.stringify({
+            article_id: articleRecord.id,
+            blog_id: (job as any).blogger_blog_id || undefined,
+          }),
+        });
+      } catch (pubErr) {
+        console.error("Bulk Blogger auto-publish failed:", pubErr);
+      }
+    }
+
     const nextCompletedCount = completedCount + 1;
 
     await admin.from("bulk_job_items").update({
