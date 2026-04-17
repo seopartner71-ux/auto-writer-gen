@@ -43,7 +43,7 @@ export default function IntegrationsPage() {
     const load = async () => {
       const [{ data: profile }, { data: bConn }] = await Promise.all([
         supabase.from("profiles").select("ghost_url, ghost_api_key, medium_token").eq("id", user.id).single(),
-        supabase.from("blogger_connections" as any).select("google_email, blogs, default_blog_id, default_blog_name").eq("user_id", user.id).maybeSingle(),
+        (supabase as any).from("blogger_connections").select("google_email, blogs, default_blog_id, default_blog_name").eq("user_id", user.id).maybeSingle(),
       ]);
       if (profile) {
         setGhostUrl((profile as any).ghost_url || "");
