@@ -69,6 +69,16 @@ const DNS_CONFIGS: Record<string, { a: string; cname: string; cnameValue: string
   netlify: { a: "75.2.60.5", cname: "www", cnameValue: "your-site.netlify.app" },
 };
 
+// Auto-detect hosting platform from domain
+const detectPlatformFromDomain = (domain: string | null | undefined): string | null => {
+  if (!domain) return null;
+  const d = domain.toLowerCase();
+  if (d.includes("vercel.app")) return "vercel";
+  if (d.includes("pages.dev")) return "cloudflare";
+  if (d.includes("netlify.app") || d.includes("netlify.com")) return "netlify";
+  return null;
+};
+
 const FONT_PAIRS = [
   { label: "Inter + System", value: "inter" },
   { label: "Geist + Sans", value: "geist" },
