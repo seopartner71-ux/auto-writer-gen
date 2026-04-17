@@ -262,6 +262,9 @@ export type Database = {
           ai_content_gap: Json | null
           anchor_target_url: string | null
           author_profile_id: string | null
+          blogger_blog_id: string | null
+          blogger_post_id: string | null
+          blogger_post_url: string | null
           cluster_id: string | null
           content: string | null
           created_at: string | null
@@ -290,6 +293,9 @@ export type Database = {
           ai_content_gap?: Json | null
           anchor_target_url?: string | null
           author_profile_id?: string | null
+          blogger_blog_id?: string | null
+          blogger_post_id?: string | null
+          blogger_post_url?: string | null
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
@@ -318,6 +324,9 @@ export type Database = {
           ai_content_gap?: Json | null
           anchor_target_url?: string | null
           author_profile_id?: string | null
+          blogger_blog_id?: string | null
+          blogger_post_id?: string | null
+          blogger_post_url?: string | null
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
@@ -430,6 +439,48 @@ export type Database = {
           type?: string
           user_id?: string | null
           voice_tone?: string | null
+        }
+        Relationships: []
+      }
+      blogger_connections: {
+        Row: {
+          access_token: string | null
+          blogs: Json
+          created_at: string
+          default_blog_id: string | null
+          default_blog_name: string | null
+          google_email: string | null
+          id: string
+          refresh_token: string
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          blogs?: Json
+          created_at?: string
+          default_blog_id?: string | null
+          default_blog_name?: string | null
+          google_email?: string | null
+          id?: string
+          refresh_token: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          blogs?: Json
+          created_at?: string
+          default_blog_id?: string | null
+          default_blog_name?: string | null
+          google_email?: string | null
+          id?: string
+          refresh_token?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
