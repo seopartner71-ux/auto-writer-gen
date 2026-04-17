@@ -197,7 +197,15 @@ export default function SiteFactoryPage() {
       });
       setCustomDomain(selectedProject.custom_domain || "");
       setVerificationDeployed(false);
-      setHostingPlatform(selectedProject.hosting_platform || "vercel");
+      const detected = detectPlatformFromDomain(selectedProject.domain);
+      const resolvedPlatform = detected || selectedProject.hosting_platform || "vercel";
+      setHostingPlatform(resolvedPlatform);
+      // If detected platform differs from saved one — auto-correct in DB
+      if (detected && selectedProject.hosting_platform !== detected) {
+        supabase.from("projects").update({ hosting_platform: detected }).eq("id", selectedProject.id).then(() => {
+          setProjects((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, hosting_platform: detected } : p));
+        });
+      }
       setInjectionLinks(selectedProject.injection_links || []);
     }
   }, [selectedProject]);
@@ -207,7 +215,7 @@ export default function SiteFactoryPage() {
   };
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
-  const isPlatformLocked = selectedProject?.hosting_platform === "cloudflare";
+  const isPlatformLocked = false;
 
   // Check repo status when project changes
   useEffect(() => {
