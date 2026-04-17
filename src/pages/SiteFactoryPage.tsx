@@ -69,6 +69,16 @@ const DNS_CONFIGS: Record<string, { a: string; cname: string; cnameValue: string
   netlify: { a: "75.2.60.5", cname: "www", cnameValue: "your-site.netlify.app" },
 };
 
+// Auto-detect hosting platform from domain
+const detectPlatformFromDomain = (domain: string | null | undefined): string | null => {
+  if (!domain) return null;
+  const d = domain.toLowerCase();
+  if (d.includes("vercel.app")) return "vercel";
+  if (d.includes("pages.dev")) return "cloudflare";
+  if (d.includes("netlify.app") || d.includes("netlify.com")) return "netlify";
+  return null;
+};
+
 const FONT_PAIRS = [
   { label: "Inter + System", value: "inter" },
   { label: "Geist + Sans", value: "geist" },
@@ -187,7 +197,15 @@ export default function SiteFactoryPage() {
       });
       setCustomDomain(selectedProject.custom_domain || "");
       setVerificationDeployed(false);
-      setHostingPlatform(selectedProject.hosting_platform || "vercel");
+      const detected = detectPlatformFromDomain(selectedProject.domain);
+      const resolvedPlatform = detected || selectedProject.hosting_platform || "vercel";
+      setHostingPlatform(resolvedPlatform);
+      // If detected platform differs from saved one — auto-correct in DB
+      if (detected && selectedProject.hosting_platform !== detected) {
+        supabase.from("projects").update({ hosting_platform: detected }).eq("id", selectedProject.id).then(() => {
+          setProjects((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, hosting_platform: detected } : p));
+        });
+      }
       setInjectionLinks(selectedProject.injection_links || []);
     }
   }, [selectedProject]);
@@ -197,7 +215,7 @@ export default function SiteFactoryPage() {
   };
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
-  const isPlatformLocked = selectedProject?.hosting_platform === "cloudflare";
+  const isPlatformLocked = false;
 
   // Check repo status when project changes
   useEffect(() => {
