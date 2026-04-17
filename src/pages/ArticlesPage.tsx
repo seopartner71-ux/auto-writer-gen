@@ -1891,17 +1891,17 @@ export default function ArticlesPage() {
         {/* Right: SEO Dashboard */}
         <div className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
           <Tabs defaultValue="dashboard">
-            <TabsList className="w-full h-8">
-              <TabsTrigger value="dashboard" className="text-xs gap-1 flex-1">
-                <BarChart3 className="h-3 w-3" />
-                Dashboard
+            <TabsList className="w-full h-8 grid grid-cols-3 gap-0.5">
+              <TabsTrigger value="dashboard" className="text-[10px] gap-1 px-1 min-w-0">
+                <BarChart3 className="h-3 w-3 shrink-0" />
+                <span className="truncate">Dashboard</span>
               </TabsTrigger>
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TabsTrigger value="human" className="text-xs gap-1 flex-1">
-                      <Shield className="h-3 w-3" />
-                      Human Score
+                    <TabsTrigger value="human" className="text-[10px] gap-1 px-1 min-w-0">
+                      <Shield className="h-3 w-3 shrink-0" />
+                      <span className="truncate">Human</span>
                     </TabsTrigger>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px] text-center">
@@ -1910,22 +1910,22 @@ export default function ArticlesPage() {
                 </Tooltip>
               </TooltipProvider>
               {!!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_miralinks_profile) ? (
-                <TabsTrigger value="miralinks" className="text-xs gap-1 flex-1">
-                  <Link2 className="h-3 w-3" />
-                  Miralinks
+                <TabsTrigger value="miralinks" className="text-[10px] gap-1 px-1 min-w-0">
+                  <Link2 className="h-3 w-3 shrink-0" />
+                  <span className="truncate">Miralinks</span>
                 </TabsTrigger>
               ) : !!(selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId)?.is_gogetlinks_profile) ? (
-                <TabsTrigger value="gogetlinks" className="text-xs gap-1 flex-1">
-                  <Link2 className="h-3 w-3" />
-                  GoGetLinks
+                <TabsTrigger value="gogetlinks" className="text-[10px] gap-1 px-1 min-w-0">
+                  <Link2 className="h-3 w-3 shrink-0" />
+                  <span className="truncate">GoGetLinks</span>
                 </TabsTrigger>
               ) : (
                 <TooltipProvider delayDuration={300}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <TabsTrigger value="benchmark" className="text-xs gap-1 flex-1">
-                        <Target className="h-3 w-3" />
-                        Benchmark
+                      <TabsTrigger value="benchmark" className="text-[10px] gap-1 px-1 min-w-0">
+                        <Target className="h-3 w-3 shrink-0" />
+                        <span className="truncate">Benchmark</span>
                       </TabsTrigger>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[240px] text-center">
