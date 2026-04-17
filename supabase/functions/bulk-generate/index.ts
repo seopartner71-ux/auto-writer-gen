@@ -354,7 +354,7 @@ async function processBulkChunk(params: {
 
   const { data: job } = await admin
     .from("bulk_jobs")
-    .select("id, status, completed_items, author_profile_id, total_items")
+    .select("id, status, completed_items, author_profile_id, total_items, auto_publish_blogger, blogger_blog_id")
     .eq("id", bulkJobId)
     .eq("user_id", userId)
     .single();
