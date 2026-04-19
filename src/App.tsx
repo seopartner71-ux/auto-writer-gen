@@ -10,6 +10,7 @@ import { I18nProvider } from "@/shared/hooks/useI18n";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { SEOManager } from "@/components/SEOManager";
+import { AICopilotWidget } from "@/components/copilot/AICopilotWidget";
 import { Loader2 } from "lucide-react";
 
 // Eagerly loaded (core auth pages)
@@ -144,6 +145,7 @@ const App = () => (
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <AICopilotWidget />
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>
