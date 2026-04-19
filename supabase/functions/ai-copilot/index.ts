@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")?.trim().replace(/[^\x20-\x7E]/g, "");
     if (!OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: "OPENROUTER_API_KEY not configured" }), {
         status: 500,
