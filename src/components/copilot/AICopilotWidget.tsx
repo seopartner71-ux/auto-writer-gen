@@ -16,13 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-type IntentKind =
-  | "ACTION_WIKI_RAG"
-  | "ACTION_SYSTEM_CHECK"
-  | "ACTION_BILLING_UPSELL"
-  | "ACTION_SUPPORT_TICKET"
-  | "ACTION_DEFAULT";
+import { supabase } from "@/integrations/supabase/client";
 
 type WidgetPayload =
   | { kind: "system_check"; api: string; limitUsed: number; limitMax: number; queue: number }
@@ -40,61 +34,46 @@ interface ChatMessage {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-// === Intent Router (mock LLM) ===
-function classifyIntent(text: string): IntentKind {
-  const t = text.toLowerCase();
-  if (/(оператор|человек|баг|bug)/.test(t)) return "ACTION_SUPPORT_TICKET";
-  if (/(тариф|статей|статьи|массово|500|план|апгрейд)/.test(t)) return "ACTION_BILLING_UPSELL";
-  if (/(ошибк|api|лимит|error|fail|индексац)/.test(t)) return "ACTION_SYSTEM_CHECK";
-  if (/(vercel|github|как|deploy|деплой|настро|интеграц)/.test(t)) return "ACTION_WIKI_RAG";
-  return "ACTION_DEFAULT";
+// Detect which embedded UI card to attach (purely additive — text comes from LLM)
+function detectWidget(userText: string): WidgetPayload | undefined {
+  const t = userText.toLowerCase();
+  if (/(оператор|человек\s*техподдержк|жив(ой|ого)\s*челов|хочу\s*к\s*спе|свяжите|тикет)/.test(t)) {
+    return { kind: "support_ticket", ticketId: `T-${Date.now().toString().slice(-6)}` };
+  }
+  if (/(массов|500\+?\s*стат|тариф\s*factory|апгрейд|upgrade|pro\s*тариф|больше\s*стат)/.test(t)) {
+    return { kind: "billing_upsell", plan: "FACTORY", price: "4 990 ₽/мес" };
+  }
+  if (/(indexing\s*api|квот[аы]|лимит\s*api|google\s*индекс|api\s*не\s*работает)/.test(t)) {
+    return { kind: "system_check", api: "Google Indexing API", limitUsed: 187, limitMax: 200, queue: 42 };
+  }
+  return undefined;
 }
 
-async function processUserMessage(text: string): Promise<{ content: string; widget?: WidgetPayload }> {
-  await new Promise((r) => setTimeout(r, 650 + Math.random() * 400));
-  const intent = classifyIntent(text);
+async function processUserMessage(
+  history: ChatMessage[],
+  userText: string
+): Promise<{ content: string; widget?: WidgetPayload }> {
+  const messages = [
+    ...history.map((m) => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content })),
+    { role: "user", content: userText },
+  ];
 
-  switch (intent) {
-    case "ACTION_WIKI_RAG":
-      return {
-        content:
-          "**📚 Из документации СЕО-Модуль:**\n\n**Деплой проекта на Vercel:**\n\n1. Перейдите в **Site Factory → Новый проект**\n2. Выберите платформу `Vercel` в селекторе хостинга\n3. Подключите GitHub-репозиторий через OAuth\n4. Укажите кастомный домен (опционально)\n5. Нажмите **Deploy** — статьи деплоятся как Astro SSG\n\n```bash\n# Авто-детект платформы\ndomain.vercel.app → vercel\ndomain.pages.dev → cloudflare\n```\n\nПерелинковка и footer-ссылки подтянутся из настроек проекта автоматически.",
-        widget: { kind: "wiki_rag", source: "docs/site-factory/deploy.md" },
-      };
+  const { data, error } = await supabase.functions.invoke("ai-copilot", { body: { messages } });
 
-    case "ACTION_SYSTEM_CHECK":
-      return {
-        content:
-          "🔍 Запустил диагностику бэкенд-сервисов. Похоже, проблема в **квоте Google Indexing API** (200 URL/день на сервисный аккаунт).\n\n**Рекомендации:**\n- Добавьте второй JSON-ключ GSC в `Settings → Indexing`\n- Включите **IndexNow** как fallback (мгновенно для Bing/Yandex)\n- Проверьте, что домен верифицирован в Search Console",
-        widget: {
-          kind: "system_check",
-          api: "Google Indexing API",
-          limitUsed: 187,
-          limitMax: 200,
-          queue: 42,
-        },
-      };
-
-    case "ACTION_BILLING_UPSELL":
-      return {
-        content:
-          "На вашем текущем тарифе доступен лимит **50 статей/мес**. Для генерации 500+ материалов рекомендую **FACTORY** — массовая генерация через CSV, очередь задач, перелинковка и Site Factory с авто-деплоем.",
-        widget: { kind: "billing_upsell", plan: "FACTORY", price: "4 990 ₽/мес" },
-      };
-
-    case "ACTION_SUPPORT_TICKET":
-      return {
-        content:
-          "Перевожу диалог на специалиста технической поддержки... ⚙️\n\nИнженер ответит в течение **15 минут** в рабочее время. Контекст диалога приложен автоматически.",
-        widget: { kind: "support_ticket", ticketId: `T-${Date.now().toString().slice(-6)}` },
-      };
-
-    default:
-      return {
-        content:
-          "Привет! Я **AI Copilot СЕО-Модуль** 🧠\n\nПомогу с:\n- **SGE-оптимизацией** и Direct Answer-блоками\n- **Stealth-генерацией** (антидетект-движок)\n- **Smart Research** через Serper (LSI, PAA, intent)\n- Деплоем сайтов, индексацией, тарифами\n\nЗадайте конкретный вопрос — я подберу решение.",
-      };
+  if (error) {
+    console.error("[AICopilot] invoke error:", error);
+    return {
+      content:
+        "⚠️ Не удалось связаться с AI. Проверьте подключение или попробуйте позже. Если проблема повторяется — создайте тикет в **/support**.",
+    };
   }
+
+  const content =
+    (data as { content?: string; error?: string })?.content ||
+    (data as { error?: string })?.error ||
+    "Пустой ответ от AI.";
+
+  return { content, widget: detectWidget(userText) };
 }
 
 // === Embedded UI Cards ===
