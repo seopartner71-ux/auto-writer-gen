@@ -212,7 +212,7 @@ export function AICopilotWidget() {
     setInput("");
     setLoading(true);
     try {
-      const reply = await processUserMessage(text);
+      const reply = await processUserMessage(messages, text);
       setMessages((m) => [
         ...m,
         {
