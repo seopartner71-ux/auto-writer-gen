@@ -189,6 +189,7 @@ export function AICopilotWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: uid(),
@@ -204,6 +205,44 @@ export function AICopilotWidget() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  // Ensure a conversation row exists for the current user
+  const ensureConversation = async (firstUserText: string): Promise<string | null> => {
+    if (conversationId) return conversationId;
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth?.user) return null;
+    const { data, error } = await supabase
+      .from("copilot_conversations")
+      .insert({
+        user_id: auth.user.id,
+        title: firstUserText.slice(0, 80),
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      console.error("[AICopilot] conversation create failed:", error);
+      return null;
+    }
+    setConversationId(data.id);
+    return data.id;
+  };
+
+  const persistMessage = async (
+    convId: string,
+    role: "user" | "assistant",
+    content: string,
+    intent?: string
+  ) => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth?.user) return;
+    await supabase.from("copilot_messages").insert({
+      conversation_id: convId,
+      user_id: auth.user.id,
+      role,
+      content,
+      intent: intent ?? null,
+    });
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
@@ -211,6 +250,10 @@ export function AICopilotWidget() {
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
+
+    const convId = await ensureConversation(text);
+    if (convId) await persistMessage(convId, "user", text);
+
     try {
       const reply = await processUserMessage(messages, text);
       setMessages((m) => [
@@ -223,6 +266,7 @@ export function AICopilotWidget() {
           createdAt: Date.now(),
         },
       ]);
+      if (convId) await persistMessage(convId, "assistant", reply.content, reply.widget?.kind);
     } catch {
       setMessages((m) => [
         ...m,
