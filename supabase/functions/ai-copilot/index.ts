@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://seo-modul.pro",
-        "X-Title": "СЕО-Модуль AI Copilot",
+        "X-Title": "SEO-Module AI Copilot",
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
