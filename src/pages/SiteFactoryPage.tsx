@@ -1461,14 +1461,27 @@ export default function SiteFactoryPage() {
                       onChange={(e) => setNewLinkUrl(e.target.value)}
                       placeholder="https://..."
                       className="flex-1 text-xs"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newLinkUrl.trim() && newLinkAnchor.trim()) {
+                          e.preventDefault();
+                          (document.getElementById("inj-add-btn") as HTMLButtonElement | null)?.click();
+                        }
+                      }}
                     />
                     <Input
                       value={newLinkAnchor}
                       onChange={(e) => setNewLinkAnchor(e.target.value)}
                       placeholder={lang === "ru" ? "Анкор" : "Anchor"}
                       className="w-32 text-xs"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newLinkUrl.trim() && newLinkAnchor.trim()) {
+                          e.preventDefault();
+                          (document.getElementById("inj-add-btn") as HTMLButtonElement | null)?.click();
+                        }
+                      }}
                     />
                     <Button
+                      id="inj-add-btn"
                       size="sm"
                       variant="outline"
                       disabled={!newLinkUrl.trim() || !newLinkAnchor.trim()}
@@ -1479,12 +1492,18 @@ export default function SiteFactoryPage() {
                         setNewLinkAnchor("");
                         if (selectedProjectId) {
                           await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
+                          toast({ title: lang === "ru" ? "Ссылка добавлена" : "Link added" });
                         }
                       }}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
+                  {(newLinkUrl.trim() || newLinkAnchor.trim()) && (
+                    <p className="text-[10px] text-amber-500 mt-1.5 flex items-center gap-1">
+                      ⚠ {lang === "ru" ? "Нажмите «+» или Enter, чтобы сохранить ссылку — иначе она не будет вставлена в статьи" : "Click «+» or press Enter to save the link — otherwise it won't be injected"}
+                    </p>
+                  )}
                 </div>
 
                 {repoStatus === "ready" && (

@@ -455,7 +455,7 @@ async function prepareArticle(
     const paragraphIndices: number[] = [];
     for (let idx = 0; idx < lines.length; idx++) {
       const line = lines[idx].trim();
-      if (line.length > 80 && !line.startsWith("#") && !line.startsWith("-") && !line.startsWith("*") && 
+      if (line.length > 40 && !line.startsWith("#") && !line.startsWith("-") && !line.startsWith("*") && 
           !line.startsWith("|") && !line.startsWith("!") && !line.startsWith("```") && !line.startsWith(">")) {
         paragraphIndices.push(idx);
       }
