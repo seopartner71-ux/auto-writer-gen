@@ -1492,7 +1492,7 @@ export default function SiteFactoryPage() {
                         setNewLinkAnchor("");
                         if (selectedProjectId) {
                           await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
-                          toast.success(lang === "ru" ? "Ссылка добавлена" : "Link added");
+                          toast({ title: lang === "ru" ? "Ссылка добавлена" : "Link added" });
                         }
                       }}
                     >
