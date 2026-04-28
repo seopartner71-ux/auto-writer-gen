@@ -487,6 +487,9 @@ export default function ArticlesPage() {
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
   const complianceCheckedLenRef = useRef<number>(0);
+  const [activeDeviation, setActiveDeviation] = useState<{ idx: number; quote: string } | null>(null);
+  const [deviationFixText, setDeviationFixText] = useState("");
+  const [rewriteOpen, setRewriteOpen] = useState(false);
 
   // Invalidate compliance result when content changes significantly after a check
   useEffect(() => {
