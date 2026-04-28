@@ -2553,6 +2553,220 @@ export default function ArticlesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Compliance: edit single deviation */}
+      <Dialog open={!!activeDeviation} onOpenChange={(o) => { if (!o) setActiveDeviation(null); }}>
+        <DialogContent className="max-w-lg">
+          {activeDeviation && complianceResult?.deviations[activeDeviation.idx] && (() => {
+            const dev = complianceResult.deviations[activeDeviation.idx];
+            const replaceInContent = (newText: string) => {
+              const orig = activeDeviation.quote.trim();
+              if (!orig) return false;
+              if (content.includes(orig)) {
+                setContent(content.replace(orig, newText));
+                return true;
+              }
+              // Soft match: collapse whitespace
+              const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const re = new RegExp(escRegex(orig).replace(/\s+/g, "\\s+"), "i");
+              if (re.test(content)) {
+                setContent(content.replace(re, newText));
+                return true;
+              }
+              return false;
+            };
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-warning" />
+                    Правка отклонения
+                  </DialogTitle>
+                  <DialogDescription>
+                    <span className="font-medium text-foreground">{dev.category}</span> · {dev.rule}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Цитата из статьи</Label>
+                    <div className="mt-1 p-2 rounded-md bg-muted/50 border border-border text-xs italic">
+                      «{activeDeviation.quote}»
+                    </div>
+                  </div>
+                  {dev.suggestion && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Подсказка ИИ: <span className="text-foreground">{dev.suggestion}</span>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Новый текст или комментарий</Label>
+                    <Textarea
+                      value={deviationFixText}
+                      onChange={(e) => setDeviationFixText(e.target.value)}
+                      className="mt-1 min-h-[110px] text-sm"
+                      placeholder="Введите исправленный текст или комментарий"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="default"
+                      className="w-full"
+                      disabled={!deviationFixText.trim()}
+                      onClick={() => {
+                        const ok = replaceInContent(deviationFixText.trim());
+                        if (ok) {
+                          toast.success("Фрагмент заменён в редакторе");
+                          setActiveDeviation(null);
+                        } else {
+                          toast.error("Не удалось найти исходный фрагмент. Отредактируйте вручную.");
+                        }
+                      }}
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      Заменить в тексте
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={!deviationFixText.trim()}
+                      onClick={() => {
+                        const comment = `\n\n> [TODO ${dev.category}]: ${deviationFixText.trim()}\n> Цитата: «${activeDeviation.quote}»\n\n`;
+                        const orig = activeDeviation.quote.trim();
+                        const newContent = content.includes(orig)
+                          ? content.replace(orig, `${orig}${comment}`)
+                          : `${content}${comment}`;
+                        setContent(newContent);
+                        toast.success("Комментарий добавлен в редактор");
+                        setActiveDeviation(null);
+                      }}
+                    >
+                      <MessageSquarePlus className="h-3 w-3 mr-1" />
+                      Добавить комментарий
+                    </Button>
+                  </div>
+                  <Button variant="ghost" className="w-full" onClick={() => setActiveDeviation(null)}>
+                    Отмена
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Compliance: rewrite whole article with all fixes */}
+      <Dialog open={rewriteOpen} onOpenChange={setRewriteOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4 text-primary" />
+              Переписать статью с учётом всех отклонений
+            </DialogTitle>
+            <DialogDescription>
+              ИИ получит список найденных нарушений и перепишет проблемные фрагменты, сохранив структуру и объём.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {complianceResult && (
+              <div className="max-h-[200px] overflow-y-auto scrollbar-hide space-y-1 text-[11px]">
+                {complianceResult.deviations.map((d, i) => (
+                  <div key={i} className="p-1.5 rounded border border-border bg-muted/30">
+                    <span className="font-medium">{d.category}:</span> {d.rule}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setRewriteOpen(false)} disabled={isStreaming}>
+                Отмена
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={isStreaming || !complianceResult || complianceResult.deviations.length === 0 || !selectedKeywordId}
+                onClick={async () => {
+                  if (!complianceResult) return;
+                  setRewriteOpen(false);
+                  const rules = complianceResult.deviations.map((d, i) =>
+                    `${i + 1}. [${d.severity}/${d.category}] ${d.rule}\n   Цитата: «${d.quote}»\n   Что сделать: ${d.suggestion || "переписать в стиле автора"}`
+                  ).join("\n\n");
+                  const instruction =
+                    `Перепиши статью, ИСПРАВИВ следующие отклонения от инструкции автора. Сохрани структуру, заголовки, объём и факты. Меняй ТОЛЬКО проблемные фрагменты.\n\nОТКЛОНЕНИЯ:\n${rules}`;
+                  setIsStreaming(true);
+                  setStreamPhase("thinking");
+                  const prevContent = content;
+                  setContent("");
+                  const controller = new AbortController();
+                  abortRef.current = controller;
+                  try {
+                    const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
+                    const token = freshSession?.access_token;
+                    if (refreshError || !token) throw new Error("Not authenticated");
+                    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
+                    const resp = await fetch(url, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                      },
+                      body: JSON.stringify({
+                        keyword_id: selectedKeywordId,
+                        author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
+                        outline,
+                        lsi_keywords: lsiKeywords,
+                        optimize_instructions: instruction,
+                        existing_content: prevContent,
+                      }),
+                      signal: controller.signal,
+                    });
+                    if (!resp.ok) {
+                      const err = await resp.json().catch(() => ({ error: "Unknown" }));
+                      throw new Error(err.error || `HTTP ${resp.status}`);
+                    }
+                    if (!resp.body) throw new Error("No stream body");
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = "";
+                    let fullContent = "";
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+                      buffer += decoder.decode(value, { stream: true });
+                      let ni: number;
+                      while ((ni = buffer.indexOf("\n")) !== -1) {
+                        let line = buffer.slice(0, ni);
+                        buffer = buffer.slice(ni + 1);
+                        if (line.endsWith("\r")) line = line.slice(0, -1);
+                        if (!line.startsWith("data: ")) continue;
+                        const jsonStr = line.slice(6).trim();
+                        if (jsonStr === "[DONE]") break;
+                        try {
+                          const parsed = JSON.parse(jsonStr);
+                          const delta = parsed.choices?.[0]?.delta?.content;
+                          if (delta) { if (!fullContent) setStreamPhase("writing"); fullContent += delta; setContent(fullContent); }
+                        } catch { buffer = line + "\n" + buffer; break; }
+                      }
+                    }
+                    setComplianceResult(null);
+                    complianceCheckedLenRef.current = 0;
+                    toast.success("Статья переписана. Запустите проверку заново.");
+                  } catch (e: any) {
+                    if (e.name === "AbortError") toast.info("Переписывание остановлено");
+                    else { toast.error(e.message); setContent(prevContent); }
+                  } finally {
+                    setIsStreaming(false);
+                    setStreamPhase(null);
+                    abortRef.current = null;
+                  }
+                }}
+              >
+                <Wand2 className="h-3 w-3 mr-1" />
+                Переписать
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
