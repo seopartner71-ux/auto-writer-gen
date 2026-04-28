@@ -441,18 +441,6 @@ export default function ArticlesPage() {
     }
   }, [authorProfiles]);
 
-  // Invalidate compliance result when content changes significantly after a check
-  useEffect(() => {
-    if (!complianceResult) return;
-    const checkedLen = complianceCheckedLenRef.current;
-    if (checkedLen === 0) return;
-    const diff = Math.abs(content.length - checkedLen);
-    if (diff > 200) {
-      setComplianceResult(null);
-      complianceCheckedLenRef.current = 0;
-    }
-  }, [content, complianceResult]);
-
   // Load article for editing from ?edit= query param
   useEffect(() => {
     const editId = searchParams.get("edit");
