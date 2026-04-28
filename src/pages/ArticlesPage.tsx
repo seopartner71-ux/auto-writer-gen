@@ -486,6 +486,17 @@ export default function ArticlesPage() {
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
   const complianceCheckedLenRef = useRef<number>(0);
+
+  // Invalidate compliance result when content changes significantly after a check
+  useEffect(() => {
+    if (!complianceResult) return;
+    const checkedLen = complianceCheckedLenRef.current;
+    if (checkedLen === 0) return;
+    if (Math.abs(content.length - checkedLen) > 200) {
+      setComplianceResult(null);
+      complianceCheckedLenRef.current = 0;
+    }
+  }, [content, complianceResult]);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
   const [publishingTo, setPublishingTo] = useState<string | null>(null);
