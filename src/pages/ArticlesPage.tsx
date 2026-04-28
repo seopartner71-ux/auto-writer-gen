@@ -489,6 +489,7 @@ export default function ArticlesPage() {
   const complianceCheckedLenRef = useRef<number>(0);
   const [activeDeviation, setActiveDeviation] = useState<{ idx: number; quote: string } | null>(null);
   const [deviationFixText, setDeviationFixText] = useState("");
+  const [isRewritingFragment, setIsRewritingFragment] = useState(false);
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [editorComments, setEditorComments] = useState<Array<{ id: string; category: string; rule: string; quote: string; note: string; createdAt: number }>>([]);
 
