@@ -1653,6 +1653,16 @@ export default function ArticlesPage() {
                       })()}
                       <div
                         className="article-preview prose prose-sm max-w-none"
+                        onClick={(e) => {
+                          const target = (e.target as HTMLElement).closest("[data-dev-idx]") as HTMLElement | null;
+                          if (!target) return;
+                          const idx = parseInt(target.getAttribute("data-dev-idx") || "-1", 10);
+                          const dev = complianceResult?.deviations?.[idx];
+                          if (!dev) return;
+                          const quoteText = target.textContent || dev.quote;
+                          setActiveDeviation({ idx, quote: quoteText });
+                          setDeviationFixText(dev.suggestion || quoteText);
+                        }}
                         dangerouslySetInnerHTML={{
                           __html: DOMPurify.sanitize(
                             highlightDeviationsInHtml(
@@ -1669,7 +1679,16 @@ export default function ArticlesPage() {
                           <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-destructive/30 border border-destructive/60" /> high</span>
                           <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-warning/30 border border-warning/60" /> medium</span>
                           <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-muted border border-border" /> low</span>
-                          <span className="opacity-70">Наведите на фрагмент - покажется правило</span>
+                          <span className="opacity-70">Кликните на фрагмент, чтобы исправить или прокомментировать</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-[11px] ml-auto"
+                            onClick={() => setRewriteOpen(true)}
+                          >
+                            <Wand2 className="h-3 w-3 mr-1" />
+                            Переписать с правками
+                          </Button>
                         </div>
                       )}
                     </div>
