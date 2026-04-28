@@ -2631,20 +2631,51 @@ export default function ArticlesPage() {
                       className="w-full"
                       disabled={!deviationFixText.trim()}
                       onClick={() => {
-                        const comment = `\n\n> [TODO ${dev.category}]: ${deviationFixText.trim()}\n> Цитата: «${activeDeviation.quote}»\n\n`;
-                        const orig = activeDeviation.quote.trim();
-                        const newContent = content.includes(orig)
-                          ? content.replace(orig, `${orig}${comment}`)
-                          : `${content}${comment}`;
-                        setContent(newContent);
-                        toast.success("Комментарий добавлен в редактор");
+                        setEditorComments(prev => [
+                          ...prev,
+                          {
+                            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            category: dev.category,
+                            rule: dev.rule,
+                            quote: activeDeviation.quote,
+                            note: deviationFixText.trim(),
+                            createdAt: Date.now(),
+                          },
+                        ]);
+                        toast.success("Комментарий сохранен (в текст не вставлен)");
                         setActiveDeviation(null);
                       }}
                     >
                       <MessageSquarePlus className="h-3 w-3 mr-1" />
-                      Добавить комментарий
+                      Сохранить комментарий
                     </Button>
                   </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={() => {
+                      const orig = activeDeviation.quote.trim();
+                      if (!orig) return;
+                      if (content.includes(orig)) {
+                        setContent(content.replace(orig, ""));
+                        toast.success("Фрагмент удален из текста");
+                        setActiveDeviation(null);
+                      } else {
+                        const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                        const re = new RegExp(escRegex(orig).replace(/\s+/g, "\\s+"), "i");
+                        if (re.test(content)) {
+                          setContent(content.replace(re, ""));
+                          toast.success("Фрагмент удален из текста");
+                          setActiveDeviation(null);
+                        } else {
+                          toast.error("Не удалось найти фрагмент");
+                        }
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Удалить фрагмент из текста
+                  </Button>
                   <Button variant="ghost" className="w-full" onClick={() => setActiveDeviation(null)}>
                     Отмена
                   </Button>
