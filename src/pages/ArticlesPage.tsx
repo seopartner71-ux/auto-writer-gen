@@ -1882,6 +1882,19 @@ export default function ArticlesPage() {
             </TabsList>
 
             <TabsContent value="dashboard" className="mt-3 space-y-4">
+              {/* Author prompt compliance check */}
+              {selectedAuthorId && selectedAuthorId !== "none" && (() => {
+                const a: any = authorProfiles.find((x: any) => x.id === selectedAuthorId);
+                const hasInstr = !!(a?.system_instruction && String(a.system_instruction).trim());
+                return (
+                  <AuthorComplianceCard
+                    content={content}
+                    authorProfileId={selectedAuthorId}
+                    authorHasInstruction={hasInstr}
+                  />
+                );
+              })()}
+
               {/* Word count & readability */}
               <Card className="bg-card border-border">
                 <CardHeader className="pb-3">
