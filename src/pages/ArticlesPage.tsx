@@ -1692,6 +1692,33 @@ export default function ArticlesPage() {
                           </Button>
                         </div>
                       )}
+                      {editorComments.length > 0 && (
+                        <div className="mt-4 border-t border-border pt-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-foreground flex items-center gap-1">
+                              <MessageSquarePlus className="h-3 w-3" />
+                              Заметки редактора ({editorComments.length})
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">не попадают в публикацию</span>
+                          </div>
+                          {editorComments.map((c) => (
+                            <div key={c.id} className="rounded-md border border-warning/30 bg-warning/5 p-2 text-[11px] space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-medium text-foreground">{c.category}: {c.rule}</span>
+                                <button
+                                  className="text-muted-foreground hover:text-destructive"
+                                  onClick={() => setEditorComments(prev => prev.filter(x => x.id !== c.id))}
+                                  title="Удалить заметку"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                              <div className="italic text-muted-foreground border-l-2 border-warning/40 pl-2">«{c.quote}»</div>
+                              <div className="text-foreground">{c.note}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm py-12 text-center">
