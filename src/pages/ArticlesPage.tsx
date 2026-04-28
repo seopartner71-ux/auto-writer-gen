@@ -130,6 +130,10 @@ function markdownToPreviewHtml(md: string): string {
 }
 
 function highlightHtml(code: string): string {
+  return _highlightHtmlCode(code);
+}
+
+function _highlightHtmlCode(code: string): string {
   const esc = code
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -142,6 +146,61 @@ function highlightHtml(code: string): string {
     .replace(/\s([\w-]+)(=)/g, ' <span class="html-attr">$1</span>$2')
     .replace(/(&quot;)(.*?)(&quot;)/g, '<span class="html-val">$1$2$3</span>')
     .replace(/(&gt;)/g, '<span class="html-tag">$1</span>');
+}
+
+// Highlight compliance deviations in preview HTML.
+// Wraps the first text occurrence of each quote in a <mark> with severity/category.
+function highlightDeviationsInHtml(
+  html: string,
+  deviations: Array<{ severity: "high" | "medium" | "low"; category: string; rule: string; quote: string }>,
+): string {
+  if (!deviations || deviations.length === 0) return html;
+  let out = html;
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Sort by quote length desc to wrap longer quotes first (avoid nested partial matches)
+  const sorted = [...deviations]
+    .filter(d => d.quote && d.quote.trim().length >= 4)
+    .sort((a, b) => b.quote.length - a.quote.length);
+
+  for (const d of sorted) {
+    let q = d.quote.trim().replace(/^[«"'„]+|[»"'"]+$/g, "").trim();
+    if (!q) continue;
+    // Try direct match; if fails, try first 80 chars
+    const candidates = [q, q.slice(0, 80)].filter((v, i, arr) => arr.indexOf(v) === i && v.length >= 4);
+    let replaced = false;
+    for (const cand of candidates) {
+      const escCand = escapeHtml(cand);
+      // Match only outside HTML tags by using a regex that skips < ... >
+      const re = new RegExp(escRegex(escCand), "i");
+      if (re.test(out)) {
+        const sevClass =
+          d.severity === "high" ? "dev-high" :
+          d.severity === "medium" ? "dev-medium" : "dev-low";
+        const titleAttr = escapeHtml(`${d.category}: ${d.rule}`);
+        out = out.replace(re, `<mark class="dev-mark ${sevClass}" title="${titleAttr}" data-cat="${escapeHtml(d.category)}">$&</mark>`);
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced) {
+      // Soft match: collapse whitespace
+      const soft = escapeHtml(q).replace(/\s+/g, "\\s+");
+      try {
+        const re2 = new RegExp(soft, "i");
+        if (re2.test(out)) {
+          const sevClass =
+            d.severity === "high" ? "dev-high" :
+            d.severity === "medium" ? "dev-medium" : "dev-low";
+          const titleAttr = escapeHtml(`${d.category}: ${d.rule}`);
+          out = out.replace(re2, `<mark class="dev-mark ${sevClass}" title="${titleAttr}" data-cat="${escapeHtml(d.category)}">$&</mark>`);
+        }
+      } catch {}
+    }
+  }
+  return out;
 }
 
 function markdownToCleanHtml(md: string): string {
