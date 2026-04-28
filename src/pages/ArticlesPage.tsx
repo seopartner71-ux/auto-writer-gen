@@ -1669,7 +1669,7 @@ export default function ArticlesPage() {
                               markdownToPreviewHtml(content),
                               complianceResult?.deviations || [],
                             ),
-                            { ADD_ATTR: ["title", "data-cat"] },
+                            { ADD_ATTR: ["title", "data-cat", "data-dev-idx"] },
                           ),
                         }}
                       />
