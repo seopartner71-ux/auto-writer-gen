@@ -2583,25 +2583,128 @@ export default function ArticlesPage() {
       </Dialog>
 
       {/* Compliance: edit single deviation */}
-      <Dialog open={!!activeDeviation} onOpenChange={(o) => { if (!o) setActiveDeviation(null); }}>
+      <Dialog open={!!activeDeviation} onOpenChange={(o) => { if (!o) { setActiveDeviation(null); setIsRewritingFragment(false); } }}>
         <DialogContent className="max-w-lg">
           {activeDeviation && complianceResult?.deviations[activeDeviation.idx] && (() => {
             const dev = complianceResult.deviations[activeDeviation.idx];
-            const replaceInContent = (newText: string) => {
+            const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const findFragmentRange = (scope: "sentence" | "paragraph"): { match: string; before: string; after: string } | null => {
               const orig = activeDeviation.quote.trim();
-              if (!orig) return false;
-              if (content.includes(orig)) {
-                setContent(content.replace(orig, newText));
-                return true;
+              if (!orig) return null;
+              // find quote position (exact or soft)
+              let idx = content.indexOf(orig);
+              let matched = orig;
+              if (idx === -1) {
+                const re = new RegExp(escRegex(orig).replace(/\s+/g, "\\s+"), "i");
+                const m = re.exec(content);
+                if (!m) return null;
+                idx = m.index;
+                matched = m[0];
               }
-              // Soft match: collapse whitespace
-              const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-              const re = new RegExp(escRegex(orig).replace(/\s+/g, "\\s+"), "i");
-              if (re.test(content)) {
-                setContent(content.replace(re, newText));
-                return true;
+              const end = idx + matched.length;
+              if (scope === "paragraph") {
+                // find paragraph: bounded by blank line, </p>, <p>, or HTML block tags
+                const before = content.slice(0, idx);
+                const after = content.slice(end);
+                const startMatches = [
+                  before.lastIndexOf("\n\n"),
+                  before.lastIndexOf("</p>"),
+                  before.lastIndexOf("</h1>"),
+                  before.lastIndexOf("</h2>"),
+                  before.lastIndexOf("</h3>"),
+                  before.lastIndexOf("</li>"),
+                  before.lastIndexOf("</ul>"),
+                  before.lastIndexOf("</ol>"),
+                  before.lastIndexOf("<p>"),
+                ];
+                let startCut = Math.max(...startMatches);
+                if (startCut < 0) startCut = 0;
+                else {
+                  // move past the boundary tag/newlines
+                  const slice = before.slice(startCut);
+                  startCut += slice.search(/\S/) >= 0 ? slice.indexOf(slice.trim()[0]) : 0;
+                }
+                const endMatches = [
+                  after.indexOf("\n\n"),
+                  after.indexOf("</p>"),
+                  after.indexOf("<h1"),
+                  after.indexOf("<h2"),
+                  after.indexOf("<h3"),
+                  after.indexOf("<p>"),
+                  after.indexOf("<ul"),
+                  after.indexOf("<ol"),
+                ].filter(n => n >= 0);
+                let endCut = endMatches.length ? Math.min(...endMatches) : after.length;
+                // include closing </p> if it was the boundary
+                const closingP = after.indexOf("</p>");
+                if (closingP >= 0 && closingP === endCut) endCut += "</p>".length;
+                return {
+                  match: content.slice(startCut, end + endCut),
+                  before: content.slice(0, startCut),
+                  after: content.slice(end + endCut),
+                };
               }
-              return false;
+              // sentence scope: from previous .!?…\n to next .!?…
+              const sentStart = (() => {
+                const slice = content.slice(0, idx);
+                const m = slice.match(/[.!?…]["»)\s]*\s+(?=\S[^.!?…]*$)/);
+                if (!m) return 0;
+                return slice.length - (slice.length - (m.index || 0)) + m[0].length;
+              })();
+              const sentEnd = (() => {
+                const slice = content.slice(end);
+                const m = slice.match(/[^.!?…]*[.!?…]+["»)]?/);
+                return end + (m ? m[0].length : slice.length);
+              })();
+              return {
+                match: content.slice(sentStart, sentEnd),
+                before: content.slice(0, sentStart),
+                after: content.slice(sentEnd),
+              };
+            };
+
+            const handleRewrite = async (scope: "sentence" | "paragraph") => {
+              const range = findFragmentRange(scope);
+              if (!range) {
+                toast.error("Не удалось найти фрагмент в тексте");
+                return;
+              }
+              setIsRewritingFragment(true);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error("Not authenticated");
+                const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rewrite-fragment`;
+                const resp = await fetch(url, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  },
+                  body: JSON.stringify({
+                    fragment: range.match,
+                    scope,
+                    author_profile_id: selectedAuthorId,
+                    violations: (complianceResult?.deviations || []).map(d => ({
+                      category: d.category, rule: d.rule, suggestion: d.suggestion,
+                    })),
+                    context_before: range.before,
+                    context_after: range.after,
+                  }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+                const rewritten = (data.rewritten || "").toString().trim();
+                if (!rewritten) throw new Error("Пустой ответ");
+                setContent(range.before + rewritten + range.after);
+                toast.success(scope === "paragraph" ? "Абзац переписан с учётом требований автора" : "Предложение переписано с учётом требований автора");
+                setActiveDeviation(null);
+              } catch (e: any) {
+                toast.error(e.message || "Ошибка переписывания");
+              } finally {
+                setIsRewritingFragment(false);
+              }
             };
             return (
               <>
@@ -2626,60 +2729,33 @@ export default function ArticlesPage() {
                       Подсказка ИИ: <span className="text-foreground">{dev.suggestion}</span>
                     </div>
                   )}
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground">Новый текст или комментарий</Label>
-                    <Textarea
-                      value={deviationFixText}
-                      onChange={(e) => setDeviationFixText(e.target.value)}
-                      className="mt-1 min-h-[110px] text-sm"
-                      placeholder="Введите исправленный текст или комментарий"
-                    />
+                  <div className="text-[11px] text-muted-foreground">
+                    ИИ перепишет фрагмент строго по инструкции автора, исправив все найденные нарушения. Факты сохранятся.
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="default"
                       className="w-full"
-                      disabled={!deviationFixText.trim()}
-                      onClick={() => {
-                        const ok = replaceInContent(deviationFixText.trim());
-                        if (ok) {
-                          toast.success("Фрагмент заменён в редакторе");
-                          setActiveDeviation(null);
-                        } else {
-                          toast.error("Не удалось найти исходный фрагмент. Отредактируйте вручную.");
-                        }
-                      }}
+                      disabled={isRewritingFragment || !selectedAuthorId || selectedAuthorId === "none"}
+                      onClick={() => handleRewrite("sentence")}
                     >
-                      <Pencil className="h-3 w-3 mr-1" />
-                      Заменить в тексте
+                      {isRewritingFragment ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+                      Переписать предложение
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       className="w-full"
-                      disabled={!deviationFixText.trim()}
-                      onClick={() => {
-                        setEditorComments(prev => [
-                          ...prev,
-                          {
-                            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                            category: dev.category,
-                            rule: dev.rule,
-                            quote: activeDeviation.quote,
-                            note: deviationFixText.trim(),
-                            createdAt: Date.now(),
-                          },
-                        ]);
-                        toast.success("Комментарий сохранен (в текст не вставлен)");
-                        setActiveDeviation(null);
-                      }}
+                      disabled={isRewritingFragment || !selectedAuthorId || selectedAuthorId === "none"}
+                      onClick={() => handleRewrite("paragraph")}
                     >
-                      <MessageSquarePlus className="h-3 w-3 mr-1" />
-                      Сохранить комментарий
+                      {isRewritingFragment ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+                      Переписать абзац
                     </Button>
                   </div>
                   <Button
                     variant="ghost"
                     className="w-full text-destructive hover:text-destructive"
+                    disabled={isRewritingFragment}
                     onClick={() => {
                       const orig = activeDeviation.quote.trim();
                       if (!orig) return;
