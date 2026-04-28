@@ -1964,6 +1964,7 @@ export default function ArticlesPage() {
                     content={content}
                     authorProfileId={selectedAuthorId}
                     authorHasInstruction={hasInstr}
+                    onResult={setComplianceResult}
                   />
                 );
               })()}
