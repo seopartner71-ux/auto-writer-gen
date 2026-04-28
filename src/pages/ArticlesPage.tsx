@@ -1965,7 +1965,10 @@ export default function ArticlesPage() {
                     content={content}
                     authorProfileId={selectedAuthorId}
                     authorHasInstruction={hasInstr}
-                    onResult={setComplianceResult}
+                    onResult={(r) => {
+                      setComplianceResult(r);
+                      complianceCheckedLenRef.current = r ? content.length : 0;
+                    }}
                   />
                 );
               })()}
