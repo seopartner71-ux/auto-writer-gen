@@ -235,6 +235,22 @@ if (!user) { toast.error(t("authorPage.notAuth")); return; }
                   <Textarea placeholder={t("persona.samplePlaceholder")} rows={5} value={sampleText} onChange={(e) => setSampleText(e.target.value)} />
                   <p className="text-xs text-muted-foreground">{t("persona.canAnalyzeLater")}</p>
                 </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    Системный промт автора
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30">НАИВЫСШИЙ ПРИОРИТЕТ</span>
+                  </Label>
+                  <Textarea
+                    placeholder="Например: Пиши только короткими предложениями (макс 12 слов). Запрещены вводные конструкции. Каждый абзац - максимум 3 предложения. Используй прямые обращения на 'ты'. Никаких клише и канцеляризмов."
+                    rows={6}
+                    value={systemInstruction}
+                    onChange={(e) => setSystemInstruction(e.target.value)}
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Эта инструкция будет строго соблюдаться при каждой генерации статьи этим автором и перекрывает базовые правила движка.
+                  </p>
+                </div>
                 <Button className="w-full" disabled={!name.trim() || createAuthor.isPending} onClick={() => createAuthor.mutate()}>
                   {createAuthor.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}{t("common.create")}
                 </Button>
