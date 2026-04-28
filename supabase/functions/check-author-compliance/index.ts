@@ -22,14 +22,63 @@ type ComplianceResult = {
 
 function extractJson(aiData: any): ComplianceResult {
   const toolArgs = aiData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (toolArgs) return JSON.parse(toolArgs);
+  if (toolArgs) {
+    try { return JSON.parse(toolArgs); } catch { return parseLoose(toolArgs) as ComplianceResult; }
+  }
   const raw = aiData?.choices?.[0]?.message?.content;
   if (typeof raw !== "string") throw new Error("Empty AI response");
   let cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
   const a = cleaned.indexOf("{");
   const b = cleaned.lastIndexOf("}");
   if (a !== -1 && b !== -1) cleaned = cleaned.slice(a, b + 1);
-  return JSON.parse(cleaned);
+  try { return JSON.parse(cleaned); } catch { return parseLoose(cleaned) as ComplianceResult; }
+}
+
+function parseLoose(s: string): unknown {
+  // strip control chars, trailing commas, then try again
+  let t = s.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, "")
+           .replace(/,\s*}/g, "}")
+           .replace(/,\s*]/g, "]");
+  try { return JSON.parse(t); } catch {}
+  // try to repair by truncating to last valid bracket and closing structures
+  // walk and track depth, ignoring chars inside strings
+  let depth = 0; let inStr = false; let esc = false; let lastSafe = -1;
+  const stack: string[] = [];
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (inStr) {
+      if (esc) { esc = false; continue; }
+      if (c === "\\") { esc = true; continue; }
+      if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') { inStr = true; continue; }
+    if (c === "{" || c === "[") { stack.push(c); depth++; }
+    else if (c === "}" || c === "]") { stack.pop(); depth--; if (depth === 0) lastSafe = i; }
+    else if (c === "," && depth > 0) lastSafe = i - 1;
+  }
+  // cut at last safe element boundary, drop trailing comma, close open brackets
+  let cut = lastSafe > 0 ? t.slice(0, lastSafe + 1) : t;
+  cut = cut.replace(/,\s*$/, "");
+  // close remaining open brackets
+  // recompute open brackets
+  const open: string[] = [];
+  inStr = false; esc = false;
+  for (let i = 0; i < cut.length; i++) {
+    const c = cut[i];
+    if (inStr) {
+      if (esc) { esc = false; continue; }
+      if (c === "\\") { esc = true; continue; }
+      if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') { inStr = true; continue; }
+    if (c === "{" || c === "[") open.push(c);
+    else if (c === "}" || c === "]") open.pop();
+  }
+  if (inStr) cut += '"';
+  while (open.length) { const o = open.pop(); cut += o === "{" ? "}" : "]"; }
+  return JSON.parse(cut);
 }
 
 serve(async (req) => {
@@ -163,7 +212,7 @@ ${sample}
           { role: "user", content: userPrompt },
         ],
         temperature: 0.2,
-        max_tokens: 2000,
+        max_tokens: 4000,
         response_format: { type: "json_object" },
       }),
     });
