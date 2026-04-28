@@ -1637,8 +1637,25 @@ export default function ArticlesPage() {
                       })()}
                       <div
                         className="article-preview prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToPreviewHtml(content)) }}
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(
+                            highlightDeviationsInHtml(
+                              markdownToPreviewHtml(content),
+                              complianceResult?.deviations || [],
+                            ),
+                            { ADD_ATTR: ["title", "data-cat"] },
+                          ),
+                        }}
                       />
+                      {complianceResult && complianceResult.deviations.length > 0 && (
+                        <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground border-t border-border pt-3">
+                          <span className="font-medium text-foreground">Подсветка отклонений:</span>
+                          <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-destructive/30 border border-destructive/60" /> high</span>
+                          <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-warning/30 border border-warning/60" /> medium</span>
+                          <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-muted border border-border" /> low</span>
+                          <span className="opacity-70">Наведите на фрагмент - покажется правило</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm py-12 text-center">
