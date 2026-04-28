@@ -130,10 +130,6 @@ function markdownToPreviewHtml(md: string): string {
 }
 
 function highlightHtml(code: string): string {
-  return _highlightHtmlCode(code);
-}
-
-function _highlightHtmlCode(code: string): string {
   const esc = code
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
