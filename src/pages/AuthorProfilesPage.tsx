@@ -128,7 +128,7 @@ export default function AuthorProfilesPage() {
     onError: (e) => toast.error(e.message),
   });
 
-   const resetForm = () => { setName(""); setNiche(""); setVoiceTone(""); setSampleText(""); };
+  const resetForm = () => { setName(""); setNiche(""); setVoiceTone(""); setSampleText(""); setSystemInstruction(""); };
 
   const [resettingId, setResettingId] = useState<string | null>(null);
   const resetMiralinks = useMutation({
