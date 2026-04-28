@@ -490,6 +490,7 @@ export default function ArticlesPage() {
   const [activeDeviation, setActiveDeviation] = useState<{ idx: number; quote: string } | null>(null);
   const [deviationFixText, setDeviationFixText] = useState("");
   const [rewriteOpen, setRewriteOpen] = useState(false);
+  const [editorComments, setEditorComments] = useState<Array<{ id: string; category: string; rule: string; quote: string; note: string; createdAt: number }>>([]);
 
   // Invalidate compliance result when content changes significantly after a check
   useEffect(() => {
