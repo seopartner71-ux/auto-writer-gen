@@ -485,6 +485,7 @@ export default function ArticlesPage() {
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
+  const complianceCheckedLenRef = useRef<number>(0);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
   const [publishingTo, setPublishingTo] = useState<string | null>(null);
