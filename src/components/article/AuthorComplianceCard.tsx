@@ -8,7 +8,7 @@ import { ShieldCheck, AlertTriangle, XCircle, Loader2, CheckCircle2, ChevronDown
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type Deviation = {
+export type ComplianceDeviation = {
   severity: "high" | "medium" | "low";
   category: string;
   rule: string;
@@ -16,11 +16,11 @@ type Deviation = {
   suggestion: string;
 };
 
-type ComplianceResult = {
+export type ComplianceResult = {
   score: number;
   verdict: "pass" | "warning" | "fail";
   summary: string;
-  deviations: Deviation[];
+  deviations: ComplianceDeviation[];
   matched_rules: string[];
 };
 
@@ -28,9 +28,10 @@ interface Props {
   content: string;
   authorProfileId: string | null;
   authorHasInstruction: boolean;
+  onResult?: (r: ComplianceResult | null) => void;
 }
 
-export function AuthorComplianceCard({ content, authorProfileId, authorHasInstruction }: Props) {
+export function AuthorComplianceCard({ content, authorProfileId, authorHasInstruction, onResult }: Props) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ComplianceResult | null>(null);
   const [expanded, setExpanded] = useState(true);
@@ -41,13 +42,16 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
     if (!canCheck) return;
     setLoading(true);
     setResult(null);
+    onResult?.(null);
     try {
       const { data, error } = await supabase.functions.invoke("check-author-compliance", {
         body: { content, author_profile_id: authorProfileId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setResult(data.result as ComplianceResult);
+      const r = data.result as ComplianceResult;
+      setResult(r);
+      onResult?.(r);
       const v = data.result.verdict;
       if (v === "pass") toast.success("Статья соответствует промту автора");
       else if (v === "warning") toast.warning("Найдены отклонения - проверьте до публикации");
@@ -67,7 +71,7 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
     result?.verdict === "pass" ? CheckCircle2 :
     result?.verdict === "warning" ? AlertTriangle : XCircle;
 
-  const sevColor = (s: Deviation["severity"]) =>
+  const sevColor = (s: ComplianceDeviation["severity"]) =>
     s === "high" ? "bg-destructive/15 text-destructive border-destructive/30" :
     s === "medium" ? "bg-warning/15 text-warning border-warning/30" :
     "bg-muted text-muted-foreground border-border";

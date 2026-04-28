@@ -258,3 +258,29 @@ html {
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome/Safari/Edge */
 }
+
+/* Compliance deviation highlights in article preview */
+.article-preview .dev-mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  border-bottom: 2px solid transparent;
+  background-color: transparent;
+  color: inherit;
+  cursor: help;
+  transition: background-color 0.15s ease;
+}
+.article-preview .dev-mark.dev-high {
+  background-color: hsl(var(--destructive) / 0.22);
+  border-bottom-color: hsl(var(--destructive) / 0.7);
+}
+.article-preview .dev-mark.dev-medium {
+  background-color: hsl(var(--warning) / 0.22);
+  border-bottom-color: hsl(var(--warning) / 0.7);
+}
+.article-preview .dev-mark.dev-low {
+  background-color: hsl(var(--muted));
+  border-bottom-color: hsl(var(--border));
+}
+.article-preview .dev-mark:hover {
+  filter: brightness(1.15);
+}

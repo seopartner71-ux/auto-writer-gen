@@ -28,7 +28,7 @@ import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
-import { AuthorComplianceCard } from "@/components/article/AuthorComplianceCard";
+import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
@@ -142,6 +142,61 @@ function highlightHtml(code: string): string {
     .replace(/\s([\w-]+)(=)/g, ' <span class="html-attr">$1</span>$2')
     .replace(/(&quot;)(.*?)(&quot;)/g, '<span class="html-val">$1$2$3</span>')
     .replace(/(&gt;)/g, '<span class="html-tag">$1</span>');
+}
+
+// Highlight compliance deviations in preview HTML.
+// Wraps the first text occurrence of each quote in a <mark> with severity/category.
+function highlightDeviationsInHtml(
+  html: string,
+  deviations: Array<{ severity: "high" | "medium" | "low"; category: string; rule: string; quote: string }>,
+): string {
+  if (!deviations || deviations.length === 0) return html;
+  let out = html;
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Sort by quote length desc to wrap longer quotes first (avoid nested partial matches)
+  const sorted = [...deviations]
+    .filter(d => d.quote && d.quote.trim().length >= 4)
+    .sort((a, b) => b.quote.length - a.quote.length);
+
+  for (const d of sorted) {
+    let q = d.quote.trim().replace(/^[«"'„]+|[»"'"]+$/g, "").trim();
+    if (!q) continue;
+    // Try direct match; if fails, try first 80 chars
+    const candidates = [q, q.slice(0, 80)].filter((v, i, arr) => arr.indexOf(v) === i && v.length >= 4);
+    let replaced = false;
+    for (const cand of candidates) {
+      const escCand = escapeHtml(cand);
+      // Match only outside HTML tags by using a regex that skips < ... >
+      const re = new RegExp(escRegex(escCand), "i");
+      if (re.test(out)) {
+        const sevClass =
+          d.severity === "high" ? "dev-high" :
+          d.severity === "medium" ? "dev-medium" : "dev-low";
+        const titleAttr = escapeHtml(`${d.category}: ${d.rule}`);
+        out = out.replace(re, `<mark class="dev-mark ${sevClass}" title="${titleAttr}" data-cat="${escapeHtml(d.category)}">$&</mark>`);
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced) {
+      // Soft match: collapse whitespace
+      const soft = escapeHtml(q).replace(/\s+/g, "\\s+");
+      try {
+        const re2 = new RegExp(soft, "i");
+        if (re2.test(out)) {
+          const sevClass =
+            d.severity === "high" ? "dev-high" :
+            d.severity === "medium" ? "dev-medium" : "dev-low";
+          const titleAttr = escapeHtml(`${d.category}: ${d.rule}`);
+          out = out.replace(re2, `<mark class="dev-mark ${sevClass}" title="${titleAttr}" data-cat="${escapeHtml(d.category)}">$&</mark>`);
+        }
+      } catch {}
+    }
+  }
+  return out;
 }
 
 function markdownToCleanHtml(md: string): string {
@@ -429,6 +484,19 @@ export default function ArticlesPage() {
   const [faqMode, setFaqMode] = useState<"standard" | "serp-dominance">("serp-dominance");
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
+  const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
+  const complianceCheckedLenRef = useRef<number>(0);
+
+  // Invalidate compliance result when content changes significantly after a check
+  useEffect(() => {
+    if (!complianceResult) return;
+    const checkedLen = complianceCheckedLenRef.current;
+    if (checkedLen === 0) return;
+    if (Math.abs(content.length - checkedLen) > 200) {
+      setComplianceResult(null);
+      complianceCheckedLenRef.current = 0;
+    }
+  }, [content, complianceResult]);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
   const [publishingTo, setPublishingTo] = useState<string | null>(null);
@@ -1581,8 +1649,25 @@ export default function ArticlesPage() {
                       })()}
                       <div
                         className="article-preview prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToPreviewHtml(content)) }}
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(
+                            highlightDeviationsInHtml(
+                              markdownToPreviewHtml(content),
+                              complianceResult?.deviations || [],
+                            ),
+                            { ADD_ATTR: ["title", "data-cat"] },
+                          ),
+                        }}
                       />
+                      {complianceResult && complianceResult.deviations.length > 0 && (
+                        <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground border-t border-border pt-3">
+                          <span className="font-medium text-foreground">Подсветка отклонений:</span>
+                          <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-destructive/30 border border-destructive/60" /> high</span>
+                          <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-warning/30 border border-warning/60" /> medium</span>
+                          <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-muted border border-border" /> low</span>
+                          <span className="opacity-70">Наведите на фрагмент - покажется правило</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm py-12 text-center">
@@ -1891,6 +1976,10 @@ export default function ArticlesPage() {
                     content={content}
                     authorProfileId={selectedAuthorId}
                     authorHasInstruction={hasInstr}
+                    onResult={(r) => {
+                      setComplianceResult(r);
+                      complianceCheckedLenRef.current = r ? content.length : 0;
+                    }}
                   />
                 );
               })()}
