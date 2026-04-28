@@ -66,6 +66,7 @@ export default function AuthorProfilesPage() {
   const [niche, setNiche] = useState("");
   const [voiceTone, setVoiceTone] = useState("");
   const [sampleText, setSampleText] = useState("");
+  const [systemInstruction, setSystemInstruction] = useState("");
 
   const TONE_OPTIONS = [
     { value: "expert", label: t("persona.toneExpert") },
@@ -92,7 +93,7 @@ export default function AuthorProfilesPage() {
       }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase.from("author_profiles").insert({ user_id: user.id, name: name.trim(), niche: niche.trim() || null, voice_tone: voiceTone || null, style_examples: sampleText.trim() || null });
+      const { error } = await supabase.from("author_profiles").insert({ user_id: user.id, name: name.trim(), niche: niche.trim() || null, voice_tone: voiceTone || null, style_examples: sampleText.trim() || null, system_instruction: systemInstruction.trim() || null, type: "custom" });
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); setCreateOpen(false); resetForm(); toast.success(t("persona.authorCreated")); },
