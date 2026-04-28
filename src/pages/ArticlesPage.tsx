@@ -156,12 +156,13 @@ function highlightDeviationsInHtml(
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  // Sort by quote length desc to wrap longer quotes first (avoid nested partial matches)
-  const sorted = [...deviations]
-    .filter(d => d.quote && d.quote.trim().length >= 4)
-    .sort((a, b) => b.quote.length - a.quote.length);
+  // Keep original index so click handler can locate deviation in the result list
+  const indexed = deviations.map((d, i) => ({ d, i }));
+  const sorted = [...indexed]
+    .filter(({ d }) => d.quote && d.quote.trim().length >= 4)
+    .sort((a, b) => b.d.quote.length - a.d.quote.length);
 
-  for (const d of sorted) {
+  for (const { d, i } of sorted) {
     let q = d.quote.trim().replace(/^[«"'„]+|[»"'"]+$/g, "").trim();
     if (!q) continue;
     // Try direct match; if fails, try first 80 chars
@@ -176,7 +177,7 @@ function highlightDeviationsInHtml(
           d.severity === "high" ? "dev-high" :
           d.severity === "medium" ? "dev-medium" : "dev-low";
         const titleAttr = escapeHtml(`${d.category}: ${d.rule}`);
-        out = out.replace(re, `<mark class="dev-mark ${sevClass}" title="${titleAttr}" data-cat="${escapeHtml(d.category)}">$&</mark>`);
+        out = out.replace(re, `<mark class="dev-mark ${sevClass}" title="${titleAttr}" data-cat="${escapeHtml(d.category)}" data-dev-idx="${i}">$&</mark>`);
         replaced = true;
         break;
       }
@@ -191,7 +192,7 @@ function highlightDeviationsInHtml(
             d.severity === "high" ? "dev-high" :
             d.severity === "medium" ? "dev-medium" : "dev-low";
           const titleAttr = escapeHtml(`${d.category}: ${d.rule}`);
-          out = out.replace(re2, `<mark class="dev-mark ${sevClass}" title="${titleAttr}" data-cat="${escapeHtml(d.category)}">$&</mark>`);
+          out = out.replace(re2, `<mark class="dev-mark ${sevClass}" title="${titleAttr}" data-cat="${escapeHtml(d.category)}" data-dev-idx="${i}">$&</mark>`);
         }
       } catch {}
     }
