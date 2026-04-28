@@ -490,6 +490,7 @@ export default function ArticlesPage() {
   const [activeDeviation, setActiveDeviation] = useState<{ idx: number; quote: string } | null>(null);
   const [deviationFixText, setDeviationFixText] = useState("");
   const [rewriteOpen, setRewriteOpen] = useState(false);
+  const [editorComments, setEditorComments] = useState<Array<{ id: string; category: string; rule: string; quote: string; note: string; createdAt: number }>>([]);
 
   // Invalidate compliance result when content changes significantly after a check
   useEffect(() => {
@@ -1691,6 +1692,33 @@ export default function ArticlesPage() {
                           </Button>
                         </div>
                       )}
+                      {editorComments.length > 0 && (
+                        <div className="mt-4 border-t border-border pt-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-foreground flex items-center gap-1">
+                              <MessageSquarePlus className="h-3 w-3" />
+                              Заметки редактора ({editorComments.length})
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">не попадают в публикацию</span>
+                          </div>
+                          {editorComments.map((c) => (
+                            <div key={c.id} className="rounded-md border border-warning/30 bg-warning/5 p-2 text-[11px] space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-medium text-foreground">{c.category}: {c.rule}</span>
+                                <button
+                                  className="text-muted-foreground hover:text-destructive"
+                                  onClick={() => setEditorComments(prev => prev.filter(x => x.id !== c.id))}
+                                  title="Удалить заметку"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                              <div className="italic text-muted-foreground border-l-2 border-warning/40 pl-2">«{c.quote}»</div>
+                              <div className="text-foreground">{c.note}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm py-12 text-center">
@@ -2630,20 +2658,51 @@ export default function ArticlesPage() {
                       className="w-full"
                       disabled={!deviationFixText.trim()}
                       onClick={() => {
-                        const comment = `\n\n> [TODO ${dev.category}]: ${deviationFixText.trim()}\n> Цитата: «${activeDeviation.quote}»\n\n`;
-                        const orig = activeDeviation.quote.trim();
-                        const newContent = content.includes(orig)
-                          ? content.replace(orig, `${orig}${comment}`)
-                          : `${content}${comment}`;
-                        setContent(newContent);
-                        toast.success("Комментарий добавлен в редактор");
+                        setEditorComments(prev => [
+                          ...prev,
+                          {
+                            id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            category: dev.category,
+                            rule: dev.rule,
+                            quote: activeDeviation.quote,
+                            note: deviationFixText.trim(),
+                            createdAt: Date.now(),
+                          },
+                        ]);
+                        toast.success("Комментарий сохранен (в текст не вставлен)");
                         setActiveDeviation(null);
                       }}
                     >
                       <MessageSquarePlus className="h-3 w-3 mr-1" />
-                      Добавить комментарий
+                      Сохранить комментарий
                     </Button>
                   </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={() => {
+                      const orig = activeDeviation.quote.trim();
+                      if (!orig) return;
+                      if (content.includes(orig)) {
+                        setContent(content.replace(orig, ""));
+                        toast.success("Фрагмент удален из текста");
+                        setActiveDeviation(null);
+                      } else {
+                        const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                        const re = new RegExp(escRegex(orig).replace(/\s+/g, "\\s+"), "i");
+                        if (re.test(content)) {
+                          setContent(content.replace(re, ""));
+                          toast.success("Фрагмент удален из текста");
+                          setActiveDeviation(null);
+                        } else {
+                          toast.error("Не удалось найти фрагмент");
+                        }
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Удалить фрагмент из текста
+                  </Button>
                   <Button variant="ghost" className="w-full" onClick={() => setActiveDeviation(null)}>
                     Отмена
                   </Button>
