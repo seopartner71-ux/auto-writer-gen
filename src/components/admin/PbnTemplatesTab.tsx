@@ -96,7 +96,7 @@ export function PbnTemplatesTab() {
       .order("sort_order")
       .order("created_at");
     if (error) toast({ title: "Ошибка загрузки", description: error.message, variant: "destructive" });
-    setList((data || []) as PbnTemplate[]);
+    setList(((data || []) as unknown) as PbnTemplate[]);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
