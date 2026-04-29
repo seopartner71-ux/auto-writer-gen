@@ -598,6 +598,7 @@ export interface PostInput {
   excerpt: string;
   contentHtml: string;
   publishedAt?: string;
+  featuredImageUrl?: string;
 }
 
 // Pick a stable author for a post based on its slug — keeps assignment
@@ -612,6 +613,148 @@ export function pickAuthor(authors: Author[] | undefined, slug: string): Author 
 function dicebearUrl(seed: string): string {
   const s = encodeURIComponent(seed || "author");
   return `https://api.dicebear.com/7.x/initials/svg?seed=${s}&backgroundType=gradientLinear&fontWeight=600`;
+}
+
+// Avatar style requested for author cards (avataaars, more illustrative)
+function avataarsUrl(seed: string): string {
+  const s = encodeURIComponent(seed || "author");
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${s}`;
+}
+
+// Strip any <script> blocks from AI-returned HTML — JSON-LD must live in <head>,
+// never inside the article body.
+function stripScripts(html: string): string {
+  return String(html || "").replace(/<script[\s\S]*?<\/script>/gi, "");
+}
+
+// If the AI returned escaped HTML (e.g. "&lt;p&gt;text&lt;/p&gt;") instead of
+// real markup, decode the common entities so it renders as HTML, not text.
+function unescapeIfEscapedHtml(html: string): string {
+  const s = String(html || "");
+  // Heuristic: many "&lt;" sequences and almost no real "<" tags → escaped.
+  const escapedTagCount = (s.match(/&lt;\/?[a-z][a-z0-9]*[^&]{0,80}&gt;/gi) || []).length;
+  const realTagCount    = (s.match(/<\/?[a-z][a-z0-9]*[^>]{0,80}>/gi) || []).length;
+  if (escapedTagCount > 3 && escapedTagCount > realTagCount * 2) {
+    return s
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&");
+  }
+  return s;
+}
+
+// Slugify (ASCII) — used for H2 anchor ids in TOC.
+function slugifyAnchor(text: string, fallbackIdx: number): string {
+  const map: Record<string, string> = {
+    а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ж:"zh",з:"z",и:"i",й:"j",к:"k",л:"l",
+    м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"h",ц:"ts",ч:"ch",
+    ш:"sh",щ:"shch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya",
+  };
+  const ascii = String(text || "").toLowerCase()
+    .split("").map((c) => map[c] ?? c).join("")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return ascii || `section-${fallbackIdx + 1}`;
+}
+
+// Walk the HTML, add id="section-N" to every <h2>, return new HTML + TOC entries.
+function injectH2IdsAndCollectToc(html: string): { html: string; toc: { id: string; label: string }[] } {
+  const toc: { id: string; label: string }[] = [];
+  let idx = 0;
+  const out = html.replace(/<h2(\s[^>]*)?>([\s\S]*?)<\/h2>/gi, (_m, attrs = "", inner) => {
+    const label = String(inner).replace(/<[^>]+>/g, "").trim();
+    const id = `section-${++idx}`;
+    toc.push({ id, label });
+    // Drop any existing id attribute, then add ours.
+    const cleanedAttrs = String(attrs || "").replace(/\sid="[^"]*"/i, "");
+    return `<h2${cleanedAttrs} id="${id}">${inner}</h2>`;
+  });
+  return { html: out, toc };
+}
+
+function tocHtml(toc: { id: string; label: string }[], isRu: boolean): string {
+  if (toc.length < 2) return "";
+  return `<nav class="toc" aria-label="${isRu ? "Содержание" : "Contents"}">
+    <h3>${isRu ? "Содержание" : "Contents"}</h3>
+    <ol>${toc.map((t) => `<li><a href="#${t.id}">${escHtml(t.label)}</a></li>`).join("")}</ol>
+  </nav>`;
+}
+
+// Convert a contiguous H3?/P pair sequence under a "FAQ"-style H2 into a
+// <details>/<summary> accordion. We detect a section that starts with an H2
+// whose text contains "FAQ"/"вопрос"/"вопросы", grab subsequent H3+P pairs,
+// and rewrite that block.
+function renderFaqAccordion(html: string, isRu: boolean): string {
+  // Find any <h2>...FAQ.../вопросы...</h2> followed by H3/P pairs until next H2.
+  const re = /<h2(\s[^>]*)?>([\s\S]*?)<\/h2>([\s\S]*?)(?=<h2|<\/article|$)/gi;
+  return html.replace(re, (full, attrs, label, body) => {
+    const labelText = String(label).replace(/<[^>]+>/g, "").toLowerCase();
+    const isFaq = /\bfaq\b|вопрос|вопросы|q ?& ?a/i.test(labelText);
+    if (!isFaq) return full;
+    const pairs: { q: string; a: string }[] = [];
+    const pairRe = /<h3[^>]*>([\s\S]*?)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = pairRe.exec(body)) !== null) {
+      pairs.push({ q: m[1].replace(/<[^>]+>/g, "").trim(), a: m[2].trim() });
+    }
+    if (pairs.length < 2) return full; // not really an FAQ
+    const items = pairs.map((p) =>
+      `<details class="faq-item"><summary>${escHtml(p.q)}</summary><div class="faq-answer">${p.a}</div></details>`
+    ).join("");
+    return `<h2${attrs || ""}>${label}</h2>
+      <div class="faq-accordion" itemscope itemtype="https://schema.org/FAQPage">${items}</div>`;
+  });
+}
+
+// Inject 2-3 inline links in the article body, pointing to other posts of the
+// same site. Each link replaces the FIRST plain occurrence of the related
+// post's first content keyword inside a <p> (never inside headings, lists or
+// existing anchors). At most one link per <p>.
+function injectInlineInterlinks(html: string, related: PostInput[]): string {
+  if (!related || related.length === 0) return html;
+  const max = Math.min(3, related.length);
+  const used = new Set<string>();
+  let out = html;
+
+  // Helper: choose a 1-3 word "anchor" from the related post title.
+  function anchorFor(p: PostInput): string {
+    const title = String(p.title || "").replace(/[«»"().,:;!?\-—]/g, " ").trim();
+    const words = title.split(/\s+/).filter((w) => w.length >= 4);
+    if (words.length === 0) return title.split(/\s+/).slice(0, 2).join(" ");
+    return words.slice(0, Math.min(3, words.length)).join(" ");
+  }
+
+  for (const p of related.slice(0, max)) {
+    const anchor = anchorFor(p);
+    if (!anchor || anchor.length < 4) continue;
+    const safe = anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Match inside a <p>...</p> only, not inside an existing <a>, only first hit.
+    const re = new RegExp(`(<p[^>]*>(?:(?!<\\/p>|<a\\s).)*?)(\\b${safe}\\b)`, "i");
+    if (!re.test(out)) continue;
+    if (used.has(p.slug)) continue;
+    out = out.replace(re, (_m, pre, hit) =>
+      `${pre}<a href="/posts/${p.slug}.html" class="inline-link">${hit}</a>`);
+    used.add(p.slug);
+  }
+  return out;
+}
+
+// Author card with Schema.org Person microdata.
+function authorCardHtml(c: SiteChrome, author: Author | null): string {
+  if (!author) return "";
+  const isRu = c.lang === "ru";
+  const img = avataarsUrl(author.avatar_seed || author.name);
+  return `<aside class="author-card" itemscope itemtype="https://schema.org/Person">
+    <img itemprop="image" src="${escAttr(img)}" alt="${escAttr(author.name)}" width="80" height="80" loading="lazy">
+    <div class="author-info">
+      <h4 itemprop="name">${escHtml(author.name)}</h4>
+      ${author.role ? `<p class="author-title" itemprop="jobTitle">${escHtml(author.role)}</p>` : ""}
+      ${author.bio ? `<p class="author-bio" itemprop="description">${escHtml(author.bio)}</p>` : ""}
+      <meta itemprop="url" content="https://${c.domain}/about.html">
+      <a href="/about.html" class="author-more">${isRu ? "Все статьи автора" : "All posts by author"}</a>
+    </div>
+  </aside>`;
 }
 
 function authorMetaHtml(c: SiteChrome, author: Author | null, publishedAt?: string): string {
@@ -656,9 +799,42 @@ export function buildPostPage(
   const title = `${post.title} · ${c.siteName}`;
   const desc  = post.excerpt || (post.contentHtml || "").replace(/<[^>]+>/g, " ").trim().slice(0, 160);
   const author = pickAuthor(c.authors, post.slug);
-  const authorJsonLd = author
-    ? { "@context": "https://schema.org", "@type": "Person", name: author.name, jobTitle: author.role || undefined }
-    : null;
+  const authorImage = author ? avataarsUrl(author.avatar_seed || author.name) : undefined;
+  const authorJsonLd = author ? {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: author.name,
+    jobTitle: author.role || undefined,
+    description: author.bio || undefined,
+    image: authorImage,
+    url: `https://${c.domain}/about.html`,
+  } : null;
+
+  // 1) clean AI output: strip <script> blocks, decode escaped HTML if needed
+  let body = stripScripts(unescapeIfEscapedHtml(post.contentHtml || ""));
+  // 2) add ids to H2s and collect TOC
+  const { html: bodyWithIds, toc } = injectH2IdsAndCollectToc(body);
+  body = bodyWithIds;
+  // 3) FAQ → accordion
+  body = renderFaqAccordion(body, isRu);
+  // 4) inline interlinks (2-3 to other posts)
+  body = injectInlineInterlinks(body, related);
+
+  // FAQ schema for any FAQ section we found
+  const faqPairsForLd = extractFaqPairs(body);
+  const extraLd: Record<string, unknown>[] = [];
+  if (authorJsonLd) extraLd.push(authorJsonLd as Record<string, unknown>);
+  if (faqPairsForLd.length >= 2) {
+    extraLd.push({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqPairsForLd.map((p) => ({
+        "@type": "Question", name: p.q,
+        acceptedAnswer: { "@type": "Answer", text: p.a },
+      })),
+    });
+  }
+
   const articleCss = `
 .page-article{max-width:760px;margin:0 auto;padding:32px 24px;font-family:"${c.bodyFont}",system-ui,sans-serif;line-height:1.75;font-size:17px;color:#1a1a1a}
 .page-article h1{font-family:"${c.headingFont}",sans-serif;font-size:36px;line-height:1.2;margin:8px 0 16px}
@@ -672,12 +848,35 @@ export function buildPostPage(
 .page-article .post-hero{width:100%;aspect-ratio:2/1;object-fit:cover;border-radius:12px;margin:0 0 24px}
 .contact-list{list-style:none;padding:0;margin:16px 0}
 .contact-list li{padding:8px 0;border-bottom:1px solid #eee}
+.toc{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:18px 22px;margin:0 0 28px;font-size:15px}
+.toc h3{margin:0 0 10px;font-family:"${c.headingFont}",sans-serif;font-size:16px;text-transform:uppercase;letter-spacing:.06em;color:#475569}
+.toc ol{margin:0;padding-left:20px}
+.toc li{margin:4px 0}
+.toc a{color:${c.accent};text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.faq-accordion{margin:16px 0 24px;border-top:1px solid #e5e7eb}
+.faq-item{border-bottom:1px solid #e5e7eb;padding:0}
+.faq-item summary{list-style:none;cursor:pointer;padding:14px 0;font-weight:600;color:#0f172a;display:flex;justify-content:space-between;align-items:center;font-size:16px}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary::after{content:"+";color:${c.accent};font-size:22px;line-height:1;font-weight:400;transition:transform .2s}
+.faq-item[open] summary::after{content:"−"}
+.faq-answer{padding:0 0 16px;color:#444;font-size:15px}
+.author-card{display:flex;gap:18px;align-items:flex-start;margin:40px 0 0;padding:20px 22px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px}
+.author-card img{width:72px;height:72px;border-radius:50%;background:#e2e8f0;flex:0 0 auto;margin:0}
+.author-info h4{margin:0 0 2px;font-family:"${c.headingFont}",sans-serif;font-size:17px;color:#0f172a}
+.author-info .author-title{margin:0 0 8px;color:#64748b;font-size:13px}
+.author-info .author-bio{margin:0 0 8px;color:#444;font-size:14px;line-height:1.5}
+.author-info .author-more{font-size:13px;color:${c.accent};text-decoration:none}
+.author-info .author-more:hover{text-decoration:underline}
+.inline-link{color:${c.accent};text-decoration:underline;text-underline-offset:2px}
 `;
-  // Stable hero image via Picsum, seeded by slug so each post gets a different
-  // but consistent photo across rebuilds. No API key, no rate limits.
+  // Hero image: prefer the article's own featured image (FAL.ai-generated and
+  // stored on the row), fall back to a stable Picsum seed if none exists yet.
   const heroSeed = encodeURIComponent(post.slug || post.title || "post").slice(0, 60);
-  const heroUrl  = `https://picsum.photos/seed/${heroSeed}/1200/600`;
-  const heroImg  = `<img class="post-hero" src="${heroUrl}" alt="${escAttr(post.title)}" loading="eager" width="1200" height="600">`;
+  const heroUrl  = post.featuredImageUrl && /^https?:\/\//.test(post.featuredImageUrl)
+    ? post.featuredImageUrl
+    : `https://picsum.photos/seed/${heroSeed}/1200/600`;
+  const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(post.title)}" loading="eager" width="1200" height="600">`;
 
   const relatedHtml = related.length ? `
     <aside class="related-posts">
@@ -694,7 +893,7 @@ export function buildPostPage(
       { label: isRu ? "Блог" : "Blog", href: "/" },
       { label: post.title, href: `/posts/${post.slug}.html` },
     ],
-    jsonLd: authorJsonLd ? [authorJsonLd] : undefined,
+    jsonLd: extraLd.length ? extraLd : undefined,
   });
   return `${head}
 <style>${articleCss}</style>
@@ -709,7 +908,9 @@ export function buildPostPage(
       <h1>${escHtml(post.title)}</h1>
       ${authorMetaHtml(c, author, post.publishedAt)}
       ${heroImg}
-      ${post.contentHtml}
+      ${tocHtml(toc, isRu)}
+      ${body}
+      ${authorCardHtml(c, author)}
       ${shareBarHtml(c, `/posts/${post.slug}.html`, post.title)}
     </article>
     ${relatedHtml}
@@ -726,13 +927,24 @@ export function buildPostPage(
 
 export function buildIndexHomePage(c: SiteChrome, postsList: PostInput[]): string {
   const isRu = c.lang === "ru";
+  const cardImg = (p: PostInput) => {
+    const fallback = `https://picsum.photos/seed/${encodeURIComponent(p.slug || p.title || "post").slice(0, 60)}/600/360`;
+    const url = p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl) ? p.featuredImageUrl : fallback;
+    return `<img src="${escAttr(url)}" alt="${escAttr(p.title)}" loading="lazy" width="600" height="360"
+      style="display:block;width:100%;aspect-ratio:5/3;object-fit:cover;border-radius:10px 10px 0 0;background:#e2e8f0">`;
+  };
   const cards = postsList.length === 0
     ? `<p>${escHtml(isRu ? "Скоро здесь появятся материалы." : "Posts coming soon.")}</p>`
-    : `<ul class="home-list" style="list-style:none;padding:0;margin:0;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+    : `<ul class="home-list" style="list-style:none;padding:0;margin:0;display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
          ${postsList.map((p) => `
-           <li style="padding:20px;background:#fafafa;border-radius:10px">
-             <h2 style="margin:0 0 8px;font-size:18px"><a href="/posts/${p.slug}.html" style="color:#0f172a;text-decoration:none">${escHtml(p.title)}</a></h2>
-             <p style="margin:0;color:#555;font-size:14px">${escHtml(p.excerpt)}</p>
+           <li style="background:#fafafa;border-radius:10px;overflow:hidden;border:1px solid #eef2f7">
+             <a href="/posts/${p.slug}.html" style="text-decoration:none;color:inherit;display:block">
+               ${cardImg(p)}
+               <div style="padding:16px 18px 18px">
+                 <h2 style="margin:0 0 8px;font-size:18px;color:#0f172a">${escHtml(p.title)}</h2>
+                 <p style="margin:0;color:#555;font-size:14px">${escHtml(p.excerpt)}</p>
+               </div>
+             </a>
            </li>`).join("")}
        </ul>`;
   return wrapPage(c, {

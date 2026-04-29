@@ -21,6 +21,37 @@ async function getOpenRouterKey(admin: any): Promise<string | null> {
   return Deno.env.get("OPENROUTER_API_KEY") || null;
 }
 
+// FAL.ai hero generator (flux/schnell) — fast, ~2s per image. Returns the
+// public CDN URL or null on any failure (caller falls back to picsum).
+async function generateHeroImage(falKey: string, topic: string, title: string): Promise<string | null> {
+  try {
+    const prompt = `Professional editorial photograph illustrating "${title}" in the context of ${topic}. Realistic business style, natural lighting, shallow depth of field, no text, no watermarks, magazine quality, 16:9 composition.`;
+    const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
+      method: "POST",
+      headers: { Authorization: `Key ${falKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        image_size: "landscape_16_9",
+        num_images: 1,
+        num_inference_steps: 4,
+        enable_safety_checker: true,
+      }),
+    });
+    if (!res.ok) {
+      console.warn("[seed-starter-articles] FAL HTTP", res.status);
+      return null;
+    }
+    const data = await res.json();
+    const url = data?.images?.[0]?.url || null;
+    return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
+  } catch (e: any) {
+    console.warn("[seed-starter-articles] FAL error:", e?.message);
+    return null;
+  }
+}
+
+interface SeedAuthor { name?: string; role?: string; bio?: string }
+
 function fallbackArticle(topic: string, idx: number, lang: "ru" | "en") {
   if (lang === "ru") {
     const titles = [
@@ -50,10 +81,16 @@ function fallbackArticle(topic: string, idx: number, lang: "ru" | "en") {
   return { title, content, meta_description: `A practical guide to ${topic} - tips, mistakes, conclusions.` };
 }
 
-async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en") {
+async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor) {
+  const personaRu = author && author.name
+    ? ` Пиши от лица автора по имени ${author.name}${author.role ? ` (${author.role})` : ""}${author.bio ? `. Краткая биография: ${author.bio}` : ""}. Стиль - экспертный, но разговорный, без канцелярита.`
+    : "";
+  const personaEn = author && author.name
+    ? ` Write as ${author.name}${author.role ? ` (${author.role})` : ""}${author.bio ? `. Bio: ${author.bio}` : ""}. Tone: expert but conversational.`
+    : "";
   const sys = lang === "ru"
-    ? "Ты пишешь практичную информационную статью на русском. Возвращай ТОЛЬКО JSON {title, meta_description, content_html}. content_html: 600-900 слов, h2/p/ul, без h1, без ссылок, без воды, без слов «эксперт», «эксклюзив»."
-    : "Write a practical informational article in English. Return ONLY JSON {title, meta_description, content_html}. content_html: 600-900 words, h2/p/ul, no h1, no links, no fluff.";
+    ? `Ты пишешь практичную информационную статью на русском.${personaRu} Возвращай СТРОГО JSON {title, meta_description, content_html}. content_html: 600-900 слов, ТОЛЬКО теги h2/h3/p/ul/ol/li, без h1, без <script>, без <style>, без ссылок, без воды, без слов «эксперт», «эксклюзив». Включи раздел <h2>Частые вопросы</h2> с 3-5 парами <h3>Вопрос?</h3><p>Ответ.</p>.`
+    : `Write a practical informational article in English.${personaEn} Return STRICT JSON {title, meta_description, content_html}. content_html: 600-900 words, ONLY h2/h3/p/ul/ol/li tags, no h1, no <script>, no <style>, no links, no fluff. Include a section <h2>FAQ</h2> with 3-5 <h3>Question?</h3><p>Answer.</p> pairs.`;
   const seeds = lang === "ru"
     ? [`Гид по теме «${topic}» для начинающих`, `7 практических советов про ${topic}`, `Как выбрать ${topic} в 2026 году - чек-лист`]
     : [`A beginner's guide to ${topic}`, `7 practical tips about ${topic}`, `How to choose ${topic} in 2026 - a checklist`];
@@ -72,9 +109,16 @@ async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" 
   const data = await res.json();
   const raw = String(data?.choices?.[0]?.message?.content || "{}");
   const parsed = JSON.parse(raw);
+  // Defensive cleanup: strip <script>/<style>, drop H1s, drop &lt;script&gt; etc.
+  let html = String(parsed.content_html || parsed.content || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<\/?h1[^>]*>/gi, "")
+    .replace(/&lt;script[\s\S]*?&lt;\/script&gt;/gi, "")
+    .slice(0, 30000);
   return {
     title: String(parsed.title || seeds[idx % seeds.length]).slice(0, 200),
-    content: String(parsed.content_html || parsed.content || "").slice(0, 30000),
+    content: html,
     meta_description: String(parsed.meta_description || "").slice(0, 280),
   };
 }
@@ -107,7 +151,7 @@ serve(async (req) => {
     }
 
     const { data: project } = await admin.from("projects")
-      .select("id, name, site_name, site_about, language, user_id")
+      .select("id, name, site_name, site_about, language, user_id, authors")
       .eq("id", projectId).maybeSingle();
     if (!project || project.user_id !== user.id) {
       return new Response(JSON.stringify({ error: "Project not found" }), {
@@ -118,15 +162,24 @@ serve(async (req) => {
     const lang: "ru" | "en" = String(project.language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en";
     const topic = body.topic || project.site_about || project.site_name || project.name || (lang === "ru" ? "блог" : "blog");
     const apiKey = await getOpenRouterKey(admin);
+    const falKey = Deno.env.get("FAL_AI_API_KEY") || "";
+    const projectAuthors: SeedAuthor[] = Array.isArray((project as any).authors) ? (project as any).authors : [];
 
     const created: string[] = [];
     for (let i = 0; i < count; i++) {
+      // Rotate through project authors so different posts get different bylines.
+      const author = projectAuthors.length > 0 ? projectAuthors[i % projectAuthors.length] : undefined;
       let art;
       try {
-        art = apiKey ? await aiArticle(apiKey, topic, i, lang) : fallbackArticle(topic, i, lang);
+        art = apiKey ? await aiArticle(apiKey, topic, i, lang, author) : fallbackArticle(topic, i, lang);
       } catch (e: any) {
         console.error("[seed-starter-articles] AI fail, using fallback:", e?.message);
         art = fallbackArticle(topic, i, lang);
+      }
+      // Generate hero image via FAL.ai (best-effort — null on failure).
+      let heroUrl: string | null = null;
+      if (falKey) {
+        heroUrl = await generateHeroImage(falKey, topic, art.title);
       }
       const { data: inserted, error: insErr } = await admin.from("articles").insert({
         user_id: user.id,
@@ -137,6 +190,7 @@ serve(async (req) => {
         status: "completed",
         language: lang,
         geo: lang === "ru" ? "RU" : "US",
+        featured_image_url: heroUrl,
       }).select("id").maybeSingle();
       if (insErr) {
         console.error("[seed-starter-articles] insert err:", insErr.message);

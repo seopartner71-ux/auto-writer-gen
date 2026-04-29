@@ -13,6 +13,7 @@ export interface PostInput {
   excerpt: string;
   slug: string;
   contentHtml: string; // already-rendered HTML body for the post page
+  featuredImageUrl?: string;
 }
 
 export interface RenderCtx {
@@ -88,15 +89,18 @@ function fakePosts(topic: string, n: number): { title: string; excerpt: string }
 }
 
 // Pick real posts if present, otherwise fall back to fake ones.
-function getPosts(ctx: RenderCtx, n: number): { title: string; excerpt: string; href: string }[] {
+function getPosts(ctx: RenderCtx, n: number): { title: string; excerpt: string; href: string; image: string }[] {
+  const placeholder = (slug: string) =>
+    `https://picsum.photos/seed/${encodeURIComponent(slug || "post").slice(0, 60)}/600/360`;
   if (ctx.posts && ctx.posts.length > 0) {
     return ctx.posts.slice(0, n).map((p) => ({
       title: p.title,
       excerpt: p.excerpt,
       href: `/posts/${p.slug}.html`,
+      image: p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl) ? p.featuredImageUrl : placeholder(p.slug),
     }));
   }
-  return fakePosts(ctx.topic, n).map((p) => ({ ...p, href: "#" }));
+  return fakePosts(ctx.topic, n).map((p, i) => ({ ...p, href: "#", image: placeholder(`fake-${i}`) }));
 }
 
 function commonHead(ctx: RenderCtx, extraCss = ""): string {
@@ -204,6 +208,7 @@ footer{margin-top:48px;padding-top:24px;border-top:1px solid #e5e2dc;color:var(-
 
   const articles = posts.map((p) => `
     <article class="${postClass}">
+      <a href="${p.href}" style="display:block;margin-bottom:14px"><img src="${esc(p.image)}" alt="${esc(p.title)}" loading="lazy" width="680" height="380" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:#eee"></a>
       <h2><a href="${p.href}">${esc(p.title)}</a></h2>
       <p>${esc(p.excerpt)}</p>
     </article>`).join("");
@@ -269,6 +274,7 @@ footer.bot{margin-top:64px;padding:24px 0;text-align:center;color:var(--muted);f
 
   const cards = posts.map((p) => `
       <article class="${cardClass}">
+        <a href="${p.href}" aria-hidden="true"><img src="${esc(p.image)}" alt="${esc(p.title)}" loading="lazy" width="600" height="360" style="display:block;width:100%;aspect-ratio:5/3;object-fit:cover;background:#eef2f7"></a>
         <div class="body">
           <span class="tag">${esc(ctx.topic)}</span>
           <h2><a href="${p.href}">${esc(p.title)}</a></h2>
@@ -334,6 +340,7 @@ footer{margin-top:48px;padding:24px;text-align:center;color:var(--muted);font-si
 
   const items = posts.map((p) => `
       <li class="${itemClass}">
+        <a href="${p.href}" style="display:block;margin-bottom:8px"><img src="${esc(p.image)}" alt="${esc(p.title)}" loading="lazy" width="280" height="160" style="width:100%;aspect-ratio:7/4;object-fit:cover;background:#eef2f7"></a>
         <div class="meta">${esc(ctx.topic)}</div>
         <h3><a href="${p.href}">${esc(p.title)}</a></h3>
         <p>${esc(p.excerpt.slice(0, 120))}</p>
@@ -399,6 +406,7 @@ footer{padding:32px;text-align:center;color:var(--muted);font-size:14px;border-t
 
   const blocks = posts.map((p) => `
       <article class="${blockClass}">
+        <a href="${p.href}" style="display:block;margin:-24px -24px 16px"><img src="${esc(p.image)}" alt="${esc(p.title)}" loading="lazy" width="400" height="240" style="display:block;width:100%;aspect-ratio:5/3;object-fit:cover;border-radius:12px 12px 0 0;background:#eef2f7"></a>
         <h3><a href="${p.href}">${esc(p.title)}</a></h3>
         <p>${esc(p.excerpt)}</p>
       </article>`).join("");
@@ -493,6 +501,7 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
   const chromePosts: ChromePost[] = (ctx.posts || []).map((p) => ({
     title: p.title, slug: p.slug, excerpt: p.excerpt, contentHtml: p.contentHtml,
     publishedAt: (p as any).publishedAt,
+    featuredImageUrl: p.featuredImageUrl,
   }));
 
   // Replace per-post pages with the SEO-rich version (canonical, OG,

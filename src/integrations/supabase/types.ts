@@ -268,6 +268,7 @@ export type Database = {
           cluster_id: string | null
           content: string | null
           created_at: string | null
+          featured_image_url: string | null
           geo: string | null
           id: string
           is_public: boolean | null
@@ -299,6 +300,7 @@ export type Database = {
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
+          featured_image_url?: string | null
           geo?: string | null
           id?: string
           is_public?: boolean | null
@@ -330,6 +332,7 @@ export type Database = {
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
+          featured_image_url?: string | null
           geo?: string | null
           id?: string
           is_public?: boolean | null
