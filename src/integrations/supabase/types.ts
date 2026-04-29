@@ -1248,11 +1248,16 @@ export type Database = {
           author_bio: string | null
           author_name: string | null
           auto_interlinking: boolean
+          company_address: string | null
+          company_email: string | null
+          company_name: string | null
+          company_phone: string | null
           created_at: string
           custom_domain: string | null
           domain: string
           font_pair: string | null
           footer_link: Json | null
+          founding_year: number | null
           github_repo: string | null
           github_token: string | null
           google_verification: string | null
@@ -1263,6 +1268,7 @@ export type Database = {
           last_ping_at: string | null
           last_ping_status: string | null
           name: string
+          og_image_url: string | null
           primary_color: string | null
           region: string
           site_about: string | null
@@ -1270,6 +1276,8 @@ export type Database = {
           site_copyright: string | null
           site_name: string | null
           site_privacy: string | null
+          site_terms: string | null
+          team_members: Json | null
           template_font_pair: string | null
           template_type: string | null
           total_views: number | null
@@ -1282,11 +1290,16 @@ export type Database = {
           author_bio?: string | null
           author_name?: string | null
           auto_interlinking?: boolean
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_phone?: string | null
           created_at?: string
           custom_domain?: string | null
           domain?: string
           font_pair?: string | null
           footer_link?: Json | null
+          founding_year?: number | null
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
@@ -1297,6 +1310,7 @@ export type Database = {
           last_ping_at?: string | null
           last_ping_status?: string | null
           name: string
+          og_image_url?: string | null
           primary_color?: string | null
           region?: string
           site_about?: string | null
@@ -1304,6 +1318,8 @@ export type Database = {
           site_copyright?: string | null
           site_name?: string | null
           site_privacy?: string | null
+          site_terms?: string | null
+          team_members?: Json | null
           template_font_pair?: string | null
           template_type?: string | null
           total_views?: number | null
@@ -1316,11 +1332,16 @@ export type Database = {
           author_bio?: string | null
           author_name?: string | null
           auto_interlinking?: boolean
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string | null
+          company_phone?: string | null
           created_at?: string
           custom_domain?: string | null
           domain?: string
           font_pair?: string | null
           footer_link?: Json | null
+          founding_year?: number | null
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
@@ -1331,6 +1352,7 @@ export type Database = {
           last_ping_at?: string | null
           last_ping_status?: string | null
           name?: string
+          og_image_url?: string | null
           primary_color?: string | null
           region?: string
           site_about?: string | null
@@ -1338,6 +1360,8 @@ export type Database = {
           site_copyright?: string | null
           site_name?: string | null
           site_privacy?: string | null
+          site_terms?: string | null
+          team_members?: Json | null
           template_font_pair?: string | null
           template_type?: string | null
           total_views?: number | null

@@ -1,4 +1,10 @@
 import { googleFontsHref, type TemplateType } from "./styles.ts";
+import {
+  type SiteChrome, type PostInput as ChromePost,
+  buildAboutPage, buildContactsPage, buildPrivacyPage, buildTermsPage,
+  buildPostPage, buildIndexHomePage, robotsTxt, sitemapXml,
+  chromeStyles, pickRelated,
+} from "./seoChrome.ts";
 
 export interface PostInput {
   title: string;
@@ -17,6 +23,22 @@ export interface RenderCtx {
   template: TemplateType;
   domain: string; // e.g. "foo.pages.dev"
   posts?: PostInput[]; // real articles from DB; if empty, fakePosts() is used
+  // New optional SEO/legal/branding context (passed from edge function)
+  lang?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  foundingYear?: number;
+  teamMembers?: { name: string; role: string; bio?: string }[];
+  ogImageUrl?: string;
+  aboutHtml?: string;
+  contactsHtml?: string;
+  privacyHtml?: string;
+  termsHtml?: string;
+  footerLinkUrl?: string;
+  footerLinkText?: string;
+  injectionLinks?: { url: string; anchor: string }[];
 }
 
 function esc(s: string): string {
@@ -411,11 +433,58 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
     case "minimal":
     default:         files = renderMinimal(ctx); break;
   }
-  files["robots.txt"] = robots(ctx);
-  files["sitemap.xml"] = sitemap(ctx);
-  // Per-post pages (only when real articles supplied)
-  for (const p of ctx.posts || []) {
-    files[`posts/${p.slug}.html`] = renderPostPage(ctx, p);
+
+  // Build SEO chrome from ctx (used for legal pages, sitemap, post pages,
+  // and to append shared chrome CSS to the template's own stylesheet).
+  const chrome: SiteChrome = {
+    domain: ctx.domain,
+    siteName: ctx.siteName,
+    siteAbout: ctx.siteAbout,
+    topic: ctx.topic,
+    lang: ctx.lang || "ru",
+    accent: ctx.accent,
+    headingFont: ctx.headingFont,
+    bodyFont: ctx.bodyFont,
+    companyName: ctx.companyName,
+    companyAddress: ctx.companyAddress,
+    companyPhone: ctx.companyPhone,
+    companyEmail: ctx.companyEmail,
+    foundingYear: ctx.foundingYear,
+    teamMembers: ctx.teamMembers,
+    ogImageUrl: ctx.ogImageUrl,
+    aboutHtml: ctx.aboutHtml,
+    contactsHtml: ctx.contactsHtml,
+    privacyHtml: ctx.privacyHtml,
+    termsHtml: ctx.termsHtml,
+    footerLinkUrl: ctx.footerLinkUrl,
+    footerLinkText: ctx.footerLinkText,
+    injectionLinks: ctx.injectionLinks,
+  };
+
+  const chromePosts: ChromePost[] = (ctx.posts || []).map((p) => ({
+    title: p.title, slug: p.slug, excerpt: p.excerpt, contentHtml: p.contentHtml,
+  }));
+
+  // Replace per-post pages with the SEO-rich version (canonical, OG,
+  // Article schema, breadcrumbs, related posts, cookie banner, footer).
+  for (const p of chromePosts) {
+    const related = pickRelated(chromePosts, p, 4);
+    files[`posts/${p.slug}.html`] = buildPostPage(chrome, p, related);
   }
+
+  // Add legal + about + contacts pages (SEO chrome wrappers).
+  files["about.html"]    = buildAboutPage(chrome);
+  files["contacts.html"] = buildContactsPage(chrome);
+  files["privacy.html"]  = buildPrivacyPage(chrome);
+  files["terms.html"]    = buildTermsPage(chrome);
+
+  // Append shared chrome CSS so the new pages have header/footer/breadcrumbs/cookie styles.
+  const sharedCss = chromeStyles(chrome);
+  files["style.css"] = (files["style.css"] || "") + "\n" + sharedCss;
+
+  // robots + sitemap (SEO-rich, with all pages including legal).
+  files["robots.txt"]  = robotsTxt(chrome);
+  files["sitemap.xml"] = sitemapXml(chrome, chromePosts.map((p) => p.slug));
+
   return files;
 }
