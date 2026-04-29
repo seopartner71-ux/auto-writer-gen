@@ -1,5 +1,12 @@
 import { googleFontsHref, type TemplateType } from "./styles.ts";
 
+export interface PostInput {
+  title: string;
+  excerpt: string;
+  slug: string;
+  contentHtml: string; // already-rendered HTML body for the post page
+}
+
 export interface RenderCtx {
   siteName: string;
   siteAbout: string;
@@ -9,6 +16,7 @@ export interface RenderCtx {
   bodyFont: string;
   template: TemplateType;
   domain: string; // e.g. "foo.pages.dev"
+  posts?: PostInput[]; // real articles from DB; if empty, fakePosts() is used
 }
 
 function esc(s: string): string {
@@ -39,6 +47,18 @@ function fakePosts(topic: string, n: number): { title: string; excerpt: string }
     result.push({ title, excerpt });
   }
   return result;
+}
+
+// Pick real posts if present, otherwise fall back to fake ones.
+function getPosts(ctx: RenderCtx, n: number): { title: string; excerpt: string; href: string }[] {
+  if (ctx.posts && ctx.posts.length > 0) {
+    return ctx.posts.slice(0, n).map((p) => ({
+      title: p.title,
+      excerpt: p.excerpt,
+      href: `/posts/${p.slug}.html`,
+    }));
+  }
+  return fakePosts(ctx.topic, n).map((p) => ({ ...p, href: "#" }));
 }
 
 function commonHead(ctx: RenderCtx, extraCss = ""): string {
