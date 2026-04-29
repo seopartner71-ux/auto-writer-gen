@@ -102,15 +102,32 @@ function absUrl(domain: string, path: string): string {
   return `https://${domain}${p}`;
 }
 
-function navItems(lang: string) {
-  const isRu = lang === "ru";
-  return [
+function navItems(c: SiteChrome) {
+  const isRu = c.lang === "ru";
+  const items: { href: string; label: string }[] = [
     { href: "/", label: isRu ? "Главная" : "Home" },
     { href: "/about.html", label: isRu ? "О нас" : "About" },
-    { href: "/contacts.html", label: isRu ? "Контакты" : "Contacts" },
-    { href: "/privacy.html", label: isRu ? "Конфиденциальность" : "Privacy" },
-    { href: "/terms.html", label: isRu ? "Соглашение" : "Terms" },
   ];
+  const bp = c.businessPages || {};
+  if (bp.portfolio)  items.push({ href: "/portfolio.html",  label: isRu ? "Кейсы"     : "Portfolio" });
+  if (bp.pricing)    items.push({ href: "/pricing.html",    label: isRu ? "Цены"      : "Pricing"   });
+  if (bp.reviews)    items.push({ href: "/reviews.html",    label: isRu ? "Отзывы"    : "Reviews"   });
+  if (bp.faq)        items.push({ href: "/faq.html",        label: "FAQ" });
+  if (bp.vacancies)  items.push({ href: "/vacancies.html",  label: isRu ? "Вакансии"  : "Careers"   });
+  items.push({ href: "/contacts.html", label: isRu ? "Контакты" : "Contacts" });
+  return items;
+}
+
+function footerExtraLinks(c: SiteChrome) {
+  const isRu = c.lang === "ru";
+  const out: { href: string; label: string }[] = [];
+  const bp = c.businessPages || {};
+  if (bp.guarantees) out.push({ href: "/guarantees.html", label: isRu ? "Гарантии"        : "Guarantees" });
+  if (bp.delivery)   out.push({ href: "/delivery.html",   label: isRu ? "Доставка и оплата" : "Shipping & Payment" });
+  if (bp.promo)      out.push({ href: "/promo.html",      label: isRu ? "Акции"           : "Promotions" });
+  out.push({ href: "/privacy.html", label: isRu ? "Конфиденциальность" : "Privacy" });
+  out.push({ href: "/terms.html",   label: isRu ? "Соглашение"         : "Terms" });
+  return out;
 }
 
 function organizationLd(c: SiteChrome) {
