@@ -21,6 +21,7 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { normalizeGoogleVerification } from "@/shared/utils/googleVerification";
 import DOMPurify from "dompurify";
 import { SiteGridCreator } from "@/components/site-factory/SiteGridCreator";
+import { SitesListTable } from "@/components/site-factory/SitesListTable";
 
 interface AuthorProfile {
   id: string;
@@ -1192,6 +1193,8 @@ export default function SiteFactoryPage() {
       </div>
 
       <SiteGridCreator />
+
+      <SitesListTable />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
