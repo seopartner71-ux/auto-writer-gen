@@ -1,9 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+async function getOpenRouterKey(): Promise<string> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(supabaseUrl, serviceKey);
+    const { data } = await admin.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
+    if (data?.api_key) return data.api_key;
+  } catch (_) { /* ignore */ }
+  const envKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (envKey) return envKey;
+  throw new Error("OpenRouter API key not configured");
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -36,8 +50,10 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    let OPENROUTER_API_KEY: string;
+    try {
+      OPENROUTER_API_KEY = await getOpenRouterKey();
+    } catch (_) {
       return new Response(JSON.stringify({ name: fallbackName(topic, langForFallback), fallback: true, reason: "no_api_key" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -52,11 +68,17 @@ serve(async (req) => {
       ? `Тема: ${topic}\nВерни ТОЛЬКО одно название, без точки в конце.`
       : `Topic: ${topic}\nReturn ONLY one name, no trailing period.`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Module Site Name",
+      },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
+        temperature: 1.0,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -66,7 +88,7 @@ serve(async (req) => {
 
     if (!aiRes.ok) {
       const t = await aiRes.text();
-      console.error("AI gateway error:", aiRes.status, t);
+      console.error("OpenRouter error:", aiRes.status, t);
       // Graceful fallback for billing/rate-limit/server errors so the grid creator keeps working
       const reason =
         aiRes.status === 402 ? "ai_credits_exhausted" :
