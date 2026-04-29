@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Cloud, Key } from "lucide-react";
+import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Cloud, Key, HelpCircle } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProjectGH {
@@ -365,6 +366,51 @@ export function GitHubProjectsTab() {
       <p className="text-sm text-muted-foreground mb-4">
         Настройте GitHub Token и Repository для каждого проекта. При сохранении система автоматически проверит и инициализирует репозиторий шаблоном Astro.
       </p>
+
+      <Accordion type="single" collapsible className="mb-4 rounded-lg border border-primary/20 bg-primary/5 px-3">
+        <AccordionItem value="help" className="border-0">
+          <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
+            <span className="flex items-center gap-2">
+              <HelpCircle className="h-4 w-4 text-primary" />
+              Как настроить GitHub - памятка
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="text-sm space-y-3 pt-1 pb-4">
+            <div>
+              <p className="font-semibold mb-1">1. Узнайте свой логин (owner) на GitHub</p>
+              <p className="text-muted-foreground">Откройте github.com, кликните на свой аватар справа сверху - в выпадающем меню сверху будет ваш логин (например <code className="px-1 rounded bg-muted">microgrin71-sudo</code>). Это и есть owner.</p>
+            </div>
+            <div>
+              <p className="font-semibold mb-1">2. Заполните поле Repository в формате owner/repo</p>
+              <p className="text-muted-foreground">Примеры: <code className="px-1 rounded bg-muted">microgrin71-sudo/my-seo</code>, <code className="px-1 rounded bg-muted">microgrin71-sudo/auto-blog</code>.<br/>Если такого репозитория еще нет - система создаст его сама при нажатии "Проверить репозиторий".</p>
+            </div>
+            <div>
+              <p className="font-semibold mb-1">3. Создайте GitHub Token</p>
+              <ol className="list-decimal list-inside text-muted-foreground space-y-0.5 ml-1">
+                <li>Перейдите: <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener noreferrer" className="text-primary underline">github.com/settings/tokens/new</a></li>
+                <li>Note: например "SEO-Module"</li>
+                <li>Expiration: 1 год (или No expiration)</li>
+                <li>Отметьте scope: <code className="px-1 rounded bg-muted">repo</code> (весь блок целиком) и <code className="px-1 rounded bg-muted">workflow</code></li>
+                <li>Нажмите "Generate token" внизу страницы</li>
+                <li>Скопируйте токен (начинается с <code className="px-1 rounded bg-muted">ghp_...</code>) и вставьте в поле GitHub Token. Токен показывается только один раз!</li>
+              </ol>
+            </div>
+            <div>
+              <p className="font-semibold mb-1">4. Сохранить и Проверить репозиторий</p>
+              <p className="text-muted-foreground">Нажмите "Сохранить", затем "Проверить репозиторий". Если репозитория нет - он создастся автоматически и в него загрузится шаблон Astro.</p>
+            </div>
+            <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-2 text-xs">
+              <p className="font-semibold text-yellow-500 mb-1">Частые ошибки</p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
+                <li>Указан неверный owner (логин с GitHub отличается от того, что вы вводите)</li>
+                <li>У токена не отмечен scope <code className="px-1 rounded bg-muted">repo</code></li>
+                <li>Токен истек - создайте новый</li>
+                <li>Repository указан без слеша - правильно <code className="px-1 rounded bg-muted">owner/repo</code>, не просто <code className="px-1 rounded bg-muted">repo</code></li>
+              </ul>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {showNewForm && (
         <Card className="border-primary/30">
