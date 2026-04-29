@@ -14,6 +14,7 @@ import { hash as blake3 } from "npm:blake3-wasm@2.1.5";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
+import { generateLandingContent, renderLandingHtml, pickSkin } from "./landingPage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
