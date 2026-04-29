@@ -165,6 +165,10 @@ export default function SiteFactoryPage() {
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkAnchor, setNewLinkAnchor] = useState("");
   const [deployingVerification, setDeployingVerification] = useState(false);
+  const [vercelStatus, setVercelStatus] = useState<"idle" | "checking" | "linked" | "not_linked" | "creating" | "error">("idle");
+  const [vercelError, setVercelError] = useState<string>("");
+  const [vercelHint, setVercelHint] = useState<string>("");
+  const [vercelDomain, setVercelDomain] = useState<string>("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
