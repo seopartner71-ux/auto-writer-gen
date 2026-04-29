@@ -924,6 +924,24 @@ export default function SiteFactoryPage() {
     setPublishing(article.id);
     addDeployLog("publishing", lang === "ru" ? `Публикация: ${article.title}...` : `Publishing: ${article.title}...`);
     try {
+      // Direct Upload projects: skip GitHub, mark published in DB, then redeploy via Cloudflare Direct Upload.
+      if (isDirectUploadProject) {
+        const { error: upErr } = await supabase
+          .from("articles")
+          .update({ status: "published" })
+          .eq("id", article.id);
+        if (upErr) throw upErr;
+        setArticles((prev) =>
+          prev.map((a) => (a.id === article.id ? { ...a, status: "published" } : a)),
+        );
+        addDeployLog("success", lang === "ru" ? `Статья помечена как опубликованная: ${article.title}` : `Marked as published: ${article.title}`);
+        toast({
+          title: lang === "ru" ? "Статья опубликована!" : "Article published!",
+          description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
+        });
+        await triggerCloudflare();
+        return;
+      }
       const { data, error } = await supabase.functions.invoke("publish-github", {
         body: {
           article_id: article.id,
