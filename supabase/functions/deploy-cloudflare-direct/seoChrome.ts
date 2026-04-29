@@ -448,6 +448,7 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
   ${footerHtml(c)}
   ${cookieBannerHtml(c.lang, "/privacy.html")}
   <script defer>${COOKIE_BANNER_JS}</script>
+  <script defer>${TRUST_JS}</script>
   ${pixel}
 </body>
 </html>`;
@@ -644,6 +645,7 @@ export function buildPostPage(
   ${footerHtml(c)}
   ${cookieBannerHtml(c.lang, "/privacy.html")}
   <script defer>${COOKIE_BANNER_JS}</script>
+  <script defer>${TRUST_JS}</script>
 </body>
 </html>`;
 }
