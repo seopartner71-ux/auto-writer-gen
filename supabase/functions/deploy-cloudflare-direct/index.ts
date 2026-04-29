@@ -396,7 +396,7 @@ serve(async (req) => {
     const files = renderTemplate({
       siteName, siteAbout, topic,
       accent, headingFont: fontPair[0], bodyFont: fontPair[1],
-      template, domain,
+      template, domain, posts,
     });
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
