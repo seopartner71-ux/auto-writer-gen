@@ -296,10 +296,23 @@ export function PbnTemplatesTab() {
             </div>
             <div>
               <Label className="text-xs">
-                HTML структура (плейсхолдеры: {"{{site_name}}"}, {"{{site_about}}"}, {"{{accent}}"},{" "}
-                {"{{heading_font}}"}, {"{{body_font}}"}, {"{{year}}"}, {"{{lang}}"}, цикл {"{{#posts}}...{{/posts}}"} с{" "}
-                {"{{title}}"}, {"{{url}}"}, {"{{excerpt}}"}, {"{{date}}"})
+                HTML структура
               </Label>
+              <div className="text-[11px] text-muted-foreground mb-1 leading-relaxed">
+                Доступные плейсхолдеры:{" "}
+                <code>{"{{site_name}}"}</code>, <code>{"{{site_description}}"}</code>,{" "}
+                <code>{"{{site_about}}"}</code>, <code>{"{{accent_color}}"}</code> /{" "}
+                <code>{"{{accent}}"}</code>, <code>{"{{font_family}}"}</code>,{" "}
+                <code>{"{{heading_font}}"}</code>, <code>{"{{body_font}}"}</code>,{" "}
+                <code>{"{{author_name}}"}</code>, <code>{"{{year}}"}</code>,{" "}
+                <code>{"{{lang}}"}</code>, <code>{"{{about_content}}"}</code>,{" "}
+                <code>{"{{contacts_content}}"}</code>, <code>{"{{privacy_content}}"}</code>,{" "}
+                <code>{"{{footer_link_url}}"}</code>, <code>{"{{footer_link_text}}"}</code>.
+                <br />
+                Цикл статей: <code>{"{{#posts}}"}</code> ... <code>{"{{/posts}}"}</code> с{" "}
+                <code>{"{{title}}"}</code>, <code>{"{{url}}"}</code>,{" "}
+                <code>{"{{excerpt}}"}</code>, <code>{"{{date}}"}</code>.
+              </div>
               <Textarea
                 rows={12}
                 className="font-mono text-xs"
@@ -315,6 +328,31 @@ export function PbnTemplatesTab() {
                 value={draft.css_styles || ""}
                 onChange={(e) => setDraft({ ...draft, css_styles: e.target.value })}
               />
+            </div>
+            <div>
+              <Label className="text-xs">Живое превью</Label>
+              <div className="aspect-[16/10] border rounded overflow-hidden bg-white">
+                <iframe
+                  srcDoc={renderPreview({
+                    id: "preview",
+                    template_key: draft.template_key || "preview",
+                    name: draft.name || "Превью",
+                    description: draft.description || "",
+                    html_structure: draft.html_structure || "<html><body><p>Введите HTML…</p></body></html>",
+                    css_styles: draft.css_styles || "",
+                    font_pairs: (fontPairsRaw
+                      .split("\n")
+                      .map((l) => l.split(",").map((s) => s.trim()).filter(Boolean))
+                      .filter((p) => p.length === 2) as [string, string][]) || [["Inter", "Inter"]],
+                    is_active: true,
+                    is_builtin: false,
+                    sort_order: 0,
+                  } as PbnTemplate)}
+                  className="w-full h-full"
+                  sandbox=""
+                  title="Live preview"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Switch
