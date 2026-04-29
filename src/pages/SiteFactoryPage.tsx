@@ -229,6 +229,13 @@ export default function SiteFactoryPage() {
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
   const isPlatformLocked = false;
+  // Sites created via Site Grid use Cloudflare Pages Direct Upload (no GitHub repo).
+  // Detected by: cloudflare hosting + template_type set, OR cloudflare hosting + no github_repo.
+  const isDirectUploadProject = !!(
+    selectedProject &&
+    (selectedProject.hosting_platform === "cloudflare") &&
+    (!!selectedProject.template_type || !selectedProject.github_repo)
+  );
 
   // Check repo status when project changes
   useEffect(() => {
