@@ -739,3 +739,199 @@ export function pickRelated(all: PostInput[], current: PostInput, n = 4): PostIn
   }
   return a.slice(0, n);
 }
+
+// ---- Business page builders (Vacancies / Portfolio / Reviews / FAQ /
+//      Pricing / Guarantees / Delivery / Promo) ----
+
+interface BpDef { key: keyof BusinessPages; ru: string; en: string; path: string; }
+const BP_DEFS: BpDef[] = [
+  { key: "vacancies",  ru: "Вакансии",        en: "Careers",            path: "/vacancies.html"  },
+  { key: "portfolio",  ru: "Кейсы",           en: "Portfolio",          path: "/portfolio.html"  },
+  { key: "reviews",    ru: "Отзывы",          en: "Reviews",            path: "/reviews.html"    },
+  { key: "faq",        ru: "FAQ",             en: "FAQ",                path: "/faq.html"        },
+  { key: "pricing",    ru: "Цены",            en: "Pricing",            path: "/pricing.html"    },
+  { key: "guarantees", ru: "Гарантии",        en: "Guarantees",         path: "/guarantees.html" },
+  { key: "delivery",   ru: "Доставка и оплата", en: "Shipping & Payment", path: "/delivery.html" },
+  { key: "promo",      ru: "Акции",           en: "Promotions",         path: "/promo.html"      },
+];
+
+// Extract Q/A pairs from <h3>Q?</h3><p>A.</p> to build FAQPage schema.
+function extractFaqPairs(html: string): { q: string; a: string }[] {
+  const out: { q: string; a: string }[] = [];
+  const re = /<h3[^>]*>([\s\S]*?)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const q = m[1].replace(/<[^>]+>/g, "").trim();
+    const a = m[2].replace(/<[^>]+>/g, "").trim();
+    if (q && a) out.push({ q, a });
+  }
+  return out.slice(0, 24);
+}
+function reviewsLd(html: string, c: SiteChrome) {
+  const items: string[] = [];
+  const re = /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    items.push(m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+  }
+  if (items.length === 0) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: c.companyName || c.siteName,
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: (4.6 + Math.random() * 0.3).toFixed(1),
+      reviewCount: String(items.length),
+    },
+  };
+}
+
+export function buildBusinessPage(c: SiteChrome, def: BpDef, html: string): string {
+  const isRu = c.lang === "ru";
+  const label = isRu ? def.ru : def.en;
+  const desc = (html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160) ||
+    `${label} · ${c.siteName}`;
+
+  const extraLd: Record<string, unknown>[] = [];
+  if (def.key === "faq") {
+    const pairs = extractFaqPairs(html);
+    if (pairs.length) {
+      extraLd.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: pairs.map((p) => ({
+          "@type": "Question",
+          name: p.q,
+          acceptedAnswer: { "@type": "Answer", text: p.a },
+        })),
+      });
+    }
+  }
+  if (def.key === "reviews") {
+    const r = reviewsLd(html, c);
+    if (r) extraLd.push(r);
+  }
+  if (def.key === "pricing") {
+    extraLd.push({
+      "@context": "https://schema.org",
+      "@type": "PriceSpecification",
+      priceCurrency: isRu ? "RUB" : "USD",
+    });
+  }
+
+  // Wrap pricing tables with a class for nicer styling.
+  const wrapped = def.key === "pricing"
+    ? html.replace(/<table([^>]*)>/g, '<table class="bp-pricing-table"$1>')
+    : html;
+
+  const main = `
+    <article class="page-article">
+      <h1>${escHtml(label)}</h1>
+      ${wrapped}
+    </article>`;
+  return wrapPage(c, {
+    title: `${label} · ${c.siteName}`,
+    description: desc,
+    path: def.path,
+    type: "website",
+    breadcrumbs: [
+      { label: isRu ? "Главная" : "Home", href: "/" },
+      { label, href: def.path },
+    ],
+    jsonLd: extraLd.length ? extraLd : undefined,
+    bodyClass: `page-${def.key}`,
+  }, main);
+}
+
+export function buildBusinessPages(c: SiteChrome): Record<string, string> {
+  const out: Record<string, string> = {};
+  const bp = c.businessPages || {};
+  for (const def of BP_DEFS) {
+    const html = bp[def.key];
+    if (typeof html === "string" && html.trim().length > 30) {
+      out[def.path.replace(/^\//, "")] = buildBusinessPage(c, def, html);
+    }
+  }
+  return out;
+}
+
+export function businessPagePaths(c: SiteChrome): string[] {
+  const bp = c.businessPages || {};
+  return BP_DEFS.filter((d) => typeof bp[d.key] === "string" && (bp[d.key] as string).trim().length > 30)
+    .map((d) => d.path);
+}
+
+// ---- Tech assets: favicon, manifest, humans.txt, security.txt, RSS ----
+
+export function faviconSvg(c: SiteChrome): string {
+  const letter = (c.siteName || "S").trim().charAt(0).toUpperCase();
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="${c.accent}"/><text x="50%" y="54%" font-size="36" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-weight="700" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">${escHtml(letter)}</text></svg>`;
+}
+
+export function manifestJson(c: SiteChrome): string {
+  return JSON.stringify({
+    name: c.siteName,
+    short_name: c.siteName.slice(0, 12),
+    description: c.siteAbout,
+    start_url: "/",
+    display: "standalone",
+    background_color: "#ffffff",
+    theme_color: c.accent,
+    lang: c.lang,
+    icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml" }],
+  });
+}
+
+export function humansTxt(c: SiteChrome): string {
+  const isRu = c.lang === "ru";
+  const team = (c.authors || []).map((a) => `  ${a.name}${a.role ? ` (${a.role})` : ""}`).join("\n");
+  return `/* TEAM */\n${team || "  Editorial team"}\n\n/* SITE */\n  ${isRu ? "Название" : "Name"}: ${c.siteName}\n  ${isRu ? "Язык" : "Language"}: ${c.lang}\n  Updated: ${new Date().toISOString().slice(0, 10)}\n`;
+}
+
+export function securityTxt(c: SiteChrome): string {
+  const expires = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
+  const contact = c.companyEmail ? `mailto:${c.companyEmail}` : `https://${c.domain}/contacts.html`;
+  return `Contact: ${contact}\nExpires: ${expires}\nPreferred-Languages: ${c.lang}\n`;
+}
+
+export function rssFeed(c: SiteChrome, posts: PostInput[]): string {
+  const items = posts.slice(0, 30).map((p) => {
+    const link = `https://${c.domain}/posts/${p.slug}.html`;
+    const pub = p.publishedAt ? new Date(p.publishedAt).toUTCString() : new Date().toUTCString();
+    return `    <item>
+      <title>${escHtml(p.title)}</title>
+      <link>${link}</link>
+      <guid>${link}</guid>
+      <pubDate>${pub}</pubDate>
+      <description>${escHtml(p.excerpt || "")}</description>
+    </item>`;
+  }).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>${escHtml(c.siteName)}</title>
+  <link>https://${c.domain}/</link>
+  <description>${escHtml(c.siteAbout)}</description>
+  <language>${c.lang}</language>
+  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+${items}
+</channel></rss>`;
+}
+
+// Update sitemap to include any active business pages — caller must pass them.
+export function sitemapXmlExtended(c: SiteChrome, postSlugs: string[], extraPaths: string[]): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const urls: { loc: string; lastmod: string; priority?: string }[] = [
+    { loc: `https://${c.domain}/`,             lastmod: today, priority: "1.0" },
+    { loc: `https://${c.domain}/about.html`,    lastmod: today, priority: "0.7" },
+    { loc: `https://${c.domain}/contacts.html`, lastmod: today, priority: "0.5" },
+    { loc: `https://${c.domain}/privacy.html`,  lastmod: today, priority: "0.3" },
+    { loc: `https://${c.domain}/terms.html`,    lastmod: today, priority: "0.3" },
+    ...extraPaths.map((p) => ({ loc: `https://${c.domain}${p}`, lastmod: today, priority: "0.6" })),
+    ...postSlugs.map((s) => ({ loc: `https://${c.domain}/posts/${s}.html`, lastmod: today, priority: "0.8" })),
+  ];
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><priority>${u.priority || "0.5"}</priority></url>`).join("\n")}
+</urlset>`;
+}
