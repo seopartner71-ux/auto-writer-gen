@@ -23,9 +23,6 @@ type RepoStatus = "idle" | "checking" | "empty" | "initializing" | "ready" | "er
 const HOSTING_KEYS = [
   { provider: "cloudflare_account_id", label: "Cloudflare Account ID", placeholder: "ваш Account ID из Cloudflare Dashboard", secret: false },
   { provider: "cloudflare_api_token", label: "Cloudflare API Token", placeholder: "токен с правами Cloudflare Pages: Edit", secret: true },
-  { provider: "vercel_api_token", label: "Vercel API Token", placeholder: "токен из Vercel Settings > Tokens", secret: true },
-  { provider: "vercel_team_id", label: "Vercel Team ID (опционально)", placeholder: "team_...", secret: false },
-  { provider: "netlify_api_token", label: "Netlify API Token", placeholder: "токен из Netlify User Settings > Applications", secret: true },
 ];
 
 export function GitHubProjectsTab() {
