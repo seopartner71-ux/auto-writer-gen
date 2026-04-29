@@ -41,16 +41,25 @@ function renderPreview(tpl: PbnTemplate): string {
   const vars: Record<string, string> = {
     site_name: "Демо-Сайт",
     site_about: "Полезные статьи на тему ниши - готовый превью шаблона.",
+    site_description: "Полезные статьи на тему ниши - готовый превью шаблона.",
     topic: "демо",
     accent,
+    accent_color: accent,
     heading_font: fontPair[0],
     body_font: fontPair[1],
+    font_family: fontPair[1],
     heading_font_url: fontUrl(fontPair[0]),
     body_font_url: fontUrl(fontPair[1]),
     lang: "ru",
     year: String(new Date().getFullYear()),
     title: "Демо-Сайт",
     description: "Превью шаблона",
+    author_name: "Редакция",
+    about_content: "<p>Это демонстрационная страница «О сайте». Здесь будет ваш текст.</p>",
+    contacts_content: "<p>Контакты: hello@example.com</p>",
+    privacy_content: "<p>Демо политики конфиденциальности.</p>",
+    footer_link_url: "https://example.com",
+    footer_link_text: "Партнерская ссылка",
   };
   const looped = tpl.html_structure.replace(/\{\{#posts\}\}([\s\S]*?)\{\{\/posts\}\}/g, (_m, body) => {
     return SAMPLE_POSTS.map((p) =>
