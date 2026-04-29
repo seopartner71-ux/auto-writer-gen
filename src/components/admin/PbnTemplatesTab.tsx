@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Eye, Pencil, Plus, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Sparkles } from "lucide-react";
+import { PbnTemplateImporter } from "./PbnTemplateImporter";
 
 interface PbnTemplate {
   id: string;
@@ -96,6 +98,7 @@ export function PbnTemplatesTab() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<Partial<PbnTemplate>>(EMPTY);
   const [fontPairsRaw, setFontPairsRaw] = useState("");
+  const [importerOpen, setImporterOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -186,6 +189,9 @@ export function PbnTemplatesTab() {
         </div>
         <Button onClick={openCreate} className="gap-2">
           <Plus className="h-4 w-4" /> Добавить шаблон
+        </Button>
+        <Button onClick={() => setImporterOpen(true)} variant="outline" className="gap-2 ml-2">
+          <Sparkles className="h-4 w-4" /> Импорт из HTML/URL/ZIP
         </Button>
       </div>
 
@@ -368,6 +374,12 @@ export function PbnTemplatesTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PbnTemplateImporter
+        open={importerOpen}
+        onOpenChange={setImporterOpen}
+        onImported={load}
+      />
     </div>
   );
 }
