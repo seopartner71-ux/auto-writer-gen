@@ -1247,7 +1247,11 @@ export type Database = {
           author_avatar: string | null
           author_bio: string | null
           author_name: string | null
+          authors: Json | null
           auto_interlinking: boolean
+          auto_weekly_post: boolean
+          business_pages: Json | null
+          clients_count_text: string | null
           company_address: string | null
           company_email: string | null
           company_name: string | null
@@ -1264,10 +1268,14 @@ export type Database = {
           hosting_platform: string | null
           id: string
           injection_links: Json | null
+          instagram_url: string | null
+          juridical_inn: string | null
           language: string
           last_deploy_at: string | null
           last_ping_at: string | null
           last_ping_status: string | null
+          last_post_at: string | null
+          legal_address: string | null
           name: string
           og_image_url: string | null
           primary_color: string | null
@@ -1279,18 +1287,27 @@ export type Database = {
           site_privacy: string | null
           site_terms: string | null
           team_members: Json | null
+          telegram_url: string | null
           template_font_pair: string | null
           template_type: string | null
           total_views: number | null
           updated_at: string
           user_id: string
+          vk_url: string | null
+          whatsapp_url: string | null
+          work_hours: string | null
+          youtube_url: string | null
         }
         Insert: {
           accent_color?: string | null
           author_avatar?: string | null
           author_bio?: string | null
           author_name?: string | null
+          authors?: Json | null
           auto_interlinking?: boolean
+          auto_weekly_post?: boolean
+          business_pages?: Json | null
+          clients_count_text?: string | null
           company_address?: string | null
           company_email?: string | null
           company_name?: string | null
@@ -1307,10 +1324,14 @@ export type Database = {
           hosting_platform?: string | null
           id?: string
           injection_links?: Json | null
+          instagram_url?: string | null
+          juridical_inn?: string | null
           language?: string
           last_deploy_at?: string | null
           last_ping_at?: string | null
           last_ping_status?: string | null
+          last_post_at?: string | null
+          legal_address?: string | null
           name: string
           og_image_url?: string | null
           primary_color?: string | null
@@ -1322,18 +1343,27 @@ export type Database = {
           site_privacy?: string | null
           site_terms?: string | null
           team_members?: Json | null
+          telegram_url?: string | null
           template_font_pair?: string | null
           template_type?: string | null
           total_views?: number | null
           updated_at?: string
           user_id: string
+          vk_url?: string | null
+          whatsapp_url?: string | null
+          work_hours?: string | null
+          youtube_url?: string | null
         }
         Update: {
           accent_color?: string | null
           author_avatar?: string | null
           author_bio?: string | null
           author_name?: string | null
+          authors?: Json | null
           auto_interlinking?: boolean
+          auto_weekly_post?: boolean
+          business_pages?: Json | null
+          clients_count_text?: string | null
           company_address?: string | null
           company_email?: string | null
           company_name?: string | null
@@ -1350,10 +1380,14 @@ export type Database = {
           hosting_platform?: string | null
           id?: string
           injection_links?: Json | null
+          instagram_url?: string | null
+          juridical_inn?: string | null
           language?: string
           last_deploy_at?: string | null
           last_ping_at?: string | null
           last_ping_status?: string | null
+          last_post_at?: string | null
+          legal_address?: string | null
           name?: string
           og_image_url?: string | null
           primary_color?: string | null
@@ -1365,11 +1399,16 @@ export type Database = {
           site_privacy?: string | null
           site_terms?: string | null
           team_members?: Json | null
+          telegram_url?: string | null
           template_font_pair?: string | null
           template_type?: string | null
           total_views?: number | null
           updated_at?: string
           user_id?: string
+          vk_url?: string | null
+          whatsapp_url?: string | null
+          work_hours?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
@@ -1791,6 +1830,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_post_schedule_logs: {
+        Row: {
+          article_id: string | null
+          created_at: string
+          id: string
+          keyword: string | null
+          message: string | null
+          project_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          article_id?: string | null
+          created_at?: string
+          id?: string
+          keyword?: string | null
+          message?: string | null
+          project_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string | null
+          created_at?: string
+          id?: string
+          keyword?: string | null
+          message?: string | null
+          project_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       site_settings: {
         Row: {
