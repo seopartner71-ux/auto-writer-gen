@@ -144,7 +144,7 @@ export default function SiteFactoryPage() {
   const [generateImages, setGenerateImages] = useState(true);
   const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "", footer_link_url: "", footer_link_text: "", google_verification: "" });
   const [verificationDeployed, setVerificationDeployed] = useState(false);
-  const [hostingPlatform, setHostingPlatform] = useState("vercel");
+  const [hostingPlatform, setHostingPlatform] = useState("cloudflare");
   const [deployLogs, setDeployLogs] = useState<DeployLog[]>([]);
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
@@ -205,7 +205,10 @@ export default function SiteFactoryPage() {
       setCustomDomain(selectedProject.custom_domain || "");
       setVerificationDeployed(false);
       const detected = detectPlatformFromDomain(selectedProject.domain);
-      const resolvedPlatform = detected || selectedProject.hosting_platform || "vercel";
+      // Migrate legacy "vercel"/"netlify" projects to "cloudflare"
+      let stored = selectedProject.hosting_platform || "cloudflare";
+      if (stored === "vercel" || stored === "netlify") stored = "cloudflare";
+      const resolvedPlatform = detected || stored;
       setHostingPlatform(resolvedPlatform);
       // If detected platform differs from saved one — auto-correct in DB
       if (detected && selectedProject.hosting_platform !== detected) {
