@@ -166,7 +166,7 @@ footer{margin-top:48px;padding-top:24px;border-top:1px solid #e5e2dc;color:var(-
 function renderMagazine(ctx: RenderCtx): Record<string, string> {
   const nav = navLabels();
   const cardClass = pick(["card", "tile", "story"]);
-  const posts = fakePosts(ctx.topic, 6);
+  const posts = getPosts(ctx, 12);
 
   const css = `:root{--accent:${ctx.accent};--bg:#ffffff;--ink:#0f172a;--muted:#64748b;--surface:#f8fafc}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -193,7 +193,7 @@ footer.bot{margin-top:64px;padding:24px 0;text-align:center;color:var(--muted);f
       <article class="${cardClass}">
         <div class="body">
           <span class="tag">${esc(ctx.topic)}</span>
-          <h2><a href="#">${esc(p.title)}</a></h2>
+          <h2><a href="${p.href}">${esc(p.title)}</a></h2>
           <p>${esc(p.excerpt)}</p>
         </div>
       </article>`).join("");
