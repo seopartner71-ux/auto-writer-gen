@@ -51,6 +51,7 @@ interface ProjectRow {
   injection_links: { url: string; anchor: string }[] | null;
   footer_link: { url: string; text: string } | null;
   google_verification: string | null;
+  template_type: string | null;
 }
 
 type DeployStatus = "idle" | "publishing" | "success" | "error";
@@ -184,7 +185,7 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
-  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link, google_verification";
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link, google_verification, template_type";
 
   // Sync siteConfig when project changes
   useEffect(() => {
@@ -228,6 +229,13 @@ export default function SiteFactoryPage() {
 
   const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
   const isPlatformLocked = false;
+  // Sites created via Site Grid use Cloudflare Pages Direct Upload (no GitHub repo).
+  // Detected by: cloudflare hosting + template_type set, OR cloudflare hosting + no github_repo.
+  const isDirectUploadProject = !!(
+    selectedProject &&
+    (selectedProject.hosting_platform === "cloudflare") &&
+    (!!selectedProject.template_type || !selectedProject.github_repo)
+  );
 
   // Check repo status when project changes
   useEffect(() => {
@@ -860,7 +868,8 @@ export default function SiteFactoryPage() {
     setCfDeploying(true);
     addDeployLog("publishing", lang === "ru" ? "Запуск деплоя на Cloudflare Pages..." : "Triggering Cloudflare Pages deploy...");
     try {
-      const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare", {
+      const fnName = isDirectUploadProject ? "deploy-cloudflare-direct" : "deploy-cloudflare";
+      const { data: cfData, error: cfErr } = await supabase.functions.invoke(fnName, {
         body: { project_id: selectedProjectId },
       });
       if (cfErr) throw cfErr;
@@ -1251,7 +1260,16 @@ export default function SiteFactoryPage() {
             </div>
 
             {selectedProjectId && (
-              isGitHubConfigured ? (
+              isDirectUploadProject ? (
+                <div className="rounded-md border border-green-500/30 bg-green-500/10 text-green-400 p-3 text-sm flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>
+                    {lang === "ru"
+                      ? "Сайт активен на Cloudflare Pages (Direct Upload)"
+                      : "Site active on Cloudflare Pages (Direct Upload)"}
+                  </span>
+                </div>
+              ) : isGitHubConfigured ? (
                 <div className="rounded-md border border-green-500/30 bg-green-500/10 text-green-400 p-3 text-sm flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 flex-shrink-0" />
                   <span>{lang === "ru" ? "Сайт готов к работе" : "Site ready"}</span>
@@ -1304,7 +1322,7 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {selectedProjectId && !isGitHubConfigured && (
+            {selectedProjectId && !isGitHubConfigured && !isDirectUploadProject && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {lang === "ru"
                   ? "Проект не настроен в Админ-панели"
@@ -1404,7 +1422,7 @@ export default function SiteFactoryPage() {
             )}
 
             {/* Cloudflare one-click deploy */}
-            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "cloudflare" && (
+            {selectedProjectId && hostingPlatform === "cloudflare" && (isDirectUploadProject || (isGitHubConfigured && repoStatus === "ready")) && (
               <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   {cfDeploying ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Cloud className="h-4 w-4 text-primary shrink-0" />}
