@@ -1403,15 +1403,44 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {/* Cloudflare placeholder */}
+            {/* Cloudflare one-click deploy */}
             {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "cloudflare" && (
-              <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-400 flex items-center gap-2">
-                <Cloud className="h-4 w-4 shrink-0" />
-                <span>
-                  {lang === "ru"
-                    ? "Cloudflare Pages: настройка в разработке. Скоро появится автоматический деплой в 1 клик."
-                    : "Cloudflare Pages: setup in progress. One-click deploy coming soon."}
-                </span>
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {cfDeploying ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Cloud className="h-4 w-4 text-primary shrink-0" />}
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {cfDeploying
+                        ? (lang === "ru" ? "Деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...")
+                        : (lang === "ru" ? "Cloudflare Pages готов к деплою" : "Cloudflare Pages ready to deploy")}
+                    </span>
+                    {selectedProject?.domain && (
+                      <a
+                        href={selectedProject.domain.startsWith("http") ? selectedProject.domain : `https://${selectedProject.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:text-primary"
+                      >
+                        <ExternalLink className="h-3 w-3" /> {selectedProject.domain.replace(/^https?:\/\//, "")}
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={triggerCloudflare}
+                  disabled={cfDeploying}
+                  className="shrink-0"
+                >
+                  {cfDeploying ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {lang === "ru" ? "Деплой..." : "Deploying..."}</>
+                  ) : selectedProject?.domain ? (
+                    <><Zap className="h-3 w-3 mr-1" /> {lang === "ru" ? "Обновить" : "Redeploy"}</>
+                  ) : (
+                    <><Rocket className="h-3 w-3 mr-1" /> {lang === "ru" ? "Задеплоить" : "Deploy"}</>
+                  )}
+                </Button>
               </div>
             )}
 
