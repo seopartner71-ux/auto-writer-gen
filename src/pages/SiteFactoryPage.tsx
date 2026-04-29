@@ -137,6 +137,7 @@ export default function SiteFactoryPage() {
   const [publishing, setPublishing] = useState<string | null>(null);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
+  const [aiFillLoading, setAiFillLoading] = useState(false);
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
   const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "", footer_link_url: "", footer_link_text: "", google_verification: "" });
