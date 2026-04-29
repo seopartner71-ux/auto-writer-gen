@@ -3,15 +3,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Rocket, CheckCircle2, AlertCircle, ExternalLink, Layers } from "lucide-react";
+import { Loader2, Rocket, CheckCircle2, AlertCircle, ExternalLink, Layers, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type RowStatus = "pending" | "creating" | "deploying" | "done" | "error";
+
+interface SiteSpec {
+  topic: string;
+  region: string;
+  services: string;
+  audience: string;
+  businessType: string;
+}
 
 interface SiteRow {
   topic: string;
@@ -36,11 +43,21 @@ function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+const emptySpec = (): SiteSpec => ({
+  topic: "", region: "", services: "", audience: "", businessType: "продажа",
+});
+
+const BUSINESS_TYPES = [
+  { value: "продажа", label: "Продажа товаров" },
+  { value: "услуги", label: "Услуги" },
+  { value: "информационный", label: "Инфо-сайт / блог" },
+  { value: "производство", label: "Производство" },
+];
+
 export function SiteGridCreator() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [count, setCount] = useState(3);
-  const [topicsRaw, setTopicsRaw] = useState("");
+  const [specs, setSpecs] = useState<SiteSpec[]>([emptySpec()]);
   const [rows, setRows] = useState<SiteRow[]>([]);
   const [running, setRunning] = useState(false);
   const [activeTemplates, setActiveTemplates] = useState<{ template_key: string; name: string }[]>([]);
@@ -56,10 +73,15 @@ export function SiteGridCreator() {
     })();
   }, []);
 
-  const parsedTopics = topicsRaw.split("\n").map((s) => s.trim()).filter(Boolean);
-  const effectiveCount = Math.min(count, 20);
+  const validSpecs = specs.filter((s) => s.topic.trim().length > 0).slice(0, 20);
+  const effectiveCount = validSpecs.length;
   const completed = rows.filter((r) => r.status === "done" || r.status === "error").length;
   const progress = rows.length > 0 ? Math.round((completed / rows.length) * 100) : 0;
+
+  const addSpec = () => setSpecs((prev) => (prev.length >= 20 ? prev : [...prev, emptySpec()]));
+  const removeSpec = (idx: number) => setSpecs((prev) => prev.length === 1 ? [emptySpec()] : prev.filter((_, i) => i !== idx));
+  const updateSpec = (idx: number, patch: Partial<SiteSpec>) =>
+    setSpecs((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
 
   const updateRow = (idx: number, patch: Partial<SiteRow>) => {
     setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -70,23 +92,19 @@ export function SiteGridCreator() {
       toast({ title: "Не авторизован", variant: "destructive" });
       return;
     }
-    if (parsedTopics.length === 0) {
-      toast({ title: "Введите хотя бы одну тематику", variant: "destructive" });
+    if (validSpecs.length === 0) {
+      toast({ title: "Добавьте хотя бы одну тематику", variant: "destructive" });
       return;
     }
 
-    // Build queue: take first N topics; if topics < count, repeat last topic
-    const queue: string[] = [];
-    for (let i = 0; i < effectiveCount; i++) {
-      queue.push(parsedTopics[i] ?? parsedTopics[parsedTopics.length - 1]);
-    }
-
-    const initial: SiteRow[] = queue.map((topic) => ({ topic, status: "pending" }));
+    const queue: SiteSpec[] = validSpecs;
+    const initial: SiteRow[] = queue.map((s) => ({ topic: s.topic, status: "pending" }));
     setRows(initial);
     setRunning(true);
 
     for (let i = 0; i < queue.length; i++) {
-      const topic = queue[i];
+      const spec = queue[i];
+      const topic = spec.topic.trim();
       const tpl = activeTemplates.length > 0 ? pickRandom(activeTemplates) : null;
       const templateKey = tpl?.template_key;
       const templateName = tpl?.name;
@@ -96,8 +114,11 @@ export function SiteGridCreator() {
         updateRow(i, { status: "creating", name: "...", template: templateKey, templateName });
         let projectName = topic;
         try {
+          const niceTopic = spec.region
+            ? `${topic} в ${spec.region}`
+            : topic;
           const { data: nameData } = await supabase.functions.invoke("generate-site-name", {
-            body: { topic, language: "ru" },
+            body: { topic: niceTopic, language: "ru" },
           });
           if (nameData?.name) projectName = String(nameData.name);
         } catch { /* fallback to raw topic */ }
@@ -111,10 +132,12 @@ export function SiteGridCreator() {
             name: projectName,
             domain: "",
             language: "ru",
-            region: "RU",
+            region: spec.region || "RU",
             hosting_platform: "cloudflare",
             site_name: projectName,
-            site_about: `Блог про ${topic}`,
+            site_about: spec.services
+              ? `${topic} - ${spec.services}${spec.region ? ` в ${spec.region}` : ""}`
+              : `${topic}${spec.region ? ` в ${spec.region}` : ""}`,
           })
           .select("id")
           .single();
@@ -148,8 +171,14 @@ export function SiteGridCreator() {
             project_id: projectId,
             template_key: templateKey,
             site_name: projectName,
-            site_about: `Блог про ${topic}`,
+            site_about: spec.services
+              ? `${topic} - ${spec.services}${spec.region ? ` в ${spec.region}` : ""}`
+              : `${topic}${spec.region ? ` в ${spec.region}` : ""}`,
             topic,
+            region: spec.region || undefined,
+            services: spec.services || undefined,
+            audience: spec.audience || undefined,
+            business_type: spec.businessType || undefined,
           },
         });
         if (cfErr) throw new Error(cfErr.message);
@@ -173,43 +202,115 @@ export function SiteGridCreator() {
           Создать сетку сайтов
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Массовое создание PBN-сетки на Cloudflare Pages (Direct Upload). Каждый сайт получает случайный шаблон, шрифты и акцентный цвет - для Anti-Footprint. Без GitHub.
+          Массовое создание PBN-сетки. Для каждого сайта укажите тематику, регион, ключевые услуги и аудиторию - AI сгенерирует контент строго под эту нишу. До 20 сайтов за раз.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Количество сайтов (1-20)</Label>
-            <Input
-              type="number"
-              min={1}
-              max={20}
-              value={count}
-              onChange={(e) => setCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-              disabled={running}
-            />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Сайты для создания (до 20)</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addSpec}
+              disabled={running || specs.length >= 20}
+              className="h-7 gap-1 text-xs"
+            >
+              <Plus className="h-3 w-3" />
+              Добавить сайт
+            </Button>
           </div>
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label className="text-xs">Тематики (по одной на строку)</Label>
-            <Textarea
-              rows={3}
-              placeholder={"Кофейные машины\nГорные велосипеды\nКриптовалюты"}
-              value={topicsRaw}
-              onChange={(e) => setTopicsRaw(e.target.value)}
-              disabled={running}
-              className="text-sm resize-none"
-            />
+
+          <div className="space-y-3">
+            {specs.map((spec, idx) => (
+              <div
+                key={idx}
+                className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                    Сайт #{idx + 1}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSpec(idx)}
+                    disabled={running}
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                    aria-label="Удалить"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Тематика / ниша *</Label>
+                    <Input
+                      placeholder="Минитракторы для дачи"
+                      value={spec.topic}
+                      onChange={(e) => updateSpec(idx, { topic: e.target.value })}
+                      disabled={running}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Регион</Label>
+                    <Input
+                      placeholder="Москва, Подмосковье"
+                      value={spec.region}
+                      onChange={(e) => updateSpec(idx, { region: e.target.value })}
+                      disabled={running}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-[10px] text-muted-foreground">
+                      Ключевые услуги/товары (через запятую)
+                    </Label>
+                    <Input
+                      placeholder="минитрактор, культиватор, навесное оборудование"
+                      value={spec.services}
+                      onChange={(e) => updateSpec(idx, { services: e.target.value })}
+                      disabled={running}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Целевая аудитория</Label>
+                    <Input
+                      placeholder="дачники, фермеры, ЛПХ"
+                      value={spec.audience}
+                      onChange={(e) => updateSpec(idx, { audience: e.target.value })}
+                      disabled={running}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Тип бизнеса</Label>
+                    <select
+                      value={spec.businessType}
+                      onChange={(e) => updateSpec(idx, { businessType: e.target.value })}
+                      disabled={running}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs disabled:opacity-50"
+                    >
+                      {BUSINESS_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground">
             Будет создано: <span className="font-semibold text-foreground">{effectiveCount}</span> сайтов
-            {parsedTopics.length > 0 && parsedTopics.length < effectiveCount && (
-              <span className="text-yellow-400"> (последняя тематика повторится)</span>
-            )}
           </div>
-          <Button onClick={handleStart} disabled={running || parsedTopics.length === 0} className="gap-2">
+          <Button onClick={handleStart} disabled={running || effectiveCount === 0} className="gap-2">
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
             {running ? "Создание..." : "Запустить"}
           </Button>
