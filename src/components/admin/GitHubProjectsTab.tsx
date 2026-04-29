@@ -283,61 +283,26 @@ export function GitHubProjectsTab() {
               </div>
             </div>
 
-            {/* Vercel section */}
+            {/* Blogger section - uses OAuth, no manual keys needed */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <svg className="h-4 w-4" viewBox="0 0 76 65" fill="currentColor"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
-                Vercel
+                <svg className="h-4 w-4 text-orange-500" viewBox="0 0 24 24" fill="currentColor"><path d="M14.4 7.34c.7 0 1.27.56 1.27 1.27s-.56 1.27-1.27 1.27H9.6c-.7 0-1.27-.56-1.27-1.27s.56-1.27 1.27-1.27h4.8M14.4 14.13c.7 0 1.27.56 1.27 1.27s-.56 1.27-1.27 1.27H9.6c-.7 0-1.27-.56-1.27-1.27s.56-1.27 1.27-1.27h4.8M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+                Blogger (Google)
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
-                {HOSTING_KEYS.filter((k) => k.provider.startsWith("vercel")).map((keyDef) => (
-                  <div key={keyDef.provider}>
-                    <label className="text-xs text-muted-foreground mb-1 block">{keyDef.label}</label>
-                    <div className="flex gap-1">
-                      <Input
-                        type={keyDef.secret && !showHostingKey[keyDef.provider] ? "password" : "text"}
-                        value={hostingKeys[keyDef.provider] || ""}
-                        onChange={(e) => setHostingKeys((prev) => ({ ...prev, [keyDef.provider]: e.target.value }))}
-                        placeholder={keyDef.placeholder}
-                        className="text-sm"
-                      />
-                      {keyDef.secret && (
-                        <Button size="icon" variant="ghost" className="shrink-0" onClick={() => setShowHostingKey((prev) => ({ ...prev, [keyDef.provider]: !prev[keyDef.provider] }))}>
-                          {showHostingKey[keyDef.provider] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="rounded-md border border-orange-500/30 bg-orange-500/5 p-3 text-xs text-muted-foreground space-y-1 ml-6">
+                <p>Blogger подключается через OAuth — пользователи коннектят свой Google-аккаунт сами на странице Site Factory → вкладка Blogger.</p>
+                <p>Серверные секреты <code className="text-orange-400">GOOGLE_BLOGGER_CLIENT_ID</code> и <code className="text-orange-400">GOOGLE_BLOGGER_CLIENT_SECRET</code> уже настроены в Edge Secrets.</p>
               </div>
             </div>
 
-            {/* Netlify section */}
+            {/* GitHub Pages section */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <svg className="h-4 w-4" viewBox="0 0 256 256" fill="currentColor"><path d="M128 0L256 128L128 256L0 128L128 0Z"/></svg>
-                Netlify
+                <Github className="h-4 w-4" />
+                GitHub Pages
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-6">
-                {HOSTING_KEYS.filter((k) => k.provider.startsWith("netlify")).map((keyDef) => (
-                  <div key={keyDef.provider}>
-                    <label className="text-xs text-muted-foreground mb-1 block">{keyDef.label}</label>
-                    <div className="flex gap-1">
-                      <Input
-                        type={keyDef.secret && !showHostingKey[keyDef.provider] ? "password" : "text"}
-                        value={hostingKeys[keyDef.provider] || ""}
-                        onChange={(e) => setHostingKeys((prev) => ({ ...prev, [keyDef.provider]: e.target.value }))}
-                        placeholder={keyDef.placeholder}
-                        className="text-sm"
-                      />
-                      {keyDef.secret && (
-                        <Button size="icon" variant="ghost" className="shrink-0" onClick={() => setShowHostingKey((prev) => ({ ...prev, [keyDef.provider]: !prev[keyDef.provider] }))}>
-                          {showHostingKey[keyDef.provider] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground ml-6">
+                Использует GitHub Token из карточки проекта ниже. Дополнительные ключи не нужны.
               </div>
             </div>
           </div>
