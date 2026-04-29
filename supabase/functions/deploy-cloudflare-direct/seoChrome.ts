@@ -642,6 +642,10 @@ export function buildPostPage(
   const isRu = c.lang === "ru";
   const title = `${post.title} · ${c.siteName}`;
   const desc  = post.excerpt || (post.contentHtml || "").replace(/<[^>]+>/g, " ").trim().slice(0, 160);
+  const author = pickAuthor(c.authors, post.slug);
+  const authorJsonLd = author
+    ? { "@context": "https://schema.org", "@type": "Person", name: author.name, jobTitle: author.role || undefined }
+    : null;
   const articleCss = `
 .page-article{max-width:760px;margin:0 auto;padding:32px 24px;font-family:"${c.bodyFont}",system-ui,sans-serif;line-height:1.75;font-size:17px;color:#1a1a1a}
 .page-article h1{font-family:"${c.headingFont}",sans-serif;font-size:36px;line-height:1.2;margin:8px 0 16px}
@@ -669,6 +673,7 @@ export function buildPostPage(
       { label: isRu ? "Блог" : "Blog", href: "/" },
       { label: post.title, href: `/posts/${post.slug}.html` },
     ],
+    jsonLd: authorJsonLd ? [authorJsonLd] : undefined,
   });
   return `${head}
 <style>${articleCss}</style>
@@ -681,7 +686,9 @@ export function buildPostPage(
   <main class="page">
     <article class="page-article">
       <h1>${escHtml(post.title)}</h1>
+      ${authorMetaHtml(c, author, post.publishedAt)}
       ${post.contentHtml}
+      ${shareBarHtml(c, `/posts/${post.slug}.html`, post.title)}
     </article>
     ${relatedHtml}
   </main>
