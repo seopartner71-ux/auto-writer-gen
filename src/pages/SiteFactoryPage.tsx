@@ -1260,7 +1260,16 @@ export default function SiteFactoryPage() {
             </div>
 
             {selectedProjectId && (
-              isGitHubConfigured ? (
+              isDirectUploadProject ? (
+                <div className="rounded-md border border-green-500/30 bg-green-500/10 text-green-400 p-3 text-sm flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>
+                    {lang === "ru"
+                      ? "Сайт активен на Cloudflare Pages (Direct Upload)"
+                      : "Site active on Cloudflare Pages (Direct Upload)"}
+                  </span>
+                </div>
+              ) : isGitHubConfigured ? (
                 <div className="rounded-md border border-green-500/30 bg-green-500/10 text-green-400 p-3 text-sm flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 flex-shrink-0" />
                   <span>{lang === "ru" ? "Сайт готов к работе" : "Site ready"}</span>
