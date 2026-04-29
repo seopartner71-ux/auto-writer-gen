@@ -70,7 +70,7 @@ function shuffle<T>(arr: T[]): T[] { return [...arr].sort(() => Math.random() - 
 
 function navLabels(): { home: string; about: string } {
   return {
-    home: pick(["Главная", "Дом", "Старт", "Лента"]),
+    home: pick(["Главная", "Старт", "Лента"]),
     about: pick(["О нас", "О сайте", "О проекте", "Контакты"]),
   };
 }
