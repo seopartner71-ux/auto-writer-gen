@@ -22,25 +22,6 @@ interface SiteRow {
   projectId?: string;
 }
 
-function transliterate(text: string): string {
-  const map: Record<string, string> = {
-    а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ж:"zh",з:"z",и:"i",й:"j",
-    к:"k",л:"l",м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",
-    ф:"f",х:"kh",ц:"ts",ч:"ch",ш:"sh",щ:"shch",ъ:"",ы:"y",ь:"",
-    э:"e",ю:"yu",я:"ya",
-  };
-  return text.toLowerCase().split("").map(c => map[c] ?? c).join("");
-}
-
-function topicToSlug(topic: string): string {
-  return transliterate(topic)
-    .replace(/[^a-z0-9\s-]/gi, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .substring(0, 40) || "site";
-}
-
 const STATUS_LABELS: Record<RowStatus, string> = {
   pending: "В очереди",
   creating: "Создание проекта",
@@ -214,7 +195,7 @@ export function SiteGridCreator() {
           Создать сетку сайтов
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Массовое создание PBN-сетки на Cloudflare Pages. Использует GitHub Token из ваших существующих проектов.
+          Массовое создание PBN-сетки на Cloudflare Pages. Названия генерируются AI; GitHub Token берется из существующих проектов автоматически.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
