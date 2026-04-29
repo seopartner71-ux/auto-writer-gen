@@ -304,7 +304,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabase
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link_url, footer_link_text, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages")
+      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .single();
@@ -455,8 +455,8 @@ serve(async (req) => {
       contactsHtml:   (project as any).site_contacts || undefined,
       privacyHtml:    (project as any).site_privacy || undefined,
       termsHtml:      (project as any).site_terms || undefined,
-      footerLinkUrl:  (project as any).footer_link_url || undefined,
-      footerLinkText: (project as any).footer_link_text || undefined,
+      footerLinkUrl:  (project as any).footer_link?.url || undefined,
+      footerLinkText: (project as any).footer_link?.text || undefined,
       injectionLinks: (project as any).injection_links || undefined,
       legalAddress:   (project as any).legal_address || undefined,
       workHours:      (project as any).work_hours || undefined,
