@@ -60,24 +60,24 @@ interface DeployLog {
 }
 
 const HOSTING_PLATFORMS = [
-  { value: "vercel", label: "Vercel" },
   { value: "cloudflare", label: "Cloudflare Pages" },
-  { value: "netlify", label: "Netlify" },
+  { value: "blogger", label: "Blogger" },
+  { value: "github_pages", label: "GitHub Pages" },
 ];
 
 const DNS_CONFIGS: Record<string, { a: string; cname: string; cnameValue: string }> = {
-  vercel: { a: "76.76.21.21", cname: "www", cnameValue: "cname.vercel-dns.com" },
   cloudflare: { a: "", cname: "@", cnameValue: "your-project.pages.dev" },
-  netlify: { a: "75.2.60.5", cname: "www", cnameValue: "your-site.netlify.app" },
+  github_pages: { a: "185.199.108.153", cname: "www", cnameValue: "username.github.io" },
+  blogger: { a: "", cname: "www", cnameValue: "ghs.google.com" },
 };
 
 // Auto-detect hosting platform from domain
 const detectPlatformFromDomain = (domain: string | null | undefined): string | null => {
   if (!domain) return null;
   const d = domain.toLowerCase();
-  if (d.includes("vercel.app")) return "vercel";
   if (d.includes("pages.dev")) return "cloudflare";
-  if (d.includes("netlify.app") || d.includes("netlify.com")) return "netlify";
+  if (d.includes("blogspot.com")) return "blogger";
+  if (d.includes("github.io")) return "github_pages";
   return null;
 };
 
