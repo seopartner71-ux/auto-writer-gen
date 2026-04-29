@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, FileText, Cloud, Loader2 } from "lucide-react";
+import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
