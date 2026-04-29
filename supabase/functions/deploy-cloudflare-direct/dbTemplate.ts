@@ -1,6 +1,12 @@
 // Renders a site from a DB-stored pbn_templates row using simple mustache-like
 // placeholders: {{var}} and {{#posts}}...{{/posts}} blocks.
 
+import {
+  type SiteChrome, type PostInput as ChromePost,
+  buildAboutPage, buildContactsPage, buildPrivacyPage, buildTermsPage,
+  buildPostPage, robotsTxt, sitemapXml, chromeStyles, pickRelated,
+} from "./seoChrome.ts";
+
 export interface DbTemplate {
   template_key: string;
   name: string;
@@ -125,55 +131,40 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
   // CSS — substitute accent + font names
   const css = renderVars(tpl.css_styles, baseVars);
 
+  // Build SEO chrome from opts (used for legal pages, sitemap, post pages).
+  const chrome: SiteChrome = {
+    domain, siteName, siteAbout, topic, lang, accent, headingFont, bodyFont,
+    companyName: opts.companyName,
+    companyAddress: opts.companyAddress,
+    companyPhone: opts.companyPhone,
+    companyEmail: opts.companyEmail,
+    foundingYear: opts.foundingYear,
+    teamMembers: opts.teamMembers,
+    ogImageUrl: opts.ogImageUrl,
+    aboutHtml: opts.aboutHtml,
+    contactsHtml: opts.contactsHtml,
+    privacyHtml: opts.privacyHtml,
+    termsHtml: opts.termsHtml,
+    footerLinkUrl: opts.footerLinkUrl,
+    footerLinkText: opts.footerLinkText,
+  };
+  const chromePosts: ChromePost[] = posts.map((p) => ({
+    title: p.title, slug: p.slug, excerpt: p.excerpt, contentHtml: p.contentHtml,
+  }));
+
   const files: Record<string, string> = {
     "index.html": indexHtml,
-    "about.html": aboutHtml,
-    "contacts.html": contactsHtml,
-    "style.css": css,
-    "robots.txt": `User-agent: *\nAllow: /\nSitemap: https://${domain}/sitemap.xml\n`,
+    "about.html": buildAboutPage(chrome),
+    "contacts.html": buildContactsPage(chrome),
+    "privacy.html": buildPrivacyPage(chrome),
+    "terms.html": buildTermsPage(chrome),
+    "style.css": css + "\n" + chromeStyles(chrome),
+    "robots.txt": robotsTxt(chrome),
     "_headers": `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n`,
   };
-
-  // Per-post pages: render full template but with a single-post mode showing the article body.
-  for (const p of posts) {
-    const singlePosts: PostItem[] = [p];
-    // Reuse template - posts loop will render this single post block.
-    // For the actual article body, append after the rendered template inside <main>?
-    // Simpler: use template's own posts loop to render header card, then inject article body
-    // by replacing first occurrence of {{excerpt}} doesn't work after rendering.
-    // Instead, generate a dedicated minimal article page that links back to home.
-    const postBody = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
-<title>${escAttr(p.title)} · ${escAttr(siteName)}</title>
-<meta name="description" content="${escAttr(p.excerpt)}">
-<link rel="stylesheet" href="/style.css">
-<link href="https://fonts.googleapis.com/css2?family=${fontUrl(headingFont)}:wght@400;700&family=${fontUrl(bodyFont)}:wght@400;600&display=swap" rel="stylesheet">
-</head><body>
-<header class="post-page-head" style="padding:24px;border-bottom:1px solid rgba(0,0,0,.08)">
-  <a href="/" style="color:${accent};text-decoration:none;font-family:'${headingFont}';font-weight:700">← ${escAttr(siteName)}</a>
-</header>
-<main style="max-width:760px;margin:0 auto;padding:48px 24px;font-family:'${bodyFont}',sans-serif;line-height:1.7">
-  <h1 style="font-family:'${headingFont}';color:${accent};font-size:38px;margin-bottom:8px">${escAttr(p.title)}</h1>
-  <p style="color:#666;margin-bottom:32px">${todayIso()}</p>
-  <article>${p.contentHtml}</article>
-  <p style="margin-top:48px"><a href="/" style="color:${accent}">← Все статьи</a></p>
-</main>
-<footer style="text-align:center;padding:32px;color:#999;font-size:13px">© ${year} ${escAttr(siteName)}</footer>
-</body></html>`;
-    files[`posts/${p.slug}.html`] = postBody;
+  for (const p of chromePosts) {
+    files[`posts/${p.slug}.html`] = buildPostPage(chrome, p, pickRelated(chromePosts, p, 4));
   }
-
-  // Sitemap
-  const urls = [
-    `https://${domain}/`,
-    `https://${domain}/about.html`,
-    `https://${domain}/contacts.html`,
-    ...posts.map((p) => `https://${domain}/posts/${p.slug}.html`),
-  ];
-  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9">
-${urls.map((u) => `<url><loc>${u}</loc><lastmod>${todayIso()}</lastmod></url>`).join("\n")}
-</urlset>`;
-  files["sitemap.xml"] = sitemap;
-
+  files["sitemap.xml"] = sitemapXml(chrome, chromePosts.map((p) => p.slug));
   return files;
 }
