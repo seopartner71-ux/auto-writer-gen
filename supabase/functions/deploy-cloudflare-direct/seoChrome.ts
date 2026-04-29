@@ -927,13 +927,24 @@ export function buildPostPage(
 
 export function buildIndexHomePage(c: SiteChrome, postsList: PostInput[]): string {
   const isRu = c.lang === "ru";
+  const cardImg = (p: PostInput) => {
+    const fallback = `https://picsum.photos/seed/${encodeURIComponent(p.slug || p.title || "post").slice(0, 60)}/600/360`;
+    const url = p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl) ? p.featuredImageUrl : fallback;
+    return `<img src="${escAttr(url)}" alt="${escAttr(p.title)}" loading="lazy" width="600" height="360"
+      style="display:block;width:100%;aspect-ratio:5/3;object-fit:cover;border-radius:10px 10px 0 0;background:#e2e8f0">`;
+  };
   const cards = postsList.length === 0
     ? `<p>${escHtml(isRu ? "Скоро здесь появятся материалы." : "Posts coming soon.")}</p>`
-    : `<ul class="home-list" style="list-style:none;padding:0;margin:0;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+    : `<ul class="home-list" style="list-style:none;padding:0;margin:0;display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
          ${postsList.map((p) => `
-           <li style="padding:20px;background:#fafafa;border-radius:10px">
-             <h2 style="margin:0 0 8px;font-size:18px"><a href="/posts/${p.slug}.html" style="color:#0f172a;text-decoration:none">${escHtml(p.title)}</a></h2>
-             <p style="margin:0;color:#555;font-size:14px">${escHtml(p.excerpt)}</p>
+           <li style="background:#fafafa;border-radius:10px;overflow:hidden;border:1px solid #eef2f7">
+             <a href="/posts/${p.slug}.html" style="text-decoration:none;color:inherit;display:block">
+               ${cardImg(p)}
+               <div style="padding:16px 18px 18px">
+                 <h2 style="margin:0 0 8px;font-size:18px;color:#0f172a">${escHtml(p.title)}</h2>
+                 <p style="margin:0;color:#555;font-size:14px">${escHtml(p.excerpt)}</p>
+               </div>
+             </a>
            </li>`).join("")}
        </ul>`;
   return wrapPage(c, {
