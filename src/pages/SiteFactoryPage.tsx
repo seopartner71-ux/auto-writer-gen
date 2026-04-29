@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Zap } from "lucide-react";
+import { Link as RouterLink } from "react-router-dom";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Zap, Settings } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1163,18 +1164,41 @@ export default function SiteFactoryPage() {
               <label className="text-sm font-medium mb-1.5 block">
                 {lang === "ru" ? "Проект" : "Project"}
               </label>
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={lang === "ru" ? "Выберите проект..." : "Select project..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.domain ? `(${p.domain})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={lang === "ru" ? "Выберите проект..." : "Select project..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} {p.domain ? `(${p.domain})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button asChild variant="outline" size="icon" title={lang === "ru" ? "Создать новый проект" : "Create new project"}>
+                  <RouterLink to="/projects">
+                    <Plus className="h-4 w-4" />
+                  </RouterLink>
+                </Button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
+                  <RouterLink to="/projects">
+                    <Plus className="h-3 w-3 mr-1" />
+                    {lang === "ru" ? "Новый проект" : "New project"}
+                  </RouterLink>
+                </Button>
+                {selectedProjectId && (
+                  <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
+                    <RouterLink to="/projects">
+                      <Settings className="h-3 w-3 mr-1" />
+                      {lang === "ru" ? "Настроить деплой" : "Configure deploy"}
+                    </RouterLink>
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Hosting Platform Selector */}
@@ -1216,11 +1240,34 @@ export default function SiteFactoryPage() {
             </div>
 
             {selectedProjectId && (
-              <div className={`rounded-md border p-3 text-sm ${isGitHubConfigured ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-destructive/30 bg-destructive/10 text-destructive"}`}>
-                {isGitHubConfigured
-                  ? (lang === "ru" ? "Сайт готов к работе" : "Site ready")
-                  : (lang === "ru" ? "Проект не настроен в Админ-панели" : "Project is not configured in Admin")}
-              </div>
+              isGitHubConfigured ? (
+                <div className="rounded-md border border-green-500/30 bg-green-500/10 text-green-400 p-3 text-sm flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>{lang === "ru" ? "Сайт готов к работе" : "Site ready"}</span>
+                </div>
+              ) : (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 text-destructive p-3 text-sm space-y-2">
+                  <div className="flex items-center gap-2 font-medium">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <span>{lang === "ru" ? "Проект не настроен" : "Project not configured"}</span>
+                  </div>
+                  <p className="text-xs opacity-90">
+                    {lang === "ru"
+                      ? "Не хватает данных GitHub: токен и репозиторий. Без них деплой невозможен."
+                      : "Missing GitHub data: token and repository. Deployment is not possible."}
+                  </p>
+                  <ul className="text-xs opacity-90 list-disc pl-4 space-y-0.5">
+                    <li>{!selectedProject?.github_token && (lang === "ru" ? "GitHub токен" : "GitHub token")}</li>
+                    <li>{!selectedProject?.github_repo && (lang === "ru" ? "GitHub репозиторий (owner/repo)" : "GitHub repository (owner/repo)")}</li>
+                  </ul>
+                  <Button asChild size="sm" variant="outline" className="h-7 text-xs mt-1">
+                    <RouterLink to="/projects">
+                      <Settings className="h-3 w-3 mr-1" />
+                      {lang === "ru" ? "Открыть настройки проекта" : "Open project settings"}
+                    </RouterLink>
+                  </Button>
+                </div>
+              )
             )}
             {/* Author Profile Selector */}
             {authorProfiles.length > 0 && (
