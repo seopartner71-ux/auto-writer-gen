@@ -609,13 +609,17 @@ function dicebearUrl(seed: string): string {
 }
 
 function authorMetaHtml(c: SiteChrome, author: Author | null, publishedAt?: string): string {
-  if (!author) return "";
   const isRu = c.lang === "ru";
   const dateStr = publishedAt
     ? new Date(publishedAt).toLocaleDateString(isRu ? "ru-RU" : "en-US",
         { year: "numeric", month: "long", day: "numeric" })
     : "";
   const dateTime = publishedAt ? new Date(publishedAt).toISOString() : "";
+  if (!author) {
+    // No author — still show the date if we have one, so posts don't look "live today".
+    if (!dateStr) return "";
+    return `<div class="author-meta"><time datetime="${escAttr(dateTime)}" style="font-size:13px;color:#888">${escHtml(dateStr)}</time></div>`;
+  }
   return `<div class="author-meta">
     <img src="${escAttr(dicebearUrl(author.avatar_seed || author.name))}" alt="${escAttr(author.name)}" loading="lazy" width="40" height="40">
     <div>
@@ -658,10 +662,17 @@ export function buildPostPage(
 .page-article a{color:${c.accent};text-decoration:underline}
 .page-article ul,.page-article ol{margin:0 0 16px 24px}
 .page-article blockquote{border-left:3px solid ${c.accent};padding:8px 16px;margin:16px 0;color:#444;background:#fafafa}
-.page-article img{margin:16px 0;border-radius:8px}
+.page-article img{margin:16px 0;border-radius:8px;max-width:100%;height:auto}
+.page-article .post-hero{width:100%;aspect-ratio:2/1;object-fit:cover;border-radius:12px;margin:0 0 24px}
 .contact-list{list-style:none;padding:0;margin:16px 0}
 .contact-list li{padding:8px 0;border-bottom:1px solid #eee}
 `;
+  // Stable hero image via Picsum, seeded by slug so each post gets a different
+  // but consistent photo across rebuilds. No API key, no rate limits.
+  const heroSeed = encodeURIComponent(post.slug || post.title || "post").slice(0, 60);
+  const heroUrl  = `https://picsum.photos/seed/${heroSeed}/1200/600`;
+  const heroImg  = `<img class="post-hero" src="${heroUrl}" alt="${escAttr(post.title)}" loading="eager" width="1200" height="600">`;
+
   const relatedHtml = related.length ? `
     <aside class="related-posts">
       <h2>${isRu ? "Читайте также" : "Related posts"}</h2>
@@ -670,6 +681,7 @@ export function buildPostPage(
 
   const head = buildHead(c, {
     title, description: desc, path: `/posts/${post.slug}.html`, type: "article",
+    ogImage: heroUrl,
     publishedTime: post.publishedAt,
     breadcrumbs: [
       { label: isRu ? "Главная" : "Home", href: "/" },
@@ -690,6 +702,7 @@ export function buildPostPage(
     <article class="page-article">
       <h1>${escHtml(post.title)}</h1>
       ${authorMetaHtml(c, author, post.publishedAt)}
+      ${heroImg}
       ${post.contentHtml}
       ${shareBarHtml(c, `/posts/${post.slug}.html`, post.title)}
     </article>
