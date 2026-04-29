@@ -109,9 +109,9 @@ function randomFontPair(): string {
 }
 
 const PUBLISH_DESTINATIONS = [
-  { label: "GitHub Pages", icon: Github },
   { label: "Cloudflare Pages", icon: Cloud },
-  { label: "Vercel", icon: Rocket },
+  { label: "Blogger", icon: FileText },
+  { label: "GitHub Pages", icon: Github },
 ];
 
 interface QueueArticle {
