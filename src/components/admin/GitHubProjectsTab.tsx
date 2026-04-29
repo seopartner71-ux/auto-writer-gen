@@ -157,9 +157,12 @@ export function GitHubProjectsTab() {
         toast({ title: "Репозиторий уже инициализирован", description: "Сайт готов к работе" });
         return;
       }
-      if (checkData?.status === "empty") {
+      if (checkData?.status === "empty" || checkData?.status === "missing") {
         setRepoStatus((prev) => ({ ...prev, [projectId]: "initializing" }));
-        toast({ title: "Пустой репозиторий обнаружен", description: "Загружаем шаблон Astro..." });
+        toast({
+          title: checkData.status === "missing" ? "Репозиторий не найден" : "Пустой репозиторий обнаружен",
+          description: checkData.status === "missing" ? "Создаем репозиторий и загружаем шаблон Astro..." : "Загружаем шаблон Astro...",
+        });
         const { data: initData, error: initErr } = await supabase.functions.invoke("bootstrap-astro", {
           body: { project_id: projectId, action: "initialize" },
         });
@@ -176,7 +179,10 @@ export function GitHubProjectsTab() {
         }
       } else {
         setRepoStatus((prev) => ({ ...prev, [projectId]: "error" }));
-        setRepoError((prev) => ({ ...prev, [projectId]: checkData?.message || "Не удалось проверить" }));
+        setRepoError((prev) => ({
+          ...prev,
+          [projectId]: checkData?.message || `Не удалось проверить (status: ${checkData?.status || "unknown"}). Проверьте формат owner/repo и права токена (scope: repo).`,
+        }));
       }
     } catch (err: any) {
       setRepoStatus((prev) => ({ ...prev, [projectId]: "error" }));
