@@ -20,6 +20,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { normalizeGoogleVerification } from "@/shared/utils/googleVerification";
 import DOMPurify from "dompurify";
+import { SiteGridCreator } from "@/components/site-factory/SiteGridCreator";
 
 interface AuthorProfile {
   id: string;
@@ -1117,6 +1118,9 @@ export default function SiteFactoryPage() {
           </div>
         ))}
       </div>
+
+      <SiteGridCreator />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
