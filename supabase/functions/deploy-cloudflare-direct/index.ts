@@ -94,9 +94,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    console.log("[deploy-cloudflare-direct] started");
     const authHeader = req.headers.get("Authorization") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    console.log("[deploy-cloudflare-direct] env SUPABASE_URL:", supabaseUrl ? "set" : "missing",
+                "SUPABASE_ANON_KEY:", supabaseKey ? "set" : "missing",
+                "SERVICE_ROLE:", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ? "set" : "missing");
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -106,6 +110,7 @@ serve(async (req) => {
     );
 
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    console.log("[deploy-cloudflare-direct] auth user:", user?.id || "none", "err:", authErr?.message || "none");
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -113,6 +118,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
+    console.log("[deploy-cloudflare-direct] body:", JSON.stringify(body));
     const projectId: string = body.project_id;
     if (!projectId) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), {
@@ -126,6 +132,7 @@ serve(async (req) => {
     const fontPair: [string, string] = Array.isArray(body.font_pair) && body.font_pair.length === 2
       ? body.font_pair
       : pickRandom(FONT_PAIRS[template]);
+    console.log("[deploy-cloudflare-direct] template:", template, "accent:", accent, "fontPair:", fontPair);
 
     const { data: project, error: projErr } = await supabase
       .from("projects")
@@ -133,6 +140,7 @@ serve(async (req) => {
       .eq("id", projectId)
       .eq("user_id", user.id)
       .single();
+    console.log("[deploy-cloudflare-direct] project lookup:", project ? "found" : "missing", "err:", projErr?.message || "none");
     if (projErr || !project) {
       return new Response(JSON.stringify({ error: "Project not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -142,15 +150,19 @@ serve(async (req) => {
     const topic: string = body.topic || project.site_about || project.name || "блог";
     const siteName: string = body.site_name || project.site_name || project.name || "Сайт";
     const siteAbout: string = body.site_about || project.site_about || `Блог про ${topic}`;
+    console.log("[deploy-cloudflare-direct] siteName:", siteName, "topic:", topic);
 
     // Cloudflare credentials
-    const { data: apiKeys } = await supabaseAdmin
+    const { data: apiKeys, error: keysErr } = await supabaseAdmin
       .from("api_keys")
       .select("provider, api_key")
       .in("provider", ["cloudflare_account_id", "cloudflare_api_token"]);
+    console.log("[deploy-cloudflare-direct] api_keys rows:", apiKeys?.length ?? 0, "err:", keysErr?.message || "none");
     const keyMap = Object.fromEntries((apiKeys || []).map((k: any) => [k.provider, k.api_key]));
     const accountId = keyMap["cloudflare_account_id"];
     const apiToken = keyMap["cloudflare_api_token"];
+    console.log("[deploy-cloudflare-direct] account_id:", accountId ? "set" : "missing",
+                "api_token:", apiToken ? "set" : "missing");
     if (!accountId || !apiToken) {
       return new Response(JSON.stringify({
         error: "Cloudflare credentials not configured. Add cloudflare_account_id and cloudflare_api_token in Admin.",
@@ -167,6 +179,7 @@ serve(async (req) => {
     const baseName = sanitizeProjectName(siteName);
     const idShort = projectId.replace(/-/g, "");
     const candidates = [baseName, `${baseName}-${idShort.slice(0, 6)}`, `${baseName}-${idShort.slice(0, 12)}`];
+    console.log("[deploy-cloudflare-direct] candidates:", candidates);
     let cfProjectName = "";
     let lastErr = "";
 
@@ -175,6 +188,7 @@ serve(async (req) => {
     const existingMatch = existingHost.match(/^([a-z0-9-]+)\.pages\.dev$/i);
     if (existingMatch) {
       const checkRes = await fetch(`${cfBaseUrl}/${existingMatch[1]}`, { headers: cfHeadersJson });
+      console.log("[deploy-cloudflare-direct] reuse check:", existingMatch[1], "->", checkRes.status);
       if (checkRes.ok) cfProjectName = existingMatch[1];
     }
 
@@ -190,9 +204,11 @@ serve(async (req) => {
           }),
         });
         const parsed = await tryParseJson(createRes);
+        console.log("[deploy-cloudflare-direct] create", candidate, "status:", parsed.status, "ok:", parsed.ok);
         if (parsed.ok) { cfProjectName = candidate; break; }
         const msg = cfErr(parsed.data, parsed.text, parsed.status);
         lastErr = msg;
+        console.log("[deploy-cloudflare-direct] create err:", msg);
         const isConflict = parsed.status === 409 || /already (exists|been taken)/i.test(msg);
         if (!isConflict) {
           return new Response(JSON.stringify({ error: `Cloudflare create failed: ${msg}` }), {
@@ -206,6 +222,7 @@ serve(async (req) => {
         });
       }
     }
+    console.log("[deploy-cloudflare-direct] cfProjectName:", cfProjectName);
 
     const pagesDevUrl = `https://${cfProjectName}.pages.dev`;
     const domain = `${cfProjectName}.pages.dev`;
@@ -216,6 +233,7 @@ serve(async (req) => {
       accent, headingFont: fontPair[0], bodyFont: fontPair[1],
       template, domain,
     });
+    console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
     // 3. Compute manifest { "/path": hash }
     const manifest: Record<string, string> = {};
@@ -225,10 +243,12 @@ serve(async (req) => {
       manifest[`/${path}`] = h;
       fileByHash[h] = { path, content };
     }
+    console.log("[deploy-cloudflare-direct] manifest:", JSON.stringify(manifest));
 
     // 4. Get upload JWT
     const tokenRes = await fetch(`${cfBaseUrl}/${cfProjectName}/upload-token`, { headers: cfHeadersJson });
     const tokenParsed = await tryParseJson(tokenRes);
+    console.log("[deploy-cloudflare-direct] upload-token status:", tokenParsed.status, "hasJwt:", !!tokenParsed.data?.result?.jwt);
     if (!tokenParsed.ok || !tokenParsed.data?.result?.jwt) {
       return new Response(JSON.stringify({
         error: `upload-token failed: ${cfErr(tokenParsed.data, tokenParsed.text, tokenParsed.status)}`,
@@ -245,6 +265,7 @@ serve(async (req) => {
       body: JSON.stringify({ hashes: allHashes }),
     });
     const checkParsed = await tryParseJson(checkRes);
+    console.log("[deploy-cloudflare-direct] check-missing status:", checkParsed.status, "missing:", checkParsed.data?.result?.length);
     if (!checkParsed.ok) {
       return new Response(JSON.stringify({
         error: `check-missing failed: ${cfErr(checkParsed.data, checkParsed.text, checkParsed.status)}`,
@@ -269,7 +290,9 @@ serve(async (req) => {
         body: JSON.stringify(payload),
       });
       const upParsed = await tryParseJson(upRes);
+      console.log("[deploy-cloudflare-direct] assets/upload status:", upParsed.status, "ok:", upParsed.ok);
       if (!upParsed.ok) {
+        console.log("[deploy-cloudflare-direct] upload err body:", upParsed.text.slice(0, 500));
         return new Response(JSON.stringify({
           error: `assets/upload failed: ${cfErr(upParsed.data, upParsed.text, upParsed.status)}`,
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -283,6 +306,7 @@ serve(async (req) => {
       body: JSON.stringify({ hashes: allHashes }),
     });
     const upsertParsed = await tryParseJson(upsertRes);
+    console.log("[deploy-cloudflare-direct] upsert-hashes status:", upsertParsed.status, "ok:", upsertParsed.ok);
     if (!upsertParsed.ok) {
       console.warn("[direct] upsert-hashes failed (continuing):", cfErr(upsertParsed.data, upsertParsed.text, upsertParsed.status));
     }
@@ -298,7 +322,9 @@ serve(async (req) => {
       body: fd,
     });
     const deployParsed = await tryParseJson(deployRes);
+    console.log("[deploy-cloudflare-direct] deployments status:", deployParsed.status, "ok:", deployParsed.ok);
     if (!deployParsed.ok) {
+      console.log("[deploy-cloudflare-direct] deploy err body:", deployParsed.text.slice(0, 500));
       return new Response(JSON.stringify({
         error: `deployments failed: ${cfErr(deployParsed.data, deployParsed.text, deployParsed.status)}`,
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -312,6 +338,7 @@ serve(async (req) => {
       accent_color: accent,
       template_font_pair: `${fontPair[0]}|${fontPair[1]}`,
     }).eq("id", projectId);
+    console.log("[deploy-cloudflare-direct] success ->", pagesDevUrl);
 
     return new Response(JSON.stringify({
       success: true,
@@ -321,9 +348,9 @@ serve(async (req) => {
       deploy_id: deployParsed.data?.result?.id || null,
       message: `Direct Upload deployed: ${pagesDevUrl}`,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (err) {
-    console.error("[deploy-cloudflare-direct] error:", err);
-    return new Response(JSON.stringify({ error: "Internal error", details: String(err) }), {
+  } catch (err: any) {
+    console.error("[deploy-cloudflare-direct] ERROR:", err?.message, err?.stack);
+    return new Response(JSON.stringify({ error: err?.message || String(err), stack: err?.stack }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
