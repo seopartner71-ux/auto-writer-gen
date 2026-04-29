@@ -1124,6 +1124,51 @@ export type Database = {
         }
         Relationships: []
       }
+      pbn_templates: {
+        Row: {
+          created_at: string
+          css_styles: string
+          description: string | null
+          font_pairs: Json
+          html_structure: string
+          id: string
+          is_active: boolean
+          is_builtin: boolean
+          name: string
+          sort_order: number
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          css_styles?: string
+          description?: string | null
+          font_pairs?: Json
+          html_structure: string
+          id?: string
+          is_active?: boolean
+          is_builtin?: boolean
+          name: string
+          sort_order?: number
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          css_styles?: string
+          description?: string | null
+          font_pairs?: Json
+          html_structure?: string
+          id?: string
+          is_active?: boolean
+          is_builtin?: boolean
+          name?: string
+          sort_order?: number
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
