@@ -419,16 +419,19 @@ serve(async (req) => {
     const domain = `${cfProjectName}.pages.dev`;
 
     // 2. Render files (DB template takes priority)
+    const trackerBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/track-visit`;
     const files = dbTpl
       ? renderDbTemplate({
           tpl: dbTpl, siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           domain, posts,
+          projectId, trackerUrl: trackerBase,
         })
       : renderTemplate({
           siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           template: builtinTemplate, domain, posts,
+          projectId, trackerUrl: trackerBase,
         });
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
@@ -534,6 +537,9 @@ serve(async (req) => {
       template_type: templateKey,
       accent_color: accent,
       template_font_pair: `${fontPair[0]}|${fontPair[1]}`,
+      last_deploy_at: new Date().toISOString(),
+      last_ping_status: "online",
+      last_ping_at: new Date().toISOString(),
     }).eq("id", projectId);
     console.log("[deploy-cloudflare-direct] success ->", pagesDevUrl);
 
