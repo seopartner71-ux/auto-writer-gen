@@ -165,6 +165,10 @@ export default function SiteFactoryPage() {
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkAnchor, setNewLinkAnchor] = useState("");
   const [deployingVerification, setDeployingVerification] = useState(false);
+  const [vercelStatus, setVercelStatus] = useState<"idle" | "checking" | "linked" | "not_linked" | "creating" | "error">("idle");
+  const [vercelError, setVercelError] = useState<string>("");
+  const [vercelHint, setVercelHint] = useState<string>("");
+  const [vercelDomain, setVercelDomain] = useState<string>("");
 
   // Stats
   const [totalSites, setTotalSites] = useState(0);
@@ -251,6 +255,80 @@ export default function SiteFactoryPage() {
     })();
     return () => { cancelled = true; };
   }, [selectedProjectId, isGitHubConfigured]);
+
+  // Check Vercel link status when GitHub is configured
+  useEffect(() => {
+    if (!selectedProjectId || !isGitHubConfigured) {
+      setVercelStatus("idle");
+      setVercelError("");
+      setVercelHint("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setVercelStatus("checking");
+      try {
+        const { data, error } = await supabase.functions.invoke("vercel-deploy", {
+          body: { project_id: selectedProjectId, action: "check" },
+        });
+        if (cancelled) return;
+        if (error) throw new Error(error.message);
+        if (data?.status === "linked") {
+          setVercelStatus("linked");
+          setVercelDomain(data.domain || "");
+        } else {
+          setVercelStatus("not_linked");
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setVercelStatus("error");
+          setVercelError(err?.message || String(err));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProjectId, isGitHubConfigured, repoStatus]);
+
+  const handleVercelDeploy = async (action: "create" | "redeploy") => {
+    if (!selectedProjectId) return;
+    setVercelStatus("creating");
+    setVercelError("");
+    setVercelHint("");
+    addDeployLog("publishing", lang === "ru" ? "Создание проекта на Vercel..." : "Creating Vercel project...");
+    try {
+      const { data, error } = await supabase.functions.invoke("vercel-deploy", {
+        body: { project_id: selectedProjectId, action },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) {
+        setVercelStatus("error");
+        setVercelError(data.error);
+        if (data.hint) setVercelHint(data.hint);
+        addDeployLog("error", data.error);
+        toast({
+          title: lang === "ru" ? "Ошибка деплоя на Vercel" : "Vercel deploy error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      setVercelStatus("linked");
+      setVercelDomain(data?.domain || "");
+      addDeployLog("success", lang === "ru" ? `Сайт задеплоен: https://${data?.domain}` : `Site deployed: https://${data?.domain}`);
+      toast({
+        title: lang === "ru" ? "Сайт на Vercel!" : "Site on Vercel!",
+        description: data?.domain ? `https://${data.domain}` : (lang === "ru" ? "Деплой запущен" : "Deploy triggered"),
+      });
+      // Reload projects to get updated domain
+      const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
+      if (updated) setProjects(updated as ProjectRow[]);
+    } catch (err: any) {
+      setVercelStatus("error");
+      setVercelError(err?.message || String(err));
+      addDeployLog("error", err?.message || String(err));
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
+    }
+  };
 
   const handleInitRepo = async () => {
     if (!selectedProjectId) return;
@@ -1199,6 +1277,66 @@ export default function SiteFactoryPage() {
                     <Rocket className="h-3 w-3 mr-1" />
                     {lang === "ru" ? "Инициализировать" : "Initialize"}
                   </Button>
+                )}
+              </div>
+            )}
+
+            {/* Vercel one-click deploy - visible when GitHub is set up and repo is ready */}
+            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && (
+              <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
+                vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
+                vercelStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :
+                vercelStatus === "creating" || vercelStatus === "checking" ? "border-primary/30 bg-primary/10 text-primary" :
+                "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+              }`}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    {(vercelStatus === "checking" || vercelStatus === "creating") && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {vercelStatus === "linked" && <CheckCircle className="h-4 w-4" />}
+                    {vercelStatus === "not_linked" && <Cloud className="h-4 w-4" />}
+                    {vercelStatus === "error" && <AlertCircle className="h-4 w-4" />}
+                    <span>
+                      {vercelStatus === "checking" && (lang === "ru" ? "Проверка Vercel..." : "Checking Vercel...")}
+                      {vercelStatus === "creating" && (lang === "ru" ? "Деплой на Vercel..." : "Deploying to Vercel...")}
+                      {vercelStatus === "linked" && (lang === "ru" ? "Сайт на Vercel" : "Live on Vercel")}
+                      {vercelStatus === "not_linked" && (lang === "ru" ? "Готов к деплою на Vercel в 1 клик" : "Ready for one-click Vercel deploy")}
+                      {vercelStatus === "error" && (vercelError || (lang === "ru" ? "Ошибка Vercel" : "Vercel error"))}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {vercelStatus === "linked" && vercelDomain && (
+                      <a
+                        href={`https://${vercelDomain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs underline hover:opacity-80"
+                      >
+                        <ExternalLink className="h-3 w-3" /> {vercelDomain}
+                      </a>
+                    )}
+                    {vercelStatus === "not_linked" && (
+                      <Button size="sm" variant="outline" onClick={() => handleVercelDeploy("create")} className="shrink-0">
+                        <Rocket className="h-3 w-3 mr-1" />
+                        {lang === "ru" ? "Деплой в 1 клик" : "Deploy in 1 click"}
+                      </Button>
+                    )}
+                    {vercelStatus === "linked" && (
+                      <Button size="sm" variant="outline" onClick={() => handleVercelDeploy("redeploy")} className="shrink-0">
+                        <Zap className="h-3 w-3 mr-1" />
+                        {lang === "ru" ? "Обновить" : "Redeploy"}
+                      </Button>
+                    )}
+                    {vercelStatus === "error" && (
+                      <Button size="sm" variant="outline" onClick={() => handleVercelDeploy("create")} className="shrink-0">
+                        {lang === "ru" ? "Повторить" : "Retry"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {vercelHint && (
+                  <p className="text-xs opacity-90 break-words">
+                    {lang === "ru" ? "Подсказка: " : "Hint: "}{vercelHint}
+                  </p>
                 )}
               </div>
             )}
