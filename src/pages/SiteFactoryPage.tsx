@@ -20,6 +20,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { normalizeGoogleVerification } from "@/shared/utils/googleVerification";
 import DOMPurify from "dompurify";
+import { SiteGridCreator } from "@/components/site-factory/SiteGridCreator";
 
 interface AuthorProfile {
   id: string;
@@ -60,24 +61,24 @@ interface DeployLog {
 }
 
 const HOSTING_PLATFORMS = [
-  { value: "vercel", label: "Vercel" },
   { value: "cloudflare", label: "Cloudflare Pages" },
-  { value: "netlify", label: "Netlify" },
+  { value: "blogger", label: "Blogger" },
+  { value: "github_pages", label: "GitHub Pages" },
 ];
 
 const DNS_CONFIGS: Record<string, { a: string; cname: string; cnameValue: string }> = {
-  vercel: { a: "76.76.21.21", cname: "www", cnameValue: "cname.vercel-dns.com" },
   cloudflare: { a: "", cname: "@", cnameValue: "your-project.pages.dev" },
-  netlify: { a: "75.2.60.5", cname: "www", cnameValue: "your-site.netlify.app" },
+  github_pages: { a: "185.199.108.153", cname: "www", cnameValue: "username.github.io" },
+  blogger: { a: "", cname: "www", cnameValue: "ghs.google.com" },
 };
 
 // Auto-detect hosting platform from domain
 const detectPlatformFromDomain = (domain: string | null | undefined): string | null => {
   if (!domain) return null;
   const d = domain.toLowerCase();
-  if (d.includes("vercel.app")) return "vercel";
   if (d.includes("pages.dev")) return "cloudflare";
-  if (d.includes("netlify.app") || d.includes("netlify.com")) return "netlify";
+  if (d.includes("blogspot.com")) return "blogger";
+  if (d.includes("github.io")) return "github_pages";
   return null;
 };
 
@@ -109,9 +110,9 @@ function randomFontPair(): string {
 }
 
 const PUBLISH_DESTINATIONS = [
-  { label: "GitHub Pages", icon: Github },
   { label: "Cloudflare Pages", icon: Cloud },
-  { label: "Vercel", icon: Rocket },
+  { label: "Blogger", icon: FileText },
+  { label: "GitHub Pages", icon: Github },
 ];
 
 interface QueueArticle {
@@ -144,7 +145,7 @@ export default function SiteFactoryPage() {
   const [generateImages, setGenerateImages] = useState(true);
   const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "", footer_link_url: "", footer_link_text: "", google_verification: "" });
   const [verificationDeployed, setVerificationDeployed] = useState(false);
-  const [hostingPlatform, setHostingPlatform] = useState("vercel");
+  const [hostingPlatform, setHostingPlatform] = useState("cloudflare");
   const [deployLogs, setDeployLogs] = useState<DeployLog[]>([]);
   const [imageCount, setImageCount] = useState(3);
   const [authorProfiles, setAuthorProfiles] = useState<AuthorProfile[]>([]);
@@ -205,7 +206,10 @@ export default function SiteFactoryPage() {
       setCustomDomain(selectedProject.custom_domain || "");
       setVerificationDeployed(false);
       const detected = detectPlatformFromDomain(selectedProject.domain);
-      const resolvedPlatform = detected || selectedProject.hosting_platform || "vercel";
+      // Migrate legacy "vercel"/"netlify" projects to "cloudflare"
+      let stored = selectedProject.hosting_platform || "cloudflare";
+      if (stored === "vercel" || stored === "netlify") stored = "cloudflare";
+      const resolvedPlatform = detected || stored;
       setHostingPlatform(resolvedPlatform);
       // If detected platform differs from saved one — auto-correct in DB
       if (detected && selectedProject.hosting_platform !== detected) {
@@ -1114,6 +1118,9 @@ export default function SiteFactoryPage() {
           </div>
         ))}
       </div>
+
+      <SiteGridCreator />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6 flex items-center gap-4">
@@ -1219,14 +1226,14 @@ export default function SiteFactoryPage() {
                 className="w-full"
               >
                 <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="vercel" disabled={!selectedProjectId || isPlatformLocked}>
-                    <Rocket className="h-3.5 w-3.5 mr-1.5" /> Vercel
-                  </TabsTrigger>
                   <TabsTrigger value="cloudflare" disabled={!selectedProjectId || isPlatformLocked}>
                     <Cloud className="h-3.5 w-3.5 mr-1.5" /> Cloudflare
                   </TabsTrigger>
-                  <TabsTrigger value="netlify" disabled={!selectedProjectId || isPlatformLocked}>
-                    <Globe className="h-3.5 w-3.5 mr-1.5" /> Netlify
+                  <TabsTrigger value="blogger" disabled={!selectedProjectId || isPlatformLocked}>
+                    <FileText className="h-3.5 w-3.5 mr-1.5" /> Blogger
+                  </TabsTrigger>
+                  <TabsTrigger value="github_pages" disabled={!selectedProjectId || isPlatformLocked}>
+                    <Github className="h-3.5 w-3.5 mr-1.5" /> GitHub Pages
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -1332,8 +1339,8 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {/* Vercel one-click deploy - visible when GitHub is set up and repo is ready */}
-            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "vercel" && (
+            {/* Vercel one-click deploy - DEPRECATED, replaced by Blogger/Cloudflare/GitHub Pages */}
+            {false && selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "vercel" && (
               <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
                 vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
                 vercelStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :

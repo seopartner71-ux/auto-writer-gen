@@ -195,7 +195,7 @@ export function AICopilotWidget() {
       id: uid(),
       role: "ai",
       content:
-        "👋 Я **AI Copilot СЕО-Модуль**. Спросите про деплой на Vercel, лимиты API, тарифы или Stealth-генерацию.",
+        "👋 Я AI Copilot СЕО-Модуль. Спросите про деплой на Cloudflare Pages, публикацию в Blogger, лимиты API или Stealth-генерацию.",
       createdAt: Date.now(),
     },
   ]);
@@ -282,7 +282,7 @@ export function AICopilotWidget() {
     }
   };
 
-  const suggestions = ["Как задеплоить на Vercel?", "Ошибка Indexing API", "Нужно 500 статей", "Позови оператора"];
+  const suggestions = ["Как задеплоить на Cloudflare?", "Как опубликовать в Blogger?", "Ошибка Indexing API", "Позови оператора"];
 
   return (
     <>
