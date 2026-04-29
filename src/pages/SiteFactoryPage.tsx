@@ -185,7 +185,7 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
-  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link, google_verification";
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link, google_verification, template_type";
 
   // Sync siteConfig when project changes
   useEffect(() => {
