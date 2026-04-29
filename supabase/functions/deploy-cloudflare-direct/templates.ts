@@ -1,4 +1,10 @@
 import { googleFontsHref, type TemplateType } from "./styles.ts";
+import {
+  type SiteChrome, type PostInput as ChromePost,
+  buildAboutPage, buildContactsPage, buildPrivacyPage, buildTermsPage,
+  buildPostPage, buildIndexHomePage, robotsTxt, sitemapXml,
+  chromeStyles, pickRelated,
+} from "./seoChrome.ts";
 
 export interface PostInput {
   title: string;
@@ -17,6 +23,22 @@ export interface RenderCtx {
   template: TemplateType;
   domain: string; // e.g. "foo.pages.dev"
   posts?: PostInput[]; // real articles from DB; if empty, fakePosts() is used
+  // New optional SEO/legal/branding context (passed from edge function)
+  lang?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  foundingYear?: number;
+  teamMembers?: { name: string; role: string; bio?: string }[];
+  ogImageUrl?: string;
+  aboutHtml?: string;
+  contactsHtml?: string;
+  privacyHtml?: string;
+  termsHtml?: string;
+  footerLinkUrl?: string;
+  footerLinkText?: string;
+  injectionLinks?: { url: string; anchor: string }[];
 }
 
 function esc(s: string): string {
