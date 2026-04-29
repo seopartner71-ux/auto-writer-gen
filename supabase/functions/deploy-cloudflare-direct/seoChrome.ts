@@ -397,6 +397,34 @@ a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .team-card h3{margin:0 0 4px;font-size:16px}
 .team-card .role{color:#666;font-size:13px;margin-bottom:8px}
 .team-card p{margin:0;color:#444;font-size:14px}
+.contacts-page{max-width:1100px;margin:0 auto;padding:24px}
+.contacts-grid{display:grid;grid-template-columns:1fr;gap:24px;margin:32px 0}
+@media(min-width:860px){.contacts-grid{grid-template-columns:1fr 1.2fr}}
+.contacts-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
+.contacts-card h2{margin:0 0 18px;font-size:22px;font-family:inherit}
+.contacts-card__subtitle{margin:-10px 0 18px;color:#666;font-size:14px}
+.contact-list-v2{display:flex;flex-direction:column;gap:14px}
+.contact-item{display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:#f8fafc;border-radius:10px}
+.contact-item__label{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600}
+.contact-item__value{font-size:15px;color:#0f172a;text-decoration:none;word-break:break-word}
+a.contact-item__value:hover{color:var(--accent,#0ea5e9);text-decoration:underline}
+.contact-form{display:flex;flex-direction:column;gap:14px}
+.contact-form__row{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:520px){.contact-form__row{grid-template-columns:1fr 1fr}}
+.contact-form__field{display:flex;flex-direction:column;gap:6px}
+.contact-form__field span{font-size:13px;color:#475569;font-weight:500}
+.contact-form__field input,.contact-form__field textarea{font:inherit;padding:11px 14px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#0f172a;width:100%;transition:border-color .15s,box-shadow .15s}
+.contact-form__field input:focus,.contact-form__field textarea:focus{outline:none;border-color:var(--accent,#0ea5e9);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#0ea5e9) 18%,transparent)}
+.contact-form__field textarea{resize:vertical;min-height:96px}
+.contact-form__submit{margin-top:6px;padding:13px 22px;background:var(--accent,#0ea5e9);color:#fff;border:0;border-radius:10px;font:inherit;font-weight:600;font-size:15px;cursor:pointer;min-height:48px;transition:filter .15s,transform .15s}
+.contact-form__submit:hover{filter:brightness(1.08)}
+.contact-form__submit:active{transform:translateY(1px)}
+.contact-form__note{margin:0;font-size:12px;color:#94a3b8;line-height:1.5}
+.contact-form__success{display:none;margin:0;padding:12px 14px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:10px;font-size:14px}
+.contacts-map-section{margin:40px 0 16px}
+.contacts-map-section h2{margin:0 0 14px;font-size:22px;font-family:inherit}
+.contacts-map{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(15,23,42,.04)}
+.contacts-map iframe{display:block;width:100%}
 ${COOKIE_BANNER_CSS}
 `;
 
@@ -535,16 +563,70 @@ export function buildAboutPage(c: SiteChrome): string {
 export function buildContactsPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
   const title = `${isRu ? "Контакты" : "Contacts"} · ${c.siteName}`;
-  const lines: string[] = [];
-  if (c.companyName)    lines.push(`<li><strong>${isRu ? "Компания" : "Company"}:</strong> ${escHtml(c.companyName)}</li>`);
-  if (c.companyAddress) lines.push(`<li><strong>${isRu ? "Адрес" : "Address"}:</strong> ${escHtml(c.companyAddress)}</li>`);
-  if (c.companyPhone)   lines.push(`<li><strong>${isRu ? "Телефон" : "Phone"}:</strong> <a href="tel:${escAttr(c.companyPhone.replace(/[^+\d]/g, ""))}">${escHtml(c.companyPhone)}</a></li>`);
-  if (c.companyEmail)   lines.push(`<li><strong>Email:</strong> <a href="mailto:${escAttr(c.companyEmail)}">${escHtml(c.companyEmail)}</a></li>`);
+  const phoneClean = c.companyPhone ? c.companyPhone.replace(/[^+\d]/g, "") : "";
+  const items: string[] = [];
+  if (c.companyName)    items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Компания" : "Company"}</span><span class="contact-item__value">${escHtml(c.companyName)}</span></div>`);
+  if (c.companyAddress) items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Адрес" : "Address"}</span><span class="contact-item__value">${escHtml(c.companyAddress)}</span></div>`);
+  if (c.companyPhone)   items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Телефон" : "Phone"}</span><a class="contact-item__value" href="tel:${escAttr(phoneClean)}">${escHtml(c.companyPhone)}</a></div>`);
+  if (c.companyEmail)   items.push(`<div class="contact-item"><span class="contact-item__label">Email</span><a class="contact-item__value" href="mailto:${escAttr(c.companyEmail)}">${escHtml(c.companyEmail)}</a></div>`);
+  if (c.workHours)      items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Время работы" : "Hours"}</span><span class="contact-item__value">${escHtml(c.workHours)}</span></div>`);
+
+  const mapQuery = encodeURIComponent(c.companyAddress || c.companyName || c.siteName);
+  const mapUrl = c.companyAddress
+    ? `https://maps.google.com/maps?q=${mapQuery}&t=&z=14&ie=UTF8&iwloc=&output=embed`
+    : "";
+
+  const formLabels = isRu
+    ? { name: "Имя", phone: "Телефон", email: "Email", message: "Сообщение", submit: "Отправить заявку", title: "Оставьте заявку", subtitle: "Свяжемся с вами в течение рабочего дня.", success: "Спасибо! Заявка отправлена.", privacyNote: "Нажимая кнопку, вы соглашаетесь с политикой конфиденциальности.", contactsTitle: "Наши контакты", mapTitle: "Как нас найти" }
+    : { name: "Name", phone: "Phone", email: "Email", message: "Message", submit: "Send request", title: "Get in touch", subtitle: "We will get back to you within one business day.", success: "Thanks! Your request has been sent.", privacyNote: "By submitting you agree to our privacy policy.", contactsTitle: "Our details", mapTitle: "Find us on the map" };
+
   const main = `
-    <article class="page-article">
+    <article class="page-article contacts-page">
       <h1>${isRu ? "Контакты" : "Contacts"}</h1>
-      ${c.contactsHtml || `<p>${escHtml(isRu ? "Напишите нам или позвоните в рабочие часы." : "Reach out to us during business hours.")}</p>`}
-      <ul class="contact-list">${lines.join("")}</ul>
+      ${c.contactsHtml || `<p>${escHtml(isRu ? "Напишите нам или позвоните в рабочие часы - ответим оперативно." : "Reach out to us during business hours - we reply quickly.")}</p>`}
+
+      <div class="contacts-grid">
+        <section class="contacts-card contacts-card--info">
+          <h2>${escHtml(formLabels.contactsTitle)}</h2>
+          <div class="contact-list-v2">${items.join("")}</div>
+        </section>
+
+        <section class="contacts-card contacts-card--form">
+          <h2>${escHtml(formLabels.title)}</h2>
+          <p class="contacts-card__subtitle">${escHtml(formLabels.subtitle)}</p>
+          <form class="contact-form" id="contact-form" novalidate onsubmit="event.preventDefault();var f=this;var ok=document.getElementById('contact-form-ok');if(ok){ok.style.display='block';}f.reset();return false;">
+            <div class="contact-form__row">
+              <label class="contact-form__field">
+                <span>${escHtml(formLabels.name)} *</span>
+                <input type="text" name="name" required maxlength="80" autocomplete="name">
+              </label>
+              <label class="contact-form__field">
+                <span>${escHtml(formLabels.phone)} *</span>
+                <input type="tel" name="phone" required maxlength="40" autocomplete="tel">
+              </label>
+            </div>
+            <label class="contact-form__field">
+              <span>Email</span>
+              <input type="email" name="email" maxlength="120" autocomplete="email">
+            </label>
+            <label class="contact-form__field">
+              <span>${escHtml(formLabels.message)}</span>
+              <textarea name="message" rows="4" maxlength="2000"></textarea>
+            </label>
+            <button type="submit" class="contact-form__submit">${escHtml(formLabels.submit)}</button>
+            <p class="contact-form__note">${escHtml(formLabels.privacyNote)}</p>
+            <p class="contact-form__success" id="contact-form-ok" role="status">${escHtml(formLabels.success)}</p>
+          </form>
+        </section>
+      </div>
+
+      ${mapUrl ? `
+      <section class="contacts-map-section">
+        <h2>${escHtml(formLabels.mapTitle)}</h2>
+        <div class="contacts-map">
+          <iframe src="${escAttr(mapUrl)}" width="100%" height="380" style="border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="${escAttr(formLabels.mapTitle)}"></iframe>
+        </div>
+      </section>` : ""}
     </article>`;
   return wrapPage(c, {
     title, description: (isRu ? "Контакты сайта " : "Contact details for ") + c.siteName,
