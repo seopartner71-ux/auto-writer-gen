@@ -27,6 +27,20 @@ export interface RenderOpts {
   domain: string;
   lang?: string;
   posts: PostItem[];
+  // Optional SEO/legal/branding context (forwarded from edge function)
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  foundingYear?: number;
+  teamMembers?: { name: string; role: string; bio?: string }[];
+  ogImageUrl?: string;
+  aboutHtml?: string;
+  contactsHtml?: string;
+  privacyHtml?: string;
+  termsHtml?: string;
+  footerLinkUrl?: string;
+  footerLinkText?: string;
 }
 
 function escAttr(s: string): string {
