@@ -535,16 +535,70 @@ export function buildAboutPage(c: SiteChrome): string {
 export function buildContactsPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
   const title = `${isRu ? "Контакты" : "Contacts"} · ${c.siteName}`;
-  const lines: string[] = [];
-  if (c.companyName)    lines.push(`<li><strong>${isRu ? "Компания" : "Company"}:</strong> ${escHtml(c.companyName)}</li>`);
-  if (c.companyAddress) lines.push(`<li><strong>${isRu ? "Адрес" : "Address"}:</strong> ${escHtml(c.companyAddress)}</li>`);
-  if (c.companyPhone)   lines.push(`<li><strong>${isRu ? "Телефон" : "Phone"}:</strong> <a href="tel:${escAttr(c.companyPhone.replace(/[^+\d]/g, ""))}">${escHtml(c.companyPhone)}</a></li>`);
-  if (c.companyEmail)   lines.push(`<li><strong>Email:</strong> <a href="mailto:${escAttr(c.companyEmail)}">${escHtml(c.companyEmail)}</a></li>`);
+  const phoneClean = c.companyPhone ? c.companyPhone.replace(/[^+\d]/g, "") : "";
+  const items: string[] = [];
+  if (c.companyName)    items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Компания" : "Company"}</span><span class="contact-item__value">${escHtml(c.companyName)}</span></div>`);
+  if (c.companyAddress) items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Адрес" : "Address"}</span><span class="contact-item__value">${escHtml(c.companyAddress)}</span></div>`);
+  if (c.companyPhone)   items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Телефон" : "Phone"}</span><a class="contact-item__value" href="tel:${escAttr(phoneClean)}">${escHtml(c.companyPhone)}</a></div>`);
+  if (c.companyEmail)   items.push(`<div class="contact-item"><span class="contact-item__label">Email</span><a class="contact-item__value" href="mailto:${escAttr(c.companyEmail)}">${escHtml(c.companyEmail)}</a></div>`);
+  if (c.workHours)      items.push(`<div class="contact-item"><span class="contact-item__label">${isRu ? "Время работы" : "Hours"}</span><span class="contact-item__value">${escHtml(c.workHours)}</span></div>`);
+
+  const mapQuery = encodeURIComponent(c.companyAddress || c.companyName || c.siteName);
+  const mapUrl = c.companyAddress
+    ? `https://maps.google.com/maps?q=${mapQuery}&t=&z=14&ie=UTF8&iwloc=&output=embed`
+    : "";
+
+  const formLabels = isRu
+    ? { name: "Имя", phone: "Телефон", email: "Email", message: "Сообщение", submit: "Отправить заявку", title: "Оставьте заявку", subtitle: "Свяжемся с вами в течение рабочего дня.", success: "Спасибо! Заявка отправлена.", privacyNote: "Нажимая кнопку, вы соглашаетесь с политикой конфиденциальности.", contactsTitle: "Наши контакты", mapTitle: "Как нас найти" }
+    : { name: "Name", phone: "Phone", email: "Email", message: "Message", submit: "Send request", title: "Get in touch", subtitle: "We will get back to you within one business day.", success: "Thanks! Your request has been sent.", privacyNote: "By submitting you agree to our privacy policy.", contactsTitle: "Our details", mapTitle: "Find us on the map" };
+
   const main = `
-    <article class="page-article">
+    <article class="page-article contacts-page">
       <h1>${isRu ? "Контакты" : "Contacts"}</h1>
-      ${c.contactsHtml || `<p>${escHtml(isRu ? "Напишите нам или позвоните в рабочие часы." : "Reach out to us during business hours.")}</p>`}
-      <ul class="contact-list">${lines.join("")}</ul>
+      ${c.contactsHtml || `<p>${escHtml(isRu ? "Напишите нам или позвоните в рабочие часы - ответим оперативно." : "Reach out to us during business hours - we reply quickly.")}</p>`}
+
+      <div class="contacts-grid">
+        <section class="contacts-card contacts-card--info">
+          <h2>${escHtml(formLabels.contactsTitle)}</h2>
+          <div class="contact-list-v2">${items.join("")}</div>
+        </section>
+
+        <section class="contacts-card contacts-card--form">
+          <h2>${escHtml(formLabels.title)}</h2>
+          <p class="contacts-card__subtitle">${escHtml(formLabels.subtitle)}</p>
+          <form class="contact-form" id="contact-form" novalidate onsubmit="event.preventDefault();var f=this;var ok=document.getElementById('contact-form-ok');if(ok){ok.style.display='block';}f.reset();return false;">
+            <div class="contact-form__row">
+              <label class="contact-form__field">
+                <span>${escHtml(formLabels.name)} *</span>
+                <input type="text" name="name" required maxlength="80" autocomplete="name">
+              </label>
+              <label class="contact-form__field">
+                <span>${escHtml(formLabels.phone)} *</span>
+                <input type="tel" name="phone" required maxlength="40" autocomplete="tel">
+              </label>
+            </div>
+            <label class="contact-form__field">
+              <span>Email</span>
+              <input type="email" name="email" maxlength="120" autocomplete="email">
+            </label>
+            <label class="contact-form__field">
+              <span>${escHtml(formLabels.message)}</span>
+              <textarea name="message" rows="4" maxlength="2000"></textarea>
+            </label>
+            <button type="submit" class="contact-form__submit">${escHtml(formLabels.submit)}</button>
+            <p class="contact-form__note">${escHtml(formLabels.privacyNote)}</p>
+            <p class="contact-form__success" id="contact-form-ok" role="status">${escHtml(formLabels.success)}</p>
+          </form>
+        </section>
+      </div>
+
+      ${mapUrl ? `
+      <section class="contacts-map-section">
+        <h2>${escHtml(formLabels.mapTitle)}</h2>
+        <div class="contacts-map">
+          <iframe src="${escAttr(mapUrl)}" width="100%" height="380" style="border:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="${escAttr(formLabels.mapTitle)}"></iframe>
+        </div>
+      </section>` : ""}
     </article>`;
   return wrapPage(c, {
     title, description: (isRu ? "Контакты сайта " : "Contact details for ") + c.siteName,
