@@ -1198,6 +1198,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          accent_color: string | null
           author_avatar: string | null
           author_bio: string | null
           author_name: string | null
@@ -1224,11 +1225,14 @@ export type Database = {
           site_copyright: string | null
           site_name: string | null
           site_privacy: string | null
+          template_font_pair: string | null
+          template_type: string | null
           total_views: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          accent_color?: string | null
           author_avatar?: string | null
           author_bio?: string | null
           author_name?: string | null
@@ -1255,11 +1259,14 @@ export type Database = {
           site_copyright?: string | null
           site_name?: string | null
           site_privacy?: string | null
+          template_font_pair?: string | null
+          template_type?: string | null
           total_views?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          accent_color?: string | null
           author_avatar?: string | null
           author_bio?: string | null
           author_name?: string | null
@@ -1286,6 +1293,8 @@ export type Database = {
           site_copyright?: string | null
           site_name?: string | null
           site_privacy?: string | null
+          template_font_pair?: string | null
+          template_type?: string | null
           total_views?: number | null
           updated_at?: string
           user_id?: string
