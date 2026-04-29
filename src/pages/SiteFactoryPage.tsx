@@ -1422,7 +1422,7 @@ export default function SiteFactoryPage() {
             )}
 
             {/* Cloudflare one-click deploy */}
-            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "cloudflare" && (
+            {selectedProjectId && hostingPlatform === "cloudflare" && (isDirectUploadProject || (isGitHubConfigured && repoStatus === "ready")) && (
               <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   {cfDeploying ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Cloud className="h-4 w-4 text-primary shrink-0" />}
