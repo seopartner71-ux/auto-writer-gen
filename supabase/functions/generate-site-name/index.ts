@@ -8,8 +8,28 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Brand-style fallback name from topic (no AI required)
+  const fallbackName = (topic: string, lang: string): string => {
+    const t = String(topic || "site").trim();
+    const isRu = lang === "ru";
+    if (!t) return isRu ? "СайтПро" : "SitePro";
+    const firstWord = t.split(/[\s,;\-—]+/)[0] || t;
+    const cleaned = firstWord.replace(/[^\p{L}\p{N}]/gu, "");
+    const cap = cleaned.charAt(0).toLocaleUpperCase() + cleaned.slice(1).toLocaleLowerCase();
+    const suffix = isRu
+      ? ["Хаб", "Про", "Лаб", "Гид", "Маркет"][Math.floor(Math.random() * 5)]
+      : ["Hub", "Pro", "Lab", "Hq", "Spot"][Math.floor(Math.random() * 5)];
+    const base = cap.slice(0, 10) || (isRu ? "Сайт" : "Site");
+    return `${base}${suffix}`;
+  };
+
+  let topicForFallback = "";
+  let langForFallback = "ru";
+
   try {
     const { topic, language } = await req.json();
+    topicForFallback = topic || "";
+    langForFallback = (language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en";
     if (!topic || typeof topic !== "string") {
       return new Response(JSON.stringify({ error: "topic required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -17,7 +37,11 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ name: fallbackName(topic, langForFallback), fallback: true, reason: "no_api_key" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const lang = (language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en";
     const systemPrompt = lang === "ru"
@@ -42,32 +66,31 @@ serve(async (req) => {
 
     if (!aiRes.ok) {
       const t = await aiRes.text();
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "rate_limit", message: "AI rate limit exceeded" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ error: "payment_required", message: "AI credits exhausted" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI gateway error ${aiRes.status}: ${t}`);
+      console.error("AI gateway error:", aiRes.status, t);
+      // Graceful fallback for billing/rate-limit/server errors so the grid creator keeps working
+      const reason =
+        aiRes.status === 402 ? "ai_credits_exhausted" :
+        aiRes.status === 429 ? "ai_rate_limit" :
+        `ai_error_${aiRes.status}`;
+      return new Response(JSON.stringify({ name: fallbackName(topic, lang), fallback: true, reason }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await aiRes.json();
     let name = String(data?.choices?.[0]?.message?.content || "").trim();
     name = name.replace(/^["'«»`]+|["'«»`.\s]+$/g, "").split(/[\n\r]/)[0].trim();
     if (name.length > 30) name = name.slice(0, 30).trim();
-    if (!name) name = topic.slice(0, 20);
+    if (!name) name = fallbackName(topic, lang);
 
     return new Response(JSON.stringify({ name }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("generate-site-name error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ name: fallbackName(topicForFallback, langForFallback), fallback: true, reason: "service_failed" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
