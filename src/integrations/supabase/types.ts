@@ -1265,6 +1265,7 @@ export type Database = {
           id: string
           injection_links: Json | null
           language: string
+          last_deploy_at: string | null
           last_ping_at: string | null
           last_ping_status: string | null
           name: string
@@ -1307,6 +1308,7 @@ export type Database = {
           id?: string
           injection_links?: Json | null
           language?: string
+          last_deploy_at?: string | null
           last_ping_at?: string | null
           last_ping_status?: string | null
           name: string
@@ -1349,6 +1351,7 @@ export type Database = {
           id?: string
           injection_links?: Json | null
           language?: string
+          last_deploy_at?: string | null
           last_ping_at?: string | null
           last_ping_status?: string | null
           name?: string

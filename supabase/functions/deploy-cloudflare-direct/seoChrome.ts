@@ -20,6 +20,8 @@ export interface SiteChrome {
   accent: string;
   headingFont: string;
   bodyFont: string;
+  projectId?: string;       // for tracking pixel
+  trackerUrl?: string;      // full https URL of track-visit edge function
   companyName?: string;
   companyAddress?: string;
   companyPhone?: string;
@@ -319,6 +321,9 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
 
 export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
   const head = buildHead(c, m);
+  const pixel = (c.projectId && c.trackerUrl)
+    ? `<img src="${escAttr(c.trackerUrl)}?site=${escAttr(c.projectId)}&u=${encodeURIComponent(m.path)}" width="1" height="1" alt="" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade">`
+    : "";
   return `${head}
 <body class="${escAttr(m.bodyClass || "")}">
   ${headerHtml(c)}
@@ -327,6 +332,7 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
   ${footerHtml(c)}
   ${cookieBannerHtml(c.lang, "/privacy.html")}
   <script defer>${COOKIE_BANNER_JS}</script>
+  ${pixel}
 </body>
 </html>`;
 }
