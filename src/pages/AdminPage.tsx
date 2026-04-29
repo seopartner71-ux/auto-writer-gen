@@ -16,6 +16,7 @@ import { PaymentLogsTab } from "@/components/admin/PaymentLogsTab";
 import { ErrorLogsTab } from "@/components/admin/ErrorLogsTab";
 import { GitHubProjectsTab } from "@/components/admin/GitHubProjectsTab";
 import { CopilotLogsTab } from "@/components/admin/CopilotLogsTab";
+import { PbnTemplatesTab } from "@/components/admin/PbnTemplatesTab";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -48,6 +49,7 @@ export default function AdminPage() {
           <TabsTrigger value="queue">{t("admin.tabQueue")}</TabsTrigger>
           <TabsTrigger value="payments">{t("admin.tabPaymentLogs")}</TabsTrigger>
           <TabsTrigger value="github">GitHub</TabsTrigger>
+          <TabsTrigger value="pbn">Шаблоны</TabsTrigger>
           <TabsTrigger value="copilot">Copilot Logs</TabsTrigger>
         </TabsList>
 
@@ -66,6 +68,7 @@ export default function AdminPage() {
         <TabsContent value="queue" className="mt-4"><QueueMonitorTab /></TabsContent>
         <TabsContent value="payments" className="mt-4"><PaymentLogsTab /></TabsContent>
         <TabsContent value="github" className="mt-4"><GitHubProjectsTab /></TabsContent>
+        <TabsContent value="pbn" className="mt-4"><PbnTemplatesTab /></TabsContent>
         <TabsContent value="copilot" className="mt-4"><CopilotLogsTab /></TabsContent>
       </Tabs>
     </div>
