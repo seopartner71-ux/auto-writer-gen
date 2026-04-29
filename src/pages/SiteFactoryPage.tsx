@@ -256,6 +256,80 @@ export default function SiteFactoryPage() {
     return () => { cancelled = true; };
   }, [selectedProjectId, isGitHubConfigured]);
 
+  // Check Vercel link status when GitHub is configured
+  useEffect(() => {
+    if (!selectedProjectId || !isGitHubConfigured) {
+      setVercelStatus("idle");
+      setVercelError("");
+      setVercelHint("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setVercelStatus("checking");
+      try {
+        const { data, error } = await supabase.functions.invoke("vercel-deploy", {
+          body: { project_id: selectedProjectId, action: "check" },
+        });
+        if (cancelled) return;
+        if (error) throw new Error(error.message);
+        if (data?.status === "linked") {
+          setVercelStatus("linked");
+          setVercelDomain(data.domain || "");
+        } else {
+          setVercelStatus("not_linked");
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setVercelStatus("error");
+          setVercelError(err?.message || String(err));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProjectId, isGitHubConfigured, repoStatus]);
+
+  const handleVercelDeploy = async (action: "create" | "redeploy") => {
+    if (!selectedProjectId) return;
+    setVercelStatus("creating");
+    setVercelError("");
+    setVercelHint("");
+    addDeployLog("publishing", lang === "ru" ? "Создание проекта на Vercel..." : "Creating Vercel project...");
+    try {
+      const { data, error } = await supabase.functions.invoke("vercel-deploy", {
+        body: { project_id: selectedProjectId, action },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) {
+        setVercelStatus("error");
+        setVercelError(data.error);
+        if (data.hint) setVercelHint(data.hint);
+        addDeployLog("error", data.error);
+        toast({
+          title: lang === "ru" ? "Ошибка деплоя на Vercel" : "Vercel deploy error",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      setVercelStatus("linked");
+      setVercelDomain(data?.domain || "");
+      addDeployLog("success", lang === "ru" ? `Сайт задеплоен: https://${data?.domain}` : `Site deployed: https://${data?.domain}`);
+      toast({
+        title: lang === "ru" ? "Сайт на Vercel!" : "Site on Vercel!",
+        description: data?.domain ? `https://${data.domain}` : (lang === "ru" ? "Деплой запущен" : "Deploy triggered"),
+      });
+      // Reload projects to get updated domain
+      const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
+      if (updated) setProjects(updated as ProjectRow[]);
+    } catch (err: any) {
+      setVercelStatus("error");
+      setVercelError(err?.message || String(err));
+      addDeployLog("error", err?.message || String(err));
+      toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
+    }
+  };
+
   const handleInitRepo = async () => {
     if (!selectedProjectId) return;
     setRepoStatus("initializing");
