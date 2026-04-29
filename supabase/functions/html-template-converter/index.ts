@@ -291,6 +291,33 @@ Deno.serve(async (req) => {
     const role = await isAdmin(token);
     if (!role.ok) return jsonRes({ error: "forbidden" }, 403);
 
+    const url = new URL(req.url);
+    const isApply = url.searchParams.get("action") === "apply" || url.pathname.endsWith("/apply");
+
+    if (isApply) {
+      const body = await req.json();
+      const html: string = String(body.html || "");
+      const css: string = String(body.css || "");
+      const mapping: Record<string, string | null> = body.mapping || {};
+      const postsBlock = body.postsBlock || null;
+      if (!html) return jsonRes({ error: "html required" }, 400);
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      if (!doc) return jsonRes({ error: "parse failed" }, 400);
+      // Strip <link rel=stylesheet> & <style> — CSS будет inline через рендерер
+      doc.querySelectorAll("link[rel='stylesheet']").forEach((n) => (n as Element).remove());
+      doc.querySelectorAll("style").forEach((n) => (n as Element).remove());
+      // Inject placeholders
+      injectPlaceholders(doc, mapping, postsBlock);
+      // Add inline link to /style.css (рендерер заменяет на <style>)
+      const head = doc.querySelector("head");
+      if (head) {
+        const linkTag = `<link rel="stylesheet" href="/style.css">`;
+        head.insertAdjacentHTML?.("beforeend", linkTag);
+      }
+      const out = "<!DOCTYPE html>\n" + (doc.documentElement?.outerHTML || doc.body?.outerHTML || "");
+      return jsonRes({ html_structure: out, css_styles: css });
+    }
+
     const ct = req.headers.get("content-type") || "";
     let kind = "html";
     let html = "";
