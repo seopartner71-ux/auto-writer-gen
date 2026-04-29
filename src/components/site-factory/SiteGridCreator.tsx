@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, Rocket, CheckCircle2, AlertCircle, ExternalLink, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type RowStatus = "pending" | "creating" | "bootstrapping" | "deploying" | "done" | "error";
+type RowStatus = "pending" | "creating" | "deploying" | "done" | "error";
 
 interface SiteRow {
   topic: string;
@@ -20,16 +20,28 @@ interface SiteRow {
   url?: string;
   error?: string;
   projectId?: string;
+  template?: string;
 }
 
 const STATUS_LABELS: Record<RowStatus, string> = {
   pending: "В очереди",
   creating: "Создание проекта",
-  bootstrapping: "Загрузка шаблона",
   deploying: "Деплой",
   done: "Готов",
   error: "Ошибка",
 };
+
+const TEMPLATE_LABELS: Record<string, string> = {
+  minimal: "Минимал",
+  magazine: "Журнал",
+  news: "Новости",
+  landing: "Лендинг",
+};
+const TEMPLATE_KEYS = ["minimal", "magazine", "news", "landing"] as const;
+
+function pickRandom<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
 export function SiteGridCreator() {
   const { user } = useAuth();
@@ -58,48 +70,6 @@ export function SiteGridCreator() {
       return;
     }
 
-    // Pre-flight: find a project with valid GitHub token+owner ONCE for the whole batch
-    const { data: tokenProjects } = await supabase
-      .from("projects")
-      .select("github_token, github_repo")
-      .eq("user_id", user.id)
-      .not("github_token", "is", null)
-      .order("updated_at", { ascending: false })
-      .limit(10);
-
-    let inheritedToken: string | null = null;
-    let ghOwner: string | null = null;
-    for (const p of tokenProjects || []) {
-      if (!p.github_token) continue;
-      try {
-        const meRes = await fetch("https://api.github.com/user", {
-          headers: { Authorization: `token ${p.github_token}`, Accept: "application/vnd.github.v3+json" },
-        });
-        if (meRes.ok) {
-          const me = await meRes.json();
-          if (me?.login) {
-            inheritedToken = p.github_token;
-            ghOwner = me.login;
-            break;
-          }
-        }
-      } catch { /* try next */ }
-    }
-    // Fallback: parse owner from existing github_repo
-    if (inheritedToken && !ghOwner) {
-      const firstWithRepo = (tokenProjects || []).find((p) => p.github_repo?.includes("/"));
-      if (firstWithRepo?.github_repo) ghOwner = firstWithRepo.github_repo.split("/")[0];
-    }
-
-    if (!inheritedToken || !ghOwner) {
-      toast({
-        title: "GitHub Token не найден",
-        description: "Откройте любой проект в Фабрике сайтов и сохраните GitHub Personal Access Token (scope: repo). После этого повторите запуск сетки.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Build queue: take first N topics; if topics < count, repeat last topic
     const queue: string[] = [];
     for (let i = 0; i < effectiveCount; i++) {
@@ -112,10 +82,11 @@ export function SiteGridCreator() {
 
     for (let i = 0; i < queue.length; i++) {
       const topic = queue[i];
+      const template = pickRandom(TEMPLATE_KEYS);
 
       try {
         // 1. AI-generate brand-style site name
-        updateRow(i, { status: "creating", name: "..." });
+        updateRow(i, { status: "creating", name: "...", template });
         let projectName = topic;
         try {
           const { data: nameData } = await supabase.functions.invoke("generate-site-name", {
@@ -145,37 +116,19 @@ export function SiteGridCreator() {
         const projectId = created.id;
         updateRow(i, { projectId });
 
-        // 3. Inherit github token + assign unique repo name
-        const repoName = `pbn-site-${projectId.slice(0, 8)}`;
-        const githubRepo = `${ghOwner}/${repoName}`;
-        await supabase.from("projects").update({
-          github_repo: githubRepo,
-          github_token: inheritedToken,
-        }).eq("id", projectId);
-
-        // 4. Bootstrap astro (creates repo if needed)
-        updateRow(i, { status: "bootstrapping" });
-        const { data: bootData, error: bootErr } = await supabase.functions.invoke("bootstrap-astro", {
+        // 3. Direct Upload deploy (no GitHub, no Astro)
+        updateRow(i, { status: "deploying" });
+        const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare-direct", {
           body: {
             project_id: projectId,
-            action: "initialize",
+            template,
             site_name: projectName,
             site_about: `Блог про ${topic}`,
-            language: "ru",
-            primary_color: "#6366f1",
-            font_pair: "inter",
+            topic,
           },
         });
-        if (bootErr) throw new Error(bootErr.message);
-        if (!bootData?.success) throw new Error(bootData?.message || "bootstrap-astro failed");
-
-        // 5. Deploy to Cloudflare
-        updateRow(i, { status: "deploying" });
-        const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare", {
-          body: { project_id: projectId },
-        });
         if (cfErr) throw new Error(cfErr.message);
-        if (cfData?.error && cfData.error !== "name_conflict") throw new Error(cfData.error);
+        if (cfData?.error) throw new Error(cfData.error + (cfData.message ? `: ${cfData.message}` : ""));
 
         updateRow(i, { status: "done", url: cfData?.url || null });
       } catch (err: any) {
@@ -195,7 +148,7 @@ export function SiteGridCreator() {
           Создать сетку сайтов
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Массовое создание PBN-сетки на Cloudflare Pages. Названия генерируются AI; GitHub Token берется из существующих проектов автоматически.
+          Массовое создание PBN-сетки на Cloudflare Pages (Direct Upload). Каждый сайт получает случайный шаблон, шрифты и акцентный цвет - для Anti-Footprint. Без GitHub.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -253,6 +206,7 @@ export function SiteGridCreator() {
                   <tr>
                     <th className="text-left px-3 py-2 font-medium">Тематика</th>
                     <th className="text-left px-3 py-2 font-medium">Название</th>
+                    <th className="text-left px-3 py-2 font-medium">Шаблон</th>
                     <th className="text-left px-3 py-2 font-medium">Статус</th>
                     <th className="text-left px-3 py-2 font-medium">URL</th>
                   </tr>
@@ -262,6 +216,7 @@ export function SiteGridCreator() {
                     <tr key={idx} className="border-t border-border">
                       <td className="px-3 py-2 truncate max-w-[140px]">{r.topic}</td>
                       <td className="px-3 py-2 text-muted-foreground truncate max-w-[160px]">{r.name || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{r.template ? TEMPLATE_LABELS[r.template] : "—"}</td>
                       <td className="px-3 py-2">
                         <Badge variant={
                           r.status === "done" ? "default" :
@@ -270,7 +225,7 @@ export function SiteGridCreator() {
                         } className="gap-1 text-[10px]">
                           {r.status === "done" && <CheckCircle2 className="h-3 w-3" />}
                           {r.status === "error" && <AlertCircle className="h-3 w-3" />}
-                          {(r.status === "creating" || r.status === "bootstrapping" || r.status === "deploying") && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {(r.status === "creating" || r.status === "deploying") && <Loader2 className="h-3 w-3 animate-spin" />}
                           {STATUS_LABELS[r.status]}
                         </Badge>
                         {r.error && (
