@@ -356,6 +356,9 @@ serve(async (req) => {
     }
     const usedSlugs = new Set<string>();
     const totalArticles = (articles || []).length;
+    // For PBN sites we ALWAYS backdate posts (12-24 months ago) so the blog
+    // looks aged. Real `created_at` is too recent (the row was inserted
+    // minutes ago by seed-starter-articles) and would expose the network.
     const posts = (articles || []).map((a: any, idx: number) => {
       const baseSlug = slugify(a.title || a.id);
       let slug = baseSlug;
@@ -364,7 +367,7 @@ serve(async (req) => {
       usedSlugs.add(slug);
       const contentHtml = markdownToHtml(a.content || "");
       const excerpt = a.meta_description || plainExcerpt(a.content || "", 180);
-      const publishedAt = a.created_at || fakePublishedAt(idx, totalArticles);
+      const publishedAt = fakePublishedAt(idx, totalArticles);
       return { title: a.title || "Без названия", slug, contentHtml, excerpt, publishedAt };
     });
     console.log("[deploy-cloudflare-direct] posts prepared:", posts.length);
