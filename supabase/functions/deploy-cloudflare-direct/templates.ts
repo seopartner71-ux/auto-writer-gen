@@ -103,7 +103,7 @@ function sitemap(ctx: RenderCtx): string {
 function renderMinimal(ctx: RenderCtx): Record<string, string> {
   const nav = navLabels();
   const postClass = pick(["entry", "post", "note"]);
-  const posts = fakePosts(ctx.topic, 5);
+  const posts = getPosts(ctx, 12);
 
   const css = `:root{--accent:${ctx.accent};--bg:#fafaf7;--ink:#1a1a1a;--muted:#666}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -126,7 +126,7 @@ footer{margin-top:48px;padding-top:24px;border-top:1px solid #e5e2dc;color:var(-
 
   const articles = posts.map((p) => `
     <article class="${postClass}">
-      <h2><a href="#">${esc(p.title)}</a></h2>
+      <h2><a href="${p.href}">${esc(p.title)}</a></h2>
       <p>${esc(p.excerpt)}</p>
     </article>`).join("");
 
