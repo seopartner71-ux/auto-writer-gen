@@ -1182,7 +1182,7 @@ export default function SiteFactoryPage() {
               <label className="text-sm font-medium mb-1.5 block">
                 {lang === "ru" ? "Платформа хостинга" : "Hosting platform"}
               </label>
-              <Select
+              <Tabs
                 value={hostingPlatform}
                 onValueChange={async (v) => {
                   if (isPlatformLocked) return;
@@ -1192,17 +1192,20 @@ export default function SiteFactoryPage() {
                     setProjects((prev) => prev.map((project) => project.id === selectedProjectId ? { ...project, hosting_platform: v } : project));
                   }
                 }}
-                disabled={!selectedProjectId || isPlatformLocked}
+                className="w-full"
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {HOSTING_PLATFORMS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="vercel" disabled={!selectedProjectId || isPlatformLocked}>
+                    <Rocket className="h-3.5 w-3.5 mr-1.5" /> Vercel
+                  </TabsTrigger>
+                  <TabsTrigger value="cloudflare" disabled={!selectedProjectId || isPlatformLocked}>
+                    <Cloud className="h-3.5 w-3.5 mr-1.5" /> Cloudflare
+                  </TabsTrigger>
+                  <TabsTrigger value="netlify" disabled={!selectedProjectId || isPlatformLocked}>
+                    <Globe className="h-3.5 w-3.5 mr-1.5" /> Netlify
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
               {selectedProjectId && isPlatformLocked && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   {lang === "ru"
