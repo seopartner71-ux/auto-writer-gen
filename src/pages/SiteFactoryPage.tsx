@@ -1335,8 +1335,8 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
-            {/* Vercel one-click deploy - visible when GitHub is set up and repo is ready */}
-            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "vercel" && (
+            {/* Vercel one-click deploy - DEPRECATED, replaced by Blogger/Cloudflare/GitHub Pages */}
+            {false && selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "vercel" && (
               <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
                 vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
                 vercelStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :
