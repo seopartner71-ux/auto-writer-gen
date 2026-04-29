@@ -135,6 +135,7 @@ export default function SiteFactoryPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [keywords, setKeywords] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [cfDeploying, setCfDeploying] = useState(false);
   const [articles, setArticles] = useState<QueueArticle[]>([]);
   const [previewArticle, setPreviewArticle] = useState<QueueArticle | null>(null);
   const [publishing, setPublishing] = useState<string | null>(null);
