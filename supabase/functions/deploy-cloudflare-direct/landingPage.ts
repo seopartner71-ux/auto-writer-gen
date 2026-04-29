@@ -295,6 +295,12 @@ export async function generateLandingContent(
   siteName: string,
   lang: "ru" | "en",
   overrides: Partial<LandingContent> = {},
+  nicheCtx: {
+    region?: string;
+    services?: string;
+    audience?: string;
+    businessType?: string;
+  } = {},
 ): Promise<LandingContent> {
   const fallback = lang === "ru" ? FALLBACK_RU(topic, siteName) : FALLBACK_EN(topic, siteName);
 
@@ -302,15 +308,38 @@ export async function generateLandingContent(
     return { ...fallback, ...overrides };
   }
 
+  const region   = (nicheCtx.region   || "").trim();
+  const services = (nicheCtx.services || "").trim();
+  const audience = (nicheCtx.audience || "").trim();
+  const bizType  = (nicheCtx.businessType || "").trim();
+
   const sys = lang === "ru"
     ? `Ты создаёшь тексты для лендинга реальной российской компании. Тематика и название известны.
-Правила: 1) Естественный язык, без канцелярита и без слова «уникальный». 2) Цены, телефон, адрес — реалистичные. 3) НЕ используй жирный шрифт и звёздочки в тексте. 4) Замени все длинные тире на дефисы. 5) Никогда не используй букву «ё» — только «е». 6) Никаких выдуманных сертификатов и наград. 7) Иконки в полях icon — короткие unicode-символы (★ ✓ ⚡ ₽ ① ② ③ ④ ✦ ⬢ ◆ ●), не emoji.`
+ОБЯЗАТЕЛЬНО: 1) ВСЕ услуги, цены, профессии команды, отзывы, статистика, FAQ - строго из указанной ниши. Никаких общих "консультаций" если ниша - продажа минитракторов. 2) Названия услуг используют РЕАЛЬНУЮ терминологию ниши (для ниши "минитракторы" - "продажа минитрактора", "сервис и ТО", "доставка навесного оборудования", а не "Базовый/Стандарт/Премиум"). 3) Цены реалистичные для рынка ниши и региона (минитрактор от 250 000 руб, а не от 5 000). 4) Команда - должности из ниши (агроном, механик по сельхозтехнике), а не "руководитель/специалист". 5) Статистика релевантна нише (тракторов продано, моделей в наличии). 6) Отзывы - от целевой аудитории ниши. 7) Адрес и код телефона - в указанном регионе.
+ФОРМАТ: Естественный язык, без канцелярита и без слова «уникальный». Цены, телефон, адрес - реалистичные. НЕ используй жирный шрифт и звёздочки. Замени все длинные тире на дефисы. Никогда не используй букву «ё» - только «е». Никаких выдуманных сертификатов. Иконки в полях icon - короткие unicode-символы (★ ✓ ⚡ ₽ ① ② ③ ④ ✦ ⬢ ◆ ●), не emoji.`
     : `You write copy for a real business landing page. Topic and brand name are given.
-Rules: 1) Natural English, no corporate jargon. 2) Prices, phone, address — realistic. 3) Do NOT use bold or asterisks. 4) Replace em-dashes with hyphens. 5) No fabricated certifications. 6) Icon fields use short unicode symbols (★ ✓ ⚡ $ ① ② ③ ④ ✦ ⬢ ◆ ●), not emoji.`;
+MANDATORY: 1) ALL services, prices, team roles, testimonials, stats, FAQ - strictly from the specified niche. No generic "consultations" if niche is selling tractors. 2) Service names use REAL niche terminology (for "compact tractors" niche - "tractor sales", "service and maintenance", "implement delivery", not "Basic/Standard/Premium"). 3) Prices realistic for the niche market and region (tractor from $5,000, not "from $99"). 4) Team - roles from the niche (agronomist, equipment mechanic), not generic "director/specialist". 5) Stats relevant to the niche (tractors sold, models in stock). 6) Testimonials from the actual target audience. 7) Address and phone area code - in the specified region.
+FORMAT: Natural English, no corporate jargon. Realistic prices, phone, address. No bold or asterisks. Replace em-dashes with hyphens. No fabricated certifications. Icon fields - short unicode symbols (★ ✓ ⚡ $ ① ② ③ ④ ✦ ⬢ ◆ ●), not emoji.`;
 
+  const ctxLinesRu = [
+    `Ниша / тематика сайта: «${topic}»`,
+    `Название компании: «${siteName}»`,
+    region   ? `Регион: ${region}` : "",
+    bizType  ? `Тип бизнеса: ${bizType}` : "",
+    services ? `Ключевые услуги/товары (используй везде в контенте): ${services}` : "",
+    audience ? `Целевая аудитория: ${audience}` : "",
+  ].filter(Boolean).join("\n");
+  const ctxLinesEn = [
+    `Niche / site topic: "${topic}"`,
+    `Brand name: "${siteName}"`,
+    region   ? `Region: ${region}` : "",
+    bizType  ? `Business type: ${bizType}` : "",
+    services ? `Key services/products (reference them throughout): ${services}` : "",
+    audience ? `Target audience: ${audience}` : "",
+  ].filter(Boolean).join("\n");
   const user = lang === "ru"
-    ? `Тематика сайта: «${topic}». Название компании: «${siteName}». Создай весь контент лендинга. Тексты услуг, отзывов, процесса, команды должны соответствовать тематике.`
-    : `Site topic: "${topic}". Brand name: "${siteName}". Produce the full landing copy. Services, testimonials, process and team must match the topic.`;
+    ? `${ctxLinesRu}\n\nСоздай весь контент лендинга СТРОГО под эту нишу. Все услуги, цены, команда, отзывы, статистика и FAQ должны быть из этой ниши, а не общими.`
+    : `${ctxLinesEn}\n\nProduce the FULL landing copy STRICTLY for this niche. Services, prices, team, testimonials, stats and FAQ must be niche-specific, not generic.`;
 
   try {
     const ac = new AbortController();

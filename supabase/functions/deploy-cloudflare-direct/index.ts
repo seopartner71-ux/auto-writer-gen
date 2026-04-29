@@ -504,12 +504,23 @@ serve(async (req) => {
     try {
       const heroImage = posts[0]?.featuredImageUrl;
       const skin = pickSkin(templateKey + "::" + projectId);
-      const landingContent = await generateLandingContent(topic, siteName, lang as "ru" | "en", {
-        phone: (project as any).company_phone || undefined,
-        email: (project as any).company_email || undefined,
-        address: (project as any).company_address || undefined,
-        workHours: (project as any).work_hours || undefined,
-      } as any);
+      const landingContent = await generateLandingContent(
+        topic,
+        siteName,
+        lang as "ru" | "en",
+        {
+          phone: (project as any).company_phone || undefined,
+          email: (project as any).company_email || undefined,
+          address: (project as any).company_address || undefined,
+          workHours: (project as any).work_hours || undefined,
+        } as any,
+        {
+          region:       String(body.region       || (project as any).region || "").slice(0, 120),
+          services:     String(body.services     || "").slice(0, 300),
+          audience:     String(body.audience     || "").slice(0, 200),
+          businessType: String(body.business_type|| "").slice(0, 80),
+        },
+      );
       const landingHtml = renderLandingHtml(
         {
           siteName, topic, lang: lang as "ru" | "en",
