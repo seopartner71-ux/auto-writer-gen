@@ -1281,6 +1281,66 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
+            {/* Vercel one-click deploy - visible when GitHub is set up and repo is ready */}
+            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && (
+              <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
+                vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
+                vercelStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :
+                vercelStatus === "creating" || vercelStatus === "checking" ? "border-primary/30 bg-primary/10 text-primary" :
+                "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+              }`}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    {(vercelStatus === "checking" || vercelStatus === "creating") && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {vercelStatus === "linked" && <CheckCircle className="h-4 w-4" />}
+                    {vercelStatus === "not_linked" && <Cloud className="h-4 w-4" />}
+                    {vercelStatus === "error" && <AlertCircle className="h-4 w-4" />}
+                    <span>
+                      {vercelStatus === "checking" && (lang === "ru" ? "Проверка Vercel..." : "Checking Vercel...")}
+                      {vercelStatus === "creating" && (lang === "ru" ? "Деплой на Vercel..." : "Deploying to Vercel...")}
+                      {vercelStatus === "linked" && (lang === "ru" ? "Сайт на Vercel" : "Live on Vercel")}
+                      {vercelStatus === "not_linked" && (lang === "ru" ? "Готов к деплою на Vercel в 1 клик" : "Ready for one-click Vercel deploy")}
+                      {vercelStatus === "error" && (vercelError || (lang === "ru" ? "Ошибка Vercel" : "Vercel error"))}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {vercelStatus === "linked" && vercelDomain && (
+                      <a
+                        href={`https://${vercelDomain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs underline hover:opacity-80"
+                      >
+                        <ExternalLink className="h-3 w-3" /> {vercelDomain}
+                      </a>
+                    )}
+                    {vercelStatus === "not_linked" && (
+                      <Button size="sm" variant="outline" onClick={() => handleVercelDeploy("create")} className="shrink-0">
+                        <Rocket className="h-3 w-3 mr-1" />
+                        {lang === "ru" ? "Деплой в 1 клик" : "Deploy in 1 click"}
+                      </Button>
+                    )}
+                    {vercelStatus === "linked" && (
+                      <Button size="sm" variant="outline" onClick={() => handleVercelDeploy("redeploy")} className="shrink-0">
+                        <Zap className="h-3 w-3 mr-1" />
+                        {lang === "ru" ? "Обновить" : "Redeploy"}
+                      </Button>
+                    )}
+                    {vercelStatus === "error" && (
+                      <Button size="sm" variant="outline" onClick={() => handleVercelDeploy("create")} className="shrink-0">
+                        {lang === "ru" ? "Повторить" : "Retry"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {vercelHint && (
+                  <p className="text-xs opacity-90 break-words">
+                    {lang === "ru" ? "Подсказка: " : "Hint: "}{vercelHint}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Site Config Form - shown when repo needs initialization or is ready */}
             {selectedProjectId && isGitHubConfigured && (repoStatus === "empty" || repoStatus === "ready") && (
               <div className="rounded-lg border border-border p-4 space-y-3">
