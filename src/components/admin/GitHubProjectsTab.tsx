@@ -407,8 +407,9 @@ export function GitHubProjectsTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="vercel">Vercel</SelectItem>
                   <SelectItem value="cloudflare">Cloudflare Pages</SelectItem>
+                  <SelectItem value="blogger">Blogger</SelectItem>
+                  <SelectItem value="github_pages">GitHub Pages</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -441,15 +442,16 @@ export function GitHubProjectsTab() {
             <div>
               <label className="text-sm font-medium mb-1 block">Платформа хостинга по умолчанию</label>
               <Select
-                value={project.hosting_platform || "vercel"}
+                value={project.hosting_platform === "vercel" || project.hosting_platform === "netlify" ? "cloudflare" : (project.hosting_platform || "cloudflare")}
                 onValueChange={(value) => setProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, hosting_platform: value } : p))}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="vercel">Vercel</SelectItem>
                   <SelectItem value="cloudflare">Cloudflare Pages</SelectItem>
+                  <SelectItem value="blogger">Blogger</SelectItem>
+                  <SelectItem value="github_pages">GitHub Pages</SelectItem>
                 </SelectContent>
               </Select>
             </div>
