@@ -1222,14 +1222,14 @@ export default function SiteFactoryPage() {
                 className="w-full"
               >
                 <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="vercel" disabled={!selectedProjectId || isPlatformLocked}>
-                    <Rocket className="h-3.5 w-3.5 mr-1.5" /> Vercel
-                  </TabsTrigger>
                   <TabsTrigger value="cloudflare" disabled={!selectedProjectId || isPlatformLocked}>
                     <Cloud className="h-3.5 w-3.5 mr-1.5" /> Cloudflare
                   </TabsTrigger>
-                  <TabsTrigger value="netlify" disabled={!selectedProjectId || isPlatformLocked}>
-                    <Globe className="h-3.5 w-3.5 mr-1.5" /> Netlify
+                  <TabsTrigger value="blogger" disabled={!selectedProjectId || isPlatformLocked}>
+                    <FileText className="h-3.5 w-3.5 mr-1.5" /> Blogger
+                  </TabsTrigger>
+                  <TabsTrigger value="github_pages" disabled={!selectedProjectId || isPlatformLocked}>
+                    <Github className="h-3.5 w-3.5 mr-1.5" /> GitHub Pages
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
