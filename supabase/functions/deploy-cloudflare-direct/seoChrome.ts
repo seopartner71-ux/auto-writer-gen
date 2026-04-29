@@ -11,6 +11,24 @@ export interface TeamMember {
   bio?: string;
 }
 
+export interface Author {
+  name: string;
+  role?: string;
+  bio?: string;
+  avatar_seed?: string;
+}
+
+export interface BusinessPages {
+  vacancies?: string;
+  portfolio?: string;
+  reviews?: string;
+  faq?: string;
+  pricing?: string;
+  guarantees?: string;
+  delivery?: string;
+  promo?: string;
+}
+
 export interface SiteChrome {
   domain: string;          // e.g. "foo.pages.dev"
   siteName: string;
@@ -36,6 +54,18 @@ export interface SiteChrome {
   footerLinkUrl?: string;
   footerLinkText?: string;
   injectionLinks?: { url: string; anchor: string }[];
+  // Trust chrome v2
+  legalAddress?: string;
+  workHours?: string;
+  juridicalInn?: string;
+  whatsappUrl?: string;
+  telegramUrl?: string;
+  vkUrl?: string;
+  youtubeUrl?: string;
+  instagramUrl?: string;
+  clientsCountText?: string;
+  authors?: Author[];
+  businessPages?: BusinessPages;
 }
 
 export interface PageMeta {
