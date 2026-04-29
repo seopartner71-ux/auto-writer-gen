@@ -924,6 +924,24 @@ export default function SiteFactoryPage() {
     setPublishing(article.id);
     addDeployLog("publishing", lang === "ru" ? `Публикация: ${article.title}...` : `Publishing: ${article.title}...`);
     try {
+      // Direct Upload projects: skip GitHub, mark published in DB, then redeploy via Cloudflare Direct Upload.
+      if (isDirectUploadProject) {
+        const { error: upErr } = await supabase
+          .from("articles")
+          .update({ status: "published" })
+          .eq("id", article.id);
+        if (upErr) throw upErr;
+        setArticles((prev) =>
+          prev.map((a) => (a.id === article.id ? { ...a, status: "published" } : a)),
+        );
+        addDeployLog("success", lang === "ru" ? `Статья помечена как опубликованная: ${article.title}` : `Marked as published: ${article.title}`);
+        toast({
+          title: lang === "ru" ? "Статья опубликована!" : "Article published!",
+          description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
+        });
+        await triggerCloudflare();
+        return;
+      }
       const { data, error } = await supabase.functions.invoke("publish-github", {
         body: {
           article_id: article.id,
@@ -973,6 +991,25 @@ export default function SiteFactoryPage() {
     addDeployLog("publishing", lang === "ru" ? `Пакетная публикация ${selectedIds.size} статей...` : `Batch publishing ${selectedIds.size} articles...`);
     try {
       const ids = Array.from(selectedIds);
+      // Direct Upload projects: skip GitHub, batch-update in DB, then redeploy.
+      if (isDirectUploadProject) {
+        const { error: upErr } = await supabase
+          .from("articles")
+          .update({ status: "published" })
+          .in("id", ids);
+        if (upErr) throw upErr;
+        setArticles((prev) =>
+          prev.map((a) => (selectedIds.has(a.id) ? { ...a, status: "published" } : a)),
+        );
+        setSelectedIds(new Set());
+        addDeployLog("success", lang === "ru" ? `Помечено как опубликованные: ${ids.length}` : `Marked as published: ${ids.length}`);
+        toast({
+          title: lang === "ru" ? `Опубликовано ${ids.length} статей` : `Published ${ids.length} articles`,
+          description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
+        });
+        await triggerCloudflare();
+        return;
+      }
       const { data, error } = await supabase.functions.invoke("publish-github", {
         body: {
           article_ids: ids,
@@ -2042,7 +2079,7 @@ export default function SiteFactoryPage() {
                 <Button
                   size="sm"
                   onClick={handleBatchPublish}
-                  disabled={batchPublishing || !isGitHubConfigured}
+                  disabled={batchPublishing || (!isGitHubConfigured && !isDirectUploadProject)}
                 >
                   {batchPublishing ? (
                     <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{lang === "ru" ? "Публикация..." : "Publishing..."}</>
@@ -2171,7 +2208,7 @@ export default function SiteFactoryPage() {
                           variant={article.status === "published" ? "outline" : "default"}
                           onClick={() => handlePublish(article)}
                           disabled={
-                            !isGitHubConfigured ||
+                            (!isGitHubConfigured && !isDirectUploadProject) ||
                             !article.content ||
                             isGen ||
                             publishing === article.id
