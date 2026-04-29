@@ -591,6 +591,49 @@ export interface PostInput {
   publishedAt?: string;
 }
 
+// Pick a stable author for a post based on its slug — keeps assignment
+// consistent across deploys without needing a DB column.
+export function pickAuthor(authors: Author[] | undefined, slug: string): Author | null {
+  if (!authors || authors.length === 0) return null;
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+  return authors[h % authors.length];
+}
+
+function dicebearUrl(seed: string): string {
+  const s = encodeURIComponent(seed || "author");
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${s}&backgroundType=gradientLinear&fontWeight=600`;
+}
+
+function authorMetaHtml(c: SiteChrome, author: Author | null, publishedAt?: string): string {
+  if (!author) return "";
+  const isRu = c.lang === "ru";
+  const dateStr = publishedAt
+    ? new Date(publishedAt).toLocaleDateString(isRu ? "ru-RU" : "en-US",
+        { year: "numeric", month: "long", day: "numeric" })
+    : "";
+  const dateTime = publishedAt ? new Date(publishedAt).toISOString() : "";
+  return `<div class="author-meta">
+    <img src="${escAttr(dicebearUrl(author.avatar_seed || author.name))}" alt="${escAttr(author.name)}" loading="lazy" width="40" height="40">
+    <div>
+      <div><strong>${escHtml(author.name)}</strong>${author.role ? ` <span style="color:#888">· ${escHtml(author.role)}</span>` : ""}</div>
+      ${dateStr ? `<time datetime="${escAttr(dateTime)}" style="font-size:13px;color:#888">${escHtml(dateStr)}</time>` : ""}
+    </div>
+  </div>`;
+}
+
+function shareBarHtml(c: SiteChrome, path: string, title: string): string {
+  const isRu = c.lang === "ru";
+  const url = encodeURIComponent(absUrl(c.domain, path));
+  const t = encodeURIComponent(title);
+  return `<div class="share-bar" aria-label="${isRu ? "Поделиться" : "Share"}">
+    <a href="https://t.me/share/url?url=${url}&text=${t}" rel="nofollow noopener" target="_blank">Telegram</a>
+    <a href="https://wa.me/?text=${t}%20${url}" rel="nofollow noopener" target="_blank">WhatsApp</a>
+    <a href="https://twitter.com/intent/tweet?url=${url}&text=${t}" rel="nofollow noopener" target="_blank">Twitter</a>
+    <a href="https://vk.com/share.php?url=${url}&title=${t}" rel="nofollow noopener" target="_blank">${isRu ? "ВКонтакте" : "VK"}</a>
+  </div>`;
+}
+
 export function buildPostPage(
   c: SiteChrome,
   post: PostInput,
