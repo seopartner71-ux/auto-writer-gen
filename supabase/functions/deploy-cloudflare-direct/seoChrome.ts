@@ -11,6 +11,24 @@ export interface TeamMember {
   bio?: string;
 }
 
+export interface Author {
+  name: string;
+  role?: string;
+  bio?: string;
+  avatar_seed?: string;
+}
+
+export interface BusinessPages {
+  vacancies?: string;
+  portfolio?: string;
+  reviews?: string;
+  faq?: string;
+  pricing?: string;
+  guarantees?: string;
+  delivery?: string;
+  promo?: string;
+}
+
 export interface SiteChrome {
   domain: string;          // e.g. "foo.pages.dev"
   siteName: string;
@@ -36,6 +54,18 @@ export interface SiteChrome {
   footerLinkUrl?: string;
   footerLinkText?: string;
   injectionLinks?: { url: string; anchor: string }[];
+  // Trust chrome v2
+  legalAddress?: string;
+  workHours?: string;
+  juridicalInn?: string;
+  whatsappUrl?: string;
+  telegramUrl?: string;
+  vkUrl?: string;
+  youtubeUrl?: string;
+  instagramUrl?: string;
+  clientsCountText?: string;
+  authors?: Author[];
+  businessPages?: BusinessPages;
 }
 
 export interface PageMeta {
@@ -72,15 +102,32 @@ function absUrl(domain: string, path: string): string {
   return `https://${domain}${p}`;
 }
 
-function navItems(lang: string) {
-  const isRu = lang === "ru";
-  return [
+function navItems(c: SiteChrome) {
+  const isRu = c.lang === "ru";
+  const items: { href: string; label: string }[] = [
     { href: "/", label: isRu ? "Главная" : "Home" },
     { href: "/about.html", label: isRu ? "О нас" : "About" },
-    { href: "/contacts.html", label: isRu ? "Контакты" : "Contacts" },
-    { href: "/privacy.html", label: isRu ? "Конфиденциальность" : "Privacy" },
-    { href: "/terms.html", label: isRu ? "Соглашение" : "Terms" },
   ];
+  const bp = c.businessPages || {};
+  if (bp.portfolio)  items.push({ href: "/portfolio.html",  label: isRu ? "Кейсы"     : "Portfolio" });
+  if (bp.pricing)    items.push({ href: "/pricing.html",    label: isRu ? "Цены"      : "Pricing"   });
+  if (bp.reviews)    items.push({ href: "/reviews.html",    label: isRu ? "Отзывы"    : "Reviews"   });
+  if (bp.faq)        items.push({ href: "/faq.html",        label: "FAQ" });
+  if (bp.vacancies)  items.push({ href: "/vacancies.html",  label: isRu ? "Вакансии"  : "Careers"   });
+  items.push({ href: "/contacts.html", label: isRu ? "Контакты" : "Contacts" });
+  return items;
+}
+
+function footerExtraLinks(c: SiteChrome) {
+  const isRu = c.lang === "ru";
+  const out: { href: string; label: string }[] = [];
+  const bp = c.businessPages || {};
+  if (bp.guarantees) out.push({ href: "/guarantees.html", label: isRu ? "Гарантии"        : "Guarantees" });
+  if (bp.delivery)   out.push({ href: "/delivery.html",   label: isRu ? "Доставка и оплата" : "Shipping & Payment" });
+  if (bp.promo)      out.push({ href: "/promo.html",      label: isRu ? "Акции"           : "Promotions" });
+  out.push({ href: "/privacy.html", label: isRu ? "Конфиденциальность" : "Privacy" });
+  out.push({ href: "/terms.html",   label: isRu ? "Соглашение"         : "Terms" });
+  return out;
 }
 
 function organizationLd(c: SiteChrome) {
@@ -189,11 +236,17 @@ const COOKIE_BANNER_JS = `
 })();`;
 
 function headerHtml(c: SiteChrome): string {
-  const items = navItems(c.lang);
-  return `<header class="site-header">
+  const items = navItems(c);
+  const isRu = c.lang === "ru";
+  return `<a class="skip-link" href="#main-content">${isRu ? "Перейти к контенту" : "Skip to content"}</a>
+<div class="reading-progress" id="reading-progress" aria-hidden="true"></div>
+<header class="site-header" id="site-header">
   <div class="site-header__inner">
     <a href="/" class="site-header__brand">${escHtml(c.siteName)}</a>
-    <nav class="site-nav" aria-label="${c.lang === "ru" ? "Основное меню" : "Main"}">
+    <button class="site-header__burger" type="button" aria-label="${isRu ? "Меню" : "Menu"}" aria-controls="site-nav" aria-expanded="false" id="burger">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="site-nav" id="site-nav" aria-label="${isRu ? "Основное меню" : "Main"}">
       ${items.map((i) => `<a href="${i.href}">${escHtml(i.label)}</a>`).join("")}
     </nav>
   </div>
@@ -213,14 +266,32 @@ function breadcrumbsHtml(c: SiteChrome, items: { label: string; href: string }[]
 }
 
 function footerHtml(c: SiteChrome): string {
-  const items = navItems(c.lang);
+  const items = navItems(c);
+  const extra = footerExtraLinks(c);
   const year = new Date().getFullYear();
   const isRu = c.lang === "ru";
   const owner = c.companyName || c.siteName;
-  const extra: string[] = [];
-  if (c.companyAddress) extra.push(`<div>${escHtml(c.companyAddress)}</div>`);
-  if (c.companyPhone)   extra.push(`<div><a href="tel:${escAttr(c.companyPhone.replace(/[^+\d]/g, ""))}">${escHtml(c.companyPhone)}</a></div>`);
-  if (c.companyEmail)   extra.push(`<div><a href="mailto:${escAttr(c.companyEmail)}">${escHtml(c.companyEmail)}</a></div>`);
+
+  const napLines: string[] = [];
+  if (c.companyName)    napLines.push(`<div><strong>${escHtml(c.companyName)}</strong></div>`);
+  if (c.companyAddress) napLines.push(`<div>${escHtml(c.companyAddress)}</div>`);
+  if (c.workHours)      napLines.push(`<div>${escHtml(c.workHours)}</div>`);
+  if (c.companyPhone)   napLines.push(`<div><a href="tel:${escAttr(c.companyPhone.replace(/[^+\d]/g, ""))}">${escHtml(c.companyPhone)}</a></div>`);
+  if (c.companyEmail)   napLines.push(`<div><a href="mailto:${escAttr(c.companyEmail)}">${escHtml(c.companyEmail)}</a></div>`);
+  if (c.juridicalInn)   napLines.push(`<div class="nap-inn">${isRu ? "ИНН" : "Tax ID"}: ${escHtml(c.juridicalInn)}</div>`);
+
+  const social: string[] = [];
+  const sLink = (href: string | undefined, label: string) =>
+    href ? `<a href="${escAttr(href)}" rel="nofollow noopener" target="_blank" aria-label="${label}">${label}</a>` : "";
+  if (c.whatsappUrl)  social.push(sLink(c.whatsappUrl,  "WhatsApp"));
+  if (c.telegramUrl)  social.push(sLink(c.telegramUrl,  "Telegram"));
+  if (c.vkUrl)        social.push(sLink(c.vkUrl,        isRu ? "ВКонтакте" : "VK"));
+  if (c.youtubeUrl)   social.push(sLink(c.youtubeUrl,   "YouTube"));
+  if (c.instagramUrl) social.push(sLink(c.instagramUrl, "Instagram"));
+  const socialHtml = social.length ? `<div class="site-footer__social">${social.join("")}</div>` : "";
+
+  const trustHtml = `<div class="site-footer__trust">${isRu ? "Безопасная оплата · SSL · Visa · Mastercard · МИР · СБП" : "Secure payment · SSL · Visa · Mastercard"}</div>`;
+  const clientsHtml = c.clientsCountText ? `<div class="site-footer__clients">${escHtml(c.clientsCountText)}</div>` : "";
 
   const footerExtra = c.footerLinkUrl && c.footerLinkText
     ? `<a class="site-footer__partner" href="${escAttr(c.footerLinkUrl)}" rel="nofollow noopener">${escHtml(c.footerLinkText)}</a>`
@@ -229,16 +300,33 @@ function footerHtml(c: SiteChrome): string {
   return `<footer class="site-footer">
   <div class="site-footer__inner">
     <nav class="site-footer__nav" aria-label="${isRu ? "Подвал" : "Footer"}">
-      ${items.map((i) => `<a href="${i.href}">${escHtml(i.label)}</a>`).join("")}
+      ${[...items, ...extra].map((i) => `<a href="${i.href}">${escHtml(i.label)}</a>`).join("")}
     </nav>
     <div class="site-footer__meta">
-      ${extra.join("")}
+      ${napLines.join("")}
+      ${socialHtml}
+      ${clientsHtml}
+      ${trustHtml}
       <div>&copy; ${c.foundingYear ? `${c.foundingYear}-${year}` : year} ${escHtml(owner)}</div>
       ${footerExtra}
     </div>
   </div>
-</footer>`;
+</footer>
+<button class="back-to-top" id="back-to-top" type="button" aria-label="${isRu ? "Наверх" : "Back to top"}">↑</button>`;
 }
+
+const TRUST_JS = `
+(function(){
+  try{
+    var burger=document.getElementById('burger');
+    var nav=document.getElementById('site-nav');
+    if(burger&&nav){burger.addEventListener('click',function(){var op=nav.classList.toggle('open');burger.setAttribute('aria-expanded',op?'true':'false');});}
+    var bar=document.getElementById('reading-progress');
+    if(bar){window.addEventListener('scroll',function(){var h=document.documentElement;var s=h.scrollTop||document.body.scrollTop;var t=(h.scrollHeight-h.clientHeight)||1;bar.style.width=(Math.min(100,s/t*100))+'%';},{passive:true});}
+    var top=document.getElementById('back-to-top');
+    if(top){window.addEventListener('scroll',function(){top.classList.toggle('show',(window.scrollY||0)>400);},{passive:true});top.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});}
+  }catch(e){}
+})();`;
 
 const CHROME_CSS = `
 :root { color-scheme: light; }
@@ -246,12 +334,24 @@ const CHROME_CSS = `
 html,body{margin:0;padding:0}
 img{max-width:100%;height:auto;display:block}
 a{color:inherit}
+.skip-link{position:absolute;left:-9999px;top:0;background:#000;color:#fff;padding:8px 12px;z-index:9999}
+.skip-link:focus{left:8px;top:8px}
+.reading-progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--accent,#0ea5e9);z-index:60;transition:width .1s linear}
 .site-header{position:sticky;top:0;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid rgba(0,0,0,.08);z-index:50}
 .site-header__inner{max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;gap:24px}
 .site-header__brand{font-weight:700;text-decoration:none;font-size:20px}
+.site-header__burger{display:none;background:none;border:0;padding:8px;cursor:pointer;flex-direction:column;gap:4px;width:44px;height:44px;align-items:center;justify-content:center}
+.site-header__burger span{width:22px;height:2px;background:#222;display:block}
 .site-nav{display:flex;gap:18px;flex-wrap:wrap}
 .site-nav a{color:#444;text-decoration:none;font-size:14px;font-weight:500}
 .site-nav a:hover{color:var(--accent,#0ea5e9)}
+@media (max-width:760px){
+  .site-header__burger{display:flex}
+  .site-nav{display:none;width:100%;flex-direction:column;gap:0;padding:8px 0;border-top:1px solid rgba(0,0,0,.08)}
+  .site-nav.open{display:flex}
+  .site-nav a{padding:12px 24px;font-size:16px;min-height:44px;display:flex;align-items:center}
+  .site-header__inner{flex-wrap:wrap}
+}
 .breadcrumbs{max-width:1200px;margin:0 auto;padding:12px 24px;font-size:13px;color:#666}
 .breadcrumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:0}
 .breadcrumbs li:not(:last-child)::after{content:" / ";color:#bbb;margin-left:6px}
@@ -265,6 +365,22 @@ a{color:inherit}
 .site-footer__meta{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9a9a9a;text-align:right}
 .site-footer__meta a{color:#cfcfcf;text-decoration:none}
 .site-footer__partner{color:#9a9a9a;font-size:12px}
+.site-footer__social{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;font-size:12px}
+.site-footer__social a{color:#9a9a9a;text-decoration:none;border:1px solid rgba(255,255,255,.15);padding:4px 10px;border-radius:6px}
+.site-footer__social a:hover{color:#fff;border-color:rgba(255,255,255,.4)}
+.site-footer__trust{font-size:11px;color:#7a7a7a;margin-top:6px}
+.site-footer__clients{font-size:12px;color:#bbb;margin-top:4px}
+.nap-inn{font-size:11px;color:#7a7a7a}
+.back-to-top{position:fixed;right:20px;bottom:20px;width:44px;height:44px;border:0;border-radius:50%;background:var(--accent,#0ea5e9);color:#fff;font-size:22px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s;z-index:55;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.back-to-top.show{opacity:1;pointer-events:auto}
+.share-bar{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}
+.share-bar a{padding:8px 14px;border:1px solid #e5e7eb;border-radius:8px;color:#444;text-decoration:none;font-size:13px;background:#fff;min-height:44px;display:inline-flex;align-items:center}
+.share-bar a:hover{background:#f5f5f5}
+.author-meta{display:flex;align-items:center;gap:12px;margin:12px 0 24px;color:#666;font-size:14px}
+.author-meta img{width:40px;height:40px;border-radius:50%}
+.bp-pricing-table{width:100%;border-collapse:collapse;margin:16px 0}
+.bp-pricing-table th,.bp-pricing-table td{border:1px solid #e5e7eb;padding:10px 14px;text-align:left}
+.bp-pricing-table th{background:#f8fafc}
 .related-posts{max-width:900px;margin:48px auto 0;padding:24px;border-top:1px solid #e5e7eb}
 .related-posts h2{font-size:20px;margin:0 0 16px;font-family:inherit}
 .related-posts ul{list-style:none;padding:0;margin:0;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
@@ -332,6 +448,7 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
   ${footerHtml(c)}
   ${cookieBannerHtml(c.lang, "/privacy.html")}
   <script defer>${COOKIE_BANNER_JS}</script>
+  <script defer>${TRUST_JS}</script>
   ${pixel}
 </body>
 </html>`;
@@ -528,6 +645,7 @@ export function buildPostPage(
   ${footerHtml(c)}
   ${cookieBannerHtml(c.lang, "/privacy.html")}
   <script defer>${COOKIE_BANNER_JS}</script>
+  <script defer>${TRUST_JS}</script>
 </body>
 </html>`;
 }
