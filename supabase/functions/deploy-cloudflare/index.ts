@@ -146,9 +146,10 @@ serve(async (req) => {
     }
 
     if (project.hosting_platform !== "cloudflare") {
-      return new Response(JSON.stringify({ error: "Project is not using Cloudflare Pages" }), {
-        status: 400, headers: corsHeaders,
-      });
+      // Auto-set hosting_platform to cloudflare if not specified
+      console.log(`[deploy-cloudflare] Setting hosting_platform=cloudflare for project ${project_id}`);
+      await supabase.from("projects").update({ hosting_platform: "cloudflare" }).eq("id", project_id);
+      project.hosting_platform = "cloudflare";
     }
 
     const { data: apiKeys } = await supabase
@@ -171,7 +172,7 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    const cfProjectName = extractPagesProjectName(
+    let cfProjectName = extractPagesProjectName(
       project.domain,
       project.custom_domain,
       project.name || "site",
@@ -183,64 +184,90 @@ serve(async (req) => {
       });
     }
 
-    const pagesDevUrl = `https://${cfProjectName}.pages.dev`;
+    let pagesDevUrl = `https://${cfProjectName}.pages.dev`;
     const cfBaseUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`;
 
     console.log(`[deploy-cloudflare] Checking project: ${cfProjectName}`);
     const checkRes = await fetch(`${cfBaseUrl}/${cfProjectName}`, { headers: cfHeaders });
 
     if (!checkRes.ok && checkRes.status === 404) {
-      console.log(`[deploy-cloudflare] Creating project: ${cfProjectName}`);
-
       const ghRepo = project.github_repo || "";
       const [ghOwner, ghRepoName] = ghRepo.includes("/") ? ghRepo.split("/") : ["", ghRepo];
 
-      const createBody: Record<string, any> = {
-        name: cfProjectName,
-        production_branch: "main",
-        build_config: {
-          build_command: "npm run build",
-          destination_dir: "dist",
-          root_dir: "/",
-        },
-      };
+      // Try create with up to 3 name suffixes on 409
+      const baseName = cfProjectName;
+      const idShort = String(project_id).replace(/-/g, "");
+      const candidates = [
+        baseName,
+        `${baseName}-${idShort.slice(0, 6)}`,
+        `${baseName}-${idShort.slice(0, 12)}`,
+      ];
+      let createdName: string | null = null;
+      let lastErr = "";
 
-      if (ghOwner && ghRepoName) {
-        createBody.source = {
-          type: "github",
-          config: {
-            owner: ghOwner,
-            repo_name: ghRepoName,
-            production_branch: "main",
-            deployments_enabled: true,
+      for (const candidate of candidates) {
+        console.log(`[deploy-cloudflare] Trying to create project: ${candidate}`);
+        const createBody: Record<string, any> = {
+          name: candidate,
+          production_branch: "main",
+          build_config: {
+            build_command: "npm run build",
+            destination_dir: "dist",
+            root_dir: "/",
           },
         };
-      }
-
-      const createRes = await fetch(cfBaseUrl, {
-        method: "POST",
-        headers: cfHeaders,
-        body: JSON.stringify(createBody),
-      });
-
-      const { data: createData, text: createText } = await readResponsePayload(createRes);
-
-      if (!createRes.ok) {
-        const errMsg = getCloudflareErrorMessage(createData, createText, createRes.status);
-        console.error(`[deploy-cloudflare] Create project failed:`, errMsg);
-
-        if (errMsg.includes("already exists") || errMsg.includes("already been taken") || createRes.status === 409) {
-          return new Response(JSON.stringify({
-            error: "name_conflict",
-            message: `Project name "${cfProjectName}" is already taken on Cloudflare. Please change the project name in settings.`,
-            project_name: cfProjectName,
-          }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (ghOwner && ghRepoName) {
+          createBody.source = {
+            type: "github",
+            config: {
+              owner: ghOwner,
+              repo_name: ghRepoName,
+              production_branch: "main",
+              deployments_enabled: true,
+            },
+          };
         }
 
-        return new Response(JSON.stringify({
-          error: `Cloudflare create project failed: ${errMsg}`,
-        }), { status: 400, headers: corsHeaders });
+        const createRes = await fetch(cfBaseUrl, {
+          method: "POST",
+          headers: cfHeaders,
+          body: JSON.stringify(createBody),
+        });
+        const { data: createData, text: createText } = await readResponsePayload(createRes);
+
+        if (createRes.ok) {
+          createdName = candidate;
+          break;
+        }
+
+        const errMsg = getCloudflareErrorMessage(createData, createText, createRes.status);
+        lastErr = errMsg;
+        const isConflict = createRes.status === 409 || errMsg.includes("already exists") || errMsg.includes("already been taken");
+        if (!isConflict) {
+          console.error(`[deploy-cloudflare] Create project failed (non-conflict):`, errMsg);
+          return new Response(JSON.stringify({
+            error: `Cloudflare create project failed: ${errMsg}`,
+          }), { status: 400, headers: corsHeaders });
+        }
+        console.log(`[deploy-cloudflare] Name "${candidate}" taken, trying next suffix`);
       }
+
+      if (!createdName) {
+        return new Response(JSON.stringify({
+          error: "name_conflict",
+          message: `All name candidates taken on Cloudflare. Last error: ${lastErr}`,
+          tried: candidates,
+        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      cfProjectName = createdName;
+      pagesDevUrl = `https://${cfProjectName}.pages.dev`;
+
+      // Persist resolved domain so future calls find the project
+      await supabase.from("projects").update({
+        domain: pagesDevUrl.replace(/^https?:\/\//, ""),
+        hosting_platform: "cloudflare",
+      }).eq("id", project_id);
 
       console.log(`[deploy-cloudflare] Project created: ${cfProjectName}`);
 
