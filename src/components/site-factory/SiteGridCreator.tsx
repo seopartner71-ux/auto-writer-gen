@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ interface SiteRow {
   error?: string;
   projectId?: string;
   template?: string;
+  templateName?: string;
 }
 
 const STATUS_LABELS: Record<RowStatus, string> = {
@@ -30,14 +31,6 @@ const STATUS_LABELS: Record<RowStatus, string> = {
   done: "Готов",
   error: "Ошибка",
 };
-
-const TEMPLATE_LABELS: Record<string, string> = {
-  minimal: "Минимал",
-  magazine: "Журнал",
-  news: "Новости",
-  landing: "Лендинг",
-};
-const TEMPLATE_KEYS = ["minimal", "magazine", "news", "landing"] as const;
 
 function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -50,6 +43,18 @@ export function SiteGridCreator() {
   const [topicsRaw, setTopicsRaw] = useState("");
   const [rows, setRows] = useState<SiteRow[]>([]);
   const [running, setRunning] = useState(false);
+  const [activeTemplates, setActiveTemplates] = useState<{ template_key: string; name: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("pbn_templates")
+        .select("template_key, name")
+        .eq("is_active", true)
+        .order("sort_order");
+      setActiveTemplates(data || []);
+    })();
+  }, []);
 
   const parsedTopics = topicsRaw.split("\n").map((s) => s.trim()).filter(Boolean);
   const effectiveCount = Math.min(count, 20);
@@ -82,11 +87,13 @@ export function SiteGridCreator() {
 
     for (let i = 0; i < queue.length; i++) {
       const topic = queue[i];
-      const template = pickRandom(TEMPLATE_KEYS);
+      const tpl = activeTemplates.length > 0 ? pickRandom(activeTemplates) : null;
+      const templateKey = tpl?.template_key;
+      const templateName = tpl?.name;
 
       try {
         // 1. AI-generate brand-style site name
-        updateRow(i, { status: "creating", name: "...", template });
+        updateRow(i, { status: "creating", name: "...", template: templateKey, templateName });
         let projectName = topic;
         try {
           const { data: nameData } = await supabase.functions.invoke("generate-site-name", {
@@ -121,7 +128,7 @@ export function SiteGridCreator() {
         const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare-direct", {
           body: {
             project_id: projectId,
-            template,
+            template_key: templateKey,
             site_name: projectName,
             site_about: `Блог про ${topic}`,
             topic,
@@ -216,7 +223,7 @@ export function SiteGridCreator() {
                     <tr key={idx} className="border-t border-border">
                       <td className="px-3 py-2 truncate max-w-[140px]">{r.topic}</td>
                       <td className="px-3 py-2 text-muted-foreground truncate max-w-[160px]">{r.name || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{r.template ? TEMPLATE_LABELS[r.template] : "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{r.templateName || r.template || "—"}</td>
                       <td className="px-3 py-2">
                         <Badge variant={
                           r.status === "done" ? "default" :
