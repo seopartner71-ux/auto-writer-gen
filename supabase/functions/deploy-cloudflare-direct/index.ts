@@ -13,6 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { hash as blake3 } from "npm:blake3-wasm@2.1.5";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
+import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -266,13 +267,38 @@ serve(async (req) => {
       });
     }
 
-    // Allow caller to override; otherwise pick randomly
-    const template: TemplateType = TEMPLATES.includes(body.template) ? body.template : pickRandom(TEMPLATES);
+    // Try to load active DB templates (preferred); fall back to built-in renderer.
+    const { data: dbTemplates } = await supabaseAdmin
+      .from("pbn_templates")
+      .select("template_key, name, html_structure, css_styles, font_pairs")
+      .eq("is_active", true);
+    const activeDb: DbTemplate[] = (dbTemplates || []) as any;
+    console.log("[deploy-cloudflare-direct] db templates:", activeDb.length);
+
+    let dbTpl: DbTemplate | null = null;
+    if (activeDb.length > 0) {
+      if (body.template_key) {
+        dbTpl = activeDb.find((t) => t.template_key === body.template_key) || null;
+      }
+      if (!dbTpl && body.template) {
+        dbTpl = activeDb.find((t) => t.template_key === body.template) || null;
+      }
+      if (!dbTpl) dbTpl = pickRandom(activeDb);
+    }
+
+    // Built-in fallback values
+    const builtinTemplate: TemplateType = TEMPLATES.includes(body.template) ? body.template : pickRandom(TEMPLATES);
     const accent: string = body.accent_color || pickRandom(ACCENT_COLORS);
-    const fontPair: [string, string] = Array.isArray(body.font_pair) && body.font_pair.length === 2
-      ? body.font_pair
-      : pickRandom(FONT_PAIRS[template]);
-    console.log("[deploy-cloudflare-direct] template:", template, "accent:", accent, "fontPair:", fontPair);
+    const fontPair: [string, string] = (() => {
+      if (Array.isArray(body.font_pair) && body.font_pair.length === 2) return body.font_pair;
+      if (dbTpl && Array.isArray(dbTpl.font_pairs) && dbTpl.font_pairs.length > 0) {
+        return pickRandom(dbTpl.font_pairs as [string, string][]);
+      }
+      return pickRandom(FONT_PAIRS[builtinTemplate]);
+    })();
+    const templateKey = dbTpl?.template_key || builtinTemplate;
+    console.log("[deploy-cloudflare-direct] template:", templateKey, "source:", dbTpl ? "db" : "builtin",
+                "accent:", accent, "fontPair:", fontPair);
 
     const { data: project, error: projErr } = await supabase
       .from("projects")
@@ -392,12 +418,18 @@ serve(async (req) => {
     const pagesDevUrl = `https://${cfProjectName}.pages.dev`;
     const domain = `${cfProjectName}.pages.dev`;
 
-    // 2. Render files
-    const files = renderTemplate({
-      siteName, siteAbout, topic,
-      accent, headingFont: fontPair[0], bodyFont: fontPair[1],
-      template, domain, posts,
-    });
+    // 2. Render files (DB template takes priority)
+    const files = dbTpl
+      ? renderDbTemplate({
+          tpl: dbTpl, siteName, siteAbout, topic,
+          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+          domain, posts,
+        })
+      : renderTemplate({
+          siteName, siteAbout, topic,
+          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+          template: builtinTemplate, domain, posts,
+        });
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
     // 3. Compute manifest { "/path": hash }
@@ -499,7 +531,7 @@ serve(async (req) => {
     await supabase.from("projects").update({
       domain,
       hosting_platform: "cloudflare",
-      template_type: template,
+      template_type: templateKey,
       accent_color: accent,
       template_font_pair: `${fontPair[0]}|${fontPair[1]}`,
     }).eq("id", projectId);
@@ -509,7 +541,7 @@ serve(async (req) => {
       success: true,
       project_name: cfProjectName,
       url: pagesDevUrl,
-      template, accent_color: accent, font_pair: fontPair,
+      template: templateKey, accent_color: accent, font_pair: fontPair,
       deploy_id: deployParsed.data?.result?.id || null,
       message: `Direct Upload deployed: ${pagesDevUrl}`,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
