@@ -397,6 +397,34 @@ a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .team-card h3{margin:0 0 4px;font-size:16px}
 .team-card .role{color:#666;font-size:13px;margin-bottom:8px}
 .team-card p{margin:0;color:#444;font-size:14px}
+.contacts-page{max-width:1100px;margin:0 auto;padding:24px}
+.contacts-grid{display:grid;grid-template-columns:1fr;gap:24px;margin:32px 0}
+@media(min-width:860px){.contacts-grid{grid-template-columns:1fr 1.2fr}}
+.contacts-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
+.contacts-card h2{margin:0 0 18px;font-size:22px;font-family:inherit}
+.contacts-card__subtitle{margin:-10px 0 18px;color:#666;font-size:14px}
+.contact-list-v2{display:flex;flex-direction:column;gap:14px}
+.contact-item{display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:#f8fafc;border-radius:10px}
+.contact-item__label{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600}
+.contact-item__value{font-size:15px;color:#0f172a;text-decoration:none;word-break:break-word}
+a.contact-item__value:hover{color:var(--accent,#0ea5e9);text-decoration:underline}
+.contact-form{display:flex;flex-direction:column;gap:14px}
+.contact-form__row{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:520px){.contact-form__row{grid-template-columns:1fr 1fr}}
+.contact-form__field{display:flex;flex-direction:column;gap:6px}
+.contact-form__field span{font-size:13px;color:#475569;font-weight:500}
+.contact-form__field input,.contact-form__field textarea{font:inherit;padding:11px 14px;border:1px solid #e2e8f0;border-radius:9px;background:#fff;color:#0f172a;width:100%;transition:border-color .15s,box-shadow .15s}
+.contact-form__field input:focus,.contact-form__field textarea:focus{outline:none;border-color:var(--accent,#0ea5e9);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#0ea5e9) 18%,transparent)}
+.contact-form__field textarea{resize:vertical;min-height:96px}
+.contact-form__submit{margin-top:6px;padding:13px 22px;background:var(--accent,#0ea5e9);color:#fff;border:0;border-radius:10px;font:inherit;font-weight:600;font-size:15px;cursor:pointer;min-height:48px;transition:filter .15s,transform .15s}
+.contact-form__submit:hover{filter:brightness(1.08)}
+.contact-form__submit:active{transform:translateY(1px)}
+.contact-form__note{margin:0;font-size:12px;color:#94a3b8;line-height:1.5}
+.contact-form__success{display:none;margin:0;padding:12px 14px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:10px;font-size:14px}
+.contacts-map-section{margin:40px 0 16px}
+.contacts-map-section h2{margin:0 0 14px;font-size:22px;font-family:inherit}
+.contacts-map{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(15,23,42,.04)}
+.contacts-map iframe{display:block;width:100%}
 ${COOKIE_BANNER_CSS}
 `;
 
