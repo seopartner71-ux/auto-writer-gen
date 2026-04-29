@@ -328,7 +328,7 @@ serve(async (req) => {
     // Fetch real articles for this project (completed or published, with content)
     const { data: articles, error: articlesErr } = await supabase
       .from("articles")
-      .select("id, title, content, meta_description, status, created_at")
+      .select("id, title, content, meta_description, status, created_at, featured_image_url")
       .eq("project_id", projectId)
       .eq("user_id", user.id)
       .in("status", ["completed", "published"])
@@ -368,7 +368,11 @@ serve(async (req) => {
       const contentHtml = markdownToHtml(a.content || "");
       const excerpt = a.meta_description || plainExcerpt(a.content || "", 180);
       const publishedAt = fakePublishedAt(idx, totalArticles);
-      return { title: a.title || "Без названия", slug, contentHtml, excerpt, publishedAt };
+      return {
+        title: a.title || "Без названия",
+        slug, contentHtml, excerpt, publishedAt,
+        featuredImageUrl: a.featured_image_url || undefined,
+      };
     });
     console.log("[deploy-cloudflare-direct] posts prepared:", posts.length);
 
