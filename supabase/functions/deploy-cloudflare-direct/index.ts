@@ -292,6 +292,31 @@ serve(async (req) => {
     const siteAbout: string = body.site_about || project.site_about || `Блог про ${topic}`;
     console.log("[deploy-cloudflare-direct] siteName:", siteName, "topic:", topic);
 
+    // Fetch real articles for this project (completed or published, with content)
+    const { data: articles, error: articlesErr } = await supabase
+      .from("articles")
+      .select("id, title, content, meta_description, status, created_at")
+      .eq("project_id", projectId)
+      .eq("user_id", user.id)
+      .in("status", ["completed", "published"])
+      .not("content", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    console.log("[deploy-cloudflare-direct] articles fetched:", articles?.length ?? 0,
+                "err:", articlesErr?.message || "none");
+    const usedSlugs = new Set<string>();
+    const posts = (articles || []).map((a: any) => {
+      const baseSlug = slugify(a.title || a.id);
+      let slug = baseSlug;
+      let n = 2;
+      while (usedSlugs.has(slug)) { slug = `${baseSlug}-${n++}`; }
+      usedSlugs.add(slug);
+      const contentHtml = markdownToHtml(a.content || "");
+      const excerpt = a.meta_description || plainExcerpt(a.content || "", 180);
+      return { title: a.title || "Без названия", slug, contentHtml, excerpt };
+    });
+    console.log("[deploy-cloudflare-direct] posts prepared:", posts.length);
+
     // Cloudflare credentials
     const { data: apiKeys, error: keysErr } = await supabaseAdmin
       .from("api_keys")
