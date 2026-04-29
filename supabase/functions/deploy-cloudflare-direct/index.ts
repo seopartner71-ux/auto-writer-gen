@@ -29,6 +29,8 @@ const MIME: Record<string, string> = {
   ".xml":  "application/xml; charset=utf-8",
   ".txt":  "text/plain; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".svg":  "image/svg+xml; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
 };
 function mimeOf(path: string): string {
   const dot = path.lastIndexOf(".");
@@ -302,7 +304,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabase
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, hosting_platform")
+      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link_url, footer_link_text, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .single();
@@ -330,8 +332,26 @@ serve(async (req) => {
       .limit(100);
     console.log("[deploy-cloudflare-direct] articles fetched:", articles?.length ?? 0,
                 "err:", articlesErr?.message || "none");
+    // Backdate posts that lack a real published timestamp by spreading them
+    // across the past 12-24 months at random weekday hours (9-21).
+    const now = Date.now();
+    function fakePublishedAt(idx: number, total: number): string {
+      const monthsBack = 12 + Math.floor(Math.random() * 12); // 12..24
+      const minMs = now - monthsBack * 30 * 24 * 3600 * 1000;
+      const span = now - minMs;
+      // Newer items first → older as idx grows.
+      const t = minMs + ((total - idx) / Math.max(1, total)) * span * (0.6 + Math.random() * 0.35);
+      const d = new Date(t);
+      // Snap to a weekday and a working-hour 9..21.
+      const day = d.getDay();
+      if (day === 0) d.setDate(d.getDate() + 1);
+      else if (day === 6) d.setDate(d.getDate() + 2);
+      d.setHours(9 + Math.floor(Math.random() * 13), Math.floor(Math.random() * 60), 0, 0);
+      return d.toISOString();
+    }
     const usedSlugs = new Set<string>();
-    const posts = (articles || []).map((a: any) => {
+    const totalArticles = (articles || []).length;
+    const posts = (articles || []).map((a: any, idx: number) => {
       const baseSlug = slugify(a.title || a.id);
       let slug = baseSlug;
       let n = 2;
@@ -339,7 +359,8 @@ serve(async (req) => {
       usedSlugs.add(slug);
       const contentHtml = markdownToHtml(a.content || "");
       const excerpt = a.meta_description || plainExcerpt(a.content || "", 180);
-      return { title: a.title || "Без названия", slug, contentHtml, excerpt };
+      const publishedAt = a.created_at || fakePublishedAt(idx, totalArticles);
+      return { title: a.title || "Без названия", slug, contentHtml, excerpt, publishedAt };
     });
     console.log("[deploy-cloudflare-direct] posts prepared:", posts.length);
 
@@ -420,18 +441,49 @@ serve(async (req) => {
 
     // 2. Render files (DB template takes priority)
     const trackerBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/track-visit`;
+    const lang = ((project as any).language || "ru").toString().toLowerCase().startsWith("ru") ? "ru" : "en";
+    const commonOpts = {
+      lang,
+      companyName:    (project as any).company_name || undefined,
+      companyAddress: (project as any).company_address || undefined,
+      companyPhone:   (project as any).company_phone || undefined,
+      companyEmail:   (project as any).company_email || undefined,
+      foundingYear:   (project as any).founding_year || undefined,
+      teamMembers:    (project as any).team_members || undefined,
+      ogImageUrl:     (project as any).og_image_url || undefined,
+      aboutHtml:      (project as any).site_about || undefined,
+      contactsHtml:   (project as any).site_contacts || undefined,
+      privacyHtml:    (project as any).site_privacy || undefined,
+      termsHtml:      (project as any).site_terms || undefined,
+      footerLinkUrl:  (project as any).footer_link_url || undefined,
+      footerLinkText: (project as any).footer_link_text || undefined,
+      injectionLinks: (project as any).injection_links || undefined,
+      legalAddress:   (project as any).legal_address || undefined,
+      workHours:      (project as any).work_hours || undefined,
+      juridicalInn:   (project as any).juridical_inn || undefined,
+      whatsappUrl:    (project as any).whatsapp_url || undefined,
+      telegramUrl:    (project as any).telegram_url || undefined,
+      vkUrl:          (project as any).vk_url || undefined,
+      youtubeUrl:     (project as any).youtube_url || undefined,
+      instagramUrl:   (project as any).instagram_url || undefined,
+      clientsCountText: (project as any).clients_count_text || undefined,
+      authors:        (project as any).authors || undefined,
+      businessPages:  (project as any).business_pages || undefined,
+    };
     const files = dbTpl
       ? renderDbTemplate({
           tpl: dbTpl, siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           domain, posts,
           projectId, trackerUrl: trackerBase,
+          ...commonOpts,
         })
       : renderTemplate({
           siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           template: builtinTemplate, domain, posts,
           projectId, trackerUrl: trackerBase,
+          ...commonOpts,
         });
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 

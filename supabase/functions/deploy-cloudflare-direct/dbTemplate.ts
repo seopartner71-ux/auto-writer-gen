@@ -5,6 +5,8 @@ import {
   type SiteChrome, type PostInput as ChromePost,
   buildAboutPage, buildContactsPage, buildPrivacyPage, buildTermsPage,
   buildPostPage, robotsTxt, sitemapXml, chromeStyles, pickRelated,
+  buildBusinessPages, businessPagePaths, sitemapXmlExtended,
+  faviconSvg, manifestJson, humansTxt, securityTxt, rssFeed,
 } from "./seoChrome.ts";
 
 export interface DbTemplate {
@@ -49,6 +51,18 @@ export interface RenderOpts {
   footerLinkText?: string;
   projectId?: string;
   trackerUrl?: string;
+  // Trust chrome v2
+  legalAddress?: string;
+  workHours?: string;
+  juridicalInn?: string;
+  whatsappUrl?: string;
+  telegramUrl?: string;
+  vkUrl?: string;
+  youtubeUrl?: string;
+  instagramUrl?: string;
+  clientsCountText?: string;
+  authors?: { name: string; role?: string; bio?: string; avatar_seed?: string }[];
+  businessPages?: Record<string, string>;
 }
 
 
@@ -152,9 +166,21 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
     termsHtml: opts.termsHtml,
     footerLinkUrl: opts.footerLinkUrl,
     footerLinkText: opts.footerLinkText,
+    legalAddress: opts.legalAddress,
+    workHours: opts.workHours,
+    juridicalInn: opts.juridicalInn,
+    whatsappUrl: opts.whatsappUrl,
+    telegramUrl: opts.telegramUrl,
+    vkUrl: opts.vkUrl,
+    youtubeUrl: opts.youtubeUrl,
+    instagramUrl: opts.instagramUrl,
+    clientsCountText: opts.clientsCountText,
+    authors: opts.authors,
+    businessPages: opts.businessPages as any,
   };
   const chromePosts: ChromePost[] = posts.map((p) => ({
     title: p.title, slug: p.slug, excerpt: p.excerpt, contentHtml: p.contentHtml,
+    publishedAt: (p as any).publishedAt,
   }));
 
   const files: Record<string, string> = {
@@ -166,10 +192,18 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
     "style.css": css + "\n" + chromeStyles(chrome),
     "robots.txt": robotsTxt(chrome),
     "_headers": `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n`,
+    "favicon.svg": faviconSvg(chrome),
+    "manifest.json": manifestJson(chrome),
+    "humans.txt": humansTxt(chrome),
+    "security.txt": securityTxt(chrome),
+    ".well-known/security.txt": securityTxt(chrome),
+    "feed.xml": rssFeed(chrome, chromePosts),
   };
+  const bp = buildBusinessPages(chrome);
+  for (const [path, html] of Object.entries(bp)) files[path] = html;
   for (const p of chromePosts) {
     files[`posts/${p.slug}.html`] = buildPostPage(chrome, p, pickRelated(chromePosts, p, 4));
   }
-  files["sitemap.xml"] = sitemapXml(chrome, chromePosts.map((p) => p.slug));
+  files["sitemap.xml"] = sitemapXmlExtended(chrome, chromePosts.map((p) => p.slug), businessPagePaths(chrome));
   return files;
 }

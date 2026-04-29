@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -19,6 +20,7 @@ interface SiteRow {
   domain: string | null;
   hosting_platform: string | null;
   created_at: string;
+  auto_weekly_post?: boolean | null;
 }
 
 function pagesHost(domain: string | null): string | null {
@@ -40,7 +42,7 @@ export function SitesListTable() {
     setLoading(true);
     const { data, error } = await supabase
       .from("projects")
-      .select("id, name, domain, hosting_platform, created_at")
+      .select("id, name, domain, hosting_platform, created_at, auto_weekly_post")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (error) {
@@ -49,6 +51,22 @@ export function SitesListTable() {
     setRows((data || []) as SiteRow[]);
     setSelected(new Set());
     setLoading(false);
+  };
+
+  const toggleAuto = async (row: SiteRow) => {
+    const next = !row.auto_weekly_post;
+    setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, auto_weekly_post: next } : r));
+    const { error } = await supabase
+      .from("projects")
+      .update({ auto_weekly_post: next })
+      .eq("id", row.id);
+    if (error) {
+      setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, auto_weekly_post: !next } : r));
+      toast({ title: "Не удалось сохранить", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: next ? "Автопубликация включена" : "Автопубликация выключена",
+              description: next ? "Новая статья будет публиковаться раз в 7 дней в рабочие часы." : undefined });
+    }
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id]);
@@ -181,6 +199,7 @@ export function SitesListTable() {
                   <th className="text-left px-3 py-2 font-medium">Домен</th>
                   <th className="text-left px-3 py-2 font-medium">Хостинг</th>
                   <th className="text-left px-3 py-2 font-medium">Создан</th>
+                  <th className="text-left px-3 py-2 font-medium">Авто 7д</th>
                   <th className="text-right px-3 py-2 font-medium">Действия</th>
                 </tr>
               </thead>
@@ -215,6 +234,13 @@ export function SitesListTable() {
                       </td>
                       <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                         {new Date(s.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Switch
+                          checked={!!s.auto_weekly_post}
+                          onCheckedChange={() => toggleAuto(s)}
+                          aria-label="Автопубликация раз в 7 дней"
+                        />
                       </td>
                       <td className="px-3 py-2 text-right">
                         <AlertDialog>
