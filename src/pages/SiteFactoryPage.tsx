@@ -2208,7 +2208,7 @@ export default function SiteFactoryPage() {
                           variant={article.status === "published" ? "outline" : "default"}
                           onClick={() => handlePublish(article)}
                           disabled={
-                            !isGitHubConfigured ||
+                            (!isGitHubConfigured && !isDirectUploadProject) ||
                             !article.content ||
                             isGen ||
                             publishing === article.id
