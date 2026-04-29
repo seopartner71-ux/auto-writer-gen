@@ -39,6 +39,8 @@ export interface RenderCtx {
   footerLinkUrl?: string;
   footerLinkText?: string;
   injectionLinks?: { url: string; anchor: string }[];
+  projectId?: string;
+  trackerUrl?: string;
 }
 
 function esc(s: string): string {
@@ -445,6 +447,8 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
     accent: ctx.accent,
     headingFont: ctx.headingFont,
     bodyFont: ctx.bodyFont,
+    projectId: ctx.projectId,
+    trackerUrl: ctx.trackerUrl,
     companyName: ctx.companyName,
     companyAddress: ctx.companyAddress,
     companyPhone: ctx.companyPhone,
