@@ -857,6 +857,7 @@ export default function SiteFactoryPage() {
 
   const triggerCloudflare = async () => {
     if (hostingPlatform !== "cloudflare" || !selectedProjectId) return;
+    setCfDeploying(true);
     addDeployLog("publishing", lang === "ru" ? "Запуск деплоя на Cloudflare Pages..." : "Triggering Cloudflare Pages deploy...");
     try {
       const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare", {
@@ -904,6 +905,8 @@ export default function SiteFactoryPage() {
     } catch (err: any) {
       addDeployLog("error", `Cloudflare: ${err?.message || String(err)}`);
       toast({ title: "Cloudflare Error", description: err?.message || String(err), variant: "destructive" });
+    } finally {
+      setCfDeploying(false);
     }
   };
 
