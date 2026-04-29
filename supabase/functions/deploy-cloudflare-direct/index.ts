@@ -302,7 +302,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabase
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, region, company_name, company_address, company_phone, company_email, founding_year, team_members, site_about_html:site_about, site_contacts, site_privacy, site_terms, og_image_url, footer_link_url, footer_link_text, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages")
+      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link_url, footer_link_text, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .single();
