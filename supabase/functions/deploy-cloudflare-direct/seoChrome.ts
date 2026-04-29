@@ -334,6 +334,8 @@ const CHROME_CSS = `
 html,body{margin:0;padding:0}
 img{max-width:100%;height:auto;display:block}
 a{color:inherit}
+a:focus,a:focus-visible,button:focus,button:focus-visible{outline:2px solid var(--accent,#0ea5e9);outline-offset:2px;border-radius:4px}
+a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .skip-link{position:absolute;left:-9999px;top:0;background:#000;color:#fff;padding:8px 12px;z-index:9999}
 .skip-link:focus{left:8px;top:8px}
 .reading-progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--accent,#0ea5e9);z-index:60;transition:width .1s linear}
@@ -357,15 +359,19 @@ a{color:inherit}
 .breadcrumbs li:not(:last-child)::after{content:" / ";color:#bbb;margin-left:6px}
 .breadcrumbs a{color:#666;text-decoration:none}
 .breadcrumbs a:hover{color:var(--accent,#0ea5e9);text-decoration:underline}
-.site-footer{background:#0a0a0a;color:#cfcfcf;margin-top:48px;padding:32px 24px}
-.site-footer__inner{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px;font-size:14px}
-.site-footer__nav{display:flex;gap:18px;flex-wrap:wrap}
+.site-footer{background:#0a0a0a;color:#cfcfcf;margin-top:48px;padding:48px 24px;border:0;outline:0;box-shadow:none}
+.site-footer *{border-color:rgba(255,255,255,.08)}
+.site-footer__inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:32px;font-size:14px}
+@media(min-width:760px){.site-footer__inner{grid-template-columns:1.4fr 1fr;align-items:start}}
+.site-footer__nav{display:flex;gap:14px 22px;flex-wrap:wrap}
 .site-footer__nav a{color:#cfcfcf;text-decoration:none}
 .site-footer__nav a:hover{color:#fff;text-decoration:underline}
-.site-footer__meta{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9a9a9a;text-align:right}
+.site-footer__meta{display:flex;flex-direction:column;gap:8px;font-size:13px;color:#9a9a9a;text-align:left}
+@media(min-width:760px){.site-footer__meta{text-align:right;align-items:flex-end}}
 .site-footer__meta a{color:#cfcfcf;text-decoration:none}
 .site-footer__partner{color:#9a9a9a;font-size:12px}
-.site-footer__social{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;font-size:12px}
+.site-footer__social{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:12px}
+@media(min-width:760px){.site-footer__social{justify-content:flex-end}}
 .site-footer__social a{color:#9a9a9a;text-decoration:none;border:1px solid rgba(255,255,255,.15);padding:4px 10px;border-radius:6px}
 .site-footer__social a:hover{color:#fff;border-color:rgba(255,255,255,.4)}
 .site-footer__trust{font-size:11px;color:#7a7a7a;margin-top:6px}
@@ -609,13 +615,17 @@ function dicebearUrl(seed: string): string {
 }
 
 function authorMetaHtml(c: SiteChrome, author: Author | null, publishedAt?: string): string {
-  if (!author) return "";
   const isRu = c.lang === "ru";
   const dateStr = publishedAt
     ? new Date(publishedAt).toLocaleDateString(isRu ? "ru-RU" : "en-US",
         { year: "numeric", month: "long", day: "numeric" })
     : "";
   const dateTime = publishedAt ? new Date(publishedAt).toISOString() : "";
+  if (!author) {
+    // No author — still show the date if we have one, so posts don't look "live today".
+    if (!dateStr) return "";
+    return `<div class="author-meta"><time datetime="${escAttr(dateTime)}" style="font-size:13px;color:#888">${escHtml(dateStr)}</time></div>`;
+  }
   return `<div class="author-meta">
     <img src="${escAttr(dicebearUrl(author.avatar_seed || author.name))}" alt="${escAttr(author.name)}" loading="lazy" width="40" height="40">
     <div>
@@ -658,10 +668,17 @@ export function buildPostPage(
 .page-article a{color:${c.accent};text-decoration:underline}
 .page-article ul,.page-article ol{margin:0 0 16px 24px}
 .page-article blockquote{border-left:3px solid ${c.accent};padding:8px 16px;margin:16px 0;color:#444;background:#fafafa}
-.page-article img{margin:16px 0;border-radius:8px}
+.page-article img{margin:16px 0;border-radius:8px;max-width:100%;height:auto}
+.page-article .post-hero{width:100%;aspect-ratio:2/1;object-fit:cover;border-radius:12px;margin:0 0 24px}
 .contact-list{list-style:none;padding:0;margin:16px 0}
 .contact-list li{padding:8px 0;border-bottom:1px solid #eee}
 `;
+  // Stable hero image via Picsum, seeded by slug so each post gets a different
+  // but consistent photo across rebuilds. No API key, no rate limits.
+  const heroSeed = encodeURIComponent(post.slug || post.title || "post").slice(0, 60);
+  const heroUrl  = `https://picsum.photos/seed/${heroSeed}/1200/600`;
+  const heroImg  = `<img class="post-hero" src="${heroUrl}" alt="${escAttr(post.title)}" loading="eager" width="1200" height="600">`;
+
   const relatedHtml = related.length ? `
     <aside class="related-posts">
       <h2>${isRu ? "Читайте также" : "Related posts"}</h2>
@@ -670,6 +687,7 @@ export function buildPostPage(
 
   const head = buildHead(c, {
     title, description: desc, path: `/posts/${post.slug}.html`, type: "article",
+    ogImage: heroUrl,
     publishedTime: post.publishedAt,
     breadcrumbs: [
       { label: isRu ? "Главная" : "Home", href: "/" },
@@ -690,6 +708,7 @@ export function buildPostPage(
     <article class="page-article">
       <h1>${escHtml(post.title)}</h1>
       ${authorMetaHtml(c, author, post.publishedAt)}
+      ${heroImg}
       ${post.contentHtml}
       ${shareBarHtml(c, `/posts/${post.slug}.html`, post.title)}
     </article>
