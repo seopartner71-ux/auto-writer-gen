@@ -14,6 +14,7 @@ import { hash as blake3 } from "npm:blake3-wasm@2.1.5";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
+import { generateLandingContent, renderLandingHtml, pickSkin } from "./landingPage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -498,6 +499,43 @@ serve(async (req) => {
           ...commonOpts,
         });
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
+
+    // ---- Replace home page with the new professional landing -----------------
+    try {
+      const heroImage = posts[0]?.featuredImageUrl;
+      const skin = pickSkin(templateKey + "::" + projectId);
+      const landingContent = await generateLandingContent(topic, siteName, lang as "ru" | "en", {
+        phone: (project as any).company_phone || undefined,
+        email: (project as any).company_email || undefined,
+        address: (project as any).company_address || undefined,
+        workHours: (project as any).work_hours || undefined,
+      } as any);
+      const landingHtml = renderLandingHtml(
+        {
+          siteName, topic, lang: lang as "ru" | "en",
+          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+          domain, skin,
+          posts: posts.slice(0, 3).map((p) => ({
+            title: p.title, slug: p.slug, excerpt: p.excerpt,
+            featuredImageUrl: p.featuredImageUrl,
+          })),
+          companyName: (project as any).company_name || undefined,
+          companyPhone: (project as any).company_phone || undefined,
+          companyEmail: (project as any).company_email || undefined,
+          companyAddress: (project as any).company_address || undefined,
+          workHours: (project as any).work_hours || undefined,
+          heroImageUrl: heroImage,
+        },
+        landingContent,
+        "" // nav: we let landing render its own default
+      );
+      // Move the original "list of posts" page to /blog/index.html so the menu works.
+      if (files["index.html"]) files["blog/index.html"] = files["index.html"];
+      files["index.html"] = landingHtml;
+      console.log("[deploy-cloudflare-direct] landing applied (skin", skin, ")");
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] landing gen failed, keeping default index:", (e as Error).message);
+    }
 
     // 3. Compute manifest { "/path": hash }
     const manifest: Record<string, string> = {};
