@@ -77,6 +77,48 @@ export function SiteGridCreator() {
       return;
     }
 
+    // Pre-flight: find a project with valid GitHub token+owner ONCE for the whole batch
+    const { data: tokenProjects } = await supabase
+      .from("projects")
+      .select("github_token, github_repo")
+      .eq("user_id", user.id)
+      .not("github_token", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(10);
+
+    let inheritedToken: string | null = null;
+    let ghOwner: string | null = null;
+    for (const p of tokenProjects || []) {
+      if (!p.github_token) continue;
+      try {
+        const meRes = await fetch("https://api.github.com/user", {
+          headers: { Authorization: `token ${p.github_token}`, Accept: "application/vnd.github.v3+json" },
+        });
+        if (meRes.ok) {
+          const me = await meRes.json();
+          if (me?.login) {
+            inheritedToken = p.github_token;
+            ghOwner = me.login;
+            break;
+          }
+        }
+      } catch { /* try next */ }
+    }
+    // Fallback: parse owner from existing github_repo
+    if (inheritedToken && !ghOwner) {
+      const firstWithRepo = (tokenProjects || []).find((p) => p.github_repo?.includes("/"));
+      if (firstWithRepo?.github_repo) ghOwner = firstWithRepo.github_repo.split("/")[0];
+    }
+
+    if (!inheritedToken || !ghOwner) {
+      toast({
+        title: "GitHub Token не найден",
+        description: "Откройте любой проект в Фабрике сайтов и сохраните GitHub Personal Access Token (scope: repo). После этого повторите запуск сетки.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Build queue: take first N topics; if topics < count, repeat last topic
     const queue: string[] = [];
     for (let i = 0; i < effectiveCount; i++) {
@@ -89,13 +131,20 @@ export function SiteGridCreator() {
 
     for (let i = 0; i < queue.length; i++) {
       const topic = queue[i];
-      const baseSlug = topicToSlug(topic);
-      const uniqSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
-      const projectName = `${topic} (${i + 1})`;
 
       try {
-        // 1. Create project row
-        updateRow(i, { status: "creating", name: projectName });
+        // 1. AI-generate brand-style site name
+        updateRow(i, { status: "creating", name: "..." });
+        let projectName = topic;
+        try {
+          const { data: nameData } = await supabase.functions.invoke("generate-site-name", {
+            body: { topic, language: "ru" },
+          });
+          if (nameData?.name) projectName = String(nameData.name);
+        } catch { /* fallback to raw topic */ }
+        updateRow(i, { name: projectName });
+
+        // 2. Create project row
         const { data: created, error: createErr } = await supabase
           .from("projects")
           .insert({
@@ -105,7 +154,7 @@ export function SiteGridCreator() {
             language: "ru",
             region: "RU",
             hosting_platform: "cloudflare",
-            site_name: topic,
+            site_name: projectName,
             site_about: `Блог про ${topic}`,
           })
           .select("id")
@@ -115,72 +164,39 @@ export function SiteGridCreator() {
         const projectId = created.id;
         updateRow(i, { projectId });
 
-        // 2. Set unique github_repo (user must have a token saved on another project — best effort)
-        // We try to inherit the most recently used GitHub token from another project of this user
-        const { data: tokenSrc } = await supabase
-          .from("projects")
-          .select("github_token")
-          .eq("user_id", user.id)
-          .not("github_token", "is", null)
-          .limit(1)
-          .maybeSingle();
-        const inheritedToken = tokenSrc?.github_token || null;
-        const ghOwner = inheritedToken
-          ? (await fetch("https://api.github.com/user", { headers: { Authorization: `Bearer ${inheritedToken}` } })
-              .then((r) => r.ok ? r.json() : null)
-              .catch(() => null))?.login
-          : null;
-
+        // 3. Inherit github token + assign unique repo name
         const repoName = `pbn-site-${projectId.slice(0, 8)}`;
-        const githubRepo = ghOwner ? `${ghOwner}/${repoName}` : null;
+        const githubRepo = `${ghOwner}/${repoName}`;
+        await supabase.from("projects").update({
+          github_repo: githubRepo,
+          github_token: inheritedToken,
+        }).eq("id", projectId);
 
-        if (githubRepo && inheritedToken) {
-          await supabase.from("projects").update({
-            github_repo: githubRepo,
-            github_token: inheritedToken,
-          }).eq("id", projectId);
-        }
+        // 4. Bootstrap astro (creates repo if needed)
+        updateRow(i, { status: "bootstrapping" });
+        const { data: bootData, error: bootErr } = await supabase.functions.invoke("bootstrap-astro", {
+          body: {
+            project_id: projectId,
+            action: "initialize",
+            site_name: projectName,
+            site_about: `Блог про ${topic}`,
+            language: "ru",
+            primary_color: "#6366f1",
+            font_pair: "inter",
+          },
+        });
+        if (bootErr) throw new Error(bootErr.message);
+        if (!bootData?.success) throw new Error(bootData?.message || "bootstrap-astro failed");
 
-        // 3. Bootstrap astro (will create repo if needed)
-        if (githubRepo && inheritedToken) {
-          updateRow(i, { status: "bootstrapping" });
-          const { data: bootData, error: bootErr } = await supabase.functions.invoke("bootstrap-astro", {
-            body: {
-              project_id: projectId,
-              action: "initialize",
-              site_name: topic,
-              site_about: `Блог про ${topic}`,
-              language: "ru",
-              primary_color: "#6366f1",
-              font_pair: "inter",
-            },
-          });
-          if (bootErr) throw new Error(bootErr.message);
-          if (!bootData?.success) {
-            throw new Error(bootData?.message || "bootstrap-astro failed");
-          }
+        // 5. Deploy to Cloudflare
+        updateRow(i, { status: "deploying" });
+        const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare", {
+          body: { project_id: projectId },
+        });
+        if (cfErr) throw new Error(cfErr.message);
+        if (cfData?.error && cfData.error !== "name_conflict") throw new Error(cfData.error);
 
-          // 4. Deploy to Cloudflare
-          updateRow(i, { status: "deploying" });
-          const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare", {
-            body: { project_id: projectId },
-          });
-          if (cfErr) throw new Error(cfErr.message);
-          if (cfData?.error && cfData.error !== "name_conflict") {
-            throw new Error(cfData.error);
-          }
-
-          updateRow(i, {
-            status: "done",
-            url: cfData?.url || null,
-          });
-        } else {
-          // No GitHub token — site created but not deployed
-          updateRow(i, {
-            status: "error",
-            error: "Нет GitHub Token у других проектов. Настройте в Админ-панели.",
-          });
-        }
+        updateRow(i, { status: "done", url: cfData?.url || null });
       } catch (err: any) {
         updateRow(i, { status: "error", error: err?.message || String(err) });
       }
