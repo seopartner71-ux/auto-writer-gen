@@ -24,22 +24,37 @@ async function getOpenRouterKey(admin: any): Promise<string | null> {
   return Deno.env.get("OPENROUTER_API_KEY") || null;
 }
 
+const PH_INN = "7XXXXXXXXX (заполните после регистрации)";
+
 function fallback(siteName: string, siteAbout: string, topic: string) {
   const year = new Date().getFullYear() - Math.floor(2 + Math.random() * 8);
   return {
     company_name: siteName,
-    company_address: "Москва, ул. Примерная, д. 12, офис 305",
+    company_address: "г. Москва, БЦ «Деловой», офис 305",
+    legal_address: "г. Москва, БЦ «Деловой», офис 305",
     company_phone: "+7 (495) 123-45-67",
     company_email: `info@${(siteName || "site").toLowerCase().replace(/[^a-z0-9]/g, "")}.ru`,
+    work_hours: "Пн-Пт 9:00-18:00 по московскому времени",
+    juridical_inn: PH_INN,
+    whatsapp_url: "",
+    telegram_url: "",
+    vk_url: "",
+    clients_count_text: "Более 500 клиентов",
     founding_year: year,
     team_members: [
       { name: "Алексей Смирнов", role: "Главный редактор", bio: "Более 10 лет в нише." },
       { name: "Мария Иванова", role: "Автор", bio: "Готовит обзоры и практические материалы." },
     ],
+    authors: [
+      { name: "Алексей Смирнов", role: "Главный редактор", bio: "Более 10 лет работает с темой.", avatar_seed: "Aleksey-Smirnov" },
+      { name: "Мария Иванова", role: "Автор", bio: "Готовит обзоры и практические материалы.", avatar_seed: "Mariya-Ivanova" },
+      { name: "Дмитрий Соколов", role: "Технический редактор", bio: "Отвечает за факт-чекинг.", avatar_seed: "Dmitriy-Sokolov" },
+    ],
     site_about: `<p>${siteAbout}</p><p>Мы работаем с ${year} года и публикуем материалы по теме «${topic}» - без воды, на основе практики.</p>`,
     site_contacts: `<p>Если хотите связаться с редакцией, напишите нам или позвоните в рабочие часы.</p>`,
     site_privacy: `<p>Мы уважаем вашу конфиденциальность. Сайт собирает только cookies, необходимые для работы и аналитики, и только после вашего согласия.</p>`,
     site_terms: `<p>Все материалы сайта носят информационный характер. Использование контента возможно с указанием активной ссылки на источник.</p>`,
+    business_pages: {},
   };
 }
 
@@ -102,6 +117,12 @@ serve(async (req) => {
 {
   "company_name": "название компании-владельца",
   "company_address": "правдоподобный адрес офиса",
+  "legal_address": "правдоподобный юридический адрес (может совпадать с office)",
+  "work_hours": "Пн-Пт 9:00-18:00 (правдоподобный режим)",
+  "clients_count_text": "Более N клиентов / партнёров (N от 100 до 5000)",
+  "whatsapp_url": "https://wa.me/7XXXXXXXXXX (или пустая строка)",
+  "telegram_url": "https://t.me/имя_канала (или пустая строка)",
+  "vk_url": "https://vk.com/имя (или пустая строка)",
   "company_phone": "+7 (XXX) XXX-XX-XX",
   "company_email": "info@домен.ru (домен из транслита названия)",
   "founding_year": 2014..2022,
@@ -109,16 +130,37 @@ serve(async (req) => {
     {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения"},
     {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения"}
   ],
+  "authors": [
+    {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения","avatar_seed":"Имя-Фамилия латиницей"},
+    {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения","avatar_seed":"Имя-Фамилия латиницей"},
+    {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения","avatar_seed":"Имя-Фамилия латиницей"}
+  ],
   "site_about": "HTML 2-3 параграфа о редакции сайта <p>...</p>",
   "site_contacts": "HTML 1-2 параграфа: как связаться, часы работы <p>...</p>",
   "site_privacy": "HTML 3-4 параграфа: какие cookies, аналитика, права пользователя, контакт для запросов <p>...</p>",
-  "site_terms": "HTML 3-4 параграфа: использование материалов, дисклеймер, ответственность <p>...</p>"
+  "site_terms": "HTML 3-4 параграфа: использование материалов, дисклеймер, ответственность <p>...</p>",
+  "business_pages": {
+    "vacancies": "HTML страницы Вакансии: 2-3 открытые позиции, формат <h2>Должность</h2><p>описание</p>",
+    "portfolio": "HTML страницы Портфолио: 3-5 кейсов с заголовком и описанием",
+    "reviews": "HTML страницы Отзывы: 5-7 отзывов в формате <blockquote><p>текст</p><footer>— Имя, должность</footer></blockquote>",
+    "faq": "HTML страницы FAQ: 8-12 вопросов в формате <h3>Вопрос?</h3><p>Ответ.</p>",
+    "pricing": "HTML страницы Прайс: таблица <table><tr><th>Услуга</th><th>Цена</th></tr>...</table>",
+    "guarantees": "HTML страницы Гарантии: 3-4 параграфа о гарантиях работы",
+    "delivery": "HTML страницы Доставка и оплата: способы оплаты текстом (Visa/Mastercard/МИР/СБП), сроки доставки",
+    "promo": "HTML страницы Акции: 2-3 текущих акции с датами"
+  }
 }`
         : `Site: "${siteName}". Topic: "${topic}". Description: "${siteAbout}".
 Generate JSON with EXACT fields:
 {
   "company_name": "owner company name",
   "company_address": "plausible US address",
+  "legal_address": "plausible legal address",
+  "work_hours": "Mon-Fri 9:00-18:00",
+  "clients_count_text": "100+ clients",
+  "whatsapp_url": "https://wa.me/1XXXXXXXXXX or empty",
+  "telegram_url": "https://t.me/handle or empty",
+  "vk_url": "",
   "company_phone": "+1 (XXX) XXX-XXXX",
   "company_email": "info@domain.com",
   "founding_year": 2014..2022,
@@ -126,10 +168,25 @@ Generate JSON with EXACT fields:
     {"name":"First Last","role":"title","bio":"1-2 sentences"},
     {"name":"First Last","role":"title","bio":"1-2 sentences"}
   ],
+  "authors": [
+    {"name":"First Last","role":"title","bio":"1-2 sentences","avatar_seed":"First-Last"},
+    {"name":"First Last","role":"title","bio":"1-2 sentences","avatar_seed":"First-Last"},
+    {"name":"First Last","role":"title","bio":"1-2 sentences","avatar_seed":"First-Last"}
+  ],
   "site_about": "HTML 2-3 paragraphs about the editorial team <p>...</p>",
   "site_contacts": "HTML 1-2 paragraphs: how to contact, hours <p>...</p>",
   "site_privacy": "HTML 3-4 paragraphs: cookies, analytics, user rights, contact <p>...</p>",
-  "site_terms": "HTML 3-4 paragraphs: usage, disclaimer, liability <p>...</p>"
+  "site_terms": "HTML 3-4 paragraphs: usage, disclaimer, liability <p>...</p>",
+  "business_pages": {
+    "vacancies": "HTML page Careers: 2-3 open positions <h2>Title</h2><p>desc</p>",
+    "portfolio": "HTML page Portfolio: 3-5 cases",
+    "reviews": "HTML page Reviews: 5-7 testimonials <blockquote><p>text</p><footer>— Name, role</footer></blockquote>",
+    "faq": "HTML page FAQ: 8-12 Q&A as <h3>Q?</h3><p>A.</p>",
+    "pricing": "HTML page Pricing: <table>...</table>",
+    "guarantees": "HTML page Guarantees: 3-4 paragraphs",
+    "delivery": "HTML page Shipping & Payment: payment methods as plain text (Visa/Mastercard), delivery terms",
+    "promo": "HTML page Promotions: 2-3 current offers with dates"
+  }
 }`;
 
       try {
@@ -155,17 +212,38 @@ Generate JSON with EXACT fields:
           const data = await aiRes.json();
           const raw = String(data?.choices?.[0]?.message?.content || "{}");
           const parsed = JSON.parse(raw);
+          const sanAuthors = Array.isArray(parsed.authors) ? parsed.authors.slice(0, 5).map((a: any) => ({
+            name: String(a?.name || "").slice(0, 80),
+            role: String(a?.role || "").slice(0, 80),
+            bio:  String(a?.bio  || "").slice(0, 320),
+            avatar_seed: String(a?.avatar_seed || a?.name || "author").replace(/\s+/g, "-").slice(0, 60),
+          })) : [];
+          const bp = parsed.business_pages && typeof parsed.business_pages === "object" ? parsed.business_pages : {};
+          const allowedKeys = ["vacancies","portfolio","reviews","faq","pricing","guarantees","delivery","promo"];
+          const business_pages: Record<string, string> = {};
+          for (const k of allowedKeys) {
+            if (typeof bp[k] === "string") business_pages[k] = String(bp[k]).slice(0, 12000);
+          }
           payload = {
             company_name: String(parsed.company_name || siteName).slice(0, 120),
             company_address: String(parsed.company_address || "").slice(0, 240),
+            legal_address:   String(parsed.legal_address   || parsed.company_address || "").slice(0, 240),
+            work_hours:      String(parsed.work_hours      || "Пн-Пт 9:00-18:00").slice(0, 120),
+            juridical_inn:   PH_INN,
+            whatsapp_url:    String(parsed.whatsapp_url || "").slice(0, 200),
+            telegram_url:    String(parsed.telegram_url || "").slice(0, 200),
+            vk_url:          String(parsed.vk_url || "").slice(0, 200),
+            clients_count_text: String(parsed.clients_count_text || "Более 500 клиентов").slice(0, 80),
             company_phone: String(parsed.company_phone || "").slice(0, 40),
             company_email: String(parsed.company_email || "").slice(0, 120),
             founding_year: Number(parsed.founding_year) || (new Date().getFullYear() - 5),
             team_members: Array.isArray(parsed.team_members) ? parsed.team_members.slice(0, 4) : [],
+            authors: sanAuthors,
             site_about: String(parsed.site_about || "").slice(0, 4000),
             site_contacts: String(parsed.site_contacts || "").slice(0, 2000),
             site_privacy: String(parsed.site_privacy || "").slice(0, 6000),
             site_terms: String(parsed.site_terms || "").slice(0, 6000),
+            business_pages,
           };
         } else {
           console.error("[generate-site-content] AI HTTP", aiRes.status, (await aiRes.text()).slice(0, 200));
@@ -184,10 +262,19 @@ Generate JSON with EXACT fields:
       .update({
         company_name: payload.company_name,
         company_address: payload.company_address,
+        legal_address: (payload as any).legal_address ?? payload.company_address,
+        work_hours: (payload as any).work_hours ?? null,
+        juridical_inn: (payload as any).juridical_inn ?? PH_INN,
+        whatsapp_url: (payload as any).whatsapp_url ?? null,
+        telegram_url: (payload as any).telegram_url ?? null,
+        vk_url: (payload as any).vk_url ?? null,
+        clients_count_text: (payload as any).clients_count_text ?? null,
         company_phone: payload.company_phone,
         company_email: payload.company_email,
         founding_year: payload.founding_year,
         team_members: payload.team_members,
+        authors: (payload as any).authors ?? [],
+        business_pages: (payload as any).business_pages ?? {},
         site_about: payload.site_about,
         site_contacts: payload.site_contacts,
         site_privacy: payload.site_privacy,
