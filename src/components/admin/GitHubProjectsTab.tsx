@@ -34,7 +34,7 @@ export function GitHubProjectsTab() {
   const [repoStatus, setRepoStatus] = useState<Record<string, RepoStatus>>({});
   const [repoError, setRepoError] = useState<Record<string, string>>({});
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newProject, setNewProject] = useState({ name: "", domain: "", repo: "", token: "", hostingPlatform: "vercel" });
+  const [newProject, setNewProject] = useState({ name: "", domain: "", repo: "", token: "", hostingPlatform: "cloudflare" });
   const [creating, setCreating] = useState(false);
 
   // Hosting keys state
@@ -125,7 +125,7 @@ export function GitHubProjectsTab() {
       toast({ title: "Ошибка создания", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Проект создан" });
-      setNewProject({ name: "", domain: "", repo: "", token: "", hostingPlatform: "vercel" });
+      setNewProject({ name: "", domain: "", repo: "", token: "", hostingPlatform: "cloudflare" });
       setShowNewForm(false);
       await loadProjects();
     }
@@ -201,7 +201,7 @@ export function GitHubProjectsTab() {
       .update({
         github_repo: vals.repo || null,
         github_token: vals.token || null,
-        hosting_platform: project.hosting_platform || "vercel",
+        hosting_platform: project.hosting_platform || "cloudflare",
       })
       .eq("id", projectId);
     setSaving(null);
