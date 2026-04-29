@@ -13,6 +13,7 @@ export interface PostInput {
   excerpt: string;
   slug: string;
   contentHtml: string; // already-rendered HTML body for the post page
+  featuredImageUrl?: string;
 }
 
 export interface RenderCtx {
@@ -88,15 +89,18 @@ function fakePosts(topic: string, n: number): { title: string; excerpt: string }
 }
 
 // Pick real posts if present, otherwise fall back to fake ones.
-function getPosts(ctx: RenderCtx, n: number): { title: string; excerpt: string; href: string }[] {
+function getPosts(ctx: RenderCtx, n: number): { title: string; excerpt: string; href: string; image: string }[] {
+  const placeholder = (slug: string) =>
+    `https://picsum.photos/seed/${encodeURIComponent(slug || "post").slice(0, 60)}/600/360`;
   if (ctx.posts && ctx.posts.length > 0) {
     return ctx.posts.slice(0, n).map((p) => ({
       title: p.title,
       excerpt: p.excerpt,
       href: `/posts/${p.slug}.html`,
+      image: p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl) ? p.featuredImageUrl : placeholder(p.slug),
     }));
   }
-  return fakePosts(ctx.topic, n).map((p) => ({ ...p, href: "#" }));
+  return fakePosts(ctx.topic, n).map((p, i) => ({ ...p, href: "#", image: placeholder(`fake-${i}`) }));
 }
 
 function commonHead(ctx: RenderCtx, extraCss = ""): string {
@@ -493,6 +497,7 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
   const chromePosts: ChromePost[] = (ctx.posts || []).map((p) => ({
     title: p.title, slug: p.slug, excerpt: p.excerpt, contentHtml: p.contentHtml,
     publishedAt: (p as any).publishedAt,
+    featuredImageUrl: p.featuredImageUrl,
   }));
 
   // Replace per-post pages with the SEO-rich version (canonical, OG,
