@@ -38,6 +38,36 @@ function sanitizeName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").substring(0, 52) || "site";
 }
 
+// Pick the best Vercel project name: prefer GitHub repo slug (always valid latin),
+// fallback to sanitized project.name, fallback to a hash-based unique slug.
+function pickProjectName(project: { name: string; github_repo: string | null; id: string }): string {
+  const repoSlug = project.github_repo ? String(project.github_repo).split("/")[1] : "";
+  if (repoSlug && /[a-z0-9]/i.test(repoSlug)) return sanitizeName(repoSlug);
+  const fromName = sanitizeName(project.name || "");
+  if (fromName && fromName !== "site") return fromName;
+  // Last resort: short id-based slug so we never collide with the global "site"
+  return "site-" + project.id.replace(/-/g, "").substring(0, 8);
+}
+
+// Extract a real domain from the Vercel project response (alias array or fallback).
+function extractVercelDomain(vercelProject: any, fallbackName: string): string {
+  const aliases: string[] = [];
+  if (Array.isArray(vercelProject?.alias)) {
+    for (const a of vercelProject.alias) {
+      if (typeof a === "string") aliases.push(a);
+      else if (a?.domain) aliases.push(a.domain);
+    }
+  }
+  if (Array.isArray(vercelProject?.targets?.production?.alias)) {
+    aliases.push(...vercelProject.targets.production.alias);
+  }
+  // Prefer shortest .vercel.app alias (canonical), then any non-empty alias
+  const vercelApp = aliases.filter((d) => d.endsWith(".vercel.app")).sort((a, b) => a.length - b.length);
+  if (vercelApp.length > 0) return vercelApp[0];
+  if (aliases.length > 0) return aliases[0];
+  return `${fallbackName}.vercel.app`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -81,13 +111,18 @@ serve(async (req) => {
 
     // ACTION: check - is the project already on Vercel?
     if (action === "check") {
-      const projectName = sanitizeName(project.name);
+      const projectName = pickProjectName(project);
       const r = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${projectName}`);
       if (r.ok) {
+        const realDomain = extractVercelDomain(r.data, projectName);
+        // Persist the real domain if it differs from what we have stored
+        if (realDomain && realDomain !== project.domain) {
+          await supabase.from("projects").update({ domain: realDomain, hosting_platform: "vercel" }).eq("id", project_id);
+        }
         return new Response(JSON.stringify({
           status: "linked",
           vercel_project: r.data?.name,
-          domain: project.domain,
+          domain: realDomain,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       return new Response(JSON.stringify({ status: "not_linked" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -104,7 +139,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Invalid github_repo format. Expected owner/repo." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const projectName = sanitizeName(project.name);
+      const projectName = pickProjectName(project);
 
       // 1. Check if Vercel project with this name already exists
       const existing = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${projectName}`);
@@ -156,8 +191,9 @@ serve(async (req) => {
         }),
       });
 
-      // 4. Resolve canonical domain
-      const autoDomain = `${projectName}.vercel.app`;
+      // 4. Resolve canonical domain — re-fetch project to get its real aliases assigned by Vercel
+      const refetched = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${vercelProject.id || projectName}`);
+      const autoDomain = extractVercelDomain(refetched.ok ? refetched.data : vercelProject, projectName);
       await supabase.from("projects").update({
         domain: autoDomain,
         hosting_platform: "vercel",
@@ -174,7 +210,7 @@ serve(async (req) => {
 
     // ACTION: redeploy - trigger a new deployment
     if (action === "redeploy") {
-      const projectName = sanitizeName(project.name);
+      const projectName = pickProjectName(project);
       const proj = await vercelFetch(VERCEL_TOKEN, `/v9/projects/${projectName}`);
       if (!proj.ok) {
         return new Response(JSON.stringify({ error: "Vercel project not found. Use action=create first." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -204,7 +240,7 @@ serve(async (req) => {
       if (!domain) {
         return new Response(JSON.stringify({ error: "domain required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const projectName = sanitizeName(project.name);
+      const projectName = pickProjectName(project);
       const r = await vercelFetch(VERCEL_TOKEN, `/v10/projects/${projectName}/domains`, {
         method: "POST",
         body: JSON.stringify({ name: domain }),
