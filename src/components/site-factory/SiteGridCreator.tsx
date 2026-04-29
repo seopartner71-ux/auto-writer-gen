@@ -123,7 +123,25 @@ export function SiteGridCreator() {
         const projectId = created.id;
         updateRow(i, { projectId });
 
-        // 3. Direct Upload deploy (no GitHub, no Astro)
+        // 3. Generate site profile (company, authors, about, business pages)
+        try {
+          await supabase.functions.invoke("generate-site-content", {
+            body: { project_id: projectId, topic },
+          });
+        } catch (e) {
+          console.warn("[SiteGridCreator] generate-site-content failed, continuing", e);
+        }
+
+        // 4. Seed 3 starter articles so the site is not empty
+        try {
+          await supabase.functions.invoke("seed-starter-articles", {
+            body: { project_id: projectId, topic, count: 3 },
+          });
+        } catch (e) {
+          console.warn("[SiteGridCreator] seed-starter-articles failed, continuing", e);
+        }
+
+        // 5. Direct Upload deploy (no GitHub, no Astro)
         updateRow(i, { status: "deploying" });
         const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare-direct", {
           body: {
