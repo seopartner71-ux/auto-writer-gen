@@ -234,7 +234,7 @@ footer.bot{margin-top:64px;padding:24px 0;text-align:center;color:var(--muted);f
 function renderNews(ctx: RenderCtx): Record<string, string> {
   const nav = navLabels();
   const itemClass = pick(["item", "row", "feed-item"]);
-  const posts = fakePosts(ctx.topic, 9);
+  const posts = getPosts(ctx, 18);
 
   const css = `:root{--accent:${ctx.accent};--bg:#fff;--ink:#111;--muted:#555;--line:#e5e7eb}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -257,7 +257,7 @@ footer{margin-top:48px;padding:24px;text-align:center;color:var(--muted);font-si
   const items = posts.map((p) => `
       <li class="${itemClass}">
         <div class="meta">${esc(ctx.topic)}</div>
-        <h3><a href="#">${esc(p.title)}</a></h3>
+        <h3><a href="${p.href}">${esc(p.title)}</a></h3>
         <p>${esc(p.excerpt.slice(0, 120))}</p>
       </li>`).join("");
 
