@@ -1286,7 +1286,7 @@ export default function SiteFactoryPage() {
             )}
 
             {/* Vercel one-click deploy - visible when GitHub is set up and repo is ready */}
-            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && (
+            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "vercel" && (
               <div className={`rounded-md border p-3 text-sm flex flex-col gap-2 ${
                 vercelStatus === "linked" ? "border-green-500/30 bg-green-500/10 text-green-400" :
                 vercelStatus === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" :
@@ -1342,6 +1342,30 @@ export default function SiteFactoryPage() {
                     {lang === "ru" ? "Подсказка: " : "Hint: "}{vercelHint}
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Cloudflare placeholder */}
+            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "cloudflare" && (
+              <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-400 flex items-center gap-2">
+                <Cloud className="h-4 w-4 shrink-0" />
+                <span>
+                  {lang === "ru"
+                    ? "Cloudflare Pages: настройка в разработке. Скоро появится автоматический деплой в 1 клик."
+                    : "Cloudflare Pages: setup in progress. One-click deploy coming soon."}
+                </span>
+              </div>
+            )}
+
+            {/* Netlify placeholder */}
+            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "netlify" && (
+              <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-400 flex items-center gap-2">
+                <Globe className="h-4 w-4 shrink-0" />
+                <span>
+                  {lang === "ru"
+                    ? "Netlify: настройка в разработке. Скоро появится автоматический деплой в 1 клик."
+                    : "Netlify: setup in progress. One-click deploy coming soon."}
+                </span>
               </div>
             )}
 
