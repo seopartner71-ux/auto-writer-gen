@@ -137,6 +137,7 @@ export default function SiteFactoryPage() {
   const [publishing, setPublishing] = useState<string | null>(null);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
+  const [aiFillLoading, setAiFillLoading] = useState(false);
   const [repoError, setRepoError] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
   const [siteConfig, setSiteConfig] = useState({ site_name: "", site_copyright: "", site_about: "", site_contacts: "", site_privacy: "", author_name: "", author_bio: "", author_avatar: "", primary_color: "", font_pair: "", footer_link_url: "", footer_link_text: "", google_verification: "" });
@@ -1205,9 +1206,57 @@ export default function SiteFactoryPage() {
             {/* Site Config Form - shown when repo needs initialization or is ready */}
             {selectedProjectId && isGitHubConfigured && (repoStatus === "empty" || repoStatus === "ready") && (
               <div className="rounded-lg border border-border p-4 space-y-3">
-                <p className="text-sm font-medium">
-                  {lang === "ru" ? "Настройки сайта и служебные страницы" : "Site settings & service pages"}
-                </p>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="text-sm font-medium">
+                    {lang === "ru" ? "Настройки сайта и служебные страницы" : "Site settings & service pages"}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    disabled={aiFillLoading}
+                    onClick={async () => {
+                      if (!selectedProject) return;
+                      setAiFillLoading(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke("generate-site-config", {
+                          body: {
+                            domain: selectedProject.domain,
+                            project_name: selectedProject.name,
+                            language: selectedProject.language || lang,
+                            topic: selectedProject.name,
+                          },
+                        });
+                        if (error) throw error;
+                        const c = data?.config;
+                        if (!c) throw new Error("Empty response");
+                        setSiteConfig((prev) => ({
+                          ...prev,
+                          site_name: c.site_name || prev.site_name,
+                          site_about: c.site_about || prev.site_about,
+                          site_copyright: c.site_copyright || prev.site_copyright,
+                          site_contacts: c.site_contacts || prev.site_contacts,
+                          site_privacy: c.site_privacy || prev.site_privacy,
+                          author_name: c.author_name || prev.author_name,
+                          author_bio: c.author_bio || prev.author_bio,
+                          author_avatar: c.author_avatar || prev.author_avatar,
+                        }));
+                        toast({ title: lang === "ru" ? "Поля заполнены AI" : "Filled by AI" });
+                      } catch (e) {
+                        toast({
+                          title: lang === "ru" ? "Ошибка генерации" : "Generation error",
+                          description: e instanceof Error ? e.message : String(e),
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setAiFillLoading(false);
+                      }
+                    }}
+                  >
+                    {aiFillLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Shuffle className="h-3 w-3 mr-1" />}
+                    {lang === "ru" ? "Заполнить через AI" : "Fill with AI"}
+                  </Button>
+                </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">
                     {lang === "ru" ? "Название сайта" : "Site name"}
