@@ -439,18 +439,49 @@ serve(async (req) => {
 
     // 2. Render files (DB template takes priority)
     const trackerBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/track-visit`;
+    const lang = ((project as any).language || "ru").toString().toLowerCase().startsWith("ru") ? "ru" : "en";
+    const commonOpts = {
+      lang,
+      companyName:    (project as any).company_name || undefined,
+      companyAddress: (project as any).company_address || undefined,
+      companyPhone:   (project as any).company_phone || undefined,
+      companyEmail:   (project as any).company_email || undefined,
+      foundingYear:   (project as any).founding_year || undefined,
+      teamMembers:    (project as any).team_members || undefined,
+      ogImageUrl:     (project as any).og_image_url || undefined,
+      aboutHtml:      (project as any).site_about || undefined,
+      contactsHtml:   (project as any).site_contacts || undefined,
+      privacyHtml:    (project as any).site_privacy || undefined,
+      termsHtml:      (project as any).site_terms || undefined,
+      footerLinkUrl:  (project as any).footer_link_url || undefined,
+      footerLinkText: (project as any).footer_link_text || undefined,
+      injectionLinks: (project as any).injection_links || undefined,
+      legalAddress:   (project as any).legal_address || undefined,
+      workHours:      (project as any).work_hours || undefined,
+      juridicalInn:   (project as any).juridical_inn || undefined,
+      whatsappUrl:    (project as any).whatsapp_url || undefined,
+      telegramUrl:    (project as any).telegram_url || undefined,
+      vkUrl:          (project as any).vk_url || undefined,
+      youtubeUrl:     (project as any).youtube_url || undefined,
+      instagramUrl:   (project as any).instagram_url || undefined,
+      clientsCountText: (project as any).clients_count_text || undefined,
+      authors:        (project as any).authors || undefined,
+      businessPages:  (project as any).business_pages || undefined,
+    };
     const files = dbTpl
       ? renderDbTemplate({
           tpl: dbTpl, siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           domain, posts,
           projectId, trackerUrl: trackerBase,
+          ...commonOpts,
         })
       : renderTemplate({
           siteName, siteAbout, topic,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           template: builtinTemplate, domain, posts,
           projectId, trackerUrl: trackerBase,
+          ...commonOpts,
         });
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
