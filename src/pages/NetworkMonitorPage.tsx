@@ -1,14 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
-import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, FileText, Cloud, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { Link } from "react-router-dom";
 
 interface HealthResult {
   id: string;
@@ -27,6 +32,7 @@ interface ProjectRow {
   language: string;
   last_ping_status: string | null;
   last_ping_at: string | null;
+  last_deploy_at: string | null;
   total_views: number;
 }
 
@@ -34,6 +40,8 @@ interface AnalyticsRow {
   url: string;
   count: number;
 }
+
+interface CfStat { requests_24h: number; requests_7d: number; requests_30d: number; configured: boolean }
 
 export default function NetworkMonitorPage() {
   const { t, lang } = useI18n();
@@ -47,6 +55,11 @@ export default function NetworkMonitorPage() {
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [topPages, setTopPages] = useState<Record<string, AnalyticsRow[]>>({});
   const [todayViews, setTodayViews] = useState<Record<string, number>>({});
+  const [weekViews, setWeekViews] = useState<Record<string, number>>({});
+  const [articleCounts, setArticleCounts] = useState<Record<string, { total: number; lastAt: string | null }>>({});
+  const [cfStats, setCfStats] = useState<Record<string, CfStat>>({});
+  const [cfConfigured, setCfConfigured] = useState<boolean>(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [indexedCounts, setIndexedCounts] = useState<Record<string, { sent: number; total: number }>>({});
 
   // Load projects
@@ -54,28 +67,80 @@ export default function NetworkMonitorPage() {
     if (!user) return;
     const { data } = await supabase
       .from("projects")
-      .select("id, name, domain, hosting_platform, language, last_ping_status, last_ping_at, total_views")
-      .eq("user_id", user.id);
+      .select("id, name, domain, hosting_platform, language, last_ping_status, last_ping_at, last_deploy_at, total_views")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
     setProjects((data as any[]) || []);
     setLoading(false);
   }, [user]);
 
-  // Load today's views per project
-  const loadTodayViews = useCallback(async () => {
+  // Load today's + 7d views per project (own pixel)
+  const loadPixelViews = useCallback(async () => {
     if (!user) return;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const weekAgo = new Date(Date.now() - 7 * 86400_000);
+
+    const [todayRes, weekRes] = await Promise.all([
+      supabase.from("analytics_logs").select("project_id").gte("created_at", today.toISOString()).limit(10000),
+      supabase.from("analytics_logs").select("project_id").gte("created_at", weekAgo.toISOString()).limit(10000),
+    ]);
+
+    const todayCounts: Record<string, number> = {};
+    (todayRes.data || []).forEach((r: any) => { todayCounts[r.project_id] = (todayCounts[r.project_id] || 0) + 1; });
+    setTodayViews(todayCounts);
+
+    const wCounts: Record<string, number> = {};
+    (weekRes.data || []).forEach((r: any) => { wCounts[r.project_id] = (wCounts[r.project_id] || 0) + 1; });
+    setWeekViews(wCounts);
+  }, [user]);
+
+  // Article counts + last article date per project
+  const loadArticleCounts = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("articles")
+      .select("project_id, created_at")
+      .eq("user_id", user.id)
+      .not("project_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    const map: Record<string, { total: number; lastAt: string | null }> = {};
+    (data || []).forEach((a: any) => {
+      const k = a.project_id;
+      if (!map[k]) map[k] = { total: 0, lastAt: a.created_at };
+      map[k].total++;
+    });
+    setArticleCounts(map);
+  }, [user]);
+
+  // Cloudflare aggregated stats
+  const loadCloudflareStats = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const resp = await supabase.functions.invoke("cloudflare-analytics", {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (resp.data?.stats) {
+        setCfStats(resp.data.stats);
+        setCfConfigured(!!resp.data.configured);
+      }
+    } catch (_e) { /* ignore */ }
+  }, [user]);
+
+  // legacy ‘topPages’ helper still works against analytics_logs
+  const _legacyTopUrls = useCallback(async (projectId: string) => {
     const { data } = await supabase
       .from("analytics_logs")
-      .select("project_id")
-      .gte("created_at", today.toISOString());
-
-    const counts: Record<string, number> = {};
-    (data || []).forEach((r: any) => {
-      counts[r.project_id] = (counts[r.project_id] || 0) + 1;
-    });
-    setTodayViews(counts);
-  }, [user]);
+      .select("url")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    const urlCounts: Record<string, number> = {};
+    (data || []).forEach((r: any) => { urlCounts[r.url] = (urlCounts[r.url] || 0) + 1; });
+    return Object.entries(urlCounts).map(([url, count]) => ({ url, count })).sort((a, b) => b.count - a.count).slice(0, 5);
+  }, []);
 
   // Load indexing stats per project
   const loadIndexingStats = useCallback(async () => {
@@ -106,9 +171,11 @@ export default function NetworkMonitorPage() {
 
   useEffect(() => {
     loadProjects();
-    loadTodayViews();
+    loadPixelViews();
+    loadArticleCounts();
+    loadCloudflareStats();
     loadIndexingStats();
-  }, [loadProjects, loadTodayViews, loadIndexingStats]);
+  }, [loadProjects, loadPixelViews, loadArticleCounts, loadCloudflareStats, loadIndexingStats]);
 
   // Run health check
   const runHealthCheck = async () => {
@@ -136,37 +203,41 @@ export default function NetworkMonitorPage() {
       setExpandedProject(expandedProject === projectId ? null : projectId);
       return;
     }
-
-    const { data } = await supabase
-      .from("analytics_logs")
-      .select("url")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    const urlCounts: Record<string, number> = {};
-    (data || []).forEach((r: any) => {
-      urlCounts[r.url] = (urlCounts[r.url] || 0) + 1;
-    });
-
-    const sorted = Object.entries(urlCounts)
-      .map(([url, count]) => ({ url, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
+    const sorted = await _legacyTopUrls(projectId);
     setTopPages((prev) => ({ ...prev, [projectId]: sorted }));
     setExpandedProject(projectId);
   };
 
+  const deleteSite = async (projectId: string, host: string) => {
+    setDeletingId(projectId);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-cloudflare-site", {
+        body: { project_id: projectId },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast({ title: lang === "ru" ? "Сайт удалён" : "Site deleted", description: host });
+      loadProjects();
+    } catch (e: any) {
+      toast({ title: lang === "ru" ? "Ошибка удаления" : "Delete failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   // Stats calculations
-  const onlineCount = projects.filter((p) => p.last_ping_status === "online").length;
-  const offlineCount = projects.filter((p) => p.last_ping_status === "offline").length;
+  const cloudflareSites = useMemo(() => projects.filter((p) => p.hosting_platform === "cloudflare" && p.domain), [projects]);
+  const onlineCount = cloudflareSites.filter((p) => p.last_ping_status === "online").length;
+  const offlineCount = cloudflareSites.filter((p) => p.last_ping_status === "offline").length;
   const totalViewsToday = Object.values(todayViews).reduce((a, b) => a + b, 0);
-  const bestProject = projects.length > 0
-    ? projects.reduce((best, p) => ((p.total_views || 0) > (best.total_views || 0) ? p : best), projects[0])
+  const bestProject = cloudflareSites.length > 0
+    ? cloudflareSites.reduce((best, p) => ((p.total_views || 0) > (best.total_views || 0) ? p : best), cloudflareSites[0])
     : null;
   const totalIndexed = Object.values(indexedCounts).reduce((sum, b) => sum + b.sent, 0);
   const totalArticles = Object.values(indexedCounts).reduce((sum, b) => sum + b.total, 0);
+
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US") : "—";
+  const hostOf = (domain: string) => (domain || "").replace(/^https?:\/\//, "").split("/")[0];
 
   return (
     <div className="space-y-6">
@@ -179,14 +250,20 @@ export default function NetworkMonitorPage() {
               {lang === "ru" ? "Мониторинг сети" : "Network Monitor"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {lang === "ru" ? "Статус сайтов, трафик и индексация" : "Site status, traffic & indexing"}
+              {lang === "ru" ? "Cloudflare сайты: статус, трафик, индексация" : "Cloudflare sites: status, traffic & indexing"}
             </p>
           </div>
         </div>
-        <Button onClick={runHealthCheck} disabled={checking} size="sm" className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
-          {lang === "ru" ? "Проверить все" : "Check All"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => { loadProjects(); loadPixelViews(); loadArticleCounts(); loadCloudflareStats(); loadIndexingStats(); }} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            {lang === "ru" ? "Обновить" : "Refresh"}
+          </Button>
+          <Button onClick={runHealthCheck} disabled={checking} size="sm" className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
+            {lang === "ru" ? "Проверить все" : "Check All"}
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -194,21 +271,16 @@ export default function NetworkMonitorPage() {
         <Card className="bg-card/50 border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Wifi className="h-4 w-4" />
-              {lang === "ru" ? "Статус сети" : "Network Status"}
+              <Cloud className="h-4 w-4" />
+              {lang === "ru" ? "Cloudflare сети" : "Cloudflare sites"}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-green-400">{onlineCount}</span>
-              <span className="text-muted-foreground text-sm">online</span>
-              {offlineCount > 0 && (
-                <>
-                  <span className="text-muted-foreground">/</span>
-                  <span className="text-2xl font-bold text-destructive">{offlineCount}</span>
-                  <span className="text-muted-foreground text-sm">offline</span>
-                </>
-              )}
+              <span className="text-2xl font-bold">{cloudflareSites.length}</span>
+              <span className="text-muted-foreground text-sm">{lang === "ru" ? "всего" : "total"}</span>
+              <span className="ml-2 text-green-400 text-sm">●&nbsp;{onlineCount}</span>
+              {offlineCount > 0 && <span className="text-destructive text-sm">●&nbsp;{offlineCount}</span>}
             </div>
           </CardContent>
         </Card>
@@ -225,6 +297,7 @@ export default function NetworkMonitorPage() {
             <span className="text-muted-foreground text-sm ml-2">
               {lang === "ru" ? "просмотров" : "views"}
             </span>
+            <p className="text-[11px] text-muted-foreground mt-1">{lang === "ru" ? "по своему пикселю" : "via own pixel"}</p>
           </CardContent>
         </Card>
 
@@ -267,54 +340,59 @@ export default function NetworkMonitorPage() {
       {/* Projects Table */}
       <Card className="bg-card/50 border-border/50">
         <CardHeader>
-          <CardTitle className="text-lg">
-            {lang === "ru" ? "Проекты" : "Projects"}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">
+              {lang === "ru" ? "Cloudflare сайты" : "Cloudflare sites"}
+            </CardTitle>
+            {!cfConfigured && (
+              <Badge variant="outline" className="text-[10px]">
+                {lang === "ru" ? "Cloudflare Analytics не настроены" : "Cloudflare Analytics not configured"}
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (<Skeleton key={i} className="h-12 w-full" />))}
             </div>
-          ) : projects.length === 0 ? (
+          ) : cloudflareSites.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              {lang === "ru" ? "Нет проектов" : "No projects"}
+              {lang === "ru" ? "Нет Cloudflare сайтов. Создайте сетку через Фабрику сайтов." : "No Cloudflare sites yet. Create one in Site Factory."}
             </p>
           ) : (
-            <Table>
+            <div className="overflow-x-auto"><Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>{lang === "ru" ? "Сайт" : "Site"}</TableHead>
-                  <TableHead>{lang === "ru" ? "Платформа" : "Platform"}</TableHead>
                   <TableHead>{lang === "ru" ? "Статус" : "Status"}</TableHead>
                   <TableHead>{lang === "ru" ? "Сегодня" : "Today"}</TableHead>
-                  <TableHead>{lang === "ru" ? "Всего" : "Total"}</TableHead>
-                  <TableHead>GSC</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead>{lang === "ru" ? "7 дн." : "7d"}</TableHead>
+                  <TableHead>CF&nbsp;30д</TableHead>
+                  <TableHead>{lang === "ru" ? "Статьи" : "Posts"}</TableHead>
+                  <TableHead>{lang === "ru" ? "Деплой" : "Deploy"}</TableHead>
+                  <TableHead className="text-right">{lang === "ru" ? "Действия" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {projects.map((project) => {
+                {cloudflareSites.map((project) => {
                   const hr = healthResults.find((h) => h.id === project.id);
                   const pingStatus = hr?.status || project.last_ping_status || "unknown";
                   const isOnline = pingStatus === "online";
                   const isExpanded = expandedProject === project.id;
+                  const host = hostOf(project.domain);
+                  const url = host ? `https://${host}` : null;
+                  const cf = cfStats[project.id];
+                  const ac = articleCounts[project.id];
 
                   return (
                     <>
-                      <TableRow key={project.id} className="cursor-pointer hover:bg-muted/30" onClick={() => loadTopPages(project.id)}>
-                        <TableCell>
+                      <TableRow key={project.id} className="hover:bg-muted/30">
+                        <TableCell className="cursor-pointer" onClick={() => loadTopPages(project.id)}>
                           <div>
                             <span className="font-medium">{project.name}</span>
-                            {project.domain && (
-                              <span className="text-xs text-muted-foreground ml-2">{project.domain}</span>
-                            )}
+                            {host && <span className="text-xs text-muted-foreground ml-2">{host}</span>}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {project.hosting_platform || "—"}
-                          </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -333,32 +411,62 @@ export default function NetworkMonitorPage() {
                             )}
                           </div>
                         </TableCell>
+                        <TableCell><span className="font-medium">{(todayViews[project.id] || 0).toLocaleString()}</span></TableCell>
+                        <TableCell><span className="text-muted-foreground">{(weekViews[project.id] || 0).toLocaleString()}</span></TableCell>
                         <TableCell>
-                          <span className="font-medium">{(todayViews[project.id] || 0).toLocaleString()}</span>
+                          {cf ? (
+                            <span className="text-xs text-muted-foreground">{cf.requests_30d.toLocaleString()}</span>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>
-                          <span className="text-muted-foreground">{(project.total_views || 0).toLocaleString()}</span>
+                          <div className="text-xs">
+                            <div className="font-medium">{ac?.total ?? 0}</div>
+                            <div className="text-muted-foreground">{fmtDate(ac?.lastAt ?? null)}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {fmtDate(project.last_deploy_at)}
                         </TableCell>
                         <TableCell>
-                          {project.domain ? (
-                            <a
-                              href={`https://search.google.com/search-console?resource_id=sc-domain:${project.domain}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-primary hover:underline"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          ) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          <div className="flex items-center gap-1 justify-end">
+                            {url && (
+                              <Button asChild variant="ghost" size="icon" className="h-7 w-7" title={lang === "ru" ? "Открыть сайт" : "Open site"}>
+                                <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a>
+                              </Button>
+                            )}
+                            <Button asChild variant="ghost" size="icon" className="h-7 w-7" title={lang === "ru" ? "Добавить статью" : "Add article"}>
+                              <Link to={`/plan-builder?project=${project.id}`}><Plus className="h-3.5 w-3.5" /></Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" disabled={deletingId === project.id} className="h-7 w-7 text-destructive hover:text-destructive" title={lang === "ru" ? "Удалить сайт" : "Delete site"}>
+                                  {deletingId === project.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>{lang === "ru" ? `Удалить сайт ${host || project.name}?` : `Delete site ${host || project.name}?`}</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {lang === "ru" ? "Cloudflare-проект, запись и все статьи будут удалены безвозвратно." : "Cloudflare project, record and all articles will be permanently removed."}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{lang === "ru" ? "Отмена" : "Cancel"}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteSite(project.id, host || project.name)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    {lang === "ru" ? "Удалить" : "Delete"}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => loadTopPages(project.id)}>
+                              {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
                         <TableRow key={`${project.id}-detail`}>
-                          <TableCell colSpan={7} className="bg-muted/20 px-8 py-4">
+                          <TableCell colSpan={8} className="bg-muted/20 px-8 py-4">
                             <div>
                               <p className="text-sm font-medium mb-3">
                                 {lang === "ru" ? "Топ-5 страниц" : "Top 5 Pages"}
@@ -385,7 +493,7 @@ export default function NetworkMonitorPage() {
                   );
                 })}
               </TableBody>
-            </Table>
+            </Table></div>
           )}
         </CardContent>
       </Card>
