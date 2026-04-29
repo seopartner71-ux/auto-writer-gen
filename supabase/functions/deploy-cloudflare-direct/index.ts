@@ -100,6 +100,10 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
     });
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
     if (authErr || !user) {
@@ -140,7 +144,7 @@ serve(async (req) => {
     const siteAbout: string = body.site_about || project.site_about || `Блог про ${topic}`;
 
     // Cloudflare credentials
-    const { data: apiKeys } = await supabase
+    const { data: apiKeys } = await supabaseAdmin
       .from("api_keys")
       .select("provider, api_key")
       .in("provider", ["cloudflare_account_id", "cloudflare_api_token"]);
