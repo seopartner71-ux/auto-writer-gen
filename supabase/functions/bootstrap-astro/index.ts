@@ -920,7 +920,18 @@ serve(async (req) => {
           return new Response(JSON.stringify({ status: "ready" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         if (checkRes.status === 404) {
-          return new Response(JSON.stringify({ status: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          // package.json may be missing OR the repo itself doesn't exist — distinguish
+          const repoRes = await fetch(`https://api.github.com/repos/${github_repo}`, {
+            headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
+          });
+          if (repoRes.ok) {
+            return new Response(JSON.stringify({ status: "empty" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          if (repoRes.status === 404) {
+            return new Response(JSON.stringify({ status: "missing" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          const txt = await repoRes.text();
+          return new Response(JSON.stringify({ status: "error", message: `GitHub repo check ${repoRes.status}: ${txt.slice(0, 200)}` }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         return new Response(JSON.stringify({ status: "error", message: `GitHub API ${checkRes.status}` }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
@@ -946,6 +957,83 @@ serve(async (req) => {
     const files = generateFiles(siteLang, sName, sAbout, sCopyright, aName, aBio, aAvatar, pColor, fPair, site_contacts || "", site_privacy || "", footerLink, project_id, trackingUrl2, googleVerification);
 
     const results: { file: string; status: string }[] = [];
+
+    // Auto-create repo if it doesn't exist
+    {
+      const repoCheck = await fetch(`https://api.github.com/repos/${github_repo}`, {
+        headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
+      });
+      if (repoCheck.status === 404) {
+        const [ownerRaw, repoNameRaw] = String(github_repo).split("/");
+        const owner = (ownerRaw || "").trim();
+        const repoName = (repoNameRaw || "").trim();
+        if (!owner || !repoName) {
+          return new Response(JSON.stringify({ error: `Invalid github_repo format "${github_repo}". Expected "owner/repo".` }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Find out who the token belongs to
+        const meRes = await fetch("https://api.github.com/user", {
+          headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
+        });
+        if (!meRes.ok) {
+          const txt = await meRes.text();
+          return new Response(JSON.stringify({ error: `GitHub token invalid (${meRes.status}): ${txt.slice(0, 200)}` }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const me = await meRes.json();
+        const myLogin = String(me.login || "").toLowerCase();
+
+        // Pick endpoint: own user vs organization
+        const isMine = owner.toLowerCase() === myLogin;
+        const createUrl = isMine
+          ? "https://api.github.com/user/repos"
+          : `https://api.github.com/orgs/${owner}/repos`;
+
+        const createRes = await fetch(createUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `token ${github_token}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: repoName,
+            private: false,
+            auto_init: true,
+            description: `[SEO-Module] ${sName}`,
+          }),
+        });
+        if (!createRes.ok) {
+          const txt = await createRes.text();
+          console.error("[bootstrap-astro] repo create failed", createRes.status, txt);
+          return new Response(JSON.stringify({
+            error: `Failed to create repo "${github_repo}" (${createRes.status}). ${
+              createRes.status === 403 || createRes.status === 404
+                ? "Token has no permission to create repositories under this owner. For a personal repo use scope `repo`; for an organization use a token with org access and `Administration: Read and write`."
+                : txt.slice(0, 300)
+            }`,
+          }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        // Wait briefly for GitHub to provision the default branch (auto_init creates README on `main`)
+        for (let i = 0; i < 10; i++) {
+          const branchRes = await fetch(`https://api.github.com/repos/${github_repo}/branches/main`, {
+            headers: { Authorization: `token ${github_token}`, Accept: "application/vnd.github.v3+json" },
+          });
+          if (branchRes.ok) break;
+          await new Promise((r) => setTimeout(r, 500));
+        }
+        results.push({ file: "[repo]", status: "created" });
+      } else if (!repoCheck.ok) {
+        const txt = await repoCheck.text();
+        return new Response(JSON.stringify({
+          error: `Cannot access repo "${github_repo}" (${repoCheck.status}): ${txt.slice(0, 200)}`,
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
 
     for (const [filePath, content] of Object.entries(files)) {
       try {
