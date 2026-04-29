@@ -431,6 +431,9 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
   <link rel="stylesheet" href="${fontsHref}" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="${fontsHref}"></noscript>
   <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="alternate" type="application/rss+xml" title="${escAttr(c.siteName)}" href="/feed.xml">
   ${lds.map((x) => jsonLdScript(x)).join("\n  ")}
 </head>`;
 }
