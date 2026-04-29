@@ -51,6 +51,7 @@ interface ProjectRow {
   injection_links: { url: string; anchor: string }[] | null;
   footer_link: { url: string; text: string } | null;
   google_verification: string | null;
+  template_type: string | null;
 }
 
 type DeployStatus = "idle" | "publishing" | "success" | "error";
