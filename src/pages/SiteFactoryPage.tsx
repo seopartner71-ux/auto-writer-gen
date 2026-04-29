@@ -700,6 +700,9 @@ export default function SiteFactoryPage() {
       };
       const defaultLang = selectedProj?.language || "en";
 
+      // Collect inner generation promises so we can auto-redeploy once they all finish.
+      const generationPromises: Promise<boolean>[] = [];
+
       for (const kw of kws) {
         // Detect language per keyword
         const kwLang = detectLang(kw) || defaultLang;
@@ -746,11 +749,11 @@ export default function SiteFactoryPage() {
         setGeneratingIds((prev) => new Set(prev).add(artRecord.id));
 
         // 3. Call generate-article edge function (in background)
-        (async () => {
+        generationPromises.push((async () => {
           try {
             const { data: session } = await supabase.auth.getSession();
             const token = session?.session?.access_token;
-            if (!token) return;
+            if (!token) return false;
 
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
             const res = await fetch(
@@ -795,7 +798,7 @@ export default function SiteFactoryPage() {
                 next.delete(artRecord.id);
                 return next;
               });
-              return;
+              return false;
             }
 
             // 4. Parse SSE stream
@@ -832,6 +835,7 @@ export default function SiteFactoryPage() {
               next.delete(artRecord.id);
               return next;
             });
+            return true;
           } catch (err) {
             console.error("Background generation error:", err);
             toast({ 
@@ -845,8 +849,9 @@ export default function SiteFactoryPage() {
               next.delete(artRecord.id);
               return next;
             });
+            return false;
           }
-        })();
+        })());
       }
 
       toast({
@@ -854,6 +859,23 @@ export default function SiteFactoryPage() {
         description: lang === "ru" ? `${kws.length} статей в очереди` : `${kws.length} articles queued`,
       });
       setKeywords("");
+
+      // Auto-redeploy once all generations finish (Direct Upload projects only).
+      // Don't await — let it run in the background so UI stays responsive.
+      if (isDirectUploadProject && generationPromises.length > 0) {
+        Promise.allSettled(generationPromises).then((results) => {
+          const anySuccess = results.some((r) => r.status === "fulfilled" && r.value === true);
+          if (anySuccess) {
+            addDeployLog(
+              "publishing",
+              lang === "ru"
+                ? "Все статьи готовы — автоматический деплой на Cloudflare Pages..."
+                : "All articles ready — auto-deploying to Cloudflare Pages...",
+            );
+            triggerCloudflare();
+          }
+        });
+      }
     } catch {
       toast({ title: lang === "ru" ? "Ошибка генерации" : "Generation error", variant: "destructive" });
     } finally {

@@ -57,6 +57,146 @@ function sanitizeProjectName(name: string): string {
     .substring(0, 50) || "site";
 }
 
+// Slugify any title to filesystem-safe slug
+function slugify(text: string): string {
+  return transliterate(text)
+    .replace(/[^a-z0-9\s-]/gi, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase()
+    .substring(0, 80) || "post";
+}
+
+// HTML-escape (also used inside markdown converter for inline text)
+function escHtml(s: string): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Lightweight markdown → HTML converter (handles headings, lists, paragraphs,
+// bold/italic/code/links, blockquotes, fenced code blocks). No deps.
+function markdownToHtml(md: string): string {
+  if (!md) return "";
+  // If content already looks like HTML (has tags), return as-is.
+  if (/<\s*(h[1-6]|p|ul|ol|div|article|section)\b/i.test(md)) return md;
+
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  let i = 0;
+  let inList: "ul" | "ol" | null = null;
+  let inCode = false;
+  let codeBuf: string[] = [];
+  let para: string[] = [];
+
+  const flushPara = () => {
+    if (para.length) {
+      out.push(`<p>${inline(para.join(" "))}</p>`);
+      para = [];
+    }
+  };
+  const flushList = () => {
+    if (inList) { out.push(`</${inList}>`); inList = null; }
+  };
+
+  function inline(text: string): string {
+    let t = escHtml(text);
+    // code spans
+    t = t.replace(/`([^`]+)`/g, (_m, c) => `<code>${c}</code>`);
+    // images ![alt](url)
+    t = t.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, a, u) => `<img alt="${a}" src="${u}">`);
+    // links [text](url)
+    t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, l, u) => `<a href="${u}">${l}</a>`);
+    // bold **x**
+    t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    // italic *x* (avoid bold collision)
+    t = t.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
+    return t;
+  }
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const line = raw.trimEnd();
+
+    // fenced code
+    if (/^```/.test(line)) {
+      if (inCode) {
+        out.push(`<pre><code>${escHtml(codeBuf.join("\n"))}</code></pre>`);
+        codeBuf = [];
+        inCode = false;
+      } else {
+        flushPara(); flushList();
+        inCode = true;
+      }
+      i++; continue;
+    }
+    if (inCode) { codeBuf.push(raw); i++; continue; }
+
+    // blank line
+    if (!line.trim()) { flushPara(); flushList(); i++; continue; }
+
+    // headings
+    const h = line.match(/^(#{1,6})\s+(.+)$/);
+    if (h) {
+      flushPara(); flushList();
+      const level = h[1].length;
+      out.push(`<h${level}>${inline(h[2])}</h${level}>`);
+      i++; continue;
+    }
+
+    // blockquote
+    if (/^>\s?/.test(line)) {
+      flushPara(); flushList();
+      const buf: string[] = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) {
+        buf.push(lines[i].replace(/^>\s?/, ""));
+        i++;
+      }
+      out.push(`<blockquote>${inline(buf.join(" "))}</blockquote>`);
+      continue;
+    }
+
+    // ordered list
+    const ol = line.match(/^\d+\.\s+(.+)$/);
+    if (ol) {
+      flushPara();
+      if (inList !== "ol") { flushList(); out.push("<ol>"); inList = "ol"; }
+      out.push(`<li>${inline(ol[1])}</li>`);
+      i++; continue;
+    }
+    // unordered list
+    const ul = line.match(/^[-*+]\s+(.+)$/);
+    if (ul) {
+      flushPara();
+      if (inList !== "ul") { flushList(); out.push("<ul>"); inList = "ul"; }
+      out.push(`<li>${inline(ul[1])}</li>`);
+      i++; continue;
+    }
+
+    // paragraph accumulator
+    flushList();
+    para.push(line);
+    i++;
+  }
+  flushPara(); flushList();
+  return out.join("\n");
+}
+
+function plainExcerpt(md: string, maxLen = 180): string {
+  const stripped = (md || "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/[#>*_`~\-]+/g, " ")
+    .replace(/\!\[[^\]]*\]\([^)]+\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.length > maxLen ? stripped.slice(0, maxLen - 1) + "…" : stripped;
+}
+
 // Wrangler hash: blake3(base64(content) + extension).slice(0, 32)
 function hashFile(content: string, path: string): string {
   const bytes = new TextEncoder().encode(content);
@@ -152,6 +292,31 @@ serve(async (req) => {
     const siteAbout: string = body.site_about || project.site_about || `Блог про ${topic}`;
     console.log("[deploy-cloudflare-direct] siteName:", siteName, "topic:", topic);
 
+    // Fetch real articles for this project (completed or published, with content)
+    const { data: articles, error: articlesErr } = await supabase
+      .from("articles")
+      .select("id, title, content, meta_description, status, created_at")
+      .eq("project_id", projectId)
+      .eq("user_id", user.id)
+      .in("status", ["completed", "published"])
+      .not("content", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    console.log("[deploy-cloudflare-direct] articles fetched:", articles?.length ?? 0,
+                "err:", articlesErr?.message || "none");
+    const usedSlugs = new Set<string>();
+    const posts = (articles || []).map((a: any) => {
+      const baseSlug = slugify(a.title || a.id);
+      let slug = baseSlug;
+      let n = 2;
+      while (usedSlugs.has(slug)) { slug = `${baseSlug}-${n++}`; }
+      usedSlugs.add(slug);
+      const contentHtml = markdownToHtml(a.content || "");
+      const excerpt = a.meta_description || plainExcerpt(a.content || "", 180);
+      return { title: a.title || "Без названия", slug, contentHtml, excerpt };
+    });
+    console.log("[deploy-cloudflare-direct] posts prepared:", posts.length);
+
     // Cloudflare credentials
     const { data: apiKeys, error: keysErr } = await supabaseAdmin
       .from("api_keys")
@@ -231,7 +396,7 @@ serve(async (req) => {
     const files = renderTemplate({
       siteName, siteAbout, topic,
       accent, headingFont: fontPair[0], bodyFont: fontPair[1],
-      template, domain,
+      template, domain, posts,
     });
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 

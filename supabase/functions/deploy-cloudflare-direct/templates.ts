@@ -1,5 +1,12 @@
 import { googleFontsHref, type TemplateType } from "./styles.ts";
 
+export interface PostInput {
+  title: string;
+  excerpt: string;
+  slug: string;
+  contentHtml: string; // already-rendered HTML body for the post page
+}
+
 export interface RenderCtx {
   siteName: string;
   siteAbout: string;
@@ -9,6 +16,7 @@ export interface RenderCtx {
   bodyFont: string;
   template: TemplateType;
   domain: string; // e.g. "foo.pages.dev"
+  posts?: PostInput[]; // real articles from DB; if empty, fakePosts() is used
 }
 
 function esc(s: string): string {
@@ -39,6 +47,18 @@ function fakePosts(topic: string, n: number): { title: string; excerpt: string }
     result.push({ title, excerpt });
   }
   return result;
+}
+
+// Pick real posts if present, otherwise fall back to fake ones.
+function getPosts(ctx: RenderCtx, n: number): { title: string; excerpt: string; href: string }[] {
+  if (ctx.posts && ctx.posts.length > 0) {
+    return ctx.posts.slice(0, n).map((p) => ({
+      title: p.title,
+      excerpt: p.excerpt,
+      href: `/posts/${p.slug}.html`,
+    }));
+  }
+  return fakePosts(ctx.topic, n).map((p) => ({ ...p, href: "#" }));
 }
 
 function commonHead(ctx: RenderCtx, extraCss = ""): string {
@@ -72,18 +92,58 @@ function robots(ctx: RenderCtx): string {
 
 function sitemap(ctx: RenderCtx): string {
   const today = new Date().toISOString().slice(0, 10);
+  const postUrls = (ctx.posts || []).map((p) =>
+    `  <url><loc>https://${ctx.domain}/posts/${p.slug}.html</loc><lastmod>${today}</lastmod></url>`
+  ).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://${ctx.domain}/</loc><lastmod>${today}</lastmod></url>
   <url><loc>https://${ctx.domain}/about.html</loc><lastmod>${today}</lastmod></url>
+${postUrls}
 </urlset>`;
+}
+
+// Per-post page renderer (uses same head/css; centered article body).
+function renderPostPage(ctx: RenderCtx, post: PostInput): string {
+  const nav = navLabels();
+  return `${commonHead({ ...ctx, siteName: post.title }, `<style>
+.post-wrap{max-width:720px;margin:0 auto;padding:48px 24px;font-family:"${ctx.bodyFont}",system-ui,sans-serif;color:#1a1a1a;line-height:1.75;font-size:17px}
+.post-wrap header{padding-bottom:24px;border-bottom:1px solid #e5e7eb;margin-bottom:32px}
+.post-wrap header a.brand{font-family:"${ctx.headingFont}",sans-serif;color:#0a0a0a;text-decoration:none;font-size:20px;font-weight:700}
+.post-wrap h1{font-family:"${ctx.headingFont}",sans-serif;font-size:36px;line-height:1.2;margin:24px 0 16px;color:#0a0a0a}
+.post-wrap h2{font-family:"${ctx.headingFont}",sans-serif;font-size:26px;line-height:1.3;margin:32px 0 12px;color:#0a0a0a}
+.post-wrap h3{font-family:"${ctx.headingFont}",sans-serif;font-size:21px;line-height:1.3;margin:24px 0 10px;color:#0a0a0a}
+.post-wrap p{margin:0 0 16px}
+.post-wrap a{color:${ctx.accent};text-decoration:underline}
+.post-wrap ul,.post-wrap ol{margin:0 0 16px 24px}
+.post-wrap li{margin-bottom:8px}
+.post-wrap blockquote{border-left:3px solid ${ctx.accent};padding:8px 16px;margin:16px 0;color:#444;background:#fafafa}
+.post-wrap code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:.92em}
+.post-wrap pre{background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto;margin:16px 0}
+.post-wrap pre code{background:transparent;color:inherit;padding:0}
+.post-wrap img{max-width:100%;height:auto;border-radius:8px;margin:16px 0}
+.post-wrap footer{margin-top:48px;padding-top:24px;border-top:1px solid #e5e7eb;color:#666;font-size:14px;text-align:center}
+body{background:#fff;margin:0}
+</style>`)}
+<body>
+  <article class="post-wrap">
+    <header>
+      <a href="/" class="brand">${esc(ctx.siteName)}</a>
+      <nav style="margin-top:8px;font-size:14px"><a href="/" style="color:#666;text-decoration:none">${nav.home}</a> · <a href="/about.html" style="color:#666;text-decoration:none">${nav.about}</a></nav>
+    </header>
+    <h1>${esc(post.title)}</h1>
+    ${post.contentHtml}
+    <footer>&copy; ${new Date().getFullYear()} <a href="/" style="color:#666;text-decoration:none">${esc(ctx.siteName)}</a></footer>
+  </article>
+</body>
+</html>`;
 }
 
 // ====================== TEMPLATE 1: MINIMAL (serif blog) ======================
 function renderMinimal(ctx: RenderCtx): Record<string, string> {
   const nav = navLabels();
   const postClass = pick(["entry", "post", "note"]);
-  const posts = fakePosts(ctx.topic, 5);
+  const posts = getPosts(ctx, 12);
 
   const css = `:root{--accent:${ctx.accent};--bg:#fafaf7;--ink:#1a1a1a;--muted:#666}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -106,7 +166,7 @@ footer{margin-top:48px;padding-top:24px;border-top:1px solid #e5e2dc;color:var(-
 
   const articles = posts.map((p) => `
     <article class="${postClass}">
-      <h2><a href="#">${esc(p.title)}</a></h2>
+      <h2><a href="${p.href}">${esc(p.title)}</a></h2>
       <p>${esc(p.excerpt)}</p>
     </article>`).join("");
 
@@ -146,7 +206,7 @@ footer{margin-top:48px;padding-top:24px;border-top:1px solid #e5e2dc;color:var(-
 function renderMagazine(ctx: RenderCtx): Record<string, string> {
   const nav = navLabels();
   const cardClass = pick(["card", "tile", "story"]);
-  const posts = fakePosts(ctx.topic, 6);
+  const posts = getPosts(ctx, 12);
 
   const css = `:root{--accent:${ctx.accent};--bg:#ffffff;--ink:#0f172a;--muted:#64748b;--surface:#f8fafc}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -173,7 +233,7 @@ footer.bot{margin-top:64px;padding:24px 0;text-align:center;color:var(--muted);f
       <article class="${cardClass}">
         <div class="body">
           <span class="tag">${esc(ctx.topic)}</span>
-          <h2><a href="#">${esc(p.title)}</a></h2>
+          <h2><a href="${p.href}">${esc(p.title)}</a></h2>
           <p>${esc(p.excerpt)}</p>
         </div>
       </article>`).join("");
@@ -214,7 +274,7 @@ footer.bot{margin-top:64px;padding:24px 0;text-align:center;color:var(--muted);f
 function renderNews(ctx: RenderCtx): Record<string, string> {
   const nav = navLabels();
   const itemClass = pick(["item", "row", "feed-item"]);
-  const posts = fakePosts(ctx.topic, 9);
+  const posts = getPosts(ctx, 18);
 
   const css = `:root{--accent:${ctx.accent};--bg:#fff;--ink:#111;--muted:#555;--line:#e5e7eb}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -237,7 +297,7 @@ footer{margin-top:48px;padding:24px;text-align:center;color:var(--muted);font-si
   const items = posts.map((p) => `
       <li class="${itemClass}">
         <div class="meta">${esc(ctx.topic)}</div>
-        <h3><a href="#">${esc(p.title)}</a></h3>
+        <h3><a href="${p.href}">${esc(p.title)}</a></h3>
         <p>${esc(p.excerpt.slice(0, 120))}</p>
       </li>`).join("");
 
@@ -274,7 +334,7 @@ footer{margin-top:48px;padding:24px;text-align:center;color:var(--muted);font-si
 function renderLanding(ctx: RenderCtx): Record<string, string> {
   const nav = navLabels();
   const blockClass = pick(["block", "feature", "panel"]);
-  const posts = fakePosts(ctx.topic, 4);
+  const posts = getPosts(ctx, 9);
 
   const css = `:root{--accent:${ctx.accent};--bg:#fff;--ink:#0a0a0a;--muted:#525252;--soft:#fafafa}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -301,7 +361,7 @@ footer{padding:32px;text-align:center;color:var(--muted);font-size:14px;border-t
 
   const blocks = posts.map((p) => `
       <article class="${blockClass}">
-        <h3><a href="#">${esc(p.title)}</a></h3>
+        <h3><a href="${p.href}">${esc(p.title)}</a></h3>
         <p>${esc(p.excerpt)}</p>
       </article>`).join("");
 
@@ -353,5 +413,9 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
   }
   files["robots.txt"] = robots(ctx);
   files["sitemap.xml"] = sitemap(ctx);
+  // Per-post pages (only when real articles supplied)
+  for (const p of ctx.posts || []) {
+    files[`posts/${p.slug}.html`] = renderPostPage(ctx, p);
+  }
   return files;
 }
