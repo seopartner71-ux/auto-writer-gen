@@ -47,6 +47,8 @@ export interface RenderOpts {
   termsHtml?: string;
   footerLinkUrl?: string;
   footerLinkText?: string;
+  projectId?: string;
+  trackerUrl?: string;
 }
 
 
@@ -135,6 +137,8 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
   // Build SEO chrome from opts (used for legal pages, sitemap, post pages).
   const chrome: SiteChrome = {
     domain, siteName, siteAbout, topic, lang, accent, headingFont, bodyFont,
+    projectId: opts.projectId,
+    trackerUrl: opts.trackerUrl,
     companyName: opts.companyName,
     companyAddress: opts.companyAddress,
     companyPhone: opts.companyPhone,
