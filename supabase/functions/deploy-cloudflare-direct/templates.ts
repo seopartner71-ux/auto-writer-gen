@@ -294,7 +294,7 @@ footer{margin-top:48px;padding:24px;text-align:center;color:var(--muted);font-si
 function renderLanding(ctx: RenderCtx): Record<string, string> {
   const nav = navLabels();
   const blockClass = pick(["block", "feature", "panel"]);
-  const posts = fakePosts(ctx.topic, 4);
+  const posts = getPosts(ctx, 9);
 
   const css = `:root{--accent:${ctx.accent};--bg:#fff;--ink:#0a0a0a;--muted:#525252;--soft:#fafafa}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -321,7 +321,7 @@ footer{padding:32px;text-align:center;color:var(--muted);font-size:14px;border-t
 
   const blocks = posts.map((p) => `
       <article class="${blockClass}">
-        <h3><a href="#">${esc(p.title)}</a></h3>
+        <h3><a href="${p.href}">${esc(p.title)}</a></h3>
         <p>${esc(p.excerpt)}</p>
       </article>`).join("");
 
