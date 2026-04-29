@@ -187,12 +187,14 @@ export function PbnTemplatesTab() {
             Шаблоны для генерации сетки. При создании сетки случайно выбирается один из активных.
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" /> Добавить шаблон
-        </Button>
-        <Button onClick={() => setImporterOpen(true)} variant="outline" className="gap-2 ml-2">
-          <Sparkles className="h-4 w-4" /> Импорт из HTML/URL/ZIP
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setImporterOpen(true)} variant="outline" className="gap-2">
+            <Sparkles className="h-4 w-4" /> Импорт из HTML/URL/ZIP
+          </Button>
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="h-4 w-4" /> Добавить шаблон
+          </Button>
+        </div>
       </div>
 
       {loading ? (
