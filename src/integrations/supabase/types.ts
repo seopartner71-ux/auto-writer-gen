@@ -1286,6 +1286,7 @@ export type Database = {
       projects: {
         Row: {
           accent_color: string | null
+          ai_model: string
           author_avatar: string | null
           author_bio: string | null
           author_name: string | null
@@ -1344,6 +1345,7 @@ export type Database = {
         }
         Insert: {
           accent_color?: string | null
+          ai_model?: string
           author_avatar?: string | null
           author_bio?: string | null
           author_name?: string | null
@@ -1402,6 +1404,7 @@ export type Database = {
         }
         Update: {
           accent_color?: string | null
+          ai_model?: string
           author_avatar?: string | null
           author_bio?: string | null
           author_name?: string | null
