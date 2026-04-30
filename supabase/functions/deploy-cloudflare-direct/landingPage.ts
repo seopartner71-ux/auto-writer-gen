@@ -460,7 +460,12 @@ function skinTokens(skin: number, accent: string): SkinTokens {
 
 // ----------------------------- HTML Renderer --------------------------------
 
-export function renderLandingHtml(ctx: LandingCtx, c: LandingContent, navHtml: string): string {
+export function renderLandingHtml(
+  ctx: LandingCtx,
+  c: LandingContent,
+  navHtml: string,
+  chromeOverride?: { headerHtml?: string; footerHtml?: string; chromeCss?: string },
+): string {
   const t = skinTokens(ctx.skin, ctx.accent);
   const isRu = ctx.lang === "ru";
   const heroImg = ctx.heroImageUrl && /^https?:\/\//.test(ctx.heroImageUrl)
@@ -728,11 +733,12 @@ section{padding:${t.sectionPad}}
 <meta property="og:url" content="https://${ctx.domain}/">
 <meta property="og:image" content="${esc(heroImg)}">
 <style>${css}</style>
+${chromeOverride?.chromeCss ? `<style>${chromeOverride.chromeCss}</style>` : ""}
 <script type="application/ld+json">${JSON.stringify(orgSchema)}</script>
 </head>
 <body>
 
-<header class="site-header">
+${chromeOverride?.headerHtml || `<header class="site-header">
   <div class="container">
     <a href="/" class="brand">${esc(ctx.siteName)}</a>
     <nav class="main-nav">${navItems}</nav>
@@ -741,7 +747,7 @@ section{padding:${t.sectionPad}}
       <a class="btn" href="#cta">${esc(c.ctaPrimary)}</a>
     </div>
   </div>
-</header>
+</header>`}
 
 <section class="hero">
   <div class="hero-bg" aria-hidden="true"></div>
@@ -899,7 +905,7 @@ section{padding:${t.sectionPad}}
   </div>
 </section>
 
-<footer class="site-footer">
+${chromeOverride?.footerHtml || `<footer class="site-footer">
   <div class="foot-grid">
     <div>
       <span class="brand-foot">${esc(ctx.siteName)}</span>
@@ -929,7 +935,7 @@ section{padding:${t.sectionPad}}
     </div>
   </div>
   <div class="copy">&copy; ${new Date().getFullYear()} ${esc(ctx.siteName)}. ${esc(isRu ? "Все права защищены." : "All rights reserved.")}</div>
-</footer>
+</footer>`}
 
 </body>
 </html>`;

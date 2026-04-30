@@ -235,7 +235,7 @@ const COOKIE_BANNER_JS = `
   }catch(e){}
 })();`;
 
-function headerHtml(c: SiteChrome): string {
+export function headerHtml(c: SiteChrome): string {
   const items = navItems(c);
   const isRu = c.lang === "ru";
   return `<a class="skip-link" href="#main-content">${isRu ? "Перейти к контенту" : "Skip to content"}</a>
@@ -265,7 +265,7 @@ function breadcrumbsHtml(c: SiteChrome, items: { label: string; href: string }[]
 </nav>`;
 }
 
-function footerHtml(c: SiteChrome): string {
+export function footerHtml(c: SiteChrome): string {
   const items = navItems(c);
   const extra = footerExtraLinks(c);
   const year = new Date().getFullYear();

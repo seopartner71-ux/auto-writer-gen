@@ -15,6 +15,7 @@ import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 import { generateLandingContent, renderLandingHtml, pickSkin } from "./landingPage.ts";
+import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles } from "./seoChrome.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -538,7 +539,19 @@ serve(async (req) => {
           heroImageUrl: heroImage,
         },
         landingContent,
-        "" // nav: we let landing render its own default
+        "", // nav: not used when chromeOverride provided
+        (() => {
+          const chrome: any = {
+            domain, siteName, siteAbout, topic, lang,
+            accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+            ...commonOpts,
+          };
+          return {
+            headerHtml: chromeHeaderHtml(chrome),
+            footerHtml: chromeFooterHtml(chrome),
+            chromeCss: chromeStyles(chrome),
+          };
+        })(),
       );
       // Move the original "list of posts" page to /blog/index.html so the menu works.
       if (files["index.html"]) files["blog/index.html"] = files["index.html"];
