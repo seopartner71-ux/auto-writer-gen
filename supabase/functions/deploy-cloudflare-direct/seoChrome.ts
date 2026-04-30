@@ -776,6 +776,29 @@ function stripTags(s: string): string {
   return String(s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Pull a 2-3 sentence direct answer from the article. Prefer the AI-written
+// excerpt (meta_description); otherwise fall back to the first paragraph of
+// the article body. Cap at ~280 chars to stay in the "first 100 words" zone
+// preferred by AI search engines.
+function buildAiSummary(excerpt: string | undefined, html: string, isRu: boolean): string {
+  const fromExcerpt = String(excerpt || "").trim();
+  let raw = fromExcerpt;
+  if (!raw) {
+    // First <p>...</p> in the body, fallback to plain stripped text.
+    const m = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    raw = m ? m[1] : html;
+    raw = stripTags(raw);
+  }
+  if (!raw) return "";
+  // Take first 2-3 sentences.
+  const parts = raw.split(/(?<=[.!?…])\s+/).filter(Boolean);
+  let out = parts.slice(0, 3).join(" ");
+  if (out.length > 320) out = out.slice(0, 300).replace(/\s+\S*$/, "") + "…";
+  // Avoid duplicating the H1.
+  if (out.length < 30) return "";
+  return isRu ? out : out;
+}
+
 // ---- Page builders for non-content pages ----
 
 function home(c: SiteChrome) {
