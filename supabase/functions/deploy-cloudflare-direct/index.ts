@@ -15,6 +15,7 @@ import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 import { generateLandingContent, renderLandingHtml, pickSkin } from "./landingPage.ts";
+import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles } from "./seoChrome.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
