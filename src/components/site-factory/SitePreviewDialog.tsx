@@ -10,7 +10,7 @@ export interface SitePreviewSpec {
   services: string;
   audience: string;
   businessType: string;
-  homepageStyle: "landing" | "magazine" | "news" | "minimal" | "dark";
+  homepageStyle: "landing" | "magazine" | "news" | "minimal" | "dark" | "local";
   templateName?: string;
 }
 
@@ -28,6 +28,7 @@ const HOMEPAGE_LABELS: Record<string, string> = {
   news: "Новостной портал",
   minimal: "Минимал (Linear/Notion-стиль)",
   dark: "Тёмный (премиум)",
+  local: "Локальный бизнес",
 };
 
 const BUSINESS_LABELS: Record<string, string> = {
