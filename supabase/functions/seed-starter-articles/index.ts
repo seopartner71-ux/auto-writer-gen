@@ -25,12 +25,18 @@ async function getOpenRouterKey(admin: any): Promise<string | null> {
 // public CDN URL or null on any failure (caller falls back to picsum).
 async function generateHeroImage(falKey: string, topic: string, title: string): Promise<string | null> {
   try {
-    const prompt = `Professional editorial photograph illustrating "${title}" in the context of ${topic}. Realistic business style, natural lighting, shallow depth of field, no text, no watermarks, magazine quality, 16:9 composition.`;
+    // IMPORTANT: never pass non-English strings (especially Cyrillic) into the
+    // image prompt — Flux will try to render them as garbled letters baked
+    // into the picture. We use only the topic as a generic English hint and
+    // explicitly forbid any text/letters/captions in the output.
+    const safeTopic = String(topic || "business").replace(/[^\x20-\x7E]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "business";
+    const prompt = `Professional editorial photograph related to ${safeTopic}. Realistic business style, natural lighting, shallow depth of field, magazine quality, 16:9 composition. ABSOLUTELY NO TEXT, no letters, no words, no captions, no signs, no logos, no watermarks, no typography, no writing of any kind anywhere in the image.`;
     const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
       method: "POST",
       headers: { Authorization: `Key ${falKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
+        negative_prompt: "text, letters, words, captions, signs, logos, watermarks, typography, writing, characters, font, alphabet, cyrillic, latin text, numbers, labels, subtitles",
         image_size: "landscape_16_9",
         num_images: 1,
         num_inference_steps: 4,
