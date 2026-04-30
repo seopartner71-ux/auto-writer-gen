@@ -294,20 +294,20 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
 
   const heroHtml = hero ? `
     <section class="mag-hero" aria-label="${escAttr(isRu ? "Главный материал" : "Featured story")}">
-      <a href="/posts/${escAttr(hero.slug)}.html">
-        <figure>
+      <figure>
+        <a href="/posts/${escAttr(hero.slug)}.html" aria-label="${escAttr(hero.title)}">
           <img src="${escAttr(postImage(hero, 1600, 720))}" alt="${escAttr(uniqueImageAlt(c, hero.title, 0))}" width="1600" height="720" loading="eager" decoding="async" fetchpriority="high">
-          <figcaption>
-            <span class="mag-rubric-tag">${escHtml(catOf(hero.slug).label)}</span>
-            <h1>${escHtml(hero.title)}</h1>
-            <div class="mag-meta">
-              ${(() => { const a = authorOf(hero.slug); return a ? `<address style="font-style:normal">${escHtml(a.name)}</address>` : ""; })()}
-              ${hero.publishedAt ? (() => { const d = fmtDate(hero.publishedAt, isRu); return `<time datetime="${escAttr(d.dt)}">${escHtml(d.label)}</time>`; })() : ""}
-              <span>${readingTime(hero.contentHtml)} ${escHtml(minLabelPool)}</span>
-            </div>
-          </figcaption>
-        </figure>
-      </a>
+        </a>
+      </figure>
+      <div class="mag-hero-body">
+        <span class="mag-rubric-tag">${escHtml(catOf(hero.slug).label)}</span>
+        <a href="/posts/${escAttr(hero.slug)}.html"><h1>${escHtml(hero.title)}</h1></a>
+        <div class="mag-meta">
+          ${(() => { const a = authorOf(hero.slug); return a ? `<address style="font-style:normal">${escHtml(a.name)}</address>` : ""; })()}
+          ${hero.publishedAt ? (() => { const d = fmtDate(hero.publishedAt, isRu); return `<time datetime="${escAttr(d.dt)}">${escHtml(d.label)}</time>`; })() : ""}
+          <span>${readingTime(hero.contentHtml)} ${escHtml(minLabelPool)}</span>
+        </div>
+      </div>
     </section>` : "";
 
   const sideCardHtml = (p: PostInput): string => {
