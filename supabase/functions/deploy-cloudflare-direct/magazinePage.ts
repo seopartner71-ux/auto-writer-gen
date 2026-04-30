@@ -376,7 +376,7 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
   // count posts per category
   const counts: Record<string, number> = {};
   for (const p of posts) {
-    const k = postCategory(p.slug, cats).key;
+    const k = catOf(p.slug).key;
     counts[k] = (counts[k] || 0) + 1;
   }
   const catsHtml = `
