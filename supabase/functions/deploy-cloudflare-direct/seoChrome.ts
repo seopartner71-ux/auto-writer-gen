@@ -556,22 +556,41 @@ export function buildAboutPage(c: SiteChrome): string {
   const desc  = (c.aboutHtml || c.siteAbout || c.siteName).replace(/<[^>]+>/g, " ").trim().slice(0, 160);
   const team  = (c.teamMembers || []).slice(0, 4);
   const teamHtml = team.length ? `
-    <h2>${isRu ? "Команда редакции" : "Team"}</h2>
-    <div class="team-grid">
-      ${team.map((t) => `
-        <div class="team-card">
-          <h3>${escHtml(t.name)}</h3>
-          <div class="role">${escHtml(t.role || "")}</div>
-          ${t.bio ? `<p>${escHtml(t.bio)}</p>` : ""}
-        </div>`).join("")}
-    </div>` : "";
+    <section class="service-card">
+      <h2>${isRu ? "Команда редакции" : "Team"}</h2>
+      <div class="team-grid">
+        ${team.map((t) => `
+          <div class="team-card">
+            <h3>${escHtml(t.name)}</h3>
+            <div class="role">${escHtml(t.role || "")}</div>
+            ${t.bio ? `<p>${escHtml(t.bio)}</p>` : ""}
+          </div>`).join("")}
+      </div>
+    </section>` : "";
+
+  const aboutBlocks = splitIntoBlocks(c.aboutHtml || `<p>${escHtml(c.siteAbout)}</p>`);
+  const factsItems: string[] = [];
+  if (c.foundingYear)   factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Работаем с" : "Since"}</span><span class="service-info-item__value">${c.foundingYear}</span></div>`);
+  if (c.companyName)    factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Компания" : "Company"}</span><span class="service-info-item__value">${escHtml(c.companyName)}</span></div>`);
+  if (c.companyAddress) factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Офис" : "Office"}</span><span class="service-info-item__value">${escHtml(c.companyAddress)}</span></div>`);
+  if (c.clientsCountText) factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Клиенты" : "Clients"}</span><span class="service-info-item__value">${escHtml(c.clientsCountText)}</span></div>`);
+  const factsHtml = factsItems.length ? `
+    <section class="service-card">
+      <h2>${isRu ? "Коротко о нас" : "At a glance"}</h2>
+      <div class="service-info-grid">${factsItems.join("")}</div>
+    </section>` : "";
 
   const main = `
-    <article class="page-article">
-      <h1>${escHtml(isRu ? "О нас" : "About us")}</h1>
-      ${c.aboutHtml || `<p>${escHtml(c.siteAbout)}</p>`}
+    <article class="service-page">
+      <header class="service-hero">
+        <h1>${escHtml(isRu ? "О нас" : "About us")}</h1>
+        <p class="service-hero__lead">${escHtml(c.siteAbout || c.siteName)}</p>
+      </header>
+      ${factsHtml}
+      <div class="service-blocks">
+        ${aboutBlocks.map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
+      </div>
       ${teamHtml}
-      ${c.foundingYear ? `<p><em>${isRu ? "Работаем с" : "Working since"} ${c.foundingYear}.</em></p>` : ""}
     </article>`;
   return wrapPage(c, {
     title, description: desc, path: "/about.html", type: "website",
