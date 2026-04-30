@@ -665,7 +665,7 @@ export function renderLandingHtml(
   const isRu = ctx.lang === "ru";
   const heroImg = ctx.heroImageUrl && /^https?:\/\//.test(ctx.heroImageUrl)
     ? ctx.heroImageUrl
-    : pickImage(ctx.topic + " " + ctx.siteName + " hero", 1600, 900);
+    : getImage(ctx, "hero", ctx.topic + " " + ctx.siteName + " hero", 1600, 900);
 
   const consentLine = isRu
     ? "Оставляя заявку, вы соглашаетесь на обработку персональных данных."
@@ -857,9 +857,11 @@ section{padding:${t.sectionPad}}
   const process = c.process.slice(0, 4).map((p) => `
     <div class="proc"><div class="ic">${esc(p.icon)}</div><h3>${esc(p.title)}</h3><p>${esc(p.text)}</p></div>`).join("");
 
-  const team = c.team.slice(0, 3).map((m) => {
-    const seed = encodeURIComponent(m.name).slice(0, 60);
-    const av = `https://api.dicebear.com/7.x/personas/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+  const team = c.team.slice(0, 3).map((m, i) => {
+    const slot = `team_${i + 1}`;
+    const av = (ctx.generatedImages?.[slot] && /^https?:\/\//.test(ctx.generatedImages![slot]))
+      ? ctx.generatedImages![slot]
+      : avatarFallback(m.name);
     return `
     <div class="member" itemscope itemtype="https://schema.org/Person">
       <img src="${av}" alt="${esc(m.name)}" loading="lazy" itemprop="image" width="320" height="320">
@@ -878,10 +880,10 @@ section{padding:${t.sectionPad}}
     </div>`;
   }).join("");
 
-  const blogCards = ctx.posts.slice(0, 3).map((p) => {
+  const blogCards = ctx.posts.slice(0, 3).map((p, i) => {
     const img = p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl)
       ? p.featuredImageUrl
-      : pickImage(p.slug || p.title, 600, 340);
+      : getImage(ctx, `post_${i + 1}`, p.slug || p.title, 600, 340);
     return `
     <a class="bcard" href="/posts/${esc(p.slug)}.html">
       <img src="${esc(img)}" alt="${esc(p.title)}" loading="lazy" width="600" height="340">
@@ -889,9 +891,9 @@ section{padding:${t.sectionPad}}
     </a>`;
   }).join("") || `<p class="muted">${esc(isRu ? "Скоро здесь появятся новые материалы." : "Posts coming soon.")}</p>`;
 
-  const aboutImg = pickImage(ctx.topic + " office team", 800, 600);
-  const whyImg = pickImage(ctx.topic + " professional work", 800, 600);
-  const guarImg = pickImage(ctx.topic + " quality guarantee", 800, 600);
+  const aboutImg = getImage(ctx, "about", ctx.topic + " office team", 800, 600);
+  const whyImg = getImage(ctx, "why", ctx.topic + " professional work", 800, 600);
+  const guarImg = getImage(ctx, "guarantee", ctx.topic + " quality guarantee", 800, 600);
 
   // Map: simple OSM embed, centered loosely; we don't have geo, so use generic.
   const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=37.5%2C55.6%2C37.8%2C55.8&layer=mapnik`;
