@@ -1345,6 +1345,11 @@ export function buildPostPage(
 .ai-summary{margin:18px 0 24px;padding:16px 20px;background:linear-gradient(135deg,${c.accent}10,${c.accent}05);border-left:4px solid ${c.accent};border-radius:8px}
 .ai-summary__label{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${c.accent};margin:0 0 6px}
 .ai-summary p{margin:0;font-size:16px;line-height:1.6;color:#0f172a;font-weight:500}
+.page-article table,.page-article .md-table{width:100%;border-collapse:collapse;margin:20px 0;font-size:15px;display:table;overflow-x:auto}
+.page-article th,.page-article td{border:1px solid #e5e7eb;padding:10px 14px;text-align:left;vertical-align:top}
+.page-article thead th{background:#f8fafc;font-weight:600;color:#0f172a}
+.page-article tbody tr:nth-child(even){background:#fafbfc}
+@media(max-width:640px){.page-article table{font-size:14px}.page-article th,.page-article td{padding:8px 10px}}
 `;
   // Hero image: prefer the article's own featured image (FAL.ai-generated and
   // stored on the row), fall back to a stable Picsum seed if none exists yet.
