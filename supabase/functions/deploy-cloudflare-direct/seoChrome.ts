@@ -131,22 +131,145 @@ function footerExtraLinks(c: SiteChrome) {
 }
 
 function organizationLd(c: SiteChrome) {
+  const team = c.teamMembers || [];
+  const founder = team[0];
+  const sameAs = [c.whatsappUrl, c.telegramUrl, c.vkUrl, c.youtubeUrl, c.instagramUrl]
+    .filter((u): u is string => !!u && /^https?:\/\//.test(u));
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: c.companyName || c.siteName,
     url: `https://${c.domain}/`,
     logo: c.ogImageUrl || undefined,
+    description: c.siteAbout || undefined,
     foundingDate: c.foundingYear ? String(c.foundingYear) : undefined,
-    address: c.companyAddress ? {
-      "@type": "PostalAddress",
-      streetAddress: c.companyAddress,
-    } : undefined,
+    numberOfEmployees: team.length > 0 ? team.length : undefined,
+    address: c.companyAddress ? postalAddressLd(c) : undefined,
+    telephone: c.companyPhone || undefined,
+    email: c.companyEmail || undefined,
+    sameAs: sameAs.length ? sameAs : undefined,
+    founder: founder ? personLd(c, founder) : undefined,
+    employee: team.length ? team.map((m) => personLd(c, m)) : undefined,
     contactPoint: (c.companyPhone || c.companyEmail) ? {
       "@type": "ContactPoint",
       telephone: c.companyPhone || undefined,
       email: c.companyEmail || undefined,
       contactType: "customer support",
+    } : undefined,
+  };
+}
+
+// Parse free-form address into a coarse PostalAddress.
+// Heuristic: split by commas; first chunk = street, then city, postal code, country.
+export function postalAddressLd(c: SiteChrome) {
+  const raw = (c.companyAddress || c.legalAddress || "").trim();
+  if (!raw) return undefined;
+  const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+  // Try to detect postal code (5-6 digit number)
+  const postalMatch = raw.match(/\b(\d{5,6})\b/);
+  const country = c.lang === "ru" ? "RU" : "US";
+  return {
+    "@type": "PostalAddress",
+    streetAddress: parts[0] || raw,
+    addressLocality: parts[1] || undefined,
+    postalCode: postalMatch ? postalMatch[1] : undefined,
+    addressCountry: country,
+  };
+}
+
+// Build a Person schema for a TeamMember.
+function personLd(c: SiteChrome, m: TeamMember) {
+  return {
+    "@type": "Person",
+    name: m.name,
+    jobTitle: m.role || undefined,
+    description: m.bio || undefined,
+    worksFor: { "@type": "Organization", name: c.companyName || c.siteName },
+  };
+}
+
+// Parse "Пн-Пт 9:00-18:00, Сб 10:00-16:00" / "Mon-Fri 09:00-18:00" into
+// schema.org openingHoursSpecification array. Returns undefined if no match.
+export function parseOpeningHours(workHours?: string): unknown[] | undefined {
+  if (!workHours) return undefined;
+  const dayMap: Record<string, string> = {
+    пн: "Monday", вт: "Tuesday", ср: "Wednesday", чт: "Thursday",
+    пт: "Friday", сб: "Saturday", вс: "Sunday",
+    mo: "Monday", tu: "Tuesday", we: "Wednesday", th: "Thursday",
+    fr: "Friday", sa: "Saturday", su: "Sunday",
+  };
+  const out: unknown[] = [];
+  // Match patterns like "Пн-Пт 9:00-18:00" or "Mon-Fri 09:00 - 18:00"
+  const re = /([а-яa-z]{2,3})\s*[-–]\s*([а-яa-z]{2,3})\s*([0-9]{1,2}[:.][0-9]{2})\s*[-–]\s*([0-9]{1,2}[:.][0-9]{2})/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(workHours)) !== null) {
+    const from = dayMap[m[1].toLowerCase().slice(0, 2)];
+    const to = dayMap[m[2].toLowerCase().slice(0, 2)];
+    if (!from || !to) continue;
+    const order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const i1 = order.indexOf(from);
+    const i2 = order.indexOf(to);
+    if (i1 < 0 || i2 < 0) continue;
+    const days = order.slice(i1, i2 + 1);
+    out.push({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: days,
+      opens: m[3].replace(".", ":"),
+      closes: m[4].replace(".", ":"),
+    });
+  }
+  // Also single days: "Сб 10:00-16:00"
+  const re2 = /(?:^|[,;])\s*([а-яa-z]{2,3})\s+([0-9]{1,2}[:.][0-9]{2})\s*[-–]\s*([0-9]{1,2}[:.][0-9]{2})/gi;
+  while ((m = re2.exec(workHours)) !== null) {
+    const day = dayMap[m[1].toLowerCase().slice(0, 2)];
+    if (!day) continue;
+    out.push({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: [day],
+      opens: m[2].replace(".", ":"),
+      closes: m[3].replace(".", ":"),
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+// LocalBusiness schema for contacts page (and homepage).
+export function localBusinessLd(c: SiteChrome) {
+  const isRu = c.lang === "ru";
+  return {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": `https://${c.domain}/#localbusiness`,
+    name: c.companyName || c.siteName,
+    url: `https://${c.domain}/`,
+    image: c.ogImageUrl || undefined,
+    telephone: c.companyPhone || undefined,
+    email: c.companyEmail || undefined,
+    address: postalAddressLd(c),
+    priceRange: isRu ? "₽₽" : "$$",
+    openingHoursSpecification: parseOpeningHours(c.workHours),
+    areaServed: c.companyAddress || undefined,
+  };
+}
+
+// Service schema for a pricing package.
+export function serviceLd(c: SiteChrome, opts: { name: string; description?: string; price?: string }) {
+  const isRu = c.lang === "ru";
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: opts.name,
+    description: opts.description || undefined,
+    provider: {
+      "@type": "Organization",
+      "@id": `https://${c.domain}/#organization`,
+      name: c.companyName || c.siteName,
+      url: `https://${c.domain}/`,
+    },
+    offers: opts.price ? {
+      "@type": "Offer",
+      price: opts.price,
+      priceCurrency: isRu ? "RUB" : "USD",
     } : undefined,
   };
 }
