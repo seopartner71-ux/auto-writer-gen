@@ -689,6 +689,7 @@ serve(async (req) => {
           heroImageUrl: heroImage,
           generatedImages,
           totopPosition,
+          iconUrl,
         },
         landingContent,
         "", // nav: not used when chromeOverride provided
