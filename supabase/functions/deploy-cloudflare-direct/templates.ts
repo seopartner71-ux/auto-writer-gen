@@ -506,6 +506,7 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
   const chromePosts: ChromePost[] = (ctx.posts || []).map((p) => ({
     title: p.title, slug: p.slug, excerpt: p.excerpt, contentHtml: p.contentHtml,
     publishedAt: (p as any).publishedAt,
+    modifiedAt: (p as any).modifiedAt,
     featuredImageUrl: p.featuredImageUrl,
   }));
 
@@ -535,12 +536,12 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
   files["robots.txt"]   = robotsTxt(chrome);
   files["sitemap.xml"]  = sitemapXmlExtended(
     chrome,
-    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt })),
+    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt, modifiedAt: (p as any).modifiedAt })),
     businessPagePaths(chrome),
   );
   files["llms.txt"]     = llmsTxt(
     chrome,
-    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt })),
+    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt, modifiedAt: (p as any).modifiedAt })),
     businessPagePaths(chrome).map((p) => ({
       path: p,
       title: p.replace(/^\/|\.html$/g, "").replace(/-/g, " "),

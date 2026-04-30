@@ -11,6 +11,7 @@
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 
 import { widgetsCss as sfWidgetsCss, widgetsHtml as sfWidgetsHtml } from "./siteWidgets.ts";
+import { pickPhrase } from "./phrasePools.ts";
 
 // ----------------------------- Niche-aware fallbacks ------------------------
 
@@ -689,6 +690,8 @@ export interface LandingCtx {
   iconUrl?: string;
   /** Floating "Back to top" position; default left-bottom. */
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
+  /** Stable seed for phrase-pool randomization (defaults to domain). */
+  projectId?: string;
 }
 
 // ----------------------------- Helpers --------------------------------------
@@ -1410,6 +1413,17 @@ export function renderLandingHtml(
 ): string {
   const t = skinTokens(ctx.skin, ctx.accent);
   const isRu = ctx.lang === "ru";
+  // Anti-fingerprint: replace template-fixed UI phrases with seed-stable
+  // variants from the shared phrase pool so different sites in the same PBN
+  // do not share byte-identical CTA/section labels.
+  {
+    const seed = String(ctx.projectId || ctx.domain || ctx.siteName || "site");
+    c = {
+      ...c,
+      whyTitle: pickPhrase("whyTitle", ctx.lang, seed),
+      ctaSectionText: pickPhrase("ctaSectionText", ctx.lang, seed),
+    };
+  }
   const heroImg = ctx.heroImageUrl && /^https?:\/\//.test(ctx.heroImageUrl)
     ? ctx.heroImageUrl
     : getImage(ctx, "hero", ctx.topic + " " + ctx.siteName + " hero", 1600, 900);
@@ -1963,6 +1977,7 @@ ${sfWidgetsHtml({
   consultantPhoto: ctx.generatedImages?.team_1,
   siteName: ctx.siteName,
   topic: ctx.topic,
+  seed: ctx.projectId || ctx.domain || ctx.siteName,
 })}
 
 </body>
