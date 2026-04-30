@@ -448,7 +448,7 @@ export function footerHtml(c: SiteChrome): string {
   if (c.instagramUrl) social.push(sLink(c.instagramUrl, "Instagram"));
   const socialHtml = social.length ? `<div class="site-footer__social">${social.join("")}</div>` : "";
 
-  const trustHtml = `<div class="site-footer__trust">${isRu ? "Безопасная оплата · SSL · Visa · Mastercard · МИР · СБП" : "Secure payment · SSL · Visa · Mastercard"}</div>`;
+  const trustHtml = `<div class="site-footer__trust">${escHtml(pickPhrase("trustLine", c.lang, siteSeed(c)))}</div>`;
   const clientsHtml = c.clientsCountText ? `<div class="site-footer__clients">${escHtml(c.clientsCountText)}</div>` : "";
 
   const footerExtra = c.footerLinkUrl && c.footerLinkText
@@ -913,7 +913,7 @@ export function buildAboutPage(c: SiteChrome): string {
   if (c.clientsCountText) factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Клиенты" : "Clients"}</span><span class="service-info-item__value">${escHtml(c.clientsCountText)}</span></div>`);
   const factsHtml = factsItems.length ? `
     <section class="service-card">
-      <h2>${isRu ? "Коротко о нас" : "At a glance"}</h2>
+      <h2>${escHtml(pickPhrase("atGlance", c.lang, siteSeed(c)))}</h2>
       <div class="service-info-grid">${factsItems.join("")}</div>
     </section>` : "";
 
@@ -1485,12 +1485,12 @@ export function buildPostPage(
   // voice assistants — referenced by the Speakable JSON-LD selector.
   const aiSummaryText = buildAiSummary(safeExcerpt, safeContentHtml, isRu);
   const aiSummaryHtml = aiSummaryText
-    ? `<aside class="ai-summary"><div class="ai-summary__label">${isRu ? "Коротко о главном" : "Quick answer"}</div><p>${escHtml(aiSummaryText)}</p></aside>`
+    ? `<aside class="ai-summary"><div class="ai-summary__label">${escHtml(pickPhrase("aiSummaryLabel", c.lang, siteSeed(c)))}</div><p>${escHtml(aiSummaryText)}</p></aside>`
     : "";
 
   const relatedHtml = related.length ? `
     <aside class="related-posts">
-      <h2>${isRu ? "Читайте также" : "Related posts"}</h2>
+      <h2>${escHtml(pickPhrase("relatedTitle", c.lang, siteSeed(c)))}</h2>
       <ul>${related.slice(0, 5).map((r) => `<li><a href="/posts/${r.slug}.html">${escHtml(r.title)}</a></li>`).join("")}</ul>
     </aside>` : "";
 
