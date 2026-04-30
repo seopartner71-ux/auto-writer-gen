@@ -1276,14 +1276,15 @@ export function unifyAuthorMentions(text: string, authorName: string | undefined
 }
 
 function dicebearUrl(seed: string): string {
-  const s = encodeURIComponent(seed || "author");
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${s}&backgroundType=gradientLinear&fontWeight=600`;
+  // Legacy helper retained as no-op forwarder. CDN avatars produce a shared
+  // network footprint across PBN sites, so we render an inline SVG monogram
+  // instead. Keep signature for backward compatibility with older callers.
+  return svgMonogramDataUrl(seed || "?", "#1a1a1a");
 }
 
 // Avatar style requested for author cards (avataaars, more illustrative)
 function avataarsUrl(seed: string): string {
-  const s = encodeURIComponent(seed || "author");
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${s}`;
+  return svgMonogramDataUrl(seed || "?", "#1a1a1a");
 }
 
 // Strip any <script> blocks from AI-returned HTML — JSON-LD must live in <head>,
