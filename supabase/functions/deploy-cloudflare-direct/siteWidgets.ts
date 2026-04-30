@@ -76,7 +76,8 @@ export function widgetsCss(totopPosition: TotopPosition = "left-bottom"): string
 .sf-chat-bubble.sf-show{opacity:1;transform:translateY(0)}
 
 .sf-chat-panel{position:absolute;right:0;bottom:72px;width:320px;height:420px;background:#fff;border-radius:16px;box-shadow:0 30px 60px -15px rgba(0,0,0,.45);display:flex;flex-direction:column;overflow:hidden;opacity:0;transform:translateY(8px) scale(.98);pointer-events:none;transition:opacity .25s ease,transform .25s ease}
-.sf-chat.sf-open .sf-chat-panel{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+.sf-chat-panel{transform:translateY(24px) scale(.98)}
+.sf-chat.sf-open .sf-chat-panel{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;transition:opacity .3s ease,transform .3s cubic-bezier(.2,.8,.2,1)}
 .sf-chat.sf-open .sf-chat-toggle::before,.sf-chat.sf-open .sf-chat-toggle::after{display:none}
 .sf-chat.sf-open .sf-chat-bubble{display:none}
 
@@ -92,6 +93,22 @@ export function widgetsCss(totopPosition: TotopPosition = "left-bottom"): string
 .sf-msg{max-width:85%;padding:10px 12px;border-radius:14px;font-size:14px;line-height:1.45;color:#0f172a;background:#fff;border:1px solid #e2e8f0;align-self:flex-start;border-top-left-radius:4px;animation:sf-msg-in .3s ease}
 .sf-msg-user{align-self:flex-end;background:var(--accent,#2563eb);color:#fff;border:none;border-radius:14px;border-top-right-radius:4px}
 @keyframes sf-msg-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* Typing indicator (3 pulsing dots) */
+.sf-typing{align-self:flex-start;background:#fff;border:1px solid #e2e8f0;border-radius:14px;border-top-left-radius:4px;padding:12px 14px;display:inline-flex;gap:4px;align-items:center;animation:sf-msg-in .25s ease}
+.sf-typing span{width:7px;height:7px;border-radius:50%;background:#94a3b8;display:inline-block;animation:sf-typing 1.2s ease-in-out infinite}
+.sf-typing span:nth-child(2){animation-delay:.2s}
+.sf-typing span:nth-child(3){animation-delay:.4s}
+@keyframes sf-typing{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-4px);opacity:1}}
+
+/* Typewriter caret */
+.sf-msg .sf-caret{display:inline-block;width:7px;background:currentColor;margin-left:1px;animation:sf-caret-blink .9s steps(2,start) infinite;opacity:.7}
+@keyframes sf-caret-blink{50%{opacity:0}}
+
+/* Quick-reply chips */
+.sf-quick{display:flex;flex-wrap:wrap;gap:6px;align-self:flex-start;max-width:100%;animation:sf-msg-in .3s ease}
+.sf-quick button{background:#fff;border:1px solid var(--accent,#2563eb);color:var(--accent,#2563eb);padding:7px 12px;border-radius:18px;font-size:13px;font-family:inherit;cursor:pointer;line-height:1;transition:background .15s ease,color .15s ease}
+.sf-quick button:hover{background:var(--accent,#2563eb);color:#fff}
 
 .sf-callback-form{margin-top:6px;display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px}
 .sf-callback-form input{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;font-family:inherit;color:#0f172a;background:#fff}
