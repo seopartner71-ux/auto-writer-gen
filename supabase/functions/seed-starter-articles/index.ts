@@ -82,15 +82,38 @@ function fallbackArticle(topic: string, idx: number, lang: "ru" | "en") {
 }
 
 async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor) {
-  const personaRu = author && author.name
-    ? ` Пиши от лица автора по имени ${author.name}${author.role ? ` (${author.role})` : ""}${author.bio ? `. Краткая биография: ${author.bio}` : ""}. Стиль - экспертный, но разговорный, без канцелярита.`
-    : "";
-  const personaEn = author && author.name
-    ? ` Write as ${author.name}${author.role ? ` (${author.role})` : ""}${author.bio ? `. Bio: ${author.bio}` : ""}. Tone: expert but conversational.`
-    : "";
+  // No persona injection: author name is shown only in byline metadata.
+  // Articles MUST be written in third-person/impersonal expert journalism style.
   const sys = lang === "ru"
-    ? `Ты пишешь практичную информационную статью на русском.${personaRu} Возвращай СТРОГО JSON {title, meta_description, content_html}. content_html: 600-900 слов, ТОЛЬКО теги h2/h3/p/ul/ol/li, без h1, без <script>, без <style>, без ссылок, без воды, без слов «эксперт», «эксклюзив». Включи раздел <h2>Частые вопросы</h2> с 3-5 парами <h3>Вопрос?</h3><p>Ответ.</p>.`
-    : `Write a practical informational article in English.${personaEn} Return STRICT JSON {title, meta_description, content_html}. content_html: 600-900 words, ONLY h2/h3/p/ul/ol/li tags, no h1, no <script>, no <style>, no links, no fluff. Include a section <h2>FAQ</h2> with 3-5 <h3>Question?</h3><p>Answer.</p> pairs.`;
+    ? `Ты пишешь практичную информационную статью на русском в стиле экспертной журналистики.
+
+СТРОГО ЗАПРЕЩЕНО:
+- Начинать статью с приветствия ("Привет", "Привет, друзья", "Здравствуйте", "Добрый день", "Дорогие читатели")
+- Писать от первого лица ("я", "меня зовут", "я расскажу", "мой опыт", "в этой статье я", "мы с вами")
+- Представляться в начале текста или упоминать имя автора в тексте
+- Использовать разговорный стиль личного блога
+- Обращения на "ты"/"вы" в первом абзаце
+
+ОБЯЗАТЕЛЬНЫЙ СТИЛЬ:
+- Экспертный журналистский тон, третье лицо или безличные конструкции
+- Первый абзац = главная мысль статьи, сразу по сути темы
+- Примеры правильного начала: "Выбор X - ключевой фактор...", "Рынок X требует...", "Качественный X увеличивает..."
+
+Возвращай СТРОГО JSON {title, meta_description, content_html}. content_html: 600-900 слов, ТОЛЬКО теги h2/h3/p/ul/ol/li, без h1, без <script>, без <style>, без ссылок, без воды, без слов «эксперт», «эксклюзив». Включи раздел <h2>Частые вопросы</h2> с 3-5 парами <h3>Вопрос?</h3><p>Ответ.</p>.`
+    : `Write a practical informational article in English in expert journalism style.
+
+STRICTLY FORBIDDEN:
+- Starting with a greeting ("Hi", "Hello", "Hey friends", "Dear readers")
+- First-person writing ("I", "my name is", "I will tell you", "in my experience", "in this article I")
+- Introducing yourself or mentioning the author's name inside the body text
+- Personal blog conversational tone
+
+REQUIRED STYLE:
+- Expert journalistic tone, third person or impersonal constructions
+- First paragraph = main point of the article, straight to the topic
+- Good openings: "Choosing X is a key factor...", "The X market requires...", "Quality X increases..."
+
+Return STRICT JSON {title, meta_description, content_html}. content_html: 600-900 words, ONLY h2/h3/p/ul/ol/li tags, no h1, no <script>, no <style>, no links, no fluff. Include a section <h2>FAQ</h2> with 3-5 <h3>Question?</h3><p>Answer.</p> pairs.`;
   const seeds = lang === "ru"
     ? [`Гид по теме «${topic}» для начинающих`, `7 практических советов про ${topic}`, `Как выбрать ${topic} в 2026 году - чек-лист`]
     : [`A beginner's guide to ${topic}`, `7 practical tips about ${topic}`, `How to choose ${topic} in 2026 - a checklist`];
@@ -116,11 +139,48 @@ async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" 
     .replace(/<\/?h1[^>]*>/gi, "")
     .replace(/&lt;script[\s\S]*?&lt;\/script&gt;/gi, "")
     .slice(0, 30000);
+  // Defensive cleanup: strip first-person greetings / self-introductions that slipped through.
+  html = sanitizeFirstPersonOpenings(html, author?.name);
   return {
     title: String(parsed.title || seeds[idx % seeds.length]).slice(0, 200),
     content: html,
     meta_description: String(parsed.meta_description || "").slice(0, 280),
   };
+}
+
+// Removes opening greetings and first-person self-introduction sentences from generated HTML.
+function sanitizeFirstPersonOpenings(html: string, authorName?: string): string {
+  if (!html) return html;
+  const greetingPatterns: RegExp[] = [
+    /^(\s*<p>)\s*(привет[^<.!?]*[.!?]\s*)+/i,
+    /^(\s*<p>)\s*(здравствуйте[^<.!?]*[.!?]\s*)+/i,
+    /^(\s*<p>)\s*(добрый\s+(?:день|вечер|утро)[^<.!?]*[.!?]\s*)+/i,
+    /^(\s*<p>)\s*(дорогие\s+читатели[^<.!?]*[.!?]\s*)+/i,
+    /^(\s*<p>)\s*(hi|hello|hey)[^<.!?]*[.!?]\s*/i,
+  ];
+  // Self-introduction sentences: "Я <Name>", "Меня зовут ...", "Я расскажу", "В этой статье я ..."
+  const selfIntro: RegExp[] = [
+    /\bя\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?\s*[—\-,.][^<.!?]*[.!?]/g,
+    /меня\s+зовут[^<.!?]*[.!?]/gi,
+    /в\s+этой\s+статье\s+я[^<.!?]*[.!?]/gi,
+    /я\s+расскажу[^<.!?]*[.!?]/gi,
+    /\bI(?:'m| am)\s+[A-Z][a-z]+[^<.!?]*[.!?]/g,
+    /my\s+name\s+is[^<.!?]*[.!?]/gi,
+    /in\s+this\s+article\s+I[^<.!?]*[.!?]/gi,
+  ];
+  let out = html;
+  for (const re of greetingPatterns) out = out.replace(re, "$1");
+  for (const re of selfIntro) out = out.replace(re, "");
+  if (authorName) {
+    const safe = authorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`\\bя\\s+${safe}[^<.!?]*[.!?]`, "gi"), "");
+    out = out.replace(new RegExp(`\\bI\\s+am\\s+${safe}[^<.!?]*[.!?]`, "gi"), "");
+  }
+  // Collapse empty <p></p> left after stripping
+  out = out.replace(/<p>\s*<\/p>/gi, "");
+  // Collapse double spaces
+  out = out.replace(/[ \t]{2,}/g, " ");
+  return out;
 }
 
 serve(async (req) => {
