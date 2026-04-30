@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Users, Save, Trash2, Coins, Clock, Mail, ChevronDown, ChevronUp, FileText, Target, Calendar, CreditCard } from "lucide-react";
+import { Users, Save, Trash2, Coins, Clock, Mail, ChevronDown, ChevronUp, FileText, Target, Calendar, CreditCard, Shield, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useMemo } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -79,6 +79,50 @@ export function UserManagementTab() {
       if (error) throw error;
       return data as UserProfile[];
     },
+  });
+
+  // Roles per user (admin / staff / user). A user may have several roles —
+  // we surface the "highest" one (admin > staff > user) in the UI.
+  const { data: roles = [] } = useQuery({
+    queryKey: ["admin-user-roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+      if (error) throw error;
+      return data as { user_id: string; role: "admin" | "staff" | "user" }[];
+    },
+  });
+
+  const rolesByUser = useMemo(() => {
+    const map = new Map<string, "admin" | "staff" | "user">();
+    const rank = { user: 0, staff: 1, admin: 2 } as const;
+    for (const r of roles) {
+      const cur = map.get(r.user_id);
+      if (!cur || rank[r.role] > rank[cur]) map.set(r.user_id, r.role);
+    }
+    return map;
+  }, [roles]);
+
+  const setUserRole = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: "admin" | "staff" | "user" }) => {
+      // Replace all rows for this user with a single chosen role. We always
+      // keep at least one row so RLS using has_role() keeps working.
+      const { error: delErr } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId);
+      if (delErr) throw delErr;
+      const { error: insErr } = await supabase
+        .from("user_roles")
+        .insert({ user_id: userId, role });
+      if (insErr) throw insErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user-roles"] });
+      toast.success("Роль обновлена");
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const { data: statsData = [] } = useQuery({
