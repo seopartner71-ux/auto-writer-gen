@@ -14,7 +14,7 @@ import { hash as blake3 } from "npm:blake3-wasm@2.1.5";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
-import { generateLandingContent, renderLandingHtml, pickSkin } from "./landingPage.ts";
+import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages } from "./landingPage.ts";
 import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles } from "./seoChrome.ts";
 
 const corsHeaders = {
@@ -522,6 +522,30 @@ serve(async (req) => {
           businessType: String(body.business_type|| "").slice(0, 80),
         },
       );
+      // Resolve FAL.ai key (api_keys table > env) and generate (or reuse) all
+      // landing images via FAL flux/schnell. Cached per (project_id, slot) so
+      // subsequent re-deploys never regenerate the same picture.
+      let falKey: string | null = null;
+      try {
+        const { data: falRow } = await supabaseAdmin
+          .from("api_keys").select("api_key")
+          .eq("provider", "fal_ai").eq("is_valid", true).limit(1).maybeSingle();
+        falKey = (falRow?.api_key as string) || Deno.env.get("FAL_AI_API_KEY") || null;
+      } catch {
+        falKey = Deno.env.get("FAL_AI_API_KEY") || null;
+      }
+      const generatedImages = await ensureLandingImages(
+        supabaseAdmin,
+        projectId,
+        falKey,
+        {
+          niche: topic,
+          region: String(body.region || (project as any).region || ""),
+          audience: String(body.audience || ""),
+          team: landingContent.team || [],
+          posts: posts.slice(0, 3).map((p) => ({ title: p.title, slug: p.slug })),
+        },
+      );
       const landingHtml = renderLandingHtml(
         {
           siteName, topic, lang: lang as "ru" | "en",
@@ -537,6 +561,7 @@ serve(async (req) => {
           companyAddress: (project as any).company_address || undefined,
           workHours: (project as any).work_hours || undefined,
           heroImageUrl: heroImage,
+          generatedImages,
         },
         landingContent,
         "", // nav: not used when chromeOverride provided
