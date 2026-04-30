@@ -569,6 +569,12 @@ a.contact-item__value:hover{color:var(--accent,#0ea5e9);text-decoration:underlin
 .service-hero{background:linear-gradient(135deg,color-mix(in srgb,var(--accent,#0ea5e9) 10%,#fff),#fff);border:1px solid #e5e7eb;border-radius:16px;padding:36px 32px;margin:8px 0 28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
 .service-hero h1{margin:0 0 10px;font-size:32px;font-family:inherit;line-height:1.2}
 .service-hero__lead{margin:0;color:#475569;font-size:16px;line-height:1.55;max-width:760px}
+.service-hero{display:grid;grid-template-columns:1fr;gap:24px;align-items:center}
+.service-hero--with-image{grid-template-columns:1fr;padding:0;overflow:hidden;background:#fff}
+.service-hero--with-image .service-hero__copy{padding:32px 32px 28px}
+.service-hero__media{position:relative;margin:0;width:100%;aspect-ratio:21/9;background:#f1f5f9;overflow:hidden}
+.service-hero__media img{width:100%;height:100%;object-fit:cover;display:block}
+@media(min-width:860px){.service-hero--with-image{grid-template-columns:1.2fr 1fr}.service-hero--with-image .service-hero__media{height:100%;aspect-ratio:auto;min-height:280px}.service-hero--with-image .service-hero__copy{padding:40px 36px}}
 .service-blocks{display:grid;grid-template-columns:1fr;gap:20px;margin:0 0 28px}
 @media(min-width:860px){.service-blocks--2col{grid-template-columns:1fr 1fr}}
 .service-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:26px 28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
