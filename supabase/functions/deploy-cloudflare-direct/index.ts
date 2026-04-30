@@ -677,6 +677,7 @@ serve(async (req) => {
           siteName, topic, lang: lang as "ru" | "en",
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           domain, skin,
+          projectId,
           posts: posts.slice(0, 3).map((p) => ({
             title: p.title, slug: p.slug, excerpt: p.excerpt,
             featuredImageUrl: p.featuredImageUrl,
