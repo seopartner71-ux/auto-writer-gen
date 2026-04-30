@@ -827,6 +827,8 @@ serve(async (req) => {
             ? renderDarkArticle({ chrome: chromeTpl, post: p, related, postIndex: i })
             : homepageStyle === "local"
             ? renderLocalArticle({ chrome: chromeTpl, post: p, related, postIndex: i })
+            : homepageStyle === "expert"
+            ? renderExpertArticle({ chrome: chromeTpl, post: p, related, postIndex: i })
             : renderMinimalArticle({ chrome: chromeTpl, post: p, related, postIndex: i });
         }
         if (files["index.html"]) files["blog/index.html"] = files["index.html"];
@@ -842,6 +844,12 @@ serve(async (req) => {
             generatedImages, expertAuthor: enrichedAuthors[0] || null,
           });
           files["style.css"] = (files["style.css"] || "") + "\n" + localExtraCss(chromeTpl);
+        } else if (homepageStyle === "expert") {
+          files["index.html"] = renderExpertHome({
+            chrome: chromeTpl, posts: allPosts, content: tplContent,
+            generatedImages, expertAuthor: enrichedAuthors[0] || null,
+          });
+          files["style.css"] = (files["style.css"] || "") + "\n" + expertExtraCss(chromeTpl);
         } else {
           files["index.html"] = renderMinimalHome({
             chrome: chromeTpl, posts: allPosts, content: tplContent,
