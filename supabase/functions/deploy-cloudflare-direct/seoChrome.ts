@@ -613,7 +613,7 @@ ${COOKIE_BANNER_CSS}
 
 export function buildHead(c: SiteChrome, m: PageMeta): string {
   const canonical = absUrl(c.domain, m.path);
-  const ogImage = m.ogImage || c.ogImageUrl || "";
+  const ogImage = m.ogImage || c.ogImageUrl || c.iconUrl || "";
   const robots = m.noIndex ? "noindex,nofollow" : "index,follow,max-image-preview:large";
 
   const lds: unknown[] = [websiteLd(c), organizationLd(c), breadcrumbsLd(c, m.breadcrumbs)];
