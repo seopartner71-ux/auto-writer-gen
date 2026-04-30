@@ -725,6 +725,11 @@ section{padding:${t.sectionPad}}
 .hero-form input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
 .hero-form .btn{width:100%;justify-content:center;margin-top:6px}
 .hero-form .consent{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5}
+.form-agree{display:flex;align-items:flex-start;gap:8px;margin:12px 0 4px;font-size:12px;color:var(--muted);line-height:1.5;text-align:left;cursor:pointer}
+.form-agree input[type=checkbox]{width:16px;height:16px;margin-top:2px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
+.form-agree a{color:var(--accent);text-decoration:underline}
+.cta-form .form-agree{flex-basis:100%;justify-content:center;color:rgba(255,255,255,.75);margin-top:4px}
+.cta-form .form-agree a{color:#fff}
 @media(max-width:860px){.hero-inner{grid-template-columns:1fr;padding:64px 0;min-height:auto}}
 
 /* Stats */
