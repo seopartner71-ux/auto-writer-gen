@@ -10,6 +10,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
+import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -124,7 +125,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabase
       .from("projects")
-      .select("id, name, site_name, site_about, language, region")
+      .select("id, name, site_name, site_about, language, region, ai_model")
       .eq("id", projectId)
       .maybeSingle();
     if (projErr || !project) {
@@ -139,6 +140,7 @@ serve(async (req) => {
     const lang = (project.language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en";
 
     const apiKey = await getOpenRouterKey(admin);
+    const aiModel = resolveOpenRouterModel((project as any).ai_model);
     let payload: ReturnType<typeof fallback> | null = null;
 
     if (apiKey) {
@@ -234,7 +236,7 @@ Generate JSON with EXACT fields:
             "X-Title": "SEO-Module Site Content",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: aiModel,
             temperature: 0.9,
             response_format: { type: "json_object" },
             messages: [
@@ -253,7 +255,7 @@ Generate JSON with EXACT fields:
             project_id: projectId,
             user_id: user.id,
             operation_type: "site_generation",
-            model: "google/gemini-2.5-flash",
+            model: aiModel,
             tokens_input: Number(usage.prompt_tokens || 0),
             tokens_output: Number(usage.completion_tokens || 0),
             metadata: { context: "site_profile_full" },
