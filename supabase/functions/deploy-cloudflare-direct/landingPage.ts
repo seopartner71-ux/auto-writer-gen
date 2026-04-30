@@ -1086,10 +1086,14 @@ export async function generateLandingContent(
   const _seed = seed || (siteName + "::" + topic);
   const seededHero = buildSeededHero(topic, siteName, lang, (nicheCtx.region || "").trim(), _seed);
   const seededTeam = buildSeededTeam(topic, lang, _seed);
+  const seededStats = buildSeededStats(topic, lang, _seed);
+  const seededServices = buildSeededServices(topic, lang, _seed);
   const fallback: LandingContent = {
     ...baseFallback,
     ...seededHero,
     team: seededTeam,
+    stats: seededStats,
+    services: seededServices,
   };
 
   if (!LOVABLE_API_KEY) {
@@ -1169,11 +1173,28 @@ FORMAT: Natural English, no corporate jargon. Realistic prices, phone, address. 
     const BANNED_HERO = /(профессиональные решения по теме|решения по теме|решения в области|услуги по теме|комплекс услуг|лидер рынка|professional solutions for|solutions in the field of|comprehensive services|industry leader|market leader)/i;
     const BANNED_NAMES = new Set(["Алексей Иванов","Мария Петрова","Дмитрий Соколов","Alex Johnson","Maria Smith","David Brown"]);
     const BANNED_ROLES = /^(руководитель|главный специалист|менеджер проектов|director|lead specialist|project manager)$/i;
+    const BANNED_SERVICE_TITLES = /^(базовый( пакет)?|стандарт|премиум|basic( package)?|standard|premium)$/i;
+    // Fingerprint stat values from the old hardcoded fallback.
+    const FINGERPRINT_STATS = new Set(["1500+", "1,500+", "12", "98%", "24/7"]);
     if (BANNED_HERO.test(clean.heroTitle) || BANNED_HERO.test(clean.heroSubtitle)) {
       Object.assign(clean, seededHero);
     }
     if (clean.team.some((m) => BANNED_NAMES.has(m.name) || BANNED_ROLES.test((m.role || "").trim()))) {
       clean.team = seededTeam;
+    }
+    // If AI returned the generic Basic/Standard/Premium packs, swap with seeded niche packs.
+    if (
+      !Array.isArray(clean.services) || clean.services.length < 3 ||
+      clean.services.slice(0, 3).every((s) => BANNED_SERVICE_TITLES.test((s.title || "").trim()))
+    ) {
+      clean.services = seededServices;
+    }
+    // If AI parroted the old fingerprint stat numbers, swap with seeded ones.
+    if (
+      !Array.isArray(clean.stats) || clean.stats.length < 4 ||
+      clean.stats.slice(0, 4).every((s) => FINGERPRINT_STATS.has((s.value || "").trim()))
+    ) {
+      clean.stats = seededStats;
     }
     return { ...clean, ...overrides };
   } catch (e) {
