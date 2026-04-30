@@ -17,6 +17,7 @@ import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages } from "./landingPage.ts";
 import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles } from "./seoChrome.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
+import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -690,6 +691,32 @@ serve(async (req) => {
       );
     } catch (e) {
       console.warn("[deploy-cloudflare-direct] anti-fp skipped:", (e as Error).message);
+    }
+
+    // ---- WordPress emulation (Stage 2) --------------------------------------
+    // Inject WP signatures (generator meta, RSD/wlwmanifest links, body/article
+    // CSS classes), create wp-content/wp-json/wp-includes/xmlrpc/wp-login
+    // assets, generate /feed/ + /comments/feed/ RSS, and replace robots.txt
+    // with a WP-flavoured version. All deterministic from projectId.
+    try {
+      const seed = String(projectId || domain || siteName);
+      applyWordPressEmulation(files, {
+        seed,
+        domain,
+        siteName,
+        siteAbout: siteAbout || topic || siteName,
+        lang: project?.lang || "ru",
+        posts: posts.map((p: any) => ({
+          title: p.title,
+          slug: p.slug,
+          excerpt: p.excerpt,
+          contentHtml: p.contentHtml,
+          publishedAt: p.publishedAt,
+        })),
+      });
+      console.log("[deploy-cloudflare-direct] wp-emulation applied; total files:", Object.keys(files).length);
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] wp-emulation skipped:", (e as Error).message);
     }
 
     // 3. Compute manifest { "/path": hash }
