@@ -173,6 +173,100 @@ const POOLS: Record<string, { ru: string[]; en: string[] }> = {
       "The link looks outdated",
     ],
   },
+
+  // ----- Magazine homepage pools (template №2) -----
+  magAboutTitle: {
+    ru: [
+      "О журнале",
+      "Что мы пишем",
+      "Наша редакция",
+      "О проекте",
+      "Кто мы такие",
+    ],
+    en: [
+      "About the magazine",
+      "What we cover",
+      "Our editorial",
+      "About the project",
+      "Who we are",
+    ],
+  },
+  magAboutText: {
+    ru: [
+      "Независимое издание о практике и опыте — без воды и инфоповодов ради инфоповодов.",
+      "Разбираем рынок изнутри: гайды, кейсы, интервью с практиками и обзоры инструментов.",
+      "Пишем простым языком о сложных вещах. Каждый материал проверяет редактор-практик.",
+      "Собираем материалы, которые помогают принимать решения, а не пугают трендами.",
+      "Журнал для тех, кто работает руками и хочет читать редакторский, а не рекламный контент.",
+    ],
+    en: [
+      "An independent publication about real practice — no fluff, no clickbait.",
+      "We cover the industry from the inside: guides, case studies, interviews and tool reviews.",
+      "We explain complex things in plain language. Every story is reviewed by a hands-on editor.",
+      "Materials that help you decide, not scare you with trends.",
+      "A magazine for people who actually do the work and want editorial, not ads.",
+    ],
+  },
+  magReadAll: {
+    ru: ["Читать все материалы", "Все статьи журнала", "Открыть архив", "Перейти к материалам", "Читать дальше"],
+    en: ["Read all stories", "All articles", "Open the archive", "See all materials", "Keep reading"],
+  },
+  magCategoriesTitle: {
+    ru: ["Тематические рубрики", "Разделы журнала", "О чём пишем", "Темы материалов", "Рубрики"],
+    en: ["Topics we cover", "Sections", "What we write about", "Categories", "Browse by topic"],
+  },
+  magPopularTitle: {
+    ru: ["Самое читаемое", "Топ материалов недели", "Популярное", "Что читают сейчас", "Хиты редакции"],
+    en: ["Most read", "Top of the week", "Popular", "Trending now", "Editor's hits"],
+  },
+  magExpertTitle: {
+    ru: ["Экспертная колонка", "Слово редактора", "От первого лица", "Колонка эксперта", "Мнение редакции"],
+    en: ["Expert column", "Editor's note", "From the editor", "Expert opinion", "Editorial"],
+  },
+  magExpertCta: {
+    ru: ["Все материалы автора", "Читать колонку", "Все статьи автора", "Архив автора", "Больше от автора"],
+    en: ["All posts by author", "Read the column", "All author's articles", "Author archive", "More from the author"],
+  },
+  magNewsletterTitle: {
+    ru: ["Подпишитесь на рассылку", "Дайджест на почту", "Лучшее за неделю — на почту", "Письмо от редакции", "Получайте новые материалы"],
+    en: ["Subscribe to the newsletter", "Weekly digest", "Best of the week — by email", "Editor's letter", "Get new stories"],
+  },
+  magNewsletterButton: {
+    ru: ["Подписаться", "Получать письма", "Хочу дайджест", "Подпишите меня", "Готов читать"],
+    en: ["Subscribe", "Get the letter", "Sign me up", "Send the digest", "Subscribe me"],
+  },
+  magCommentsTitle: {
+    ru: ["Обсуждение", "Комментарии", "Что вы думаете?", "Ваше мнение", "Дискуссия"],
+    en: ["Discussion", "Comments", "What do you think?", "Your opinion", "Join the conversation"],
+  },
+  magReadingTime: {
+    ru: ["мин чтения", "минут чтения", "мин на чтение", "мин"],
+    en: ["min read", "minutes read", "min", "min to read"],
+  },
+  magViews: {
+    ru: ["просмотров", "прочтений", "читателей"],
+    en: ["views", "reads", "readers"],
+  },
+  magCategoryAll: {
+    ru: ["Все", "Все материалы", "Главная лента"],
+    en: ["All", "All stories", "Main feed"],
+  },
+  magCategoryTips: {
+    ru: ["Советы", "Лайфхаки", "Подсказки", "Практика"],
+    en: ["Tips", "Hacks", "How-tos", "Practice"],
+  },
+  magCategoryReviews: {
+    ru: ["Обзоры", "Разборы", "Тесты", "Сравнения"],
+    en: ["Reviews", "Breakdowns", "Tests", "Comparisons"],
+  },
+  magCategoryNews: {
+    ru: ["Новости", "События", "Анонсы", "Свежее"],
+    en: ["News", "Events", "Announcements", "Latest"],
+  },
+  magCategoryGuides: {
+    ru: ["Гайды", "Инструкции", "Чек-листы", "Пошагово"],
+    en: ["Guides", "How-tos", "Checklists", "Step by step"],
+  },
 };
 
 /**

@@ -15,7 +15,8 @@ import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages, ensureSiteIcon } from "./landingPage.ts";
-import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles, build404Page } from "./seoChrome.ts";
+import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles, build404Page, pickAuthor } from "./seoChrome.ts";
+import { renderMagazineHome, renderMagazineArticle, magazineExtraCss } from "./magazinePage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 
@@ -370,7 +371,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabaseAdmin
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages")
+      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -666,6 +667,43 @@ serve(async (req) => {
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
     // ---- Replace home page with the new professional landing -----------------
+    const homepageStyle: "landing" | "magazine" =
+      ((project as any).homepage_style === "magazine" ? "magazine" : "landing");
+    console.log("[deploy-cloudflare-direct] homepage_style:", homepageStyle);
+
+    if (homepageStyle === "magazine") {
+      try {
+        const chromeMag: any = {
+          domain, siteName, siteAbout, topic, lang,
+          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+          ...commonOpts,
+        };
+        // Re-render every post with the magazine layout (sticky sidebar etc.)
+        const allPosts = posts.map((p: any) => ({
+          title: p.title, slug: p.slug, excerpt: p.excerpt || "",
+          contentHtml: p.contentHtml || "",
+          publishedAt: p.publishedAt, modifiedAt: p.modifiedAt,
+          featuredImageUrl: p.featuredImageUrl,
+        }));
+        for (const p of allPosts) {
+          const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 3);
+          files[`posts/${p.slug}.html`] = renderMagazineArticle({
+            chrome: chromeMag, post: p, related, popular: allPosts.slice(0, 5),
+          });
+        }
+        // Magazine homepage replaces /index.html; keep simple list at /blog/.
+        if (files["index.html"]) files["blog/index.html"] = files["index.html"];
+        files["index.html"] = renderMagazineHome({
+          chrome: chromeMag, posts: allPosts,
+          expertAuthor: pickAuthor(((project as any).authors || []) as any, "expert"),
+        });
+        // Append magazine CSS to global stylesheet.
+        files["style.css"] = (files["style.css"] || "") + "\n" + magazineExtraCss(chromeMag);
+        console.log("[deploy-cloudflare-direct] magazine homepage applied");
+      } catch (e) {
+        console.warn("[deploy-cloudflare-direct] magazine gen failed:", (e as Error).message);
+      }
+    } else {
     try {
       const heroImage = posts[0]?.featuredImageUrl;
       const skin = pickSkin(templateKey + "::" + projectId);
@@ -743,6 +781,7 @@ serve(async (req) => {
       console.log("[deploy-cloudflare-direct] landing applied (skin", skin, ")");
     } catch (e) {
       console.warn("[deploy-cloudflare-direct] landing gen failed, keeping default index:", (e as Error).message);
+    }
     }
 
     // ---- Custom 404 page ----------------------------------------------------
