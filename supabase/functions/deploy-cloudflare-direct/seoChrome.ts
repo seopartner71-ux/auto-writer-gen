@@ -284,6 +284,23 @@ function websiteLd(c: SiteChrome) {
   };
 }
 
+// Speakable specification — helps voice assistants and AI search engines
+// (Google Assistant, Perplexity, Gemini, ChatGPT Search, Яндекс AI) pick the
+// most important parts of the page to read out / quote.
+function speakableLd(c: SiteChrome, m: PageMeta) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    url: absUrl(c.domain, m.path),
+    name: m.title,
+    inLanguage: c.lang,
+    speakable: {
+      "@type": "SpeakableSpecification",
+      cssSelector: [".ai-summary", "h1", ".hero-subtitle", ".lead", "article p:first-of-type"],
+    },
+  };
+}
+
 function breadcrumbsLd(c: SiteChrome, items: { label: string; href: string }[]) {
   return {
     "@context": "https://schema.org",
