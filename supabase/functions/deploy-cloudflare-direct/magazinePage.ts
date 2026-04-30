@@ -280,6 +280,16 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
   const rowMid   = list.slice(5, 8);
   const popular  = list.slice(0, 5);
 
+  // Build a stable slug -> global-index map across the whole post array
+  // so author/category rotation is consistent on the homepage AND on each
+  // individual article page.
+  const idxBySlug = new Map<string, number>();
+  posts.forEach((p, i) => idxBySlug.set(p.slug, i));
+  const idxOf = (slug: string) => idxBySlug.get(slug) ?? 0;
+  const catOf = (slug: string) => postCategoryByIndex(idxOf(slug), cats);
+  const authorOf = (slug: string) =>
+    pickAuthorByIndex(c.authors || [], idxOf(slug));
+
   const minLabelPool = pickPhrase("magReadingTime", c.lang, seed);
 
   const heroHtml = hero ? `
@@ -288,10 +298,10 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
         <figure>
           <img src="${escAttr(postImage(hero, 1600, 720))}" alt="${escAttr(uniqueImageAlt(c, hero.title, 0))}" width="1600" height="720" loading="eager" decoding="async" fetchpriority="high">
           <figcaption>
-            <span class="mag-rubric-tag">${escHtml(postCategory(hero.slug, cats).label)}</span>
+            <span class="mag-rubric-tag">${escHtml(catOf(hero.slug).label)}</span>
             <h1>${escHtml(hero.title)}</h1>
             <div class="mag-meta">
-              ${(() => { const a = pickAuthor(c.authors || [], hero.slug); return a ? `<address style="font-style:normal">${escHtml(a.name)}</address>` : ""; })()}
+              ${(() => { const a = authorOf(hero.slug); return a ? `<address style="font-style:normal">${escHtml(a.name)}</address>` : ""; })()}
               ${hero.publishedAt ? (() => { const d = fmtDate(hero.publishedAt, isRu); return `<time datetime="${escAttr(d.dt)}">${escHtml(d.label)}</time>`; })() : ""}
               <span>${readingTime(hero.contentHtml)} ${escHtml(minLabelPool)}</span>
             </div>
@@ -301,7 +311,7 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
     </section>` : "";
 
   const sideCardHtml = (p: PostInput): string => {
-    const cat = postCategory(p.slug, cats);
+    const cat = catOf(p.slug);
     const d = fmtDate(p.publishedAt, isRu);
     return `
       <a class="mag-side-card" href="/posts/${escAttr(p.slug)}.html">
@@ -321,10 +331,11 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
           <img src="${escAttr(postImage(featured, 1200, 680))}" alt="${escAttr(uniqueImageAlt(c, featured.title, 2))}" width="1200" height="680" loading="lazy" decoding="async">
         </figure>
         <div class="mag-card-body">
-          <span class="mag-rubric-tag">${escHtml(postCategory(featured.slug, cats).label)}</span>
+          <span class="mag-rubric-tag">${escHtml(catOf(featured.slug).label)}</span>
           <h2>${escHtml(featured.title)}</h2>
           <p>${escHtml(featured.excerpt)}</p>
           <div class="mag-meta">
+            ${(() => { const a = authorOf(featured.slug); return a ? `<address style="font-style:normal">${escHtml(a.name)}</address>` : ""; })()}
             ${featured.publishedAt ? (() => { const d = fmtDate(featured.publishedAt, isRu); return `<time datetime="${escAttr(d.dt)}">${escHtml(d.label)}</time>`; })() : ""}
             <span>${readingTime(featured.contentHtml)} ${escHtml(minLabelPool)}</span>
           </div>
@@ -333,7 +344,8 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
     </article>` : "";
 
   const rowMidHtml = rowMid.map((p) => {
-    const cat = postCategory(p.slug, cats);
+    const cat = catOf(p.slug);
+    const a = authorOf(p.slug);
     const d = fmtDate(p.publishedAt, isRu);
     return `
       <article>
@@ -345,6 +357,7 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
             <span class="mag-rubric-tag">${escHtml(cat.label)}</span>
             <h3>${escHtml(p.title)}</h3>
             <div class="mag-meta">
+              ${a ? `<address style="font-style:normal">${escHtml(a.name)}</address>` : ""}
               ${d.label ? `<time datetime="${escAttr(d.dt)}">${escHtml(d.label)}</time>` : ""}
               <span>${readingTime(p.contentHtml)} ${escHtml(minLabelPool)}</span>
             </div>
