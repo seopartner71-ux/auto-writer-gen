@@ -427,7 +427,7 @@ export function renderMagazineHome(opts: MagazineHomeOpts): string {
 
   const expert = opts.expertAuthor || (c.authors && c.authors[0]) || null;
   const expertHtml = expert ? (() => {
-    const ava = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(expert.avatar_seed || expert.name)}`;
+    const ava = portraitUrl(expert, c.accent, seed);
     const quote = expert.bio
       ? expert.bio.split(/[.!?]/).filter((s) => s.trim().length > 20)[0] || expert.bio
       : (isRu ? "Хороший материал — это материал, который помогает читателю принять решение." : "A good story is one that helps the reader decide.");
