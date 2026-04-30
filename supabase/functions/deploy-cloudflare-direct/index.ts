@@ -144,6 +144,38 @@ function markdownToHtml(md: string): string {
     // blank line
     if (!line.trim()) { flushPara(); flushList(); i++; continue; }
 
+    // GFM table: header row | --- | --- | ... followed by body rows.
+    // Detect when current line has at least one "|" AND next line is a
+    // separator like "| --- | :---: | ---: |" (dashes optionally with colons).
+    if (line.includes("|") && i + 1 < lines.length) {
+      const sep = lines[i + 1].trim();
+      const isSep = /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(sep);
+      if (isSep) {
+        flushPara(); flushList();
+        const splitRow = (s: string): string[] => {
+          let r = s.trim();
+          if (r.startsWith("|")) r = r.slice(1);
+          if (r.endsWith("|"))   r = r.slice(0, -1);
+          return r.split("|").map((c) => c.trim());
+        };
+        const headers = splitRow(line);
+        i += 2; // skip header + separator
+        const rows: string[][] = [];
+        while (i < lines.length) {
+          const r = lines[i].trim();
+          if (!r || !r.includes("|")) break;
+          rows.push(splitRow(lines[i]));
+          i++;
+        }
+        const thead = `<thead><tr>${headers.map((h) => `<th>${inline(h)}</th>`).join("")}</tr></thead>`;
+        const tbody = `<tbody>${rows.map((r) =>
+          `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`
+        ).join("")}</tbody>`;
+        out.push(`<table class="md-table">${thead}${tbody}</table>`);
+        continue;
+      }
+    }
+
     // headings
     const h = line.match(/^(#{1,6})\s+(.+)$/);
     if (h) {
