@@ -1510,7 +1510,8 @@ export function buildPostPage(
   const heroUrl  = post.featuredImageUrl && /^https?:\/\//.test(post.featuredImageUrl)
     ? post.featuredImageUrl
     : `https://picsum.photos/seed/${heroSeed}/1200/600`;
-  const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(post.title)}" loading="eager" width="1200" height="600">`;
+  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(heroAlt)}" loading="eager" decoding="async" fetchpriority="high" width="1200" height="600">`;
 
   // AI Summary — short direct answer in the first ~100 words. Optimised for
   // AI search engines (Perplexity, ChatGPT Search, Gemini, Яндекс AI) and
@@ -1574,7 +1575,8 @@ export function buildIndexHomePage(c: SiteChrome, postsList: PostInput[]): strin
   const cardImg = (p: PostInput) => {
     const fallback = `https://picsum.photos/seed/${encodeURIComponent(p.slug || p.title || "post").slice(0, 60)}/600/360`;
     const url = p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl) ? p.featuredImageUrl : fallback;
-    return `<img src="${escAttr(url)}" alt="${escAttr(p.title)}" loading="lazy" width="600" height="360"
+    const alt = uniqueImageAlt(c, p.title, (p.slug || "").length % 4);
+    return `<img src="${escAttr(url)}" alt="${escAttr(alt)}" loading="lazy" decoding="async" width="600" height="360"
       style="display:block;width:100%;aspect-ratio:5/3;object-fit:cover;border-radius:10px 10px 0 0;background:#e2e8f0">`;
   };
   const cards = postsList.length === 0
