@@ -349,6 +349,18 @@ export function UserManagementTab() {
                               Ожидает
                             </Badge>
                           )}
+                          {rolesByUser.get(p.id) === "admin" && (
+                            <Badge variant="outline" className="text-[10px] border-primary/60 text-primary gap-1 px-1.5 py-0">
+                              <Shield className="h-2.5 w-2.5" />
+                              Админ
+                            </Badge>
+                          )}
+                          {rolesByUser.get(p.id) === "staff" && (
+                            <Badge variant="outline" className="text-[10px] border-emerald-500/60 text-emerald-500 gap-1 px-1.5 py-0">
+                              <Briefcase className="h-2.5 w-2.5" />
+                              Сотрудник
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{p.full_name || '—'}</TableCell>
