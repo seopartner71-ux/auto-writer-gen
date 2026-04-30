@@ -705,7 +705,7 @@ serve(async (req) => {
         domain,
         siteName,
         siteAbout: siteAbout || topic || siteName,
-        lang: project?.lang || "ru",
+        lang,
         posts: posts.map((p: any) => ({
           title: p.title,
           slug: p.slug,
