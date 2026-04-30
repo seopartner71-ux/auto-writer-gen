@@ -689,6 +689,8 @@ export interface LandingCtx {
   iconUrl?: string;
   /** Floating "Back to top" position; default left-bottom. */
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
+  /** Stable seed for phrase-pool randomization (defaults to domain). */
+  projectId?: string;
 }
 
 // ----------------------------- Helpers --------------------------------------
