@@ -262,7 +262,13 @@ serve(async (req) => {
     }
 
     const lang: "ru" | "en" = String(project.language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en";
-    const topic = body.topic || project.site_about || project.site_name || project.name || (lang === "ru" ? "блог" : "blog");
+    // CRITICAL: site_name / project.name is the BRAND (e.g. "Новости Тулы"), not the niche.
+    // Topic (the actual subject of articles) must come from body.topic or site_about.
+    // Never fall back to project.name — that produces "Как выбрать Новости Тулы".
+    const rawTopic = body.topic || project.site_about || (lang === "ru" ? "выбранная ниша" : "the chosen niche");
+    // Trim site_about to a short niche phrase (first clause, max 80 chars).
+    const topic = String(rawTopic).replace(/<[^>]+>/g, " ").split(/[.!?\n«»]/)[0].trim().slice(0, 80) || (lang === "ru" ? "ниша" : "niche");
+    const brandName = String(project.site_name || project.name || "").trim() || undefined;
     const apiKey = await getOpenRouterKey(admin);
     const falKey = Deno.env.get("FAL_AI_API_KEY") || "";
     const projectAuthors: SeedAuthor[] = Array.isArray((project as any).authors) ? (project as any).authors : [];
@@ -273,7 +279,7 @@ serve(async (req) => {
       const author = projectAuthors.length > 0 ? projectAuthors[i % projectAuthors.length] : undefined;
       let art;
       try {
-        art = apiKey ? await aiArticle(apiKey, topic, i, lang, author) : fallbackArticle(topic, i, lang);
+        art = apiKey ? await aiArticle(apiKey, topic, i, lang, author, brandName) : fallbackArticle(topic, i, lang);
       } catch (e: any) {
         console.error("[seed-starter-articles] AI fail, using fallback:", e?.message);
         art = fallbackArticle(topic, i, lang);
