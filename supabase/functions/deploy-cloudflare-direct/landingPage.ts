@@ -1849,6 +1849,15 @@ ${chromeOverride?.footerHtml || `<footer class="site-footer">
   <div class="copy">&copy; ${new Date().getFullYear()} ${esc(ctx.siteName)}. ${esc(isRu ? "Все права защищены." : "All rights reserved.")}</div>
 </footer>`}
 
+${sfWidgetsHtml({
+  lang: ctx.lang,
+  accent: ctx.accent,
+  consultantName: (c.team[0]?.name) || ctx.siteName,
+  consultantPhoto: ctx.generatedImages?.team_1,
+  siteName: ctx.siteName,
+  topic: ctx.topic,
+})}
+
 </body>
 </html>`;
 }
