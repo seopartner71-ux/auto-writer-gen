@@ -910,6 +910,7 @@ export function buildAboutPage(c: SiteChrome): string {
       <div class="team-grid">
         ${team.map((t) => `
           <div class="team-card">
+            <img class="team-card__photo" src="${escAttr(portraitUrl(t, c.accent, siteSeed(c)))}" alt="${escAttr(t.name)}" width="120" height="120" loading="lazy" decoding="async">
             <h3>${escHtml(t.name)}</h3>
             <div class="role">${escHtml(t.role || "")}</div>
             ${t.bio ? `<p>${escHtml(t.bio)}</p>` : ""}
