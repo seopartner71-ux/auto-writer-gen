@@ -26,6 +26,39 @@ async function getOpenRouterKey(admin: any): Promise<string | null> {
 
 const PH_INN = "7XXXXXXXXX (заполните после регистрации)";
 
+// Deterministic 10-digit Russian INN with valid mod-11 checksum.
+function fnv1a(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+const INN_REGIONS = ["77","78","50","23","66","16","52","74","47","61","63","59","02","55","54","24","27","33","73","39"];
+function deterministicInn(seed: string): string {
+  const region = INN_REGIONS[fnv1a(seed + ":region") % INN_REGIONS.length];
+  const body: number[] = [];
+  let h = fnv1a(seed + ":body") || 1;
+  for (let i = 0; i < 7; i++) {
+    h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0;
+    body.push(h % 10);
+  }
+  const digits = [Number(region[0]), Number(region[1]), ...body];
+  const w = [2,4,10,3,5,9,4,6,8];
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += digits[i] * w[i];
+  digits.push((s % 11) % 10);
+  return digits.join("");
+}
+function domainFromSiteName(siteName: string, lang: string): string {
+  const slug = String(siteName || "site").toLowerCase()
+    .replace(/[^a-z0-9а-яё]+/gi, "")
+    .replace(/[а-яё]/g, "") || "site";
+  return `${slug}.${lang === "ru" ? "ru" : "com"}`;
+}
+const MAIL_LOCAL = ["info","hello","team","press","editor","office","mail","contact"];
+function deterministicEmail(domain: string, seed: string): string {
+  return `${MAIL_LOCAL[fnv1a(seed + ":mail") % MAIL_LOCAL.length]}@${domain}`;
+}
+
 function fallback(siteName: string, siteAbout: string, topic: string) {
   const year = new Date().getFullYear() - Math.floor(2 + Math.random() * 8);
   return {
