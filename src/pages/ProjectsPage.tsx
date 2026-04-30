@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
-  Plus, Pencil, Trash2, Globe, Link2, FolderOpen, Loader2, FileText, CheckCircle2, Eye, Zap
+  Plus, Pencil, Trash2, Globe, Link2, FolderOpen, Loader2, FileText, CheckCircle2, Eye, Zap, Sparkles, RefreshCw
 } from "lucide-react";
 
 interface Project {
@@ -28,6 +28,7 @@ interface Project {
   language: string;
   region: string;
   auto_interlinking: boolean;
+  ai_model?: string;
   created_at: string;
   updated_at: string;
 }
@@ -61,6 +62,7 @@ const defaultForm = {
   language: "ru",
   region: "RU",
   auto_interlinking: true,
+  ai_model: "gemini-flash" as "gemini-flash" | "claude-sonnet",
 };
 
 export default function ProjectsPage() {
@@ -151,6 +153,7 @@ export default function ProjectsPage() {
             language: form.language,
             region: form.region,
             auto_interlinking: form.auto_interlinking,
+            ai_model: form.ai_model,
           })
           .eq("id", editingId);
         if (error) throw error;
@@ -162,6 +165,7 @@ export default function ProjectsPage() {
           language: form.language,
           region: form.region,
           auto_interlinking: form.auto_interlinking,
+          ai_model: form.ai_model,
         }).select("id").single();
         if (error) throw error;
         // Auto-activate new project
@@ -204,6 +208,7 @@ export default function ProjectsPage() {
       language: p.language,
       region: p.region,
       auto_interlinking: p.auto_interlinking,
+      ai_model: (p.ai_model as any) || "gemini-flash",
     });
     setDialogOpen(true);
   };
