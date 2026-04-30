@@ -494,6 +494,11 @@ a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .site-header{position:sticky;top:0;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid rgba(0,0,0,.08);z-index:50}
 .site-header__inner{max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;gap:24px}
 .site-header__brand{font-weight:700;text-decoration:none;font-size:20px}
+.site-header__brand{display:inline-flex;align-items:center;gap:10px;line-height:1;color:inherit}
+.site-header__logo{width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;flex-shrink:0;display:block}
+.site-header__brand-text{display:inline-block;vertical-align:middle}
+.site-footer__brand{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#fff;font-size:18px;margin-bottom:6px}
+.site-footer__logo{width:32px;height:32px;border-radius:6px;object-fit:contain;background:#fff;padding:2px;flex-shrink:0;display:block}
 .site-header__burger{display:none;background:none;border:0;padding:8px;cursor:pointer;flex-direction:column;gap:4px;width:44px;height:44px;align-items:center;justify-content:center}
 .site-header__burger span{width:22px;height:2px;background:#222;display:block}
 .site-nav{display:flex;gap:18px;flex-wrap:wrap}
