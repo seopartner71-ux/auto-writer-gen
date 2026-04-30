@@ -1216,10 +1216,22 @@ export function buildBusinessPage(c: SiteChrome, def: BpDef, html: string): stri
     ? html.replace(/<table([^>]*)>/g, '<table class="bp-pricing-table"$1>')
     : html;
 
+  const blocks = splitIntoBlocks(wrapped);
+  const leadBlock = blocks.find((b) => !b.heading && b.body);
+  const restBlocks = blocks.filter((b) => b !== leadBlock);
+  const leadText = leadBlock
+    ? leadBlock.body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220)
+    : "";
+
   const main = `
-    <article class="page-article">
-      <h1>${escHtml(label)}</h1>
-      ${wrapped}
+    <article class="service-page">
+      <header class="service-hero">
+        <h1>${escHtml(label)}</h1>
+        ${leadText ? `<p class="service-hero__lead">${escHtml(leadText)}</p>` : ""}
+      </header>
+      <div class="service-blocks">
+        ${(restBlocks.length ? restBlocks : blocks).map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
+      </div>
     </article>`;
   return wrapPage(c, {
     title: `${label} · ${c.siteName}`,
