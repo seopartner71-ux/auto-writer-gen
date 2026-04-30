@@ -32,6 +32,8 @@ interface SiteRow {
   projectId?: string;
   template?: string;
   templateName?: string;
+  attempts?: number;
+  failedStep?: string;
 }
 
 const STATUS_LABELS: Record<RowStatus, string> = {
@@ -66,7 +68,7 @@ export function SiteGridCreator() {
   const [running, setRunning] = useState(false);
   const [activeTemplates, setActiveTemplates] = useState<{ template_key: string; name: string }[]>([]);
   const [previewSpec, setPreviewSpec] = useState<SitePreviewSpec | null>(null);
-  const [lastReport, setLastReport] = useState<{ duration: string; cost: number; ok: number; err: number } | null>(null);
+  const [lastReport, setLastReport] = useState<{ duration: string; cost: number; ok: number; err: number; sites: SiteRow[] } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -196,42 +198,66 @@ export function SiteGridCreator() {
           console.warn("[SiteGridCreator] seed-starter-articles failed, continuing", e);
         }
 
-        // 5. Direct Upload deploy (no GitHub, no Astro)
+        // 5. Direct Upload deploy (no GitHub, no Astro) — with one retry on transient CF errors.
         updateRow(i, { status: "deploying" });
-        const { data: cfData, error: cfErr } = await supabase.functions.invoke("deploy-cloudflare-direct", {
-          body: {
-            project_id: projectId,
-            template_key: templateKey,
-            site_name: projectName,
-            site_about: spec.services
-              ? `${topic} - ${spec.services}${spec.region ? ` в ${spec.region}` : ""}`
-              : `${topic}${spec.region ? ` в ${spec.region}` : ""}`,
-            topic,
-            region: spec.region || undefined,
-            services: spec.services || undefined,
-            audience: spec.audience || undefined,
-            business_type: spec.businessType || undefined,
-          },
-        });
-        if (cfErr) throw new Error(cfErr.message);
-        if (cfData?.error) throw new Error(cfData.error + (cfData.message ? `: ${cfData.message}` : ""));
+        const cfBody = {
+          project_id: projectId,
+          template_key: templateKey,
+          site_name: projectName,
+          site_about: spec.services
+            ? `${topic} - ${spec.services}${spec.region ? ` в ${spec.region}` : ""}`
+            : `${topic}${spec.region ? ` в ${spec.region}` : ""}`,
+          topic,
+          region: spec.region || undefined,
+          services: spec.services || undefined,
+          audience: spec.audience || undefined,
+          business_type: spec.businessType || undefined,
+        };
+        let cfData: any = null;
+        let cfErr: any = null;
+        let attempts = 0;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          attempts = attempt;
+          updateRow(i, { attempts });
+          const r = await supabase.functions.invoke("deploy-cloudflare-direct", { body: cfBody });
+          cfData = r.data; cfErr = r.error;
+          const transient = cfErr || (cfData?.error && /timeout|network|503|502|504|temporarily|rate.?limit/i.test(String(cfData?.error || cfData?.message || "")));
+          if (!transient) break;
+          if (attempt < 2) await new Promise((res) => setTimeout(res, 3000));
+        }
+        if (cfErr) throw new Error(`[deploy] ${cfErr.message}`);
+        if (cfData?.error) {
+          const raw = String(cfData.error || "");
+          let friendly = raw;
+          if (/limit|500/i.test(raw)) friendly = "Cloudflare: превышен лимит проектов на аккаунте";
+          else if (/fal/i.test(raw)) friendly = "FAL AI недоступен — попробуйте позже";
+          else if (/openrouter|api.?key/i.test(raw)) friendly = "Ошибка генерации контента — проверьте API ключ";
+          throw new Error(friendly + (cfData.message ? ` (${cfData.message})` : ""));
+        }
 
         updateRow(i, { status: "done", url: cfData?.url || null });
       } catch (err: any) {
-        updateRow(i, { status: "error", error: err?.message || String(err) });
+        const msg = err?.message || String(err);
+        const step = msg.startsWith("[deploy]") ? "Cloudflare деплой" : "AI генерация контента";
+        updateRow(i, { status: "error", error: msg.replace(/^\[deploy\]\s*/, ""), failedStep: step });
       }
     }
 
     setRunning(false);
-    const okCount = rows.filter((r) => r.status === "done").length;
-    const errCount = rows.filter((r) => r.status === "error").length;
-    const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
-    const mins = Math.floor(elapsedSec / 60);
-    const secs = elapsedSec % 60;
-    const duration = mins > 0 ? `${mins}м ${secs}с` : `${secs}с`;
-    const estCost = okCount * 0.05;
-    setLastReport({ duration, cost: estCost, ok: okCount, err: errCount });
-    toast({ title: "Сетка создана", description: `Готово: ${okCount}/${queue.length} за ${duration}` });
+    // Use the latest rows (from setState callback to avoid stale closure).
+    setRows((latest) => {
+      const okCount = latest.filter((r) => r.status === "done").length;
+      const errCount = latest.filter((r) => r.status === "error").length;
+      const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+      const mins = Math.floor(elapsedSec / 60);
+      const secs = elapsedSec % 60;
+      const duration = mins > 0 ? `${mins}м ${secs}с` : `${secs}с`;
+      // ~$0.17 per site (gen + 3 articles + ~9 images), see cost_log breakdown.
+      const estCost = okCount * 0.17;
+      setLastReport({ duration, cost: estCost, ok: okCount, err: errCount, sites: latest });
+      toast({ title: "Сетка создана", description: `Готово: ${okCount}/${queue.length} за ${duration}` });
+      return latest;
+    });
   };
 
   return (
@@ -415,6 +441,29 @@ export function SiteGridCreator() {
                   <div><span className="text-muted-foreground">Время:</span> <span className="font-semibold">{lastReport.duration}</span></div>
                   <div><span className="text-muted-foreground">Стоимость:</span> <span className="font-semibold">~${lastReport.cost.toFixed(2)}</span></div>
                 </div>
+                {lastReport.ok > 0 && (
+                  <div className="mt-2 space-y-0.5 text-[11px]">
+                    {lastReport.sites.filter(s => s.status === "done" && s.url).slice(0, 5).map((s, i) => {
+                      const base = s.url!.replace(/\/$/, "");
+                      return (
+                        <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="text-muted-foreground">✅</span>
+                          <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{base.replace(/^https?:\/\//, "")}</a>
+                          <a href={`${base}/sitemap.xml`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">sitemap</a>
+                          <a href={`${base}/robots.txt`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">robots</a>
+                          <a href={`${base}/404`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">404</a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {lastReport.err > 0 && (
+                  <div className="mt-2 space-y-0.5 text-[11px] text-destructive/90">
+                    {lastReport.sites.filter(s => s.status === "error").slice(0, 5).map((s, i) => (
+                      <div key={i}>❌ {s.topic}{s.failedStep ? ` — ${s.failedStep}` : ""}: {s.error}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

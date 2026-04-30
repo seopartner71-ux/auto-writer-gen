@@ -12,6 +12,7 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 
 import { widgetsCss as sfWidgetsCss, widgetsHtml as sfWidgetsHtml } from "./siteWidgets.ts";
 import { pickPhrase } from "./phrasePools.ts";
+import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
 
 // ----------------------------- Niche-aware fallbacks ------------------------
 
@@ -774,6 +775,7 @@ async function falGenerate(
   falKey: string,
   prompt: string,
   size: "landscape_16_9" | "landscape_4_3" | "square_hd",
+  costCtx?: { admin?: any; projectId?: string; slot?: string; opType?: "fal_ai_photo" | "fal_ai_portrait" | "fal_ai_logo" },
 ): Promise<string | null> {
   try {
     const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
@@ -794,7 +796,17 @@ async function falGenerate(
     }
     const data = await res.json();
     const url = data?.images?.[0]?.url || null;
-    return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
+    const ok = typeof url === "string" && /^https?:\/\//.test(url);
+    if (ok && costCtx?.admin) {
+      void logCost(costCtx.admin, {
+        project_id: costCtx.projectId,
+        operation_type: costCtx.opType || "fal_ai_photo",
+        model: "fal-ai/flux/schnell",
+        cost_usd: FAL_IMAGE_COST_USD,
+        metadata: { slot: costCtx.slot, size },
+      });
+    }
+    return ok ? url : null;
   } catch (e: any) {
     console.warn("[landingPage.fal] error:", e?.message);
     return null;
@@ -913,7 +925,11 @@ export async function ensureLandingImages(
     const slice = jobs.slice(i, i + BATCH);
     const results = await Promise.all(
       slice.map(async (j) => {
-        const url = await falGenerate(falKey, j.prompt, j.size);
+        const isPortrait = j.slot.startsWith("team_");
+        const url = await falGenerate(falKey, j.prompt, j.size, {
+          admin, projectId, slot: j.slot,
+          opType: isPortrait ? "fal_ai_portrait" : "fal_ai_photo",
+        });
         return { job: j, url };
       }),
     );
@@ -980,7 +996,9 @@ export async function ensureSiteIcon(
     `vector style, clean lines, geometric, professional minimalist design, ` +
     `centered, plenty of whitespace, app icon style`;
 
-  const url = await falGenerate(falKey, prompt, "square_hd");
+  const url = await falGenerate(falKey, prompt, "square_hd", {
+    admin, projectId, slot: "logo_icon", opType: "fal_ai_logo",
+  });
   if (!url) return null;
 
   try {

@@ -1,5 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
+
+// Lazy admin client used for best-effort cost logging from helper functions.
+let _costAdmin: any = null;
+function getCostAdmin() {
+  if (_costAdmin) return _costAdmin;
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  _costAdmin = createClient(url, key);
+  return _costAdmin;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -115,7 +127,19 @@ async function generateImage(falKey: string, prompt: string): Promise<string> {
   });
   if (!r.ok) throw new Error("Image generation failed");
   const d = await r.json();
-  return d.images?.[0]?.url || "";
+  const url = d.images?.[0]?.url || "";
+  if (url) {
+    const admin = getCostAdmin();
+    if (admin) {
+      void logCost(admin, {
+        operation_type: "fal_ai_photo",
+        model: "fal-ai/flux/schnell",
+        cost_usd: FAL_IMAGE_COST_USD,
+        metadata: { source: "publish-github" },
+      });
+    }
+  }
+  return url;
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
