@@ -685,6 +685,8 @@ export interface LandingCtx {
   // team_1..3, post_1..3). When provided, the renderer uses them directly;
   // otherwise it falls back to Unsplash by topic and finally UI Avatars.
   generatedImages?: Record<string, string>;
+  /** Floating "Back to top" position; default left-bottom. */
+  totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
 
 // ----------------------------- Helpers --------------------------------------
@@ -1526,7 +1528,7 @@ section{padding:${t.sectionPad}}
 .foot-grid .desc{font-size:14px;line-height:1.6;color:rgba(255,255,255,.6)}
 .copy{max-width:1200px;margin:48px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);font-size:13px;color:rgba(255,255,255,.5);text-align:center}
 @media(max-width:860px){.foot-grid{grid-template-columns:1fr 1fr;gap:32px 20px}}
-${sfWidgetsCss()}
+${sfWidgetsCss(ctx.totopPosition || "left-bottom")}
 `;
 
   const stats = c.stats.slice(0, 4).map((s) => `

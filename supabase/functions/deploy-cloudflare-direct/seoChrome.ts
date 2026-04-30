@@ -68,6 +68,8 @@ export interface SiteChrome {
   clientsCountText?: string;
   authors?: Author[];
   businessPages?: BusinessPages;
+  /** Floating "Back to top" button placement; default left-bottom. */
+  totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
 
 export interface PageMeta {
@@ -657,6 +659,7 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
     consultantPhoto: undefined, // ui-avatars fallback (no FAL on inner pages)
     siteName: c.siteName,
     topic: c.topic,
+    totopPosition: c.totopPosition || "left-bottom",
   });
   return `${head}
 <body class="${escAttr(m.bodyClass || "")}">
@@ -676,7 +679,7 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
 export function chromeStyles(c: SiteChrome): string {
   return `:root{--accent:${c.accent}}
 ${CHROME_CSS}
-${widgetsCss()}
+${widgetsCss(c.totopPosition || "left-bottom")}
 `;
 }
 

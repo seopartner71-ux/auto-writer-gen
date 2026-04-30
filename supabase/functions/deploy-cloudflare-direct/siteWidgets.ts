@@ -22,6 +22,8 @@ function avatarFallback(name: string): string {
   return `https://ui-avatars.com/api/?name=${n}&size=160&background=random&format=png`;
 }
 
+export type TotopPosition = "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
+
 export interface WidgetOptions {
   lang: "ru" | "en" | string;
   accent: string;            // CSS color, e.g. "#0ea5e9"
@@ -29,13 +31,35 @@ export interface WidgetOptions {
   consultantPhoto?: string;  // URL; fallback to ui-avatars
   siteName: string;
   topic: string;
+  /** Position of the floating "Back to top" button. Defaults to left-bottom
+   *  so it never overlaps the right-side chat. Set to "hidden" to remove it. */
+  totopPosition?: TotopPosition;
 }
 
 /** CSS rules for both widgets. Scoped via .sf-* prefixes. */
-export function widgetsCss(): string {
+export function widgetsCss(totopPosition: TotopPosition = "left-bottom"): string {
+  // Resolve fixed-position anchors per requested corner. Mobile uses tighter
+  // 16px insets; chat always sits in the right-bottom corner so a right-side
+  // top-button needs to clear it.
+  let topPos = "left:24px;bottom:24px";
+  let topPosMobile = "left:16px;bottom:16px";
+  if (totopPosition === "right-bottom") {
+    topPos = "right:24px;bottom:94px"; // above 56px chat + 14px gap
+    topPosMobile = "right:16px;bottom:84px";
+  } else if (totopPosition === "left-top") {
+    topPos = "left:24px;top:24px";
+    topPosMobile = "left:16px;top:16px";
+  } else if (totopPosition === "right-top") {
+    topPos = "right:24px;top:24px";
+    topPosMobile = "right:16px;top:16px";
+  } else if (totopPosition === "hidden") {
+    // CSS still emitted but the button element is omitted from HTML.
+    topPos = "left:-9999px;bottom:-9999px";
+    topPosMobile = topPos;
+  }
   return `
 /* --- Site Factory floating widgets --- */
-.sf-totop{position:fixed;left:24px;bottom:24px;width:44px;height:44px;border-radius:50%;background:var(--accent,#2563eb);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 25px -8px rgba(0,0,0,.35);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:9998;font-size:0;line-height:0}
+.sf-totop{position:fixed;${topPos};width:44px;height:44px;border-radius:50%;background:var(--accent,#2563eb);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 25px -8px rgba(0,0,0,.35);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:9998;font-size:0;line-height:0}
 .sf-totop svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .sf-totop.sf-show{opacity:1;transform:translateY(0);pointer-events:auto}
 .sf-totop:hover{transform:translateY(-2px)}
@@ -83,7 +107,7 @@ export function widgetsCss(): string {
 
 @media(max-width:520px){
   .sf-chat-panel{width:calc(100vw - 32px);right:-8px;height:70vh}
-  .sf-totop{left:16px;bottom:16px;width:40px;height:40px}
+  .sf-totop{${topPosMobile};width:40px;height:40px}
   .sf-chat{right:16px;bottom:16px}
 }
 `;
@@ -110,6 +134,8 @@ export function widgetsHtml(opts: WidgetOptions): string {
   const labelOnline = isRu ? "Онлайн" : "Online";
   const labelTop = isRu ? "Наверх" : "Back to top";
   const labelChat = isRu ? "Открыть чат" : "Open chat";
+  const totopPosition: TotopPosition = (opts.totopPosition || "left-bottom");
+  const showTotop = totopPosition !== "hidden";
 
   // All literals used in the JS are already plain strings (no special chars
   // that would break the script tag). We avoid template literals inside the
@@ -166,9 +192,9 @@ export function widgetsHtml(opts: WidgetOptions): string {
 `;
 
   return `
-<button id="sfTop" class="sf-totop" type="button" aria-label="${esc(labelTop)}" title="${esc(labelTop)}">
+${showTotop ? `<button id="sfTop" class="sf-totop" type="button" aria-label="${esc(labelTop)}" title="${esc(labelTop)}">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-</button>
+</button>` : ""}
 <div id="sfChat" class="sf-chat" role="complementary" aria-label="${esc(labelChat)}">
   <div class="sf-chat-bubble">${esc(bubble)}</div>
   <div class="sf-chat-panel" role="dialog" aria-label="${esc(opts.consultantName)}">
