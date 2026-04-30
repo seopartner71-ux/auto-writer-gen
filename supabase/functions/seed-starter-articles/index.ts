@@ -335,7 +335,28 @@ serve(async (req) => {
       if (inserted?.id) created.push(inserted.id);
     }
 
-    return new Response(JSON.stringify({ success: true, created_count: created.length, ids: created }), {
+    // Best-effort smart interlinking pass after seeding (non-blocking).
+    let interlinking: { ok: boolean; links_inserted?: number } = { ok: false };
+    if (created.length >= 2) {
+      try {
+        const il = await fetch(`${supabaseUrl}/functions/v1/smart-interlinking`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${service}`,
+          },
+          body: JSON.stringify({ project_id: projectId, redeploy: false }),
+        });
+        if (il.ok) {
+          const j = await il.json().catch(() => ({}));
+          interlinking = { ok: true, links_inserted: Number(j?.links_inserted || 0) };
+        }
+      } catch (e: any) {
+        console.warn("[seed-starter-articles] interlinking error:", e?.message);
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, created_count: created.length, ids: created, interlinking }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
