@@ -178,7 +178,7 @@ export function widgetsHtml(opts: WidgetOptions): string {
   const isRu = String(opts.lang || "").toLowerCase().startsWith("ru");
   const photo = opts.consultantPhoto && /^https?:\/\//.test(opts.consultantPhoto)
     ? opts.consultantPhoto
-    : avatarFallback(opts.consultantName);
+    : avatarFallback(opts.consultantName, opts.accent);
   const bubble = isRu ? "Здравствуйте! Чем могу помочь? 👋" : "Hi! How can I help you? 👋";
   const placeholderMsg = isRu ? "Напишите сообщение..." : "Type a message...";
   const namePh = isRu ? "Ваше имя" : "Your name";
