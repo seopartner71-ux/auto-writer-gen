@@ -35,6 +35,7 @@ const MIME: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
   ".svg":  "image/svg+xml; charset=utf-8",
   ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".php":  "text/html; charset=utf-8",
 };
 function mimeOf(path: string): string {
   const dot = path.lastIndexOf(".");
