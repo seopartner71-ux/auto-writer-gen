@@ -9,6 +9,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logCost } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -246,6 +247,17 @@ Generate JSON with EXACT fields:
           const data = await aiRes.json();
           const raw = String(data?.choices?.[0]?.message?.content || "{}");
           const parsed = JSON.parse(raw);
+          // Log token usage (best-effort; never throws)
+          const usage = data?.usage || {};
+          void logCost(admin, {
+            project_id: projectId,
+            user_id: user.id,
+            operation_type: "site_generation",
+            model: "google/gemini-2.5-flash",
+            tokens_input: Number(usage.prompt_tokens || 0),
+            tokens_output: Number(usage.completion_tokens || 0),
+            metadata: { context: "site_profile_full" },
+          });
           const sanAuthors = Array.isArray(parsed.authors) ? parsed.authors.slice(0, 5).map((a: any) => ({
             name: String(a?.name || "").slice(0, 80),
             role: String(a?.role || "").slice(0, 80),

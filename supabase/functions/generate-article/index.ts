@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1218,6 +1219,24 @@ serve(async (req) => {
       model_used: model,
       tokens_used: 0,
     }).then(() => {});
+
+    // Cost log (estimate — streaming response, true tokens unavailable here).
+    // Input is estimated from prompt char count (1 token ~= 4 chars), output
+    // assumed at ~3000 tokens (typical long-form article). Best-effort, never throws.
+    try {
+      const promptChars = (systemPrompt?.length || 0) + (userPrompt?.length || 0);
+      const estIn  = Math.max(0, Math.ceil(promptChars / 4));
+      const estOut = 3000;
+      void logCost(supabaseAdmin, {
+        project_id: project_id || null,
+        user_id: user.id,
+        operation_type: "article_generation",
+        model: String(model),
+        tokens_input: estIn,
+        tokens_output: estOut,
+        metadata: { context: "writer_stream", estimated: true, source: (req.headers.get("x-bulk-user-id") ? "bulk" : "writer") },
+      });
+    } catch (_) { /* ignore */ }
 
     return new Response(aiResponse.body, {
       headers: {

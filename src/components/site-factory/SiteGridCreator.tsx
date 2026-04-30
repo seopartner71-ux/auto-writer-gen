@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Rocket, CheckCircle2, AlertCircle, ExternalLink, Layers, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SitePreviewDialog, SitePreviewSpec } from "./SitePreviewDialog";
 
 type RowStatus = "pending" | "creating" | "deploying" | "done" | "error";
 
@@ -64,6 +65,8 @@ export function SiteGridCreator() {
   const [rows, setRows] = useState<SiteRow[]>([]);
   const [running, setRunning] = useState(false);
   const [activeTemplates, setActiveTemplates] = useState<{ template_key: string; name: string }[]>([]);
+  const [previewSpec, setPreviewSpec] = useState<SitePreviewSpec | null>(null);
+  const [lastReport, setLastReport] = useState<{ duration: string; cost: number; ok: number; err: number } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -91,6 +94,29 @@ export function SiteGridCreator() {
   };
 
   const handleStart = async () => {
+    await runQueue();
+  };
+
+  const handlePreview = () => {
+    if (validSpecs.length !== 1) {
+      toast({ title: "Превью доступно только для одного сайта", description: "Удалите лишние записи или используйте массовый запуск." });
+      return;
+    }
+    const s = validSpecs[0];
+    const tpl = activeTemplates.length > 0 ? activeTemplates[0] : null;
+    setPreviewSpec({
+      topic: s.topic,
+      siteName: s.siteName,
+      region: s.region,
+      services: s.services,
+      audience: s.audience,
+      businessType: s.businessType,
+      homepageStyle: s.homepageStyle,
+      templateName: tpl?.name,
+    });
+  };
+
+  const runQueue = async () => {
     if (!user) {
       toast({ title: "Не авторизован", variant: "destructive" });
       return;
@@ -104,6 +130,8 @@ export function SiteGridCreator() {
     const initial: SiteRow[] = queue.map((s) => ({ topic: s.topic, status: "pending" }));
     setRows(initial);
     setRunning(true);
+    setLastReport(null);
+    const startedAt = Date.now();
 
     for (let i = 0; i < queue.length; i++) {
       const spec = queue[i];
@@ -195,10 +223,19 @@ export function SiteGridCreator() {
     }
 
     setRunning(false);
-    toast({ title: "Сетка создана", description: `Готово: ${rows.filter(r => r.status === "done").length}/${queue.length}` });
+    const okCount = rows.filter((r) => r.status === "done").length;
+    const errCount = rows.filter((r) => r.status === "error").length;
+    const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+    const mins = Math.floor(elapsedSec / 60);
+    const secs = elapsedSec % 60;
+    const duration = mins > 0 ? `${mins}м ${secs}с` : `${secs}с`;
+    const estCost = okCount * 0.05;
+    setLastReport({ duration, cost: estCost, ok: okCount, err: errCount });
+    toast({ title: "Сетка создана", description: `Готово: ${okCount}/${queue.length} за ${duration}` });
   };
 
   return (
+    <>
     <Card className="border-primary/30">
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
@@ -340,10 +377,21 @@ export function SiteGridCreator() {
           <div className="text-xs text-muted-foreground">
             Будет создано: <span className="font-semibold text-foreground">{effectiveCount}</span> сайтов
           </div>
-          <Button onClick={handleStart} disabled={running || effectiveCount === 0} className="gap-2">
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-            {running ? "Создание..." : "Запустить"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handlePreview}
+              disabled={running || effectiveCount !== 1}
+              className="gap-2"
+              title={effectiveCount !== 1 ? "Превью доступно для одного сайта" : "Сводка перед деплоем"}
+            >
+              Предпросмотр
+            </Button>
+            <Button onClick={handleStart} disabled={running || effectiveCount === 0} className="gap-2">
+              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+              {running ? "Создание..." : "Деплой на Cloudflare"}
+            </Button>
+          </div>
         </div>
 
         {rows.length > 0 && (
@@ -355,6 +403,20 @@ export function SiteGridCreator() {
               </div>
               <Progress value={progress} className="h-2" />
             </div>
+
+            {lastReport && !running && (
+              <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-xs space-y-1">
+                <div className="font-semibold text-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-primary" /> Деплой завершён
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                  <div><span className="text-muted-foreground">Готово:</span> <span className="font-semibold">{lastReport.ok}</span></div>
+                  <div><span className="text-muted-foreground">Ошибок:</span> <span className="font-semibold">{lastReport.err}</span></div>
+                  <div><span className="text-muted-foreground">Время:</span> <span className="font-semibold">{lastReport.duration}</span></div>
+                  <div><span className="text-muted-foreground">Стоимость:</span> <span className="font-semibold">~${lastReport.cost.toFixed(2)}</span></div>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-md border border-border overflow-hidden">
               <table className="w-full text-xs">
@@ -405,5 +467,15 @@ export function SiteGridCreator() {
         )}
       </CardContent>
     </Card>
+
+    {previewSpec && (
+      <SitePreviewDialog
+        open={!!previewSpec}
+        onClose={() => setPreviewSpec(null)}
+        onConfirm={() => { setPreviewSpec(null); void runQueue(); }}
+        spec={previewSpec}
+      />
+    )}
+    </>
   );
 }

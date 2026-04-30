@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logCost } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +105,23 @@ serve(async (req) => {
     name = name.replace(/^["'«»`]+|["'«»`.\s]+$/g, "").split(/[\n\r]/)[0].trim();
     if (name.length > 30) name = name.slice(0, 30).trim();
     if (!name) name = fallbackName(topic, lang);
+
+    // Best-effort cost log (uses service-role admin client; never throws)
+    try {
+      const url = Deno.env.get("SUPABASE_URL");
+      const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (url && svc) {
+        const admin = createClient(url, svc);
+        const usage = data?.usage || {};
+        void logCost(admin, {
+          operation_type: "site_generation",
+          model: "google/gemini-2.5-flash",
+          tokens_input: Number(usage.prompt_tokens || 0),
+          tokens_output: Number(usage.completion_tokens || 0),
+          metadata: { context: "site_name" },
+        });
+      }
+    } catch (_) { /* ignore */ }
 
     return new Response(JSON.stringify({ name }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
