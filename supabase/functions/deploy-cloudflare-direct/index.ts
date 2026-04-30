@@ -729,6 +729,7 @@ serve(async (req) => {
     await supabase.from("projects").update({
       domain,
       hosting_platform: "cloudflare",
+      template_key: templateKey,
       template_type: templateKey,
       accent_color: accent,
       template_font_pair: `${fontPair[0]}|${fontPair[1]}`,
