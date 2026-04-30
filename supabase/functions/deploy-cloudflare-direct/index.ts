@@ -322,9 +322,24 @@ serve(async (req) => {
       });
     }
 
-    const topic: string = body.topic || project.site_about || project.name || "блог";
-    const siteName: string = body.site_name || project.site_name || project.name || "Сайт";
-    const siteAbout: string = body.site_about || project.site_about || `Блог про ${topic}`;
+    // Strip HTML tags and collapse whitespace — topic/about must be plain text,
+    // otherwise raw <p> tags leak into hero <h1> and meta tags.
+    const stripHtml = (s: string): string =>
+      String(s || "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/&quot;/gi, '"')
+        .replace(/\s+/g, " ")
+        .trim();
+    const rawTopic = body.topic || project.site_about || project.name || "блог";
+    const rawSiteName = body.site_name || project.site_name || project.name || "Сайт";
+    const rawSiteAbout = body.site_about || project.site_about || `Блог про ${rawTopic}`;
+    const topic: string = stripHtml(rawTopic).slice(0, 200) || "блог";
+    const siteName: string = stripHtml(rawSiteName).slice(0, 120) || "Сайт";
+    const siteAbout: string = stripHtml(rawSiteAbout).slice(0, 600) || `Блог про ${topic}`;
     console.log("[deploy-cloudflare-direct] siteName:", siteName, "topic:", topic);
 
     // Fetch real articles for this project (completed or published, with content)
