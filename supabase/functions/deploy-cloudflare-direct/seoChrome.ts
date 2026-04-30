@@ -1382,8 +1382,11 @@ export function buildPostPage(
 ): string {
   const isRu = c.lang === "ru";
   const title = `${post.title} · ${c.siteName}`;
-  const desc  = post.excerpt || (post.contentHtml || "").replace(/<[^>]+>/g, " ").trim().slice(0, 160);
   const author = pickAuthor(c.authors, post.slug);
+  const authorName = author?.name;
+  const safeExcerpt = unifyAuthorMentions(post.excerpt || "", authorName);
+  const safeContentHtml = unifyAuthorMentions(post.contentHtml || "", authorName);
+  const desc  = safeExcerpt || safeContentHtml.replace(/<[^>]+>/g, " ").trim().slice(0, 160);
   const authorImage = author ? avataarsUrl(author.avatar_seed || author.name) : undefined;
   const authorJsonLd = author ? {
     "@context": "https://schema.org",
@@ -1396,7 +1399,7 @@ export function buildPostPage(
   } : null;
 
   // 1) clean AI output: strip <script> blocks, decode escaped HTML if needed
-  let body = stripScripts(unescapeIfEscapedHtml(post.contentHtml || ""));
+  let body = stripScripts(unescapeIfEscapedHtml(safeContentHtml));
   // 2) add ids to H2s and collect TOC
   const { html: bodyWithIds, toc } = injectH2IdsAndCollectToc(body);
   body = bodyWithIds;
@@ -1474,7 +1477,7 @@ export function buildPostPage(
   // AI Summary — short direct answer in the first ~100 words. Optimised for
   // AI search engines (Perplexity, ChatGPT Search, Gemini, Яндекс AI) and
   // voice assistants — referenced by the Speakable JSON-LD selector.
-  const aiSummaryText = buildAiSummary(post.excerpt, post.contentHtml || "", isRu);
+  const aiSummaryText = buildAiSummary(safeExcerpt, safeContentHtml, isRu);
   const aiSummaryHtml = aiSummaryText
     ? `<aside class="ai-summary"><div class="ai-summary__label">${isRu ? "Коротко о главном" : "Quick answer"}</div><p>${escHtml(aiSummaryText)}</p></aside>`
     : "";
