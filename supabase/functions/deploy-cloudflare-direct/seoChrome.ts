@@ -550,6 +550,25 @@ function home(c: SiteChrome) {
   ];
 }
 
+// Split arbitrary HTML into card blocks by <h2>. Returns at least one block.
+// Drops the <h2> tag itself and stores its plain-text content as `heading`.
+export function splitIntoBlocks(html: string): { heading: string; body: string }[] {
+  const src = String(html || "").trim();
+  if (!src) return [{ heading: "", body: "" }];
+  const parts = src.split(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+  // parts: [before, head1, body1, head2, body2, ...]
+  const out: { heading: string; body: string }[] = [];
+  const before = (parts[0] || "").trim();
+  if (before) out.push({ heading: "", body: before });
+  for (let i = 1; i < parts.length; i += 2) {
+    const heading = String(parts[i] || "").replace(/<[^>]+>/g, "").trim();
+    const body = String(parts[i + 1] || "").trim();
+    if (heading || body) out.push({ heading, body });
+  }
+  if (out.length === 0) out.push({ heading: "", body: src });
+  return out;
+}
+
 export function buildAboutPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
   const title = `${isRu ? "О нас" : "About"} · ${c.siteName}`;
