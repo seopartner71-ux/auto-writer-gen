@@ -543,6 +543,27 @@ export function UserManagementTab() {
                                   <span className="text-muted-foreground">План статей/мес:</span>
                                   <span className="font-medium">{p.planned_articles_month ?? '—'}</span>
                                 </div>
+                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border mt-2">
+                                  <span className="text-muted-foreground">Роль:</span>
+                                  <Select
+                                    value={rolesByUser.get(p.id) || "user"}
+                                    onValueChange={(v) =>
+                                      setUserRole.mutate({ userId: p.id, role: v as "admin" | "staff" | "user" })
+                                    }
+                                  >
+                                    <SelectTrigger className="h-7 w-32 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="user">Пользователь</SelectItem>
+                                      <SelectItem value="staff">Сотрудник</SelectItem>
+                                      <SelectItem value="admin">Админ</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground leading-tight pt-1">
+                                  Сотрудники и админы работают без лимитов на генерацию.
+                                </p>
                               </div>
                             </div>
 
