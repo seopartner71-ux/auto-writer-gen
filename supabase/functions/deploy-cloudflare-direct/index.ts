@@ -18,6 +18,7 @@ import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImage
 import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles, build404Page, pickAuthor } from "./seoChrome.ts";
 import { renderMagazineHome, renderMagazineArticle, magazineExtraCss } from "./magazinePage.ts";
 import { renderNewsHome, renderNewsArticle, newsExtraCss } from "./newsPage.ts";
+import { renderMinimalHome, renderMinimalArticle, minimalExtraCss } from "./minimalPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 import { logCost } from "../_shared/costLogger.ts";
@@ -740,15 +741,94 @@ serve(async (req) => {
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
     // ---- Replace home page with the new professional landing -----------------
-    const homepageStyle: "landing" | "magazine" | "news" =
+    const homepageStyle: "landing" | "magazine" | "news" | "minimal" =
       ((project as any).homepage_style === "magazine"
         ? "magazine"
         : (project as any).homepage_style === "news"
         ? "news"
+        : (project as any).homepage_style === "minimal"
+        ? "minimal"
         : "landing");
     console.log("[deploy-cloudflare-direct] homepage_style:", homepageStyle);
 
-    if (homepageStyle === "news") {
+    if (homepageStyle === "minimal") {
+      try {
+        // Reuse the same content+image pipeline as the landing template so
+        // ALL features (FAL hero/team photos, brand icon, cost logging,
+        // backdating, smart-interlinking, WP emulation, antiFingerprint, etc.)
+        // work transparently. Only the home page + article page HTML differ.
+        const skin = pickSkin(templateKey + "::" + projectId);
+        const minimalContent = await generateLandingContent(
+          topic, siteName, lang as "ru" | "en",
+          {
+            phone: (project as any).company_phone || undefined,
+            email: (project as any).company_email || undefined,
+            address: (project as any).company_address || undefined,
+            workHours: (project as any).work_hours || undefined,
+          } as any,
+          {
+            region:       String(body.region       || (project as any).region || "").slice(0, 120),
+            services:     String(body.services     || "").slice(0, 300),
+            audience:     String(body.audience     || "").slice(0, 200),
+            businessType: String(body.business_type|| "").slice(0, 80),
+          },
+          String(projectId || ""),
+        );
+        const generatedImages = await ensureLandingImages(
+          supabaseAdmin, projectId, falKey,
+          {
+            niche: topic,
+            region: String(body.region || (project as any).region || ""),
+            audience: String(body.audience || ""),
+            team: minimalContent.team || [],
+            posts: posts.slice(0, 3).map((p) => ({ title: p.title, slug: p.slug })),
+          },
+        );
+        let authorPhotos: string[] = [];
+        try {
+          const { data: cached } = await supabaseAdmin
+            .from("site_image_cache")
+            .select("slot, image_url")
+            .eq("project_id", projectId)
+            .like("slot", "team_%");
+          authorPhotos = (cached || [])
+            .sort((a: any, b: any) => String(a.slot).localeCompare(String(b.slot)))
+            .map((r: any) => r.image_url)
+            .filter((u: string) => /^https?:\/\//.test(u));
+        } catch (_) { /* ignore */ }
+        const enrichedAuthors = ((project as any).authors || []).map((a: any, i: number) => ({
+          ...a, photo_url: a?.photo_url || authorPhotos[i % Math.max(1, authorPhotos.length)] || undefined,
+        }));
+        const chromeMin: any = {
+          domain, siteName, siteAbout, topic, lang,
+          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+          ...commonOpts,
+          authors: enrichedAuthors,
+        };
+        const allPosts = posts.map((p: any) => ({
+          title: p.title, slug: p.slug, excerpt: p.excerpt || "",
+          contentHtml: p.contentHtml || "",
+          publishedAt: p.publishedAt, modifiedAt: p.modifiedAt,
+          featuredImageUrl: p.featuredImageUrl,
+        }));
+        for (let i = 0; i < allPosts.length; i++) {
+          const p = allPosts[i];
+          const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 3);
+          files[`posts/${p.slug}.html`] = renderMinimalArticle({
+            chrome: chromeMin, post: p, related, postIndex: i,
+          });
+        }
+        if (files["index.html"]) files["blog/index.html"] = files["index.html"];
+        files["index.html"] = renderMinimalHome({
+          chrome: chromeMin, posts: allPosts, content: minimalContent,
+          generatedImages, expertAuthor: enrichedAuthors[0] || null,
+        });
+        files["style.css"] = (files["style.css"] || "") + "\n" + minimalExtraCss(chromeMin);
+        console.log("[deploy-cloudflare-direct] minimal homepage applied (skin", skin, ")");
+      } catch (e) {
+        console.warn("[deploy-cloudflare-direct] minimal gen failed:", (e as Error).message);
+      }
+    } else if (homepageStyle === "news") {
       try {
         let authorPhotos: string[] = [];
         try {
