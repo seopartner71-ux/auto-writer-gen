@@ -21,6 +21,7 @@ import { renderNewsHome, renderNewsArticle, newsExtraCss } from "./newsPage.ts";
 import { renderMinimalHome, renderMinimalArticle, minimalExtraCss } from "./minimalPage.ts";
 import { renderDarkHome, renderDarkArticle, darkExtraCss } from "./darkPage.ts";
 import { renderLocalHome, renderLocalArticle, localExtraCss } from "./localPage.ts";
+import { renderExpertHome, renderExpertArticle, expertExtraCss } from "./expertPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 import { logCost } from "../_shared/costLogger.ts";
