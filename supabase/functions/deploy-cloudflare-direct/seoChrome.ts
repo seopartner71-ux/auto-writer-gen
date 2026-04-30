@@ -937,6 +937,9 @@ export function buildContactsPage(c: SiteChrome): string {
   const main = `
     <article class="page-article contacts-page">
       <h1>${isRu ? "Контакты" : "Contacts"}</h1>
+      <figure class="service-hero__media" style="border-radius:14px;margin:0 0 22px;aspect-ratio:21/9;border:1px solid #e5e7eb">
+        <img src="${escAttr(pageImage(c, "contacts"))}" alt="${escAttr(isRu ? "Наш офис" : "Our office")}" loading="lazy" width="1600" height="720">
+      </figure>
       ${c.contactsHtml || `<p>${escHtml(isRu ? "Напишите нам или позвоните в рабочие часы - ответим оперативно." : "Reach out to us during business hours - we reply quickly.")}</p>`}
 
       <div class="contacts-grid">
