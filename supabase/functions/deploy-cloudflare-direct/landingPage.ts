@@ -733,11 +733,12 @@ section{padding:${t.sectionPad}}
 <meta property="og:url" content="https://${ctx.domain}/">
 <meta property="og:image" content="${esc(heroImg)}">
 <style>${css}</style>
+${chromeOverride?.chromeCss ? `<style>${chromeOverride.chromeCss}</style>` : ""}
 <script type="application/ld+json">${JSON.stringify(orgSchema)}</script>
 </head>
 <body>
 
-<header class="site-header">
+${chromeOverride?.headerHtml || `<header class="site-header">
   <div class="container">
     <a href="/" class="brand">${esc(ctx.siteName)}</a>
     <nav class="main-nav">${navItems}</nav>
@@ -746,7 +747,7 @@ section{padding:${t.sectionPad}}
       <a class="btn" href="#cta">${esc(c.ctaPrimary)}</a>
     </div>
   </div>
-</header>
+</header>`}
 
 <section class="hero">
   <div class="hero-bg" aria-hidden="true"></div>
