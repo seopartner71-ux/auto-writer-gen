@@ -421,7 +421,7 @@ a.contact-item__value:hover{color:var(--accent,#0ea5e9);text-decoration:underlin
 .contact-form__submit:active{transform:translateY(1px)}
 .contact-form__note{margin:0;font-size:12px;color:#94a3b8;line-height:1.5}
 .contact-form__success{display:none;margin:0;padding:12px 14px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:10px;font-size:14px}
-.contacts-map-section{margin:40px 0 16px}
+.contacts-map-section{margin:80px 0 16px;padding-top:24px}
 .contacts-map-section h2{margin:0 0 14px;font-size:22px;font-family:inherit}
 .contacts-map{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(15,23,42,.04)}
 .contacts-map iframe{display:block;width:100%}
