@@ -303,6 +303,14 @@ export default function ProjectsPage() {
                         <Link2 className="h-3 w-3" /> {t("projects.interlinking")}
                       </Badge>
                     )}
+                    <Badge
+                      variant={p.ai_model === "claude-sonnet" ? "default" : "outline"}
+                      className="text-xs gap-1"
+                      title="Модель генерации текстов"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {p.ai_model === "claude-sonnet" ? "Claude Sonnet" : "Gemini Flash"}
+                    </Badge>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between">
