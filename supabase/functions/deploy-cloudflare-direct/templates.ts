@@ -499,6 +499,8 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
     clientsCountText: ctx.clientsCountText,
     authors: ctx.authors,
     businessPages: ctx.businessPages as any,
+    iconUrl: ctx.iconUrl,
+    totopPosition: ctx.totopPosition,
   };
 
   const chromePosts: ChromePost[] = (ctx.posts || []).map((p) => ({
