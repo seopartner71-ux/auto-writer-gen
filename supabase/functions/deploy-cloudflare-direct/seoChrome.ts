@@ -650,6 +650,8 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
   <noscript><link rel="stylesheet" href="${fontsHref}"></noscript>
   <link rel="stylesheet" href="/style.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  ${c.iconUrl ? `<link rel="icon" type="image/png" href="${escAttr(c.iconUrl)}">
+  <link rel="apple-touch-icon" href="${escAttr(c.iconUrl)}">` : ""}
   <link rel="manifest" href="/manifest.json">
   <link rel="alternate" type="application/rss+xml" title="${escAttr(c.siteName)}" href="/feed.xml">
   <link rel="sitemap" type="application/xml" href="/sitemap.xml">
