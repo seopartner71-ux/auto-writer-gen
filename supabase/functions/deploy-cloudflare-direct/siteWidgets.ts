@@ -136,29 +136,56 @@ export function widgetsHtml(opts: WidgetOptions): string {
   const photo = opts.consultantPhoto && /^https?:\/\//.test(opts.consultantPhoto)
     ? opts.consultantPhoto
     : avatarFallback(opts.consultantName);
-  const greet = isRu
-    ? `Здравствуйте! Я ${opts.consultantName}, консультант ${opts.siteName}. Готов ответить на ваши вопросы по теме «${opts.topic}». Как могу помочь?`
-    : `Hi! I am ${opts.consultantName}, consultant at ${opts.siteName}. Happy to answer any questions about ${opts.topic}. How can I help?`;
   const bubble = isRu ? "Здравствуйте! Чем могу помочь? 👋" : "Hi! How can I help you? 👋";
   const placeholderMsg = isRu ? "Напишите сообщение..." : "Type a message...";
-  const thanksMsg = isRu
-    ? "Спасибо! Мы свяжемся с вами в течение 15 минут."
-    : "Thanks! We will contact you within 15 minutes.";
   const namePh = isRu ? "Ваше имя" : "Your name";
   const phonePh = isRu ? "Телефон" : "Phone";
-  const callbackBtn = isRu ? "Перезвоните мне" : "Call me back";
-  const sentMsg = isRu ? "Заявка отправлена. Спасибо!" : "Request sent. Thank you!";
   const labelOnline = isRu ? "Онлайн" : "Online";
   const labelTop = isRu ? "Наверх" : "Back to top";
   const labelChat = isRu ? "Открыть чат" : "Open chat";
   const totopPosition: TotopPosition = (opts.totopPosition || "left-bottom");
   const showTotop = totopPosition !== "hidden";
 
+  // Localized chat scenario strings (kept on the JS side as a JSON config so
+  // the surrounding template literal stays simple and free of escapes).
+  const I18N = isRu ? {
+    hello: "Здравствуйте! 👋",
+    intro: `Я ${opts.consultantName}, помогу вам с вопросами по теме «${opts.topic}». Что вас интересует?`,
+    qPrice: "Узнать цену",
+    qAsk: "Задать вопрос",
+    qCall: "Перезвоните мне",
+    rPrice: "Стоимость зависит от объёма работ. Оставьте номер - рассчитаем бесплатно!",
+    rAsk: "Напишите ваш вопрос ниже - постараюсь ответить максимально подробно.",
+    rCall: "Конечно! Оставьте имя и телефон - перезвоню в удобное время.",
+    sentCall: "Отлично! Перезвоним в течение 15 минут ⏱",
+    sentPrice: "Принято! Подготовим расчёт и свяжемся в течение 15 минут ⏱",
+    sentAsk: "Спасибо за вопрос! Отвечу в ближайшее время.",
+    submitPrice: "Отправить",
+    submitCall: "Жду звонка",
+  } : {
+    hello: "Hello! 👋",
+    intro: `I am ${opts.consultantName} and I will help with your ${opts.topic} questions. What are you looking for?`,
+    qPrice: "Get a quote",
+    qAsk: "Ask a question",
+    qCall: "Call me back",
+    rPrice: "Pricing depends on the scope. Leave your number and we will prepare a free quote!",
+    rAsk: "Type your question below and I will reply with details.",
+    rCall: "Sure! Leave your name and phone and we will call you back.",
+    sentCall: "Great! We will call you back within 15 minutes ⏱",
+    sentPrice: "Got it! We will prepare a quote and contact you within 15 minutes ⏱",
+    sentAsk: "Thanks for your question! I will reply shortly.",
+    submitPrice: "Submit",
+    submitCall: "Call me",
+  };
+
   // All literals used in the JS are already plain strings (no special chars
   // that would break the script tag). We avoid template literals inside the
   // injected JS so the surrounding template literal does not collide.
   const js = `
 (function(){
+  var I=${JSON.stringify(I18N)};
+  var PH={name:${JSON.stringify(namePh)},phone:${JSON.stringify(phonePh)}};
+
   var btn=document.getElementById('sfTop');
   if(btn){
     var onScroll=function(){ if(window.scrollY>300){btn.classList.add('sf-show');}else{btn.classList.remove('sf-show');} };
@@ -172,7 +199,33 @@ export function widgetsHtml(opts: WidgetOptions): string {
   var body=chat.querySelector('.sf-chat-body');
   var foot=chat.querySelector('.sf-chat-foot');
   var input=foot.querySelector('input');
-  var open=function(){ chat.classList.add('sf-open'); };
+
+  // ---- Soft notification beep (Web Audio). Silent if browser blocks
+  // autoplay; first user interaction (click) creates the AudioContext so
+  // subsequent beeps are allowed.
+  var audioCtx=null, soundOn=true;
+  var beep=function(){ if(!soundOn||!audioCtx) return;
+    try{
+      var o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type='sine'; o.frequency.value=880;
+      g.gain.value=0.0001;
+      o.connect(g); g.connect(audioCtx.destination);
+      var t=audioCtx.currentTime;
+      g.gain.exponentialRampToValueAtTime(0.06,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.18);
+      o.start(t); o.stop(t+0.2);
+    }catch(e){}
+  };
+  var initAudio=function(){ if(audioCtx) return;
+    try{ var Ctx=window.AudioContext||window.webkitAudioContext; if(Ctx) audioCtx=new Ctx(); }catch(e){}
+  };
+
+  var started=false;
+  var open=function(){
+    chat.classList.add('sf-open');
+    initAudio(); beep();
+    if(!started){ started=true; setTimeout(runIntro,250); }
+  };
   var close=function(){ chat.classList.remove('sf-open'); };
   toggle.addEventListener('click',function(){ if(chat.classList.contains('sf-open')){close();}else{open();} });
   if(closeBtn){ closeBtn.addEventListener('click',close); }
@@ -180,28 +233,145 @@ export function widgetsHtml(opts: WidgetOptions): string {
   setTimeout(function(){ if(!chat.classList.contains('sf-open')&&bubble){ bubble.classList.add('sf-show'); setTimeout(function(){ bubble.classList.remove('sf-show'); },5000);} },5000);
   if(bubble){ bubble.addEventListener('click',open); }
 
-  var sentForm=false;
-  var addMsg=function(text,mine){ var d=document.createElement('div'); d.className='sf-msg'+(mine?' sf-msg-user':''); d.textContent=text; body.appendChild(d); body.scrollTop=body.scrollHeight; return d; };
-  var showCallback=function(){
-    if(sentForm) return; sentForm=true;
-    addMsg(${JSON.stringify(thanksMsg)},false);
-    var form=document.createElement('form');
-    form.className='sf-callback-form';
-    form.innerHTML='<input type="text" name="name" placeholder="'+${JSON.stringify(namePh)}.replace(/"/g,'&quot;')+'" required maxlength="80">'+
-                   '<input type="tel" name="phone" placeholder="'+${JSON.stringify(phonePh)}.replace(/"/g,'&quot;')+'" required maxlength="32" pattern="[+()\\\\d\\\\s-]{6,}">'+
-                   '<button type="submit">'+${JSON.stringify(callbackBtn)}.replace(/"/g,'&quot;')+'</button>';
-    body.appendChild(form); body.scrollTop=body.scrollHeight;
-    form.addEventListener('submit',function(e){
-      e.preventDefault();
-      form.remove();
-      addMsg(${JSON.stringify(sentMsg)},false);
+  var scrollDown=function(){ body.scrollTop=body.scrollHeight; };
+
+  // Append a user message bubble.
+  var addUser=function(text){
+    var d=document.createElement('div'); d.className='sf-msg sf-msg-user';
+    d.textContent=text; body.appendChild(d); scrollDown(); return d;
+  };
+
+  // Show the typing indicator and resolve after a delay. Returns a Promise.
+  var showTyping=function(ms){
+    return new Promise(function(res){
+      var t=document.createElement('div');
+      t.className='sf-typing';
+      t.innerHTML='<span></span><span></span><span></span>';
+      body.appendChild(t); scrollDown();
+      setTimeout(function(){ t.remove(); res(); }, ms||1200);
     });
   };
 
+  // Type out a consultant message character by character. Returns a Promise.
+  var typeMsg=function(text,perChar){
+    return new Promise(function(res){
+      var d=document.createElement('div'); d.className='sf-msg';
+      var span=document.createElement('span');
+      var caret=document.createElement('i'); caret.className='sf-caret'; caret.textContent='\\u00A0';
+      d.appendChild(span); d.appendChild(caret);
+      body.appendChild(d); scrollDown();
+      var i=0, step=perChar||18;
+      var tick=function(){
+        if(i<text.length){
+          span.textContent+=text.charAt(i++);
+          scrollDown();
+          setTimeout(tick,step);
+        } else {
+          caret.remove(); beep(); res();
+        }
+      };
+      tick();
+    });
+  };
+
+  // Render quick-reply chips. Returns a Promise that resolves with the
+  // chosen action key once the user clicks any chip.
+  var quickReplies=function(items){
+    return new Promise(function(res){
+      var w=document.createElement('div'); w.className='sf-quick';
+      items.forEach(function(it){
+        var b=document.createElement('button'); b.type='button'; b.textContent=it.label;
+        b.addEventListener('click',function(){
+          addUser(it.label);
+          w.remove();
+          res(it.key);
+        });
+        w.appendChild(b);
+      });
+      body.appendChild(w); scrollDown();
+    });
+  };
+
+  // Render a lead form (subset of: name, phone). Returns a Promise resolved
+  // with the submitted values. Form is removed on submit. Submission is
+  // local-only — same UX as every other form on these PBN sites (no backend).
+  var leadForm=function(fields,btnLabel){
+    return new Promise(function(res){
+      var f=document.createElement('form'); f.className='sf-callback-form';
+      var html='';
+      if(fields.indexOf('name')>=0){
+        html+='<input type="text" name="name" placeholder="'+PH.name+'" required maxlength="80" autocomplete="name">';
+      }
+      if(fields.indexOf('phone')>=0){
+        html+='<input type="tel" name="phone" placeholder="'+PH.phone+'" required maxlength="32" pattern="[+()\\\\d\\\\s-]{6,}" autocomplete="tel">';
+      }
+      html+='<button type="submit">'+btnLabel+'</button>';
+      f.innerHTML=html;
+      body.appendChild(f); scrollDown();
+      var first=f.querySelector('input'); if(first){ try{ first.focus(); }catch(e){} }
+      f.addEventListener('submit',function(e){
+        e.preventDefault();
+        var data={};
+        Array.prototype.forEach.call(f.querySelectorAll('input'),function(el){ data[el.name]=el.value; });
+        f.remove(); res(data);
+      });
+    });
+  };
+
+  // Wait helper.
+  var wait=function(ms){ return new Promise(function(r){ setTimeout(r,ms); }); };
+
+  // Open-state intro: typing dots -> hello -> typing dots -> intro -> chips.
+  var runIntro=function(){
+    showTyping(1500)
+      .then(function(){ return typeMsg(I.hello,40); })
+      .then(function(){ return wait(800); })
+      .then(function(){ return showTyping(1200); })
+      .then(function(){ return typeMsg(I.intro,18); })
+      .then(function(){ return wait(300); })
+      .then(function(){ return quickReplies([
+        {key:'price',label:I.qPrice},
+        {key:'ask',  label:I.qAsk},
+        {key:'call', label:I.qCall},
+      ]); })
+      .then(handleQuick);
+  };
+
+  var handleQuick=function(key){
+    if(key==='price'){
+      return showTyping(1000)
+        .then(function(){ return typeMsg(I.rPrice,18); })
+        .then(function(){ return leadForm(['phone'],I.submitPrice); })
+        .then(function(){ return showTyping(900); })
+        .then(function(){ return typeMsg(I.sentPrice,18); });
+    }
+    if(key==='call'){
+      return showTyping(1000)
+        .then(function(){ return typeMsg(I.rCall,18); })
+        .then(function(){ return leadForm(['name','phone'],I.submitCall); })
+        .then(function(){ return showTyping(900); })
+        .then(function(){ return typeMsg(I.sentCall,18); });
+    }
+    // 'ask' (or fallback) — open free-form input.
+    return showTyping(1000)
+      .then(function(){ return typeMsg(I.rAsk,18); })
+      .then(function(){ try{ input.focus(); }catch(e){} });
+  };
+
+  // Free-form input from the bottom of the chat.
+  var sentLead=false;
   var send=function(){
     var v=(input.value||'').trim(); if(!v) return;
-    addMsg(v,true); input.value='';
-    setTimeout(showCallback,500);
+    addUser(v); input.value='';
+    if(sentLead) return;
+    sentLead=true;
+    showTyping(900)
+      .then(function(){ return typeMsg(I.sentAsk,18); })
+      .then(function(){ return wait(400); })
+      .then(function(){ return typeMsg(I.rCall,18); })
+      .then(function(){ return leadForm(['name','phone'],I.submitCall); })
+      .then(function(){ return showTyping(900); })
+      .then(function(){ return typeMsg(I.sentCall,18); });
   };
   foot.querySelector('button').addEventListener('click',send);
   input.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); send(); } });
@@ -223,9 +393,7 @@ ${showTotop ? `<button id="sfTop" class="sf-totop" type="button" aria-label="${e
       </div>
       <button type="button" class="sf-chat-close" aria-label="${esc(isRu ? "Закрыть" : "Close")}">&times;</button>
     </div>
-    <div class="sf-chat-body">
-      <div class="sf-msg">${esc(greet)}</div>
-    </div>
+    <div class="sf-chat-body"></div>
     <div class="sf-chat-foot">
       <input type="text" maxlength="500" placeholder="${esc(placeholderMsg)}" aria-label="${esc(placeholderMsg)}">
       <button type="button" aria-label="${esc(isRu ? "Отправить" : "Send")}">
