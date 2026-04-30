@@ -2308,6 +2308,13 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_set_user_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       auto_activate_users: { Args: never; Returns: undefined }
       check_credits: { Args: { p_user_id: string }; Returns: number }
       check_rate_limit: {
