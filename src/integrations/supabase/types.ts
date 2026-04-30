@@ -1268,6 +1268,7 @@ export type Database = {
           github_repo: string | null
           github_token: string | null
           google_verification: string | null
+          homepage_style: string
           hosting_platform: string | null
           id: string
           injection_links: Json | null
@@ -1325,6 +1326,7 @@ export type Database = {
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
+          homepage_style?: string
           hosting_platform?: string | null
           id?: string
           injection_links?: Json | null
@@ -1382,6 +1384,7 @@ export type Database = {
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
+          homepage_style?: string
           hosting_platform?: string | null
           id?: string
           injection_links?: Json | null
