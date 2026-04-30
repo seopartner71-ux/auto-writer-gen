@@ -57,6 +57,8 @@ export interface RenderCtx {
   clientsCountText?: string;
   authors?: { name: string; role?: string; bio?: string; avatar_seed?: string }[];
   businessPages?: Record<string, string>;
+  iconUrl?: string;
+  totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
 
 function esc(s: string): string {
