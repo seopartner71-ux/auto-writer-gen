@@ -1198,6 +1198,34 @@ export function pickAuthor(authors: Author[] | undefined, slug: string): Author 
   return authors[h % authors.length];
 }
 
+/**
+ * Index-based round-robin author picker. Use when the post's position in the
+ * post list is known — guarantees an even distribution across all authors
+ * (slug-hash variant is biased and can starve some authors entirely).
+ */
+export function pickAuthorByIndex(authors: Author[] | undefined, idx: number): Author | null {
+  if (!authors || authors.length === 0) return null;
+  const n = authors.length;
+  const i = ((idx % n) + n) % n;
+  return authors[i];
+}
+
+/**
+ * Resolve the portrait URL for an author/team member with strict priority:
+ *   1. explicit `photo_url` (FAL-cached realistic portrait)
+ *   2. inline SVG monogram data-URL (CDN-free, deterministic by name+accent)
+ * Never returns a third-party CDN URL — the project uses no shared avatar
+ * service so PBN sites can't be clustered by their dicebear.com requests.
+ */
+export function portraitUrl(
+  person: { name?: string; photo_url?: string; avatar_seed?: string } | null | undefined,
+  accent: string,
+  seed?: string,
+): string {
+  if (person?.photo_url && /^https?:\/\//.test(person.photo_url)) return person.photo_url;
+  return svgMonogramDataUrl(person?.name || person?.avatar_seed || "?", accent, seed);
+}
+
 // Pools of names used by our team generator + common Russian names AI loves to invent.
 // Used to detect "foreign" person mentions in article text and unify them with the
 // single chosen author so a post never appears to have multiple bylines.
