@@ -384,11 +384,14 @@ const COOKIE_BANNER_JS = `
 export function headerHtml(c: SiteChrome): string {
   const items = navItems(c);
   const isRu = c.lang === "ru";
+  const brandInner = c.iconUrl
+    ? `<img class="site-header__logo" src="${escAttr(c.iconUrl)}" alt="" width="36" height="36" loading="eager" decoding="async"><span class="site-header__brand-text">${escHtml(c.siteName)}</span>`
+    : `<span class="site-header__brand-text">${escHtml(c.siteName)}</span>`;
   return `<a class="skip-link" href="#main-content">${isRu ? "Перейти к контенту" : "Skip to content"}</a>
 <div class="reading-progress" id="reading-progress" aria-hidden="true"></div>
 <header class="site-header" id="site-header">
   <div class="site-header__inner">
-    <a href="/" class="site-header__brand">${escHtml(c.siteName)}</a>
+    <a href="/" class="site-header__brand">${brandInner}</a>
     <button class="site-header__burger" type="button" aria-label="${isRu ? "Меню" : "Menu"}" aria-controls="site-nav" aria-expanded="false" id="burger">
       <span></span><span></span><span></span>
     </button>
