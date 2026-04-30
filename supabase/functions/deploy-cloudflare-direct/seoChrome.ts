@@ -611,6 +611,7 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.json">
   <link rel="alternate" type="application/rss+xml" title="${escAttr(c.siteName)}" href="/feed.xml">
+  <link rel="sitemap" type="application/xml" href="/sitemap.xml">
   ${lds.map((x) => jsonLdScript(x)).join("\n  ")}
 </head>`;
 }
