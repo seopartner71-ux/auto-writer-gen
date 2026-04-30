@@ -1076,6 +1076,68 @@ export function buildTermsPage(c: SiteChrome): string {
   }, main);
 }
 
+// ---- Custom 404 page -------------------------------------------------------
+// Cloudflare Pages serves /404.html automatically for unknown routes. Each
+// site renders a unique copy: subtitle picked from a deterministic pool,
+// accent color from chrome, and 3 popular post links so visitors stay on the
+// site instead of bouncing.
+export function build404Page(c: SiteChrome, posts: PostInput[] = []): string {
+  const isRu = c.lang === "ru";
+  const seed = siteSeed(c);
+  const subtitle = pickPhrase("notFoundSub", c.lang, seed);
+  const homeLabel = isRu ? "На главную" : "Go home";
+  const searchLabel = isRu ? "Поиск по сайту" : "Search the site";
+  const popularLabel = isRu ? "Популярные материалы" : "Popular reads";
+  const top = posts.slice(0, 3);
+  const linksHtml = top.length
+    ? `<nav class="nf-popular" aria-label="${escAttr(popularLabel)}">
+         <h2>${escHtml(popularLabel)}</h2>
+         <ul>${top.map((p) => `<li><a href="/posts/${escAttr(p.slug)}.html">${escHtml(p.title)}</a></li>`).join("")}</ul>
+       </nav>`
+    : "";
+  const main = `
+    <section class="nf-wrap">
+      <div class="nf-card">
+        <div class="nf-code" aria-hidden="true">404</div>
+        <h1 class="nf-title">${escHtml(isRu ? "Страница не найдена" : "Page not found")}</h1>
+        <p class="nf-sub">${escHtml(subtitle)}</p>
+        <form class="nf-search" action="https://www.google.com/search" method="get" target="_blank" rel="noopener">
+          <input type="hidden" name="q" value="site:${escAttr(c.domain)}">
+          <label for="nf-q" class="visually-hidden">${escAttr(searchLabel)}</label>
+          <input id="nf-q" type="search" name="q" placeholder="${escAttr(searchLabel)}" aria-label="${escAttr(searchLabel)}">
+          <button type="submit">${escHtml(isRu ? "Найти" : "Search")}</button>
+        </form>
+        <a class="nf-home" href="/">${escHtml(homeLabel)} →</a>
+        ${linksHtml}
+      </div>
+    </section>
+    <style>
+      .nf-wrap{min-height:60vh;display:flex;align-items:center;justify-content:center;padding:60px 20px;font-family:'${c.bodyFont}',system-ui,sans-serif}
+      .nf-card{max-width:620px;width:100%;text-align:center;background:#fff;border:1px solid #eef0f3;border-radius:14px;padding:44px 32px;box-shadow:0 10px 40px rgba(15,23,42,.05)}
+      .nf-code{font-family:'${c.headingFont}',serif;font-size:96px;line-height:1;font-weight:800;letter-spacing:-.04em;background:linear-gradient(135deg,${c.accent},${c.accent}aa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+      .nf-title{font-family:'${c.headingFont}',serif;font-size:28px;color:#0f172a;margin:0 0 8px}
+      .nf-sub{color:#64748b;font-size:16px;margin:0 0 24px}
+      .nf-search{display:flex;gap:8px;margin:0 0 18px;flex-wrap:wrap;justify-content:center}
+      .nf-search input[type=search]{flex:1;min-width:200px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;font:inherit;background:#f8fafc}
+      .nf-search button{padding:12px 18px;border:0;border-radius:10px;background:${c.accent};color:#fff;font:inherit;font-weight:600;cursor:pointer}
+      .nf-home{display:inline-block;margin:6px 0 22px;color:${c.accent};text-decoration:none;font-weight:600}
+      .nf-popular{text-align:left;border-top:1px solid #eef0f3;padding-top:18px;margin-top:6px}
+      .nf-popular h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin:0 0 10px;font-weight:700}
+      .nf-popular ul{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+      .nf-popular a{color:#0f172a;text-decoration:none;border-bottom:1px dashed #e2e8f0;padding:6px 0;display:block}
+      .nf-popular a:hover{color:${c.accent}}
+      .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+    </style>`;
+  return wrapPage(c, {
+    title: `404 · ${c.siteName}`,
+    description: isRu ? "Страница не найдена" : "Page not found",
+    path: "/404.html", type: "website",
+    breadcrumbs: [...home(c), { label: "404", href: "/404.html" }],
+    bodyClass: "page-404",
+    noIndex: true,
+  }, main);
+}
+
 // ---- Per-post page (article schema, breadcrumbs, related posts) ----
 
 export interface PostInput {
@@ -1086,6 +1148,35 @@ export interface PostInput {
   publishedAt?: string;
   modifiedAt?: string;
   featuredImageUrl?: string;
+}
+
+// ---- Unique ALT helper -----------------------------------------------------
+// Build a contextual ALT text using the site's topic + post title so the same
+// image (or topic-derived stock photo) does not get the same ALT on every PBN
+// site. Deterministic by inputs.
+export function uniqueImageAlt(
+  c: { topic?: string; siteName?: string; lang?: string },
+  subject: string,
+  variant: number = 0,
+): string {
+  const isRu = String(c.lang || "").toLowerCase().startsWith("ru");
+  const topic = String(c.topic || "").trim();
+  const subj  = String(subject || "").trim();
+  const ru = [
+    subj && topic ? `${subj} — ${topic}` : (subj || topic || c.siteName || "Иллюстрация"),
+    subj && topic ? `${topic}: ${subj}` : (subj || topic || "Иллюстрация к статье"),
+    subj ? `Иллюстрация к материалу «${subj}»` : `Иллюстрация по теме ${topic || "сайта"}`,
+    topic ? `Фото по теме ${topic}` : `Фото к статье ${subj}`,
+  ];
+  const en = [
+    subj && topic ? `${subj} — ${topic}` : (subj || topic || c.siteName || "Illustration"),
+    subj && topic ? `${topic}: ${subj}` : (subj || topic || "Article illustration"),
+    subj ? `Illustration for "${subj}"` : `Illustration on ${topic || "the topic"}`,
+    topic ? `Photo about ${topic}` : `Photo for ${subj}`,
+  ];
+  const list = isRu ? ru : en;
+  const idx = ((variant % list.length) + list.length) % list.length;
+  return list[idx].slice(0, 140);
 }
 
 // Pick a stable author for a post based on its slug — keeps assignment
@@ -1481,7 +1572,8 @@ export function buildPostPage(
   const heroUrl  = post.featuredImageUrl && /^https?:\/\//.test(post.featuredImageUrl)
     ? post.featuredImageUrl
     : `https://picsum.photos/seed/${heroSeed}/1200/600`;
-  const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(post.title)}" loading="eager" width="1200" height="600">`;
+  const heroAlt = uniqueImageAlt(c, post.title, 0);
+  const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(heroAlt)}" loading="eager" decoding="async" fetchpriority="high" width="1200" height="600">`;
 
   // AI Summary — short direct answer in the first ~100 words. Optimised for
   // AI search engines (Perplexity, ChatGPT Search, Gemini, Яндекс AI) and
@@ -1545,7 +1637,8 @@ export function buildIndexHomePage(c: SiteChrome, postsList: PostInput[]): strin
   const cardImg = (p: PostInput) => {
     const fallback = `https://picsum.photos/seed/${encodeURIComponent(p.slug || p.title || "post").slice(0, 60)}/600/360`;
     const url = p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl) ? p.featuredImageUrl : fallback;
-    return `<img src="${escAttr(url)}" alt="${escAttr(p.title)}" loading="lazy" width="600" height="360"
+    const alt = uniqueImageAlt(c, p.title, (p.slug || "").length % 4);
+    return `<img src="${escAttr(url)}" alt="${escAttr(alt)}" loading="lazy" decoding="async" width="600" height="360"
       style="display:block;width:100%;aspect-ratio:5/3;object-fit:cover;border-radius:10px 10px 0 0;background:#e2e8f0">`;
   };
   const cards = postsList.length === 0

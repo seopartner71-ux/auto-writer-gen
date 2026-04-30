@@ -7,7 +7,7 @@ import {
   buildPostPage, robotsTxt, sitemapXml, chromeStyles, pickRelated,
   buildBusinessPages, businessPagePaths, sitemapXmlExtended,
   faviconSvg, manifestJson, humansTxt, securityTxt, rssFeed,
-  llmsTxt,
+  llmsTxt, build404Page,
 } from "./seoChrome.ts";
 
 export interface DbTemplate {
@@ -195,6 +195,7 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
     "contacts.html": buildContactsPage(chrome),
     "privacy.html": buildPrivacyPage(chrome),
     "terms.html": buildTermsPage(chrome),
+    "404.html": build404Page(chrome, chromePosts.slice(0, 3)),
     "style.css": css + "\n" + chromeStyles(chrome),
     "robots.txt": robotsTxt(chrome),
     "_headers": `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n`,

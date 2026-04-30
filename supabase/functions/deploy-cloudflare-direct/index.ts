@@ -15,7 +15,7 @@ import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages, ensureSiteIcon } from "./landingPage.ts";
-import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles } from "./seoChrome.ts";
+import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles, build404Page } from "./seoChrome.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 
@@ -743,6 +743,24 @@ serve(async (req) => {
       console.log("[deploy-cloudflare-direct] landing applied (skin", skin, ")");
     } catch (e) {
       console.warn("[deploy-cloudflare-direct] landing gen failed, keeping default index:", (e as Error).message);
+    }
+
+    // ---- Custom 404 page ----------------------------------------------------
+    // Cloudflare Pages serves /404.html for unknown routes. Each site renders
+    // a unique copy (subtitle from a deterministic pool, accent color, top 3
+    // posts) so visitors stay instead of bouncing.
+    try {
+      const chrome404: any = {
+        domain, siteName, siteAbout, topic, lang,
+        accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+        ...commonOpts,
+      };
+      files["404.html"] = build404Page(chrome404, posts.slice(0, 3).map((p: any) => ({
+        title: p.title, slug: p.slug, excerpt: p.excerpt || "", contentHtml: "",
+      })));
+      console.log("[deploy-cloudflare-direct] 404.html generated");
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] 404 gen failed:", (e as Error).message);
     }
 
     // ---- Anti-fingerprint pass (Stage 1) ------------------------------------
