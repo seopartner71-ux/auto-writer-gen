@@ -545,6 +545,18 @@ serve(async (req) => {
     // 2. Render files (DB template takes priority)
     const trackerBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/track-visit`;
     const lang = ((project as any).language || "ru").toString().toLowerCase().startsWith("ru") ? "ru" : "en";
+    // Read global "Back to top" button position (configurable from admin).
+    // Defaults to "left-bottom" so it never overlaps the right-side chat.
+    let totopPosition: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden" = "left-bottom";
+    try {
+      const { data: posRow } = await supabaseAdmin
+        .from("app_settings").select("value")
+        .eq("key", "pbn_totop_position").maybeSingle();
+      const v = String(posRow?.value || "").trim().toLowerCase();
+      if (v === "right-bottom" || v === "left-top" || v === "right-top" || v === "hidden" || v === "left-bottom") {
+        totopPosition = v as typeof totopPosition;
+      }
+    } catch { /* keep default */ }
     const commonOpts = {
       lang,
       companyName:    (project as any).company_name || undefined,
@@ -572,6 +584,7 @@ serve(async (req) => {
       clientsCountText: (project as any).clients_count_text || undefined,
       authors:        (project as any).authors || undefined,
       businessPages:  (project as any).business_pages || undefined,
+      totopPosition,
     };
     const files = dbTpl
       ? renderDbTemplate({
