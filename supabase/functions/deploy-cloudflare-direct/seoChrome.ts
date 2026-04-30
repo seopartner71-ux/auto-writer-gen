@@ -676,6 +676,7 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
 export function chromeStyles(c: SiteChrome): string {
   return `:root{--accent:${c.accent}}
 ${CHROME_CSS}
+${widgetsCss()}
 `;
 }
 
