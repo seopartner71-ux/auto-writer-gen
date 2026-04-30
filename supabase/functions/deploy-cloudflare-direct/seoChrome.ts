@@ -1844,7 +1844,7 @@ export function sitemapXmlExtended(
     ...extraPaths.map((p) => sitemapEntry(`https://${c.domain}${p}`, today, "monthly", "0.6")),
     ...posts.map((p) => sitemapEntry(
       `https://${c.domain}/posts/${p.slug}.html`,
-      (p.publishedAt || today).slice(0, 10),
+      ((p.modifiedAt || p.publishedAt || today)).slice(0, 10),
       "monthly",
       "0.6",
     )),
