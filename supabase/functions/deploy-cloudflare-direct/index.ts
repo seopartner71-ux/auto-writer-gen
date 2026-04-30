@@ -667,6 +667,43 @@ serve(async (req) => {
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
     // ---- Replace home page with the new professional landing -----------------
+    const homepageStyle: "landing" | "magazine" =
+      ((project as any).homepage_style === "magazine" ? "magazine" : "landing");
+    console.log("[deploy-cloudflare-direct] homepage_style:", homepageStyle);
+
+    if (homepageStyle === "magazine") {
+      try {
+        const chromeMag: any = {
+          domain, siteName, siteAbout, topic, lang,
+          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+          ...commonOpts,
+        };
+        // Re-render every post with the magazine layout (sticky sidebar etc.)
+        const allPosts = posts.map((p: any) => ({
+          title: p.title, slug: p.slug, excerpt: p.excerpt || "",
+          contentHtml: p.contentHtml || "",
+          publishedAt: p.publishedAt, modifiedAt: p.modifiedAt,
+          featuredImageUrl: p.featuredImageUrl,
+        }));
+        for (const p of allPosts) {
+          const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 3);
+          files[`posts/${p.slug}.html`] = renderMagazineArticle({
+            chrome: chromeMag, post: p, related, popular: allPosts.slice(0, 5),
+          });
+        }
+        // Magazine homepage replaces /index.html; keep simple list at /blog/.
+        if (files["index.html"]) files["blog/index.html"] = files["index.html"];
+        files["index.html"] = renderMagazineHome({
+          chrome: chromeMag, posts: allPosts,
+          expertAuthor: pickAuthor(((project as any).authors || []) as any, "expert"),
+        });
+        // Append magazine CSS to global stylesheet.
+        files["style.css"] = (files["style.css"] || "") + "\n" + magazineExtraCss(chromeMag);
+        console.log("[deploy-cloudflare-direct] magazine homepage applied");
+      } catch (e) {
+        console.warn("[deploy-cloudflare-direct] magazine gen failed:", (e as Error).message);
+      }
+    } else {
     try {
       const heroImage = posts[0]?.featuredImageUrl;
       const skin = pickSkin(templateKey + "::" + projectId);
@@ -744,6 +781,7 @@ serve(async (req) => {
       console.log("[deploy-cloudflare-direct] landing applied (skin", skin, ")");
     } catch (e) {
       console.warn("[deploy-cloudflare-direct] landing gen failed, keeping default index:", (e as Error).message);
+    }
     }
 
     // ---- Custom 404 page ----------------------------------------------------
