@@ -80,6 +80,23 @@ export default function ProjectsPage() {
     () => localStorage.getItem("active_project_id")
   );
   const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
+  const [interlinkingProjectId, setInterlinkingProjectId] = useState<string | null>(null);
+
+  const handleRefreshInterlinking = async (projectId: string) => {
+    setInterlinkingProjectId(projectId);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-interlinking", {
+        body: { project_id: projectId, redeploy: true },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Перелинковка обновлена. Внутренних ссылок: ${data?.links_inserted ?? 0}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось обновить перелинковку");
+    } finally {
+      setInterlinkingProjectId(null);
+    }
+  };
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
@@ -305,9 +322,23 @@ export default function ProjectsPage() {
                       {t("projects.viewArticles")}
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-8 gap-1.5"
+                      title="Обновить перелинковку статей"
+                      disabled={interlinkingProjectId === p.id}
+                      onClick={() => handleRefreshInterlinking(p.id)}
+                    >
+                      {interlinkingProjectId === p.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="sm"
-                      className="flex-1 text-xs h-8 gap-1.5 text-destructive hover:text-destructive"
+                      className="text-xs h-8 gap-1.5 text-destructive hover:text-destructive"
                       onClick={() => {
                         if (confirm(t("projects.confirmDelete"))) {
                           deleteMutation.mutate(p.id);
@@ -319,7 +350,6 @@ export default function ProjectsPage() {
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      {t("projects.delete")}
                     </Button>
                   </div>
 
