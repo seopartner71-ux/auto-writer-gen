@@ -608,6 +608,7 @@ serve(async (req) => {
           audience:     String(body.audience     || "").slice(0, 200),
           businessType: String(body.business_type|| "").slice(0, 80),
         },
+        String(projectId || ""),
       );
       // Resolve FAL.ai key (api_keys table > env) and generate (or reuse) all
       // landing images via FAL flux/schnell. Cached per (project_id, slot) so
