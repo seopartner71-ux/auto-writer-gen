@@ -246,6 +246,19 @@ export function SiteGridCreator() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-[10px] text-muted-foreground">
+                      Название сайта / компании <span className="opacity-60">(необязательно - сгенерируем сами)</span>
+                    </Label>
+                    <Input
+                      placeholder="ООО АгроТехника / DachaPro"
+                      value={spec.siteName}
+                      onChange={(e) => updateSpec(idx, { siteName: e.target.value })}
+                      disabled={running}
+                      className="h-8 text-xs"
+                      maxLength={80}
+                    />
+                  </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Тематика / ниша *</Label>
                     <Input
