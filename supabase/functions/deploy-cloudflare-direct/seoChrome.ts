@@ -1088,6 +1088,35 @@ export interface PostInput {
   featuredImageUrl?: string;
 }
 
+// ---- Unique ALT helper -----------------------------------------------------
+// Build a contextual ALT text using the site's topic + post title so the same
+// image (or topic-derived stock photo) does not get the same ALT on every PBN
+// site. Deterministic by inputs.
+export function uniqueImageAlt(
+  c: { topic?: string; siteName?: string; lang?: string },
+  subject: string,
+  variant: number = 0,
+): string {
+  const isRu = String(c.lang || "").toLowerCase().startsWith("ru");
+  const topic = String(c.topic || "").trim();
+  const subj  = String(subject || "").trim();
+  const ru = [
+    subj && topic ? `${subj} — ${topic}` : (subj || topic || c.siteName || "Иллюстрация"),
+    subj && topic ? `${topic}: ${subj}` : (subj || topic || "Иллюстрация к статье"),
+    subj ? `Иллюстрация к материалу «${subj}»` : `Иллюстрация по теме ${topic || "сайта"}`,
+    topic ? `Фото по теме ${topic}` : `Фото к статье ${subj}`,
+  ];
+  const en = [
+    subj && topic ? `${subj} — ${topic}` : (subj || topic || c.siteName || "Illustration"),
+    subj && topic ? `${topic}: ${subj}` : (subj || topic || "Article illustration"),
+    subj ? `Illustration for "${subj}"` : `Illustration on ${topic || "the topic"}`,
+    topic ? `Photo about ${topic}` : `Photo for ${subj}`,
+  ];
+  const list = isRu ? ru : en;
+  const idx = ((variant % list.length) + list.length) % list.length;
+  return list[idx].slice(0, 140);
+}
+
 // Pick a stable author for a post based on its slug — keeps assignment
 // consistent across deploys without needing a DB column.
 export function pickAuthor(authors: Author[] | undefined, slug: string): Author | null {
