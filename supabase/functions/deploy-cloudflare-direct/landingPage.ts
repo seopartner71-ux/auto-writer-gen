@@ -846,19 +846,22 @@ export async function ensureLandingImages(
     prompt: `Professional photo of a small business team or office working on ${ctxLine}, ${baseStyle}.`,
   });
 
-  // Team portraits — 3 different people
-  const teamPlans = [
-    { gender: "male", age: "40", look: "confident director" },
-    { gender: "female", age: "32", look: "friendly manager" },
-    { gender: "male", age: "28", look: "young specialist" },
-  ];
+  // Team portraits — gender MUST match each member's actual name (otherwise
+  // we get "Sergey" with a female face). Age varies deterministically per slot
+  // so the three portraits don't look like clones.
+  const ageBuckets = ["28-35", "30-42", "35-48"];
+  const looks = ["friendly smile", "confident expression", "warm professional smile"];
   for (let i = 0; i < Math.min(3, input.team.length || 3); i++) {
     const slot = `team_${i + 1}`;
     if (out[slot]) continue;
-    const p = teamPlans[i];
+    const member = input.team[i];
+    const gender = detectGenderFromName(member?.name || "", `${projectId}:team:${i}`);
+    const subject = gender === "male" ? "a man" : "a woman";
+    const ageRange = ageBuckets[i % ageBuckets.length];
+    const look = looks[i % looks.length];
     jobs.push({
       slot, size: "square_hd",
-      prompt: `Professional business portrait of a ${p.gender}, ${p.age} years old, ${p.look}, modern office background, friendly smile, ${baseStyle}.`,
+      prompt: `Professional headshot portrait photo of ${subject}, ${ageRange} years old, ${look}, modern office background, soft natural lighting, working in ${niche} industry, photorealistic, sharp focus on face, ${baseStyle}.`,
     });
   }
 
