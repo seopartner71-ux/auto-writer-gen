@@ -925,7 +925,11 @@ export async function ensureLandingImages(
     const slice = jobs.slice(i, i + BATCH);
     const results = await Promise.all(
       slice.map(async (j) => {
-        const url = await falGenerate(falKey, j.prompt, j.size);
+        const isPortrait = j.slot.startsWith("team_");
+        const url = await falGenerate(falKey, j.prompt, j.size, {
+          admin, projectId, slot: j.slot,
+          opType: isPortrait ? "fal_ai_portrait" : "fal_ai_photo",
+        });
         return { job: j, url };
       }),
     );
@@ -992,7 +996,9 @@ export async function ensureSiteIcon(
     `vector style, clean lines, geometric, professional minimalist design, ` +
     `centered, plenty of whitespace, app icon style`;
 
-  const url = await falGenerate(falKey, prompt, "square_hd");
+  const url = await falGenerate(falKey, prompt, "square_hd", {
+    admin, projectId, slot: "logo_icon", opType: "fal_ai_logo",
+  });
   if (!url) return null;
 
   try {
