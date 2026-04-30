@@ -202,6 +202,11 @@ body.page-news{background:var(--news-bg);color:var(--news-text);font-family:'${c
 .news-article-body h2{font-family:'${c.headingFont}','PT Serif',Georgia,serif;font-size:26px;margin:1.6em 0 .6em;font-weight:700}
 .news-article-body h3{font-family:'${c.headingFont}','PT Serif',Georgia,serif;font-size:21px;margin:1.4em 0 .5em;font-weight:700}
 .news-article-body blockquote{margin:1.4em 0;padding:18px 22px;background:#f8f8f8;border-left:4px solid var(--news-accent);font-style:italic}
+.news-article-body table,.news-article-body .md-table{width:100%;border-collapse:collapse;margin:24px 0;font-size:15px;display:table}
+.news-article-body table th,.news-article-body table td{padding:10px 14px;border:1px solid var(--news-border);text-align:left;vertical-align:top}
+.news-article-body table thead th{background:var(--news-soft);font-family:'${c.headingFont}','PT Serif',Georgia,serif;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--news-text);border-bottom:2px solid var(--news-text)}
+.news-article-body table tbody tr:nth-child(even){background:#fafbfc}
+.news-article-body table tbody tr:hover{background:#f4f6fa}
 .news-article-inline{display:grid;grid-template-columns:120px 1fr;gap:14px;margin:1.6em 0;padding:14px;background:var(--news-soft);border-left:3px solid var(--news-text);text-decoration:none;color:inherit}
 .news-article-inline img{width:120px;height:90px;object-fit:cover;display:block;background:#dadde2}
 .news-article-inline h4{margin:0 0 4px;font-size:15px;font-weight:700;line-height:1.3;font-family:'${c.headingFont}','PT Serif',Georgia,serif}
