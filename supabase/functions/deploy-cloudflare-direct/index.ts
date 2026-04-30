@@ -395,10 +395,20 @@ serve(async (req) => {
         .replace(/&quot;/gi, '"')
         .replace(/\s+/g, " ")
         .trim();
-    const rawTopic = body.topic || project.site_about || project.name || "блог";
+    // Topic must be a SHORT niche keyword, not a long welcome paragraph from site_about.
+    // Prefer explicit body.topic > project.name > first short sentence of site_about.
+    const firstClause = (s: string) => stripHtml(s).split(/[.!?\n«»]/)[0]?.trim() || "";
+    const rawTopic = body.topic
+      || project.name
+      || firstClause(project.site_about || "")
+      || "блог";
     const rawSiteName = body.site_name || project.site_name || project.name || "Сайт";
     const rawSiteAbout = body.site_about || project.site_about || `Блог про ${rawTopic}`;
-    const topic: string = stripHtml(rawTopic).slice(0, 200) || "блог";
+    // Hard-cap topic at 60 chars so hero h1 like "{site} — решения по теме «{topic}»" stays compact.
+    const topicRaw = stripHtml(rawTopic);
+    const topic: string = (topicRaw.length > 60
+      ? (topicRaw.slice(0, 60).split(" ").slice(0, -1).join(" ") || topicRaw.slice(0, 60))
+      : topicRaw) || "блог";
     const siteName: string = stripHtml(rawSiteName).slice(0, 120) || "Сайт";
     const siteAbout: string = stripHtml(rawSiteAbout).slice(0, 600) || `Блог про ${topic}`;
     console.log("[deploy-cloudflare-direct] siteName:", siteName, "topic:", topic);
