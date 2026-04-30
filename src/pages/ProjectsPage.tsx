@@ -429,6 +429,55 @@ export default function ProjectsPage() {
               />
             </div>
 
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" /> Модель генерации текстов
+              </Label>
+              <div className="grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, ai_model: "gemini-flash" })}
+                  className={`text-left rounded-md border px-3 py-2 transition-colors ${
+                    form.ai_model === "gemini-flash"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Gemini 2.5 Flash</span>
+                    {form.ai_model === "gemini-flash" && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0">Выбрано</Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Быстро - дешево - ~$0.05 / сайт
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, ai_model: "claude-sonnet" })}
+                  className={`text-left rounded-md border px-3 py-2 transition-colors ${
+                    form.ai_model === "claude-sonnet"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium flex items-center gap-1">
+                      Claude Sonnet 4
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Рекомендуем</Badge>
+                    </span>
+                    {form.ai_model === "claude-sonnet" && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0">Выбрано</Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Качество - SEO-оптимизация - ~$0.40 / сайт
+                  </p>
+                </button>
+              </div>
+            </div>
+
             <Button
               className="w-full"
               onClick={() => saveMutation.mutate()}
