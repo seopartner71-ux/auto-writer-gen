@@ -45,6 +45,81 @@ export function intFromSeed(min: number, max: number, seed: string): number {
   return min + (h % span);
 }
 
+// ----------------------------- Deterministic INN ----------------------------
+
+// Most common Russian regional codes (first two digits of an INN). Picked from
+// federal subjects with the largest economies — keeps the number plausible.
+const RU_INN_REGIONS = [
+  "77", "78", "50", "23", "66", "16", "52", "74", "47", "61",
+  "63", "59", "02", "55", "54", "24", "27", "33", "73", "39",
+];
+
+/**
+ * Generates a checksum-valid 10-digit Russian legal-entity INN deterministically
+ * from `seed` (typically projectId). The 10th digit is the official mod-11
+ * control digit, so the number passes validators without ever being a real INN
+ * by accident — the body is a hash, only the structure is real.
+ */
+export function deterministicRuInn(seed: string): string {
+  const region = RU_INN_REGIONS[fnv1a(seed + ":region") % RU_INN_REGIONS.length];
+  // Build digits 3..9 (seven digits) from the seed.
+  const body: number[] = [];
+  let h = fnv1a(seed + ":body") || 1;
+  for (let i = 0; i < 7; i++) {
+    h ^= h << 13; h >>>= 0;
+    h ^= h >>> 17;
+    h ^= h << 5;  h >>>= 0;
+    body.push(h % 10);
+  }
+  const digits = [Number(region[0]), Number(region[1]), ...body];
+  const weights10 = [2, 4, 10, 3, 5, 9, 4, 6, 8];
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += digits[i] * weights10[i];
+  const checksum = (s % 11) % 10;
+  digits.push(checksum);
+  return digits.join("");
+}
+
+// ----------------------------- Domain-matched email -------------------------
+
+/**
+ * Builds a domain-matched mailbox like `info@example.com` for a given site.
+ * Picks a deterministic local-part variant per project so different sites in
+ * the same network don't all use `info@`. Public mailbox names only.
+ */
+const MAIL_LOCAL = ["info", "hello", "team", "press", "editor", "office", "mail", "contact"];
+
+export function domainMatchedEmail(domain: string, seed: string): string {
+  const cleanDomain = String(domain || "").toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .trim() || "site.local";
+  const local = MAIL_LOCAL[fnv1a(seed + ":mail") % MAIL_LOCAL.length];
+  return `${local}@${cleanDomain}`;
+}
+
+// ----------------------------- Inline SVG monogram --------------------------
+
+/**
+ * Returns a `data:image/svg+xml;utf8,...` URL with a monogram avatar — used as
+ * a CDN-free fallback for author / consultant portraits (replaces dicebear).
+ * Deterministic by `name + accent`.
+ */
+export function svgMonogramDataUrl(name: string, accent: string, seed?: string): string {
+  const initials = String(name || "?").trim().split(/\s+/)
+    .filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+  // Pick a soft tinted background per (seed,name) so each portrait differs.
+  const hueSeed = seed ? `${seed}:${name}` : name;
+  const tints = ["#fef3c7", "#dbeafe", "#fce7f3", "#dcfce7", "#ede9fe", "#ffedd5"];
+  const bg = tints[fnv1a(hueSeed) % tints.length];
+  const fg = String(accent || "#1a1a1a").slice(0, 9);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">` +
+    `<rect width="120" height="120" rx="60" fill="${bg}"/>` +
+    `<text x="60" y="68" text-anchor="middle" font-family="Georgia,serif" font-size="48" font-weight="700" fill="${fg}">${initials}</text>` +
+    `</svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+
 // ----------------------------- Phrase pools ---------------------------------
 
 const POOLS: Record<string, { ru: string[]; en: string[] }> = {
@@ -266,6 +341,31 @@ const POOLS: Record<string, { ru: string[]; en: string[] }> = {
   magCategoryGuides: {
     ru: ["Гайды", "Инструкции", "Чек-листы", "Пошагово"],
     en: ["Guides", "How-tos", "Checklists", "Step by step"],
+  },
+
+  // Brand tagline rendered under siteName in header (deterministic per project).
+  // Keep generic — actual topic is appended at the call-site if needed.
+  brandTagline: {
+    ru: [
+      "Журнал о практике",
+      "Экспертный блог",
+      "Гайды и обзоры",
+      "Полезные материалы",
+      "Издание для практиков",
+      "Разбираемся в деталях",
+      "Опыт и кейсы",
+      "Простыми словами",
+    ],
+    en: [
+      "Practical journal",
+      "Expert blog",
+      "Guides and reviews",
+      "Useful stories",
+      "Hands-on magazine",
+      "Details that matter",
+      "Cases and experience",
+      "In plain language",
+    ],
   },
 };
 

@@ -6,7 +6,7 @@
 // - robots.txt and sitemap.xml builders
 
 import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
-import { pickPhrase } from "./phrasePools.ts";
+import { pickPhrase, svgMonogramDataUrl } from "./phrasePools.ts";
 
 /** Stable per-site seed for phrase pools (falls back to domain/site name). */
 export function siteSeed(c: { projectId?: string; domain?: string; siteName?: string }): string {
@@ -17,6 +17,8 @@ export interface TeamMember {
   name: string;
   role: string;
   bio?: string;
+  /** Optional FAL-generated portrait URL (cached in site_image_cache). */
+  photo_url?: string;
 }
 
 export interface Author {
@@ -24,6 +26,8 @@ export interface Author {
   role?: string;
   bio?: string;
   avatar_seed?: string;
+  /** Optional FAL-generated portrait URL (cached in site_image_cache). */
+  photo_url?: string;
 }
 
 export interface BusinessPages {
@@ -78,6 +82,8 @@ export interface SiteChrome {
   iconUrl?: string;
   /** Floating "Back to top" button placement; default left-bottom. */
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
+  /** Short brand tagline rendered under siteName (deterministic per project). */
+  tagline?: string;
 }
 
 export interface PageMeta {
@@ -390,9 +396,10 @@ const COOKIE_BANNER_JS = `
 export function headerHtml(c: SiteChrome): string {
   const items = navItems(c);
   const isRu = c.lang === "ru";
+  const tagline = c.tagline ? `<span class="site-header__tagline">${escHtml(c.tagline)}</span>` : "";
   const brandInner = c.iconUrl
-    ? `<img class="site-header__logo" src="${escAttr(c.iconUrl)}" alt="" width="36" height="36" loading="eager" decoding="async"><span class="site-header__brand-text">${escHtml(c.siteName)}</span>`
-    : `<span class="site-header__brand-text">${escHtml(c.siteName)}</span>`;
+    ? `<img class="site-header__logo" src="${escAttr(c.iconUrl)}" alt="" width="36" height="36" loading="eager" decoding="async"><span class="site-header__brand-stack"><span class="site-header__brand-text">${escHtml(c.siteName)}</span>${tagline}</span>`
+    : `<span class="site-header__brand-stack"><span class="site-header__brand-text">${escHtml(c.siteName)}</span>${tagline}</span>`;
   return `<a class="skip-link" href="#main-content">${isRu ? "Перейти к контенту" : "Skip to content"}</a>
 <div class="reading-progress" id="reading-progress" aria-hidden="true"></div>
 <header class="site-header" id="site-header">
@@ -502,7 +509,10 @@ a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .site-header__brand{font-weight:700;text-decoration:none;font-size:20px}
 .site-header__brand{display:inline-flex;align-items:center;gap:10px;line-height:1;color:inherit}
 .site-header__logo{width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;flex-shrink:0;display:block}
-.site-header__brand-text{display:inline-block;vertical-align:middle}
+.site-header__brand-text{display:inline-block;vertical-align:middle;line-height:1.1}
+.site-header__brand-stack{display:inline-flex;flex-direction:column;justify-content:center;gap:2px}
+.site-header__tagline{font-size:11px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:#888;line-height:1.1}
+@media(max-width:520px){.site-header__tagline{display:none}}
 .site-footer__brand{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#fff;font-size:18px;margin-bottom:6px}
 .site-footer__logo{width:32px;height:32px;border-radius:6px;object-fit:contain;background:#fff;padding:2px;flex-shrink:0;display:block}
 .site-header__burger{display:none;background:none;border:0;padding:8px;cursor:pointer;flex-direction:column;gap:4px;width:44px;height:44px;align-items:center;justify-content:center}
@@ -547,6 +557,7 @@ a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .share-bar a:hover{background:#f5f5f5}
 .author-meta{display:flex;align-items:center;gap:12px;margin:12px 0 24px;color:#666;font-size:14px}
 .author-meta img{width:40px;height:40px;border-radius:50%}
+.team-card__photo{width:120px;height:120px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 14px;background:#f3f4f6}
 .bp-pricing-table{width:100%;border-collapse:collapse;margin:16px 0}
 .bp-pricing-table th,.bp-pricing-table td{border:1px solid #e5e7eb;padding:10px 14px;text-align:left}
 .bp-pricing-table th{background:#f8fafc}
@@ -900,6 +911,7 @@ export function buildAboutPage(c: SiteChrome): string {
       <div class="team-grid">
         ${team.map((t) => `
           <div class="team-card">
+            <img class="team-card__photo" src="${escAttr(portraitUrl(t, c.accent, siteSeed(c)))}" alt="${escAttr(t.name)}" width="120" height="120" loading="lazy" decoding="async">
             <h3>${escHtml(t.name)}</h3>
             <div class="role">${escHtml(t.role || "")}</div>
             ${t.bio ? `<p>${escHtml(t.bio)}</p>` : ""}
@@ -1188,6 +1200,34 @@ export function pickAuthor(authors: Author[] | undefined, slug: string): Author 
   return authors[h % authors.length];
 }
 
+/**
+ * Index-based round-robin author picker. Use when the post's position in the
+ * post list is known — guarantees an even distribution across all authors
+ * (slug-hash variant is biased and can starve some authors entirely).
+ */
+export function pickAuthorByIndex(authors: Author[] | undefined, idx: number): Author | null {
+  if (!authors || authors.length === 0) return null;
+  const n = authors.length;
+  const i = ((idx % n) + n) % n;
+  return authors[i];
+}
+
+/**
+ * Resolve the portrait URL for an author/team member with strict priority:
+ *   1. explicit `photo_url` (FAL-cached realistic portrait)
+ *   2. inline SVG monogram data-URL (CDN-free, deterministic by name+accent)
+ * Never returns a third-party CDN URL — the project uses no shared avatar
+ * service so PBN sites can't be clustered by their dicebear.com requests.
+ */
+export function portraitUrl(
+  person: { name?: string; photo_url?: string; avatar_seed?: string } | null | undefined,
+  accent: string,
+  seed?: string,
+): string {
+  if (person?.photo_url && /^https?:\/\//.test(person.photo_url)) return person.photo_url;
+  return svgMonogramDataUrl(person?.name || person?.avatar_seed || "?", accent, seed);
+}
+
 // Pools of names used by our team generator + common Russian names AI loves to invent.
 // Used to detect "foreign" person mentions in article text and unify them with the
 // single chosen author so a post never appears to have multiple bylines.
@@ -1238,14 +1278,15 @@ export function unifyAuthorMentions(text: string, authorName: string | undefined
 }
 
 function dicebearUrl(seed: string): string {
-  const s = encodeURIComponent(seed || "author");
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${s}&backgroundType=gradientLinear&fontWeight=600`;
+  // Legacy helper retained as no-op forwarder. CDN avatars produce a shared
+  // network footprint across PBN sites, so we render an inline SVG monogram
+  // instead. Keep signature for backward compatibility with older callers.
+  return svgMonogramDataUrl(seed || "?", "#1a1a1a");
 }
 
 // Avatar style requested for author cards (avataaars, more illustrative)
 function avataarsUrl(seed: string): string {
-  const s = encodeURIComponent(seed || "author");
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${s}`;
+  return svgMonogramDataUrl(seed || "?", "#1a1a1a");
 }
 
 // Strip any <script> blocks from AI-returned HTML — JSON-LD must live in <head>,
@@ -1455,7 +1496,7 @@ function authorMetaHtml(c: SiteChrome, author: Author | null, publishedAt?: stri
     return `<div class="author-meta"><time datetime="${escAttr(dateTime)}" style="font-size:13px;color:#888">${escHtml(dateStr)}</time></div>`;
   }
   return `<div class="author-meta">
-    <img src="${escAttr(dicebearUrl(author.avatar_seed || author.name))}" alt="${escAttr(author.name)}" loading="lazy" width="40" height="40">
+    <img src="${escAttr(portraitUrl(author, c.accent, siteSeed(c)))}" alt="${escAttr(author.name)}" loading="lazy" width="40" height="40">
     <div>
       <div><strong>${escHtml(author.name)}</strong>${author.role ? ` <span style="color:#888">· ${escHtml(author.role)}</span>` : ""}</div>
       ${dateStr ? `<time datetime="${escAttr(dateTime)}" style="font-size:13px;color:#888">${escHtml(dateStr)}</time>` : ""}
@@ -1487,7 +1528,7 @@ export function buildPostPage(
   const safeExcerpt = unifyAuthorMentions(post.excerpt || "", authorName);
   const safeContentHtml = unifyAuthorMentions(post.contentHtml || "", authorName);
   const desc  = safeExcerpt || safeContentHtml.replace(/<[^>]+>/g, " ").trim().slice(0, 160);
-  const authorImage = author ? avataarsUrl(author.avatar_seed || author.name) : undefined;
+  const authorImage = author ? portraitUrl(author, c.accent, siteSeed(c)) : undefined;
   const authorJsonLd = author ? {
     "@context": "https://schema.org",
     "@type": "Person",

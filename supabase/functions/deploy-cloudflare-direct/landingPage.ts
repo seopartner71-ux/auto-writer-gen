@@ -1643,12 +1643,20 @@ ${sfWidgetsCss(ctx.totopPosition || "left-bottom")}
 
   const testimonials = c.testimonials.slice(0, 3).map((tt) => {
     const stars = "★".repeat(tt.rating) + "☆".repeat(5 - tt.rating);
-    const seed = encodeURIComponent(tt.name).slice(0, 60);
+    const initials = String(tt.name || "?").trim().split(/\s+/).filter(Boolean)
+      .slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+    const tints = ["#fef3c7","#dbeafe","#fce7f3","#dcfce7","#ede9fe","#ffedd5"];
+    let h = 2166136261 >>> 0;
+    for (let k = 0; k < tt.name.length; k++) { h ^= tt.name.charCodeAt(k); h = Math.imul(h, 16777619) >>> 0; }
+    const bg = tints[h % tints.length];
+    const fg = (ctx.accent || "#1a1a1a").slice(0, 9);
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 42 42'><rect width='42' height='42' rx='21' fill='${bg}'/><text x='21' y='27' text-anchor='middle' font-family='Georgia,serif' font-size='17' font-weight='700' fill='${fg}'>${initials}</text></svg>`;
+    const ava = "data:image/svg+xml;utf8," + encodeURIComponent(svg);
     return `
     <div class="test">
       <div class="stars" aria-label="${tt.rating} of 5">${stars}</div>
       <p>"${esc(tt.text)}"</p>
-      <div class="author"><img src="https://api.dicebear.com/7.x/initials/svg?seed=${seed}" alt="${esc(tt.name)}" loading="lazy" width="42" height="42"><div><div class="name">${esc(tt.name)}</div><div class="who">${esc(tt.role)}</div></div></div>
+      <div class="author"><img src="${ava}" alt="${esc(tt.name)}" loading="lazy" width="42" height="42"><div><div class="name">${esc(tt.name)}</div><div class="who">${esc(tt.role)}</div></div></div>
     </div>`;
   }).join("");
 
