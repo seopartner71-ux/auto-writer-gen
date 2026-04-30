@@ -15,7 +15,8 @@ import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages, ensureSiteIcon } from "./landingPage.ts";
-import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles, build404Page } from "./seoChrome.ts";
+import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles, build404Page, pickAuthor } from "./seoChrome.ts";
+import { renderMagazineHome, renderMagazineArticle, magazineExtraCss } from "./magazinePage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 
