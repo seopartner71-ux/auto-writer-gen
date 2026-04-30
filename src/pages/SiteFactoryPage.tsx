@@ -2079,6 +2079,109 @@ export default function SiteFactoryPage() {
               />
             </div>
 
+            {/* Inline Link Injection — placed here so user sees it BEFORE generation */}
+            {selectedProjectId && (
+              <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-medium">
+                      {lang === "ru"
+                        ? "Ссылки на сторонние ресурсы (Link Injection)"
+                        : "External links (Link Injection)"}
+                    </Label>
+                  </div>
+                  {injectionLinks.length > 0 && (
+                    <Badge variant="default" className="text-[10px] h-5 gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      {lang === "ru"
+                        ? `Активно: ${Math.min(3, injectionLinks.length)}/${injectionLinks.length}`
+                        : `Active: ${Math.min(3, injectionLinks.length)}/${injectionLinks.length}`}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {lang === "ru"
+                    ? "До 3 ссылок (любые URL: ваши проекты, партнёрские, клиентские) автоматически вставятся в тело каждой новой статьи. По 1 ссылке на абзац, rel=\"nofollow noopener\"."
+                    : "Up to 3 links (any URL: yours, partners, clients) are auto-injected into every new article body. One per paragraph, rel=\"nofollow noopener\"."}
+                </p>
+                {injectionLinks.map((link, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-md bg-background/60 px-2 py-1.5 border border-border/40">
+                    <span className="text-xs truncate flex-1" title={link.url}>
+                      <span className="font-medium text-primary">{link.anchor}</span>
+                      <span className="text-muted-foreground"> → {link.url}</span>
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                      onClick={async () => {
+                        const updated = injectionLinks.filter((_, idx) => idx !== i);
+                        setInjectionLinks(updated);
+                        if (selectedProjectId) {
+                          await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Input
+                    value={newLinkUrl}
+                    onChange={(e) => setNewLinkUrl(e.target.value)}
+                    placeholder="https://example.com/page"
+                    className="flex-1 h-8 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newLinkUrl.trim() && newLinkAnchor.trim()) {
+                        e.preventDefault();
+                        (document.getElementById("inj-add-btn-inline") as HTMLButtonElement | null)?.click();
+                      }
+                    }}
+                  />
+                  <Input
+                    value={newLinkAnchor}
+                    onChange={(e) => setNewLinkAnchor(e.target.value)}
+                    placeholder={lang === "ru" ? "Анкор (текст ссылки)" : "Anchor (link text)"}
+                    className="w-40 h-8 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newLinkUrl.trim() && newLinkAnchor.trim()) {
+                        e.preventDefault();
+                        (document.getElementById("inj-add-btn-inline") as HTMLButtonElement | null)?.click();
+                      }
+                    }}
+                  />
+                  <Button
+                    id="inj-add-btn-inline"
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    disabled={!newLinkUrl.trim() || !newLinkAnchor.trim()}
+                    onClick={async () => {
+                      const updated = [...injectionLinks, { url: newLinkUrl.trim(), anchor: newLinkAnchor.trim() }];
+                      setInjectionLinks(updated);
+                      setNewLinkUrl("");
+                      setNewLinkAnchor("");
+                      if (selectedProjectId) {
+                        await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
+                        toast({ title: lang === "ru" ? "Ссылка добавлена" : "Link added" });
+                      }
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+                {(newLinkUrl.trim() || newLinkAnchor.trim()) && (
+                  <p className="text-[10px] text-amber-500 flex items-center gap-1">
+                    ⚠ {lang === "ru"
+                      ? "Нажмите «+» или Enter, чтобы сохранить"
+                      : "Click «+» or press Enter to save"}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Image Generation Controls */}
             <div className="space-y-3 rounded-lg border border-border p-4">
               <div className="flex items-center justify-between">
