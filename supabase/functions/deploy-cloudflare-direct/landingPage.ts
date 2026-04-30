@@ -10,6 +10,8 @@
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 
+import { widgetsCss as sfWidgetsCss, widgetsHtml as sfWidgetsHtml } from "./siteWidgets.ts";
+
 // ----------------------------- Niche-aware fallbacks ------------------------
 
 /** Tiny deterministic FNV-1a for seeded picks. */
