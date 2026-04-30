@@ -6,7 +6,7 @@
 // - robots.txt and sitemap.xml builders
 
 import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
-import { pickPhrase } from "./phrasePools.ts";
+import { pickPhrase, svgMonogramDataUrl } from "./phrasePools.ts";
 
 /** Stable per-site seed for phrase pools (falls back to domain/site name). */
 export function siteSeed(c: { projectId?: string; domain?: string; siteName?: string }): string {
@@ -17,6 +17,8 @@ export interface TeamMember {
   name: string;
   role: string;
   bio?: string;
+  /** Optional FAL-generated portrait URL (cached in site_image_cache). */
+  photo_url?: string;
 }
 
 export interface Author {
@@ -24,6 +26,8 @@ export interface Author {
   role?: string;
   bio?: string;
   avatar_seed?: string;
+  /** Optional FAL-generated portrait URL (cached in site_image_cache). */
+  photo_url?: string;
 }
 
 export interface BusinessPages {
@@ -78,6 +82,8 @@ export interface SiteChrome {
   iconUrl?: string;
   /** Floating "Back to top" button placement; default left-bottom. */
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
+  /** Short brand tagline rendered under siteName (deterministic per project). */
+  tagline?: string;
 }
 
 export interface PageMeta {
