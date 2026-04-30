@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -299,6 +300,13 @@ serve(async (req) => {
           model_used: "fal-ai/flux-schnell",
           tokens_used: 0,
         });
+        void logCost(supabaseAdmin, {
+          user_id: userId,
+          operation_type: "fal_ai_photo",
+          model: "fal-ai/flux/schnell",
+          cost_usd: FAL_IMAGE_COST_USD,
+          metadata: { context: "pro_image_section", section: section.heading?.slice(0, 80) },
+        });
       }
 
       return new Response(
@@ -352,6 +360,13 @@ serve(async (req) => {
       action: "pro_image_generation",
       model_used: "fal-ai/flux-schnell",
       tokens_used: 0,
+    });
+    void logCost(supabaseAdmin, {
+      user_id: userId,
+      operation_type: "fal_ai_photo",
+      model: "fal-ai/flux/schnell",
+      cost_usd: FAL_IMAGE_COST_USD,
+      metadata: { context: "pro_image_single", title: String(title).slice(0, 80) },
     });
 
     return new Response(
