@@ -673,11 +673,62 @@ serve(async (req) => {
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
     // ---- Replace home page with the new professional landing -----------------
-    const homepageStyle: "landing" | "magazine" =
-      ((project as any).homepage_style === "magazine" ? "magazine" : "landing");
+    const homepageStyle: "landing" | "magazine" | "news" =
+      ((project as any).homepage_style === "magazine"
+        ? "magazine"
+        : (project as any).homepage_style === "news"
+        ? "news"
+        : "landing");
     console.log("[deploy-cloudflare-direct] homepage_style:", homepageStyle);
 
-    if (homepageStyle === "magazine") {
+    if (homepageStyle === "news") {
+      try {
+        let authorPhotos: string[] = [];
+        try {
+          const { data: cached } = await supabaseAdmin
+            .from("site_image_cache")
+            .select("slot, image_url")
+            .eq("project_id", projectId)
+            .like("slot", "team_%");
+          authorPhotos = (cached || [])
+            .sort((a: any, b: any) => String(a.slot).localeCompare(String(b.slot)))
+            .map((r: any) => r.image_url)
+            .filter((u: string) => /^https?:\/\//.test(u));
+        } catch (_) { /* ignore */ }
+        const enrichedAuthors = ((project as any).authors || []).map((a: any, i: number) => ({
+          ...a, photo_url: a?.photo_url || authorPhotos[i % Math.max(1, authorPhotos.length)] || undefined,
+        }));
+        const chromeNews: any = {
+          domain, siteName, siteAbout, topic, lang,
+          accent, headingFont: fontPair[0], bodyFont: fontPair[1],
+          ...commonOpts,
+          authors: enrichedAuthors,
+        };
+        const allPosts = posts.map((p: any) => ({
+          title: p.title, slug: p.slug, excerpt: p.excerpt || "",
+          contentHtml: p.contentHtml || "",
+          publishedAt: p.publishedAt, modifiedAt: p.modifiedAt,
+          featuredImageUrl: p.featuredImageUrl,
+        }));
+        for (let i = 0; i < allPosts.length; i++) {
+          const p = allPosts[i];
+          const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 4);
+          files[`posts/${p.slug}.html`] = renderNewsArticle({
+            chrome: chromeNews, post: p, related, popular: allPosts.slice(0, 5),
+            postIndex: i,
+          });
+        }
+        if (files["index.html"]) files["blog/index.html"] = files["index.html"];
+        files["index.html"] = renderNewsHome({
+          chrome: chromeNews, posts: allPosts,
+          expertAuthor: enrichedAuthors[0] || null,
+        });
+        files["style.css"] = (files["style.css"] || "") + "\n" + newsExtraCss(chromeNews);
+        console.log("[deploy-cloudflare-direct] news homepage applied");
+      } catch (e) {
+        console.warn("[deploy-cloudflare-direct] news gen failed:", (e as Error).message);
+      }
+    } else if (homepageStyle === "magazine") {
       try {
         // Reuse FAL portraits from team_X slots; map to authors[i] in order.
         let authorPhotos: string[] = [];
