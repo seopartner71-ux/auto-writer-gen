@@ -681,11 +681,19 @@ export function buildPrivacyPage(c: SiteChrome): string {
   const cookiesNote = isRu
     ? `<p>Сайт использует cookies для корректной работы и анонимной аналитики. Вы можете принять или отклонить их в баннере при первом визите. Согласие сохраняется в localStorage вашего браузера.</p>`
     : `<p>The site uses cookies for proper operation and anonymous analytics. You can accept or reject them in the banner on your first visit. Your choice is saved in your browser's localStorage.</p>`;
+  const lead = isRu
+    ? "Мы заботимся о ваших персональных данных и обрабатываем их только для целей, описанных ниже."
+    : "We take your personal data seriously and process it only for the purposes described below.";
+  const blocks = splitIntoBlocks((c.privacyHtml || `<p>${escHtml(isRu ? "Мы уважаем вашу конфиденциальность." : "We respect your privacy.")}</p>`) + `\n<h2>${isRu ? "Cookies" : "Cookies"}</h2>\n${cookiesNote}`);
   const main = `
-    <article class="page-article">
-      <h1>${isRu ? "Политика конфиденциальности" : "Privacy policy"}</h1>
-      ${c.privacyHtml || `<p>${escHtml(isRu ? "Мы уважаем вашу конфиденциальность." : "We respect your privacy.")}</p>`}
-      ${cookiesNote}
+    <article class="service-page">
+      <header class="service-hero">
+        <h1>${isRu ? "Политика конфиденциальности" : "Privacy policy"}</h1>
+        <p class="service-hero__lead">${escHtml(lead)}</p>
+      </header>
+      <div class="service-blocks">
+        ${blocks.map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
+      </div>
     </article>`;
   return wrapPage(c, {
     title, description: (isRu ? "Политика конфиденциальности сайта " : "Privacy policy for ") + c.siteName,
@@ -698,10 +706,19 @@ export function buildPrivacyPage(c: SiteChrome): string {
 export function buildTermsPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
   const title = `${isRu ? "Пользовательское соглашение" : "Terms of use"} · ${c.siteName}`;
+  const lead = isRu
+    ? "Используя этот сайт, вы соглашаетесь с условиями, описанными в разделах ниже."
+    : "By using this site, you agree to the terms described in the sections below.";
+  const blocks = splitIntoBlocks(c.termsHtml || `<p>${escHtml(isRu ? "Все материалы носят информационный характер." : "All materials are for informational purposes only.")}</p>`);
   const main = `
-    <article class="page-article">
-      <h1>${isRu ? "Пользовательское соглашение" : "Terms of use"}</h1>
-      ${c.termsHtml || `<p>${escHtml(isRu ? "Все материалы носят информационный характер." : "All materials are for informational purposes only.")}</p>`}
+    <article class="service-page">
+      <header class="service-hero">
+        <h1>${isRu ? "Пользовательское соглашение" : "Terms of use"}</h1>
+        <p class="service-hero__lead">${escHtml(lead)}</p>
+      </header>
+      <div class="service-blocks">
+        ${blocks.map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
+      </div>
     </article>`;
   return wrapPage(c, {
     title, description: (isRu ? "Пользовательское соглашение сайта " : "Terms for ") + c.siteName,
