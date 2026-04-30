@@ -902,16 +902,79 @@ section{padding:${t.sectionPad}}
     ? `<a href="/">Главная</a><a href="/services.html">Услуги</a><a href="/about.html">О нас</a><a href="/blog/">Блог</a><a href="/contacts.html">Контакты</a>`
     : `<a href="/">Home</a><a href="/services.html">Services</a><a href="/about.html">About</a><a href="/blog/">Blog</a><a href="/contacts.html">Contacts</a>`);
 
-  const orgSchema = {
+  // Parse work hours (Пн-Пт 9:00-18:00) into openingHoursSpecification.
+  const orgId = `https://${ctx.domain}/#organization`;
+  const lbId  = `https://${ctx.domain}/#localbusiness`;
+  const dayMap: Record<string, string> = {
+    пн: "Monday", вт: "Tuesday", ср: "Wednesday", чт: "Thursday",
+    пт: "Friday", сб: "Saturday", вс: "Sunday",
+    mo: "Monday", tu: "Tuesday", we: "Wednesday", th: "Thursday",
+    fr: "Friday", sa: "Saturday", su: "Sunday",
+  };
+  const openingHoursSpec: unknown[] = [];
+  if (c.workHours) {
+    const re = /([а-яa-z]{2,3})\s*[-–]\s*([а-яa-z]{2,3})\s*([0-9]{1,2}[:.][0-9]{2})\s*[-–]\s*([0-9]{1,2}[:.][0-9]{2})/gi;
+    let mm: RegExpExecArray | null;
+    while ((mm = re.exec(c.workHours)) !== null) {
+      const order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const from = dayMap[mm[1].toLowerCase().slice(0, 2)];
+      const to = dayMap[mm[2].toLowerCase().slice(0, 2)];
+      if (!from || !to) continue;
+      const i1 = order.indexOf(from), i2 = order.indexOf(to);
+      if (i1 < 0 || i2 < 0) continue;
+      openingHoursSpec.push({
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: order.slice(i1, i2 + 1),
+        opens: mm[3].replace(".", ":"),
+        closes: mm[4].replace(".", ":"),
+      });
+    }
+  }
+
+  const addressParts = (c.address || "").split(",").map((p) => p.trim()).filter(Boolean);
+  const postalMatch = (c.address || "").match(/\b(\d{5,6})\b/);
+
+  const localBusiness = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
+    "@id": lbId,
     name: ctx.siteName,
     url: `https://${ctx.domain}/`,
+    image: heroImg || undefined,
     telephone: c.phone,
     email: c.email,
-    address: { "@type": "PostalAddress", streetAddress: c.address, addressCountry: isRu ? "RU" : "US" },
-    aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", reviewCount: String(150 + (hashStr(ctx.siteName) % 200)) },
+    description: c.heroSubtitle,
+    priceRange: isRu ? "₽₽" : "$$",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: addressParts[0] || c.address,
+      addressLocality: addressParts[1] || undefined,
+      postalCode: postalMatch ? postalMatch[1] : undefined,
+      addressCountry: isRu ? "RU" : "US",
+    },
+    openingHoursSpecification: openingHoursSpec.length ? openingHoursSpec : undefined,
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.9",
+      reviewCount: String(150 + (hashStr(ctx.siteName) % 200)),
+    },
   };
+
+  const servicesLd = (c.services || []).slice(0, 6).map((s) => ({
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: s.title,
+    description: (s.bullets || []).slice(0, 3).join(". "),
+    provider: { "@type": "Organization", "@id": orgId, name: ctx.siteName, url: `https://${ctx.domain}/` },
+    offers: s.price ? {
+      "@type": "Offer",
+      price: String(s.price).replace(/[^\d.]/g, "") || undefined,
+      priceCurrency: isRu ? "RUB" : "USD",
+      description: s.price,
+    } : undefined,
+  }));
+
+  const allLd = [localBusiness, ...servicesLd];
 
   return `<!doctype html>
 <html lang="${isRu ? "ru" : "en"}">
@@ -931,7 +994,7 @@ section{padding:${t.sectionPad}}
 <meta property="og:image" content="${esc(heroImg)}">
 <style>${css}</style>
 ${chromeOverride?.chromeCss ? `<style>${chromeOverride.chromeCss}</style>` : ""}
-<script type="application/ld+json">${JSON.stringify(orgSchema)}</script>
+${allLd.map((x) => `<script type="application/ld+json">${JSON.stringify(x).replace(/</g, "\\u003c")}</script>`).join("\n")}
 </head>
 <body>
 
