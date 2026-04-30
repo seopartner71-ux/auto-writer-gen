@@ -574,6 +574,9 @@ export interface MagazineArticleOpts {
   post: PostInput;
   related: PostInput[];
   popular: PostInput[];
+  /** Global index of `post` inside the project's full post list — drives
+   *  deterministic round-robin author + category rotation. */
+  postIndex?: number;
 }
 
 export function renderMagazineArticle(opts: MagazineArticleOpts): string {
@@ -581,8 +584,10 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
   const isRu = c.lang === "ru";
   const seed = siteSeed(c);
   const cats = buildCategories(c);
-  const cat = postCategory(post.slug, cats);
-  const author = pickAuthor(c.authors || [], post.slug);
+  const idx = typeof opts.postIndex === "number" ? opts.postIndex : 0;
+  const cat = postCategoryByIndex(idx, cats);
+  const author = pickAuthorByIndex(c.authors || [], idx)
+    || pickAuthor(c.authors || [], post.slug);
   const minutes = readingTime(post.contentHtml);
   const views = fakeViews(post.slug, seed);
   const toc = extractTocFromHtml(post.contentHtml);
@@ -616,7 +621,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
 
   const authorBlock = author ? `
     <aside class="mag-author-block" itemscope itemtype="https://schema.org/Person">
-      <img src="${escAttr(`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(author.avatar_seed || author.name)}`)}" alt="${escAttr(author.name)}" width="88" height="88" loading="lazy" decoding="async" itemprop="image">
+      <img src="${escAttr(portraitUrl(author, c.accent, seed))}" alt="${escAttr(author.name)}" width="88" height="88" loading="lazy" decoding="async" itemprop="image">
       <div>
         <h4 itemprop="name">${escHtml(author.name)}</h4>
         ${author.role ? `<div class="mag-author-role" itemprop="jobTitle">${escHtml(author.role)}</div>` : ""}
@@ -671,7 +676,7 @@ export function renderMagazineArticle(opts: MagazineArticleOpts): string {
       <div class="mag-aside-block">
         <h4>${escHtml(isRu ? "Об авторе" : "About the author")}</h4>
         <div class="mag-aside-author">
-          <img src="${escAttr(`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(author.avatar_seed || author.name)}`)}" alt="${escAttr(author.name)}" width="48" height="48" loading="lazy" decoding="async">
+          <img src="${escAttr(portraitUrl(author, c.accent, seed))}" alt="${escAttr(author.name)}" width="48" height="48" loading="lazy" decoding="async">
           <div><strong>${escHtml(author.name)}</strong>${author.role ? `<span>${escHtml(author.role)}</span>` : ""}</div>
         </div>
       </div>` : ""}
