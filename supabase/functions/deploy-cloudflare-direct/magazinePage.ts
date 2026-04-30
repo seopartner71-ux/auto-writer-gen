@@ -20,7 +20,7 @@
 import {
   type SiteChrome, type PostInput, type Author,
   buildHead, headerHtml, footerHtml, chromeStyles,
-  pickAuthor, uniqueImageAlt, siteSeed,
+  pickAuthor, pickAuthorByIndex, portraitUrl, uniqueImageAlt, siteSeed,
 } from "./seoChrome.ts";
 import { pickPhrase, pickFromSeed, intFromSeed, seedRng } from "./phrasePools.ts";
 import { widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
@@ -50,12 +50,12 @@ function buildCategories(c: SiteChrome): MagCategory[] {
   ];
 }
 
-// Assign each post a category bucket deterministically by slug — keeps the
-// same post in the same rubric across redeploys.
-function postCategory(slug: string, cats: MagCategory[]): MagCategory {
-  let h = 0;
-  for (let i = 0; i < slug.length; i++) h = ((h << 5) - h + slug.charCodeAt(i)) | 0;
-  return cats[Math.abs(h) % cats.length];
+// Round-robin category assignment by post index — guarantees an even
+// distribution across all rubrics (slug-hash variant could cluster every
+// post in 1-2 categories and leave the rest empty).
+function postCategoryByIndex(idx: number, cats: MagCategory[]): MagCategory {
+  const n = cats.length;
+  return cats[((idx % n) + n) % n];
 }
 
 // ---------------------------------------------------------------------------
