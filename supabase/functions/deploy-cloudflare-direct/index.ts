@@ -16,6 +16,7 @@ import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styl
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages } from "./landingPage.ts";
 import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles } from "./seoChrome.ts";
+import { applyAntiFingerprint } from "./antiFingerprint.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
