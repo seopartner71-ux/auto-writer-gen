@@ -584,9 +584,19 @@ function sanitizeText(s: string, lang: "ru" | "en"): string {
 
 function sanitizeContent(c: LandingContent, lang: "ru" | "en"): LandingContent {
   const s = (x: string) => sanitizeText(x, lang);
+  // Hard length caps so a long site_about / niche text never blows up the hero.
+  const cap = (x: string, n: number) => {
+    const v = s(x);
+    if (v.length <= n) return v;
+    const cut = v.slice(0, n);
+    const lastSpace = cut.lastIndexOf(" ");
+    return (lastSpace > n * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[«"',.\-–—\s]+$/u, "");
+  };
   return {
     ...c,
-    heroTitle: s(c.heroTitle), heroSubtitle: s(c.heroSubtitle), heroBadge: s(c.heroBadge),
+    heroTitle: cap(c.heroTitle, 90),
+    heroSubtitle: cap(c.heroSubtitle, 180),
+    heroBadge: cap(c.heroBadge, 28),
     ctaPrimary: s(c.ctaPrimary), ctaSecondary: s(c.ctaSecondary),
     phone: s(c.phone), email: s(c.email), address: s(c.address), workHours: s(c.workHours),
     stats: c.stats.map(x => ({ value: s(x.value), label: s(x.label) })),
