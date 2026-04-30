@@ -267,91 +267,91 @@ export function widgetsHtml(opts: WidgetOptions): string {
   // injected JS so the surrounding template literal does not collide.
   const js = `
 (function(){
-  var I=${JSON.stringify(I18N)};
-  var PH={name:${JSON.stringify(namePh)},phone:${JSON.stringify(phonePh)}};
+  var ${N.I}=${JSON.stringify(I18N)};
+  var ${N.PH}={name:${JSON.stringify(namePh)},phone:${JSON.stringify(phonePh)}};
 
-  var btn=document.getElementById('sfTop');
-  if(btn){
-    var onScroll=function(){ if(window.scrollY>300){btn.classList.add('sf-show');}else{btn.classList.remove('sf-show');} };
-    window.addEventListener('scroll',onScroll,{passive:true}); onScroll();
-    btn.addEventListener('click',function(){ window.scrollTo({top:0,behavior:'smooth'}); });
+  var ${N.btn}=document.getElementById('sfTop');
+  if(${N.btn}){
+    var ${N.onScroll}=function(){ if(window.scrollY>300){${N.btn}.classList.add('sf-show');}else{${N.btn}.classList.remove('sf-show');} };
+    window.addEventListener('scroll',${N.onScroll},{passive:true}); ${N.onScroll}();
+    ${N.btn}.addEventListener('click',function(){ window.scrollTo({top:0,behavior:'smooth'}); });
   }
-  var chat=document.getElementById('sfChat'); if(!chat) return;
-  var toggle=chat.querySelector('.sf-chat-toggle');
-  var closeBtn=chat.querySelector('.sf-chat-close');
-  var bubble=chat.querySelector('.sf-chat-bubble');
-  var body=chat.querySelector('.sf-chat-body');
-  var foot=chat.querySelector('.sf-chat-foot');
-  var input=foot.querySelector('input');
+  var ${N.chat}=document.getElementById('sfChat'); if(!${N.chat}) return;
+  var ${N.toggle}=${N.chat}.querySelector('.sf-chat-toggle');
+  var ${N.closeBtn}=${N.chat}.querySelector('.sf-chat-close');
+  var ${N.bubble}=${N.chat}.querySelector('.sf-chat-bubble');
+  var ${N.body}=${N.chat}.querySelector('.sf-chat-body');
+  var ${N.foot}=${N.chat}.querySelector('.sf-chat-foot');
+  var ${N.input}=${N.foot}.querySelector('input');
 
   // ---- Soft notification beep (Web Audio). Silent if browser blocks
   // autoplay; first user interaction (click) creates the AudioContext so
   // subsequent beeps are allowed.
-  var audioCtx=null, soundOn=true;
-  var beep=function(){ if(!soundOn||!audioCtx) return;
+  var ${N.audioCtx}=null, ${N.soundOn}=true;
+  var ${N.beep}=function(){ if(!${N.soundOn}||!${N.audioCtx}) return;
     try{
-      var o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      var o=${N.audioCtx}.createOscillator(), g=${N.audioCtx}.createGain();
       o.type='sine'; o.frequency.value=880;
       g.gain.value=0.0001;
-      o.connect(g); g.connect(audioCtx.destination);
-      var t=audioCtx.currentTime;
+      o.connect(g); g.connect(${N.audioCtx}.destination);
+      var t=${N.audioCtx}.currentTime;
       g.gain.exponentialRampToValueAtTime(0.06,t+0.02);
       g.gain.exponentialRampToValueAtTime(0.0001,t+0.18);
       o.start(t); o.stop(t+0.2);
     }catch(e){}
   };
-  var initAudio=function(){ if(audioCtx) return;
-    try{ var Ctx=window.AudioContext||window.webkitAudioContext; if(Ctx) audioCtx=new Ctx(); }catch(e){}
+  var ${N.initAudio}=function(){ if(${N.audioCtx}) return;
+    try{ var Ctx=window.AudioContext||window.webkitAudioContext; if(Ctx) ${N.audioCtx}=new Ctx(); }catch(e){}
   };
 
-  var started=false;
-  var open=function(){
-    chat.classList.add('sf-open');
-    initAudio(); beep();
-    if(!started){ started=true; setTimeout(runIntro,250); }
+  var ${N.started}=false;
+  var ${N.open}=function(){
+    ${N.chat}.classList.add('sf-open');
+    ${N.initAudio}(); ${N.beep}();
+    if(!${N.started}){ ${N.started}=true; setTimeout(${N.runIntro},${T.introDelay}); }
   };
-  var close=function(){ chat.classList.remove('sf-open'); };
-  toggle.addEventListener('click',function(){ if(chat.classList.contains('sf-open')){close();}else{open();} });
-  if(closeBtn){ closeBtn.addEventListener('click',close); }
-  // Auto bubble after 5s, hide after another 5s.
-  setTimeout(function(){ if(!chat.classList.contains('sf-open')&&bubble){ bubble.classList.add('sf-show'); setTimeout(function(){ bubble.classList.remove('sf-show'); },5000);} },5000);
-  if(bubble){ bubble.addEventListener('click',open); }
+  var ${N.close}=function(){ ${N.chat}.classList.remove('sf-open'); };
+  ${N.toggle}.addEventListener('click',function(){ if(${N.chat}.classList.contains('sf-open')){${N.close}();}else{${N.open}();} });
+  if(${N.closeBtn}){ ${N.closeBtn}.addEventListener('click',${N.close}); }
+  // Auto bubble after a short delay, hide after another short delay.
+  setTimeout(function(){ if(!${N.chat}.classList.contains('sf-open')&&${N.bubble}){ ${N.bubble}.classList.add('sf-show'); setTimeout(function(){ ${N.bubble}.classList.remove('sf-show'); },${T.bubbleHide});} },${T.bubbleAppear});
+  if(${N.bubble}){ ${N.bubble}.addEventListener('click',${N.open}); }
 
-  var scrollDown=function(){ body.scrollTop=body.scrollHeight; };
+  var ${N.scrollDown}=function(){ ${N.body}.scrollTop=${N.body}.scrollHeight; };
 
   // Append a user message bubble.
-  var addUser=function(text){
+  var ${N.addUser}=function(text){
     var d=document.createElement('div'); d.className='sf-msg sf-msg-user';
-    d.textContent=text; body.appendChild(d); scrollDown(); return d;
+    d.textContent=text; ${N.body}.appendChild(d); ${N.scrollDown}(); return d;
   };
 
   // Show the typing indicator and resolve after a delay. Returns a Promise.
-  var showTyping=function(ms){
+  var ${N.showTyping}=function(ms){
     return new Promise(function(res){
       var t=document.createElement('div');
       t.className='sf-typing';
       t.innerHTML='<span></span><span></span><span></span>';
-      body.appendChild(t); scrollDown();
+      ${N.body}.appendChild(t); ${N.scrollDown}();
       setTimeout(function(){ t.remove(); res(); }, ms||1200);
     });
   };
 
   // Type out a consultant message character by character. Returns a Promise.
-  var typeMsg=function(text,perChar){
+  var ${N.typeMsg}=function(text,perChar){
     return new Promise(function(res){
       var d=document.createElement('div'); d.className='sf-msg';
       var span=document.createElement('span');
       var caret=document.createElement('i'); caret.className='sf-caret'; caret.textContent='\\u00A0';
       d.appendChild(span); d.appendChild(caret);
-      body.appendChild(d); scrollDown();
+      ${N.body}.appendChild(d); ${N.scrollDown}();
       var i=0, step=perChar||18;
       var tick=function(){
         if(i<text.length){
           span.textContent+=text.charAt(i++);
-          scrollDown();
+          ${N.scrollDown}();
           setTimeout(tick,step);
         } else {
-          caret.remove(); beep(); res();
+          caret.remove(); ${N.beep}(); res();
         }
       };
       tick();
@@ -360,38 +360,38 @@ export function widgetsHtml(opts: WidgetOptions): string {
 
   // Render quick-reply chips. Returns a Promise that resolves with the
   // chosen action key once the user clicks any chip.
-  var quickReplies=function(items){
+  var ${N.quickReplies}=function(items){
     return new Promise(function(res){
       var w=document.createElement('div'); w.className='sf-quick';
       items.forEach(function(it){
         var b=document.createElement('button'); b.type='button'; b.textContent=it.label;
         b.addEventListener('click',function(){
-          addUser(it.label);
+          ${N.addUser}(it.label);
           w.remove();
           res(it.key);
         });
         w.appendChild(b);
       });
-      body.appendChild(w); scrollDown();
+      ${N.body}.appendChild(w); ${N.scrollDown}();
     });
   };
 
   // Render a lead form (subset of: name, phone). Returns a Promise resolved
   // with the submitted values. Form is removed on submit. Submission is
   // local-only — same UX as every other form on these PBN sites (no backend).
-  var leadForm=function(fields,btnLabel){
+  var ${N.leadForm}=function(fields,btnLabel){
     return new Promise(function(res){
       var f=document.createElement('form'); f.className='sf-callback-form';
       var html='';
       if(fields.indexOf('name')>=0){
-        html+='<input type="text" name="name" placeholder="'+PH.name+'" required maxlength="80" autocomplete="name">';
+        html+='<input type="text" name="name" placeholder="'+${N.PH}.name+'" required maxlength="80" autocomplete="name">';
       }
       if(fields.indexOf('phone')>=0){
-        html+='<input type="tel" name="phone" placeholder="'+PH.phone+'" required maxlength="32" pattern="[+()\\\\d\\\\s-]{6,}" autocomplete="tel">';
+        html+='<input type="tel" name="phone" placeholder="'+${N.PH}.phone+'" required maxlength="32" pattern="[+()\\\\d\\\\s-]{6,}" autocomplete="tel">';
       }
       html+='<button type="submit">'+btnLabel+'</button>';
       f.innerHTML=html;
-      body.appendChild(f); scrollDown();
+      ${N.body}.appendChild(f); ${N.scrollDown}();
       var first=f.querySelector('input'); if(first){ try{ first.focus(); }catch(e){} }
       f.addEventListener('submit',function(e){
         e.preventDefault();
@@ -403,62 +403,62 @@ export function widgetsHtml(opts: WidgetOptions): string {
   };
 
   // Wait helper.
-  var wait=function(ms){ return new Promise(function(r){ setTimeout(r,ms); }); };
+  var ${N.wait}=function(ms){ return new Promise(function(r){ setTimeout(r,ms); }); };
 
   // Open-state intro: typing dots -> hello -> typing dots -> intro -> chips.
-  var runIntro=function(){
-    showTyping(1500)
-      .then(function(){ return typeMsg(I.hello,40); })
-      .then(function(){ return wait(800); })
-      .then(function(){ return showTyping(1200); })
-      .then(function(){ return typeMsg(I.intro,18); })
-      .then(function(){ return wait(300); })
-      .then(function(){ return quickReplies([
-        {key:'price',label:I.qPrice},
-        {key:'ask',  label:I.qAsk},
-        {key:'call', label:I.qCall},
+  var ${N.runIntro}=function(){
+    ${N.showTyping}(${T.introTyping1})
+      .then(function(){ return ${N.typeMsg}(${N.I}.hello,${T.helloChar}); })
+      .then(function(){ return ${N.wait}(${T.afterHello}); })
+      .then(function(){ return ${N.showTyping}(${T.introTyping2}); })
+      .then(function(){ return ${N.typeMsg}(${N.I}.intro,${T.introChar}); })
+      .then(function(){ return ${N.wait}(${T.quickAfter}); })
+      .then(function(){ return ${N.quickReplies}([
+        {key:'price',label:${N.I}.qPrice},
+        {key:'ask',  label:${N.I}.qAsk},
+        {key:'call', label:${N.I}.qCall},
       ]); })
-      .then(handleQuick);
+      .then(${N.handleQuick});
   };
 
-  var handleQuick=function(key){
+  var ${N.handleQuick}=function(key){
     if(key==='price'){
-      return showTyping(1000)
-        .then(function(){ return typeMsg(I.rPrice,18); })
-        .then(function(){ return leadForm(['phone'],I.submitPrice); })
-        .then(function(){ return showTyping(900); })
-        .then(function(){ return typeMsg(I.sentPrice,18); });
+      return ${N.showTyping}(${T.typingShort})
+        .then(function(){ return ${N.typeMsg}(${N.I}.rPrice,${T.introChar}); })
+        .then(function(){ return ${N.leadForm}(['phone'],${N.I}.submitPrice); })
+        .then(function(){ return ${N.showTyping}(${T.typingShort}); })
+        .then(function(){ return ${N.typeMsg}(${N.I}.sentPrice,${T.introChar}); });
     }
     if(key==='call'){
-      return showTyping(1000)
-        .then(function(){ return typeMsg(I.rCall,18); })
-        .then(function(){ return leadForm(['name','phone'],I.submitCall); })
-        .then(function(){ return showTyping(900); })
-        .then(function(){ return typeMsg(I.sentCall,18); });
+      return ${N.showTyping}(${T.typingShort})
+        .then(function(){ return ${N.typeMsg}(${N.I}.rCall,${T.introChar}); })
+        .then(function(){ return ${N.leadForm}(['name','phone'],${N.I}.submitCall); })
+        .then(function(){ return ${N.showTyping}(${T.typingShort}); })
+        .then(function(){ return ${N.typeMsg}(${N.I}.sentCall,${T.introChar}); });
     }
     // 'ask' (or fallback) — open free-form input.
-    return showTyping(1000)
-      .then(function(){ return typeMsg(I.rAsk,18); })
-      .then(function(){ try{ input.focus(); }catch(e){} });
+    return ${N.showTyping}(${T.typingShort})
+      .then(function(){ return ${N.typeMsg}(${N.I}.rAsk,${T.introChar}); })
+      .then(function(){ try{ ${N.input}.focus(); }catch(e){} });
   };
 
   // Free-form input from the bottom of the chat.
-  var sentLead=false;
-  var send=function(){
-    var v=(input.value||'').trim(); if(!v) return;
-    addUser(v); input.value='';
-    if(sentLead) return;
-    sentLead=true;
-    showTyping(900)
-      .then(function(){ return typeMsg(I.sentAsk,18); })
-      .then(function(){ return wait(400); })
-      .then(function(){ return typeMsg(I.rCall,18); })
-      .then(function(){ return leadForm(['name','phone'],I.submitCall); })
-      .then(function(){ return showTyping(900); })
-      .then(function(){ return typeMsg(I.sentCall,18); });
+  var ${N.sentLead}=false;
+  var ${N.send}=function(){
+    var v=(${N.input}.value||'').trim(); if(!v) return;
+    ${N.addUser}(v); ${N.input}.value='';
+    if(${N.sentLead}) return;
+    ${N.sentLead}=true;
+    ${N.showTyping}(${T.typingShort})
+      .then(function(){ return ${N.typeMsg}(${N.I}.sentAsk,${T.introChar}); })
+      .then(function(){ return ${N.wait}(${T.quickAfter}); })
+      .then(function(){ return ${N.typeMsg}(${N.I}.rCall,${T.introChar}); })
+      .then(function(){ return ${N.leadForm}(['name','phone'],${N.I}.submitCall); })
+      .then(function(){ return ${N.showTyping}(${T.typingShort}); })
+      .then(function(){ return ${N.typeMsg}(${N.I}.sentCall,${T.introChar}); });
   };
-  foot.querySelector('button').addEventListener('click',send);
-  input.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); send(); } });
+  ${N.foot}.querySelector('button').addEventListener('click',${N.send});
+  ${N.input}.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); ${N.send}(); } });
 })();
 `;
 
