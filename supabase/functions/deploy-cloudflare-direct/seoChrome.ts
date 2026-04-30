@@ -425,6 +425,26 @@ a.contact-item__value:hover{color:var(--accent,#0ea5e9);text-decoration:underlin
 .contacts-map-section h2{margin:0 0 14px;font-size:22px;font-family:inherit}
 .contacts-map{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(15,23,42,.04)}
 .contacts-map iframe{display:block;width:100%}
+.service-page{max-width:1100px;margin:0 auto;padding:24px}
+.service-hero{background:linear-gradient(135deg,color-mix(in srgb,var(--accent,#0ea5e9) 10%,#fff),#fff);border:1px solid #e5e7eb;border-radius:16px;padding:36px 32px;margin:8px 0 28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
+.service-hero h1{margin:0 0 10px;font-size:32px;font-family:inherit;line-height:1.2}
+.service-hero__lead{margin:0;color:#475569;font-size:16px;line-height:1.55;max-width:760px}
+.service-blocks{display:grid;grid-template-columns:1fr;gap:20px;margin:0 0 28px}
+@media(min-width:860px){.service-blocks--2col{grid-template-columns:1fr 1fr}}
+.service-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:26px 28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
+.service-card h2{margin:0 0 14px;font-size:22px;font-family:inherit;line-height:1.3}
+.service-card h3{margin:18px 0 8px;font-size:17px;font-family:inherit}
+.service-card p{margin:0 0 12px;color:#334155;line-height:1.65;font-size:15px}
+.service-card ul,.service-card ol{margin:0 0 12px;padding-left:22px;color:#334155;line-height:1.65;font-size:15px}
+.service-card li{margin:0 0 6px}
+.service-card a{color:var(--accent,#0ea5e9);text-decoration:none}
+.service-card a:hover{text-decoration:underline}
+.service-info-grid{display:grid;grid-template-columns:1fr;gap:12px;margin:8px 0 4px}
+@media(min-width:520px){.service-info-grid{grid-template-columns:1fr 1fr}}
+.service-info-item{padding:14px 16px;background:#f8fafc;border-radius:10px}
+.service-info-item__label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;margin-bottom:4px}
+.service-info-item__value{font-size:15px;color:#0f172a;font-weight:500}
+.service-card .bp-pricing-table{margin-top:8px}
 ${COOKIE_BANNER_CSS}
 `;
 
@@ -530,28 +550,66 @@ function home(c: SiteChrome) {
   ];
 }
 
+// Split arbitrary HTML into card blocks by <h2>. Returns at least one block.
+// Drops the <h2> tag itself and stores its plain-text content as `heading`.
+export function splitIntoBlocks(html: string): { heading: string; body: string }[] {
+  const src = String(html || "").trim();
+  if (!src) return [{ heading: "", body: "" }];
+  const parts = src.split(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+  // parts: [before, head1, body1, head2, body2, ...]
+  const out: { heading: string; body: string }[] = [];
+  const before = (parts[0] || "").trim();
+  if (before) out.push({ heading: "", body: before });
+  for (let i = 1; i < parts.length; i += 2) {
+    const heading = String(parts[i] || "").replace(/<[^>]+>/g, "").trim();
+    const body = String(parts[i + 1] || "").trim();
+    if (heading || body) out.push({ heading, body });
+  }
+  if (out.length === 0) out.push({ heading: "", body: src });
+  return out;
+}
+
 export function buildAboutPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
   const title = `${isRu ? "О нас" : "About"} · ${c.siteName}`;
   const desc  = (c.aboutHtml || c.siteAbout || c.siteName).replace(/<[^>]+>/g, " ").trim().slice(0, 160);
   const team  = (c.teamMembers || []).slice(0, 4);
   const teamHtml = team.length ? `
-    <h2>${isRu ? "Команда редакции" : "Team"}</h2>
-    <div class="team-grid">
-      ${team.map((t) => `
-        <div class="team-card">
-          <h3>${escHtml(t.name)}</h3>
-          <div class="role">${escHtml(t.role || "")}</div>
-          ${t.bio ? `<p>${escHtml(t.bio)}</p>` : ""}
-        </div>`).join("")}
-    </div>` : "";
+    <section class="service-card">
+      <h2>${isRu ? "Команда редакции" : "Team"}</h2>
+      <div class="team-grid">
+        ${team.map((t) => `
+          <div class="team-card">
+            <h3>${escHtml(t.name)}</h3>
+            <div class="role">${escHtml(t.role || "")}</div>
+            ${t.bio ? `<p>${escHtml(t.bio)}</p>` : ""}
+          </div>`).join("")}
+      </div>
+    </section>` : "";
+
+  const aboutBlocks = splitIntoBlocks(c.aboutHtml || `<p>${escHtml(c.siteAbout)}</p>`);
+  const factsItems: string[] = [];
+  if (c.foundingYear)   factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Работаем с" : "Since"}</span><span class="service-info-item__value">${c.foundingYear}</span></div>`);
+  if (c.companyName)    factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Компания" : "Company"}</span><span class="service-info-item__value">${escHtml(c.companyName)}</span></div>`);
+  if (c.companyAddress) factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Офис" : "Office"}</span><span class="service-info-item__value">${escHtml(c.companyAddress)}</span></div>`);
+  if (c.clientsCountText) factsItems.push(`<div class="service-info-item"><span class="service-info-item__label">${isRu ? "Клиенты" : "Clients"}</span><span class="service-info-item__value">${escHtml(c.clientsCountText)}</span></div>`);
+  const factsHtml = factsItems.length ? `
+    <section class="service-card">
+      <h2>${isRu ? "Коротко о нас" : "At a glance"}</h2>
+      <div class="service-info-grid">${factsItems.join("")}</div>
+    </section>` : "";
 
   const main = `
-    <article class="page-article">
-      <h1>${escHtml(isRu ? "О нас" : "About us")}</h1>
-      ${c.aboutHtml || `<p>${escHtml(c.siteAbout)}</p>`}
+    <article class="service-page">
+      <header class="service-hero">
+        <h1>${escHtml(isRu ? "О нас" : "About us")}</h1>
+        <p class="service-hero__lead">${escHtml(c.siteAbout || c.siteName)}</p>
+      </header>
+      ${factsHtml}
+      <div class="service-blocks">
+        ${aboutBlocks.map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
+      </div>
       ${teamHtml}
-      ${c.foundingYear ? `<p><em>${isRu ? "Работаем с" : "Working since"} ${c.foundingYear}.</em></p>` : ""}
     </article>`;
   return wrapPage(c, {
     title, description: desc, path: "/about.html", type: "website",
@@ -642,11 +700,19 @@ export function buildPrivacyPage(c: SiteChrome): string {
   const cookiesNote = isRu
     ? `<p>Сайт использует cookies для корректной работы и анонимной аналитики. Вы можете принять или отклонить их в баннере при первом визите. Согласие сохраняется в localStorage вашего браузера.</p>`
     : `<p>The site uses cookies for proper operation and anonymous analytics. You can accept or reject them in the banner on your first visit. Your choice is saved in your browser's localStorage.</p>`;
+  const lead = isRu
+    ? "Мы заботимся о ваших персональных данных и обрабатываем их только для целей, описанных ниже."
+    : "We take your personal data seriously and process it only for the purposes described below.";
+  const blocks = splitIntoBlocks((c.privacyHtml || `<p>${escHtml(isRu ? "Мы уважаем вашу конфиденциальность." : "We respect your privacy.")}</p>`) + `\n<h2>${isRu ? "Cookies" : "Cookies"}</h2>\n${cookiesNote}`);
   const main = `
-    <article class="page-article">
-      <h1>${isRu ? "Политика конфиденциальности" : "Privacy policy"}</h1>
-      ${c.privacyHtml || `<p>${escHtml(isRu ? "Мы уважаем вашу конфиденциальность." : "We respect your privacy.")}</p>`}
-      ${cookiesNote}
+    <article class="service-page">
+      <header class="service-hero">
+        <h1>${isRu ? "Политика конфиденциальности" : "Privacy policy"}</h1>
+        <p class="service-hero__lead">${escHtml(lead)}</p>
+      </header>
+      <div class="service-blocks">
+        ${blocks.map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
+      </div>
     </article>`;
   return wrapPage(c, {
     title, description: (isRu ? "Политика конфиденциальности сайта " : "Privacy policy for ") + c.siteName,
@@ -659,10 +725,19 @@ export function buildPrivacyPage(c: SiteChrome): string {
 export function buildTermsPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
   const title = `${isRu ? "Пользовательское соглашение" : "Terms of use"} · ${c.siteName}`;
+  const lead = isRu
+    ? "Используя этот сайт, вы соглашаетесь с условиями, описанными в разделах ниже."
+    : "By using this site, you agree to the terms described in the sections below.";
+  const blocks = splitIntoBlocks(c.termsHtml || `<p>${escHtml(isRu ? "Все материалы носят информационный характер." : "All materials are for informational purposes only.")}</p>`);
   const main = `
-    <article class="page-article">
-      <h1>${isRu ? "Пользовательское соглашение" : "Terms of use"}</h1>
-      ${c.termsHtml || `<p>${escHtml(isRu ? "Все материалы носят информационный характер." : "All materials are for informational purposes only.")}</p>`}
+    <article class="service-page">
+      <header class="service-hero">
+        <h1>${isRu ? "Пользовательское соглашение" : "Terms of use"}</h1>
+        <p class="service-hero__lead">${escHtml(lead)}</p>
+      </header>
+      <div class="service-blocks">
+        ${blocks.map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
+      </div>
     </article>`;
   return wrapPage(c, {
     title, description: (isRu ? "Пользовательское соглашение сайта " : "Terms for ") + c.siteName,
@@ -1141,10 +1216,22 @@ export function buildBusinessPage(c: SiteChrome, def: BpDef, html: string): stri
     ? html.replace(/<table([^>]*)>/g, '<table class="bp-pricing-table"$1>')
     : html;
 
+  const blocks = splitIntoBlocks(wrapped);
+  const leadBlock = blocks.find((b) => !b.heading && b.body);
+  const restBlocks = blocks.filter((b) => b !== leadBlock);
+  const leadText = leadBlock
+    ? leadBlock.body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220)
+    : "";
+
   const main = `
-    <article class="page-article">
-      <h1>${escHtml(label)}</h1>
-      ${wrapped}
+    <article class="service-page">
+      <header class="service-hero">
+        <h1>${escHtml(label)}</h1>
+        ${leadText ? `<p class="service-hero__lead">${escHtml(leadText)}</p>` : ""}
+      </header>
+      <div class="service-blocks">
+        ${(restBlocks.length ? restBlocks : blocks).map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
+      </div>
     </article>`;
   return wrapPage(c, {
     title: `${label} · ${c.siteName}`,
