@@ -197,6 +197,402 @@ function buildSeededHero(
   };
 }
 
+// ----------------------------- Seeded Stats ---------------------------------
+
+/** Niche-specific label pool for the FIRST stat ("clients-equivalent"). */
+const STAT_CLIENTS_LABEL_RU: Record<string, string> = {
+  florist: "выполненных букетов",
+  agro: "проданных единиц техники",
+  renovation: "сданных объектов",
+  legal: "выигранных дел",
+  dental: "довольных пациентов",
+  auto: "обслуженных автомобилей",
+  cleaning: "выполненных уборок",
+  delivery: "доставок в месяц",
+  food: "довольных гостей",
+  beauty: "постоянных клиентов",
+  fitness: "активных участников",
+  tech: "запущенных проектов",
+  realty: "закрытых сделок",
+  edu: "выпускников курсов",
+  medical: "пациентов в год",
+  generic: "довольных клиентов",
+};
+const STAT_CLIENTS_LABEL_EN: Record<string, string> = {
+  florist: "bouquets delivered",
+  agro: "units sold",
+  renovation: "projects delivered",
+  legal: "cases won",
+  dental: "happy patients",
+  auto: "cars serviced",
+  cleaning: "cleanings completed",
+  delivery: "monthly deliveries",
+  food: "happy guests",
+  beauty: "regular clients",
+  fitness: "active members",
+  tech: "projects shipped",
+  realty: "deals closed",
+  edu: "graduates",
+  medical: "patients per year",
+  generic: "happy clients",
+};
+
+/** Build a deterministic, niche-aware stats block. */
+function buildSeededStats(
+  topic: string, lang: "ru" | "en", seed: string,
+): { value: string; label: string }[] {
+  const niche = detectNiche(topic);
+  const clientsPool = ["150+", "320+", "500+", "780+", "1200+", "2000+", "3500+", "5000+"];
+  const yearsPool = ["3", "5", "7", "8", "10", "12", "15"];
+  const pctPool = ["94%", "96%", "97%", "98%", "99%"];
+  const fourthPoolRu: { value: string; label: string }[] = [
+    { value: "24/7", label: "поддержка" },
+    { value: "1 день", label: "срок выезда" },
+    { value: "50+", label: "городов работы" },
+    { value: "30 мин", label: "среднее время реакции" },
+    { value: "0", label: "скрытых платежей" },
+  ];
+  const fourthPoolEn: { value: string; label: string }[] = [
+    { value: "24/7", label: "support" },
+    { value: "1 day", label: "on-site response" },
+    { value: "50+", label: "cities served" },
+    { value: "30 min", label: "average response" },
+    { value: "0", label: "hidden fees" },
+  ];
+  const clients = _pick(clientsPool, seed, "st-clients");
+  const years = _pick(yearsPool, seed, "st-years");
+  const pct = _pick(pctPool, seed, "st-pct");
+  const fourth = _pick(lang === "ru" ? fourthPoolRu : fourthPoolEn, seed, "st-4");
+  const clientsLabel = lang === "ru"
+    ? (STAT_CLIENTS_LABEL_RU[niche] || STAT_CLIENTS_LABEL_RU.generic)
+    : (STAT_CLIENTS_LABEL_EN[niche] || STAT_CLIENTS_LABEL_EN.generic);
+  return [
+    { value: clients, label: clientsLabel },
+    { value: years, label: lang === "ru" ? "лет на рынке" : "years on the market" },
+    { value: pct, label: lang === "ru" ? "положительных отзывов" : "positive reviews" },
+    fourth,
+  ];
+}
+
+// ----------------------------- Seeded Services ------------------------------
+
+type ServicePack = { title: string; bullets: string[]; price: string };
+type NichePackTemplate = {
+  titles: [string, string, string];
+  prices: [string, string, string]; // a price expression per tier (RU: ₽, EN: $)
+  bullets: [string[], string[], string[]];
+};
+
+/** Niche-aware service templates (RU). Three tiers per niche. */
+const SERVICE_PACKS_RU: Record<string, NichePackTemplate> = {
+  florist: {
+    titles: ["Букет", "Композиция", "VIP оформление"],
+    prices: ["от 1 200 ₽", "от 3 500 ₽", "от 12 000 ₽"],
+    bullets: [
+      ["Сезонные цветы", "Упаковка в крафт", "Открытка в подарок"],
+      ["Авторская композиция", "Премиум упаковка", "Доставка в течение дня"],
+      ["Эксклюзивные цветы", "Дизайнерское оформление", "Срочная доставка курьером", "Фотоотчет получателя"],
+    ],
+  },
+  agro: {
+    titles: ["Базовая комплектация", "Расширенная комплектация", "Премиум комплектация"],
+    prices: ["от 145 000 ₽", "от 220 000 ₽", "от 380 000 ₽"],
+    bullets: [
+      ["Минитрактор без навесного", "Гарантия 12 месяцев", "Обучение работе"],
+      ["Минитрактор с базовым навесным", "Гарантия 24 месяца", "Доставка по региону"],
+      ["Минитрактор с полным навесным комплектом", "Расширенная гарантия 36 мес", "Сервисное обслуживание", "Запчасти в наличии"],
+    ],
+  },
+  renovation: {
+    titles: ["Косметический ремонт", "Комплексный ремонт", "Ремонт под ключ"],
+    prices: ["от 3 500 ₽/м²", "от 6 500 ₽/м²", "от 11 000 ₽/м²"],
+    bullets: [
+      ["Покраска и обои", "Замена напольных покрытий", "Гарантия 6 месяцев"],
+      ["Полная замена коммуникаций", "Выравнивание стен и потолков", "Гарантия 24 месяца"],
+      ["Дизайн-проект", "Закупка материалов", "Авторский надзор", "Гарантия 36 месяцев"],
+    ],
+  },
+  legal: {
+    titles: ["Консультация", "Сопровождение", "Полный пакет"],
+    prices: ["от 2 500 ₽", "от 25 000 ₽/мес", "от 80 000 ₽"],
+    bullets: [
+      ["Анализ ситуации", "Письменное заключение", "Рекомендации по действиям"],
+      ["Подготовка документов", "Представительство в инстанциях", "Текущие консультации"],
+      ["Полное ведение дела", "Представительство в суде", "Досудебное урегулирование", "Контроль исполнения решения"],
+    ],
+  },
+  dental: {
+    titles: ["Профилактика", "Лечение", "Имплантация"],
+    prices: ["от 1 800 ₽", "от 6 500 ₽", "от 45 000 ₽"],
+    bullets: [
+      ["Осмотр и консультация", "Профессиональная гигиена", "Рекомендации по уходу"],
+      ["Лечение кариеса", "Восстановление пломб", "Анестезия включена"],
+      ["Установка импланта", "Постоянная коронка", "Гарантия на работу 5 лет", "Контрольные визиты"],
+    ],
+  },
+  auto: {
+    titles: ["Диагностика", "Плановое ТО", "Капитальный ремонт"],
+    prices: ["от 1 500 ₽", "от 6 000 ₽", "от 35 000 ₽"],
+    bullets: [
+      ["Компьютерная диагностика", "Проверка ходовой", "Письменное заключение"],
+      ["Замена масла и фильтров", "Проверка тормозной системы", "Гарантия на работы"],
+      ["Полный разбор узла", "Замена изношенных деталей", "Сборка и регулировка", "Гарантия 12 месяцев"],
+    ],
+  },
+  cleaning: {
+    titles: ["Поддерживающая уборка", "Генеральная уборка", "После ремонта"],
+    prices: ["от 2 800 ₽", "от 6 500 ₽", "от 9 500 ₽"],
+    bullets: [
+      ["Влажная уборка полов", "Пыль и поверхности", "Санузел и кухня"],
+      ["Мойка окон", "Чистка мебели", "Глубокая обработка кухни и санузла"],
+      ["Удаление строительной пыли", "Мойка стекол и плитки", "Чистка вентиляции", "Дезинфекция"],
+    ],
+  },
+  delivery: {
+    titles: ["Стандарт", "Экспресс", "Корпоративный"],
+    prices: ["от 250 ₽", "от 600 ₽", "от 15 000 ₽/мес"],
+    bullets: [
+      ["Доставка в течение дня", "Подтверждение получателя", "СМС-уведомления"],
+      ["Доставка за 2 часа", "Приоритетная обработка", "Онлайн-трекинг"],
+      ["Выделенный менеджер", "Ежедневные маршруты", "Закрывающие документы", "Гибкие тарифы по объему"],
+    ],
+  },
+  food: {
+    titles: ["Бизнес-ланч", "Заказ из меню", "Банкет"],
+    prices: ["от 350 ₽", "от 850 ₽", "от 2 500 ₽/чел"],
+    bullets: [
+      ["Суп, горячее, напиток", "Свежие продукты дня", "Доставка к 13:00"],
+      ["Блюда из основного меню", "Доставка за 60 минут", "Упаковка для горячего"],
+      ["Холодные и горячие закуски", "Основные блюда на выбор", "Сервировка стола", "Помощь официанта"],
+    ],
+  },
+  beauty: {
+    titles: ["Стрижка", "Окрашивание", "Полное преображение"],
+    prices: ["от 1 500 ₽", "от 4 500 ₽", "от 12 000 ₽"],
+    bullets: [
+      ["Консультация мастера", "Мытье головы", "Укладка феном"],
+      ["Подбор оттенка", "Окрашивание премиум-краской", "Уход после окрашивания"],
+      ["Стрижка и окрашивание", "Уходовые процедуры", "Профессиональная укладка", "Подбор домашнего ухода"],
+    ],
+  },
+  fitness: {
+    titles: ["Месячный абонемент", "Полугодовой", "Годовой"],
+    prices: ["от 2 800 ₽", "от 14 500 ₽", "от 24 000 ₽"],
+    bullets: [
+      ["Доступ в тренажерный зал", "Групповые программы", "Раздевалка с душем"],
+      ["Безлимитный доступ", "Персональная программа", "2 тренировки с тренером"],
+      ["Все зоны клуба", "Сауна и бассейн", "Персональный тренер", "Заморозка абонемента"],
+    ],
+  },
+  tech: {
+    titles: ["Лендинг", "Корпоративный сайт", "Веб-сервис"],
+    prices: ["от 65 000 ₽", "от 180 000 ₽", "от 450 000 ₽"],
+    bullets: [
+      ["Дизайн на 1 экран", "Адаптивная верстка", "Подключение форм и аналитики"],
+      ["До 10 страниц", "Уникальный дизайн", "CMS для самостоятельных правок"],
+      ["Техническое задание", "Дизайн и разработка", "Интеграции с CRM/платежами", "Поддержка после запуска"],
+    ],
+  },
+  realty: {
+    titles: ["Подбор объекта", "Сопровождение сделки", "Полный цикл"],
+    prices: ["от 15 000 ₽", "от 45 000 ₽", "от 3% от сделки"],
+    bullets: [
+      ["Анализ требований", "Подборка вариантов", "Организация просмотров"],
+      ["Юридическая проверка", "Подготовка договора", "Сопровождение в МФЦ"],
+      ["Поиск и проверка", "Переговоры с продавцом", "Полное юридическое сопровождение", "Контроль расчетов"],
+    ],
+  },
+  edu: {
+    titles: ["Базовый курс", "Расширенная программа", "Индивидуально"],
+    prices: ["от 9 500 ₽", "от 28 000 ₽", "от 65 000 ₽"],
+    bullets: [
+      ["Видеоуроки и материалы", "Домашние задания", "Сертификат об окончании"],
+      ["Все из базового", "Куратор и обратная связь", "Практический проект"],
+      ["Программа под ваши цели", "Личный наставник", "Гибкий график", "Гарантия результата"],
+    ],
+  },
+  medical: {
+    titles: ["Прием специалиста", "Диагностический комплекс", "Программа наблюдения"],
+    prices: ["от 1 800 ₽", "от 8 500 ₽", "от 25 000 ₽"],
+    bullets: [
+      ["Консультация профильного врача", "Первичный осмотр", "Назначение схемы лечения"],
+      ["Анализы и обследования", "Расшифровка результатов", "Заключение специалиста"],
+      ["Регулярные визиты по графику", "Анализы в динамике", "Корректировка лечения", "Личный куратор"],
+    ],
+  },
+  generic: {
+    titles: ["Стартовый", "Оптимальный", "Расширенный"],
+    prices: ["от 4 500 ₽", "от 12 000 ₽", "от 28 000 ₽"],
+    bullets: [
+      ["Консультация специалиста", "Подбор решения под задачу", "Письменная смета"],
+      ["Полный комплекс работ", "Гарантия 12 месяцев", "Сопровождение менеджером"],
+      ["Работы под ключ", "Срочное выполнение", "Расширенная гарантия 24 мес", "Постгарантийный сервис"],
+    ],
+  },
+};
+
+const SERVICE_PACKS_EN: Record<string, NichePackTemplate> = {
+  florist: {
+    titles: ["Bouquet", "Composition", "VIP Arrangement"],
+    prices: ["from $25", "from $60", "from $180"],
+    bullets: [
+      ["Seasonal flowers", "Kraft wrapping", "Greeting card included"],
+      ["Custom composition", "Premium wrapping", "Same-day delivery"],
+      ["Exclusive flowers", "Designer arrangement", "Express courier", "Recipient photo"],
+    ],
+  },
+  agro: {
+    titles: ["Base Package", "Extended Package", "Premium Package"],
+    prices: ["from $4,500", "from $7,800", "from $13,500"],
+    bullets: [
+      ["Tractor only", "12-month warranty", "Operator training"],
+      ["Tractor with basic implements", "24-month warranty", "Regional delivery"],
+      ["Full implement set", "36-month extended warranty", "Service plan", "Spare parts in stock"],
+    ],
+  },
+  renovation: {
+    titles: ["Cosmetic", "Comprehensive", "Turnkey"],
+    prices: ["from $35/sqft", "from $65/sqft", "from $110/sqft"],
+    bullets: [
+      ["Painting and wallpaper", "Floor replacement", "6-month warranty"],
+      ["Full utility replacement", "Wall and ceiling leveling", "24-month warranty"],
+      ["Design project", "Material procurement", "Author supervision", "36-month warranty"],
+    ],
+  },
+  legal: {
+    titles: ["Consultation", "Retainer", "Full Representation"],
+    prices: ["from $150", "from $850/mo", "from $3,500"],
+    bullets: [
+      ["Case review", "Written opinion", "Action plan"],
+      ["Document preparation", "Agency representation", "Ongoing advice"],
+      ["Full case management", "Court representation", "Pre-trial settlement", "Enforcement follow-up"],
+    ],
+  },
+  dental: {
+    titles: ["Preventive", "Treatment", "Implant"],
+    prices: ["from $80", "from $250", "from $1,800"],
+    bullets: [
+      ["Exam and consultation", "Professional cleaning", "Care recommendations"],
+      ["Cavity treatment", "Filling restoration", "Anesthesia included"],
+      ["Implant placement", "Permanent crown", "5-year work warranty", "Follow-up visits"],
+    ],
+  },
+  auto: {
+    titles: ["Diagnostic", "Scheduled Service", "Major Repair"],
+    prices: ["from $80", "from $250", "from $1,400"],
+    bullets: [
+      ["Computer diagnostic", "Suspension check", "Written report"],
+      ["Oil and filter change", "Brake system check", "Service warranty"],
+      ["Full unit teardown", "Worn part replacement", "Reassembly and tuning", "12-month warranty"],
+    ],
+  },
+  cleaning: {
+    titles: ["Maintenance Cleaning", "Deep Cleaning", "Post-Renovation"],
+    prices: ["from $90", "from $220", "from $320"],
+    bullets: [
+      ["Damp floor mopping", "Dust and surfaces", "Bathroom and kitchen"],
+      ["Window cleaning", "Furniture cleaning", "Deep kitchen and bath"],
+      ["Construction dust removal", "Glass and tile wash", "Vent cleaning", "Disinfection"],
+    ],
+  },
+  delivery: {
+    titles: ["Standard", "Express", "Corporate"],
+    prices: ["from $9", "from $22", "from $450/mo"],
+    bullets: [
+      ["Same-day delivery", "Recipient confirmation", "SMS notifications"],
+      ["2-hour delivery", "Priority handling", "Online tracking"],
+      ["Dedicated manager", "Daily routes", "Closing documents", "Volume-based pricing"],
+    ],
+  },
+  food: {
+    titles: ["Business Lunch", "Menu Order", "Banquet"],
+    prices: ["from $12", "from $28", "from $85/person"],
+    bullets: [
+      ["Soup, main, drink", "Fresh daily ingredients", "Delivered by 1 PM"],
+      ["Main menu dishes", "60-minute delivery", "Hot food packaging"],
+      ["Cold and hot appetizers", "Choice of main courses", "Table setup", "Server assistance"],
+    ],
+  },
+  beauty: {
+    titles: ["Haircut", "Coloring", "Full Makeover"],
+    prices: ["from $45", "from $140", "from $360"],
+    bullets: [
+      ["Stylist consultation", "Shampoo wash", "Blow-dry"],
+      ["Shade selection", "Premium color treatment", "Post-color care"],
+      ["Cut and color", "Care treatments", "Professional styling", "Home-care advice"],
+    ],
+  },
+  fitness: {
+    titles: ["Monthly Pass", "6-Month Pass", "Annual Pass"],
+    prices: ["from $85", "from $440", "from $720"],
+    bullets: [
+      ["Gym floor access", "Group classes", "Locker room with shower"],
+      ["Unlimited access", "Personal program", "2 PT sessions"],
+      ["All club zones", "Sauna and pool", "Personal trainer", "Membership freeze"],
+    ],
+  },
+  tech: {
+    titles: ["Landing Page", "Corporate Site", "Web App"],
+    prices: ["from $1,800", "from $5,500", "from $14,000"],
+    bullets: [
+      ["One-screen design", "Responsive markup", "Forms and analytics"],
+      ["Up to 10 pages", "Unique design", "CMS for self-edits"],
+      ["Technical spec", "Design and development", "CRM/payment integrations", "Post-launch support"],
+    ],
+  },
+  realty: {
+    titles: ["Property Search", "Deal Support", "Full Cycle"],
+    prices: ["from $450", "from $1,400", "from 3% of deal"],
+    bullets: [
+      ["Requirements analysis", "Property shortlist", "Viewing arrangements"],
+      ["Legal due diligence", "Contract preparation", "Closing support"],
+      ["Search and verification", "Seller negotiations", "Full legal support", "Settlement control"],
+    ],
+  },
+  edu: {
+    titles: ["Basic Course", "Extended Program", "One-on-One"],
+    prices: ["from $290", "from $850", "from $2,000"],
+    bullets: [
+      ["Video lessons and materials", "Homework", "Completion certificate"],
+      ["Everything in Basic", "Curator and feedback", "Practical project"],
+      ["Tailored to your goals", "Personal mentor", "Flexible schedule", "Result guarantee"],
+    ],
+  },
+  medical: {
+    titles: ["Specialist Visit", "Diagnostic Suite", "Care Program"],
+    prices: ["from $80", "from $380", "from $1,100"],
+    bullets: [
+      ["Specialist consultation", "Initial exam", "Treatment plan"],
+      ["Tests and imaging", "Result interpretation", "Specialist conclusion"],
+      ["Scheduled visits", "Trend testing", "Treatment adjustments", "Personal coordinator"],
+    ],
+  },
+  generic: {
+    titles: ["Starter", "Optimal", "Extended"],
+    prices: ["from $140", "from $380", "from $850"],
+    bullets: [
+      ["Specialist consultation", "Tailored solution", "Written estimate"],
+      ["Full service", "12-month warranty", "Account manager"],
+      ["Turnkey delivery", "Priority response", "24-month extended warranty", "Post-warranty service"],
+    ],
+  },
+};
+
+/** Build a deterministic, niche-aware services block. */
+function buildSeededServices(
+  topic: string, lang: "ru" | "en", seed: string,
+): ServicePack[] {
+  const niche = detectNiche(topic);
+  const tpl = (lang === "ru" ? SERVICE_PACKS_RU : SERVICE_PACKS_EN)[niche]
+    || (lang === "ru" ? SERVICE_PACKS_RU : SERVICE_PACKS_EN).generic;
+  // Deterministic per-tier bullet shuffle so identical niches still differ.
+  return [0, 1, 2].map((i) => ({
+    title: tpl.titles[i],
+    price: tpl.prices[i],
+    bullets: _shuffle(tpl.bullets[i], seed + ":svc" + i),
+  }));
+}
+
 // ----------------------------- Types ----------------------------------------
 
 export interface LandingContent {
