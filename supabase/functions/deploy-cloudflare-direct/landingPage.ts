@@ -1927,7 +1927,7 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
 ${chromeOverride?.footerHtml || `<footer class="site-footer">
   <div class="foot-grid">
     <div>
-      <span class="brand-foot">${esc(ctx.siteName)}</span>
+      <span class="brand-foot">${ctx.iconUrl ? `<img class="brand-icon" src="${esc(ctx.iconUrl)}" alt="" width="32" height="32" loading="lazy" decoding="async">` : ""}<span>${esc(ctx.siteName)}</span></span>
       <p class="desc">${esc(c.aboutShortText)}</p>
     </div>
     <div>
