@@ -1834,6 +1834,36 @@ export type Database = {
           },
         ]
       }
+      site_image_cache: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          project_id: string
+          prompt: string | null
+          slot: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          project_id: string
+          prompt?: string | null
+          slot: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          project_id?: string
+          prompt?: string | null
+          slot?: string
+          source?: string
+        }
+        Relationships: []
+      }
       site_post_schedule_logs: {
         Row: {
           article_id: string | null
