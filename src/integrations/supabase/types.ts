@@ -1292,6 +1292,7 @@ export type Database = {
           team_members: Json | null
           telegram_url: string | null
           template_font_pair: string | null
+          template_key: string | null
           template_type: string | null
           total_views: number | null
           updated_at: string
@@ -1348,6 +1349,7 @@ export type Database = {
           team_members?: Json | null
           telegram_url?: string | null
           template_font_pair?: string | null
+          template_key?: string | null
           template_type?: string | null
           total_views?: number | null
           updated_at?: string
@@ -1404,6 +1406,7 @@ export type Database = {
           team_members?: Json | null
           telegram_url?: string | null
           template_font_pair?: string | null
+          template_key?: string | null
           template_type?: string | null
           total_views?: number | null
           updated_at?: string
