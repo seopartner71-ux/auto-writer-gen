@@ -832,6 +832,34 @@ export function splitIntoBlocks(html: string): { heading: string; body: string }
   return out;
 }
 
+// Topical hero photo for inner pages. Uses Unsplash Source (no API key) and
+// derives keywords from the site niche + page-specific seed (about/contacts/
+// portfolio/pricing/reviews/faq/vacancies). Returns a wide 1600x720 image.
+function pageImage(c: SiteChrome, slot: string, w = 1600, h = 720): string {
+  const PAGE_KW: Record<string, string> = {
+    about:      c.lang === "ru" ? "команда офис" : "team office",
+    contacts:   c.lang === "ru" ? "офис прием" : "office reception",
+    portfolio:  c.lang === "ru" ? "проекты работы" : "projects portfolio work",
+    pricing:    c.lang === "ru" ? "прайс лист" : "pricing service",
+    reviews:    c.lang === "ru" ? "довольные клиенты" : "happy customers",
+    faq:        c.lang === "ru" ? "консультация" : "consultation help",
+    vacancies:  c.lang === "ru" ? "сотрудники работа" : "team hiring work",
+    guarantees: c.lang === "ru" ? "гарантия качество" : "quality guarantee",
+    delivery:   c.lang === "ru" ? "доставка склад" : "delivery warehouse",
+    promo:      c.lang === "ru" ? "акции скидки" : "promotion sale",
+  };
+  const extra = PAGE_KW[slot] || slot;
+  const seed = `${c.topic || c.siteName} ${extra}`;
+  const kw = String(seed)
+    .replace(/[«»"().,:;!?\-—]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 5)
+    .join(",");
+  const safe = encodeURIComponent(kw || "business");
+  return `https://source.unsplash.com/${w}x${h}/?${safe}`;
+}
+
 export function buildAboutPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
   const title = `${isRu ? "О нас" : "About"} · ${c.siteName}`;
