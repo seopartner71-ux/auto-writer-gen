@@ -1088,6 +1088,55 @@ export function pickAuthor(authors: Author[] | undefined, slug: string): Author 
   return authors[h % authors.length];
 }
 
+// Pools of names used by our team generator + common Russian names AI loves to invent.
+// Used to detect "foreign" person mentions in article text and unify them with the
+// single chosen author so a post never appears to have multiple bylines.
+const RU_FIRST_POOL = ["Андрей","Сергей","Михаил","Павел","Денис","Артем","Артём","Роман","Виктор","Олег","Дмитрий","Игорь","Кирилл","Антон","Максим","Никита","Владимир","Алексей","Иван","Евгений","Юрий","Анна","Екатерина","Наталья","Наталия","Ольга","Татьяна","Юлия","Елена","Марина","Светлана","Ирина","Алена","Алёна","Полина","Дарья","Анастасия","Ксения","Валентина","Людмила","Вера","Любовь","Галина","Мария"];
+const RU_LAST_POOL = ["Козлов","Козлова","Смирнов","Смирнова","Новиков","Новикова","Морозов","Морозова","Волков","Волкова","Соколов","Соколова","Лебедев","Лебедева","Попов","Попова","Орлов","Орлова","Зайцев","Зайцева","Никитин","Никитина","Беляев","Беляева","Тарасов","Тарасова","Белов","Белова","Комаров","Комарова","Сафонов","Сафонова","Богданов","Богданова","Воронин","Воронина","Гусев","Гусева","Кузьмин","Кузьмина","Иванов","Иванова","Петров","Петрова","Сидоров","Сидорова"];
+
+const RU_FIRST_RX = new RegExp(`(?:${RU_FIRST_POOL.join("|")})`, "u");
+const RU_LAST_RX = new RegExp(`(?:${RU_LAST_POOL.join("|")})`, "u");
+const RU_PATRONYMIC = "[А-ЯЁ][а-яё]+(?:ович|евич|ьевич|овна|евна|ьевна|инична)";
+
+// Match "Фамилия Имя Отчество", "Имя Фамилия", "Имя Отчество Фамилия".
+// Optionally followed by ", должность" — drop that too.
+function buildPersonRegexes(): RegExp[] {
+  const F = RU_FIRST_RX.source;
+  const L = RU_LAST_RX.source;
+  const P = RU_PATRONYMIC;
+  return [
+    // Фамилия Имя Отчество
+    new RegExp(`\\b${L}\\s+${F}(?:\\s+${P})?\\b`, "gu"),
+    // Имя Отчество Фамилия
+    new RegExp(`\\b${F}\\s+${P}\\s+${L}\\b`, "gu"),
+    // Имя Фамилия
+    new RegExp(`\\b${F}\\s+${L}\\b`, "gu"),
+  ];
+}
+const PERSON_RXS = buildPersonRegexes();
+
+// Replace any human full-name mentions with the chosen author's name so each
+// article has a single, consistent author across byline, bio card and body.
+// Also strips role tails like ", старший менеджер" that follow a replaced name.
+export function unifyAuthorMentions(text: string, authorName: string | undefined): string {
+  if (!text || !authorName) return text;
+  let out = String(text);
+  for (const rx of PERSON_RXS) {
+    out = out.replace(rx, (match) => {
+      // Skip if the match IS the author (case-insensitive, order-insensitive token compare).
+      const a = authorName.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ");
+      const m = match.toLowerCase().split(/\s+/).filter(Boolean).sort().join(" ");
+      if (a === m) return match;
+      return authorName;
+    });
+  }
+  // Drop ", должность"/" - должность" tails that immediately follow the just-replaced name.
+  const ROLE = "(?:старший|младший|ведущий|главный|опытный|сертифицированный|практикующий)?\\s*(?:менеджер|консультант|специалист|эксперт|мастер|инженер|агроном|механик|флорист|стоматолог|юрист|прораб|дизайнер|редактор|автор|сммщик|маркетолог|таргетолог|seo-специалист)(?:\\s+(?:по|в)\\s+[а-яё\\s]+?)?";
+  const tailRx = new RegExp(`(${authorName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")})\\s*[,\\-–—]\\s*${ROLE}`, "giu");
+  out = out.replace(tailRx, "$1");
+  return out;
+}
+
 function dicebearUrl(seed: string): string {
   const s = encodeURIComponent(seed || "author");
   return `https://api.dicebear.com/7.x/initials/svg?seed=${s}&backgroundType=gradientLinear&fontWeight=600`;
@@ -1333,8 +1382,11 @@ export function buildPostPage(
 ): string {
   const isRu = c.lang === "ru";
   const title = `${post.title} · ${c.siteName}`;
-  const desc  = post.excerpt || (post.contentHtml || "").replace(/<[^>]+>/g, " ").trim().slice(0, 160);
   const author = pickAuthor(c.authors, post.slug);
+  const authorName = author?.name;
+  const safeExcerpt = unifyAuthorMentions(post.excerpt || "", authorName);
+  const safeContentHtml = unifyAuthorMentions(post.contentHtml || "", authorName);
+  const desc  = safeExcerpt || safeContentHtml.replace(/<[^>]+>/g, " ").trim().slice(0, 160);
   const authorImage = author ? avataarsUrl(author.avatar_seed || author.name) : undefined;
   const authorJsonLd = author ? {
     "@context": "https://schema.org",
@@ -1347,7 +1399,7 @@ export function buildPostPage(
   } : null;
 
   // 1) clean AI output: strip <script> blocks, decode escaped HTML if needed
-  let body = stripScripts(unescapeIfEscapedHtml(post.contentHtml || ""));
+  let body = stripScripts(unescapeIfEscapedHtml(safeContentHtml));
   // 2) add ids to H2s and collect TOC
   const { html: bodyWithIds, toc } = injectH2IdsAndCollectToc(body);
   body = bodyWithIds;
@@ -1425,7 +1477,7 @@ export function buildPostPage(
   // AI Summary — short direct answer in the first ~100 words. Optimised for
   // AI search engines (Perplexity, ChatGPT Search, Gemini, Яндекс AI) and
   // voice assistants — referenced by the Speakable JSON-LD selector.
-  const aiSummaryText = buildAiSummary(post.excerpt, post.contentHtml || "", isRu);
+  const aiSummaryText = buildAiSummary(safeExcerpt, safeContentHtml, isRu);
   const aiSummaryHtml = aiSummaryText
     ? `<aside class="ai-summary"><div class="ai-summary__label">${isRu ? "Коротко о главном" : "Quick answer"}</div><p>${escHtml(aiSummaryText)}</p></aside>`
     : "";
