@@ -20,7 +20,7 @@ interface SiteSpec {
   services: string;
   audience: string;
   businessType: string;
-  homepageStyle: "landing" | "magazine" | "news";
+  homepageStyle: "landing" | "magazine" | "news" | "minimal";
 }
 
 interface SiteRow {
