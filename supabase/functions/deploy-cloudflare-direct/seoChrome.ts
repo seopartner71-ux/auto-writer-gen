@@ -864,36 +864,94 @@ function renderFaqAccordion(html: string, isRu: boolean): string {
   });
 }
 
-// Inject 2-3 inline links in the article body, pointing to other posts of the
-// same site. Each link replaces the FIRST plain occurrence of the related
-// post's first content keyword inside a <p> (never inside headings, lists or
-// existing anchors). At most one link per <p>.
-function injectInlineInterlinks(html: string, related: PostInput[]): string {
-  if (!related || related.length === 0) return html;
-  const max = Math.min(3, related.length);
-  const used = new Set<string>();
+// Inject up to 3 inline links in the article body.
+// Priority order:
+//   1) User-provided external `injectionLinks` (URL + custom anchor) from project settings.
+//   2) Internal interlinks to other posts of the same site (anchor = 1-3 words from title).
+// Each link is placed inside a <p>, never in headings/lists/existing <a>.
+// At most one link per paragraph; total ≤ 3.
+function injectInlineInterlinks(
+  html: string,
+  related: PostInput[],
+  external: { url: string; anchor: string }[] = [],
+): string {
+  const HARD_MAX = 3;
   let out = html;
+  let inserted = 0;
+  // Track paragraphs already used (by their opening tag offset) to enforce 1/paragraph.
+  const usedParagraphs = new Set<number>();
 
-  // Helper: choose a 1-3 word "anchor" from the related post title.
+  // Find a paragraph that contains the anchor and isn't already used; insert <a>.
+  function placeLink(anchor: string, href: string, cls: string, rel?: string): boolean {
+    if (!anchor || anchor.length < 3) return false;
+    const safe = anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Word boundary works for ASCII; for Cyrillic fall back to a soft boundary.
+    const isCyr = /[А-Яа-яЁё]/.test(anchor);
+    const boundary = isCyr ? "(?:^|[\\s.,;:!?\"«»()\\-—])" : "\\b";
+    const re = new RegExp(
+      `(<p[^>]*>(?:(?!<\\/p>|<a\\s).)*?)(${boundary})(${safe})`,
+      "i",
+    );
+    let placed = false;
+    out = out.replace(re, (match, pre, bnd, hit, offset: number) => {
+      if (placed) return match;
+      // Find paragraph start to dedupe.
+      const pStart = out.lastIndexOf("<p", offset);
+      if (usedParagraphs.has(pStart)) return match;
+      usedParagraphs.add(pStart);
+      placed = true;
+      const relAttr = rel ? ` rel="${rel}"` : "";
+      return `${pre}${bnd}<a href="${href}" class="${cls}"${relAttr}>${hit}</a>`;
+    });
+    return placed;
+  }
+
+  // 1) External user-provided links (highest priority).
+  for (const link of external) {
+    if (inserted >= HARD_MAX) break;
+    const url = String(link?.url || "").trim();
+    const anchor = String(link?.anchor || "").trim();
+    if (!url || !anchor) continue;
+    // If anchor isn't found verbatim, try to "force" it into the first eligible paragraph.
+    const ok = placeLink(anchor, url, "inline-link external", "nofollow noopener");
+    if (ok) {
+      inserted++;
+      continue;
+    }
+    // Forced fallback: append the anchor as a sentence at the end of the first
+    // paragraph that hasn't been used yet, so the link is guaranteed to appear.
+    const re = new RegExp(`<p([^>]*)>((?:(?!<\\/p>).)*?)<\\/p>`, "i");
+    let forced = false;
+    out = out.replace(re, (match, attrs: string, inner: string, offset: number) => {
+      if (forced) return match;
+      const pStart = out.indexOf(match, Math.max(0, offset - 5));
+      if (usedParagraphs.has(pStart)) return match;
+      usedParagraphs.add(pStart);
+      forced = true;
+      const sep = inner.trim().endsWith(".") ? " " : ". ";
+      return `<p${attrs}>${inner}${sep}<a href="${url}" class="inline-link external" rel="nofollow noopener">${anchor}</a>.</p>`;
+    });
+    if (forced) inserted++;
+  }
+
+  // 2) Internal interlinks to related posts (fill remaining slots).
   function anchorFor(p: PostInput): string {
     const title = String(p.title || "").replace(/[«»"().,:;!?\-—]/g, " ").trim();
     const words = title.split(/\s+/).filter((w) => w.length >= 4);
     if (words.length === 0) return title.split(/\s+/).slice(0, 2).join(" ");
     return words.slice(0, Math.min(3, words.length)).join(" ");
   }
-
-  for (const p of related.slice(0, max)) {
+  const usedSlugs = new Set<string>();
+  for (const p of related) {
+    if (inserted >= HARD_MAX) break;
+    if (usedSlugs.has(p.slug)) continue;
     const anchor = anchorFor(p);
-    if (!anchor || anchor.length < 4) continue;
-    const safe = anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Match inside a <p>...</p> only, not inside an existing <a>, only first hit.
-    const re = new RegExp(`(<p[^>]*>(?:(?!<\\/p>|<a\\s).)*?)(\\b${safe}\\b)`, "i");
-    if (!re.test(out)) continue;
-    if (used.has(p.slug)) continue;
-    out = out.replace(re, (_m, pre, hit) =>
-      `${pre}<a href="/posts/${p.slug}.html" class="inline-link">${hit}</a>`);
-    used.add(p.slug);
+    if (placeLink(anchor, `/posts/${p.slug}.html`, "inline-link")) {
+      usedSlugs.add(p.slug);
+      inserted++;
+    }
   }
+
   return out;
 }
 
@@ -974,8 +1032,8 @@ export function buildPostPage(
   body = bodyWithIds;
   // 3) FAQ → accordion
   body = renderFaqAccordion(body, isRu);
-  // 4) inline interlinks (2-3 to other posts)
-  body = injectInlineInterlinks(body, related);
+  // 4) inline interlinks: priority to user-provided external links, then internal posts
+  body = injectInlineInterlinks(body, related, c.injectionLinks || []);
 
   // FAQ schema for any FAQ section we found
   const faqPairsForLd = extractFaqPairs(body);
