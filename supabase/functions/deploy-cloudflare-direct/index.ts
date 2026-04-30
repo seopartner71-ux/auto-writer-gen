@@ -744,7 +744,7 @@ serve(async (req) => {
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
     // ---- Replace home page with the new professional landing -----------------
-    const homepageStyle: "landing" | "magazine" | "news" | "minimal" | "dark" | "local" =
+    const homepageStyle: "landing" | "magazine" | "news" | "minimal" | "dark" | "local" | "expert" =
       ((project as any).homepage_style === "magazine"
         ? "magazine"
         : (project as any).homepage_style === "news"
@@ -755,10 +755,12 @@ serve(async (req) => {
         ? "dark"
         : (project as any).homepage_style === "local"
         ? "local"
+        : (project as any).homepage_style === "expert"
+        ? "expert"
         : "landing");
     console.log("[deploy-cloudflare-direct] homepage_style:", homepageStyle);
 
-    if (homepageStyle === "minimal" || homepageStyle === "dark" || homepageStyle === "local") {
+    if (homepageStyle === "minimal" || homepageStyle === "dark" || homepageStyle === "local" || homepageStyle === "expert") {
       try {
         // Reuse the same content+image pipeline as the landing template so
         // ALL features (FAL hero/team photos, brand icon, cost logging,
