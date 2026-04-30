@@ -673,10 +673,27 @@ serve(async (req) => {
 
     if (homepageStyle === "magazine") {
       try {
+        // Reuse FAL portraits from team_X slots; map to authors[i] in order.
+        let authorPhotos: string[] = [];
+        try {
+          const { data: cached } = await supabaseAdmin
+            .from("site_image_cache")
+            .select("slot, image_url")
+            .eq("project_id", projectId)
+            .like("slot", "team_%");
+          authorPhotos = (cached || [])
+            .sort((a: any, b: any) => String(a.slot).localeCompare(String(b.slot)))
+            .map((r: any) => r.image_url)
+            .filter((u: string) => /^https?:\/\//.test(u));
+        } catch (_) { /* ignore */ }
+        const enrichedAuthors = ((project as any).authors || []).map((a: any, i: number) => ({
+          ...a, photo_url: a?.photo_url || authorPhotos[i % Math.max(1, authorPhotos.length)] || undefined,
+        }));
         const chromeMag: any = {
           domain, siteName, siteAbout, topic, lang,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           ...commonOpts,
+          authors: enrichedAuthors,
         };
         // Re-render every post with the magazine layout (sticky sidebar etc.)
         const allPosts = posts.map((p: any) => ({
@@ -685,17 +702,19 @@ serve(async (req) => {
           publishedAt: p.publishedAt, modifiedAt: p.modifiedAt,
           featuredImageUrl: p.featuredImageUrl,
         }));
-        for (const p of allPosts) {
+        for (let i = 0; i < allPosts.length; i++) {
+          const p = allPosts[i];
           const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 3);
           files[`posts/${p.slug}.html`] = renderMagazineArticle({
             chrome: chromeMag, post: p, related, popular: allPosts.slice(0, 5),
+            postIndex: i,
           });
         }
         // Magazine homepage replaces /index.html; keep simple list at /blog/.
         if (files["index.html"]) files["blog/index.html"] = files["index.html"];
         files["index.html"] = renderMagazineHome({
           chrome: chromeMag, posts: allPosts,
-          expertAuthor: pickAuthor(((project as any).authors || []) as any, "expert"),
+          expertAuthor: enrichedAuthors[0] || null,
         });
         // Append magazine CSS to global stylesheet.
         files["style.css"] = (files["style.css"] || "") + "\n" + magazineExtraCss(chromeMag);
