@@ -6,6 +6,12 @@
 // - robots.txt and sitemap.xml builders
 
 import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
+import { pickPhrase } from "./phrasePools.ts";
+
+/** Stable per-site seed for phrase pools (falls back to domain/site name). */
+function siteSeed(c: { projectId?: string; domain?: string; siteName?: string }): string {
+  return String(c.projectId || c.domain || c.siteName || "site");
+}
 
 export interface TeamMember {
   name: string;
