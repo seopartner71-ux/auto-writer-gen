@@ -742,6 +742,45 @@ export type Database = {
           },
         ]
       }
+      cost_log: {
+        Row: {
+          cost_usd: number
+          created_at: string
+          id: string
+          metadata: Json
+          model: string | null
+          operation_type: string
+          project_id: string | null
+          tokens_input: number
+          tokens_output: number
+          user_id: string | null
+        }
+        Insert: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          metadata?: Json
+          model?: string | null
+          operation_type: string
+          project_id?: string | null
+          tokens_input?: number
+          tokens_output?: number
+          user_id?: string | null
+        }
+        Update: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          metadata?: Json
+          model?: string | null
+          operation_type?: string
+          project_id?: string | null
+          tokens_input?: number
+          tokens_output?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       faq_articles: {
         Row: {
           category_id: string

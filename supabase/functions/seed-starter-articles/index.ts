@@ -6,6 +6,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +24,7 @@ async function getOpenRouterKey(admin: any): Promise<string | null> {
 
 // FAL.ai hero generator (flux/schnell) — fast, ~2s per image. Returns the
 // public CDN URL or null on any failure (caller falls back to picsum).
-async function generateHeroImage(falKey: string, topic: string, title: string): Promise<string | null> {
+async function generateHeroImage(falKey: string, topic: string, title: string, opts?: { admin?: any; projectId?: string; userId?: string }): Promise<string | null> {
   try {
     // IMPORTANT: never pass non-English strings (especially Cyrillic) into the
     // image prompt — Flux will try to render them as garbled letters baked
@@ -49,7 +50,17 @@ async function generateHeroImage(falKey: string, topic: string, title: string): 
     }
     const data = await res.json();
     const url = data?.images?.[0]?.url || null;
-    return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
+    const ok = typeof url === "string" && /^https?:\/\//.test(url);
+    if (ok && opts?.admin) {
+      void logCost(opts.admin, {
+        project_id: opts.projectId, user_id: opts.userId,
+        operation_type: "fal_ai_photo",
+        model: "fal-ai/flux/schnell",
+        cost_usd: FAL_IMAGE_COST_USD,
+        metadata: { context: "starter_article_hero" },
+      });
+    }
+    return ok ? url : null;
   } catch (e: any) {
     console.warn("[seed-starter-articles] FAL error:", e?.message);
     return null;
@@ -97,7 +108,7 @@ function fallbackArticle(topic: string, idx: number, lang: "ru" | "en") {
   return { title, content, meta_description: leads[idx % leads.length].slice(0, 200) };
 }
 
-async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor, brandName?: string) {
+async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor, brandName?: string, opts?: { admin?: any; projectId?: string; userId?: string }) {
   // No persona injection: author name is shown only in byline metadata.
   // Articles MUST be written in third-person/impersonal expert journalism style.
   // CRITICAL: brandName (e.g. "Новости Тулы") is the SITE name, NOT the article topic.
@@ -168,6 +179,18 @@ Return STRICT JSON {title, meta_description, content_html}. content_html: 600-90
   const data = await res.json();
   const raw = String(data?.choices?.[0]?.message?.content || "{}");
   const parsed = JSON.parse(raw);
+  // Log token usage best-effort
+  if (opts?.admin) {
+    const usage = data?.usage || {};
+    void logCost(opts.admin, {
+      project_id: opts.projectId, user_id: opts.userId,
+      operation_type: "article_generation",
+      model: "google/gemini-2.5-flash",
+      tokens_input: Number(usage.prompt_tokens || 0),
+      tokens_output: Number(usage.completion_tokens || 0),
+      metadata: { context: "starter_article" },
+    });
+  }
   // Defensive: strip brand name from title if AI ignored the rule.
   let titleOut = String(parsed.title || seeds[idx % seeds.length]).slice(0, 200);
   if (brandName) {
@@ -279,7 +302,9 @@ serve(async (req) => {
       const author = projectAuthors.length > 0 ? projectAuthors[i % projectAuthors.length] : undefined;
       let art;
       try {
-        art = apiKey ? await aiArticle(apiKey, topic, i, lang, author, brandName) : fallbackArticle(topic, i, lang);
+        art = apiKey
+          ? await aiArticle(apiKey, topic, i, lang, author, brandName, { admin, projectId, userId: user.id })
+          : fallbackArticle(topic, i, lang);
       } catch (e: any) {
         console.error("[seed-starter-articles] AI fail, using fallback:", e?.message);
         art = fallbackArticle(topic, i, lang);
@@ -287,7 +312,7 @@ serve(async (req) => {
       // Generate hero image via FAL.ai (best-effort — null on failure).
       let heroUrl: string | null = null;
       if (falKey) {
-        heroUrl = await generateHeroImage(falKey, topic, art.title);
+        heroUrl = await generateHeroImage(falKey, topic, art.title, { admin, projectId, userId: user.id });
       }
       const { data: inserted, error: insErr } = await admin.from("articles").insert({
         user_id: user.id,

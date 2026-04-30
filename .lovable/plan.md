@@ -1,115 +1,115 @@
-## Цель
+## Дашборд аналитики расходов фабрики сайтов
 
-Уйти от единого Astro-шаблона (плохой Anti-Footprint). Каждый сайт в сетке получает случайный шаблон, цвет, шрифты и структуру тегов. Деплой - прямая загрузка готовых HTML-файлов в Cloudflare Pages, без GitHub.
+Новая admin-only вкладка для отслеживания всех расходов на генерацию: токены LLM, FAL AI картинки, деплой, автопостинг.
 
-## Изменения
+### 1. База данных
 
-### 1. Новый Edge Function `deploy-cloudflare-direct`
-Полная замена связки `bootstrap-astro -> deploy-cloudflare` для сетки.
+Миграция создаёт таблицу `cost_log`:
 
-Логика:
-1. Принимает: `project_id`, `template` (`minimal|magazine|news|landing`), `accent_color`, `font_pair`, `site_name`, `site_about`, `topic`.
-2. Генерирует in-memory набор файлов (`index.html`, `about.html`, `style.css`, `_headers`, `robots.txt`, `sitemap.xml`) на основе выбранного шаблона.
-3. Создаёт Cloudflare Pages проект через `POST /accounts/{id}/pages/projects` с `production_branch: "main"` без `source` (Direct Upload mode). Автосуффикс при 409 (как сейчас).
-4. Деплоит через Cloudflare Direct Upload API:
-   - `POST /accounts/{id}/pages/projects/{name}/deployments`
-   - `multipart/form-data` с полем `manifest` (JSON: `{filename: sha256hash}`) и файлами под их хешами.
-   - Использует встроенный crypto.subtle для SHA-256.
-5. Сохраняет в `projects`: `domain = {name}.pages.dev`, `hosting_platform = "cloudflare"`, новые поля `template_type`, `accent_color`, `font_pair`.
+- `id`, `created_at`
+- `project_id` (uuid, nullable — для операций без привязки)
+- `user_id` (uuid)
+- `operation_type` (text с CHECK: `site_generation`, `article_generation`, `fal_ai_photo`, `fal_ai_portrait`, `fal_ai_logo`, `cloudflare_deploy`, `auto_post_cron`)
+- `model` (text, nullable — например `claude-sonnet-4`, `flux-schnell`)
+- `tokens_input`, `tokens_output` (integer)
+- `cost_usd` (numeric(10,6))
+- `metadata` (jsonb — детали операции)
 
-### 2. Миграция БД
-Добавить в `projects`:
-- `template_type text` (nullable)
-- `accent_color text` (nullable)
-- `font_pair text` (nullable)
+Индексы по `created_at`, `project_id`, `operation_type`.
 
-### 3. HTML-шаблоны (внутри edge function, как TS-модули)
+RLS:
+- SELECT — только `admin`
+- INSERT — только `service_role` (через edge functions)
+- UPDATE/DELETE — запрещено всем
 
-Файл `supabase/functions/deploy-cloudflare-direct/templates.ts` экспортирует 4 функции `renderMinimal/Magazine/News/Landing(ctx) -> { "index.html": string, "about.html": string, "style.css": string, ... }`.
+Дополнительно: настройка `usd_to_rub_rate` в `app_settings` (по умолчанию `90`).
 
-Различия по структуре HTML:
-- **Минимал**: `<article>` + `<section>`, 1 колонка max-width 680px, serif (Lora/Merriweather/Playfair).
-- **Журнал**: `<main><div class="grid">`, 2 колонки, sans (Inter/DM Sans), карточки с тенью.
-- **Новости**: `<ul class="news-list"><li>`, плотный grid 3 колонки, компактный (Roboto/IBM Plex).
-- **Лендинг**: `<header class="hero">` + `<section class="posts">`, hero с большим заголовком (Outfit/Sora).
+### 2. Логирование расходов
 
-В каждом - случайные:
-- Порядок мета-тегов
-- Разные имена CSS-классов (`.post` vs `.entry` vs `.item` vs `.card`)
-- Заголовки nav: "Главная/Дом/Старт", "О нас/О сайте/Контакты"
-
-### 4. Палитры и шрифты (`supabase/functions/deploy-cloudflare-direct/styles.ts`)
+Добавляем хелпер `supabase/functions/_shared/costLogger.ts`:
 
 ```ts
-export const ACCENT_COLORS = ["#e11d48","#0ea5e9","#10b981","#f59e0b","#8b5cf6","#ef4444","#14b8a6","#f97316"];
-export const FONT_PAIRS = {
-  minimal:  [["Lora","Inter"],["Merriweather","Lato"],["Playfair Display","Source Sans 3"]],
-  magazine: [["Inter","Inter"],["DM Sans","DM Sans"],["Manrope","Manrope"]],
-  news:     [["Roboto","Roboto"],["IBM Plex Sans","IBM Plex Sans"],["Open Sans","Open Sans"]],
-  landing:  [["Outfit","Inter"],["Sora","Manrope"],["Space Grotesk","DM Sans"]],
-};
+export async function logCost(supabase, params: {
+  project_id?: string; user_id?: string;
+  operation_type: string; model?: string;
+  tokens_input?: number; tokens_output?: number;
+  cost_usd: number; metadata?: any;
+})
 ```
 
-CSS использует `var(--accent)` и подключает Google Fonts через `<link>`.
+Цены (константы):
+- Claude Sonnet 4: input `$3/1M`, output `$15/1M`
+- GPT-5: input `$1.25/1M`, output `$10/1M` (Lovable AI proxy — фиксированный коэффициент)
+- FAL AI flux/schnell: `$0.003` / image
+- Cloudflare deploy: `$0`
 
-### 5. Обновление `SiteGridCreator.tsx`
+Интеграция логирования в существующие edge functions:
+- `seed-starter-articles` — на каждую сгенерированную статью (LLM tokens)
+- `generate-site-content` / `generate-site-config` / `generate-site-name` — генерация сайта
+- `generate-pro-image` и места вызова FAL AI в `deploy-cloudflare-direct` — фото/портреты/логотипы
+- `deploy-cloudflare-direct` — `cloudflare_deploy` с `cost_usd=0` (для счётчика операций)
+- `auto-publish-weekly` / `process-wp-schedule` — `auto_post_cron`
 
-Удалить:
-- Pre-flight поиск GitHub Token и `ghOwner` (больше не нужен).
-- Шаги "bootstrapping" и вызов `bootstrap-astro`.
-- Установку `github_token`/`github_repo`.
+Каждая вставка не блокирует основной поток (`.then().catch(noop)`).
 
-Добавить:
-- Случайный выбор `template`, `accent_color`, `font_pair` для каждого сайта.
-- Один шаг: вызов `deploy-cloudflare-direct` со всеми параметрами.
-- Новая колонка в таблице "Шаблон" (минимал/журнал/новости/лендинг).
+### 3. Edge function `cost-analytics`
 
-Статусы упрощаются: `pending -> creating -> deploying -> done`.
+Один защищённый endpoint с действиями:
 
-### 6. Технические детали Direct Upload
+- `summary` — карточки (всего, месяц, сегодня, средний/проект)
+- `by_type` — агрегация по operation_type (count + sum)
+- `timeseries` — массив `{date, cost_usd}` с гранулярностью `day|week|month`, период настраивается
+- `by_project` — джойн с `projects` (имя, домен)
+- `forecast` — линейная экстраполяция за месяц + сценарий 50 сайтов (среднее × 50)
+- `export_csv` — возвращает CSV всех записей с фильтрами
 
-```ts
-// 1. SHA-256 каждого файла
-const buf = new TextEncoder().encode(content);
-const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))]
-  .map(b => b.toString(16).padStart(2, "0")).join("");
+JWT валидация + проверка роли `admin` через `user_roles`.
 
-// 2. manifest
-const manifest = { "/index.html": hashIndex, "/style.css": hashCss, ... };
+### 4. UI: новая вкладка в AdminPage
 
-// 3. multipart body
-const fd = new FormData();
-fd.append("manifest", JSON.stringify(manifest));
-for (const [path, content] of Object.entries(files)) {
-  fd.append(manifest[path], new Blob([content], { type: mime(path) }), manifest[path]);
-}
+Файл `src/components/admin/CostAnalyticsTab.tsx`. Регистрируется в `src/pages/AdminPage.tsx` как новая `<TabsTrigger value="costs">Расходы</TabsTrigger>`.
 
-// 4. POST
-await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects/${name}/deployments`, {
-  method: "POST",
-  headers: { Authorization: `Bearer ${apiToken}` },
-  body: fd,
-});
-```
+Маршрут `/admin` уже защищён `AdminLayout` (requiredRole=admin) — отдельный `/admin/analytics` не нужен. В тексте использую "Расходы" во вкладке (страница остаётся /admin).
 
-Cloudflare Pages Direct Upload не требует GitHub - проект создаётся в режиме `production_branch: "main"` без `source`.
+Структура компонента:
 
-### 7. Что остаётся без изменений
+1. **KPI карточки**: Всего / За месяц / За сегодня / Средний на сайт. Каждая показывает `$X.XX` и `≈ ₽X` мелким шрифтом.
+2. **Таблица "По типам операций"**: операция, кол-во, средняя стоимость, итого.
+3. **График по времени**: SVG line chart (без новых либ), переключатель `День / Неделя / Месяц`. Цвета по типу: текст — синий, фото — фиолетовый, деплой — зелёный, автопост — оранжевый. Стек/линии.
+4. **Таблица "По проектам"**: сайт (домен → ссылка), статей, фото, токенов, деплоев, итого $. Сортировка по колонкам, поиск по домену.
+5. **Прогноз**: при текущем темпе (среднее за 7 дней × 30) — статей, фото, $. При масштабе 50 сайтов — средний cost/сайт × 50 + ежемесячная стоимость автопостинга.
+6. **Фильтры**: проект (select), тип операции (multi), даты от/до.
+7. **Экспорт**: кнопка "Скачать CSV" → вызов `cost-analytics?action=export_csv` с текущими фильтрами.
 
-- `deploy-cloudflare` (старая, GitHub-based) - оставляем для уже существующих проектов в разделе "Управление".
-- `bootstrap-astro` - не вызывается из сетки, но остаётся для одиночных проектов.
-- AdminPanel, ключи Cloudflare - используются как есть (`cloudflare_account_id`, `cloudflare_api_token`).
+Все цены показываются в $ с пересчётом в ₽ по курсу из `app_settings.usd_to_rub_rate`.
 
-## Файлы
+### 5. Технические детали
 
-- new: `supabase/functions/deploy-cloudflare-direct/index.ts`
-- new: `supabase/functions/deploy-cloudflare-direct/templates.ts`
-- new: `supabase/functions/deploy-cloudflare-direct/styles.ts`
-- new migration: добавить `template_type`, `accent_color`, `font_pair` в `projects`
-- edit: `src/components/site-factory/SiteGridCreator.tsx`
+- Курс ₽ читается из `app_settings` (если нет — fallback `90`).
+- SVG график — собственная реализация (как `siteWidgets.ts` в фабрике), без `recharts` для admin (быстрее).
+- Запросы кэшируются `react-query` 60 секунд.
+- CSV формируется на сервере с `Content-Disposition: attachment`.
+- Логирование в существующих функциях — best-effort (try/catch, не ломает основной flow).
 
-## Риски
+### 6. Файлы
 
-- Cloudflare Direct Upload лимит ~25 МБ на деплой - для статичных HTML с лихвой хватает.
-- Имена файлов в manifest должны начинаться со `/` - учтено.
-- Cloudflare кэширует пустой проект ~10 сек после создания - добавим retry первого деплоя при 404.
+Создать:
+- `supabase/migrations/<ts>_cost_log.sql`
+- `supabase/functions/_shared/costLogger.ts`
+- `supabase/functions/cost-analytics/index.ts`
+- `src/components/admin/CostAnalyticsTab.tsx`
+
+Изменить:
+- `src/pages/AdminPage.tsx` (новая вкладка)
+- `supabase/functions/seed-starter-articles/index.ts` (логирование)
+- `supabase/functions/deploy-cloudflare-direct/index.ts` (логирование деплоя + FAL)
+- `supabase/functions/generate-pro-image/index.ts` (логирование FAL)
+- `supabase/functions/generate-site-content/index.ts`, `generate-site-name/index.ts`, `generate-site-config/index.ts` (логирование LLM)
+- `supabase/functions/auto-publish-weekly/index.ts`, `process-wp-schedule/index.ts` (логирование автопостинга)
+
+Деплой: миграция → деплой `cost-analytics` + всех изменённых функций.
+
+### 7. Что не делаю
+
+- Не создаю отдельный route `/admin/analytics` (вкладка в `/admin` чище и переиспользует layout). Если нужно отдельным URL — скажите, добавлю.
+- Не пересчитываю исторические расходы — таблица начнёт заполняться с момента деплоя. Старые операции в логе не появятся.
