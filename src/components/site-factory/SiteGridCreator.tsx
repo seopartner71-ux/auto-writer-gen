@@ -441,6 +441,29 @@ export function SiteGridCreator() {
                   <div><span className="text-muted-foreground">Время:</span> <span className="font-semibold">{lastReport.duration}</span></div>
                   <div><span className="text-muted-foreground">Стоимость:</span> <span className="font-semibold">~${lastReport.cost.toFixed(2)}</span></div>
                 </div>
+                {lastReport.ok > 0 && (
+                  <div className="mt-2 space-y-0.5 text-[11px]">
+                    {lastReport.sites.filter(s => s.status === "done" && s.url).slice(0, 5).map((s, i) => {
+                      const base = s.url!.replace(/\/$/, "");
+                      return (
+                        <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="text-muted-foreground">✅</span>
+                          <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{base.replace(/^https?:\/\//, "")}</a>
+                          <a href={`${base}/sitemap.xml`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">sitemap</a>
+                          <a href={`${base}/robots.txt`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">robots</a>
+                          <a href={`${base}/404`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">404</a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {lastReport.err > 0 && (
+                  <div className="mt-2 space-y-0.5 text-[11px] text-destructive/90">
+                    {lastReport.sites.filter(s => s.status === "error").slice(0, 5).map((s, i) => (
+                      <div key={i}>❌ {s.topic}{s.failedStep ? ` — ${s.failedStep}` : ""}: {s.error}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
