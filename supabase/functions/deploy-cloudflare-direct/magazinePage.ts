@@ -105,17 +105,17 @@ body{background:#fff;color:#1a1a1a;font-family:'${c.bodyFont}','Inter',system-ui
 .mag-rubric-bar a{padding:6px 12px;border-radius:999px;color:#444;text-decoration:none;white-space:nowrap;font-weight:500;transition:.2s}
 .mag-rubric-bar a:hover{background:${acc}14;color:${acc}}
 .mag-rubric-bar a.is-active{background:#1a1a1a;color:#fff}
-.mag-hero{position:relative;margin:32px 0 48px;border-radius:14px;overflow:hidden;background:#0f0f10;min-height:420px}
-.mag-hero figure{margin:0;position:relative}
-.mag-hero img{width:100%;height:520px;object-fit:cover;display:block;opacity:.78}
-@media(max-width:760px){.mag-hero img{height:360px}}
-.mag-hero figcaption{position:absolute;left:0;right:0;bottom:0;padding:48px 36px;color:#fff;background:linear-gradient(to top,rgba(0,0,0,.85) 30%,transparent)}
+.mag-hero{margin:32px 0 48px}
+.mag-hero figure{margin:0}
+.mag-hero img{width:100%;height:520px;object-fit:cover;display:block;border-radius:14px;background:#f1f1f3}
+@media(max-width:760px){.mag-hero img{height:320px}}
+.mag-hero .mag-hero-body{padding:24px 4px 0}
 .mag-hero .mag-rubric-tag{display:inline-block;background:${acc};color:#fff;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px}
-.mag-hero h1{font-family:'${c.headingFont}',Georgia,serif;font-size:46px;line-height:1.15;font-weight:700;margin:0 0 16px;max-width:820px;letter-spacing:-.01em}
-@media(max-width:760px){.mag-hero h1{font-size:30px} .mag-hero figcaption{padding:24px 20px}}
-.mag-hero .mag-meta{font-size:14px;color:rgba(255,255,255,.85);display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.mag-hero h1{font-family:'${c.headingFont}',Georgia,serif;font-size:46px;line-height:1.15;font-weight:700;margin:0 0 14px;max-width:920px;letter-spacing:-.01em;color:#1a1a1a}
+@media(max-width:760px){.mag-hero h1{font-size:30px}}
+.mag-hero .mag-meta{font-size:14px;color:#7a7e88;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 .mag-hero a{color:inherit;text-decoration:none}
-.mag-hero a:hover h1{text-decoration:underline}
+.mag-hero a:hover h1{color:${acc}}
 .mag-grid{display:grid;grid-template-columns:2fr 1fr;gap:32px;margin:0 0 56px}
 @media(max-width:880px){.mag-grid{grid-template-columns:1fr;gap:24px}}
 .mag-grid__main{background:#fff;border:1px solid #ececef;border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
