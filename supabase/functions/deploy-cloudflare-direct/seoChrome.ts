@@ -1494,7 +1494,7 @@ function authorMetaHtml(c: SiteChrome, author: Author | null, publishedAt?: stri
     return `<div class="author-meta"><time datetime="${escAttr(dateTime)}" style="font-size:13px;color:#888">${escHtml(dateStr)}</time></div>`;
   }
   return `<div class="author-meta">
-    <img src="${escAttr(dicebearUrl(author.avatar_seed || author.name))}" alt="${escAttr(author.name)}" loading="lazy" width="40" height="40">
+    <img src="${escAttr(portraitUrl(author, c.accent, siteSeed(c)))}" alt="${escAttr(author.name)}" loading="lazy" width="40" height="40">
     <div>
       <div><strong>${escHtml(author.name)}</strong>${author.role ? ` <span style="color:#888">· ${escHtml(author.role)}</span>` : ""}</div>
       ${dateStr ? `<time datetime="${escAttr(dateTime)}" style="font-size:13px;color:#888">${escHtml(dateStr)}</time>` : ""}
