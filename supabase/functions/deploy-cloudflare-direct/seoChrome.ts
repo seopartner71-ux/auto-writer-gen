@@ -68,6 +68,8 @@ export interface SiteChrome {
   clientsCountText?: string;
   authors?: Author[];
   businessPages?: BusinessPages;
+  /** Brand icon URL (FAL-generated, NO text). Rendered next to siteName text. */
+  iconUrl?: string;
   /** Floating "Back to top" button placement; default left-bottom. */
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
