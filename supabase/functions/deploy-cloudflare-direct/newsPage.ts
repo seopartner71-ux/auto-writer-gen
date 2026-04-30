@@ -577,9 +577,14 @@ export function renderNewsArticle(opts: NewsArticleOpts): string {
     ? `<img src="${escAttr(c.trackerUrl)}?site=${escAttr(c.projectId)}&u=${encodeURIComponent(`/posts/${post.slug}.html`)}" width="1" height="1" alt="" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade">`
     : "";
   const lead = (c.teamMembers && c.teamMembers[0]) || null;
+  const consultantAuthor = pickAuthorByIndex(c.authors || [], 0);
+  const consultantPhoto = consultantAuthor?.photo_url && /^https?:\/\//.test(consultantAuthor.photo_url)
+    ? consultantAuthor.photo_url
+    : (lead as any)?.photo_url;
   const widgets = renderSiteWidgets({
     lang: c.lang as "ru" | "en", accent: c.accent,
-    consultantName: lead?.name || (c.companyName || c.siteName), consultantPhoto: undefined,
+    consultantName: consultantAuthor?.name || lead?.name || (c.companyName || c.siteName),
+    consultantPhoto,
     siteName: c.siteName, topic: c.topic,
     totopPosition: c.totopPosition || "left-bottom", seed,
   });
