@@ -1450,6 +1450,9 @@ section{padding:${t.sectionPad}}
 .site-header .container{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:16px;gap:24px}
 .brand{font-family:"${ctx.headingFont}",sans-serif;font-weight:800;font-size:22px;color:var(--ink);text-decoration:none}
 .brand:hover{text-decoration:none;color:var(--ink)}
+.brand{display:inline-flex;align-items:center;gap:10px;line-height:1}
+.brand-icon{width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;flex-shrink:0;display:block}
+.brand-text{display:inline-block;vertical-align:middle}
 .main-nav{display:flex;gap:28px;align-items:center}
 .main-nav a{color:var(--ink);font-weight:500;font-size:15px}
 .header-cta{display:flex;align-items:center;gap:16px}
