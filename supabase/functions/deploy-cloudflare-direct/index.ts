@@ -14,7 +14,7 @@ import { hash as blake3 } from "npm:blake3-wasm@2.1.5";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
-import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages } from "./landingPage.ts";
+import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages, ensureSiteIcon } from "./landingPage.ts";
 import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles } from "./seoChrome.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
@@ -557,6 +557,37 @@ serve(async (req) => {
         totopPosition = v as typeof totopPosition;
       }
     } catch { /* keep default */ }
+
+    // Resolve FAL.ai key (api_keys table > env). Used for both the brand
+    // icon (here) and the landing photo set (below).
+    let falKey: string | null = null;
+    try {
+      const { data: falRow } = await supabaseAdmin
+        .from("api_keys").select("api_key")
+        .eq("provider", "fal_ai").eq("is_valid", true).limit(1).maybeSingle();
+      falKey = (falRow?.api_key as string) || Deno.env.get("FAL_AI_API_KEY") || null;
+    } catch {
+      falKey = Deno.env.get("FAL_AI_API_KEY") || null;
+    }
+
+    // Brand ICON (FAL flux/schnell, NO text). Cached per project — generated
+    // once and reused on every redeploy. Text part is rendered via HTML next
+    // to the icon (FAL is bad at typography). Falls back to the SVG-letter
+    // favicon when FAL is unavailable.
+    let iconUrl: string | undefined;
+    try {
+      const generatedIcon = await ensureSiteIcon(
+        supabaseAdmin,
+        projectId,
+        falKey,
+        topic,
+        accent,
+      );
+      iconUrl = generatedIcon || undefined;
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] icon gen skipped:", (e as Error).message);
+    }
+
     const commonOpts = {
       lang,
       companyName:    (project as any).company_name || undefined,
@@ -585,6 +616,7 @@ serve(async (req) => {
       authors:        (project as any).authors || undefined,
       businessPages:  (project as any).business_pages || undefined,
       totopPosition,
+      iconUrl,
     };
     const files = dbTpl
       ? renderDbTemplate({
@@ -628,15 +660,6 @@ serve(async (req) => {
       // Resolve FAL.ai key (api_keys table > env) and generate (or reuse) all
       // landing images via FAL flux/schnell. Cached per (project_id, slot) so
       // subsequent re-deploys never regenerate the same picture.
-      let falKey: string | null = null;
-      try {
-        const { data: falRow } = await supabaseAdmin
-          .from("api_keys").select("api_key")
-          .eq("provider", "fal_ai").eq("is_valid", true).limit(1).maybeSingle();
-        falKey = (falRow?.api_key as string) || Deno.env.get("FAL_AI_API_KEY") || null;
-      } catch {
-        falKey = Deno.env.get("FAL_AI_API_KEY") || null;
-      }
       const generatedImages = await ensureLandingImages(
         supabaseAdmin,
         projectId,
@@ -666,6 +689,7 @@ serve(async (req) => {
           heroImageUrl: heroImage,
           generatedImages,
           totopPosition,
+          iconUrl,
         },
         landingContent,
         "", // nav: not used when chromeOverride provided

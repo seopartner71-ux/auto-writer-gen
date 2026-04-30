@@ -68,6 +68,8 @@ export interface SiteChrome {
   clientsCountText?: string;
   authors?: Author[];
   businessPages?: BusinessPages;
+  /** Brand icon URL (FAL-generated, NO text). Rendered next to siteName text. */
+  iconUrl?: string;
   /** Floating "Back to top" button placement; default left-bottom. */
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
@@ -382,11 +384,14 @@ const COOKIE_BANNER_JS = `
 export function headerHtml(c: SiteChrome): string {
   const items = navItems(c);
   const isRu = c.lang === "ru";
+  const brandInner = c.iconUrl
+    ? `<img class="site-header__logo" src="${escAttr(c.iconUrl)}" alt="" width="36" height="36" loading="eager" decoding="async"><span class="site-header__brand-text">${escHtml(c.siteName)}</span>`
+    : `<span class="site-header__brand-text">${escHtml(c.siteName)}</span>`;
   return `<a class="skip-link" href="#main-content">${isRu ? "Перейти к контенту" : "Skip to content"}</a>
 <div class="reading-progress" id="reading-progress" aria-hidden="true"></div>
 <header class="site-header" id="site-header">
   <div class="site-header__inner">
-    <a href="/" class="site-header__brand">${escHtml(c.siteName)}</a>
+    <a href="/" class="site-header__brand">${brandInner}</a>
     <button class="site-header__burger" type="button" aria-label="${isRu ? "Меню" : "Menu"}" aria-controls="site-nav" aria-expanded="false" id="burger">
       <span></span><span></span><span></span>
     </button>
@@ -417,6 +422,9 @@ export function footerHtml(c: SiteChrome): string {
   const owner = c.companyName || c.siteName;
 
   const napLines: string[] = [];
+  if (c.iconUrl) {
+    napLines.push(`<div class="site-footer__brand"><img class="site-footer__logo" src="${escAttr(c.iconUrl)}" alt="" width="32" height="32" loading="lazy" decoding="async"><span>${escHtml(c.siteName)}</span></div>`);
+  }
   if (c.companyName)    napLines.push(`<div><strong>${escHtml(c.companyName)}</strong></div>`);
   if (c.companyAddress) napLines.push(`<div>${escHtml(c.companyAddress)}</div>`);
   if (c.workHours)      napLines.push(`<div>${escHtml(c.workHours)}</div>`);
@@ -486,6 +494,11 @@ a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .site-header{position:sticky;top:0;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid rgba(0,0,0,.08);z-index:50}
 .site-header__inner{max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;gap:24px}
 .site-header__brand{font-weight:700;text-decoration:none;font-size:20px}
+.site-header__brand{display:inline-flex;align-items:center;gap:10px;line-height:1;color:inherit}
+.site-header__logo{width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;flex-shrink:0;display:block}
+.site-header__brand-text{display:inline-block;vertical-align:middle}
+.site-footer__brand{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#fff;font-size:18px;margin-bottom:6px}
+.site-footer__logo{width:32px;height:32px;border-radius:6px;object-fit:contain;background:#fff;padding:2px;flex-shrink:0;display:block}
 .site-header__burger{display:none;background:none;border:0;padding:8px;cursor:pointer;flex-direction:column;gap:4px;width:44px;height:44px;align-items:center;justify-content:center}
 .site-header__burger span{width:22px;height:2px;background:#222;display:block}
 .site-nav{display:flex;gap:18px;flex-wrap:wrap}
@@ -600,7 +613,7 @@ ${COOKIE_BANNER_CSS}
 
 export function buildHead(c: SiteChrome, m: PageMeta): string {
   const canonical = absUrl(c.domain, m.path);
-  const ogImage = m.ogImage || c.ogImageUrl || "";
+  const ogImage = m.ogImage || c.ogImageUrl || c.iconUrl || "";
   const robots = m.noIndex ? "noindex,nofollow" : "index,follow,max-image-preview:large";
 
   const lds: unknown[] = [websiteLd(c), organizationLd(c), breadcrumbsLd(c, m.breadcrumbs)];
@@ -637,6 +650,8 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
   <noscript><link rel="stylesheet" href="${fontsHref}"></noscript>
   <link rel="stylesheet" href="/style.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  ${c.iconUrl ? `<link rel="icon" type="image/png" href="${escAttr(c.iconUrl)}">
+  <link rel="apple-touch-icon" href="${escAttr(c.iconUrl)}">` : ""}
   <link rel="manifest" href="/manifest.json">
   <link rel="alternate" type="application/rss+xml" title="${escAttr(c.siteName)}" href="/feed.xml">
   <link rel="sitemap" type="application/xml" href="/sitemap.xml">

@@ -57,6 +57,8 @@ export interface RenderCtx {
   clientsCountText?: string;
   authors?: { name: string; role?: string; bio?: string; avatar_seed?: string }[];
   businessPages?: Record<string, string>;
+  iconUrl?: string;
+  totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
 
 function esc(s: string): string {
@@ -497,6 +499,8 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
     clientsCountText: ctx.clientsCountText,
     authors: ctx.authors,
     businessPages: ctx.businessPages as any,
+    iconUrl: ctx.iconUrl,
+    totopPosition: ctx.totopPosition,
   };
 
   const chromePosts: ChromePost[] = (ctx.posts || []).map((p) => ({

@@ -685,6 +685,8 @@ export interface LandingCtx {
   // team_1..3, post_1..3). When provided, the renderer uses them directly;
   // otherwise it falls back to Unsplash by topic and finally UI Avatars.
   generatedImages?: Record<string, string>;
+  /** Brand icon (FAL-generated, NO text). Rendered next to siteName text. */
+  iconUrl?: string;
   /** Floating "Back to top" position; default left-bottom. */
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
@@ -910,6 +912,66 @@ export async function ensureLandingImages(
   }
 
   return out;
+}
+
+/**
+ * Generates (or reuses cached) a minimalist brand ICON via FAL flux/schnell.
+ * The icon contains NO text/letters — text part is rendered in HTML next to it.
+ *
+ * Cached in `site_image_cache` under slot `logo_icon`, keyed by project_id.
+ * On any failure returns null (caller falls back to first-letter avatar).
+ */
+export async function ensureSiteIcon(
+  admin: any,
+  projectId: string,
+  falKey: string | null,
+  niche: string,
+  accent: string,
+): Promise<string | null> {
+  // 1) reuse cache
+  try {
+    const { data: cached } = await admin
+      .from("site_image_cache")
+      .select("image_url")
+      .eq("project_id", projectId)
+      .eq("slot", "logo_icon")
+      .maybeSingle();
+    if (cached?.image_url && /^https?:\/\//.test(cached.image_url)) {
+      return cached.image_url as string;
+    }
+  } catch (e: any) {
+    console.warn("[landingPage.icon] cache read failed:", e?.message);
+  }
+
+  if (!falKey) {
+    console.log("[landingPage.icon] no FAL key, skipping logo generation");
+    return null;
+  }
+
+  const cleanNiche = String(niche || "business").slice(0, 80);
+  const colorHex = (accent || "#0ea5e9").trim();
+  const prompt =
+    `minimalist icon logo for ${cleanNiche} business, ` +
+    `simple flat icon only, NO TEXT, NO LETTERS, NO WORDS, NO TYPOGRAPHY, ` +
+    `single icon symbol, ${colorHex} color, white background, ` +
+    `vector style, clean lines, geometric, professional minimalist design, ` +
+    `centered, plenty of whitespace, app icon style`;
+
+  const url = await falGenerate(falKey, prompt, "square_hd");
+  if (!url) return null;
+
+  try {
+    await admin.from("site_image_cache").upsert({
+      project_id: projectId,
+      slot: "logo_icon",
+      prompt: prompt.slice(0, 1000),
+      image_url: url,
+      source: "fal",
+    }, { onConflict: "project_id,slot" });
+  } catch (e: any) {
+    console.warn("[landingPage.icon] cache write failed:", e?.message);
+  }
+  return url;
 }
 
 // ----------------------------- AI Content Generation -------------------------
@@ -1388,6 +1450,9 @@ section{padding:${t.sectionPad}}
 .site-header .container{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:16px;gap:24px}
 .brand{font-family:"${ctx.headingFont}",sans-serif;font-weight:800;font-size:22px;color:var(--ink);text-decoration:none}
 .brand:hover{text-decoration:none;color:var(--ink)}
+.brand{display:inline-flex;align-items:center;gap:10px;line-height:1}
+.brand-icon{width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;flex-shrink:0;display:block}
+.brand-text{display:inline-block;vertical-align:middle}
 .main-nav{display:flex;gap:28px;align-items:center}
 .main-nav a{color:var(--ink);font-weight:500;font-size:15px}
 .header-cta{display:flex;align-items:center;gap:16px}
@@ -1525,6 +1590,8 @@ section{padding:${t.sectionPad}}
 .foot-grid a{color:rgba(255,255,255,.7);font-size:14px;display:block;padding:4px 0}
 .foot-grid a:hover{color:#fff;text-decoration:none}
 .foot-grid .brand-foot{font-family:"${ctx.headingFont}",sans-serif;font-size:22px;color:#fff;font-weight:800;margin-bottom:12px;display:block}
+.foot-grid .brand-foot{display:inline-flex;align-items:center;gap:8px;font-size:18px}
+.foot-grid .brand-foot .brand-icon{width:32px;height:32px;border-radius:6px;background:#fff;padding:2px;object-fit:contain}
 .foot-grid .desc{font-size:14px;line-height:1.6;color:rgba(255,255,255,.6)}
 .copy{max-width:1200px;margin:48px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);font-size:13px;color:rgba(255,255,255,.5);text-align:center}
 @media(max-width:860px){.foot-grid{grid-template-columns:1fr 1fr;gap:32px 20px}}
@@ -1691,7 +1758,7 @@ ${allLd.map((x) => `<script type="application/ld+json">${JSON.stringify(x).repla
 
 ${chromeOverride?.headerHtml || `<header class="site-header">
   <div class="container">
-    <a href="/" class="brand">${esc(ctx.siteName)}</a>
+    <a href="/" class="brand">${ctx.iconUrl ? `<img class="brand-icon" src="${esc(ctx.iconUrl)}" alt="" width="36" height="36" loading="eager" decoding="async">` : ""}<span class="brand-text">${esc(ctx.siteName)}</span></a>
     <nav class="main-nav">${navItems}</nav>
     <div class="header-cta">
       <a class="header-phone" href="tel:${esc(phoneHref)}">${esc(c.phone)}</a>
@@ -1860,7 +1927,7 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
 ${chromeOverride?.footerHtml || `<footer class="site-footer">
   <div class="foot-grid">
     <div>
-      <span class="brand-foot">${esc(ctx.siteName)}</span>
+      <span class="brand-foot">${ctx.iconUrl ? `<img class="brand-icon" src="${esc(ctx.iconUrl)}" alt="" width="32" height="32" loading="lazy" decoding="async">` : ""}<span>${esc(ctx.siteName)}</span></span>
       <p class="desc">${esc(c.aboutShortText)}</p>
     </div>
     <div>
