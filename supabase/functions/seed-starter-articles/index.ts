@@ -7,6 +7,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
+import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -108,7 +109,8 @@ function fallbackArticle(topic: string, idx: number, lang: "ru" | "en") {
   return { title, content, meta_description: leads[idx % leads.length].slice(0, 200) };
 }
 
-async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor, brandName?: string, opts?: { admin?: any; projectId?: string; userId?: string }) {
+async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor, brandName?: string, opts?: { admin?: any; projectId?: string; userId?: string; model?: string }) {
+  const modelId = opts?.model || "google/gemini-2.5-flash";
   // No persona injection: author name is shown only in byline metadata.
   // Articles MUST be written in third-person/impersonal expert journalism style.
   // CRITICAL: brandName (e.g. "Новости Тулы") is the SITE name, NOT the article topic.
@@ -169,7 +171,7 @@ Return STRICT JSON {title, meta_description, content_html}. content_html: 600-90
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "X-Title": "SEO-Module Starter" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: modelId,
       temperature: 0.85,
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: sys }, { role: "user", content: user }],
@@ -185,7 +187,7 @@ Return STRICT JSON {title, meta_description, content_html}. content_html: 600-90
     void logCost(opts.admin, {
       project_id: opts.projectId, user_id: opts.userId,
       operation_type: "article_generation",
-      model: "google/gemini-2.5-flash",
+      model: modelId,
       tokens_input: Number(usage.prompt_tokens || 0),
       tokens_output: Number(usage.completion_tokens || 0),
       metadata: { context: "starter_article" },
@@ -276,7 +278,7 @@ serve(async (req) => {
     }
 
     const { data: project } = await admin.from("projects")
-      .select("id, name, site_name, site_about, language, user_id, authors")
+      .select("id, name, site_name, site_about, language, user_id, authors, ai_model")
       .eq("id", projectId).maybeSingle();
     if (!project || project.user_id !== user.id) {
       return new Response(JSON.stringify({ error: "Project not found" }), {
@@ -293,6 +295,7 @@ serve(async (req) => {
     const topic = String(rawTopic).replace(/<[^>]+>/g, " ").split(/[.!?\n«»]/)[0].trim().slice(0, 80) || (lang === "ru" ? "ниша" : "niche");
     const brandName = String(project.site_name || project.name || "").trim() || undefined;
     const apiKey = await getOpenRouterKey(admin);
+    const modelId = resolveOpenRouterModel((project as any).ai_model);
     const falKey = Deno.env.get("FAL_AI_API_KEY") || "";
     const projectAuthors: SeedAuthor[] = Array.isArray((project as any).authors) ? (project as any).authors : [];
 
@@ -303,7 +306,7 @@ serve(async (req) => {
       let art;
       try {
         art = apiKey
-          ? await aiArticle(apiKey, topic, i, lang, author, brandName, { admin, projectId, userId: user.id })
+          ? await aiArticle(apiKey, topic, i, lang, author, brandName, { admin, projectId, userId: user.id, model: modelId })
           : fallbackArticle(topic, i, lang);
       } catch (e: any) {
         console.error("[seed-starter-articles] AI fail, using fallback:", e?.message);
