@@ -1603,9 +1603,14 @@ export function buildBusinessPage(c: SiteChrome, def: BpDef, html: string): stri
 
   const main = `
     <article class="service-page">
-      <header class="service-hero">
-        <h1>${escHtml(label)}</h1>
-        ${leadText ? `<p class="service-hero__lead">${escHtml(leadText)}</p>` : ""}
+      <header class="service-hero service-hero--with-image">
+        <div class="service-hero__copy">
+          <h1>${escHtml(label)}</h1>
+          ${leadText ? `<p class="service-hero__lead">${escHtml(leadText)}</p>` : ""}
+        </div>
+        <figure class="service-hero__media">
+          <img src="${escAttr(pageImage(c, def.key))}" alt="${escAttr(label)}" loading="lazy" width="1600" height="720">
+        </figure>
       </header>
       <div class="service-blocks">
         ${(restBlocks.length ? restBlocks : blocks).map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
