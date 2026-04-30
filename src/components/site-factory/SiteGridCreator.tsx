@@ -466,5 +466,15 @@ export function SiteGridCreator() {
         )}
       </CardContent>
     </Card>
+
+    {previewSpec && (
+      <SitePreviewDialog
+        open={!!previewSpec}
+        onClose={() => setPreviewSpec(null)}
+        onConfirm={() => { setPreviewSpec(null); void runQueue(); }}
+        spec={previewSpec}
+      />
+    )}
+    </>
   );
 }
