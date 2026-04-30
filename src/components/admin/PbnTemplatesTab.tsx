@@ -12,6 +12,7 @@ import { Eye, Pencil, Plus, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles } from "lucide-react";
 import { PbnTemplateImporter } from "./PbnTemplateImporter";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PbnTemplate {
   id: string;
@@ -99,6 +100,33 @@ export function PbnTemplatesTab() {
   const [draft, setDraft] = useState<Partial<PbnTemplate>>(EMPTY);
   const [fontPairsRaw, setFontPairsRaw] = useState("");
   const [importerOpen, setImporterOpen] = useState(false);
+  const [totopPosition, setTotopPosition] = useState<string>("left-bottom");
+  const [savingTotop, setSavingTotop] = useState(false);
+
+  const loadTotopPosition = async () => {
+    const { data } = await supabase
+      .from("app_settings").select("value")
+      .eq("key", "pbn_totop_position").maybeSingle();
+    if (data?.value) setTotopPosition(String(data.value));
+  };
+  useEffect(() => { loadTotopPosition(); }, []);
+
+  const saveTotopPosition = async (v: string) => {
+    setTotopPosition(v);
+    setSavingTotop(true);
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert(
+        { key: "pbn_totop_position", value: v, description: "Позиция кнопки 'Наверх' на сайтах PBN-сетки" },
+        { onConflict: "key" },
+      );
+    setSavingTotop(false);
+    if (error) {
+      toast({ title: "Ошибка сохранения", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Сохранено", description: "Применится при следующем 'Обновить' сайта" });
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -196,6 +224,32 @@ export function PbnTemplatesTab() {
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Виджеты сайтов</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <Label className="text-xs min-w-[180px]">Позиция кнопки «Наверх»</Label>
+            <Select value={totopPosition} onValueChange={saveTotopPosition} disabled={savingTotop}>
+              <SelectTrigger className="h-9 w-full sm:w-[260px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="left-bottom">Слева снизу (рекомендуется)</SelectItem>
+                <SelectItem value="right-bottom">Справа снизу (над чатом)</SelectItem>
+                <SelectItem value="left-top">Слева сверху</SelectItem>
+                <SelectItem value="right-top">Справа сверху</SelectItem>
+                <SelectItem value="hidden">Скрыть кнопку</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Чат всегда в правом нижнем углу. Изменения применятся при следующем «Обновить» сайта.
+          </p>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
