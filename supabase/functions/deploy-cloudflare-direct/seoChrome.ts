@@ -1655,19 +1655,34 @@ ${items}
 }
 
 // Update sitemap to include any active business pages — caller must pass them.
-export function sitemapXmlExtended(c: SiteChrome, postSlugs: string[], extraPaths: string[]): string {
+export function sitemapXmlExtended(
+  c: SiteChrome,
+  postSlugs: string[] | SitemapPost[],
+  extraPaths: string[],
+): string {
   const today = new Date().toISOString().slice(0, 10);
-  const urls: { loc: string; lastmod: string; priority?: string }[] = [
-    { loc: `https://${c.domain}/`,             lastmod: today, priority: "1.0" },
-    { loc: `https://${c.domain}/about.html`,    lastmod: today, priority: "0.7" },
-    { loc: `https://${c.domain}/contacts.html`, lastmod: today, priority: "0.5" },
-    { loc: `https://${c.domain}/privacy.html`,  lastmod: today, priority: "0.3" },
-    { loc: `https://${c.domain}/terms.html`,    lastmod: today, priority: "0.3" },
-    ...extraPaths.map((p) => ({ loc: `https://${c.domain}${p}`, lastmod: today, priority: "0.6" })),
-    ...postSlugs.map((s) => ({ loc: `https://${c.domain}/posts/${s}.html`, lastmod: today, priority: "0.8" })),
+  const posts: SitemapPost[] = (postSlugs as Array<string | SitemapPost>).map((p) =>
+    typeof p === "string" ? { slug: p } : p,
+  );
+  const blocks = [
+    sitemapEntry(`https://${c.domain}/`,             today, "weekly",  "1.0"),
+    sitemapEntry(`https://${c.domain}/about.html`,    today, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/services.html`, today, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/contacts.html`, today, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/faq.html`,      today, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/privacy.html`,  today, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/terms.html`,    today, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/blog/`,         today, "weekly",  "0.9"),
+    ...extraPaths.map((p) => sitemapEntry(`https://${c.domain}${p}`, today, "monthly", "0.6")),
+    ...posts.map((p) => sitemapEntry(
+      `https://${c.domain}/posts/${p.slug}.html`,
+      (p.publishedAt || today).slice(0, 10),
+      "monthly",
+      "0.6",
+    )),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><priority>${u.priority || "0.5"}</priority></url>`).join("\n")}
+${blocks.join("\n")}
 </urlset>`;
 }
