@@ -425,6 +425,26 @@ a.contact-item__value:hover{color:var(--accent,#0ea5e9);text-decoration:underlin
 .contacts-map-section h2{margin:0 0 14px;font-size:22px;font-family:inherit}
 .contacts-map{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(15,23,42,.04)}
 .contacts-map iframe{display:block;width:100%}
+.service-page{max-width:1100px;margin:0 auto;padding:24px}
+.service-hero{background:linear-gradient(135deg,color-mix(in srgb,var(--accent,#0ea5e9) 10%,#fff),#fff);border:1px solid #e5e7eb;border-radius:16px;padding:36px 32px;margin:8px 0 28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
+.service-hero h1{margin:0 0 10px;font-size:32px;font-family:inherit;line-height:1.2}
+.service-hero__lead{margin:0;color:#475569;font-size:16px;line-height:1.55;max-width:760px}
+.service-blocks{display:grid;grid-template-columns:1fr;gap:20px;margin:0 0 28px}
+@media(min-width:860px){.service-blocks--2col{grid-template-columns:1fr 1fr}}
+.service-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:26px 28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
+.service-card h2{margin:0 0 14px;font-size:22px;font-family:inherit;line-height:1.3}
+.service-card h3{margin:18px 0 8px;font-size:17px;font-family:inherit}
+.service-card p{margin:0 0 12px;color:#334155;line-height:1.65;font-size:15px}
+.service-card ul,.service-card ol{margin:0 0 12px;padding-left:22px;color:#334155;line-height:1.65;font-size:15px}
+.service-card li{margin:0 0 6px}
+.service-card a{color:var(--accent,#0ea5e9);text-decoration:none}
+.service-card a:hover{text-decoration:underline}
+.service-info-grid{display:grid;grid-template-columns:1fr;gap:12px;margin:8px 0 4px}
+@media(min-width:520px){.service-info-grid{grid-template-columns:1fr 1fr}}
+.service-info-item{padding:14px 16px;background:#f8fafc;border-radius:10px}
+.service-info-item__label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:600;margin-bottom:4px}
+.service-info-item__value{font-size:15px;color:#0f172a;font-weight:500}
+.service-card .bp-pricing-table{margin-top:8px}
 ${COOKIE_BANNER_CSS}
 `;
 
