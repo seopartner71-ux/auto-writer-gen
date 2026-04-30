@@ -660,15 +660,6 @@ serve(async (req) => {
       // Resolve FAL.ai key (api_keys table > env) and generate (or reuse) all
       // landing images via FAL flux/schnell. Cached per (project_id, slot) so
       // subsequent re-deploys never regenerate the same picture.
-      let falKey: string | null = null;
-      try {
-        const { data: falRow } = await supabaseAdmin
-          .from("api_keys").select("api_key")
-          .eq("provider", "fal_ai").eq("is_valid", true).limit(1).maybeSingle();
-        falKey = (falRow?.api_key as string) || Deno.env.get("FAL_AI_API_KEY") || null;
-      } catch {
-        falKey = Deno.env.get("FAL_AI_API_KEY") || null;
-      }
       const generatedImages = await ensureLandingImages(
         supabaseAdmin,
         projectId,
