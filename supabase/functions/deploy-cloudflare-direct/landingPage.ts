@@ -1033,8 +1033,8 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
         <div class="field"><input type="text" name="name" placeholder="${esc(isRu ? "Ваше имя" : "Your name")}" required></div>
         <div class="field"><input type="tel" name="phone" placeholder="${esc(isRu ? "Телефон" : "Phone")}" required></div>
         <div class="field"><input type="email" name="email" placeholder="Email"></div>
+        <label class="form-agree"><input type="checkbox" name="agree" required checked><span>${esc(consentLine)}</span></label>
         <button type="submit" class="btn">${esc(c.ctaPrimary)}</button>
-        <div class="consent">${esc(consentLine)}</div>
       </form>
     </div>
   </div>
@@ -1145,11 +1145,12 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
       <input type="text" name="name" placeholder="${esc(isRu ? "Имя" : "Name")}" required>
       <input type="tel" name="phone" placeholder="${esc(isRu ? "Телефон" : "Phone")}" required>
       <button type="submit" class="btn btn-light">${esc(c.ctaPrimary)}</button>
+      <label class="form-agree"><input type="checkbox" name="agree" required checked><span>${esc(consentLine)}</span></label>
     </form>
   </div>
 </section>
 
-<section id="map" style="padding-top:0">
+<section id="map">
   <div class="container">
     <div class="map-wrap"><iframe src="${mapSrc}" loading="lazy" title="map"></iframe></div>
   </div>
