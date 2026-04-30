@@ -302,7 +302,9 @@ serve(async (req) => {
       const author = projectAuthors.length > 0 ? projectAuthors[i % projectAuthors.length] : undefined;
       let art;
       try {
-        art = apiKey ? await aiArticle(apiKey, topic, i, lang, author, brandName) : fallbackArticle(topic, i, lang);
+        art = apiKey
+          ? await aiArticle(apiKey, topic, i, lang, author, brandName, { admin, projectId, userId: user.id })
+          : fallbackArticle(topic, i, lang);
       } catch (e: any) {
         console.error("[seed-starter-articles] AI fail, using fallback:", e?.message);
         art = fallbackArticle(topic, i, lang);
@@ -310,7 +312,7 @@ serve(async (req) => {
       // Generate hero image via FAL.ai (best-effort — null on failure).
       let heroUrl: string | null = null;
       if (falKey) {
-        heroUrl = await generateHeroImage(falKey, topic, art.title);
+        heroUrl = await generateHeroImage(falKey, topic, art.title, { admin, projectId, userId: user.id });
       }
       const { data: inserted, error: insErr } = await admin.from("articles").insert({
         user_id: user.id,
