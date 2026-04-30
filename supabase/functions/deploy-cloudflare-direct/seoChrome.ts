@@ -814,6 +814,7 @@ export function buildContactsPage(c: SiteChrome): string {
     path: "/contacts.html", type: "website",
     breadcrumbs: [...home(c), { label: isRu ? "Контакты" : "Contacts", href: "/contacts.html" }],
     bodyClass: "page-contacts",
+    jsonLd: [localBusinessLd(c)],
   }, main);
 }
 
