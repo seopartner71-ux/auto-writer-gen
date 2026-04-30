@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
-  Plus, Pencil, Trash2, Globe, Link2, FolderOpen, Loader2, FileText, CheckCircle2, Eye, Zap
+  Plus, Pencil, Trash2, Globe, Link2, FolderOpen, Loader2, FileText, CheckCircle2, Eye, Zap, Sparkles, RefreshCw
 } from "lucide-react";
 
 interface Project {
@@ -28,6 +28,7 @@ interface Project {
   language: string;
   region: string;
   auto_interlinking: boolean;
+  ai_model?: string;
   created_at: string;
   updated_at: string;
 }
@@ -61,6 +62,7 @@ const defaultForm = {
   language: "ru",
   region: "RU",
   auto_interlinking: true,
+  ai_model: "gemini-flash" as "gemini-flash" | "claude-sonnet",
 };
 
 export default function ProjectsPage() {
@@ -78,6 +80,23 @@ export default function ProjectsPage() {
     () => localStorage.getItem("active_project_id")
   );
   const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
+  const [interlinkingProjectId, setInterlinkingProjectId] = useState<string | null>(null);
+
+  const handleRefreshInterlinking = async (projectId: string) => {
+    setInterlinkingProjectId(projectId);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-interlinking", {
+        body: { project_id: projectId, redeploy: true },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Перелинковка обновлена. Внутренних ссылок: ${data?.links_inserted ?? 0}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось обновить перелинковку");
+    } finally {
+      setInterlinkingProjectId(null);
+    }
+  };
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
@@ -151,6 +170,7 @@ export default function ProjectsPage() {
             language: form.language,
             region: form.region,
             auto_interlinking: form.auto_interlinking,
+            ai_model: form.ai_model,
           })
           .eq("id", editingId);
         if (error) throw error;
@@ -162,6 +182,7 @@ export default function ProjectsPage() {
           language: form.language,
           region: form.region,
           auto_interlinking: form.auto_interlinking,
+          ai_model: form.ai_model,
         }).select("id").single();
         if (error) throw error;
         // Auto-activate new project
@@ -204,6 +225,7 @@ export default function ProjectsPage() {
       language: p.language,
       region: p.region,
       auto_interlinking: p.auto_interlinking,
+      ai_model: (p.ai_model as any) || "gemini-flash",
     });
     setDialogOpen(true);
   };
@@ -281,6 +303,14 @@ export default function ProjectsPage() {
                         <Link2 className="h-3 w-3" /> {t("projects.interlinking")}
                       </Badge>
                     )}
+                    <Badge
+                      variant={p.ai_model === "claude-sonnet" ? "default" : "outline"}
+                      className="text-xs gap-1"
+                      title="Модель генерации текстов"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {p.ai_model === "claude-sonnet" ? "Claude Sonnet" : "Gemini Flash"}
+                    </Badge>
                   </div>
                   <Separator />
                   <div className="flex items-center justify-between">
@@ -300,9 +330,23 @@ export default function ProjectsPage() {
                       {t("projects.viewArticles")}
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-8 gap-1.5"
+                      title="Обновить перелинковку статей"
+                      disabled={interlinkingProjectId === p.id}
+                      onClick={() => handleRefreshInterlinking(p.id)}
+                    >
+                      {interlinkingProjectId === p.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="sm"
-                      className="flex-1 text-xs h-8 gap-1.5 text-destructive hover:text-destructive"
+                      className="text-xs h-8 gap-1.5 text-destructive hover:text-destructive"
                       onClick={() => {
                         if (confirm(t("projects.confirmDelete"))) {
                           deleteMutation.mutate(p.id);
@@ -314,7 +358,6 @@ export default function ProjectsPage() {
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      {t("projects.delete")}
                     </Button>
                   </div>
 
@@ -422,6 +465,55 @@ export default function ProjectsPage() {
                 checked={form.auto_interlinking}
                 onCheckedChange={(v) => setForm({ ...form, auto_interlinking: v })}
               />
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" /> Модель генерации текстов
+              </Label>
+              <div className="grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, ai_model: "gemini-flash" })}
+                  className={`text-left rounded-md border px-3 py-2 transition-colors ${
+                    form.ai_model === "gemini-flash"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Gemini 2.5 Flash</span>
+                    {form.ai_model === "gemini-flash" && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0">Выбрано</Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Быстро - дешево - ~$0.05 / сайт
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, ai_model: "claude-sonnet" })}
+                  className={`text-left rounded-md border px-3 py-2 transition-colors ${
+                    form.ai_model === "claude-sonnet"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium flex items-center gap-1">
+                      Claude Sonnet 4
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Рекомендуем</Badge>
+                    </span>
+                    {form.ai_model === "claude-sonnet" && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0">Выбрано</Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Качество - SEO-оптимизация - ~$0.40 / сайт
+                  </p>
+                </button>
+              </div>
             </div>
 
             <Button

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
+import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1032,7 +1033,22 @@ serve(async (req) => {
       .eq("task_key", writerTask)
       .single();
     const fallbackModel = userPlan === "pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash-lite";
-    const model = assignment?.model_key || fallbackModel;
+    let model = assignment?.model_key || fallbackModel;
+
+    // Site Factory project override: respect project.ai_model preference.
+    if (project_id) {
+      try {
+        const { data: projForModel } = await supabaseAdmin
+          .from("projects")
+          .select("ai_model")
+          .eq("id", project_id)
+          .maybeSingle();
+        if (projForModel?.ai_model) {
+          model = resolveOpenRouterModel(projForModel.ai_model);
+          console.log("[generate-article] project ai_model override:", projForModel.ai_model, "->", model);
+        }
+      } catch (e) { /* ignore - keep assignment model */ }
+    }
 
     // Get keyword
     const { data: keyword } = await supabase.from("keywords").select("*").eq("id", keyword_id).single();
