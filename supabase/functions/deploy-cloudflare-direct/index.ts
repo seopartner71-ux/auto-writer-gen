@@ -17,6 +17,7 @@ import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
 import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages, ensureSiteIcon } from "./landingPage.ts";
 import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles, build404Page, pickAuthor } from "./seoChrome.ts";
 import { renderMagazineHome, renderMagazineArticle, magazineExtraCss } from "./magazinePage.ts";
+import { renderNewsHome, renderNewsArticle, newsExtraCss } from "./newsPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 
