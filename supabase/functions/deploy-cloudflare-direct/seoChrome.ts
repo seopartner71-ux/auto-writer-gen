@@ -1501,6 +1501,7 @@ export function buildPostPage(
     title, description: desc, path: `/posts/${post.slug}.html`, type: "article",
     ogImage: heroUrl,
     publishedTime: post.publishedAt,
+    modifiedTime: post.modifiedAt || post.publishedAt,
     breadcrumbs: [
       { label: isRu ? "Главная" : "Home", href: "/" },
       { label: isRu ? "Блог" : "Blog", href: "/" },
