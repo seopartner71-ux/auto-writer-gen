@@ -836,28 +836,16 @@ export function splitIntoBlocks(html: string): { heading: string; body: string }
 // derives keywords from the site niche + page-specific seed (about/contacts/
 // portfolio/pricing/reviews/faq/vacancies). Returns a wide 1600x720 image.
 function pageImage(c: SiteChrome, slot: string, w = 1600, h = 720): string {
-  const PAGE_KW: Record<string, string> = {
-    about:      c.lang === "ru" ? "команда офис" : "team office",
-    contacts:   c.lang === "ru" ? "офис прием" : "office reception",
-    portfolio:  c.lang === "ru" ? "проекты работы" : "projects portfolio work",
-    pricing:    c.lang === "ru" ? "прайс лист" : "pricing service",
-    reviews:    c.lang === "ru" ? "довольные клиенты" : "happy customers",
-    faq:        c.lang === "ru" ? "консультация" : "consultation help",
-    vacancies:  c.lang === "ru" ? "сотрудники работа" : "team hiring work",
-    guarantees: c.lang === "ru" ? "гарантия качество" : "quality guarantee",
-    delivery:   c.lang === "ru" ? "доставка склад" : "delivery warehouse",
-    promo:      c.lang === "ru" ? "акции скидки" : "promotion sale",
-  };
-  const extra = PAGE_KW[slot] || slot;
-  const seed = `${c.topic || c.siteName} ${extra}`;
-  const kw = String(seed)
-    .replace(/[«»"().,:;!?\-—]/g, " ")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 5)
-    .join(",");
-  const safe = encodeURIComponent(kw || "business");
-  return `https://source.unsplash.com/${w}x${h}/?${safe}`;
+  // source.unsplash.com is deprecated and frequently returns 503 - fall back
+  // to picsum.photos with a deterministic seed so each (site, slot) gets a
+  // stable, always-loading image.
+  let h32 = 2166136261 >>> 0;
+  const seed = `${c.domain || c.siteName}::${c.topic || ""}::${slot}`;
+  for (let i = 0; i < seed.length; i++) {
+    h32 ^= seed.charCodeAt(i);
+    h32 = Math.imul(h32, 16777619) >>> 0;
+  }
+  return `https://picsum.photos/seed/${h32.toString(36)}/${w}/${h}`;
 }
 
 export function buildAboutPage(c: SiteChrome): string {

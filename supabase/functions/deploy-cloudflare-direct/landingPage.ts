@@ -10,6 +10,193 @@
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 
+// ----------------------------- Niche-aware fallbacks ------------------------
+
+/** Tiny deterministic FNV-1a for seeded picks. */
+function _h(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+function _pick<T>(arr: T[], seed: string, salt: string): T {
+  return arr[_h(seed + ":" + salt) % arr.length];
+}
+function _shuffle<T>(arr: T[], seed: string): T[] {
+  const a = arr.slice();
+  let s = _h(seed) || 1;
+  for (let i = a.length - 1; i > 0; i--) {
+    s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0;
+    const j = s % (i + 1); [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const RU_MALE = ["Андрей","Сергей","Михаил","Павел","Денис","Артем","Роман","Виктор","Олег","Дмитрий","Игорь","Кирилл","Антон","Максим","Никита","Владимир","Алексей","Иван","Евгений","Юрий"];
+const RU_FEMALE = ["Анна","Екатерина","Наталья","Ольга","Татьяна","Юлия","Елена","Марина","Светлана","Ирина","Алена","Полина","Дарья","Анастасия","Ксения","Валентина","Людмила","Вера","Любовь","Галина"];
+const RU_LAST_M = ["Козлов","Смирнов","Новиков","Морозов","Волков","Соколов","Лебедев","Попов","Орлов","Зайцев","Никитин","Беляев","Тарасов","Белов","Комаров","Сафонов","Богданов","Воронин","Гусев","Кузьмин"];
+const RU_LAST_F = ["Козлова","Смирнова","Новикова","Морозова","Волкова","Соколова","Лебедева","Попова","Орлова","Зайцева","Никитина","Беляева","Тарасова","Белова","Комарова","Сафонова","Богданова","Воронина","Гусева","Кузьмина"];
+
+const EN_MALE = ["James","Michael","David","John","Robert","Thomas","Daniel","Christopher","Andrew","Matthew","Joseph","Mark","Steven","Brian","Kevin","Eric","Patrick","Sean","Ryan","Adam"];
+const EN_FEMALE = ["Mary","Patricia","Jennifer","Linda","Elizabeth","Susan","Jessica","Sarah","Karen","Nancy","Lisa","Margaret","Sandra","Ashley","Emily","Donna","Michelle","Carol","Amanda","Melissa"];
+const EN_LAST = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin","Lee","Walker","Hall","Allen","Young"];
+
+/** Detect a coarse niche bucket from free-text topic for picking sane defaults. */
+function detectNiche(topic: string): string {
+  const t = topic.toLowerCase();
+  if (/(цвет|букет|флорист|flower|florist|bouquet)/.test(t)) return "florist";
+  if (/(минитрактор|трактор|сельхоз|agro|tractor|farm)/.test(t)) return "agro";
+  if (/(ремонт квартир|отделка|строит|renovation|remodel|construction)/.test(t)) return "renovation";
+  if (/(юрид|адвокат|law|legal|attorney)/.test(t)) return "legal";
+  if (/(стомат|зуб|dental|dentist)/.test(t)) return "dental";
+  if (/(автосерв|автомоб|шиномонт|auto|car|tire)/.test(t)) return "auto";
+  if (/(клининг|уборк|cleaning)/.test(t)) return "cleaning";
+  if (/(достав|курьер|delivery|courier)/.test(t)) return "delivery";
+  if (/(restoran|кафе|ресторан|cafe|restaurant|food|пицц|суши)/.test(t)) return "food";
+  if (/(красот|салон|парик|маник|beauty|salon|hair)/.test(t)) return "beauty";
+  if (/(фитнес|спорт|тренаж|gym|fitness)/.test(t)) return "fitness";
+  if (/(it|web|разработ|software|саит|сайт|студи)/.test(t)) return "tech";
+  if (/(недвижим|риелтор|real ?estate|realty)/.test(t)) return "realty";
+  if (/(обуч|курс|школ|education|school|course)/.test(t)) return "edu";
+  if (/(мед|клиник|здоров|health|medical|clinic)/.test(t)) return "medical";
+  return "generic";
+}
+
+/** Niche-specific role pools (RU). The first entry is the "lead" role. */
+const ROLE_POOL_RU: Record<string, string[]> = {
+  florist:    ["Старший флорист","Флорист","Менеджер заказов","Декоратор","Курьер-флорист"],
+  agro:       ["Технический специалист","Механик","Менеджер продаж","Агроинженер","Сервис-инженер"],
+  renovation: ["Прораб","Дизайнер интерьера","Сметчик","Бригадир","Технадзор"],
+  legal:      ["Юрист","Адвокат","Помощник юриста","Судебный представитель","Налоговый консультант"],
+  dental:     ["Врач-стоматолог","Стоматолог-ортопед","Гигиенист","Ассистент стоматолога","Администратор клиники"],
+  auto:       ["Автомеханик","Диагност","Шиномонтажник","Мастер-приемщик","Кузовщик"],
+  cleaning:   ["Старший клинер","Менеджер заказов","Бригадир","Специалист по химчистке","Логист"],
+  delivery:   ["Старший курьер","Логист","Диспетчер","Менеджер доставки","Курьер"],
+  food:       ["Шеф-повар","Су-шеф","Менеджер зала","Кондитер","Бариста"],
+  beauty:     ["Топ-стилист","Колорист","Мастер маникюра","Бровист","Администратор салона"],
+  fitness:    ["Старший тренер","Персональный тренер","Инструктор групповых программ","Нутрициолог","Администратор клуба"],
+  tech:       ["Тимлид","Frontend-разработчик","Backend-разработчик","UX-дизайнер","DevOps-инженер"],
+  realty:     ["Старший риелтор","Риелтор","Ипотечный брокер","Юрист по сделкам","Менеджер по аренде"],
+  edu:        ["Методист","Преподаватель","Куратор курса","Эксперт-практик","Координатор обучения"],
+  medical:    ["Главный врач","Врач-специалист","Медсестра","Администратор клиники","Координатор"],
+  generic:    ["Старший специалист","Технолог","Менеджер по работе с клиентами","Эксперт направления","Координатор"],
+};
+
+const ROLE_POOL_EN: Record<string, string[]> = {
+  florist:    ["Lead Florist","Florist","Order Manager","Decorator","Courier-Florist"],
+  agro:       ["Technical Specialist","Mechanic","Sales Manager","Agronomist","Service Engineer"],
+  renovation: ["Foreman","Interior Designer","Estimator","Crew Lead","Site Supervisor"],
+  legal:      ["Attorney","Senior Attorney","Paralegal","Litigation Counsel","Tax Advisor"],
+  dental:     ["Dentist","Prosthodontist","Dental Hygienist","Dental Assistant","Clinic Administrator"],
+  auto:       ["Auto Mechanic","Diagnostic Tech","Tire Specialist","Service Advisor","Body Shop Tech"],
+  cleaning:   ["Lead Cleaner","Account Manager","Crew Lead","Dry-Clean Specialist","Logistics"],
+  delivery:   ["Lead Courier","Logistics Manager","Dispatcher","Delivery Manager","Courier"],
+  food:       ["Head Chef","Sous Chef","Floor Manager","Pastry Chef","Barista"],
+  beauty:     ["Top Stylist","Colorist","Nail Artist","Brow Artist","Salon Manager"],
+  fitness:    ["Head Trainer","Personal Trainer","Group Instructor","Nutritionist","Club Manager"],
+  tech:       ["Tech Lead","Frontend Engineer","Backend Engineer","UX Designer","DevOps Engineer"],
+  realty:     ["Senior Realtor","Realtor","Mortgage Broker","Closing Attorney","Rental Manager"],
+  edu:        ["Lead Instructor","Course Mentor","Curriculum Designer","Practitioner Expert","Program Coordinator"],
+  medical:    ["Chief Physician","Specialist","Nurse","Clinic Administrator","Coordinator"],
+  generic:    ["Senior Specialist","Lead Practitioner","Account Manager","Domain Expert","Coordinator"],
+};
+
+/** Build a deterministic team for a project. */
+function buildSeededTeam(
+  topic: string, lang: "ru" | "en", seed: string, sizeHint?: number,
+): { name: string; role: string; bio: string }[] {
+  const niche = detectNiche(topic);
+  const roles = (lang === "ru" ? ROLE_POOL_RU : ROLE_POOL_EN)[niche] || (lang === "ru" ? ROLE_POOL_RU : ROLE_POOL_EN).generic;
+  // 2..4 deterministic
+  const size = sizeHint && sizeHint >= 2 && sizeHint <= 4
+    ? sizeHint
+    : 2 + (_h(seed + ":size") % 3);
+  const orderedRoles = [roles[0], ..._shuffle(roles.slice(1), seed + ":r")].slice(0, size);
+
+  const yearsPool = [3, 4, 5, 6, 7, 8, 9, 10, 12, 15];
+  const out: { name: string; role: string; bio: string }[] = [];
+  for (let i = 0; i < size; i++) {
+    const isMale = (_h(seed + ":g" + i) % 2) === 0;
+    let name: string;
+    if (lang === "ru") {
+      const first = _pick(isMale ? RU_MALE : RU_FEMALE, seed, "fn" + i);
+      const last  = _pick(isMale ? RU_LAST_M : RU_LAST_F, seed, "ln" + i);
+      name = `${first} ${last}`;
+    } else {
+      const first = _pick(isMale ? EN_MALE : EN_FEMALE, seed, "fn" + i);
+      const last  = _pick(EN_LAST, seed, "ln" + i);
+      name = `${first} ${last}`;
+    }
+    const years = _pick(yearsPool, seed, "y" + i);
+    const role = orderedRoles[i];
+    const bio = lang === "ru"
+      ? `Работает в направлении «${topic}» ${years} лет. Ведет проекты от заявки до результата и держит качество на высоком уровне.`
+      : `${years} years of hands-on work in ${topic}. Owns projects end-to-end and keeps quality bar high.`;
+    out.push({ name, role, bio });
+  }
+  return out;
+}
+
+/** Build niche-aware Hero copy when AI is unavailable. */
+function buildSeededHero(
+  topic: string, siteName: string, lang: "ru" | "en", region: string, seed: string,
+): { heroTitle: string; heroSubtitle: string; heroBadge: string } {
+  const niche = detectNiche(topic);
+  const place = region ? (lang === "ru" ? ` в ${region}` : ` in ${region}`) : "";
+  const titlesRu: Record<string, string[]> = {
+    florist:    [`Доставка свежих цветов и авторских букетов${place}`, `Букеты и композиции с доставкой${place} за 2 часа`, `Свежие цветы для любого повода${place}`],
+    agro:       [`Продажа и обслуживание минитракторов${place}`, `Минитракторы и навесное оборудование${place}`, `Сельхозтехника${place}: продажа, сервис, запчасти`],
+    renovation: [`Ремонт квартир и домов под ключ${place}`, `Качественный ремонт${place} с гарантией`, `Отделка квартир${place} от дизайн-проекта до сдачи`],
+    legal:      [`Юридическая помощь бизнесу и частным лицам${place}`, `Решаем юридические вопросы${place} быстро и по делу`, `Адвокаты${place} с опытом сложных дел`],
+    dental:     [`Современная стоматология${place} без боли`, `Лечение, имплантация и эстетика${place}`, `Стоматология полного цикла${place}`],
+    auto:       [`Ремонт и обслуживание автомобилей${place}`, `Автосервис${place}: ремонт, ТО, диагностика`, `Качественный автосервис${place} с гарантией`],
+    cleaning:   [`Профессиональная уборка квартир и офисов${place}`, `Клининг${place} с экосредствами и гарантией качества`, `Чисто за 1 визит — клининг${place}`],
+    delivery:   [`Курьерская доставка${place} в день заказа`, `Доставка по городу${place} от 1 часа`, `Логистика и доставка${place} для бизнеса и людей`],
+    food:       [`Доставка вкусной еды${place} за 60 минут`, `Кухня${place}: блюда из свежих продуктов`, `Заказ еды${place} с доставкой и навынос`],
+    beauty:     [`Салон красоты${place}: стрижки, окрашивание, уход`, `Парикмахерские услуги и маникюр${place}`, `Красота и уход${place} от практикующих мастеров`],
+    fitness:    [`Фитнес-клуб${place} с персональными тренировками`, `Тренировки${place}: сила, выносливость, фигура`, `Фитнес и здоровье${place} с реальным результатом`],
+    tech:       [`Разработка сайтов и веб-сервисов${place}`, `Цифровые продукты${place}: дизайн, код, поддержка`, `IT-решения${place} для бизнеса любого масштаба`],
+    realty:     [`Покупка, продажа и аренда недвижимости${place}`, `Подбор и сопровождение сделок${place}`, `Недвижимость${place}: безопасные сделки под ключ`],
+    edu:        [`Обучение${place} с практикующими экспертами`, `Курсы${place} с поддержкой до результата`, `Образовательные программы${place} для взрослых`],
+    medical:    [`Медицинская помощь${place} в современной клинике`, `Прием профильных специалистов${place}`, `Клиника${place}: диагностика, лечение, наблюдение`],
+    generic:    [`${siteName}: услуги по направлению «${topic}»${place}`, `Решаем задачи в нише «${topic}»${place}`, `Команда ${siteName}${place} в нише «${topic}»`],
+  };
+  const subsRu = [
+    "Опыт более 10 лет, прозрачные цены и официальный договор. Перезвоним за 15 минут.",
+    "Работаем с частными и корпоративными клиентами. Гарантия на все работы.",
+    "Качество, сроки и цена фиксируются договором. Бесплатная консультация по заявке.",
+  ];
+  const titlesEn: Record<string, string[]> = {
+    florist:    [`Fresh flower bouquets delivered${place}`, `Same-day flower delivery${place}`, `Hand-tied bouquets${place} for every occasion`],
+    agro:       [`Compact tractor sales and service${place}`, `Compact tractors and implements${place}`, `Farm equipment${place}: sales, service, parts`],
+    renovation: [`Turnkey home and apartment renovation${place}`, `Quality renovations${place} with warranty`, `Apartment finishing${place} from design to handover`],
+    legal:      [`Legal counsel for business and individuals${place}`, `Effective legal solutions${place}`, `Attorneys${place} with complex case experience`],
+    dental:     [`Modern, pain-free dentistry${place}`, `Treatment, implants and aesthetics${place}`, `Full-cycle dentistry${place}`],
+    auto:       [`Auto repair and maintenance${place}`, `Full-service auto shop${place}`, `Reliable auto service${place} with warranty`],
+    cleaning:   [`Professional cleaning for homes and offices${place}`, `Eco-friendly cleaning${place} with quality guarantee`, `Spotless in one visit — cleaning${place}`],
+    delivery:   [`Same-day courier delivery${place}`, `City delivery${place} from 1 hour`, `Delivery and logistics${place} for business`],
+    food:       [`Tasty food delivered${place} in 60 minutes`, `Fresh-ingredient kitchen${place}`, `Order food${place}: delivery and takeaway`],
+    beauty:     [`Beauty salon${place}: cut, color, care`, `Hair and nails${place} by certified artists`, `Beauty and care${place} from practicing masters`],
+    fitness:    [`Fitness club${place} with personal training`, `Workouts${place}: strength, endurance, shape`, `Fitness and health${place} with real results`],
+    tech:       [`Website and web app development${place}`, `Digital products${place}: design, code, support`, `IT solutions${place} for any business`],
+    realty:     [`Buy, sell and rent real estate${place}`, `Property search and deal support${place}`, `Real estate${place}: safe turnkey transactions`],
+    edu:        [`Learning${place} with practicing experts`, `Courses${place} with mentoring to the result`, `Adult education programs${place}`],
+    medical:    [`Medical care${place} in a modern clinic`, `Specialist consultations${place}`, `Clinic${place}: diagnostics, treatment, follow-up`],
+    generic:    [`${siteName}: services in "${topic}"${place}`, `Solving tasks in the "${topic}" niche${place}`, `${siteName}${place} for the "${topic}" niche`],
+  };
+  const subsEn = [
+    "10+ years of experience, transparent prices and a written contract. Callback in 15 minutes.",
+    "We work with private and corporate clients. Warranty on every job.",
+    "Quality, timing and price are fixed by contract. Free consultation on request.",
+  ];
+  const titles = lang === "ru" ? (titlesRu[niche] || titlesRu.generic) : (titlesEn[niche] || titlesEn.generic);
+  const subs = lang === "ru" ? subsRu : subsEn;
+  return {
+    heroTitle: _pick(titles, seed, "ht"),
+    heroSubtitle: _pick(subs, seed, "hs"),
+    heroBadge: lang === "ru" ? "Работаем с 2014 года" : "Trusted since 2014",
+  };
+}
+
 // ----------------------------- Types ----------------------------------------
 
 export interface LandingContent {
@@ -496,8 +683,18 @@ export async function generateLandingContent(
     audience?: string;
     businessType?: string;
   } = {},
+  seed: string = "",
 ): Promise<LandingContent> {
-  const fallback = lang === "ru" ? FALLBACK_RU(topic, siteName) : FALLBACK_EN(topic, siteName);
+  const baseFallback = lang === "ru" ? FALLBACK_RU(topic, siteName) : FALLBACK_EN(topic, siteName);
+  // Replace generic placeholder hero & team with deterministic, niche-aware ones.
+  const _seed = seed || (siteName + "::" + topic);
+  const seededHero = buildSeededHero(topic, siteName, lang, (nicheCtx.region || "").trim(), _seed);
+  const seededTeam = buildSeededTeam(topic, lang, _seed);
+  const fallback: LandingContent = {
+    ...baseFallback,
+    ...seededHero,
+    team: seededTeam,
+  };
 
   if (!LOVABLE_API_KEY) {
     return { ...fallback, ...overrides };
@@ -510,9 +707,13 @@ export async function generateLandingContent(
 
   const sys = lang === "ru"
     ? `Ты создаёшь тексты для лендинга реальной российской компании. Тематика и название известны.
+HERO (КРИТИЧНО): heroTitle - это конкретное УТП компании: что делает, для кого, где (например: «Доставка свежих цветов и букетов по Москве», «Продажа и обслуживание минитракторов для дачи»). СТРОГО ЗАПРЕЩЕНЫ шаблонные фразы: «профессиональные решения по теме», «решения по теме», «решения в области», «услуги по теме», «комплекс услуг», «лидер рынка» - не используй их ни в каком виде. Ключевое слово ниши должно входить в heroTitle естественно. heroSubtitle - 1-2 предложения о главной выгоде клиента (что получит и за какой срок), без воды. heroBadge - короткий маркер доверия («Работаем с 2014 года», «Доставка за 2 часа»), не «Лидер рынка».
+КОМАНДА: должности СТРОГО из ниши (флорист, механик, прораб, юрист, стоматолог и т.п.). Запрещено использовать «Руководитель», «Главный специалист», «Менеджер проектов» - эти три формулировки одинаковы для всех сайтов и являются фингерпринтом. Имена и фамилии - разнообразные русские (Андрей Козлов, Екатерина Новикова, Михаил Морозов). НЕ используй имена «Алексей Иванов», «Мария Петрова», «Дмитрий Соколов». BIO - 1-2 предложения с привязкой к нише: что человек делает в этой нише и сколько лет (например «Создает букеты для свадеб 8 лет»), не «управляет проектами полного цикла».
 ОБЯЗАТЕЛЬНО: 1) ВСЕ услуги, цены, профессии команды, отзывы, статистика, FAQ - строго из указанной ниши. Никаких общих "консультаций" если ниша - продажа минитракторов. 2) Названия услуг используют РЕАЛЬНУЮ терминологию ниши (для ниши "минитракторы" - "продажа минитрактора", "сервис и ТО", "доставка навесного оборудования", а не "Базовый/Стандарт/Премиум"). 3) Цены реалистичные для рынка ниши и региона (минитрактор от 250 000 руб, а не от 5 000). 4) Команда - должности из ниши (агроном, механик по сельхозтехнике), а не "руководитель/специалист". 5) Статистика релевантна нише (тракторов продано, моделей в наличии). 6) Отзывы - от целевой аудитории ниши. 7) Адрес и код телефона - в указанном регионе.
 ФОРМАТ: Естественный язык, без канцелярита и без слова «уникальный». Цены, телефон, адрес - реалистичные. НЕ используй жирный шрифт и звёздочки. Замени все длинные тире на дефисы. Никогда не используй букву «ё» - только «е». Никаких выдуманных сертификатов. Иконки в полях icon - короткие unicode-символы (★ ✓ ⚡ ₽ ① ② ③ ④ ✦ ⬢ ◆ ●), не emoji.`
     : `You write copy for a real business landing page. Topic and brand name are given.
+HERO (CRITICAL): heroTitle is a concrete value proposition: what the company does, for whom, where (e.g. "Fresh flower delivery across NYC", "Compact tractor sales and service in Texas"). STRICTLY FORBIDDEN cliches: "professional solutions for", "solutions in the field of", "comprehensive services", "industry leader", "market leader". The niche keyword must appear naturally in heroTitle. heroSubtitle - 1-2 sentences about the main client benefit. heroBadge - a short trust marker like "Trusted since 2014" or "Same-day delivery", not "Industry Leader".
+TEAM: roles STRICTLY niche-specific (florist, mechanic, foreman, attorney, dentist etc.). Do NOT use "Director", "Lead Specialist", "Project Manager" - these three are identical across all sites and act as a fingerprint. Names - varied Western names. NOT "Alex Johnson, Maria Smith, David Brown". BIO - 1-2 niche-specific sentences (what the person actually does and for how many years).
 MANDATORY: 1) ALL services, prices, team roles, testimonials, stats, FAQ - strictly from the specified niche. No generic "consultations" if niche is selling tractors. 2) Service names use REAL niche terminology (for "compact tractors" niche - "tractor sales", "service and maintenance", "implement delivery", not "Basic/Standard/Premium"). 3) Prices realistic for the niche market and region (tractor from $5,000, not "from $99"). 4) Team - roles from the niche (agronomist, equipment mechanic), not generic "director/specialist". 5) Stats relevant to the niche (tractors sold, models in stock). 6) Testimonials from the actual target audience. 7) Address and phone area code - in the specified region.
 FORMAT: Natural English, no corporate jargon. Realistic prices, phone, address. No bold or asterisks. Replace em-dashes with hyphens. No fabricated certifications. Icon fields - short unicode symbols (★ ✓ ⚡ $ ① ② ③ ④ ✦ ⬢ ◆ ●), not emoji.`;
 
@@ -567,6 +768,17 @@ FORMAT: Natural English, no corporate jargon. Realistic prices, phone, address. 
     const parsed = JSON.parse(argsStr) as LandingContent;
     // Sanitize — remove ё, replace em-dash, strip bold markup
     const clean = sanitizeContent(parsed, lang);
+    // Post-AI guard: if the model still produced banned phrases or hardcoded
+    // template names, swap those fields for the deterministic seeded fallback.
+    const BANNED_HERO = /(профессиональные решения по теме|решения по теме|решения в области|услуги по теме|комплекс услуг|лидер рынка|professional solutions for|solutions in the field of|comprehensive services|industry leader|market leader)/i;
+    const BANNED_NAMES = new Set(["Алексей Иванов","Мария Петрова","Дмитрий Соколов","Alex Johnson","Maria Smith","David Brown"]);
+    const BANNED_ROLES = /^(руководитель|главный специалист|менеджер проектов|director|lead specialist|project manager)$/i;
+    if (BANNED_HERO.test(clean.heroTitle) || BANNED_HERO.test(clean.heroSubtitle)) {
+      Object.assign(clean, seededHero);
+    }
+    if (clean.team.some((m) => BANNED_NAMES.has(m.name) || BANNED_ROLES.test((m.role || "").trim()))) {
+      clean.team = seededTeam;
+    }
     return { ...clean, ...overrides };
   } catch (e) {
     console.warn("[landing] AI gen failed:", (e as Error).message);
