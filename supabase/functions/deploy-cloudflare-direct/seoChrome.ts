@@ -892,9 +892,14 @@ export function buildAboutPage(c: SiteChrome): string {
 
   const main = `
     <article class="service-page">
-      <header class="service-hero">
-        <h1>${escHtml(isRu ? "О нас" : "About us")}</h1>
-        <p class="service-hero__lead">${escHtml(c.siteAbout || c.siteName)}</p>
+      <header class="service-hero service-hero--with-image">
+        <div class="service-hero__copy">
+          <h1>${escHtml(isRu ? "О нас" : "About us")}</h1>
+          <p class="service-hero__lead">${escHtml(c.siteAbout || c.siteName)}</p>
+        </div>
+        <figure class="service-hero__media">
+          <img src="${escAttr(pageImage(c, "about"))}" alt="${escAttr(isRu ? "О нас" : "About us")}" loading="lazy" width="1600" height="720">
+        </figure>
       </header>
       ${factsHtml}
       <div class="service-blocks">
