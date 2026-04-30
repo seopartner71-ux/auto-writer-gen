@@ -1266,22 +1266,6 @@ export default function SiteFactoryPage() {
                   </RouterLink>
                 </Button>
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-                  <RouterLink to="/projects">
-                    <Plus className="h-3 w-3 mr-1" />
-                    {lang === "ru" ? "Новый проект" : "New project"}
-                  </RouterLink>
-                </Button>
-                {selectedProjectId && (
-                  <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-                    <RouterLink to="/projects">
-                      <Settings className="h-3 w-3 mr-1" />
-                      {lang === "ru" ? "Настроить деплой" : "Configure deploy"}
-                    </RouterLink>
-                  </Button>
-                )}
-              </div>
             </div>
 
             {/* Hosting Platform Selector */}
