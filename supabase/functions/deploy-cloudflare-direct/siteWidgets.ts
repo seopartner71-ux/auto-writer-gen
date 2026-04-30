@@ -17,9 +17,18 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function avatarFallback(name: string): string {
-  const n = encodeURIComponent((name || "Manager").trim()).slice(0, 60);
-  return `https://ui-avatars.com/api/?name=${n}&size=160&background=random&format=png`;
+function avatarFallback(name: string, accent: string = "#1a1a1a"): string {
+  // CDN-free inline SVG monogram — replaces ui-avatars.com so PBN sites
+  // share no avatar fingerprint and have zero third-party requests.
+  const initials = String(name || "?").trim().split(/\s+/).filter(Boolean)
+    .slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < name.length; i++) { h ^= name.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  const tints = ["#fef3c7","#dbeafe","#fce7f3","#dcfce7","#ede9fe","#ffedd5"];
+  const bg = tints[h % tints.length];
+  const fg = String(accent || "#1a1a1a").slice(0, 9);
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'><rect width='160' height='160' rx='80' fill='${bg}'/><text x='80' y='95' text-anchor='middle' font-family='Georgia,serif' font-size='64' font-weight='700' fill='${fg}'>${initials}</text></svg>`;
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
 }
 
 export type TotopPosition = "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
