@@ -317,6 +317,18 @@ export function SiteGridCreator() {
                       ))}
                     </select>
                   </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-[10px] text-muted-foreground">Стиль главной страницы</Label>
+                    <select
+                      value={spec.homepageStyle}
+                      onChange={(e) => updateSpec(idx, { homepageStyle: e.target.value as "landing" | "magazine" })}
+                      disabled={running}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs disabled:opacity-50"
+                    >
+                      <option value="landing">Лендинг (с формой заявки) - по умолчанию</option>
+                      <option value="magazine">Журнал (контент-первый, без формы)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             ))}
