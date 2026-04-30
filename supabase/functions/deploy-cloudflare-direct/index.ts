@@ -428,28 +428,55 @@ serve(async (req) => {
       .limit(100);
     console.log("[deploy-cloudflare-direct] articles fetched:", articles?.length ?? 0,
                 "err:", articlesErr?.message || "none");
-    // Backdate posts that lack a real published timestamp by spreading them
-    // across the past 12-24 months at random weekday hours (9-21).
+    // ---- Backdating (deterministic from projectId+articleId) ----------------
+    // Each post gets its OWN published date 3-18 months in the past with a
+    // 3-14 day cadence between consecutive posts (newest first), stable per
+    // (project, article) so re-deploys keep the same timeline.
     const now = Date.now();
-    function fakePublishedAt(idx: number, total: number): string {
-      const monthsBack = 12 + Math.floor(Math.random() * 12); // 12..24
-      const minMs = now - monthsBack * 30 * 24 * 3600 * 1000;
-      const span = now - minMs;
-      // Newer items first → older as idx grows.
-      const t = minMs + ((total - idx) / Math.max(1, total)) * span * (0.6 + Math.random() * 0.35);
-      const d = new Date(t);
-      // Snap to a weekday and a working-hour 9..21.
-      const day = d.getDay();
-      if (day === 0) d.setDate(d.getDate() + 1);
-      else if (day === 6) d.setDate(d.getDate() + 2);
-      d.setHours(9 + Math.floor(Math.random() * 13), Math.floor(Math.random() * 60), 0, 0);
-      return d.toISOString();
+    function fnv1a32(s: string): number {
+      let h = 2166136261 >>> 0;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+      return h >>> 0;
     }
     const usedSlugs = new Set<string>();
     const totalArticles = (articles || []).length;
-    // For PBN sites we ALWAYS backdate posts (12-24 months ago) so the blog
-    // looks aged. Real `created_at` is too recent (the row was inserted
-    // minutes ago by seed-starter-articles) and would expose the network.
+    // Newest post starts at 3 months ago, then we walk older with a
+    // deterministic 3-14 day gap per article. If we'd exceed 18 months
+    // we clamp the gap so the oldest post stays within the window.
+    const MIN_AGE_DAYS = 90;   // ~3 months
+    const MAX_AGE_DAYS = 540;  // ~18 months
+    const ONE_DAY = 24 * 3600 * 1000;
+    let cursorMs = now - MIN_AGE_DAYS * ONE_DAY;
+    const publishedDates: Date[] = [];
+    for (let idx = 0; idx < totalArticles; idx++) {
+      const a: any = (articles || [])[idx];
+      const seed = `${projectId}:${a?.id || idx}`;
+      const h = fnv1a32(seed);
+      // Gap 3..14 days between consecutive posts.
+      const gapDays = idx === 0 ? 0 : (3 + ((h >>> 0) % 12));
+      // Time of day 8..21h (working blog hours).
+      const hour = 8 + ((h >>> 8) % 14);
+      const minute = (h >>> 16) % 60;
+      cursorMs -= gapDays * ONE_DAY;
+      // Clamp to the 18-month window: if we ran out of room, redistribute.
+      const oldestAllowedMs = now - MAX_AGE_DAYS * ONE_DAY;
+      if (cursorMs < oldestAllowedMs) cursorMs = oldestAllowedMs;
+      const d = new Date(cursorMs);
+      // Skip weekends to look like an editorial schedule.
+      const day = d.getDay();
+      if (day === 0) d.setDate(d.getDate() - 2);
+      else if (day === 6) d.setDate(d.getDate() - 1);
+      d.setHours(hour, minute, 0, 0);
+      publishedDates.push(d);
+    }
+    // Provide a `modifiedAt` slightly later than published (1..30 days).
+    function modifiedFor(d: Date, seed: string): Date {
+      const h = fnv1a32(seed + ":mod");
+      const offsetDays = 1 + (h % 30);
+      const m = new Date(d.getTime() + offsetDays * ONE_DAY);
+      // Don't go past "now".
+      return m.getTime() > now ? new Date(now) : m;
+    }
     const posts = (articles || []).map((a: any, idx: number) => {
       const baseSlug = slugify(a.title || a.id);
       let slug = baseSlug;
@@ -458,10 +485,13 @@ serve(async (req) => {
       usedSlugs.add(slug);
       const contentHtml = markdownToHtml(a.content || "");
       const excerpt = a.meta_description || plainExcerpt(a.content || "", 180);
-      const publishedAt = fakePublishedAt(idx, totalArticles);
+      const pubDate = publishedDates[idx];
+      const modDate = modifiedFor(pubDate, `${projectId}:${a?.id || idx}`);
       return {
         title: a.title || "Без названия",
-        slug, contentHtml, excerpt, publishedAt,
+        slug, contentHtml, excerpt,
+        publishedAt: pubDate.toISOString(),
+        modifiedAt: modDate.toISOString(),
         featuredImageUrl: a.featured_image_url || undefined,
       };
     });
