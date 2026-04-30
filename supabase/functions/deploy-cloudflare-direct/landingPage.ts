@@ -42,6 +42,41 @@ const EN_MALE = ["James","Michael","David","John","Robert","Thomas","Daniel","Ch
 const EN_FEMALE = ["Mary","Patricia","Jennifer","Linda","Elizabeth","Susan","Jessica","Sarah","Karen","Nancy","Lisa","Margaret","Sandra","Ashley","Emily","Donna","Michelle","Carol","Amanda","Melissa"];
 const EN_LAST = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin","Lee","Walker","Hall","Allen","Young"];
 
+/**
+ * Detect gender ("male" | "female") from a person's full name.
+ * Works for both Russian (uses our seeded pools + Cyrillic suffix heuristics)
+ * and English (seeded pools + common-name list). Falls back to "male" only as
+ * a last resort so portraits never default to a single sex across the network.
+ */
+const RU_MALE_SET = new Set(RU_MALE.map((n) => n.toLowerCase()));
+const RU_FEMALE_SET = new Set(RU_FEMALE.map((n) => n.toLowerCase()));
+const EN_MALE_SET = new Set(EN_MALE.map((n) => n.toLowerCase()));
+const EN_FEMALE_SET = new Set(EN_FEMALE.map((n) => n.toLowerCase()));
+
+export function detectGenderFromName(fullName: string, seedSalt = ""): "male" | "female" {
+  const raw = String(fullName || "").trim();
+  if (!raw) return (_h("g:" + seedSalt) % 2) === 0 ? "male" : "female";
+  const first = raw.split(/\s+/)[0].toLowerCase();
+  const last = (raw.split(/\s+/)[1] || "").toLowerCase();
+
+  if (RU_MALE_SET.has(first) || EN_MALE_SET.has(first)) return "male";
+  if (RU_FEMALE_SET.has(first) || EN_FEMALE_SET.has(first)) return "female";
+
+  // Russian heuristics: female surnames end in -ова/-ева/-ина/-ая, female
+  // first names usually end in -а/-я; male first names usually end in
+  // a consonant or -й.
+  if (/[а-яё]/i.test(first)) {
+    if (/(ова|ева|ина|ская|цкая|ая)$/i.test(last)) return "female";
+    if (/(ов|ев|ин|ский|цкий|ый|ой|ий)$/i.test(last)) return "male";
+    if (/[ая]$/i.test(first)) return "female";
+    return "male";
+  }
+  // English fallback: common female-name endings.
+  if (/(a|ie|y|ah|elle|ette)$/i.test(first)) return "female";
+  // Deterministic fallback so we don't bias the whole network to one sex.
+  return (_h("g:" + seedSalt + ":" + first) % 2) === 0 ? "male" : "female";
+}
+
 /** Detect a coarse niche bucket from free-text topic for picking sane defaults. */
 function detectNiche(topic: string): string {
   const t = topic.toLowerCase();
