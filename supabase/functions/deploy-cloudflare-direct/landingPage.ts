@@ -1977,6 +1977,7 @@ ${sfWidgetsHtml({
   consultantPhoto: ctx.generatedImages?.team_1,
   siteName: ctx.siteName,
   topic: ctx.topic,
+  seed: ctx.projectId || ctx.domain || ctx.siteName,
 })}
 
 </body>
