@@ -106,17 +106,13 @@ export function UserManagementTab() {
 
   const setUserRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: "admin" | "staff" | "user" }) => {
-      // Replace all rows for this user with a single chosen role. We always
-      // keep at least one row so RLS using has_role() keeps working.
-      const { error: delErr } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
-      if (delErr) throw delErr;
-      const { error: insErr } = await supabase
-        .from("user_roles")
-        .insert({ user_id: userId, role });
-      if (insErr) throw insErr;
+      // RLS forbids direct writes to user_roles. Use the admin RPC which
+      // verifies the caller is an admin and atomically replaces roles.
+      const { error } = await supabase.rpc("admin_set_user_role", {
+        p_user_id: userId,
+        p_role: role,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-user-roles"] });
