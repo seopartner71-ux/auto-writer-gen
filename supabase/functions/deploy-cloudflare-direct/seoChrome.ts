@@ -1395,52 +1395,6 @@ export function buildBusinessPage(c: SiteChrome, def: BpDef, html: string): stri
       for (const s of services) extraLd.push(serviceLd(c, s));
     }
   }
-  if (def.key === "faq") {
-    // Already covered above via FAQPage
-  }
-  // For business pages with embedded "О нас"-like content - no-op (Organization is global).
-}
-
-// Extract { name, description, price } trios from a pricing HTML block.
-// Recognizes: <h3>Package</h3><p>desc</p><p>от 5000 ₽</p>  OR  <table> rows.
-function extractPricingServices(html: string): { name: string; description?: string; price?: string }[] {
-  const out: { name: string; description?: string; price?: string }[] = [];
-  // h3-based packages
-  const h3re = /<h3[^>]*>([\s\S]*?)<\/h3>([\s\S]*?)(?=<h3|$)/gi;
-  let m: RegExpExecArray | null;
-  while ((m = h3re.exec(html)) !== null) {
-    const name = m[1].replace(/<[^>]+>/g, "").trim();
-    const block = m[2] || "";
-    const text = block.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    const priceMatch = text.match(/(?:от\s*)?([\d\s]{3,})\s*(?:₽|руб|RUB|\$|USD|EUR|€)/i);
-    out.push({
-      name,
-      description: text.slice(0, 200) || undefined,
-      price: priceMatch ? priceMatch[1].replace(/\s+/g, "") : undefined,
-    });
-  }
-  if (out.length > 0) return out.slice(0, 12);
-  // Table fallback: first cell = name, last cell = price
-  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  while ((m = rowRe.exec(html)) !== null) {
-    const cells = Array.from(m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi))
-      .map((c) => c[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-    if (cells.length < 2) continue;
-    const name = cells[0];
-    const last = cells[cells.length - 1];
-    const priceMatch = last.match(/([\d\s]{3,})/);
-    if (!name || /^(услуга|service|пакет|package|название|name)$/i.test(name)) continue;
-    out.push({
-      name,
-      description: cells.slice(1, -1).join(" - ").slice(0, 200) || undefined,
-      price: priceMatch ? priceMatch[1].replace(/\s+/g, "") : undefined,
-    });
-  }
-  return out.slice(0, 12);
-}
-
-function _noop_pricing_marker() {
 
   // Wrap pricing tables with a class for nicer styling.
   const wrapped = def.key === "pricing"
@@ -1476,6 +1430,43 @@ function _noop_pricing_marker() {
     jsonLd: extraLd.length ? extraLd : undefined,
     bodyClass: `page-${def.key}`,
   }, main);
+}
+
+// Extract { name, description, price } trios from a pricing HTML block.
+// Recognizes: <h3>Package</h3><p>desc</p><p>от 5000 ₽</p>  OR  <table> rows.
+function extractPricingServices(html: string): { name: string; description?: string; price?: string }[] {
+  const out: { name: string; description?: string; price?: string }[] = [];
+  const h3re = /<h3[^>]*>([\s\S]*?)<\/h3>([\s\S]*?)(?=<h3|$)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = h3re.exec(html)) !== null) {
+    const name = m[1].replace(/<[^>]+>/g, "").trim();
+    const block = m[2] || "";
+    const text = block.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const priceMatch = text.match(/(?:от\s*)?([\d\s]{3,})\s*(?:₽|руб|RUB|\$|USD|EUR|€)/i);
+    out.push({
+      name,
+      description: text.slice(0, 200) || undefined,
+      price: priceMatch ? priceMatch[1].replace(/\s+/g, "") : undefined,
+    });
+  }
+  if (out.length > 0) return out.slice(0, 12);
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  while ((m = rowRe.exec(html)) !== null) {
+    const cells = Array.from(m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi))
+      .map((cc) => cc[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    if (cells.length < 2) continue;
+    const name = cells[0];
+    const last = cells[cells.length - 1];
+    const priceMatch = last.match(/([\d\s]{3,})/);
+    if (!name || /^(услуга|service|пакет|package|название|name)$/i.test(name)) continue;
+    out.push({
+      name,
+      description: cells.slice(1, -1).join(" - ").slice(0, 200) || undefined,
+      price: priceMatch ? priceMatch[1].replace(/\s+/g, "") : undefined,
+    });
+  }
+  return out.slice(0, 12);
 }
 
 export function buildBusinessPages(c: SiteChrome): Record<string, string> {
