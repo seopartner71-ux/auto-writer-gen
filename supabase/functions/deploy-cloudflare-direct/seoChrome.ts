@@ -422,6 +422,9 @@ export function footerHtml(c: SiteChrome): string {
   const owner = c.companyName || c.siteName;
 
   const napLines: string[] = [];
+  if (c.iconUrl) {
+    napLines.push(`<div class="site-footer__brand"><img class="site-footer__logo" src="${escAttr(c.iconUrl)}" alt="" width="32" height="32" loading="lazy" decoding="async"><span>${escHtml(c.siteName)}</span></div>`);
+  }
   if (c.companyName)    napLines.push(`<div><strong>${escHtml(c.companyName)}</strong></div>`);
   if (c.companyAddress) napLines.push(`<div>${escHtml(c.companyAddress)}</div>`);
   if (c.workHours)      napLines.push(`<div>${escHtml(c.workHours)}</div>`);
