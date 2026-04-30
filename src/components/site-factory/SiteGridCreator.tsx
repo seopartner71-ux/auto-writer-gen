@@ -376,10 +376,21 @@ export function SiteGridCreator() {
           <div className="text-xs text-muted-foreground">
             Будет создано: <span className="font-semibold text-foreground">{effectiveCount}</span> сайтов
           </div>
-          <Button onClick={handleStart} disabled={running || effectiveCount === 0} className="gap-2">
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-            {running ? "Создание..." : "Запустить"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handlePreview}
+              disabled={running || effectiveCount !== 1}
+              className="gap-2"
+              title={effectiveCount !== 1 ? "Превью доступно для одного сайта" : "Сводка перед деплоем"}
+            >
+              Предпросмотр
+            </Button>
+            <Button onClick={handleStart} disabled={running || effectiveCount === 0} className="gap-2">
+              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+              {running ? "Создание..." : "Деплой на Cloudflare"}
+            </Button>
+          </div>
         </div>
 
         {rows.length > 0 && (
@@ -391,6 +402,20 @@ export function SiteGridCreator() {
               </div>
               <Progress value={progress} className="h-2" />
             </div>
+
+            {lastReport && !running && (
+              <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-xs space-y-1">
+                <div className="font-semibold text-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-primary" /> Деплой завершён
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                  <div><span className="text-muted-foreground">Готово:</span> <span className="font-semibold">{lastReport.ok}</span></div>
+                  <div><span className="text-muted-foreground">Ошибок:</span> <span className="font-semibold">{lastReport.err}</span></div>
+                  <div><span className="text-muted-foreground">Время:</span> <span className="font-semibold">{lastReport.duration}</span></div>
+                  <div><span className="text-muted-foreground">Стоимость:</span> <span className="font-semibold">~${lastReport.cost.toFixed(2)}</span></div>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-md border border-border overflow-hidden">
               <table className="w-full text-xs">
