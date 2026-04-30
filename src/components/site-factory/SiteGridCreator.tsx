@@ -14,6 +14,7 @@ type RowStatus = "pending" | "creating" | "deploying" | "done" | "error";
 
 interface SiteSpec {
   topic: string;
+  siteName: string;
   region: string;
   services: string;
   audience: string;
@@ -44,7 +45,7 @@ function pickRandom<T>(arr: readonly T[]): T {
 }
 
 const emptySpec = (): SiteSpec => ({
-  topic: "", region: "", services: "", audience: "", businessType: "продажа",
+  topic: "", siteName: "", region: "", services: "", audience: "", businessType: "продажа",
 });
 
 const BUSINESS_TYPES = [
@@ -112,16 +113,16 @@ export function SiteGridCreator() {
       try {
         // 1. AI-generate brand-style site name
         updateRow(i, { status: "creating", name: "...", template: templateKey, templateName });
-        let projectName = topic;
-        try {
-          const niceTopic = spec.region
-            ? `${topic} в ${spec.region}`
-            : topic;
-          const { data: nameData } = await supabase.functions.invoke("generate-site-name", {
-            body: { topic: niceTopic, language: "ru" },
-          });
-          if (nameData?.name) projectName = String(nameData.name);
-        } catch { /* fallback to raw topic */ }
+        let projectName = spec.siteName.trim() || topic;
+        if (!spec.siteName.trim()) {
+          try {
+            const niceTopic = spec.region ? `${topic} в ${spec.region}` : topic;
+            const { data: nameData } = await supabase.functions.invoke("generate-site-name", {
+              body: { topic: niceTopic, language: "ru" },
+            });
+            if (nameData?.name) projectName = String(nameData.name);
+          } catch { /* fallback to raw topic */ }
+        }
         updateRow(i, { name: projectName });
 
         // 2. Create project row
@@ -245,6 +246,19 @@ export function SiteGridCreator() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-[10px] text-muted-foreground">
+                      Название сайта / компании <span className="opacity-60">(необязательно - сгенерируем сами)</span>
+                    </Label>
+                    <Input
+                      placeholder="ООО АгроТехника / DachaPro"
+                      value={spec.siteName}
+                      onChange={(e) => updateSpec(idx, { siteName: e.target.value })}
+                      disabled={running}
+                      className="h-8 text-xs"
+                      maxLength={80}
+                    />
+                  </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Тематика / ниша *</Label>
                     <Input
