@@ -768,6 +768,17 @@ FORMAT: Natural English, no corporate jargon. Realistic prices, phone, address. 
     const parsed = JSON.parse(argsStr) as LandingContent;
     // Sanitize — remove ё, replace em-dash, strip bold markup
     const clean = sanitizeContent(parsed, lang);
+    // Post-AI guard: if the model still produced banned phrases or hardcoded
+    // template names, swap those fields for the deterministic seeded fallback.
+    const BANNED_HERO = /(профессиональные решения по теме|решения по теме|решения в области|услуги по теме|комплекс услуг|лидер рынка|professional solutions for|solutions in the field of|comprehensive services|industry leader|market leader)/i;
+    const BANNED_NAMES = new Set(["Алексей Иванов","Мария Петрова","Дмитрий Соколов","Alex Johnson","Maria Smith","David Brown"]);
+    const BANNED_ROLES = /^(руководитель|главный специалист|менеджер проектов|director|lead specialist|project manager)$/i;
+    if (BANNED_HERO.test(clean.heroTitle) || BANNED_HERO.test(clean.heroSubtitle)) {
+      Object.assign(clean, seededHero);
+    }
+    if (clean.team.some((m) => BANNED_NAMES.has(m.name) || BANNED_ROLES.test((m.role || "").trim()))) {
+      clean.team = seededTeam;
+    }
     return { ...clean, ...overrides };
   } catch (e) {
     console.warn("[landing] AI gen failed:", (e as Error).message);
