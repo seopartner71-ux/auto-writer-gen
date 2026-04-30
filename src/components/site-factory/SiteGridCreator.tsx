@@ -19,6 +19,7 @@ interface SiteSpec {
   services: string;
   audience: string;
   businessType: string;
+  homepageStyle: "landing" | "magazine";
 }
 
 interface SiteRow {
@@ -46,6 +47,7 @@ function pickRandom<T>(arr: readonly T[]): T {
 
 const emptySpec = (): SiteSpec => ({
   topic: "", siteName: "", region: "", services: "", audience: "", businessType: "продажа",
+  homepageStyle: "landing",
 });
 
 const BUSINESS_TYPES = [
