@@ -650,6 +650,27 @@ serve(async (req) => {
       totopPosition,
       iconUrl,
     };
+    // BUG 4 fix: ensure the company email matches the actual site domain.
+    // If the stored company_email uses a placeholder host like "site.ru" or
+    // doesn't match the live domain, replace its host with the real domain
+    // (custom_domain preferred over the .pages.dev fallback).
+    try {
+      const { domainMatchedEmail } = await import("./phrasePools.ts");
+      const liveHost = String((project as any).custom_domain || domain || "")
+        .replace(/^https?:\/\//, "").replace(/\/.*$/, "").trim().toLowerCase();
+      const stored = String((project as any).company_email || "").trim();
+      const emailMatch = stored.match(/^([^@\s]+)@([^@\s]+)$/);
+      const placeholderHosts = /(^|\.)(site|example|test|sample|demo|domain)\.(ru|com|net|org)$/i;
+      const needsFix = !emailMatch || (liveHost && emailMatch[2].toLowerCase() !== liveHost) || placeholderHosts.test(emailMatch?.[2] || "");
+      if (liveHost && needsFix) {
+        const local = (emailMatch && !placeholderHosts.test(emailMatch[2])) ? emailMatch[1] : null;
+        (commonOpts as any).companyEmail = local
+          ? `${local}@${liveHost}`
+          : domainMatchedEmail(liveHost, String(projectId || liveHost));
+      }
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] email-domain fix skipped:", (e as Error).message);
+    }
     // Deterministic per-project tagline (rendered under siteName in header).
     try {
       const { pickPhrase: _pp } = await import("./phrasePools.ts");
