@@ -912,6 +912,66 @@ export async function ensureLandingImages(
   return out;
 }
 
+/**
+ * Generates (or reuses cached) a minimalist brand ICON via FAL flux/schnell.
+ * The icon contains NO text/letters — text part is rendered in HTML next to it.
+ *
+ * Cached in `site_image_cache` under slot `logo_icon`, keyed by project_id.
+ * On any failure returns null (caller falls back to first-letter avatar).
+ */
+export async function ensureSiteIcon(
+  admin: any,
+  projectId: string,
+  falKey: string | null,
+  niche: string,
+  accent: string,
+): Promise<string | null> {
+  // 1) reuse cache
+  try {
+    const { data: cached } = await admin
+      .from("site_image_cache")
+      .select("image_url")
+      .eq("project_id", projectId)
+      .eq("slot", "logo_icon")
+      .maybeSingle();
+    if (cached?.image_url && /^https?:\/\//.test(cached.image_url)) {
+      return cached.image_url as string;
+    }
+  } catch (e: any) {
+    console.warn("[landingPage.icon] cache read failed:", e?.message);
+  }
+
+  if (!falKey) {
+    console.log("[landingPage.icon] no FAL key, skipping logo generation");
+    return null;
+  }
+
+  const cleanNiche = String(niche || "business").slice(0, 80);
+  const colorHex = (accent || "#0ea5e9").trim();
+  const prompt =
+    `minimalist icon logo for ${cleanNiche} business, ` +
+    `simple flat icon only, NO TEXT, NO LETTERS, NO WORDS, NO TYPOGRAPHY, ` +
+    `single icon symbol, ${colorHex} color, white background, ` +
+    `vector style, clean lines, geometric, professional minimalist design, ` +
+    `centered, plenty of whitespace, app icon style`;
+
+  const url = await falGenerate(falKey, prompt, "square_hd");
+  if (!url) return null;
+
+  try {
+    await admin.from("site_image_cache").upsert({
+      project_id: projectId,
+      slot: "logo_icon",
+      prompt: prompt.slice(0, 1000),
+      image_url: url,
+      source: "fal",
+    }, { onConflict: "project_id,slot" });
+  } catch (e: any) {
+    console.warn("[landingPage.icon] cache write failed:", e?.message);
+  }
+  return url;
+}
+
 // ----------------------------- AI Content Generation -------------------------
 
 const FALLBACK_RU = (topic: string, siteName: string): LandingContent => ({
