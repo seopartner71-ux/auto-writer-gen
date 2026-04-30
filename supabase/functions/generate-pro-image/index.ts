@@ -88,6 +88,11 @@ async function generateVisualPrompt(
 }
 
 async function generateImage(falKey: string, prompt: string): Promise<string> {
+  // Strip any non-ASCII (Cyrillic etc.) — Flux renders it as garbled glyphs
+  // baked into the picture.
+  const safePrompt =
+    String(prompt || "").replace(/[^\x20-\x7E]+/g, " ").replace(/\s+/g, " ").trim() +
+    " ABSOLUTELY NO TEXT, no letters, no words, no captions, no signs, no logos, no watermarks, no typography, no writing of any kind anywhere in the image.";
   const resp = await fetch("https://fal.run/fal-ai/flux/schnell", {
     method: "POST",
     headers: {
@@ -95,7 +100,8 @@ async function generateImage(falKey: string, prompt: string): Promise<string> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      prompt,
+      prompt: safePrompt,
+      negative_prompt: "text, letters, words, captions, signs, logos, watermarks, typography, writing, characters, font, alphabet, cyrillic, latin text, numbers, labels, subtitles, title cards",
       image_size: "landscape_16_9",
       num_images: 1,
       enable_safety_checker: true,

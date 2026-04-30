@@ -760,6 +760,16 @@ export interface ImageGenInput {
   posts: { title: string; slug: string }[];
 }
 
+// Strips non-ASCII (Cyrillic etc.) from any string that we feed into Flux.
+// The model treats Cyrillic as visual glyphs and bakes garbled letters into
+// the picture, so prompts MUST stay pure English.
+function asciiOnly(s: string, max = 120): string {
+  return String(s || "").replace(/[^\x20-\x7E]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+const NO_TEXT_RULE = "ABSOLUTELY NO TEXT, no letters, no words, no captions, no signs, no logos, no watermarks, no typography, no writing of any kind anywhere in the image";
+const NO_TEXT_NEG  = "text, letters, words, captions, signs, logos, watermarks, typography, writing, characters, font, alphabet, cyrillic, latin text, numbers, labels, subtitles, title cards";
+
 async function falGenerate(
   falKey: string,
   prompt: string,
@@ -771,6 +781,7 @@ async function falGenerate(
       headers: { Authorization: `Key ${falKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
+        negative_prompt: NO_TEXT_NEG,
         image_size: size,
         num_images: 1,
         num_inference_steps: 4,
@@ -824,9 +835,11 @@ export async function ensureLandingImages(
     return out;
   }
 
-  const niche = String(input.niche || "business").slice(0, 120);
-  const region = String(input.region || "").slice(0, 80);
-  const audience = String(input.audience || "").slice(0, 120);
+  // Sanitize: prompts must be ASCII only — Flux bakes Cyrillic letters as
+  // garbled glyphs directly into the photo otherwise.
+  const niche = asciiOnly(input.niche || "business", 80) || "business";
+  const region = asciiOnly(input.region || "", 60);
+  const audience = asciiOnly(input.audience || "", 80);
   const ctxLine = [niche, region && `in ${region}`, audience && `for ${audience}`]
     .filter(Boolean).join(" ");
 
@@ -834,7 +847,7 @@ export async function ensureLandingImages(
   type Job = { slot: string; prompt: string; size: "landscape_16_9" | "landscape_4_3" | "square_hd" };
   const jobs: Job[] = [];
 
-  const baseStyle = "high quality, natural lighting, photorealistic, no text, no watermarks, magazine quality";
+  const baseStyle = `high quality, natural lighting, photorealistic, magazine quality, ${NO_TEXT_RULE}`;
 
   if (!out["hero"]) jobs.push({
     slot: "hero", size: "landscape_16_9",
@@ -872,14 +885,21 @@ export async function ensureLandingImages(
     });
   }
 
-  // Blog post previews — up to 3
+  // Blog post previews — up to 3.
+  // We deliberately do NOT inject the post title (it's typically Cyrillic and
+  // would be rendered as garbled text on the image). Use the niche context
+  // only and add a per-slot variation hint so previews don't look identical.
+  const postHints = [
+    "wide environmental shot",
+    "close-up detail shot",
+    "team or workspace shot",
+  ];
   for (let i = 0; i < Math.min(3, input.posts.length); i++) {
     const slot = `post_${i + 1}`;
     if (out[slot]) continue;
-    const p = input.posts[i];
     jobs.push({
       slot, size: "landscape_16_9",
-      prompt: `Editorial photograph illustrating "${p.title}" in the context of ${ctxLine}, ${baseStyle}.`,
+      prompt: `Editorial photograph related to ${ctxLine}, ${postHints[i % postHints.length]}, ${baseStyle}.`,
     });
   }
 
@@ -951,7 +971,7 @@ export async function ensureSiteIcon(
     return null;
   }
 
-  const cleanNiche = String(niche || "business").slice(0, 80);
+  const cleanNiche = asciiOnly(niche || "business", 60) || "business";
   const colorHex = (accent || "#0ea5e9").trim();
   const prompt =
     `minimalist icon logo for ${cleanNiche} business, ` +
