@@ -595,6 +595,7 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
 
   const lds: unknown[] = [websiteLd(c), organizationLd(c), breadcrumbsLd(c, m.breadcrumbs)];
   if (m.type === "article") lds.push(articleLd(c, m));
+  lds.push(speakableLd(c, m));
   if (Array.isArray(m.jsonLd)) for (const x of m.jsonLd) lds.push(x);
 
   const fontsHref = googleFontsHref(c.headingFont, c.bodyFont);
