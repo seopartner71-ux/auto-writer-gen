@@ -557,6 +557,7 @@ a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .share-bar a:hover{background:#f5f5f5}
 .author-meta{display:flex;align-items:center;gap:12px;margin:12px 0 24px;color:#666;font-size:14px}
 .author-meta img{width:40px;height:40px;border-radius:50%}
+.team-card__photo{width:120px;height:120px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 14px;background:#f3f4f6}
 .bp-pricing-table{width:100%;border-collapse:collapse;margin:16px 0}
 .bp-pricing-table th,.bp-pricing-table td{border:1px solid #e5e7eb;padding:10px 14px;text-align:left}
 .bp-pricing-table th{background:#f8fafc}
