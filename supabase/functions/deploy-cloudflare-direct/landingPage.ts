@@ -683,8 +683,18 @@ export async function generateLandingContent(
     audience?: string;
     businessType?: string;
   } = {},
+  seed: string = "",
 ): Promise<LandingContent> {
-  const fallback = lang === "ru" ? FALLBACK_RU(topic, siteName) : FALLBACK_EN(topic, siteName);
+  const baseFallback = lang === "ru" ? FALLBACK_RU(topic, siteName) : FALLBACK_EN(topic, siteName);
+  // Replace generic placeholder hero & team with deterministic, niche-aware ones.
+  const _seed = seed || (siteName + "::" + topic);
+  const seededHero = buildSeededHero(topic, siteName, lang, (nicheCtx.region || "").trim(), _seed);
+  const seededTeam = buildSeededTeam(topic, lang, _seed);
+  const fallback: LandingContent = {
+    ...baseFallback,
+    ...seededHero,
+    team: seededTeam,
+  };
 
   if (!LOVABLE_API_KEY) {
     return { ...fallback, ...overrides };
