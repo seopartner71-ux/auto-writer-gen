@@ -10,6 +10,8 @@
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
 
+import { widgetsCss as sfWidgetsCss, widgetsHtml as sfWidgetsHtml } from "./siteWidgets.ts";
+
 // ----------------------------- Niche-aware fallbacks ------------------------
 
 /** Tiny deterministic FNV-1a for seeded picks. */
@@ -1486,6 +1488,7 @@ section{padding:${t.sectionPad}}
 .foot-grid .desc{font-size:14px;line-height:1.6;color:rgba(255,255,255,.6)}
 .copy{max-width:1200px;margin:48px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);font-size:13px;color:rgba(255,255,255,.5);text-align:center}
 @media(max-width:860px){.foot-grid{grid-template-columns:1fr 1fr;gap:32px 20px}}
+${sfWidgetsCss()}
 `;
 
   const stats = c.stats.slice(0, 4).map((s) => `
@@ -1845,6 +1848,15 @@ ${chromeOverride?.footerHtml || `<footer class="site-footer">
   </div>
   <div class="copy">&copy; ${new Date().getFullYear()} ${esc(ctx.siteName)}. ${esc(isRu ? "Все права защищены." : "All rights reserved.")}</div>
 </footer>`}
+
+${sfWidgetsHtml({
+  lang: ctx.lang,
+  accent: ctx.accent,
+  consultantName: (c.team[0]?.name) || ctx.siteName,
+  consultantPhoto: ctx.generatedImages?.team_1,
+  siteName: ctx.siteName,
+  topic: ctx.topic,
+})}
 
 </body>
 </html>`;
