@@ -681,6 +681,7 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
     siteName: c.siteName,
     topic: c.topic,
     totopPosition: c.totopPosition || "left-bottom",
+    seed: siteSeed(c),
   });
   return `${head}
 <body class="${escAttr(m.bodyClass || "")}">
