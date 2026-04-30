@@ -59,16 +59,17 @@ function deterministicEmail(domain: string, seed: string): string {
   return `${MAIL_LOCAL[fnv1a(seed + ":mail") % MAIL_LOCAL.length]}@${domain}`;
 }
 
-function fallback(siteName: string, siteAbout: string, topic: string) {
+function fallback(siteName: string, siteAbout: string, topic: string, projectId: string = "site", lang: string = "ru") {
   const year = new Date().getFullYear() - Math.floor(2 + Math.random() * 8);
+  const dom = domainFromSiteName(siteName, lang);
   return {
     company_name: siteName,
     company_address: "г. Москва, БЦ «Деловой», офис 305",
     legal_address: "г. Москва, БЦ «Деловой», офис 305",
     company_phone: "+7 (495) 123-45-67",
-    company_email: `info@${(siteName || "site").toLowerCase().replace(/[^a-z0-9]/g, "")}.ru`,
+    company_email: deterministicEmail(dom, projectId),
     work_hours: "Пн-Пт 9:00-18:00 по московскому времени",
-    juridical_inn: PH_INN,
+    juridical_inn: deterministicInn(projectId),
     whatsapp_url: "",
     telegram_url: "",
     vk_url: "",
@@ -288,7 +289,18 @@ Generate JSON with EXACT fields:
       console.warn("[generate-site-content] no OpenRouter key, using fallback");
     }
 
-    if (!payload) payload = fallback(siteName, siteAbout, topic);
+    if (!payload) payload = fallback(siteName, siteAbout, topic, projectId, lang);
+
+    // Always override INN with deterministic checksum-valid value, and
+    // override email so it matches the project's actual domain (not a fake .ru).
+    try {
+      const { data: proj2 } = await admin.from("projects")
+        .select("domain, custom_domain")
+        .eq("id", projectId).maybeSingle();
+      const finalDomain = (proj2?.custom_domain || proj2?.domain || domainFromSiteName(siteName, lang)).replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+      (payload as any).juridical_inn = deterministicInn(projectId);
+      (payload as any).company_email = deterministicEmail(finalDomain, projectId);
+    } catch (_) { /* ignore */ }
 
     const { error: updErr } = await supabase
       .from("projects")
