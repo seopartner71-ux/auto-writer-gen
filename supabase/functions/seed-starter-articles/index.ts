@@ -108,7 +108,7 @@ function fallbackArticle(topic: string, idx: number, lang: "ru" | "en") {
   return { title, content, meta_description: leads[idx % leads.length].slice(0, 200) };
 }
 
-async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor, brandName?: string) {
+async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor, brandName?: string, opts?: { admin?: any; projectId?: string; userId?: string }) {
   // No persona injection: author name is shown only in byline metadata.
   // Articles MUST be written in third-person/impersonal expert journalism style.
   // CRITICAL: brandName (e.g. "Новости Тулы") is the SITE name, NOT the article topic.
@@ -179,6 +179,18 @@ Return STRICT JSON {title, meta_description, content_html}. content_html: 600-90
   const data = await res.json();
   const raw = String(data?.choices?.[0]?.message?.content || "{}");
   const parsed = JSON.parse(raw);
+  // Log token usage best-effort
+  if (opts?.admin) {
+    const usage = data?.usage || {};
+    void logCost(opts.admin, {
+      project_id: opts.projectId, user_id: opts.userId,
+      operation_type: "article_generation",
+      model: "google/gemini-2.5-flash",
+      tokens_input: Number(usage.prompt_tokens || 0),
+      tokens_output: Number(usage.completion_tokens || 0),
+      metadata: { context: "starter_article" },
+    });
+  }
   // Defensive: strip brand name from title if AI ignored the rule.
   let titleOut = String(parsed.title || seeds[idx % seeds.length]).slice(0, 200);
   if (brandName) {
