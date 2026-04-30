@@ -396,9 +396,10 @@ const COOKIE_BANNER_JS = `
 export function headerHtml(c: SiteChrome): string {
   const items = navItems(c);
   const isRu = c.lang === "ru";
+  const tagline = c.tagline ? `<span class="site-header__tagline">${escHtml(c.tagline)}</span>` : "";
   const brandInner = c.iconUrl
-    ? `<img class="site-header__logo" src="${escAttr(c.iconUrl)}" alt="" width="36" height="36" loading="eager" decoding="async"><span class="site-header__brand-text">${escHtml(c.siteName)}</span>`
-    : `<span class="site-header__brand-text">${escHtml(c.siteName)}</span>`;
+    ? `<img class="site-header__logo" src="${escAttr(c.iconUrl)}" alt="" width="36" height="36" loading="eager" decoding="async"><span class="site-header__brand-stack"><span class="site-header__brand-text">${escHtml(c.siteName)}</span>${tagline}</span>`
+    : `<span class="site-header__brand-stack"><span class="site-header__brand-text">${escHtml(c.siteName)}</span>${tagline}</span>`;
   return `<a class="skip-link" href="#main-content">${isRu ? "Перейти к контенту" : "Skip to content"}</a>
 <div class="reading-progress" id="reading-progress" aria-hidden="true"></div>
 <header class="site-header" id="site-header">
