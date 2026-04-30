@@ -725,6 +725,11 @@ section{padding:${t.sectionPad}}
 .hero-form input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
 .hero-form .btn{width:100%;justify-content:center;margin-top:6px}
 .hero-form .consent{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5}
+.form-agree{display:flex;align-items:flex-start;gap:8px;margin:12px 0 4px;font-size:12px;color:var(--muted);line-height:1.5;text-align:left;cursor:pointer}
+.form-agree input[type=checkbox]{width:16px;height:16px;margin-top:2px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
+.form-agree a{color:var(--accent);text-decoration:underline}
+.cta-form .form-agree{flex-basis:100%;justify-content:center;color:rgba(255,255,255,.75);margin-top:4px}
+.cta-form .form-agree a{color:#fff}
 @media(max-width:860px){.hero-inner{grid-template-columns:1fr;padding:64px 0;min-height:auto}}
 
 /* Stats */
@@ -1028,8 +1033,8 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
         <div class="field"><input type="text" name="name" placeholder="${esc(isRu ? "Ваше имя" : "Your name")}" required></div>
         <div class="field"><input type="tel" name="phone" placeholder="${esc(isRu ? "Телефон" : "Phone")}" required></div>
         <div class="field"><input type="email" name="email" placeholder="Email"></div>
+        <label class="form-agree"><input type="checkbox" name="agree" required checked><span>${esc(consentLine)}</span></label>
         <button type="submit" class="btn">${esc(c.ctaPrimary)}</button>
-        <div class="consent">${esc(consentLine)}</div>
       </form>
     </div>
   </div>
@@ -1140,11 +1145,12 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
       <input type="text" name="name" placeholder="${esc(isRu ? "Имя" : "Name")}" required>
       <input type="tel" name="phone" placeholder="${esc(isRu ? "Телефон" : "Phone")}" required>
       <button type="submit" class="btn btn-light">${esc(c.ctaPrimary)}</button>
+      <label class="form-agree"><input type="checkbox" name="agree" required checked><span>${esc(consentLine)}</span></label>
     </form>
   </div>
 </section>
 
-<section id="map" style="padding-top:0">
+<section id="map">
   <div class="container">
     <div class="map-wrap"><iframe src="${mapSrc}" loading="lazy" title="map"></iframe></div>
   </div>
