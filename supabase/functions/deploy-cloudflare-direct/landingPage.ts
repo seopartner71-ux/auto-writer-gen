@@ -61,6 +61,10 @@ export interface LandingCtx {
   whatsappUrl?: string;
   telegramUrl?: string;
   heroImageUrl?: string;
+  // Pre-resolved AI-generated images by slot (hero, why, guarantee, about,
+  // team_1..3, post_1..3). When provided, the renderer uses them directly;
+  // otherwise it falls back to Unsplash by topic and finally UI Avatars.
+  generatedImages?: Record<string, string>;
 }
 
 // ----------------------------- Helpers --------------------------------------
@@ -73,9 +77,35 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// Themed fallback when no AI image is available. Uses Unsplash Source which
+// returns a topical photo by keywords (no API key needed).
 function pickImage(seed: string, w = 1200, h = 800): string {
-  const s = encodeURIComponent(seed).slice(0, 60) || "image";
-  return `https://picsum.photos/seed/${s}/${w}/${h}`;
+  const kw = String(seed || "business")
+    .replace(/[«»"().,:;!?\-—]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 4)
+    .join(",");
+  const safe = encodeURIComponent(kw || "business");
+  return `https://source.unsplash.com/${w}x${h}/?${safe}`;
+}
+
+// Avatar fallback when AI portrait generation fails or is disabled.
+function avatarFallback(name: string): string {
+  const n = encodeURIComponent(String(name || "User").slice(0, 40));
+  return `https://ui-avatars.com/api/?name=${n}&size=320&background=random&format=png`;
+}
+
+function getImage(
+  ctx: LandingCtx,
+  slot: string,
+  fallbackSeed: string,
+  w = 1200,
+  h = 800,
+): string {
+  const url = ctx.generatedImages?.[slot];
+  if (url && /^https?:\/\//.test(url)) return url;
+  return pickImage(fallbackSeed, w, h);
 }
 
 // Deterministic RNG from string for stable "skin" picks
@@ -90,6 +120,171 @@ function hashStr(s: string): number {
 
 export function pickSkin(key: string): number {
   return (hashStr(key) % 8) + 1;
+}
+
+// ----------------------------- FAL.ai Image Generator ------------------------
+
+/** Slots we generate via FAL.ai (with team_1..3 added dynamically). */
+export interface ImageGenInput {
+  niche: string;
+  region?: string;
+  audience?: string;
+  team: { name: string; role: string; bio: string }[];
+  posts: { title: string; slug: string }[];
+}
+
+async function falGenerate(
+  falKey: string,
+  prompt: string,
+  size: "landscape_16_9" | "landscape_4_3" | "square_hd",
+): Promise<string | null> {
+  try {
+    const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
+      method: "POST",
+      headers: { Authorization: `Key ${falKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        image_size: size,
+        num_images: 1,
+        num_inference_steps: 4,
+        enable_safety_checker: true,
+      }),
+    });
+    if (!res.ok) {
+      console.warn("[landingPage.fal] HTTP", res.status);
+      return null;
+    }
+    const data = await res.json();
+    const url = data?.images?.[0]?.url || null;
+    return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
+  } catch (e: any) {
+    console.warn("[landingPage.fal] error:", e?.message);
+    return null;
+  }
+}
+
+/**
+ * Generates (or reuses cached) AI images for all landing slots.
+ * Returns a map slot -> URL. On any failure, the slot is omitted and the
+ * renderer falls back to Unsplash by topic / UI Avatars.
+ *
+ * Caching is keyed by (project_id, slot) in `site_image_cache` so re-deploys
+ * never regenerate the same picture.
+ */
+export async function ensureLandingImages(
+  admin: any,
+  projectId: string,
+  falKey: string | null,
+  input: ImageGenInput,
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+
+  // 1) Read existing cache for this project
+  try {
+    const { data: cached } = await admin
+      .from("site_image_cache")
+      .select("slot, image_url")
+      .eq("project_id", projectId);
+    for (const row of (cached || [])) {
+      if (row?.slot && row?.image_url) out[row.slot] = row.image_url;
+    }
+  } catch (e: any) {
+    console.warn("[landingPage.images] cache read failed:", e?.message);
+  }
+
+  if (!falKey) {
+    console.log("[landingPage.images] no FAL key, skipping generation, will fallback to Unsplash");
+    return out;
+  }
+
+  const niche = String(input.niche || "business").slice(0, 120);
+  const region = String(input.region || "").slice(0, 80);
+  const audience = String(input.audience || "").slice(0, 120);
+  const ctxLine = [niche, region && `in ${region}`, audience && `for ${audience}`]
+    .filter(Boolean).join(" ");
+
+  // Build the slot generation plan
+  type Job = { slot: string; prompt: string; size: "landscape_16_9" | "landscape_4_3" | "square_hd" };
+  const jobs: Job[] = [];
+
+  const baseStyle = "high quality, natural lighting, photorealistic, no text, no watermarks, magazine quality";
+
+  if (!out["hero"]) jobs.push({
+    slot: "hero", size: "landscape_16_9",
+    prompt: `Professional editorial photo of ${ctxLine}, hero shot, cinematic, ${baseStyle}.`,
+  });
+  if (!out["why"]) jobs.push({
+    slot: "why", size: "landscape_4_3",
+    prompt: `Professional photo illustrating expertise and quality service in ${ctxLine}, ${baseStyle}.`,
+  });
+  if (!out["guarantee"]) jobs.push({
+    slot: "guarantee", size: "landscape_4_3",
+    prompt: `Professional photo representing trust, warranty and reliability in ${ctxLine}, handshake or certificate, ${baseStyle}.`,
+  });
+  if (!out["about"]) jobs.push({
+    slot: "about", size: "landscape_4_3",
+    prompt: `Professional photo of a small business team or office working on ${ctxLine}, ${baseStyle}.`,
+  });
+
+  // Team portraits — 3 different people
+  const teamPlans = [
+    { gender: "male", age: "40", look: "confident director" },
+    { gender: "female", age: "32", look: "friendly manager" },
+    { gender: "male", age: "28", look: "young specialist" },
+  ];
+  for (let i = 0; i < Math.min(3, input.team.length || 3); i++) {
+    const slot = `team_${i + 1}`;
+    if (out[slot]) continue;
+    const p = teamPlans[i];
+    jobs.push({
+      slot, size: "square_hd",
+      prompt: `Professional business portrait of a ${p.gender}, ${p.age} years old, ${p.look}, modern office background, friendly smile, ${baseStyle}.`,
+    });
+  }
+
+  // Blog post previews — up to 3
+  for (let i = 0; i < Math.min(3, input.posts.length); i++) {
+    const slot = `post_${i + 1}`;
+    if (out[slot]) continue;
+    const p = input.posts[i];
+    jobs.push({
+      slot, size: "landscape_16_9",
+      prompt: `Editorial photograph illustrating "${p.title}" in the context of ${ctxLine}, ${baseStyle}.`,
+    });
+  }
+
+  if (jobs.length === 0) return out;
+
+  console.log(`[landingPage.images] generating ${jobs.length} new images via FAL`);
+
+  // Run in small parallel batches to keep latency low without hammering FAL.
+  const BATCH = 3;
+  for (let i = 0; i < jobs.length; i += BATCH) {
+    const slice = jobs.slice(i, i + BATCH);
+    const results = await Promise.all(
+      slice.map(async (j) => {
+        const url = await falGenerate(falKey, j.prompt, j.size);
+        return { job: j, url };
+      }),
+    );
+    for (const { job, url } of results) {
+      if (!url) continue;
+      out[job.slot] = url;
+      try {
+        await admin.from("site_image_cache").upsert({
+          project_id: projectId,
+          slot: job.slot,
+          prompt: job.prompt.slice(0, 1000),
+          image_url: url,
+          source: "fal",
+        }, { onConflict: "project_id,slot" });
+      } catch (e: any) {
+        console.warn("[landingPage.images] cache write failed for", job.slot, e?.message);
+      }
+    }
+  }
+
+  return out;
 }
 
 // ----------------------------- AI Content Generation -------------------------
