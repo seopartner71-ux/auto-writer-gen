@@ -224,8 +224,13 @@ export function renderNewsHome(opts: NewsHomeOpts): string {
   const list = posts.slice(0, 24);
   const top = list[0];
   const mediumCards = list.slice(1, 3);
-  const compactCards = list.slice(3, 7);
-  const popular = list.slice(0, 5);
+  // "Popular" = same posts re-ordered by deterministic view counts (newest article
+  // is featured up top, so we reuse all but the first one for the popular list).
+  const popularSorted = [...list].sort((a, b) =>
+    fakeViews(b.slug, seed) - fakeViews(a.slug, seed)
+  );
+  const compactCards = popularSorted.slice(0, 6);
+  const popular = popularSorted.slice(0, 5);
   const related = list.slice(7, 10);
   const feedItems = list.slice(0, 14);
 
@@ -259,13 +264,20 @@ export function renderNewsHome(opts: NewsHomeOpts): string {
       </div>
     </div></div>`;
 
-  const tickerItems = list.slice(0, 6).map((p) =>
-    `<li><a href="/posts/${escAttr(p.slug)}.html"><span class="brk-dot"></span>${escHtml(p.title)}</a></li>`
-  ).join("");
+  // BUG 6 fix: ticker items each carry their own deterministic prefix
+  // ("НОВОСТЬ:", "АКТУАЛЬНО:", "ЧИТАЙТЕ:", "СЕГОДНЯ:") instead of a single
+  // "СРОЧНО" badge that repeats forever.
+  const prefixesRu = ["НОВОСТЬ", "АКТУАЛЬНО", "ЧИТАЙТЕ", "СЕГОДНЯ", "ВАЖНО", "В ФОКУСЕ"];
+  const prefixesEn = ["NEWS", "TRENDING", "READ", "TODAY", "IMPORTANT", "IN FOCUS"];
+  const prefixPool = isRu ? prefixesRu : prefixesEn;
+  const tickerItems = list.slice(0, 6).map((p, i) => {
+    const pref = prefixPool[intFromSeed(0, prefixPool.length - 1, `${seed}:tk:${p.slug}:${i}`)];
+    return `<li><a href="/posts/${escAttr(p.slug)}.html"><span class="brk-dot"></span><b style="color:#fff;font-weight:700;letter-spacing:.06em;margin-right:8px">${escHtml(pref)}:</b>${escHtml(p.title)}</a></li>`;
+  }).join("");
   const breaking = list.length ? `
     <div class="brk-bar" role="region" aria-label="${escAttr(isRu ? "Срочные новости" : "Breaking news")}">
       <div class="brk-bar__inner">
-        <span class="brk-label">${escHtml(isRu ? "СРОЧНО" : "BREAKING")}</span>
+        <span class="brk-label">${escHtml(isRu ? "ЛЕНТА" : "WIRE")}</span>
         <div class="brk-track"><ul>${tickerItems}${tickerItems}</ul></div>
       </div>
     </div>` : "";
@@ -322,7 +334,7 @@ export function renderNewsHome(opts: NewsHomeOpts): string {
         </div>
       </article>`;
     }).join("")}
-    <div class="news-more"><button type="button" onclick="location.href='/blog/'">${escHtml(isRu ? "Загрузить еще" : "Load more")}</button></div>`;
+    ${list.length >= 6 ? `<div class="news-more"><button type="button" onclick="location.href='/blog/'">${escHtml(isRu ? "Все материалы" : "All stories")}</button></div>` : ""}`;
 
   const sidebarHtml = `
     <aside class="sidebar" role="complementary" aria-label="${escAttr(isRu ? "Боковая колонка" : "Sidebar")}">
@@ -391,10 +403,16 @@ export function renderNewsHome(opts: NewsHomeOpts): string {
       </div>
     </section>`;
 
+  // BUG 3 fix: always use the FAL-generated portrait from team[0] for the expert.
   const expert = opts.expertAuthor || pickAuthorByIndex(c.authors || [], 0);
+  const expertPhoto = expert
+    ? (expert.photo_url && /^https?:\/\//.test(expert.photo_url)
+        ? expert.photo_url
+        : portraitUrl(expert, c.accent, seed))
+    : "";
   const interviewHtml = expert ? `
     <section class="news-interview" aria-label="${escAttr(isRu ? "Экспертное мнение" : "Expert opinion")}">
-      <img src="${escAttr(portraitUrl(expert, c.accent, seed))}" alt="${escAttr(expert.name)}" width="160" height="160" loading="lazy" decoding="async">
+      <img src="${escAttr(expertPhoto)}" alt="${escAttr(expert.name)}" width="160" height="160" loading="lazy" decoding="async">
       <div>
         <blockquote>${escHtml(pickPhrase("expertQuote", c.lang, seed))}</blockquote>
         <cite><b>${escHtml(expert.name)}</b>${expert.role ? escHtml(expert.role) : ""}</cite>
@@ -415,9 +433,16 @@ export function renderNewsHome(opts: NewsHomeOpts): string {
     ? `<img src="${escAttr(c.trackerUrl)}?site=${escAttr(c.projectId)}&u=${encodeURIComponent("/")}" width="1" height="1" alt="" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade">`
     : "";
   const lead = (c.teamMembers && c.teamMembers[0]) || null;
+  // BUG 3 fix: pass FAL portrait of team[0] to the consultant chat widget so
+  // it shows a real photo instead of the SVG monogram fallback.
+  const consultantAuthor = pickAuthorByIndex(c.authors || [], 0);
+  const consultantPhoto = consultantAuthor?.photo_url && /^https?:\/\//.test(consultantAuthor.photo_url)
+    ? consultantAuthor.photo_url
+    : (lead as any)?.photo_url;
   const widgets = renderSiteWidgets({
     lang: c.lang as "ru" | "en", accent: c.accent,
-    consultantName: lead?.name || (c.companyName || c.siteName), consultantPhoto: undefined,
+    consultantName: consultantAuthor?.name || lead?.name || (c.companyName || c.siteName),
+    consultantPhoto,
     siteName: c.siteName, topic: c.topic,
     totopPosition: c.totopPosition || "left-bottom", seed,
   });
