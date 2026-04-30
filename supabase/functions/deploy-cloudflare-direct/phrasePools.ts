@@ -267,6 +267,31 @@ const POOLS: Record<string, { ru: string[]; en: string[] }> = {
     ru: ["Гайды", "Инструкции", "Чек-листы", "Пошагово"],
     en: ["Guides", "How-tos", "Checklists", "Step by step"],
   },
+
+  // Brand tagline rendered under siteName in header (deterministic per project).
+  // Keep generic — actual topic is appended at the call-site if needed.
+  brandTagline: {
+    ru: [
+      "Журнал о практике",
+      "Экспертный блог",
+      "Гайды и обзоры",
+      "Полезные материалы",
+      "Издание для практиков",
+      "Разбираемся в деталях",
+      "Опыт и кейсы",
+      "Простыми словами",
+    ],
+    en: [
+      "Practical journal",
+      "Expert blog",
+      "Guides and reviews",
+      "Useful stories",
+      "Hands-on magazine",
+      "Details that matter",
+      "Cases and experience",
+      "In plain language",
+    ],
+  },
 };
 
 /**
