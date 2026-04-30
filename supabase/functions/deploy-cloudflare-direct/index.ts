@@ -649,6 +649,11 @@ serve(async (req) => {
       totopPosition,
       iconUrl,
     };
+    // Deterministic per-project tagline (rendered under siteName in header).
+    try {
+      const { pickPhrase: _pp } = await import("./phrasePools.ts");
+      (commonOpts as any).tagline = _pp("brandTagline", lang, String(projectId || domain || siteName));
+    } catch (_) { /* ignore */ }
     const files = dbTpl
       ? renderDbTemplate({
           tpl: dbTpl, siteName, siteAbout, topic,
