@@ -183,8 +183,11 @@ export default function ProjectsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("projects").delete().eq("id", id);
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke("delete-cloudflare-site", {
+        body: { project_id: id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
