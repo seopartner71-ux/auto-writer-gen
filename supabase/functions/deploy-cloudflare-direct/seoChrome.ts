@@ -1032,8 +1032,8 @@ export function buildPostPage(
   body = bodyWithIds;
   // 3) FAQ → accordion
   body = renderFaqAccordion(body, isRu);
-  // 4) inline interlinks (2-3 to other posts)
-  body = injectInlineInterlinks(body, related);
+  // 4) inline interlinks: priority to user-provided external links, then internal posts
+  body = injectInlineInterlinks(body, related, c.injectionLinks || []);
 
   // FAQ schema for any FAQ section we found
   const faqPairsForLd = extractFaqPairs(body);
