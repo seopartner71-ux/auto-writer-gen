@@ -665,6 +665,7 @@ serve(async (req) => {
           workHours: (project as any).work_hours || undefined,
           heroImageUrl: heroImage,
           generatedImages,
+          totopPosition,
         },
         landingContent,
         "", // nav: not used when chromeOverride provided
