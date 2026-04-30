@@ -1894,6 +1894,37 @@ export default function SiteFactoryPage() {
                       ⚠ {lang === "ru" ? "Нажмите «+» или Enter, чтобы сохранить ссылку — иначе она не будет вставлена в статьи" : "Click «+» or press Enter to save the link — otherwise it won't be injected"}
                     </p>
                   )}
+
+                  {/* Live preview: how links will appear in the article body */}
+                  {injectionLinks.length > 0 && (
+                    <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                          <Eye className="h-3 w-3" />
+                          {lang === "ru" ? "Предпросмотр в теле статьи" : "Preview in article body"}
+                        </p>
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                          {lang === "ru"
+                            ? `${Math.min(3, injectionLinks.length)} из ${injectionLinks.length}`
+                            : `${Math.min(3, injectionLinks.length)} of ${injectionLinks.length}`}
+                        </Badge>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mb-2">
+                        {lang === "ru"
+                          ? "Так ссылки будут размещены в статье: по 1 на абзац, rel=\"nofollow noopener\", только в <p>."
+                          : "Here is how the links will be placed in the article: 1 per paragraph, rel=\"nofollow noopener\", only inside <p>."}
+                      </p>
+                      <InjectionLinksPreview
+                        links={injectionLinks.slice(0, 3)}
+                        lang={lang}
+                      />
+                      <p className="text-[9px] text-muted-foreground/80 mt-2 italic">
+                        {lang === "ru"
+                          ? "Анкоры подсвечены. Если точное вхождение анкора не найдено в статье — ссылка будет добавлена в конец первого подходящего абзаца (forced fallback)."
+                          : "Anchors are highlighted. If the exact anchor isn't found in the article, the link is appended to the first eligible paragraph (forced fallback)."}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {repoStatus === "ready" && (
