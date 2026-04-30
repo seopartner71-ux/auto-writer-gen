@@ -6,6 +6,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +24,7 @@ async function getOpenRouterKey(admin: any): Promise<string | null> {
 
 // FAL.ai hero generator (flux/schnell) — fast, ~2s per image. Returns the
 // public CDN URL or null on any failure (caller falls back to picsum).
-async function generateHeroImage(falKey: string, topic: string, title: string): Promise<string | null> {
+async function generateHeroImage(falKey: string, topic: string, title: string, opts?: { admin?: any; projectId?: string; userId?: string }): Promise<string | null> {
   try {
     // IMPORTANT: never pass non-English strings (especially Cyrillic) into the
     // image prompt — Flux will try to render them as garbled letters baked
@@ -49,7 +50,17 @@ async function generateHeroImage(falKey: string, topic: string, title: string): 
     }
     const data = await res.json();
     const url = data?.images?.[0]?.url || null;
-    return typeof url === "string" && /^https?:\/\//.test(url) ? url : null;
+    const ok = typeof url === "string" && /^https?:\/\//.test(url);
+    if (ok && opts?.admin) {
+      void logCost(opts.admin, {
+        project_id: opts.projectId, user_id: opts.userId,
+        operation_type: "fal_ai_photo",
+        model: "fal-ai/flux/schnell",
+        cost_usd: FAL_IMAGE_COST_USD,
+        metadata: { context: "starter_article_hero" },
+      });
+    }
+    return ok ? url : null;
   } catch (e: any) {
     console.warn("[seed-starter-articles] FAL error:", e?.message);
     return null;
