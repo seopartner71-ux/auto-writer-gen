@@ -645,6 +645,17 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
   const pixel = (c.projectId && c.trackerUrl)
     ? `<img src="${escAttr(c.trackerUrl)}?site=${escAttr(c.projectId)}&u=${encodeURIComponent(m.path)}" width="1" height="1" alt="" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" loading="lazy" referrerpolicy="no-referrer-when-downgrade">`
     : "";
+  // Floating widgets: back-to-top + online consultant. Consultant identity is
+  // taken from the first team member of the project (deterministic per site).
+  const lead = (c.teamMembers && c.teamMembers[0]) || null;
+  const widgets = renderSiteWidgets({
+    lang: c.lang as "ru" | "en",
+    accent: c.accent,
+    consultantName: lead?.name || (c.companyName || c.siteName),
+    consultantPhoto: undefined, // ui-avatars fallback (no FAL on inner pages)
+    siteName: c.siteName,
+    topic: c.topic,
+  });
   return `${head}
 <body class="${escAttr(m.bodyClass || "")}">
   ${headerHtml(c)}
@@ -654,6 +665,7 @@ export function wrapPage(c: SiteChrome, m: PageMeta, mainHtml: string): string {
   ${cookieBannerHtml(c.lang, "/privacy.html")}
   <script defer>${COOKIE_BANNER_JS}</script>
   <script defer>${TRUST_JS}</script>
+  ${widgets}
   ${pixel}
 </body>
 </html>`;
