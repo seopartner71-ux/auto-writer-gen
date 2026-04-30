@@ -5,6 +5,8 @@
 // - Cookie consent banner (GDPR) saved to localStorage
 // - robots.txt and sitemap.xml builders
 
+import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
+
 export interface TeamMember {
   name: string;
   role: string;
