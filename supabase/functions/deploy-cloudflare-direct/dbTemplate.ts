@@ -64,6 +64,8 @@ export interface RenderOpts {
   clientsCountText?: string;
   authors?: { name: string; role?: string; bio?: string; avatar_seed?: string }[];
   businessPages?: Record<string, string>;
+  iconUrl?: string;
+  totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
 
 
@@ -178,6 +180,8 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
     clientsCountText: opts.clientsCountText,
     authors: opts.authors,
     businessPages: opts.businessPages as any,
+    iconUrl: opts.iconUrl,
+    totopPosition: opts.totopPosition,
   };
   const chromePosts: ChromePost[] = posts.map((p) => ({
     title: p.title, slug: p.slug, excerpt: p.excerpt, contentHtml: p.contentHtml,
