@@ -509,7 +509,10 @@ a:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .site-header__brand{font-weight:700;text-decoration:none;font-size:20px}
 .site-header__brand{display:inline-flex;align-items:center;gap:10px;line-height:1;color:inherit}
 .site-header__logo{width:36px;height:36px;border-radius:8px;object-fit:contain;background:#fff;flex-shrink:0;display:block}
-.site-header__brand-text{display:inline-block;vertical-align:middle}
+.site-header__brand-text{display:inline-block;vertical-align:middle;line-height:1.1}
+.site-header__brand-stack{display:inline-flex;flex-direction:column;justify-content:center;gap:2px}
+.site-header__tagline{font-size:11px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:#888;line-height:1.1}
+@media(max-width:520px){.site-header__tagline{display:none}}
 .site-footer__brand{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:#fff;font-size:18px;margin-bottom:6px}
 .site-footer__logo{width:32px;height:32px;border-radius:6px;object-fit:contain;background:#fff;padding:2px;flex-shrink:0;display:block}
 .site-header__burger{display:none;background:none;border:0;padding:8px;cursor:pointer;flex-direction:column;gap:4px;width:44px;height:44px;align-items:center;justify-content:center}
