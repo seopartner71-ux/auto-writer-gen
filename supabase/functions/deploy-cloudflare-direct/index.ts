@@ -279,21 +279,49 @@ serve(async (req) => {
     const activeDb: DbTemplate[] = (dbTemplates || []) as any;
     console.log("[deploy-cloudflare-direct] db templates:", activeDb.length);
 
+    // Load existing visual identity for this project so subsequent "Redeploy"
+    // calls keep the exact same template/accent/font (only content changes).
+    const { data: lockedRow } = await supabaseAdmin
+      .from("projects")
+      .select("template_key, template_type, accent_color, template_font_pair")
+      .eq("id", projectId)
+      .maybeSingle();
+    const lockedKey: string | null =
+      (lockedRow?.template_key as string | null) ||
+      (lockedRow?.template_type as string | null) ||
+      null;
+    const lockedAccent: string | null = (lockedRow?.accent_color as string | null) || null;
+    const lockedFontPair: [string, string] | null = (() => {
+      const raw = lockedRow?.template_font_pair as string | null | undefined;
+      if (!raw || typeof raw !== "string") return null;
+      const parts = raw.split("|");
+      return parts.length === 2 ? [parts[0], parts[1]] as [string, string] : null;
+    })();
+
     let dbTpl: DbTemplate | null = null;
     if (activeDb.length > 0) {
-      if (body.template_key) {
+      // Priority: locked -> explicit body -> random (only on first deploy).
+      if (lockedKey) {
+        dbTpl = activeDb.find((t) => t.template_key === lockedKey) || null;
+      }
+      if (!dbTpl && body.template_key) {
         dbTpl = activeDb.find((t) => t.template_key === body.template_key) || null;
       }
       if (!dbTpl && body.template) {
         dbTpl = activeDb.find((t) => t.template_key === body.template) || null;
       }
-      if (!dbTpl) dbTpl = pickRandom(activeDb);
+      if (!dbTpl && !lockedKey) dbTpl = pickRandom(activeDb);
     }
 
-    // Built-in fallback values
-    const builtinTemplate: TemplateType = TEMPLATES.includes(body.template) ? body.template : pickRandom(TEMPLATES);
-    const accent: string = body.accent_color || pickRandom(ACCENT_COLORS);
+    // Built-in fallback values — also locked once chosen.
+    const builtinTemplate: TemplateType = (() => {
+      if (lockedKey && TEMPLATES.includes(lockedKey as TemplateType)) return lockedKey as TemplateType;
+      if (TEMPLATES.includes(body.template)) return body.template;
+      return pickRandom(TEMPLATES);
+    })();
+    const accent: string = lockedAccent || body.accent_color || pickRandom(ACCENT_COLORS);
     const fontPair: [string, string] = (() => {
+      if (lockedFontPair) return lockedFontPair;
       if (Array.isArray(body.font_pair) && body.font_pair.length === 2) return body.font_pair;
       if (dbTpl && Array.isArray(dbTpl.font_pairs) && dbTpl.font_pairs.length > 0) {
         return pickRandom(dbTpl.font_pairs as [string, string][]);
@@ -301,7 +329,8 @@ serve(async (req) => {
       return pickRandom(FONT_PAIRS[builtinTemplate]);
     })();
     const templateKey = dbTpl?.template_key || builtinTemplate;
-    console.log("[deploy-cloudflare-direct] template:", templateKey, "source:", dbTpl ? "db" : "builtin",
+    console.log("[deploy-cloudflare-direct] template:", templateKey,
+                "locked:", !!lockedKey, "source:", dbTpl ? "db" : "builtin",
                 "accent:", accent, "fontPair:", fontPair);
 
     const { data: project, error: projErr } = await supabaseAdmin
