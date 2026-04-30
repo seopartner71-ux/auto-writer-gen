@@ -33,6 +33,50 @@ function escHtml(s: string): string {
 function escAttr(s: string): string { return escHtml(s); }
 
 // ---------------------------------------------------------------------------
+// Author + avatar helpers (deterministic, no DiceBear footprint).
+// ---------------------------------------------------------------------------
+
+/** Pick an author by post index (cycles through team) instead of slug-hash. */
+function authorByIndex(authors: Author[] | undefined, idx: number): Author | null {
+  if (!authors || authors.length === 0) return null;
+  return authors[((idx % authors.length) + authors.length) % authors.length];
+}
+
+/** FAL-generated team photo if available, otherwise inline SVG initials (no external CDN). */
+function authorAvatar(c: SiteChrome, a: Author | null, idx: number): string {
+  if (!a) return "";
+  const slot = `team_${(idx % 3) + 1}`;
+  const url = (c as any).generatedImages?.[slot];
+  if (url && /^https?:\/\//.test(url)) return url;
+  // Inline SVG fallback (no third-party CDN).
+  const initials = a.name.split(/\s+/).map(s => s[0] || "").join("").slice(0, 2).toUpperCase();
+  const bg = c.accent || "#444";
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect width='96' height='96' fill='${bg}'/><text x='50%' y='54%' font-family='${c.headingFont || "Georgia"},serif' font-size='40' fill='white' text-anchor='middle' dominant-baseline='middle' font-weight='700'>${initials}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/** Magazine subtitle pool — replaces the templated "журнал о теме X" string. */
+function magazineTagline(c: SiteChrome, seed: string): string {
+  const isRu = (c.lang || "ru").toLowerCase().startsWith("ru");
+  const t = c.topic || c.siteName;
+  const ruPool = [
+    `всё о ${t}`,
+    `экспертный блог о ${t}`,
+    `${t}: советы и разборы`,
+    `практический журнал по теме ${t}`,
+    `гайды и обзоры по теме ${t}`,
+  ];
+  const enPool = [
+    `everything about ${t}`,
+    `expert blog on ${t}`,
+    `${t}: tips and reviews`,
+    `practical magazine about ${t}`,
+    `guides and reviews on ${t}`,
+  ];
+  return pickFromSeed(isRu ? ruPool : enPool, `${seed}:tagline`);
+}
+
+// ---------------------------------------------------------------------------
 // Categories — derived from posts (rotated through 4 fixed buckets so every
 // site shows the same 4 sections regardless of how many posts are seeded).
 // ---------------------------------------------------------------------------
@@ -52,7 +96,10 @@ function buildCategories(c: SiteChrome): MagCategory[] {
 
 // Assign each post a category bucket deterministically by slug — keeps the
 // same post in the same rubric across redeploys.
-function postCategory(slug: string, cats: MagCategory[]): MagCategory {
+function postCategory(slug: string, cats: MagCategory[], idx: number = -1): MagCategory {
+  // Even distribution across rubrics by index (preferred — avoids empty buckets).
+  if (idx >= 0) return cats[idx % cats.length];
+  // Fallback: slug-hash (used when index is unknown).
   let h = 0;
   for (let i = 0; i < slug.length; i++) h = ((h << 5) - h + slug.charCodeAt(i)) | 0;
   return cats[Math.abs(h) % cats.length];
