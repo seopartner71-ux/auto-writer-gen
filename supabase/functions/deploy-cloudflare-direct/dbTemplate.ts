@@ -7,6 +7,7 @@ import {
   buildPostPage, robotsTxt, sitemapXml, chromeStyles, pickRelated,
   buildBusinessPages, businessPagePaths, sitemapXmlExtended,
   faviconSvg, manifestJson, humansTxt, securityTxt, rssFeed,
+  llmsTxt,
 } from "./seoChrome.ts";
 
 export interface DbTemplate {
@@ -204,6 +205,20 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
   for (const p of chromePosts) {
     files[`posts/${p.slug}.html`] = buildPostPage(chrome, p, pickRelated(chromePosts, p, 4));
   }
-  files["sitemap.xml"] = sitemapXmlExtended(chrome, chromePosts.map((p) => p.slug), businessPagePaths(chrome));
+  files["sitemap.xml"] = sitemapXmlExtended(
+    chrome,
+    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt })),
+    businessPagePaths(chrome),
+  );
+  // AI-friendly site index for LLM-based search engines (Perplexity, ChatGPT
+  // Search, Gemini, Яндекс AI). https://llmstxt.org
+  files["llms.txt"] = llmsTxt(
+    chrome,
+    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt })),
+    businessPagePaths(chrome).map((p) => ({
+      path: p,
+      title: p.replace(/^\/|\.html$/g, "").replace(/-/g, " "),
+    })),
+  );
   return files;
 }

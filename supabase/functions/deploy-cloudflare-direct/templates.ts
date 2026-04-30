@@ -6,6 +6,7 @@ import {
   chromeStyles, pickRelated,
   buildBusinessPages, businessPagePaths, sitemapXmlExtended,
   faviconSvg, manifestJson, humansTxt, securityTxt, rssFeed,
+  llmsTxt,
 } from "./seoChrome.ts";
 
 export interface PostInput {
@@ -528,7 +529,19 @@ export function renderTemplate(ctx: RenderCtx): Record<string, string> {
 
   // robots + sitemap (includes business pages).
   files["robots.txt"]   = robotsTxt(chrome);
-  files["sitemap.xml"]  = sitemapXmlExtended(chrome, chromePosts.map((p) => p.slug), businessPagePaths(chrome));
+  files["sitemap.xml"]  = sitemapXmlExtended(
+    chrome,
+    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt })),
+    businessPagePaths(chrome),
+  );
+  files["llms.txt"]     = llmsTxt(
+    chrome,
+    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt })),
+    businessPagePaths(chrome).map((p) => ({
+      path: p,
+      title: p.replace(/^\/|\.html$/g, "").replace(/-/g, " "),
+    })),
+  );
   files["favicon.svg"]  = faviconSvg(chrome);
   files["manifest.json"]= manifestJson(chrome);
   files["humans.txt"]   = humansTxt(chrome);

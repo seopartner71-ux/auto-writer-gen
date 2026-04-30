@@ -284,6 +284,23 @@ function websiteLd(c: SiteChrome) {
   };
 }
 
+// Speakable specification — helps voice assistants and AI search engines
+// (Google Assistant, Perplexity, Gemini, ChatGPT Search, Яндекс AI) pick the
+// most important parts of the page to read out / quote.
+function speakableLd(c: SiteChrome, m: PageMeta) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    url: absUrl(c.domain, m.path),
+    name: m.title,
+    inLanguage: c.lang,
+    speakable: {
+      "@type": "SpeakableSpecification",
+      cssSelector: [".ai-summary", "h1", ".hero-subtitle", ".lead", "article p:first-of-type"],
+    },
+  };
+}
+
 function breadcrumbsLd(c: SiteChrome, items: { label: string; href: string }[]) {
   return {
     "@context": "https://schema.org",
@@ -578,6 +595,7 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
 
   const lds: unknown[] = [websiteLd(c), organizationLd(c), breadcrumbsLd(c, m.breadcrumbs)];
   if (m.type === "article") lds.push(articleLd(c, m));
+  lds.push(speakableLd(c, m));
   if (Array.isArray(m.jsonLd)) for (const x of m.jsonLd) lds.push(x);
 
   const fontsHref = googleFontsHref(c.headingFont, c.bodyFont);
@@ -611,6 +629,7 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.json">
   <link rel="alternate" type="application/rss+xml" title="${escAttr(c.siteName)}" href="/feed.xml">
+  <link rel="sitemap" type="application/xml" href="/sitemap.xml">
   ${lds.map((x) => jsonLdScript(x)).join("\n  ")}
 </head>`;
 }
@@ -642,27 +661,142 @@ ${CHROME_CSS}
 
 // ---- robots / sitemap ----
 export function robotsTxt(c: SiteChrome): string {
-  return `User-agent: *\nAllow: /\nSitemap: https://${c.domain}/sitemap.xml\n`;
+  // Allow regular crawlers; block aggressive AI scrapers (GPTBot, ChatGPT-User,
+  // CCBot, anthropic-ai, Claude-Web, Google-Extended, etc.). Sitemap pointer
+  // helps both classic search engines and AI search to discover the structure.
+  return [
+    "User-agent: *",
+    "Allow: /",
+    "",
+    "User-agent: GPTBot",
+    "Disallow: /",
+    "",
+    "User-agent: ChatGPT-User",
+    "Disallow: /",
+    "",
+    "User-agent: CCBot",
+    "Disallow: /",
+    "",
+    "User-agent: anthropic-ai",
+    "Disallow: /",
+    "",
+    "User-agent: Claude-Web",
+    "Disallow: /",
+    "",
+    "User-agent: Google-Extended",
+    "Disallow: /",
+    "",
+    `Sitemap: https://${c.domain}/sitemap.xml`,
+    "",
+  ].join("\n");
 }
 
-export function sitemapXml(c: SiteChrome, postSlugs: string[]): string {
+export interface SitemapPost {
+  slug: string;
+  publishedAt?: string; // ISO
+}
+
+function sitemapEntry(loc: string, lastmod: string, changefreq: string, priority: string): string {
+  return `  <url>
+    <loc>${loc}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
+  </url>`;
+}
+
+export function sitemapXml(c: SiteChrome, postSlugs: string[] | SitemapPost[]): string {
   const today = new Date().toISOString().slice(0, 10);
-  const urls: { loc: string; lastmod: string; priority?: string }[] = [
-    { loc: `https://${c.domain}/`,             lastmod: today, priority: "1.0" },
-    { loc: `https://${c.domain}/about.html`,    lastmod: today, priority: "0.7" },
-    { loc: `https://${c.domain}/contacts.html`, lastmod: today, priority: "0.5" },
-    { loc: `https://${c.domain}/privacy.html`,  lastmod: today, priority: "0.3" },
-    { loc: `https://${c.domain}/terms.html`,    lastmod: today, priority: "0.3" },
-    ...postSlugs.map((s) => ({
-      loc: `https://${c.domain}/posts/${s}.html`,
-      lastmod: today,
-      priority: "0.8",
-    })),
+  const posts: SitemapPost[] = (postSlugs as Array<string | SitemapPost>).map((p) =>
+    typeof p === "string" ? { slug: p } : p,
+  );
+  const blocks = [
+    sitemapEntry(`https://${c.domain}/`,             today, "weekly",  "1.0"),
+    sitemapEntry(`https://${c.domain}/about.html`,    today, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/contacts.html`, today, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/privacy.html`,  today, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/terms.html`,    today, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/blog/`,         today, "weekly",  "0.9"),
+    ...posts.map((p) => sitemapEntry(
+      `https://${c.domain}/posts/${p.slug}.html`,
+      (p.publishedAt || today).slice(0, 10),
+      "monthly",
+      "0.6",
+    )),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><priority>${u.priority || "0.5"}</priority></url>`).join("\n")}
+${blocks.join("\n")}
 </urlset>`;
+}
+
+// ---- llms.txt — AI-friendly site index (2024-2025 standard) ----
+// https://llmstxt.org — discoverable map for LLM-based search engines.
+export function llmsTxt(
+  c: SiteChrome,
+  posts: SitemapPost[] = [],
+  extraPaths: { path: string; title: string; description?: string }[] = [],
+): string {
+  const url = (p: string) => `https://${c.domain}${p}`;
+  const lines: string[] = [];
+  lines.push(`# ${c.siteName}`);
+  if (c.siteAbout) lines.push(`> ${stripTags(c.siteAbout).slice(0, 280)}`);
+  lines.push("");
+  lines.push("## Pages");
+  lines.push(`- [${c.lang === "ru" ? "Главная" : "Home"}](${url("/")}): ${c.lang === "ru" ? "главная страница" : "homepage"} — ${c.siteName}`);
+  lines.push(`- [${c.lang === "ru" ? "О нас" : "About"}](${url("/about.html")}): ${c.lang === "ru" ? "информация о компании и команде" : "about the company and team"}`);
+  lines.push(`- [${c.lang === "ru" ? "Контакты" : "Contacts"}](${url("/contacts.html")}): ${c.lang === "ru" ? "контактные данные и адрес" : "contact information and address"}`);
+  lines.push(`- [${c.lang === "ru" ? "Блог" : "Blog"}](${url("/blog/")}): ${c.lang === "ru" ? "статьи по теме «" + c.topic + "»" : "articles about " + c.topic}`);
+  for (const ex of extraPaths) {
+    lines.push(`- [${ex.title}](${url(ex.path)})${ex.description ? `: ${ex.description}` : ""}`);
+  }
+  if (posts.length) {
+    lines.push("");
+    lines.push(c.lang === "ru" ? "## Статьи блога" : "## Blog posts");
+    for (const p of posts.slice(0, 50)) {
+      lines.push(`- [${p.slug.replace(/-/g, " ")}](${url("/posts/" + p.slug + ".html")})`);
+    }
+  }
+  lines.push("");
+  lines.push("## About");
+  const year = c.foundingYear ? String(c.foundingYear) : (c.lang === "ru" ? "момента запуска" : "launch");
+  const who = c.companyName || c.siteName;
+  if (c.lang === "ru") {
+    lines.push(`${who} работает с ${year}. Специализация: ${c.topic}.`);
+    if (c.legalAddress || c.companyAddress) lines.push(`Регион: ${c.legalAddress || c.companyAddress}.`);
+  } else {
+    lines.push(`${who} has been operating since ${year}. Focus area: ${c.topic}.`);
+    if (c.legalAddress || c.companyAddress) lines.push(`Region: ${c.legalAddress || c.companyAddress}.`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+function stripTags(s: string): string {
+  return String(s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Pull a 2-3 sentence direct answer from the article. Prefer the AI-written
+// excerpt (meta_description); otherwise fall back to the first paragraph of
+// the article body. Cap at ~280 chars to stay in the "first 100 words" zone
+// preferred by AI search engines.
+function buildAiSummary(excerpt: string | undefined, html: string, isRu: boolean): string {
+  const fromExcerpt = String(excerpt || "").trim();
+  let raw = fromExcerpt;
+  if (!raw) {
+    // First <p>...</p> in the body, fallback to plain stripped text.
+    const m = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    raw = m ? m[1] : html;
+    raw = stripTags(raw);
+  }
+  if (!raw) return "";
+  // Take first 2-3 sentences.
+  const parts = raw.split(/(?<=[.!?…])\s+/).filter(Boolean);
+  let out = parts.slice(0, 3).join(" ");
+  if (out.length > 320) out = out.slice(0, 300).replace(/\s+\S*$/, "") + "…";
+  // Avoid duplicating the H1.
+  if (out.length < 30) return "";
+  return isRu ? out : out;
 }
 
 // ---- Page builders for non-content pages ----
@@ -1208,6 +1342,9 @@ export function buildPostPage(
 .author-info .author-more{font-size:13px;color:${c.accent};text-decoration:none}
 .author-info .author-more:hover{text-decoration:underline}
 .inline-link{color:${c.accent};text-decoration:underline;text-underline-offset:2px}
+.ai-summary{margin:18px 0 24px;padding:16px 20px;background:linear-gradient(135deg,${c.accent}10,${c.accent}05);border-left:4px solid ${c.accent};border-radius:8px}
+.ai-summary__label{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${c.accent};margin:0 0 6px}
+.ai-summary p{margin:0;font-size:16px;line-height:1.6;color:#0f172a;font-weight:500}
 `;
   // Hero image: prefer the article's own featured image (FAL.ai-generated and
   // stored on the row), fall back to a stable Picsum seed if none exists yet.
@@ -1216,6 +1353,14 @@ export function buildPostPage(
     ? post.featuredImageUrl
     : `https://picsum.photos/seed/${heroSeed}/1200/600`;
   const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(post.title)}" loading="eager" width="1200" height="600">`;
+
+  // AI Summary — short direct answer in the first ~100 words. Optimised for
+  // AI search engines (Perplexity, ChatGPT Search, Gemini, Яндекс AI) and
+  // voice assistants — referenced by the Speakable JSON-LD selector.
+  const aiSummaryText = buildAiSummary(post.excerpt, post.contentHtml || "", isRu);
+  const aiSummaryHtml = aiSummaryText
+    ? `<aside class="ai-summary"><div class="ai-summary__label">${isRu ? "Коротко о главном" : "Quick answer"}</div><p>${escHtml(aiSummaryText)}</p></aside>`
+    : "";
 
   const relatedHtml = related.length ? `
     <aside class="related-posts">
@@ -1246,6 +1391,7 @@ export function buildPostPage(
     <article class="page-article">
       <h1>${escHtml(post.title)}</h1>
       ${authorMetaHtml(c, author, post.publishedAt)}
+      ${aiSummaryHtml}
       ${heroImg}
       ${tocHtml(toc, isRu)}
       ${body}
@@ -1544,19 +1690,34 @@ ${items}
 }
 
 // Update sitemap to include any active business pages — caller must pass them.
-export function sitemapXmlExtended(c: SiteChrome, postSlugs: string[], extraPaths: string[]): string {
+export function sitemapXmlExtended(
+  c: SiteChrome,
+  postSlugs: string[] | SitemapPost[],
+  extraPaths: string[],
+): string {
   const today = new Date().toISOString().slice(0, 10);
-  const urls: { loc: string; lastmod: string; priority?: string }[] = [
-    { loc: `https://${c.domain}/`,             lastmod: today, priority: "1.0" },
-    { loc: `https://${c.domain}/about.html`,    lastmod: today, priority: "0.7" },
-    { loc: `https://${c.domain}/contacts.html`, lastmod: today, priority: "0.5" },
-    { loc: `https://${c.domain}/privacy.html`,  lastmod: today, priority: "0.3" },
-    { loc: `https://${c.domain}/terms.html`,    lastmod: today, priority: "0.3" },
-    ...extraPaths.map((p) => ({ loc: `https://${c.domain}${p}`, lastmod: today, priority: "0.6" })),
-    ...postSlugs.map((s) => ({ loc: `https://${c.domain}/posts/${s}.html`, lastmod: today, priority: "0.8" })),
+  const posts: SitemapPost[] = (postSlugs as Array<string | SitemapPost>).map((p) =>
+    typeof p === "string" ? { slug: p } : p,
+  );
+  const blocks = [
+    sitemapEntry(`https://${c.domain}/`,             today, "weekly",  "1.0"),
+    sitemapEntry(`https://${c.domain}/about.html`,    today, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/services.html`, today, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/contacts.html`, today, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/faq.html`,      today, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/privacy.html`,  today, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/terms.html`,    today, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/blog/`,         today, "weekly",  "0.9"),
+    ...extraPaths.map((p) => sitemapEntry(`https://${c.domain}${p}`, today, "monthly", "0.6")),
+    ...posts.map((p) => sitemapEntry(
+      `https://${c.domain}/posts/${p.slug}.html`,
+      (p.publishedAt || today).slice(0, 10),
+      "monthly",
+      "0.6",
+    )),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><priority>${u.priority || "0.5"}</priority></url>`).join("\n")}
+${blocks.join("\n")}
 </urlset>`;
 }
