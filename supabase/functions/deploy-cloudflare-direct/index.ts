@@ -20,6 +20,7 @@ import { renderMagazineHome, renderMagazineArticle, magazineExtraCss } from "./m
 import { renderNewsHome, renderNewsArticle, newsExtraCss } from "./newsPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
+import { logCost } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1051,6 +1052,16 @@ serve(async (req) => {
       last_ping_at: new Date().toISOString(),
     }).eq("id", projectId);
     console.log("[deploy-cloudflare-direct] success ->", pagesDevUrl);
+
+    // Log deploy as a zero-cost operation (counter only).
+    void logCost(supabaseAdmin, {
+      project_id: projectId,
+      user_id: user.id,
+      operation_type: "cloudflare_deploy",
+      model: "cloudflare-pages",
+      cost_usd: 0,
+      metadata: { template: templateKey, url: pagesDevUrl },
+    });
 
     return new Response(JSON.stringify({
       success: true,
