@@ -1758,7 +1758,7 @@ ${allLd.map((x) => `<script type="application/ld+json">${JSON.stringify(x).repla
 
 ${chromeOverride?.headerHtml || `<header class="site-header">
   <div class="container">
-    <a href="/" class="brand">${esc(ctx.siteName)}</a>
+    <a href="/" class="brand">${ctx.iconUrl ? `<img class="brand-icon" src="${esc(ctx.iconUrl)}" alt="" width="36" height="36" loading="eager" decoding="async">` : ""}<span class="brand-text">${esc(ctx.siteName)}</span></a>
     <nav class="main-nav">${navItems}</nav>
     <div class="header-cta">
       <a class="header-phone" href="tel:${esc(phoneHref)}">${esc(c.phone)}</a>
