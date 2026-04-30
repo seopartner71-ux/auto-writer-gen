@@ -93,10 +93,25 @@ function escHtml(s: string): string {
 // bold/italic/code/links, blockquotes, fenced code blocks). No deps.
 function markdownToHtml(md: string): string {
   if (!md) return "";
-  // If content already looks like HTML (has tags), return as-is.
-  if (/<\s*(h[1-6]|p|ul|ol|div|article|section)\b/i.test(md)) return md;
+  // Pre-extract raw HTML blocks that must NOT be markdown-escaped:
+  //  - <script type="application/ld+json">...</script>  (FAQ / Article schema)
+  //  - <table>...</table>                               (raw HTML tables)
+  // Replace each with an opaque placeholder, restore at the end.
+  const rawBlocks: string[] = [];
+  const stash = (re: RegExp, src: string): string => src.replace(re, (m) => {
+    const idx = rawBlocks.push(m) - 1;
+    return `\n\nLOVRAW${idx}LOVRAW\n\n`;
+  });
+  let work = String(md);
+  work = stash(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, work);
+  work = stash(/<table\b[\s\S]*?<\/table>/gi, work);
 
-  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  // If content already looks like HTML (has tags), restore placeholders and return.
+  if (/<\s*(h[1-6]|p|ul|ol|div|article|section)\b/i.test(work)) {
+    return work.replace(/LOVRAW(\d+)LOVRAW/g, (_m, n) => rawBlocks[Number(n)] || "");
+  }
+
+  const lines = work.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let i = 0;
   let inList: "ul" | "ol" | null = null;
@@ -226,7 +241,37 @@ function markdownToHtml(md: string): string {
     i++;
   }
   flushPara(); flushList();
-  return out.join("\n");
+  let html = out.join("\n");
+  // Detect "fake" tables: consecutive paragraph lines that look like
+  // multi-column rows separated by 2+ spaces or tabs, with a consistent
+  // column count (>=2) over 2+ rows. Convert them to a real <table>.
+  html = convertSpacedTables(html);
+  // Restore raw HTML blocks (JSON-LD, raw tables).
+  html = html.replace(/LOVRAW(\d+)LOVRAW/g, (_m, n) => rawBlocks[Number(n)] || "");
+  return html;
+}
+
+// Detect runs of <p>...</p> blocks where each paragraph contains 2+ columns
+// separated by 2+ spaces or tabs, and convert them to a single <table>.
+function convertSpacedTables(html: string): string {
+  const splitRow = (s: string): string[] =>
+    s.split(/\t|\s{2,}/).map((c) => c.trim()).filter(Boolean);
+  // Match runs of 3+ <p> blocks (header + 2 data rows minimum).
+  return html.replace(/(?:<p>[^<]*<\/p>\s*){3,}/g, (block) => {
+    const paras = Array.from(block.matchAll(/<p>([^<]*)<\/p>/g)).map((m) => m[1]);
+    const rows = paras.map(splitRow);
+    const colCount = rows[0].length;
+    if (colCount < 2) return block;
+    // Require all rows to share the column count (allow last row off by one).
+    const consistent = rows.every((r) => r.length === colCount);
+    if (!consistent) return block;
+    const [header, ...body] = rows;
+    const thead = `<thead><tr>${header.map((h) => `<th>${h}</th>`).join("")}</tr></thead>`;
+    const tbody = `<tbody>${body.map((r) =>
+      `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`
+    ).join("")}</tbody>`;
+    return `<table class="md-table">${thead}${tbody}</table>`;
+  });
 }
 
 function plainExcerpt(md: string, maxLen = 180): string {
