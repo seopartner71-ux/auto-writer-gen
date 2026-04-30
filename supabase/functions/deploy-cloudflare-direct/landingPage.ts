@@ -685,6 +685,8 @@ export interface LandingCtx {
   // team_1..3, post_1..3). When provided, the renderer uses them directly;
   // otherwise it falls back to Unsplash by topic and finally UI Avatars.
   generatedImages?: Record<string, string>;
+  /** Brand icon (FAL-generated, NO text). Rendered next to siteName text. */
+  iconUrl?: string;
   /** Floating "Back to top" position; default left-bottom. */
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
 }
