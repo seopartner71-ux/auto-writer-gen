@@ -186,6 +186,7 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
   const chromePosts: ChromePost[] = posts.map((p) => ({
     title: p.title, slug: p.slug, excerpt: p.excerpt, contentHtml: p.contentHtml,
     publishedAt: (p as any).publishedAt,
+    modifiedAt: (p as any).modifiedAt,
   }));
 
   const files: Record<string, string> = {
@@ -211,7 +212,7 @@ export function renderDbTemplate(opts: RenderOpts): Record<string, string> {
   }
   files["sitemap.xml"] = sitemapXmlExtended(
     chrome,
-    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt })),
+    chromePosts.map((p) => ({ slug: p.slug, publishedAt: p.publishedAt, modifiedAt: (p as any).modifiedAt })),
     businessPagePaths(chrome),
   );
   // AI-friendly site index for LLM-based search engines (Perplexity, ChatGPT
