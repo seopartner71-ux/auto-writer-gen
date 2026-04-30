@@ -141,6 +141,7 @@ export function SiteGridCreator() {
             site_about: spec.services
               ? `${topic} - ${spec.services}${spec.region ? ` в ${spec.region}` : ""}`
               : `${topic}${spec.region ? ` в ${spec.region}` : ""}`,
+            homepage_style: spec.homepageStyle,
           })
           .select("id")
           .single();
