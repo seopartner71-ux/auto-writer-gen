@@ -83,7 +83,7 @@ export function widgetsCss(): string {
 
 @media(max-width:520px){
   .sf-chat-panel{width:calc(100vw - 32px);right:-8px;height:70vh}
-  .sf-totop{right:16px;bottom:80px;width:40px;height:40px}
+  .sf-totop{right:16px;bottom:84px;width:40px;height:40px}
   .sf-chat{right:16px;bottom:16px}
 }
 `;
