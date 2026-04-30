@@ -760,6 +760,16 @@ export interface ImageGenInput {
   posts: { title: string; slug: string }[];
 }
 
+// Strips non-ASCII (Cyrillic etc.) from any string that we feed into Flux.
+// The model treats Cyrillic as visual glyphs and bakes garbled letters into
+// the picture, so prompts MUST stay pure English.
+function asciiOnly(s: string, max = 120): string {
+  return String(s || "").replace(/[^\x20-\x7E]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+const NO_TEXT_RULE = "ABSOLUTELY NO TEXT, no letters, no words, no captions, no signs, no logos, no watermarks, no typography, no writing of any kind anywhere in the image";
+const NO_TEXT_NEG  = "text, letters, words, captions, signs, logos, watermarks, typography, writing, characters, font, alphabet, cyrillic, latin text, numbers, labels, subtitles, title cards";
+
 async function falGenerate(
   falKey: string,
   prompt: string,
@@ -771,6 +781,7 @@ async function falGenerate(
       headers: { Authorization: `Key ${falKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
+        negative_prompt: NO_TEXT_NEG,
         image_size: size,
         num_images: 1,
         num_inference_steps: 4,
