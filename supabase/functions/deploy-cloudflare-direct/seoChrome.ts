@@ -1526,7 +1526,7 @@ export function buildPostPage(
   const safeExcerpt = unifyAuthorMentions(post.excerpt || "", authorName);
   const safeContentHtml = unifyAuthorMentions(post.contentHtml || "", authorName);
   const desc  = safeExcerpt || safeContentHtml.replace(/<[^>]+>/g, " ").trim().slice(0, 160);
-  const authorImage = author ? avataarsUrl(author.avatar_seed || author.name) : undefined;
+  const authorImage = author ? portraitUrl(author, c.accent, siteSeed(c)) : undefined;
   const authorJsonLd = author ? {
     "@context": "https://schema.org",
     "@type": "Person",
