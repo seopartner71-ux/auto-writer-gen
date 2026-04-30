@@ -1807,14 +1807,22 @@ export default function SiteFactoryPage() {
 
                 {/* Injection Links */}
                 <div className="border-t border-border pt-3 mt-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <Link2 className="h-3 w-3" />
-                    {lang === "ru" ? "Ссылки для вставки в статьи (Link Injection)" : "Links to inject into articles"}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                      <Link2 className="h-3 w-3" />
+                      {lang === "ru" ? "Ссылки для вставки в статьи (Link Injection)" : "Links to inject into articles"}
+                    </p>
+                    {injectionLinks.length > 0 && (
+                      <Badge variant="default" className="text-[10px] h-5 gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        {lang === "ru" ? `Активно: ${Math.min(3, injectionLinks.length)}/${injectionLinks.length}` : `Active: ${Math.min(3, injectionLinks.length)}/${injectionLinks.length}`}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-[10px] text-muted-foreground mb-2">
                     {lang === "ru"
-                      ? "2-3 случайные ссылки из списка будут автоматически вставлены в каждую статью при публикации"
-                      : "2-3 random links from this list will be auto-injected into each article on publish"}
+                      ? "До 3 ссылок из списка автоматически вставляются в тело каждой статьи при следующей публикации/деплое. По 1 ссылке на абзац, не в заголовках."
+                      : "Up to 3 links from this list are auto-injected into the body of every article on the next publish/deploy. One per paragraph, never inside headings."}
                   </p>
                   {injectionLinks.map((link, i) => (
                     <div key={i} className="flex items-center gap-2 mb-1.5">
