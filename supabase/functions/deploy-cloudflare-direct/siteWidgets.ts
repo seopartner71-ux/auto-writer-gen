@@ -35,8 +35,8 @@ export interface WidgetOptions {
 export function widgetsCss(): string {
   return `
 /* --- Site Factory floating widgets --- */
-.sf-totop{position:fixed;right:24px;bottom:90px;width:48px;height:48px;border-radius:50%;background:var(--accent,#2563eb);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 25px -8px rgba(0,0,0,.35);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:9998;font-size:0;line-height:0}
-.sf-totop svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.sf-totop{position:fixed;right:24px;bottom:94px;width:44px;height:44px;border-radius:50%;background:var(--accent,#2563eb);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 25px -8px rgba(0,0,0,.35);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:9998;font-size:0;line-height:0}
+.sf-totop svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .sf-totop.sf-show{opacity:1;transform:translateY(0);pointer-events:auto}
 .sf-totop:hover{transform:translateY(-2px)}
 
@@ -83,7 +83,7 @@ export function widgetsCss(): string {
 
 @media(max-width:520px){
   .sf-chat-panel{width:calc(100vw - 32px);right:-8px;height:70vh}
-  .sf-totop{right:16px;bottom:84px;width:42px;height:42px}
+  .sf-totop{right:16px;bottom:84px;width:40px;height:40px}
   .sf-chat{right:16px;bottom:16px}
 }
 `;
