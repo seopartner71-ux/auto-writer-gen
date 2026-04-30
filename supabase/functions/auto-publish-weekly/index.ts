@@ -8,6 +8,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logCost } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,6 +89,16 @@ serve(async (req) => {
         keyword: kw.keyword,
       });
       if (res.ok) scheduled++; else failed++;
+
+      // Cost-log marker for cron usage (zero direct cost — actual cost is
+      // logged inside generate-article when bulk-generate triggers it).
+      void logCost(admin, {
+        project_id: p.id,
+        user_id: p.user_id,
+        operation_type: "auto_post_cron",
+        cost_usd: 0,
+        metadata: { keyword: kw.keyword, ok: res.ok, status: res.status },
+      });
     } catch (e: any) {
       failed++;
       await admin.from("site_post_schedule_logs").insert({
