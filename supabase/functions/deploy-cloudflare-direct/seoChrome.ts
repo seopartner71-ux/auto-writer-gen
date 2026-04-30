@@ -740,6 +740,7 @@ export function robotsTxt(c: SiteChrome): string {
 export interface SitemapPost {
   slug: string;
   publishedAt?: string; // ISO
+  modifiedAt?: string;  // ISO; falls back to publishedAt for sitemap lastmod
 }
 
 function sitemapEntry(loc: string, lastmod: string, changefreq: string, priority: string): string {
