@@ -661,27 +661,119 @@ ${CHROME_CSS}
 
 // ---- robots / sitemap ----
 export function robotsTxt(c: SiteChrome): string {
-  return `User-agent: *\nAllow: /\nSitemap: https://${c.domain}/sitemap.xml\n`;
+  // Allow regular crawlers; block aggressive AI scrapers (GPTBot, ChatGPT-User,
+  // CCBot, anthropic-ai, Claude-Web, Google-Extended, etc.). Sitemap pointer
+  // helps both classic search engines and AI search to discover the structure.
+  return [
+    "User-agent: *",
+    "Allow: /",
+    "",
+    "User-agent: GPTBot",
+    "Disallow: /",
+    "",
+    "User-agent: ChatGPT-User",
+    "Disallow: /",
+    "",
+    "User-agent: CCBot",
+    "Disallow: /",
+    "",
+    "User-agent: anthropic-ai",
+    "Disallow: /",
+    "",
+    "User-agent: Claude-Web",
+    "Disallow: /",
+    "",
+    "User-agent: Google-Extended",
+    "Disallow: /",
+    "",
+    `Sitemap: https://${c.domain}/sitemap.xml`,
+    "",
+  ].join("\n");
 }
 
-export function sitemapXml(c: SiteChrome, postSlugs: string[]): string {
+export interface SitemapPost {
+  slug: string;
+  publishedAt?: string; // ISO
+}
+
+function sitemapEntry(loc: string, lastmod: string, changefreq: string, priority: string): string {
+  return `  <url>
+    <loc>${loc}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
+  </url>`;
+}
+
+export function sitemapXml(c: SiteChrome, postSlugs: string[] | SitemapPost[]): string {
   const today = new Date().toISOString().slice(0, 10);
-  const urls: { loc: string; lastmod: string; priority?: string }[] = [
-    { loc: `https://${c.domain}/`,             lastmod: today, priority: "1.0" },
-    { loc: `https://${c.domain}/about.html`,    lastmod: today, priority: "0.7" },
-    { loc: `https://${c.domain}/contacts.html`, lastmod: today, priority: "0.5" },
-    { loc: `https://${c.domain}/privacy.html`,  lastmod: today, priority: "0.3" },
-    { loc: `https://${c.domain}/terms.html`,    lastmod: today, priority: "0.3" },
-    ...postSlugs.map((s) => ({
-      loc: `https://${c.domain}/posts/${s}.html`,
-      lastmod: today,
-      priority: "0.8",
-    })),
+  const posts: SitemapPost[] = (postSlugs as Array<string | SitemapPost>).map((p) =>
+    typeof p === "string" ? { slug: p } : p,
+  );
+  const blocks = [
+    sitemapEntry(`https://${c.domain}/`,             today, "weekly",  "1.0"),
+    sitemapEntry(`https://${c.domain}/about.html`,    today, "monthly", "0.8"),
+    sitemapEntry(`https://${c.domain}/contacts.html`, today, "monthly", "0.7"),
+    sitemapEntry(`https://${c.domain}/privacy.html`,  today, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/terms.html`,    today, "yearly",  "0.3"),
+    sitemapEntry(`https://${c.domain}/blog/`,         today, "weekly",  "0.9"),
+    ...posts.map((p) => sitemapEntry(
+      `https://${c.domain}/posts/${p.slug}.html`,
+      (p.publishedAt || today).slice(0, 10),
+      "monthly",
+      "0.6",
+    )),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><priority>${u.priority || "0.5"}</priority></url>`).join("\n")}
+${blocks.join("\n")}
 </urlset>`;
+}
+
+// ---- llms.txt — AI-friendly site index (2024-2025 standard) ----
+// https://llmstxt.org — discoverable map for LLM-based search engines.
+export function llmsTxt(
+  c: SiteChrome,
+  posts: SitemapPost[] = [],
+  extraPaths: { path: string; title: string; description?: string }[] = [],
+): string {
+  const url = (p: string) => `https://${c.domain}${p}`;
+  const lines: string[] = [];
+  lines.push(`# ${c.siteName}`);
+  if (c.siteAbout) lines.push(`> ${stripTags(c.siteAbout).slice(0, 280)}`);
+  lines.push("");
+  lines.push("## Pages");
+  lines.push(`- [${c.lang === "ru" ? "Главная" : "Home"}](${url("/")}): ${c.lang === "ru" ? "главная страница" : "homepage"} — ${c.siteName}`);
+  lines.push(`- [${c.lang === "ru" ? "О нас" : "About"}](${url("/about.html")}): ${c.lang === "ru" ? "информация о компании и команде" : "about the company and team"}`);
+  lines.push(`- [${c.lang === "ru" ? "Контакты" : "Contacts"}](${url("/contacts.html")}): ${c.lang === "ru" ? "контактные данные и адрес" : "contact information and address"}`);
+  lines.push(`- [${c.lang === "ru" ? "Блог" : "Blog"}](${url("/blog/")}): ${c.lang === "ru" ? "статьи по теме «" + c.topic + "»" : "articles about " + c.topic}`);
+  for (const ex of extraPaths) {
+    lines.push(`- [${ex.title}](${url(ex.path)})${ex.description ? `: ${ex.description}` : ""}`);
+  }
+  if (posts.length) {
+    lines.push("");
+    lines.push(c.lang === "ru" ? "## Статьи блога" : "## Blog posts");
+    for (const p of posts.slice(0, 50)) {
+      lines.push(`- [${p.slug.replace(/-/g, " ")}](${url("/posts/" + p.slug + ".html")})`);
+    }
+  }
+  lines.push("");
+  lines.push("## About");
+  const year = c.foundingYear ? String(c.foundingYear) : (c.lang === "ru" ? "момента запуска" : "launch");
+  const who = c.companyName || c.siteName;
+  if (c.lang === "ru") {
+    lines.push(`${who} работает с ${year}. Специализация: ${c.topic}.`);
+    if (c.legalAddress || c.companyAddress) lines.push(`Регион: ${c.legalAddress || c.companyAddress}.`);
+  } else {
+    lines.push(`${who} has been operating since ${year}. Focus area: ${c.topic}.`);
+    if (c.legalAddress || c.companyAddress) lines.push(`Region: ${c.legalAddress || c.companyAddress}.`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+function stripTags(s: string): string {
+  return String(s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 // ---- Page builders for non-content pages ----
