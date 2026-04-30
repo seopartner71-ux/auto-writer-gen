@@ -20,7 +20,7 @@ interface SiteSpec {
   services: string;
   audience: string;
   businessType: string;
-  homepageStyle: "landing" | "magazine" | "news" | "minimal";
+  homepageStyle: "landing" | "magazine" | "news" | "minimal" | "dark" | "local";
 }
 
 interface SiteRow {
@@ -384,7 +384,7 @@ export function SiteGridCreator() {
                     <Label className="text-[10px] text-muted-foreground">Стиль главной страницы</Label>
                     <select
                       value={spec.homepageStyle}
-                      onChange={(e) => updateSpec(idx, { homepageStyle: e.target.value as "landing" | "magazine" | "news" | "minimal" })}
+                       onChange={(e) => updateSpec(idx, { homepageStyle: e.target.value as "landing" | "magazine" | "news" | "minimal" | "dark" | "local" })}
                       disabled={running}
                       className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs disabled:opacity-50"
                     >
@@ -392,6 +392,8 @@ export function SiteGridCreator() {
                       <option value="magazine">Журнал (контент-первый, без формы)</option>
                       <option value="news">Новостной портал (плотная сетка новостей)</option>
                       <option value="minimal">Минимал (типографика, Linear/Notion-стиль)</option>
+                      <option value="dark">Тёмный (премиум, glassmorphism)</option>
+                      <option value="local">Локальный бизнес (телефон, карта, часы)</option>
                     </select>
                   </div>
                 </div>

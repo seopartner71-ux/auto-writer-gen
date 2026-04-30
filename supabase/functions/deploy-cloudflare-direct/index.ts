@@ -19,6 +19,8 @@ import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeS
 import { renderMagazineHome, renderMagazineArticle, magazineExtraCss } from "./magazinePage.ts";
 import { renderNewsHome, renderNewsArticle, newsExtraCss } from "./newsPage.ts";
 import { renderMinimalHome, renderMinimalArticle, minimalExtraCss } from "./minimalPage.ts";
+import { renderDarkHome, renderDarkArticle, darkExtraCss } from "./darkPage.ts";
+import { renderLocalHome, renderLocalArticle, localExtraCss } from "./localPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 import { logCost } from "../_shared/costLogger.ts";
@@ -741,24 +743,28 @@ serve(async (req) => {
     console.log("[deploy-cloudflare-direct] rendered files:", Object.keys(files));
 
     // ---- Replace home page with the new professional landing -----------------
-    const homepageStyle: "landing" | "magazine" | "news" | "minimal" =
+    const homepageStyle: "landing" | "magazine" | "news" | "minimal" | "dark" | "local" =
       ((project as any).homepage_style === "magazine"
         ? "magazine"
         : (project as any).homepage_style === "news"
         ? "news"
         : (project as any).homepage_style === "minimal"
         ? "minimal"
+        : (project as any).homepage_style === "dark"
+        ? "dark"
+        : (project as any).homepage_style === "local"
+        ? "local"
         : "landing");
     console.log("[deploy-cloudflare-direct] homepage_style:", homepageStyle);
 
-    if (homepageStyle === "minimal") {
+    if (homepageStyle === "minimal" || homepageStyle === "dark" || homepageStyle === "local") {
       try {
         // Reuse the same content+image pipeline as the landing template so
         // ALL features (FAL hero/team photos, brand icon, cost logging,
         // backdating, smart-interlinking, WP emulation, antiFingerprint, etc.)
         // work transparently. Only the home page + article page HTML differ.
         const skin = pickSkin(templateKey + "::" + projectId);
-        const minimalContent = await generateLandingContent(
+        const tplContent = await generateLandingContent(
           topic, siteName, lang as "ru" | "en",
           {
             phone: (project as any).company_phone || undefined,
@@ -780,7 +786,7 @@ serve(async (req) => {
             niche: topic,
             region: String(body.region || (project as any).region || ""),
             audience: String(body.audience || ""),
-            team: minimalContent.team || [],
+            team: tplContent.team || [],
             posts: posts.slice(0, 3).map((p) => ({ title: p.title, slug: p.slug })),
           },
         );
@@ -799,7 +805,7 @@ serve(async (req) => {
         const enrichedAuthors = ((project as any).authors || []).map((a: any, i: number) => ({
           ...a, photo_url: a?.photo_url || authorPhotos[i % Math.max(1, authorPhotos.length)] || undefined,
         }));
-        const chromeMin: any = {
+        const chromeTpl: any = {
           domain, siteName, siteAbout, topic, lang,
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           ...commonOpts,
@@ -814,19 +820,35 @@ serve(async (req) => {
         for (let i = 0; i < allPosts.length; i++) {
           const p = allPosts[i];
           const related = allPosts.filter((x) => x.slug !== p.slug).slice(0, 3);
-          files[`posts/${p.slug}.html`] = renderMinimalArticle({
-            chrome: chromeMin, post: p, related, postIndex: i,
-          });
+          files[`posts/${p.slug}.html`] = homepageStyle === "dark"
+            ? renderDarkArticle({ chrome: chromeTpl, post: p, related, postIndex: i })
+            : homepageStyle === "local"
+            ? renderLocalArticle({ chrome: chromeTpl, post: p, related, postIndex: i })
+            : renderMinimalArticle({ chrome: chromeTpl, post: p, related, postIndex: i });
         }
         if (files["index.html"]) files["blog/index.html"] = files["index.html"];
-        files["index.html"] = renderMinimalHome({
-          chrome: chromeMin, posts: allPosts, content: minimalContent,
-          generatedImages, expertAuthor: enrichedAuthors[0] || null,
-        });
-        files["style.css"] = (files["style.css"] || "") + "\n" + minimalExtraCss(chromeMin);
-        console.log("[deploy-cloudflare-direct] minimal homepage applied (skin", skin, ")");
+        if (homepageStyle === "dark") {
+          files["index.html"] = renderDarkHome({
+            chrome: chromeTpl, posts: allPosts, content: tplContent,
+            generatedImages, expertAuthor: enrichedAuthors[0] || null,
+          });
+          files["style.css"] = (files["style.css"] || "") + "\n" + darkExtraCss(chromeTpl);
+        } else if (homepageStyle === "local") {
+          files["index.html"] = renderLocalHome({
+            chrome: chromeTpl, posts: allPosts, content: tplContent,
+            generatedImages, expertAuthor: enrichedAuthors[0] || null,
+          });
+          files["style.css"] = (files["style.css"] || "") + "\n" + localExtraCss(chromeTpl);
+        } else {
+          files["index.html"] = renderMinimalHome({
+            chrome: chromeTpl, posts: allPosts, content: tplContent,
+            generatedImages, expertAuthor: enrichedAuthors[0] || null,
+          });
+          files["style.css"] = (files["style.css"] || "") + "\n" + minimalExtraCss(chromeTpl);
+        }
+        console.log("[deploy-cloudflare-direct]", homepageStyle, "homepage applied (skin", skin, ")");
       } catch (e) {
-        console.warn("[deploy-cloudflare-direct] minimal gen failed:", (e as Error).message);
+        console.warn("[deploy-cloudflare-direct]", homepageStyle, "gen failed:", (e as Error).message);
       }
     } else if (homepageStyle === "news") {
       try {
