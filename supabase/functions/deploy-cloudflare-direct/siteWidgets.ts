@@ -180,6 +180,56 @@ export function widgetsHtml(opts: WidgetOptions): string {
   const totopPosition: TotopPosition = (opts.totopPosition || "left-bottom");
   const showTotop = totopPosition !== "hidden";
 
+  // ---- Deterministic JS identifier obfuscation. All names below are
+  // referenced ONLY inside the IIFE we inject, so renaming is safe. Seed:
+  // siteName by default; callers should pass a stable projectId-based seed.
+  const seed = String(opts.seed || opts.siteName || opts.topic || "site");
+  const N = {
+    I:        obfId(seed, "I", 5),
+    PH:       obfId(seed, "PH", 5),
+    btn:      obfId(seed, "btn", 6),
+    chat:     obfId(seed, "chat", 6),
+    toggle:   obfId(seed, "toggle", 7),
+    closeBtn: obfId(seed, "closeBtn", 8),
+    bubble:   obfId(seed, "bubble", 7),
+    body:     obfId(seed, "body", 6),
+    foot:     obfId(seed, "foot", 6),
+    input:    obfId(seed, "input", 7),
+    audioCtx: obfId(seed, "audioCtx", 8),
+    soundOn:  obfId(seed, "soundOn", 8),
+    beep:     obfId(seed, "beep", 6),
+    initAudio:obfId(seed, "initAudio", 9),
+    started:  obfId(seed, "started", 8),
+    open:     obfId(seed, "open", 6),
+    close:    obfId(seed, "close", 6),
+    onScroll: obfId(seed, "onScroll", 8),
+    scrollDown: obfId(seed, "scrollDown", 9),
+    addUser:  obfId(seed, "addUser", 7),
+    showTyping: obfId(seed, "showTyping", 9),
+    typeMsg:  obfId(seed, "typeMsg", 7),
+    quickReplies: obfId(seed, "quickReplies", 9),
+    leadForm: obfId(seed, "leadForm", 8),
+    wait:     obfId(seed, "wait", 6),
+    runIntro: obfId(seed, "runIntro", 8),
+    handleQuick: obfId(seed, "handleQuick", 9),
+    sentLead: obfId(seed, "sentLead", 8),
+    send:     obfId(seed, "send", 6),
+  };
+
+  // Timeout jitter (deterministic). Real chats don't time messages identically.
+  const T = {
+    introTyping1: intFromSeed(seed, "t1", 1300, 1700), // first dots before hello
+    helloChar:    intFromSeed(seed, "t2", 35, 50),     // ms per char hello
+    afterHello:   intFromSeed(seed, "t3", 700, 950),
+    introTyping2: intFromSeed(seed, "t4", 1050, 1350),
+    introChar:    intFromSeed(seed, "t5", 16, 22),
+    quickAfter:   intFromSeed(seed, "t6", 250, 380),
+    bubbleAppear: intFromSeed(seed, "t7", 4500, 6500),
+    bubbleHide:   intFromSeed(seed, "t8", 4500, 6000),
+    introDelay:   intFromSeed(seed, "t9", 200, 320),
+    typingShort:  intFromSeed(seed, "ts", 850, 1150),
+  };
+
   // Localized chat scenario strings (kept on the JS side as a JSON config so
   // the surrounding template literal stays simple and free of escapes).
   const I18N = isRu ? {
