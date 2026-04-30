@@ -905,7 +905,7 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
   </div>
 </section>
 
-<footer class="site-footer">
+${chromeOverride?.footerHtml || `<footer class="site-footer">
   <div class="foot-grid">
     <div>
       <span class="brand-foot">${esc(ctx.siteName)}</span>
@@ -935,7 +935,7 @@ ${chromeOverride?.headerHtml || `<header class="site-header">
     </div>
   </div>
   <div class="copy">&copy; ${new Date().getFullYear()} ${esc(ctx.siteName)}. ${esc(isRu ? "Все права защищены." : "All rights reserved.")}</div>
-</footer>
+</footer>`}
 
 </body>
 </html>`;
