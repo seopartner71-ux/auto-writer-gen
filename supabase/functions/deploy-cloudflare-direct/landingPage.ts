@@ -1413,6 +1413,17 @@ export function renderLandingHtml(
 ): string {
   const t = skinTokens(ctx.skin, ctx.accent);
   const isRu = ctx.lang === "ru";
+  // Anti-fingerprint: replace template-fixed UI phrases with seed-stable
+  // variants from the shared phrase pool so different sites in the same PBN
+  // do not share byte-identical CTA/section labels.
+  {
+    const seed = String(ctx.projectId || ctx.domain || ctx.siteName || "site");
+    c = {
+      ...c,
+      whyTitle: pickPhrase("whyTitle", ctx.lang, seed),
+      ctaSectionText: pickPhrase("ctaSectionText", ctx.lang, seed),
+    };
+  }
   const heroImg = ctx.heroImageUrl && /^https?:\/\//.test(ctx.heroImageUrl)
     ? ctx.heroImageUrl
     : getImage(ctx, "hero", ctx.topic + " " + ctx.siteName + " hero", 1600, 900);
