@@ -460,7 +460,12 @@ function skinTokens(skin: number, accent: string): SkinTokens {
 
 // ----------------------------- HTML Renderer --------------------------------
 
-export function renderLandingHtml(ctx: LandingCtx, c: LandingContent, navHtml: string): string {
+export function renderLandingHtml(
+  ctx: LandingCtx,
+  c: LandingContent,
+  navHtml: string,
+  chromeOverride?: { headerHtml?: string; footerHtml?: string; chromeCss?: string },
+): string {
   const t = skinTokens(ctx.skin, ctx.accent);
   const isRu = ctx.lang === "ru";
   const heroImg = ctx.heroImageUrl && /^https?:\/\//.test(ctx.heroImageUrl)
