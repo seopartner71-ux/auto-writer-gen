@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Users, Save, Trash2, Coins, Clock, Mail, ChevronDown, ChevronUp, FileText, Target, Calendar, CreditCard } from "lucide-react";
+import { Users, Save, Trash2, Coins, Clock, Mail, ChevronDown, ChevronUp, FileText, Target, Calendar, CreditCard, Shield, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useMemo } from "react";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -79,6 +79,46 @@ export function UserManagementTab() {
       if (error) throw error;
       return data as UserProfile[];
     },
+  });
+
+  // Roles per user (admin / staff / user). A user may have several roles —
+  // we surface the "highest" one (admin > staff > user) in the UI.
+  const { data: roles = [] } = useQuery({
+    queryKey: ["admin-user-roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+      if (error) throw error;
+      return data as { user_id: string; role: "admin" | "staff" | "user" }[];
+    },
+  });
+
+  const rolesByUser = useMemo(() => {
+    const map = new Map<string, "admin" | "staff" | "user">();
+    const rank = { user: 0, staff: 1, admin: 2 } as const;
+    for (const r of roles) {
+      const cur = map.get(r.user_id);
+      if (!cur || rank[r.role] > rank[cur]) map.set(r.user_id, r.role);
+    }
+    return map;
+  }, [roles]);
+
+  const setUserRole = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: "admin" | "staff" | "user" }) => {
+      // RLS forbids direct writes to user_roles. Use the admin RPC which
+      // verifies the caller is an admin and atomically replaces roles.
+      const { error } = await supabase.rpc("admin_set_user_role", {
+        p_user_id: userId,
+        p_role: role,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user-roles"] });
+      toast.success("Роль обновлена");
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const { data: statsData = [] } = useQuery({
@@ -305,6 +345,18 @@ export function UserManagementTab() {
                               Ожидает
                             </Badge>
                           )}
+                          {rolesByUser.get(p.id) === "admin" && (
+                            <Badge variant="outline" className="text-[10px] border-primary/60 text-primary gap-1 px-1.5 py-0">
+                              <Shield className="h-2.5 w-2.5" />
+                              Админ
+                            </Badge>
+                          )}
+                          {rolesByUser.get(p.id) === "staff" && (
+                            <Badge variant="outline" className="text-[10px] border-emerald-500/60 text-emerald-500 gap-1 px-1.5 py-0">
+                              <Briefcase className="h-2.5 w-2.5" />
+                              Сотрудник
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{p.full_name || '—'}</TableCell>
@@ -487,6 +539,27 @@ export function UserManagementTab() {
                                   <span className="text-muted-foreground">План статей/мес:</span>
                                   <span className="font-medium">{p.planned_articles_month ?? '—'}</span>
                                 </div>
+                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border mt-2">
+                                  <span className="text-muted-foreground">Роль:</span>
+                                  <Select
+                                    value={rolesByUser.get(p.id) || "user"}
+                                    onValueChange={(v) =>
+                                      setUserRole.mutate({ userId: p.id, role: v as "admin" | "staff" | "user" })
+                                    }
+                                  >
+                                    <SelectTrigger className="h-7 w-32 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="user">Пользователь</SelectItem>
+                                      <SelectItem value="staff">Сотрудник</SelectItem>
+                                      <SelectItem value="admin">Админ</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground leading-tight pt-1">
+                                  Сотрудники и админы работают без лимитов на генерацию.
+                                </p>
                               </div>
                             </div>
 
