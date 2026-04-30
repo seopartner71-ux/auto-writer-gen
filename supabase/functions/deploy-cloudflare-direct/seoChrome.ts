@@ -1084,6 +1084,7 @@ export interface PostInput {
   excerpt: string;
   contentHtml: string;
   publishedAt?: string;
+  modifiedAt?: string;
   featuredImageUrl?: string;
 }
 
