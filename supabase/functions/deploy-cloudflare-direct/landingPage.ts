@@ -940,7 +940,7 @@ section{padding:${t.sectionPad}}
     "@id": lbId,
     name: ctx.siteName,
     url: `https://${ctx.domain}/`,
-    image: ctx.heroImg || undefined,
+    image: heroImg || undefined,
     telephone: c.phone,
     email: c.email,
     description: c.heroSubtitle,
@@ -994,7 +994,7 @@ section{padding:${t.sectionPad}}
 <meta property="og:image" content="${esc(heroImg)}">
 <style>${css}</style>
 ${chromeOverride?.chromeCss ? `<style>${chromeOverride.chromeCss}</style>` : ""}
-<script type="application/ld+json">${JSON.stringify(orgSchema)}</script>
+${allLd.map((x) => `<script type="application/ld+json">${JSON.stringify(x).replace(/</g, "\\u003c")}</script>`).join("\n")}
 </head>
 <body>
 
