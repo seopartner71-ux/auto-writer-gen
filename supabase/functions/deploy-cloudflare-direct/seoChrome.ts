@@ -1319,6 +1319,9 @@ export function buildPostPage(
 .author-info .author-more{font-size:13px;color:${c.accent};text-decoration:none}
 .author-info .author-more:hover{text-decoration:underline}
 .inline-link{color:${c.accent};text-decoration:underline;text-underline-offset:2px}
+.ai-summary{margin:18px 0 24px;padding:16px 20px;background:linear-gradient(135deg,${c.accent}10,${c.accent}05);border-left:4px solid ${c.accent};border-radius:8px}
+.ai-summary__label{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${c.accent};margin:0 0 6px}
+.ai-summary p{margin:0;font-size:16px;line-height:1.6;color:#0f172a;font-weight:500}
 `;
   // Hero image: prefer the article's own featured image (FAL.ai-generated and
   // stored on the row), fall back to a stable Picsum seed if none exists yet.
@@ -1327,6 +1330,14 @@ export function buildPostPage(
     ? post.featuredImageUrl
     : `https://picsum.photos/seed/${heroSeed}/1200/600`;
   const heroImg  = `<img class="post-hero" src="${escAttr(heroUrl)}" alt="${escAttr(post.title)}" loading="eager" width="1200" height="600">`;
+
+  // AI Summary — short direct answer in the first ~100 words. Optimised for
+  // AI search engines (Perplexity, ChatGPT Search, Gemini, Яндекс AI) and
+  // voice assistants — referenced by the Speakable JSON-LD selector.
+  const aiSummaryText = buildAiSummary(post.excerpt, post.contentHtml || "", isRu);
+  const aiSummaryHtml = aiSummaryText
+    ? `<aside class="ai-summary"><div class="ai-summary__label">${isRu ? "Коротко о главном" : "Quick answer"}</div><p>${escHtml(aiSummaryText)}</p></aside>`
+    : "";
 
   const relatedHtml = related.length ? `
     <aside class="related-posts">
@@ -1357,6 +1368,7 @@ export function buildPostPage(
     <article class="page-article">
       <h1>${escHtml(post.title)}</h1>
       ${authorMetaHtml(c, author, post.publishedAt)}
+      ${aiSummaryHtml}
       ${heroImg}
       ${tocHtml(toc, isRu)}
       ${body}
