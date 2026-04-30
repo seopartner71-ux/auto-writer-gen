@@ -1590,6 +1590,8 @@ section{padding:${t.sectionPad}}
 .foot-grid a{color:rgba(255,255,255,.7);font-size:14px;display:block;padding:4px 0}
 .foot-grid a:hover{color:#fff;text-decoration:none}
 .foot-grid .brand-foot{font-family:"${ctx.headingFont}",sans-serif;font-size:22px;color:#fff;font-weight:800;margin-bottom:12px;display:block}
+.foot-grid .brand-foot{display:inline-flex;align-items:center;gap:8px;font-size:18px}
+.foot-grid .brand-foot .brand-icon{width:32px;height:32px;border-radius:6px;background:#fff;padding:2px;object-fit:contain}
 .foot-grid .desc{font-size:14px;line-height:1.6;color:rgba(255,255,255,.6)}
 .copy{max-width:1200px;margin:48px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);font-size:13px;color:rgba(255,255,255,.5);text-align:center}
 @media(max-width:860px){.foot-grid{grid-template-columns:1fr 1fr;gap:32px 20px}}
