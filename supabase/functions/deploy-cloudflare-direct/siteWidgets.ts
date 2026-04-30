@@ -34,6 +34,40 @@ export interface WidgetOptions {
   /** Position of the floating "Back to top" button. Defaults to left-bottom
    *  so it never overlaps the right-side chat. Set to "hidden" to remove it. */
   totopPosition?: TotopPosition;
+  /** Stable seed for JS identifier obfuscation (defaults to siteName). */
+  seed?: string;
+}
+
+// --- Deterministic identifier generator (FNV-1a + xorshift32) ---------------
+function fnv1a(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+const ID_ALPHA = "abcdefghijklmnopqrstuvwxyz";
+const ID_ALNUM = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+/** Deterministic JS identifier (first char alpha, rest alphanumeric). */
+function obfId(seed: string, label: string, len: number): string {
+  const h = fnv1a(seed + ":" + label);
+  let n = h;
+  let out = ID_ALPHA[n % ID_ALPHA.length];
+  n = (n / ID_ALPHA.length) >>> 0;
+  for (let i = 1; i < len; i++) {
+    out += ID_ALNUM[n % ID_ALNUM.length];
+    n = (n / ID_ALNUM.length) >>> 0;
+    if (n === 0) n = fnv1a(out);
+  }
+  return out;
+}
+
+/** Integer in [min, max] from seed. */
+function intFromSeed(seed: string, label: string, min: number, max: number): number {
+  const h = fnv1a(seed + ":" + label);
+  return min + (h % Math.max(1, max - min + 1));
 }
 
 /** CSS rules for both widgets. Scoped via .sf-* prefixes. */
