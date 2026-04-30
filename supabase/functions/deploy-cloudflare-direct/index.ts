@@ -673,6 +673,24 @@ serve(async (req) => {
       console.warn("[deploy-cloudflare-direct] landing gen failed, keeping default index:", (e as Error).message);
     }
 
+    // ---- Anti-fingerprint pass (Stage 1) ------------------------------------
+    // Deterministic obfuscation of CSS classes, permutation of homepage
+    // sections and og:/twitter: meta order. Seeded by projectId so re-deploys
+    // are byte-identical and different sites in the same PBN look distinct
+    // to fingerprint scanners.
+    try {
+      const before = Object.keys(files).length;
+      const seed = String(projectId || domain || siteName);
+      const r = applyAntiFingerprint(files, seed);
+      Object.assign(files, r.files);
+      console.log(
+        "[deploy-cloudflare-direct] anti-fp applied: files=", before,
+        "renamedClasses=", r.classMap.size,
+      );
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] anti-fp skipped:", (e as Error).message);
+    }
+
     // 3. Compute manifest { "/path": hash }
     const manifest: Record<string, string> = {};
     const fileByHash: Record<string, { path: string; content: string }> = {};
