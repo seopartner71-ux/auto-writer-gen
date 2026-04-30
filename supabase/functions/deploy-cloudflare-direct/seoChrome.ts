@@ -569,6 +569,12 @@ a.contact-item__value:hover{color:var(--accent,#0ea5e9);text-decoration:underlin
 .service-hero{background:linear-gradient(135deg,color-mix(in srgb,var(--accent,#0ea5e9) 10%,#fff),#fff);border:1px solid #e5e7eb;border-radius:16px;padding:36px 32px;margin:8px 0 28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
 .service-hero h1{margin:0 0 10px;font-size:32px;font-family:inherit;line-height:1.2}
 .service-hero__lead{margin:0;color:#475569;font-size:16px;line-height:1.55;max-width:760px}
+.service-hero{display:grid;grid-template-columns:1fr;gap:24px;align-items:center}
+.service-hero--with-image{grid-template-columns:1fr;padding:0;overflow:hidden;background:#fff}
+.service-hero--with-image .service-hero__copy{padding:32px 32px 28px}
+.service-hero__media{position:relative;margin:0;width:100%;aspect-ratio:21/9;background:#f1f5f9;overflow:hidden}
+.service-hero__media img{width:100%;height:100%;object-fit:cover;display:block}
+@media(min-width:860px){.service-hero--with-image{grid-template-columns:1.2fr 1fr}.service-hero--with-image .service-hero__media{height:100%;aspect-ratio:auto;min-height:280px}.service-hero--with-image .service-hero__copy{padding:40px 36px}}
 .service-blocks{display:grid;grid-template-columns:1fr;gap:20px;margin:0 0 28px}
 @media(min-width:860px){.service-blocks--2col{grid-template-columns:1fr 1fr}}
 .service-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:26px 28px;box-shadow:0 4px 18px rgba(15,23,42,.04)}
@@ -826,6 +832,34 @@ export function splitIntoBlocks(html: string): { heading: string; body: string }
   return out;
 }
 
+// Topical hero photo for inner pages. Uses Unsplash Source (no API key) and
+// derives keywords from the site niche + page-specific seed (about/contacts/
+// portfolio/pricing/reviews/faq/vacancies). Returns a wide 1600x720 image.
+function pageImage(c: SiteChrome, slot: string, w = 1600, h = 720): string {
+  const PAGE_KW: Record<string, string> = {
+    about:      c.lang === "ru" ? "команда офис" : "team office",
+    contacts:   c.lang === "ru" ? "офис прием" : "office reception",
+    portfolio:  c.lang === "ru" ? "проекты работы" : "projects portfolio work",
+    pricing:    c.lang === "ru" ? "прайс лист" : "pricing service",
+    reviews:    c.lang === "ru" ? "довольные клиенты" : "happy customers",
+    faq:        c.lang === "ru" ? "консультация" : "consultation help",
+    vacancies:  c.lang === "ru" ? "сотрудники работа" : "team hiring work",
+    guarantees: c.lang === "ru" ? "гарантия качество" : "quality guarantee",
+    delivery:   c.lang === "ru" ? "доставка склад" : "delivery warehouse",
+    promo:      c.lang === "ru" ? "акции скидки" : "promotion sale",
+  };
+  const extra = PAGE_KW[slot] || slot;
+  const seed = `${c.topic || c.siteName} ${extra}`;
+  const kw = String(seed)
+    .replace(/[«»"().,:;!?\-—]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 5)
+    .join(",");
+  const safe = encodeURIComponent(kw || "business");
+  return `https://source.unsplash.com/${w}x${h}/?${safe}`;
+}
+
 export function buildAboutPage(c: SiteChrome): string {
   const isRu = c.lang === "ru";
   const title = `${isRu ? "О нас" : "About"} · ${c.siteName}`;
@@ -858,9 +892,14 @@ export function buildAboutPage(c: SiteChrome): string {
 
   const main = `
     <article class="service-page">
-      <header class="service-hero">
-        <h1>${escHtml(isRu ? "О нас" : "About us")}</h1>
-        <p class="service-hero__lead">${escHtml(c.siteAbout || c.siteName)}</p>
+      <header class="service-hero service-hero--with-image">
+        <div class="service-hero__copy">
+          <h1>${escHtml(isRu ? "О нас" : "About us")}</h1>
+          <p class="service-hero__lead">${escHtml(c.siteAbout || c.siteName)}</p>
+        </div>
+        <figure class="service-hero__media">
+          <img src="${escAttr(pageImage(c, "about"))}" alt="${escAttr(isRu ? "О нас" : "About us")}" loading="lazy" width="1600" height="720">
+        </figure>
       </header>
       ${factsHtml}
       <div class="service-blocks">
@@ -898,6 +937,9 @@ export function buildContactsPage(c: SiteChrome): string {
   const main = `
     <article class="page-article contacts-page">
       <h1>${isRu ? "Контакты" : "Contacts"}</h1>
+      <figure class="service-hero__media" style="border-radius:14px;margin:0 0 22px;aspect-ratio:21/9;border:1px solid #e5e7eb">
+        <img src="${escAttr(pageImage(c, "contacts"))}" alt="${escAttr(isRu ? "Наш офис" : "Our office")}" loading="lazy" width="1600" height="720">
+      </figure>
       ${c.contactsHtml || `<p>${escHtml(isRu ? "Напишите нам или позвоните в рабочие часы - ответим оперативно." : "Reach out to us during business hours - we reply quickly.")}</p>`}
 
       <div class="contacts-grid">
@@ -1561,9 +1603,14 @@ export function buildBusinessPage(c: SiteChrome, def: BpDef, html: string): stri
 
   const main = `
     <article class="service-page">
-      <header class="service-hero">
-        <h1>${escHtml(label)}</h1>
-        ${leadText ? `<p class="service-hero__lead">${escHtml(leadText)}</p>` : ""}
+      <header class="service-hero service-hero--with-image">
+        <div class="service-hero__copy">
+          <h1>${escHtml(label)}</h1>
+          ${leadText ? `<p class="service-hero__lead">${escHtml(leadText)}</p>` : ""}
+        </div>
+        <figure class="service-hero__media">
+          <img src="${escAttr(pageImage(c, def.key))}" alt="${escAttr(label)}" loading="lazy" width="1600" height="720">
+        </figure>
       </header>
       <div class="service-blocks">
         ${(restBlocks.length ? restBlocks : blocks).map((b) => `<section class="service-card">${b.heading ? `<h2>${escHtml(b.heading)}</h2>` : ""}${b.body}</section>`).join("")}
