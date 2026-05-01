@@ -143,6 +143,7 @@ export default function SiteFactoryPage() {
   const [articles, setArticles] = useState<QueueArticle[]>([]);
   const [previewArticle, setPreviewArticle] = useState<QueueArticle | null>(null);
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [syndicatingId, setSyndicatingId] = useState<string | null>(null);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [aiFillLoading, setAiFillLoading] = useState(false);
