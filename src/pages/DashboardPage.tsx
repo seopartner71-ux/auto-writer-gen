@@ -22,6 +22,7 @@ import { format, subDays, startOfDay } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, ArrowRight } from "lucide-react";
+import { RankingTracker } from "@/components/analytics/RankingTracker";
 
 /* ──────────── Quick Start Banner ──────────── */
 function QuickStartBanner() {
@@ -832,6 +833,9 @@ function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Ranking Tracker - GSC positions */}
+      <RankingTracker />
     </div>
   );
 }

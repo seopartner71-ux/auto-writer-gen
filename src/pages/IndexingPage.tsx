@@ -24,6 +24,26 @@ export default function IndexingPage() {
   const [gscKey, setGscKey] = useState("");
   const [savingKey, setSavingKey] = useState(false);
   const [isReplacingKey, setIsReplacingKey] = useState(false);
+  const [gscSiteUrl, setGscSiteUrl] = useState((profile as any)?.gsc_site_url || "");
+  const [savingSite, setSavingSite] = useState(false);
+
+  const handleSaveSiteUrl = async () => {
+    if (!gscSiteUrl.trim()) return;
+    setSavingSite(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ gsc_site_url: gscSiteUrl.trim() } as any)
+        .eq("id", user!.id);
+      if (error) throw error;
+      await refreshProfile();
+      toast.success(lang === "ru" ? "Адрес сайта сохранён" : "Site URL saved");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSavingSite(false);
+    }
+  };
 
   // Load logs
   const { data: logs = [], refetch: refetchLogs } = useQuery({
@@ -178,6 +198,32 @@ export default function IndexingPage() {
                   </Button>
                 )}
               </div>
+
+              {hasGscKey && (
+                <div className="pt-3 border-t border-border space-y-2">
+                  <Label className="text-xs">
+                    {lang === "ru"
+                      ? "Адрес сайта в GSC (для отслеживания позиций)"
+                      : "GSC site URL (for ranking tracker)"}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={gscSiteUrl}
+                      onChange={(e) => setGscSiteUrl(e.target.value)}
+                      placeholder="sc-domain:example.com или https://example.com/"
+                      className="text-xs"
+                    />
+                    <Button onClick={handleSaveSiteUrl} disabled={savingSite || !gscSiteUrl.trim()} size="sm" variant="outline">
+                      {savingSite ? <Loader2 className="h-4 w-4 animate-spin" /> : (lang === "ru" ? "Сохранить" : "Save")}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {lang === "ru"
+                      ? "Используйте формат как в Search Console: 'sc-domain:example.com' для domain property или 'https://example.com/' для URL-prefix."
+                      : "Use exact format from Search Console: 'sc-domain:example.com' or 'https://example.com/'."}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
