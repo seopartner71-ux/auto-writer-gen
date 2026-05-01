@@ -198,6 +198,32 @@ export default function IndexingPage() {
                   </Button>
                 )}
               </div>
+
+              {hasGscKey && (
+                <div className="pt-3 border-t border-border space-y-2">
+                  <Label className="text-xs">
+                    {lang === "ru"
+                      ? "Адрес сайта в GSC (для отслеживания позиций)"
+                      : "GSC site URL (for ranking tracker)"}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={gscSiteUrl}
+                      onChange={(e) => setGscSiteUrl(e.target.value)}
+                      placeholder="sc-domain:example.com или https://example.com/"
+                      className="text-xs"
+                    />
+                    <Button onClick={handleSaveSiteUrl} disabled={savingSite || !gscSiteUrl.trim()} size="sm" variant="outline">
+                      {savingSite ? <Loader2 className="h-4 w-4 animate-spin" /> : (lang === "ru" ? "Сохранить" : "Save")}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {lang === "ru"
+                      ? "Используйте формат как в Search Console: 'sc-domain:example.com' для domain property или 'https://example.com/' для URL-prefix."
+                      : "Use exact format from Search Console: 'sc-domain:example.com' or 'https://example.com/'."}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
