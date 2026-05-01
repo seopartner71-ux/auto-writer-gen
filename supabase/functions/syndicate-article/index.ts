@@ -398,7 +398,6 @@ serve(async (req) => {
         : (project.syndication_platforms as Platform[] | null) || ["blogger"]
     ).filter((p) => p === "blogger") as Platform[];
 
-    const tags = pickTags(article);
     const results: Record<string, any> = {};
 
     // Blogger publishes in the site's source language as-is (Blogger supports
