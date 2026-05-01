@@ -214,6 +214,7 @@ export function SiteGridCreator() {
           services: spec.services || undefined,
           audience: spec.audience || undefined,
           business_type: spec.businessType || undefined,
+          language: spec.language,
         };
         let cfData: any = null;
         let cfErr: any = null;
