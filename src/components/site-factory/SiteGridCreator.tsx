@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, Rocket, CheckCircle2, AlertCircle, ExternalLink, Layers, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SitePreviewDialog, SitePreviewSpec } from "./SitePreviewDialog";
+import { SITE_LANGUAGES, type SiteLanguageCode } from "@/shared/utils/siteLanguages";
 
 type RowStatus = "pending" | "creating" | "deploying" | "done" | "error";
 
@@ -21,6 +22,7 @@ interface SiteSpec {
   audience: string;
   businessType: string;
   homepageStyle: "landing" | "magazine" | "news" | "minimal" | "dark" | "local" | "expert";
+  language: SiteLanguageCode;
 }
 
 interface SiteRow {
@@ -50,7 +52,7 @@ function pickRandom<T>(arr: readonly T[]): T {
 
 const emptySpec = (): SiteSpec => ({
   topic: "", siteName: "", region: "", services: "", audience: "", businessType: "продажа",
-  homepageStyle: "landing",
+  homepageStyle: "landing", language: "ru",
 });
 
 const BUSINESS_TYPES = [
