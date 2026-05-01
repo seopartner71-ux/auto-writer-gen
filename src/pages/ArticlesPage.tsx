@@ -349,6 +349,7 @@ export default function ArticlesPage() {
   const isAdmin = role === "admin";
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [sectionedOpen, setSectionedOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
   const [transferEmail, setTransferEmail] = useState("");
