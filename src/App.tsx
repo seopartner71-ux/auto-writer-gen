@@ -46,6 +46,7 @@ const SiteFactoryPage = lazy(() => import("@/pages/SiteFactoryPage"));
 const NetworkMonitorPage = lazy(() => import("@/pages/NetworkMonitorPage"));
 const DomainHunterPage = lazy(() => import("@/pages/DomainHunterPage"));
 const OfferPage = lazy(() => import("@/pages/OfferPage"));
+const QuickStartPage = lazy(() => import("@/pages/QuickStartPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
 const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
@@ -120,6 +121,7 @@ const App = () => (
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/quick-start" element={<QuickStartPage />} />
                   <Route path="/keywords" element={<KeywordsPage />} />
                   <Route path="/plan-builder" element={<PlanBuilderPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
