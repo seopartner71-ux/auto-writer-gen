@@ -31,6 +31,7 @@ import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel } from "@/components/article/HumanScorePanel";
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
+import { LiveQualityBadge } from "@/components/article/LiveQualityBadge";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
@@ -1686,6 +1687,20 @@ export default function ArticlesPage() {
                         ? `${t("articles.generating")} ${streamElapsed}s`
                         : `${t("articles.generating")} ${streamElapsed}s`}
                     </span>
+                  </div>
+                )}
+                {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
+                {currentArticleId && content && !isStreaming && (
+                  <div className="flex justify-end mb-2">
+                    <LiveQualityBadge
+                      articleId={currentArticleId}
+                      content={content}
+                      enabled={localStorage.getItem("live_quality_disabled") !== "1"}
+                      onClick={() => {
+                        // Scroll up to make the right-side dashboard visible
+                        try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+                      }}
+                    />
                   </div>
                 )}
                 <TabsContent value="edit" className="mt-0">
