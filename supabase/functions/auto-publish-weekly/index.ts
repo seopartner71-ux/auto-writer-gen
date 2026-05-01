@@ -95,7 +95,7 @@ serve(async (req) => {
       // so we fire a delayed background task that picks the latest article and syndicates.
       try {
         const { data: pRow } = await admin
-          .from("projects").select("syndication_enabled").eq("id", p.id).maybeSingle();
+          .from("projects").select("syndication_enabled, tier2_enabled").eq("id", p.id).maybeSingle();
         if (pRow?.syndication_enabled && res.ok) {
           (async () => {
             await new Promise((r) => setTimeout(r, 90_000));
@@ -115,6 +115,30 @@ serve(async (req) => {
               },
               body: JSON.stringify({ article_id: latest.id }),
             }).catch((e) => console.warn("[auto-publish] syndicate trigger failed", e?.message));
+          })();
+        }
+
+        // Tier-2 boost: kick off ~5 minutes after generation kicks off, so the
+        // article is ready and the posting pattern looks more natural.
+        if (pRow?.tier2_enabled && res.ok) {
+          (async () => {
+            await new Promise((r) => setTimeout(r, 5 * 60_000));
+            const { data: latest } = await admin
+              .from("articles")
+              .select("id, status")
+              .eq("project_id", p.id)
+              .order("created_at", { ascending: false })
+              .limit(1).maybeSingle();
+            if (!latest?.id) return;
+            await fetch(`${supabaseUrl}/functions/v1/tier2-boost`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${service}`,
+                "x-internal-user-id": p.user_id,
+              },
+              body: JSON.stringify({ article_id: latest.id, count: 1 }),
+            }).catch((e) => console.warn("[auto-publish] tier2 trigger failed", e?.message));
           })();
         }
       } catch (e: any) {
