@@ -1,0 +1,1 @@
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS tier2_enabled boolean NOT NULL DEFAULT false;

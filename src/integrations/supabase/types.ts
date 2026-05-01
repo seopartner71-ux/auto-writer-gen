@@ -1410,6 +1410,7 @@ export type Database = {
           template_font_pair: string | null
           template_key: string | null
           template_type: string | null
+          tier2_enabled: boolean
           total_views: number | null
           updated_at: string
           user_id: string
@@ -1472,6 +1473,7 @@ export type Database = {
           template_font_pair?: string | null
           template_key?: string | null
           template_type?: string | null
+          tier2_enabled?: boolean
           total_views?: number | null
           updated_at?: string
           user_id: string
@@ -1534,6 +1536,7 @@ export type Database = {
           template_font_pair?: string | null
           template_key?: string | null
           template_type?: string | null
+          tier2_enabled?: boolean
           total_views?: number | null
           updated_at?: string
           user_id?: string

@@ -35,6 +35,7 @@ import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
+import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -525,6 +526,7 @@ export default function ArticlesPage() {
   const [finishReason, setFinishReason] = useState<string | null>(null);
   const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
@@ -1672,10 +1674,19 @@ export default function ArticlesPage() {
                 )}
                 <TabsContent value="edit" className="mt-0">
                   <Textarea
+                    ref={editorTextareaRef}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     placeholder={t("articles.editorPlaceholder")}
                     className="min-h-[500px] font-mono text-sm leading-relaxed resize-y"
+                  />
+                  <InlineAIToolbar
+                    textareaRef={editorTextareaRef}
+                    content={content}
+                    language={(lang === "en" ? "en" : "ru") as "ru" | "en"}
+                    onReplace={(start, end, replacement) => {
+                      setContent(prev => prev.slice(0, start) + replacement + prev.slice(end));
+                    }}
                   />
                 </TabsContent>
                 <TabsContent value="preview" className="mt-0">
