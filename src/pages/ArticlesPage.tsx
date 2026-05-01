@@ -1683,7 +1683,7 @@ export default function ArticlesPage() {
                   <InlineAIToolbar
                     textareaRef={editorTextareaRef}
                     content={content}
-                    language={(language === "en" ? "en" : "ru") as "ru" | "en"}
+                    language={(lang === "en" ? "en" : "ru") as "ru" | "en"}
                     onReplace={(start, end, replacement) => {
                       setContent(prev => prev.slice(0, start) + replacement + prev.slice(end));
                     }}
