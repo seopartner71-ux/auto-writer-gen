@@ -19,6 +19,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import MyArticlesPage from "@/pages/MyArticlesPage";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -1125,6 +1127,22 @@ export default function ArticlesPage() {
             {!limits.hasBulkMode && <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PRO</Badge>}
           </Button>
         </div>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <BookOpen className="h-3.5 w-3.5" />
+              {t("nav.myArticles")}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>{t("nav.myArticles")}</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4">
+              <MyArticlesPage />
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {keywords.length === 0 && (
