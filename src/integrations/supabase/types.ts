@@ -188,6 +188,48 @@ export type Database = {
           },
         ]
       }
+      article_rankings: {
+        Row: {
+          article_id: string
+          checked_at: string
+          clicks: number | null
+          created_at: string
+          ctr: number | null
+          id: string
+          impressions: number | null
+          keyword: string
+          position: number | null
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          checked_at?: string
+          clicks?: number | null
+          created_at?: string
+          ctr?: number | null
+          id?: string
+          impressions?: number | null
+          keyword: string
+          position?: number | null
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          checked_at?: string
+          clicks?: number | null
+          created_at?: string
+          ctr?: number | null
+          id?: string
+          impressions?: number | null
+          keyword?: string
+          position?: number | null
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       article_sections: {
         Row: {
           article_id: string
@@ -1913,6 +1955,24 @@ export type Database = {
           id?: string
           request_count?: number
           user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      sandbox_rate_limits: {
+        Row: {
+          ip_hash: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          ip_hash: string
+          request_count?: number
+          window_start?: string
+        }
+        Update: {
+          ip_hash?: string
+          request_count?: number
           window_start?: string
         }
         Relationships: []
