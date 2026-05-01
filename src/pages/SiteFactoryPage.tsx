@@ -2403,6 +2403,17 @@ export default function SiteFactoryPage() {
                             ? <Loader2 className="h-4 w-4 animate-spin" />
                             : <Share2 className="h-4 w-4" />}
                         </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleTier2Boost(article)}
+                          disabled={!article.content || isGen || tier2Id === article.id || article.status !== "published"}
+                          title={lang === "ru" ? "Tier-2 Boost: создать 2 внешних тизера со ссылкой" : "Tier-2 Boost: create 2 external teasers with a backlink"}
+                        >
+                          {tier2Id === article.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <TrendingUp className="h-4 w-4" />}
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="icon" variant="ghost" disabled={!canDelete} className="text-destructive hover:text-destructive">
