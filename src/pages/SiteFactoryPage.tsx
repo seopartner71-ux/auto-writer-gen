@@ -1013,6 +1013,37 @@ export default function SiteFactoryPage() {
 
   const handleBatchPublish = async () => {
     // placeholder anchor
+    void 0;
+  };
+
+  const handleSyndicate = async (article: QueueArticle) => {
+    if (!article.id) return;
+    setSyndicatingId(article.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("syndicate-article", {
+        body: { article_id: article.id },
+      });
+      if (error) throw new Error(error.message);
+      const results = data?.results || {};
+      const ok = Object.values(results).filter((r: any) => r?.ok).length;
+      const total = Object.keys(results).length;
+      toast({
+        title: lang === "ru" ? "Синдикация запущена" : "Syndication done",
+        description: lang === "ru" ? `Успешно: ${ok} из ${total}` : `Success: ${ok} of ${total}`,
+        variant: ok === 0 ? "destructive" : "default",
+      });
+    } catch (e: any) {
+      toast({
+        title: lang === "ru" ? "Ошибка синдикации" : "Syndication error",
+        description: e?.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setSyndicatingId(null);
+    }
+  };
+
+  const _handleBatchPublishOriginal = async () => {
     if (!selectedProjectId || selectedIds.size === 0) return;
     setBatchPublishing(true);
     addDeployLog("publishing", lang === "ru" ? `Пакетная публикация ${selectedIds.size} статей...` : `Batch publishing ${selectedIds.size} articles...`);
