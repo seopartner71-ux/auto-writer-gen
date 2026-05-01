@@ -379,6 +379,49 @@ export default function NetworkMonitorPage() {
         </Card>
       </div>
 
+      {/* IP Distribution / Footprint Warning */}
+      {(ipClusters.length > 0 || resolvingIps) && (
+        <Card className={`${ipClusters.length > 0 ? "border-warning/40 bg-warning/5" : "border-border/50 bg-card/50"}`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              {ipClusters.length > 0 ? (
+                <AlertTriangle className="h-4 w-4 text-warning" />
+              ) : (
+                <Network className="h-4 w-4 text-muted-foreground" />
+              )}
+              {lang === "ru" ? "IP-разнесение сети" : "IP Footprint"}
+              {resolvingIps && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {ipClusters.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {lang === "ru"
+                  ? "Все домены проверены - кластеризации по IP не найдено."
+                  : "All domains checked - no IP clustering detected."}
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-foreground">
+                  {lang === "ru"
+                    ? `Найдено ${ipClusters.length} IP-адресов с 3+ сайтами. Это упрощает Google склейку сети - переместите часть сайтов на другой хостинг.`
+                    : `Found ${ipClusters.length} IPs hosting 3+ sites. This makes the network easier for Google to cluster - move some sites to a different host.`}
+                </p>
+                <div className="space-y-1.5 mt-2">
+                  {ipClusters.map(([ip, hosts]) => (
+                    <div key={ip} className="text-xs">
+                      <span className="font-mono text-warning">{ip}</span>
+                      <span className="text-muted-foreground ml-2">→ {hosts.length} {lang === "ru" ? "сайтов" : "sites"}:</span>
+                      <span className="text-muted-foreground ml-1">{hosts.slice(0, 5).join(", ")}{hosts.length > 5 ? ` +${hosts.length - 5}` : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Projects Table */}
       <Card className="bg-card/50 border-border/50">
         <CardHeader>
