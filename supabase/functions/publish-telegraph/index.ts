@@ -205,12 +205,17 @@ Deno.serve(async (req) => {
     // Add canonical link at bottom if anchor links available
     const firstUrl = effectiveLinks.find(l => l.url)?.url;
     if (firstUrl) {
+      // Сноска должна быть на языке САМОЙ статьи, а не UI.
+      // На Telegra.ph часто публикуют англоязычный контент — русская подпись там
+      // выглядит как ошибка перевода.
+      const articleIsRussian = /[а-яА-Я]/.test((article.title || "") + " " + (article.content || "").slice(0, 2000));
+      const captionLabel = articleIsRussian ? "Оригинал статьи: " : "Original article: ";
       safeContent.push({ tag: "br" });
       safeContent.push({
         tag: "p",
         children: [
           { tag: "em", children: [
-            lang === "ru" ? "Оригинал статьи: " : "Original article: ",
+            captionLabel,
             { tag: "a", attrs: { href: firstUrl }, children: [firstUrl] }
           ]}
         ]
