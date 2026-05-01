@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2 } from "lucide-react";
+import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2, AlertTriangle, Network } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +62,8 @@ export default function NetworkMonitorPage() {
   const [cfConfigured, setCfConfigured] = useState<boolean>(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [indexedCounts, setIndexedCounts] = useState<Record<string, { sent: number; total: number }>>({});
+  const [ipMap, setIpMap] = useState<Record<string, string>>({}); // host -> IP
+  const [resolvingIps, setResolvingIps] = useState(false);
 
   // Load projects
   const loadProjects = useCallback(async () => {
@@ -177,6 +179,45 @@ export default function NetworkMonitorPage() {
     loadCloudflareStats();
     loadIndexingStats();
   }, [loadProjects, loadPixelViews, loadArticleCounts, loadCloudflareStats, loadIndexingStats]);
+
+  // Resolve A-records of all CF site domains via Google DoH (no CORS issues)
+  useEffect(() => {
+    const hosts = Array.from(new Set(
+      projects
+        .map((p) => (p.domain || "").replace(/^https?:\/\//, "").split("/")[0])
+        .filter((h) => h && !h.endsWith(".pages.dev"))
+    ));
+    if (!hosts.length) return;
+    let cancelled = false;
+    setResolvingIps(true);
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const host of hosts) {
+        try {
+          const res = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(host)}&type=A`);
+          const data = await res.json();
+          const ip = (data?.Answer || []).find((a: any) => a.type === 1)?.data;
+          if (ip) next[host] = ip;
+        } catch { /* ignore */ }
+        if (cancelled) return;
+      }
+      if (!cancelled) setIpMap(next);
+      setResolvingIps(false);
+    })();
+    return () => { cancelled = true; };
+  }, [projects]);
+
+  // Group hosts by IP, find clusters
+  const ipClusters = useMemo(() => {
+    const byIp: Record<string, string[]> = {};
+    Object.entries(ipMap).forEach(([host, ip]) => {
+      if (!byIp[ip]) byIp[ip] = [];
+      byIp[ip].push(host);
+    });
+    return Object.entries(byIp)
+      .filter(([, hosts]) => hosts.length >= 3)
+      .sort((a, b) => b[1].length - a[1].length);
+  }, [ipMap]);
 
   // Run health check
   const runHealthCheck = async () => {
