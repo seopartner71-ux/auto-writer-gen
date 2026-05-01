@@ -190,7 +190,8 @@ export default function SiteFactoryPage() {
     [projects, selectedProjectId]
   );
 
-  const PROJECT_SELECT = "id, name, domain, language, github_repo, github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link, google_verification, template_type";
+  // Note: github_token is server-only. Use has_github_token flag for UI checks.
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, has_github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link, google_verification, template_type";
 
   // Sync siteConfig when project changes
   useEffect(() => {
@@ -232,7 +233,7 @@ export default function SiteFactoryPage() {
     setDeployLogs((prev) => [{ status, message, timestamp: new Date() }, ...prev].slice(0, 20));
   };
 
-  const isGitHubConfigured = !!(selectedProject?.github_token && selectedProject?.github_repo);
+  const isGitHubConfigured = !!((selectedProject as any)?.has_github_token && selectedProject?.github_repo);
   const isPlatformLocked = false;
   // Sites created via Site Grid use Cloudflare Pages Direct Upload (no GitHub repo).
   // Detected by: cloudflare hosting + template_type set, OR cloudflare hosting + no github_repo.
