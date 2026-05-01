@@ -390,7 +390,7 @@ export function SectionVideoDemo() {
                 pulseCta ? "shadow-[0_0_60px_-5px_hsl(var(--primary)/0.7)] animate-glow-pulse" : ""
               }`}
             >
-              <Link to="/auth">
+            <Link to="/register">
                 Создать первую статью бесплатно
                 <span className="ml-1">-&gt;</span>
               </Link>
