@@ -38,7 +38,8 @@ interface ProjectRow {
   domain: string;
   language: string;
   github_repo: string | null;
-  github_token: string | null;
+  github_token?: string | null; // server-only, never selected from client
+  has_github_token?: boolean;
   site_name: string | null;
   site_copyright: string | null;
   site_about: string | null;
