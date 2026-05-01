@@ -49,12 +49,18 @@ export function GitHubProjectsTab() {
   }, []);
 
   const loadProjects = async () => {
-    const { data } = await supabase.from("projects").select("id, name, domain, github_repo, github_token, hosting_platform");
+    // Never select github_token from client; use has_github_token boolean flag
+    const { data } = await supabase.from("projects").select("id, name, domain, github_repo, has_github_token, hosting_platform");
     if (data) {
-      setProjects(data as ProjectGH[]);
+      const projectsWithTokenFlag = (data as any[]).map((p) => ({
+        ...p,
+        github_token: p.has_github_token ? "••••••••" : null,
+      }));
+      setProjects(projectsWithTokenFlag as ProjectGH[]);
       const ed: Record<string, { repo: string; token: string }> = {};
-      data.forEach((p: any) => {
-        ed[p.id] = { repo: p.github_repo || "", token: p.github_token || "" };
+      projectsWithTokenFlag.forEach((p: any) => {
+        // Editable token starts empty — user types new value to replace
+        ed[p.id] = { repo: p.github_repo || "", token: "" };
       });
       setEditing(ed);
     }

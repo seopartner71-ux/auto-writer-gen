@@ -42,12 +42,13 @@ export default function IntegrationsPage() {
     if (!user) return;
     const load = async () => {
       const [{ data: profile }, { data: bConn }] = await Promise.all([
-        supabase.from("profiles").select("ghost_url, ghost_api_key, medium_token").eq("id", user.id).single(),
-        (supabase as any).from("blogger_connections").select("google_email, blogs, default_blog_id, default_blog_name").eq("user_id", user.id).maybeSingle(),
+        supabase.from("profiles").select("ghost_url, has_ghost_key, has_medium_token").eq("id", user.id).single(),
+        (supabase as any).from("blogger_connections").select("google_email, blogs, default_blog_id, default_blog_name, has_tokens").eq("user_id", user.id).maybeSingle(),
       ]);
       if (profile) {
         setGhostUrl((profile as any).ghost_url || "");
-        setGhostApiKey((profile as any).ghost_api_key || "");
+        // Don't expose ghost_api_key value; show placeholder if configured
+        setGhostApiKey((profile as any).has_ghost_key ? "••••••••" : "");
       }
       if (bConn) setBlogger(bConn as any);
       setBloggerLoading(false);
