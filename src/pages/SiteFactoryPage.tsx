@@ -946,6 +946,9 @@ export default function SiteFactoryPage() {
   };
 
   const handlePublish = async (article: QueueArticle) => {
+    void article;
+    return _handlePublish_orig(article);
+  };
     if (!selectedProjectId || !article.content) return;
     setPublishing(article.id);
     addDeployLog("publishing", lang === "ru" ? `Публикация: ${article.title}...` : `Publishing: ${article.title}...`);
