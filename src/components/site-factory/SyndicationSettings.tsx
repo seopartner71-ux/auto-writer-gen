@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Share2 } from "lucide-react";
+import { Share2, TrendingUp } from "lucide-react";
 
 interface Props {
   projectId: string | null;
@@ -26,18 +26,28 @@ export function SyndicationSettings({ projectId, lang }: Props) {
   const [enabled, setEnabled] = useState(false);
   const [platforms, setPlatforms] = useState<Platform[]>([...ALL_PLATFORMS]);
   const [loading, setLoading] = useState(false);
+  const [tier2Enabled, setTier2Enabled] = useState(false);
+  const [tier2Count, setTier2Count] = useState(0);
 
   useEffect(() => {
     if (!projectId) return;
     (async () => {
       const { data } = await supabase
         .from("projects")
-        .select("syndication_enabled, syndication_platforms")
+        .select("syndication_enabled, syndication_platforms, tier2_enabled")
         .eq("id", projectId).maybeSingle();
       if (data) {
         setEnabled(!!data.syndication_enabled);
         setPlatforms(((data.syndication_platforms as Platform[] | null) || ALL_PLATFORMS).filter((p) => ALL_PLATFORMS.includes(p as Platform)));
+        setTier2Enabled(!!(data as any).tier2_enabled);
       }
+      // Count published Tier-2 backlinks for this project (dashboard widget).
+      const { count } = await supabase
+        .from("tier2_backlinks")
+        .select("*", { count: "exact", head: true })
+        .eq("project_id", projectId)
+        .eq("status", "published");
+      setTier2Count(count || 0);
     })();
   }, [projectId]);
 
@@ -102,6 +112,31 @@ export function SyndicationSettings({ projectId, lang }: Props) {
             ? "Blogger: используется ваше OAuth-подключение. Telegra.ph: публикуется без регистрации."
             : "Blogger: uses your own OAuth connection. Telegra.ph: anonymous publishing."}
         </p>
+
+        <div className="pt-3 mt-1 border-t border-border space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <Label className="text-sm">
+                {lang === "ru" ? "Tier-2 буст (Telegraph + Blogger)" : "Tier-2 boost (Telegraph + Blogger)"}
+              </Label>
+            </div>
+            <Switch
+              checked={tier2Enabled}
+              disabled={loading}
+              onCheckedChange={(v) => { setTier2Enabled(v); save({ tier2_enabled: v }); }}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {lang === "ru"
+              ? "Через 5 минут после автопубликации создаётся короткий тизер (150-220 слов) на Telegra.ph и Blogger со ссылкой на оригинал. Имитация естественного link velocity."
+              : "Five minutes after each auto-publish, a short teaser (150-220 words) is posted to Telegra.ph and Blogger linking back to the original. Mimics natural link velocity."}
+          </p>
+          <div className="text-[11px] text-muted-foreground">
+            {lang === "ru" ? "Tier-2 ссылок создано: " : "Tier-2 backlinks built: "}
+            <span className="text-foreground font-medium">{tier2Count}</span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
