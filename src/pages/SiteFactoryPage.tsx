@@ -2363,6 +2363,17 @@ export default function SiteFactoryPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleSyndicate(article)}
+                          disabled={!article.content || isGen || syndicatingId === article.id}
+                          title={lang === "ru" ? "Синдицировать на Blogger/Hashnode/Dev.to" : "Syndicate to Blogger/Hashnode/Dev.to"}
+                        >
+                          {syndicatingId === article.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <Share2 className="h-4 w-4" />}
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="icon" variant="ghost" disabled={!canDelete} className="text-destructive hover:text-destructive">
