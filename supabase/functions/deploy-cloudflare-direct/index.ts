@@ -24,6 +24,7 @@ import { renderLocalHome, renderLocalArticle, localExtraCss } from "./localPage.
 import { renderExpertHome, renderExpertArticle, expertExtraCss } from "./expertPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
+import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
