@@ -20,6 +20,8 @@ import {
 import { toast } from "sonner";
 import { format, subDays, startOfDay } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
+import { Sparkles } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "hsl(var(--muted-foreground))",
@@ -944,6 +946,9 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold">{t("dashboard.title")}</h1>
         <p className="text-muted-foreground mt-1">{t("dashboard.subtitle")}</p>
       </div>
+
+      {/* Quick Start CTA */}
+      <QuickStartBanner />
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
