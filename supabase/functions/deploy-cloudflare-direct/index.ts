@@ -1244,7 +1244,7 @@ serve(async (req) => {
       operation_type: "cloudflare_deploy",
       model: "cloudflare-pages",
       cost_usd: 0,
-      metadata: { template: templateKey, url: pagesDevUrl },
+      metadata: { template: templateKey, url: pagesDevUrl, heading_qa: headingQa },
     });
 
     return new Response(JSON.stringify({
@@ -1253,6 +1253,7 @@ serve(async (req) => {
       url: pagesDevUrl,
       template: templateKey, accent_color: accent, font_pair: fontPair,
       deploy_id: deployParsed.data?.result?.id || null,
+      heading_qa: headingQa,
       message: `Direct Upload deployed: ${pagesDevUrl}`,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
