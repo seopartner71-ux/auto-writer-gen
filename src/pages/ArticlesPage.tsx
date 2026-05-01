@@ -982,6 +982,8 @@ export default function ArticlesPage() {
   // Generate schema
   const generateSchema = useMutation({
     mutationFn: async () => {
+      const isTelegraph = !!(selectedAuthorId && selectedAuthorId !== "none" &&
+        authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
       const { data, error } = await supabase.functions.invoke("generate-schema", {
         body: {
           title,
@@ -990,6 +992,7 @@ export default function ArticlesPage() {
           questions: selectedKeyword?.questions || [],
           lsi_keywords: lsiKeywords,
           mode: faqMode,
+          skip_schema: isTelegraph,
         },
       });
       if (error) throw error;
@@ -1000,7 +1003,7 @@ export default function ArticlesPage() {
       const schemas = [];
       if (data.article_schema) schemas.push(data.article_schema);
       if (data.faq_schema) schemas.push(data.faq_schema);
-      setSchemaJson(JSON.stringify(schemas, null, 2));
+      setSchemaJson(schemas.length ? JSON.stringify(schemas, null, 2) : "");
       if (data.faq_text_block) setFaqTextBlock(data.faq_text_block);
       toast.success(t("articles.faqGenerated"));
     },
@@ -1024,6 +1027,8 @@ export default function ArticlesPage() {
     if (!articleContent || !limits.hasJsonLdSchema) return;
     try {
       setSchemaGenerating(true);
+      const isTelegraph = !!(selectedAuthorId && selectedAuthorId !== "none" &&
+        authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
       const { data, error } = await supabase.functions.invoke("generate-schema", {
         body: {
           title: articleTitle,
@@ -1032,20 +1037,21 @@ export default function ArticlesPage() {
           questions: selectedKeyword?.questions || [],
           lsi_keywords: lsiKeywords,
           mode: faqMode,
+          skip_schema: isTelegraph,
         },
       });
       if (error || data?.error) return;
       const schemas = [];
       if (data.article_schema) schemas.push(data.article_schema);
       if (data.faq_schema) schemas.push(data.faq_schema);
-      setSchemaJson(JSON.stringify(schemas, null, 2));
+      setSchemaJson(schemas.length ? JSON.stringify(schemas, null, 2) : "");
       if (data.faq_text_block) setFaqTextBlock(data.faq_text_block);
     } catch {
       // best-effort
     } finally {
       setSchemaGenerating(false);
     }
-  }, [selectedKeyword, limits.hasJsonLdSchema, faqMode, lsiKeywords]);
+  }, [selectedKeyword, limits.hasJsonLdSchema, faqMode, lsiKeywords, selectedAuthorId, authorProfiles]);
 
   // Auto-fill fields when keyword changes
   useEffect(() => {
