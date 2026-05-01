@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Zap, Settings, Share2 } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Zap, Settings, Share2, TrendingUp } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,6 +144,7 @@ export default function SiteFactoryPage() {
   const [previewArticle, setPreviewArticle] = useState<QueueArticle | null>(null);
   const [publishing, setPublishing] = useState<string | null>(null);
   const [syndicatingId, setSyndicatingId] = useState<string | null>(null);
+  const [tier2Id, setTier2Id] = useState<string | null>(null);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [aiFillLoading, setAiFillLoading] = useState(false);
@@ -1035,6 +1036,34 @@ export default function SiteFactoryPage() {
       });
     } finally {
       setSyndicatingId(null);
+    }
+  };
+
+  const handleTier2Boost = async (article: QueueArticle) => {
+    if (!article.id) return;
+    setTier2Id(article.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("tier2-boost", {
+        body: { article_id: article.id, count: 2 },
+      });
+      if (error) throw new Error(error.message);
+      const success = data?.success ?? 0;
+      const total = data?.total ?? 0;
+      toast({
+        title: lang === "ru" ? "Tier-2 буст" : "Tier-2 boost",
+        description: lang === "ru"
+          ? `Опубликовано тизеров: ${success} из ${total}`
+          : `Teasers published: ${success} of ${total}`,
+        variant: success === 0 ? "destructive" : "default",
+      });
+    } catch (e: any) {
+      toast({
+        title: lang === "ru" ? "Ошибка Tier-2" : "Tier-2 error",
+        description: e?.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setTier2Id(null);
     }
   };
 
@@ -2373,6 +2402,17 @@ export default function SiteFactoryPage() {
                           {syndicatingId === article.id
                             ? <Loader2 className="h-4 w-4 animate-spin" />
                             : <Share2 className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleTier2Boost(article)}
+                          disabled={!article.content || isGen || tier2Id === article.id || article.status !== "published"}
+                          title={lang === "ru" ? "Tier-2 Boost: создать 2 внешних тизера со ссылкой" : "Tier-2 Boost: create 2 external teasers with a backlink"}
+                        >
+                          {tier2Id === article.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <TrendingUp className="h-4 w-4" />}
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>

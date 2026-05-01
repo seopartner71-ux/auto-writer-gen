@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2 } from "lucide-react";
+import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2, AlertTriangle, Network } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +62,8 @@ export default function NetworkMonitorPage() {
   const [cfConfigured, setCfConfigured] = useState<boolean>(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [indexedCounts, setIndexedCounts] = useState<Record<string, { sent: number; total: number }>>({});
+  const [ipMap, setIpMap] = useState<Record<string, string>>({}); // host -> IP
+  const [resolvingIps, setResolvingIps] = useState(false);
 
   // Load projects
   const loadProjects = useCallback(async () => {
@@ -177,6 +179,45 @@ export default function NetworkMonitorPage() {
     loadCloudflareStats();
     loadIndexingStats();
   }, [loadProjects, loadPixelViews, loadArticleCounts, loadCloudflareStats, loadIndexingStats]);
+
+  // Resolve A-records of all CF site domains via Google DoH (no CORS issues)
+  useEffect(() => {
+    const hosts = Array.from(new Set(
+      projects
+        .map((p) => (p.domain || "").replace(/^https?:\/\//, "").split("/")[0])
+        .filter((h) => h && !h.endsWith(".pages.dev"))
+    ));
+    if (!hosts.length) return;
+    let cancelled = false;
+    setResolvingIps(true);
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const host of hosts) {
+        try {
+          const res = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(host)}&type=A`);
+          const data = await res.json();
+          const ip = (data?.Answer || []).find((a: any) => a.type === 1)?.data;
+          if (ip) next[host] = ip;
+        } catch { /* ignore */ }
+        if (cancelled) return;
+      }
+      if (!cancelled) setIpMap(next);
+      setResolvingIps(false);
+    })();
+    return () => { cancelled = true; };
+  }, [projects]);
+
+  // Group hosts by IP, find clusters
+  const ipClusters = useMemo(() => {
+    const byIp: Record<string, string[]> = {};
+    Object.entries(ipMap).forEach(([host, ip]) => {
+      if (!byIp[ip]) byIp[ip] = [];
+      byIp[ip].push(host);
+    });
+    return Object.entries(byIp)
+      .filter(([, hosts]) => hosts.length >= 3)
+      .sort((a, b) => b[1].length - a[1].length);
+  }, [ipMap]);
 
   // Run health check
   const runHealthCheck = async () => {
@@ -337,6 +378,49 @@ export default function NetworkMonitorPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* IP Distribution / Footprint Warning */}
+      {(ipClusters.length > 0 || resolvingIps) && (
+        <Card className={`${ipClusters.length > 0 ? "border-warning/40 bg-warning/5" : "border-border/50 bg-card/50"}`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              {ipClusters.length > 0 ? (
+                <AlertTriangle className="h-4 w-4 text-warning" />
+              ) : (
+                <Network className="h-4 w-4 text-muted-foreground" />
+              )}
+              {lang === "ru" ? "IP-разнесение сети" : "IP Footprint"}
+              {resolvingIps && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {ipClusters.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {lang === "ru"
+                  ? "Все домены проверены - кластеризации по IP не найдено."
+                  : "All domains checked - no IP clustering detected."}
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-foreground">
+                  {lang === "ru"
+                    ? `Найдено ${ipClusters.length} IP-адресов с 3+ сайтами. Это упрощает Google склейку сети - переместите часть сайтов на другой хостинг.`
+                    : `Found ${ipClusters.length} IPs hosting 3+ sites. This makes the network easier for Google to cluster - move some sites to a different host.`}
+                </p>
+                <div className="space-y-1.5 mt-2">
+                  {ipClusters.map(([ip, hosts]) => (
+                    <div key={ip} className="text-xs">
+                      <span className="font-mono text-warning">{ip}</span>
+                      <span className="text-muted-foreground ml-2">→ {hosts.length} {lang === "ru" ? "сайтов" : "sites"}:</span>
+                      <span className="text-muted-foreground ml-1">{hosts.slice(0, 5).join(", ")}{hosts.length > 5 ? ` +${hosts.length - 5}` : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Projects Table */}
       <Card className="bg-card/50 border-border/50">
