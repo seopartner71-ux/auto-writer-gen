@@ -31,9 +31,9 @@ export function RankingTracker() {
     try {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("gsc_json_key, gsc_site_url")
+        .select("has_gsc_key, gsc_site_url")
         .single();
-      setHasGsc(!!(profile?.gsc_json_key && (profile as any)?.gsc_site_url));
+      setHasGsc(!!((profile as any)?.has_gsc_key && (profile as any)?.gsc_site_url));
 
       const { data } = await supabase
         .from("article_rankings" as any)

@@ -63,8 +63,8 @@ export default function IndexingPage() {
     enabled: isPro && !!user,
   });
 
-  // Check if GSC key is configured
-  const hasGscKey = !!profile?.gsc_json_key;
+  // Check if GSC key is configured (use boolean flag, never expose key to client)
+  const hasGscKey = !!(profile as any)?.has_gsc_key;
 
   const handleSaveGscKey = async () => {
     if (!gscKey.trim()) return;
