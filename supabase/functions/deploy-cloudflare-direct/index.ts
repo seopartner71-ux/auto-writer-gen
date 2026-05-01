@@ -627,7 +627,11 @@ serve(async (req) => {
 
     // 2. Render files (DB template takes priority)
     const trackerBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/track-visit`;
-    const lang = ((project as any).language || "ru").toString().toLowerCase().startsWith("ru") ? "ru" : "en";
+    // Multi-language: deploy templates currently support ru/en chrome.
+    // For other languages we still pass through the generated content (which is in
+    // the project's language) but use "en" as the chrome locale to avoid Russian UI.
+    const rawLang = String((project as any).language || "ru").toLowerCase().slice(0, 2);
+    const lang: "ru" | "en" = rawLang === "ru" ? "ru" : "en";
     // Read global "Back to top" button position (configurable from admin).
     // Defaults to "left-bottom" so it never overlaps the right-side chat.
     let totopPosition: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden" = "left-bottom";

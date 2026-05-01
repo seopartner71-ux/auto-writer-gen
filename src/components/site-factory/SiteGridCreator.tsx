@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, Rocket, CheckCircle2, AlertCircle, ExternalLink, Layers, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SitePreviewDialog, SitePreviewSpec } from "./SitePreviewDialog";
+import { SITE_LANGUAGES, type SiteLanguageCode } from "@/shared/utils/siteLanguages";
 
 type RowStatus = "pending" | "creating" | "deploying" | "done" | "error";
 
@@ -21,6 +22,7 @@ interface SiteSpec {
   audience: string;
   businessType: string;
   homepageStyle: "landing" | "magazine" | "news" | "minimal" | "dark" | "local" | "expert";
+  language: SiteLanguageCode;
 }
 
 interface SiteRow {
@@ -50,7 +52,7 @@ function pickRandom<T>(arr: readonly T[]): T {
 
 const emptySpec = (): SiteSpec => ({
   topic: "", siteName: "", region: "", services: "", audience: "", businessType: "продажа",
-  homepageStyle: "landing",
+  homepageStyle: "landing", language: "ru",
 });
 
 const BUSINESS_TYPES = [
@@ -150,7 +152,7 @@ export function SiteGridCreator() {
           try {
             const niceTopic = spec.region ? `${topic} в ${spec.region}` : topic;
             const { data: nameData } = await supabase.functions.invoke("generate-site-name", {
-              body: { topic: niceTopic, language: "ru" },
+              body: { topic: niceTopic, language: spec.language },
             });
             if (nameData?.name) projectName = String(nameData.name);
           } catch { /* fallback to raw topic */ }
@@ -164,8 +166,8 @@ export function SiteGridCreator() {
             user_id: user.id,
             name: projectName,
             domain: "",
-            language: "ru",
-            region: spec.region || "RU",
+            language: spec.language,
+            region: spec.region || (spec.language === "ru" ? "RU" : spec.language.toUpperCase()),
             hosting_platform: "cloudflare",
             site_name: projectName,
             site_about: spec.services
@@ -212,6 +214,7 @@ export function SiteGridCreator() {
           services: spec.services || undefined,
           audience: spec.audience || undefined,
           business_type: spec.businessType || undefined,
+          language: spec.language,
         };
         let cfData: any = null;
         let cfErr: any = null;
@@ -324,6 +327,19 @@ export function SiteGridCreator() {
                       className="h-8 text-xs"
                       maxLength={80}
                     />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Язык сайта *</Label>
+                    <select
+                      value={spec.language}
+                      onChange={(e) => updateSpec(idx, { language: e.target.value as SiteLanguageCode })}
+                      disabled={running}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs disabled:opacity-50"
+                    >
+                      {SITE_LANGUAGES.map((l) => (
+                        <option key={l.code} value={l.code}>{l.iso} · {l.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Тематика / ниша *</Label>

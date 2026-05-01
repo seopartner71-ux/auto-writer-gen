@@ -11,6 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
+import { getSiteLangMeta, normalizeSiteLang, type SiteLanguageCode } from "../_shared/siteLanguages.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,35 +62,38 @@ function deterministicEmail(domain: string, seed: string): string {
   return `${MAIL_LOCAL[fnv1a(seed + ":mail") % MAIL_LOCAL.length]}@${domain}`;
 }
 
-function fallback(siteName: string, siteAbout: string, topic: string, projectId: string = "site", lang: string = "ru") {
+function fallback(siteName: string, siteAbout: string, topic: string, projectId: string = "site", lang: SiteLanguageCode = "ru") {
+  const meta = getSiteLangMeta(lang);
   const year = new Date().getFullYear() - Math.floor(2 + Math.random() * 8);
   const dom = domainFromSiteName(siteName, lang);
+  const firstCity = meta.cityExamples.split(",")[0].trim();
+  const [n1 = "", n2 = "", n3 = ""] = meta.nameExamples.split(",").map((s) => s.trim());
   return {
     company_name: siteName,
-    company_address: "г. Москва, БЦ «Деловой», офис 305",
-    legal_address: "г. Москва, БЦ «Деловой», офис 305",
-    company_phone: "+7 (495) 123-45-67",
+    company_address: firstCity,
+    legal_address: firstCity,
+    company_phone: meta.phoneFormat.replace(/X/g, () => String(Math.floor(Math.random() * 10))),
     company_email: deterministicEmail(dom, projectId),
-    work_hours: "Пн-Пт 9:00-18:00 по московскому времени",
+    work_hours: lang === "ru" ? "Пн-Пт 9:00-18:00" : "Mon-Fri 9:00-18:00",
     juridical_inn: deterministicInn(projectId),
     whatsapp_url: "",
     telegram_url: "",
     vk_url: "",
-    clients_count_text: "Более 500 клиентов",
+    clients_count_text: lang === "ru" ? "Более 500 клиентов" : "500+ clients",
     founding_year: year,
     team_members: [
-      { name: "Алексей Смирнов", role: "Главный редактор", bio: "Более 10 лет в нише." },
-      { name: "Мария Иванова", role: "Автор", bio: "Готовит обзоры и практические материалы." },
+      { name: n1 || "Editor", role: "Editor-in-chief", bio: "10+ years in the niche." },
+      { name: n2 || "Author", role: "Author", bio: "Writes practical reviews and guides." },
     ],
     authors: [
-      { name: "Алексей Смирнов", role: "Главный редактор", bio: "Более 10 лет работает с темой.", avatar_seed: "Aleksey-Smirnov" },
-      { name: "Мария Иванова", role: "Автор", bio: "Готовит обзоры и практические материалы.", avatar_seed: "Mariya-Ivanova" },
-      { name: "Дмитрий Соколов", role: "Технический редактор", bio: "Отвечает за факт-чекинг.", avatar_seed: "Dmitriy-Sokolov" },
+      { name: n1 || "Author 1", role: "Editor-in-chief", bio: "10+ years on the topic.", avatar_seed: (n1 || "author-1").replace(/\s+/g, "-") },
+      { name: n2 || "Author 2", role: "Author",          bio: "Practical reviews and guides.", avatar_seed: (n2 || "author-2").replace(/\s+/g, "-") },
+      { name: n3 || "Author 3", role: "Fact-checker",    bio: "Owns fact-checking.",            avatar_seed: (n3 || "author-3").replace(/\s+/g, "-") },
     ],
-    site_about: `<p>${siteAbout}</p><p>Мы работаем с ${year} года и публикуем материалы по теме «${topic}» - без воды, на основе практики.</p>`,
-    site_contacts: `<p>Если хотите связаться с редакцией, напишите нам или позвоните в рабочие часы.</p>`,
-    site_privacy: `<p>Мы уважаем вашу конфиденциальность. Сайт собирает только cookies, необходимые для работы и аналитики, и только после вашего согласия.</p>`,
-    site_terms: `<p>Все материалы сайта носят информационный характер. Использование контента возможно с указанием активной ссылки на источник.</p>`,
+    site_about: `<p>${siteAbout}</p>`,
+    site_contacts: `<p>${meta.cityExamples.split(",")[0].trim()} · ${meta.phoneFormat}</p>`,
+    site_privacy: `<p>Privacy notice for ${siteName}.</p>`,
+    site_terms: `<p>Terms of use for ${siteName}.</p>`,
     business_pages: {},
   };
 }
@@ -137,92 +141,63 @@ serve(async (req) => {
     const siteName = project.site_name || project.name || "Сайт";
     const siteAbout = project.site_about || "";
     const topic = body.topic || siteAbout || siteName;
-    const lang = (project.language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en";
+    const lang = normalizeSiteLang((project as any).language);
+    const langMeta = getSiteLangMeta(lang);
 
     const apiKey = await getOpenRouterKey(admin);
     const aiModel = resolveOpenRouterModel((project as any).ai_model);
     let payload: ReturnType<typeof fallback> | null = null;
 
     if (apiKey) {
-      const systemPrompt = lang === "ru"
-        ? `Ты создаешь правдоподобный, но вымышленный профиль информационного сайта-блога. Возвращай ТОЛЬКО JSON. Не используй слова «эксперт», «эксклюзив», не выдумывай известных людей, адресов с реальной нумерацией известных зданий. Адрес - правдоподобный российский, телефон - российский мобильный/городской формат. Тексты страниц - короткие, в HTML с тегами p, без h1/h2.`
-        : `You generate a plausible fictional profile for an informational blog site. Return ONLY JSON. Avoid words like "expert" or "exclusive". Use a plausible US address and US phone format. Page texts are short HTML with <p>, no h1/h2.`;
+      const systemPrompt = `You generate a plausible fictional profile for an informational blog site. Return ONLY JSON. Avoid words like "expert" or "exclusive".
 
-      const userPrompt = lang === "ru"
-        ? `Сайт: «${siteName}». Тема: «${topic}». Краткое описание: «${siteAbout}».
-Сгенерируй JSON со строго такими полями:
-{
-  "company_name": "название компании-владельца",
-  "company_address": "правдоподобный адрес офиса",
-  "legal_address": "правдоподобный юридический адрес (может совпадать с office)",
-  "work_hours": "Пн-Пт 9:00-18:00 (правдоподобный режим)",
-  "clients_count_text": "Более N клиентов / партнёров (N от 100 до 5000)",
-  "whatsapp_url": "https://wa.me/7XXXXXXXXXX (или пустая строка)",
-  "telegram_url": "https://t.me/имя_канала (или пустая строка)",
-  "vk_url": "https://vk.com/имя (или пустая строка)",
-  "company_phone": "+7 (XXX) XXX-XX-XX",
-  "company_email": "info@домен.ru (домен из транслита названия)",
-  "founding_year": 2014..2022,
-  "team_members": [
-    {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения"},
-    {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения"}
-  ],
-  "authors": [
-    {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения","avatar_seed":"Имя-Фамилия латиницей"},
-    {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения","avatar_seed":"Имя-Фамилия латиницей"},
-    {"name":"Имя Фамилия","role":"должность","bio":"1-2 предложения","avatar_seed":"Имя-Фамилия латиницей"}
-  ],
-  "site_about": "HTML 2-3 параграфа о редакции сайта <p>...</p>",
-  "site_contacts": "HTML 1-2 параграфа: как связаться, часы работы <p>...</p>",
-  "site_privacy": "HTML 3-4 параграфа: какие cookies, аналитика, права пользователя, контакт для запросов <p>...</p>",
-  "site_terms": "HTML 3-4 параграфа: использование материалов, дисклеймер, ответственность <p>...</p>",
-  "business_pages": {
-    "vacancies": "HTML страницы Вакансии: 2-3 открытые позиции, формат <h2>Должность</h2><p>описание</p>",
-    "portfolio": "HTML страницы Портфолио: 3-5 кейсов с заголовком и описанием",
-    "reviews": "HTML страницы Отзывы: 5-7 отзывов в формате <blockquote><p>текст</p><footer>— Имя, должность</footer></blockquote>",
-    "faq": "HTML страницы FAQ: 8-12 вопросов в формате <h3>Вопрос?</h3><p>Ответ.</p>",
-    "pricing": "HTML страницы Прайс: таблица <table><tr><th>Услуга</th><th>Цена</th></tr>...</table>",
-    "guarantees": "HTML страницы Гарантии: 3-4 параграфа о гарантиях работы",
-    "delivery": "HTML страницы Доставка и оплата: способы оплаты текстом (Visa/Mastercard/МИР/СБП), сроки доставки",
-    "promo": "HTML страницы Акции: 2-3 текущих акции с датами"
-  }
-}`
-        : `Site: "${siteName}". Topic: "${topic}". Description: "${siteAbout}".
-Generate JSON with EXACT fields:
+CRITICAL LANGUAGE RULE: Generate ALL output strings (company_name, addresses, work_hours, clients_count_text, team/author names + roles + bios, site_about, site_contacts, site_privacy, site_terms, every business_pages value) in ${langMeta.englishName} language ONLY. Do NOT mix languages.
+
+LOCALE HINTS for ${langMeta.englishName}:
+- Use realistic person names like: ${langMeta.nameExamples}
+- Use cities from this region: ${langMeta.cityExamples}
+- Phone format: ${langMeta.phoneFormat}
+- Email domain follows the project's domain.
+Page texts are short HTML with <p>, no h1/h2 inside the four "site_*" fields.`;
+
+      const userPrompt = `Site: "${siteName}". Topic: "${topic}". Description: "${siteAbout}".
+Output language: ${langMeta.englishName}.
+
+Generate JSON with EXACT fields (write every string value in ${langMeta.englishName}):
 {
   "company_name": "owner company name",
-  "company_address": "plausible US address",
+  "company_address": "plausible street address in ${langMeta.cityExamples.split(",")[0].trim()} or similar city",
   "legal_address": "plausible legal address",
-  "work_hours": "Mon-Fri 9:00-18:00",
-  "clients_count_text": "100+ clients",
-  "whatsapp_url": "https://wa.me/1XXXXXXXXXX or empty",
-  "telegram_url": "https://t.me/handle or empty",
+  "work_hours": "Mon-Fri 9:00-18:00 style schedule, written in ${langMeta.englishName}",
+  "clients_count_text": "N+ clients/partners (N between 100 and 5000), in ${langMeta.englishName}",
+  "whatsapp_url": "https://wa.me/<number> or empty string",
+  "telegram_url": "https://t.me/<handle> or empty string",
   "vk_url": "",
-  "company_phone": "+1 (XXX) XXX-XXXX",
-  "company_email": "info@domain.com",
+  "company_phone": "${langMeta.phoneFormat}",
+  "company_email": "info@<domain> (domain from site)",
   "founding_year": 2014..2022,
   "team_members": [
     {"name":"First Last","role":"title","bio":"1-2 sentences"},
     {"name":"First Last","role":"title","bio":"1-2 sentences"}
   ],
   "authors": [
-    {"name":"First Last","role":"title","bio":"1-2 sentences","avatar_seed":"First-Last"},
+    {"name":"First Last","role":"title","bio":"1-2 sentences","avatar_seed":"First-Last in latin transliteration"},
     {"name":"First Last","role":"title","bio":"1-2 sentences","avatar_seed":"First-Last"},
     {"name":"First Last","role":"title","bio":"1-2 sentences","avatar_seed":"First-Last"}
   ],
-  "site_about": "HTML 2-3 paragraphs about the editorial team <p>...</p>",
-  "site_contacts": "HTML 1-2 paragraphs: how to contact, hours <p>...</p>",
+  "site_about":   "HTML 2-3 paragraphs about the editorial team <p>...</p>",
+  "site_contacts":"HTML 1-2 paragraphs: how to contact, hours <p>...</p>",
   "site_privacy": "HTML 3-4 paragraphs: cookies, analytics, user rights, contact <p>...</p>",
-  "site_terms": "HTML 3-4 paragraphs: usage, disclaimer, liability <p>...</p>",
+  "site_terms":   "HTML 3-4 paragraphs: usage, disclaimer, liability <p>...</p>",
   "business_pages": {
-    "vacancies": "HTML page Careers: 2-3 open positions <h2>Title</h2><p>desc</p>",
-    "portfolio": "HTML page Portfolio: 3-5 cases",
-    "reviews": "HTML page Reviews: 5-7 testimonials <blockquote><p>text</p><footer>— Name, role</footer></blockquote>",
-    "faq": "HTML page FAQ: 8-12 Q&A as <h3>Q?</h3><p>A.</p>",
-    "pricing": "HTML page Pricing: <table>...</table>",
+    "vacancies":  "HTML page Careers: 2-3 open positions <h2>Title</h2><p>desc</p>",
+    "portfolio":  "HTML page Portfolio: 3-5 cases",
+    "reviews":    "HTML page Reviews: 5-7 testimonials <blockquote><p>text</p><footer>— Name, role</footer></blockquote>",
+    "faq":        "HTML page FAQ: 8-12 Q&A as <h3>Q?</h3><p>A.</p>",
+    "pricing":    "HTML page Pricing: <table>...</table>",
     "guarantees": "HTML page Guarantees: 3-4 paragraphs",
-    "delivery": "HTML page Shipping & Payment: payment methods as plain text (Visa/Mastercard), delivery terms",
-    "promo": "HTML page Promotions: 2-3 current offers with dates"
+    "delivery":   "HTML page Shipping & Payment: payment methods, delivery terms",
+    "promo":      "HTML page Promotions: 2-3 current offers with dates"
   }
 }`;
 
@@ -276,12 +251,12 @@ Generate JSON with EXACT fields:
             company_name: String(parsed.company_name || siteName).slice(0, 120),
             company_address: String(parsed.company_address || "").slice(0, 240),
             legal_address:   String(parsed.legal_address   || parsed.company_address || "").slice(0, 240),
-            work_hours:      String(parsed.work_hours      || "Пн-Пт 9:00-18:00").slice(0, 120),
+            work_hours:      String(parsed.work_hours      || "Mon-Fri 9:00-18:00").slice(0, 120),
             juridical_inn:   PH_INN,
             whatsapp_url:    String(parsed.whatsapp_url || "").slice(0, 200),
             telegram_url:    String(parsed.telegram_url || "").slice(0, 200),
             vk_url:          String(parsed.vk_url || "").slice(0, 200),
-            clients_count_text: String(parsed.clients_count_text || "Более 500 клиентов").slice(0, 80),
+            clients_count_text: String(parsed.clients_count_text || "500+ clients").slice(0, 80),
             company_phone: String(parsed.company_phone || "").slice(0, 40),
             company_email: String(parsed.company_email || "").slice(0, 120),
             founding_year: Number(parsed.founding_year) || (new Date().getFullYear() - 5),

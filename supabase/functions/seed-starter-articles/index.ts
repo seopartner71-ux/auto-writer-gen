@@ -8,6 +8,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
+import { getSiteLangMeta, normalizeSiteLang, type SiteLanguageCode } from "../_shared/siteLanguages.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,7 +71,7 @@ async function generateHeroImage(falKey: string, topic: string, title: string, o
 
 interface SeedAuthor { name?: string; role?: string; bio?: string }
 
-function fallbackArticle(topic: string, idx: number, lang: "ru" | "en") {
+function fallbackArticle(topic: string, idx: number, lang: SiteLanguageCode) {
   if (lang === "ru") {
     const titles = [
       `${topic}: что важно знать в 2026 году`,
@@ -109,13 +110,14 @@ function fallbackArticle(topic: string, idx: number, lang: "ru" | "en") {
   return { title, content, meta_description: leads[idx % leads.length].slice(0, 200) };
 }
 
-async function aiArticle(apiKey: string, topic: string, idx: number, lang: "ru" | "en", author?: SeedAuthor, brandName?: string, opts?: { admin?: any; projectId?: string; userId?: string; model?: string }) {
+async function aiArticle(apiKey: string, topic: string, idx: number, lang: SiteLanguageCode, author?: SeedAuthor, brandName?: string, opts?: { admin?: any; projectId?: string; userId?: string; model?: string }) {
   const modelId = opts?.model || "google/gemini-2.5-flash";
+  const langMeta = getSiteLangMeta(lang);
   // No persona injection: author name is shown only in byline metadata.
   // Articles MUST be written in third-person/impersonal expert journalism style.
   // CRITICAL: brandName (e.g. "Новости Тулы") is the SITE name, NOT the article topic.
   // The article must be about `topic` (the niche), never about the brand itself.
-  const sys = lang === "ru"
+  const sysRu = lang === "ru"
     ? `Ты пишешь практичную информационную статью на русском в стиле экспертной журналистики на тему «${topic}».
 
 ТЕМА статьи: «${topic}» - это ниша/предметная область. Пиши про эту нишу.
@@ -138,7 +140,10 @@ ${brandName ? `Название сайта-портала: «${brandName}» - Н
 - Примеры правильных заголовков для темы «${topic}»: "Как выбрать ${topic}: чек-лист", "${topic} в 2026: тренды и цены", "Топ ошибок при покупке ${topic}"
 
 Возвращай СТРОГО JSON {title, meta_description, content_html}. content_html: 600-900 слов, ТОЛЬКО теги h2/h3/p/ul/ol/li, без h1, без <script>, без <style>, без ссылок, без воды, без слов «эксперт», «эксклюзив». Включи раздел <h2>Частые вопросы</h2> с 3-5 парами <h3>Вопрос?</h3><p>Ответ.</p>.`
-    : `Write a practical informational article in English in expert journalism style on the topic "${topic}".
+    : null;
+  const sysOther = `Write a practical informational article in ${langMeta.englishName} in expert journalism style on the topic "${topic}".
+
+CRITICAL LANGUAGE RULE: Output title, meta_description and content_html in ${langMeta.englishName} ONLY. Do NOT mix languages.
 
 ARTICLE TOPIC: "${topic}" - this is the niche/subject area. Write about this niche.
 ${brandName ? `Publication brand name: "${brandName}" - do NOT use this name in the title or body, it is just the publisher.` : ""}
@@ -156,9 +161,9 @@ REQUIRED STYLE:
 - Title: specific, on the topic "${topic}", 50-70 characters, no brand name
 - meta_description (lead): 1-2 sentences, concrete on the article topic, no fluff, unique for each article
 - First paragraph of body = main point, straight to the topic
-- Good title examples for "${topic}": "How to choose ${topic}: a checklist", "${topic} in 2026: trends and prices", "Top mistakes buying ${topic}"
 
-Return STRICT JSON {title, meta_description, content_html}. content_html: 600-900 words, ONLY h2/h3/p/ul/ol/li tags, no h1, no <script>, no <style>, no links, no fluff. Include a section <h2>FAQ</h2> with 3-5 <h3>Question?</h3><p>Answer.</p> pairs.`;
+Return STRICT JSON {title, meta_description, content_html}. content_html: 600-900 words written in ${langMeta.englishName}, ONLY h2/h3/p/ul/ol/li tags, no h1, no <script>, no <style>, no links, no fluff. Include an FAQ section with 3-5 <h3>Question?</h3><p>Answer.</p> pairs (translate the section heading into ${langMeta.englishName}).`;
+  const sys = sysRu ?? sysOther;
   const seeds = lang === "ru"
     ? [`Расскажи про ${topic}: с чего начать, на что смотреть, частые ошибки.`,
        `Семь практических рекомендаций по теме ${topic} - конкретно, по делу.`,
@@ -166,7 +171,7 @@ Return STRICT JSON {title, meta_description, content_html}. content_html: 600-90
     : [`Cover ${topic}: where to start, what to look for, common mistakes.`,
        `Seven practical recommendations on ${topic} - concrete and to the point.`,
        `How to choose ${topic} in 2026 - criteria, prices, checklist.`];
-  const user = (lang === "ru" ? "Задание для статьи: " : "Article brief: ") + seeds[idx % seeds.length];
+  const user = (lang === "ru" ? "Задание для статьи: " : `Article brief (write in ${langMeta.englishName}): `) + seeds[idx % seeds.length];
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "X-Title": "SEO-Module Starter" },
@@ -286,13 +291,14 @@ serve(async (req) => {
       });
     }
 
-    const lang: "ru" | "en" = String(project.language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en";
+    const lang: SiteLanguageCode = normalizeSiteLang((project as any).language);
+    const langMeta = getSiteLangMeta(lang);
     // CRITICAL: site_name / project.name is the BRAND (e.g. "Новости Тулы"), not the niche.
     // Topic (the actual subject of articles) must come from body.topic or site_about.
     // Never fall back to project.name — that produces "Как выбрать Новости Тулы".
-    const rawTopic = body.topic || project.site_about || (lang === "ru" ? "выбранная ниша" : "the chosen niche");
+    const rawTopic = body.topic || project.site_about || "the chosen niche";
     // Trim site_about to a short niche phrase (first clause, max 80 chars).
-    const topic = String(rawTopic).replace(/<[^>]+>/g, " ").split(/[.!?\n«»]/)[0].trim().slice(0, 80) || (lang === "ru" ? "ниша" : "niche");
+    const topic = String(rawTopic).replace(/<[^>]+>/g, " ").split(/[.!?\n«»]/)[0].trim().slice(0, 80) || "niche";
     const brandName = String(project.site_name || project.name || "").trim() || undefined;
     const apiKey = await getOpenRouterKey(admin);
     const modelId = resolveOpenRouterModel((project as any).ai_model);
@@ -325,7 +331,7 @@ serve(async (req) => {
         meta_description: art.meta_description,
         status: "completed",
         language: lang,
-        geo: lang === "ru" ? "RU" : "US",
+        geo: langMeta.geo,
         featured_image_url: heroUrl,
       }).select("id").maybeSingle();
       if (insErr) {
