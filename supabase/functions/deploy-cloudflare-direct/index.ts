@@ -24,6 +24,7 @@ import { renderLocalHome, renderLocalArticle, localExtraCss } from "./localPage.
 import { renderExpertHome, renderExpertArticle, expertExtraCss } from "./expertPage.ts";
 import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
+import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
@@ -1102,6 +1103,31 @@ serve(async (req) => {
       console.warn("[deploy-cloudflare-direct] wp-emulation skipped:", (e as Error).message);
     }
 
+    // ---- Heading hygiene QA (Stage 3) ---------------------------------------
+    // Catch SEO-damaging structural mistakes in templates BEFORE the bundle is
+    // shipped to Cloudflare Pages: missing/multiple <h1>, broken h1->h3 jumps,
+    // and exact-duplicate heading text within a single page. We log only —
+    // never block deploy — because false positives in regex-based HTML parsing
+    // are real and a flagged site is still better than a missed one.
+    let headingQa: ReturnType<typeof summarizeReport> | null = null;
+    try {
+      const report = validateHeadings(files);
+      headingQa = summarizeReport(report);
+      if (headingQa.ok) {
+        console.log(
+          "[deploy-cloudflare-direct] heading-qa OK; pages=", headingQa.filesChecked,
+        );
+      } else {
+        console.warn(
+          "[deploy-cloudflare-direct] heading-qa issues=", headingQa.totalIssues,
+          "byKind=", JSON.stringify(headingQa.byKind),
+          "sample=", JSON.stringify(headingQa.sample),
+        );
+      }
+    } catch (e) {
+      console.warn("[deploy-cloudflare-direct] heading-qa skipped:", (e as Error).message);
+    }
+
     // 3. Compute manifest { "/path": hash }
     const manifest: Record<string, string> = {};
     const fileByHash: Record<string, { path: string; content: string }> = {};
@@ -1218,7 +1244,7 @@ serve(async (req) => {
       operation_type: "cloudflare_deploy",
       model: "cloudflare-pages",
       cost_usd: 0,
-      metadata: { template: templateKey, url: pagesDevUrl },
+      metadata: { template: templateKey, url: pagesDevUrl, heading_qa: headingQa },
     });
 
     return new Response(JSON.stringify({
@@ -1227,6 +1253,7 @@ serve(async (req) => {
       url: pagesDevUrl,
       template: templateKey, accent_color: accent, font_pair: fontPair,
       deploy_id: deployParsed.data?.result?.id || null,
+      heading_qa: headingQa,
       message: `Direct Upload deployed: ${pagesDevUrl}`,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
