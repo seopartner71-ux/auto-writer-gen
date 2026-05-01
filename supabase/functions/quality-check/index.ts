@@ -27,6 +27,28 @@ function stripHtml(s: string): string {
     .trim();
 }
 
+// Wrap a promise with a hard timeout. Resolves with `null` on timeout.
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      console.error(`[quality-check] ${label} timed out after ${ms}ms`);
+      resolve(null);
+    }, ms);
+    p.then((v) => { clearTimeout(timer); resolve(v); })
+     .catch((e) => { clearTimeout(timer); console.error(`[quality-check] ${label} error`, e); resolve(null); });
+  });
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---- 1. SEO-Module Score (Turgenev-like) ----
 async function runSeoModuleScore(plain: string, apiKey: string): Promise<{
   score: number; stylistics: number; water: number; reasons: string[];
@@ -43,7 +65,7 @@ async function runSeoModuleScore(plain: string, apiKey: string): Promise<{
 Текст:
 ${sample}`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
@@ -69,7 +91,7 @@ ${sample}`;
       }],
       tool_choice: { type: "function", function: { name: "report_score" } },
     }),
-  });
+  }, 30000);
   if (!res.ok) {
     console.error("[quality-check] seo-score AI error", res.status);
     return null;
@@ -110,7 +132,7 @@ async function runAiScore(plain: string, apiKey: string): Promise<{
 Текст:
 ${sample}`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
@@ -134,7 +156,7 @@ ${sample}`;
       }],
       tool_choice: { type: "function", function: { name: "report_ai_score" } },
     }),
-  });
+  }, 30000);
   if (!res.ok) {
     console.error("[quality-check] ai-score error", res.status);
     return null;
@@ -177,8 +199,8 @@ async function runTextRuUniqueness(plain: string, apiKey: string): Promise<
   }
   const uid = submitJson.text_uid;
 
-  // Step 2: poll up to ~60s
-  for (let i = 0; i < 30; i++) {
+  // Step 2: poll up to ~50s (25 * 2s) to stay within edge function 150s budget
+  for (let i = 0; i < 25; i++) {
     await new Promise((r) => setTimeout(r, 2000));
     const fd2 = new FormData();
     fd2.append("uid", uid);
@@ -265,13 +287,20 @@ Deno.serve(async (req) => {
     // Run checks in parallel where possible
     const promises: Promise<any>[] = [];
     const labels: string[] = [];
-    if (requested.has("score")) { promises.push(runSeoModuleScore(plain, apiKey)); labels.push("score"); }
-    if (requested.has("ai")) { promises.push(runAiScore(plain, apiKey)); labels.push("ai"); }
-    if (requested.has("uniqueness")) { promises.push(runTextRuUniqueness(plain, textRuKey!)); labels.push("uniqueness"); }
+    if (requested.has("score")) { promises.push(withTimeout(runSeoModuleScore(plain, apiKey), 35000, "seo-score")); labels.push("score"); }
+    if (requested.has("ai")) { promises.push(withTimeout(runAiScore(plain, apiKey), 35000, "ai-score")); labels.push("ai"); }
+    if (requested.has("uniqueness")) { promises.push(withTimeout(runTextRuUniqueness(plain, textRuKey!), 70000, "textru")); labels.push("uniqueness"); }
 
     const results = await Promise.all(promises);
     const out: Record<string, any> = {};
-    results.forEach((r, i) => { out[labels[i]] = r; });
+    results.forEach((r, i) => {
+      // Normalize timeout (null) into a uniqueness error object so we still refund
+      if (r === null && labels[i] === "uniqueness") {
+        out[labels[i]] = { ok: false, error: "Сервис Text.ru не ответил вовремя. Кредит возвращён." };
+      } else {
+        out[labels[i]] = r;
+      }
+    });
 
     const turg = out.score?.score ?? null;
     const uniqResult = out.uniqueness;
