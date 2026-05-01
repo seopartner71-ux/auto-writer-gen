@@ -182,13 +182,32 @@ Tags: blog, two-columns, custom-colors, custom-menu, featured-images
 }
 
 export function buildWpJsonIndex(siteName: string, siteAbout: string, domain: string): string {
+  return buildWpJsonIndexLocalized(siteName, siteAbout, domain, "en-US", "+0000", 0);
+}
+
+/**
+ * Localized WP REST root: returns the site language and timezone in the same
+ * shape WordPress exposes them. Crawlers/fingerprint scanners use these to
+ * verify the site's claimed locale.
+ */
+export function buildWpJsonIndexLocalized(
+  siteName: string,
+  siteAbout: string,
+  domain: string,
+  htmlLocale: string,        // e.g. "de-DE"
+  timezoneString: string,    // e.g. "Europe/Berlin" — but we keep "" + offset for stability
+  gmtOffset: number,         // hours
+): string {
+  // WordPress represents the site language as snake_case (e.g. "de_DE").
+  const wpLanguage = htmlLocale.replace("-", "_");
   const obj = {
     name: siteName,
     description: siteAbout,
     url: `https://${domain}`,
     home: `https://${domain}`,
-    gmt_offset: "0",
-    timezone_string: "",
+    gmt_offset: String(gmtOffset),
+    timezone_string: timezoneString,
+    language: wpLanguage,
     namespaces: ["oembed/1.0", "wp/v2", "wp-site-health/v1", "wp-block-editor/v1"],
     authentication: { "application-passwords": { endpoints: { authorization: `https://${domain}/wp-admin/authorize-application.php` } } },
     routes: {
@@ -381,6 +400,24 @@ export function applyWordPressEmulation(
   const lang = opts.lang || "ru";
   const posts = opts.posts || [];
 
+  // Resolve BCP-47 + timezone from the 2-letter site language so the wp-json
+  // index, RSS <language> and HTML signatures all agree on locale.
+  const localeMap: Record<string, { locale: string; tz: string; offset: number }> = {
+    ru: { locale: "ru-RU", tz: "Europe/Moscow",   offset: 3 },
+    en: { locale: "en-US", tz: "America/New_York", offset: -5 },
+    de: { locale: "de-DE", tz: "Europe/Berlin",   offset: 1 },
+    es: { locale: "es-ES", tz: "Europe/Madrid",   offset: 1 },
+    fr: { locale: "fr-FR", tz: "Europe/Paris",    offset: 1 },
+    it: { locale: "it-IT", tz: "Europe/Rome",     offset: 1 },
+    pl: { locale: "pl-PL", tz: "Europe/Warsaw",   offset: 1 },
+    uk: { locale: "uk-UA", tz: "Europe/Kyiv",     offset: 2 },
+    tr: { locale: "tr-TR", tz: "Europe/Istanbul", offset: 3 },
+    pt: { locale: "pt-BR", tz: "America/Sao_Paulo", offset: -3 },
+  };
+  const langKey = String(lang).toLowerCase().slice(0, 2);
+  const localeInfo = localeMap[langKey] || localeMap.ru;
+  const rssLang = localeInfo.locale; // RSS <language> accepts BCP-47
+
   // Per-post deterministic numeric IDs (4-digit-ish, like real WP).
   const postIdRng = rngFromSeed(opts.seed + ":wp-postids");
   const postIds = new Map<string, number>();
@@ -402,17 +439,20 @@ export function applyWordPressEmulation(
 
   // Static WP-flavoured assets.
   files[`wp-content/themes/${profile.themeSlug}/style.css`] = buildWpThemeStyleCss(profile, opts.siteName);
-  files["wp-json/index.html"] = buildWpJsonIndex(opts.siteName, opts.siteAbout, opts.domain);
+  files["wp-json/index.html"] = buildWpJsonIndexLocalized(
+    opts.siteName, opts.siteAbout, opts.domain,
+    localeInfo.locale, localeInfo.tz, localeInfo.offset,
+  );
   files["wp-includes/wlwmanifest.xml"] = buildWlwManifestXml();
   files["xmlrpc.php"] = buildXmlrpcStub();
   files["wp-login.php"] = buildWpLoginRedirect(opts.domain);
   files["wp-admin/index.html"] = buildWpLoginRedirect(opts.domain);
 
   // RSS feeds (WP serves them at /feed/ and /comments/feed/).
-  const feedXml = buildMainFeed(opts.domain, opts.siteName, opts.siteAbout, lang, posts, profile);
+  const feedXml = buildMainFeed(opts.domain, opts.siteName, opts.siteAbout, rssLang, posts, profile);
   files["feed/index.xml"] = feedXml;
   files["feed.xml"] = feedXml; // keep legacy path that other code already references
-  files["comments/feed/index.xml"] = buildCommentsFeed(opts.domain, opts.siteName, lang);
+  files["comments/feed/index.xml"] = buildCommentsFeed(opts.domain, opts.siteName, rssLang);
 
   // Replace robots.txt with the WP-style version (sitemap + GPTBot block).
   files["robots.txt"] = buildWpRobotsTxt(opts.domain);
