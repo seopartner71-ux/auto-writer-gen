@@ -750,13 +750,21 @@ export default function ArticlesPage() {
           outline,
           lsi_keywords: lsiKeywords,
           language: (selectedKeyword as any)?.language || null,
-          competitor_tables: (selectedKeyword as any)?.competitor_tables || [],
+          competitor_tables: (() => {
+            const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
+              authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
+            return isTelegraphAuthor ? [] : ((selectedKeyword as any)?.competitor_tables || []);
+          })(),
           competitor_lists: (selectedKeyword as any)?.competitor_lists || [],
           miralinks_links: miralinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
           gogetlinks_links: gogetlinksLinks.filter(l => l.url.trim() && l.anchor.trim()),
           expert_insights: (() => { try { return JSON.parse(localStorage.getItem(`expert_insights_${selectedKeywordId}`) || "[]"); } catch { return []; } })(),
           include_expert_quote: includeExpertQuote,
-          include_comparison_table: includeComparisonTable,
+          include_comparison_table: (() => {
+            const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
+              authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
+            return isTelegraphAuthor ? false : includeComparisonTable;
+          })(),
           anchor_links: anchorLinks.filter(l => l.url.trim() && l.anchor.trim()),
           seo_keywords: seoKeywords.trim() || null,
           geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
