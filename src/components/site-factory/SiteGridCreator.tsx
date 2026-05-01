@@ -328,6 +328,19 @@ export function SiteGridCreator() {
                     />
                   </div>
                   <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Язык сайта *</Label>
+                    <select
+                      value={spec.language}
+                      onChange={(e) => updateSpec(idx, { language: e.target.value as SiteLanguageCode })}
+                      disabled={running}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs disabled:opacity-50"
+                    >
+                      {SITE_LANGUAGES.map((l) => (
+                        <option key={l.code} value={l.code}>{l.iso} · {l.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Тематика / ниша *</Label>
                     <Input
                       placeholder="Минитракторы для дачи"
