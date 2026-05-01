@@ -264,7 +264,7 @@ export interface MinimalHomeOpts {
   posts: PostInput[];
   /** Pre-generated text content (heroes, services, team, testimonials, etc.) */
   content: LandingContent;
-  /** FAL image URLs by slot (hero/why/about/guarantee/team_*/post_*). */
+  /** FAL image URLs by slot (hero, why, about, guarantee, team_N, post_N). */
   generatedImages?: Record<string, string>;
   expertAuthor?: Author | null;
 }
