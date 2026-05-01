@@ -1039,6 +1039,34 @@ export default function SiteFactoryPage() {
     }
   };
 
+  const handleTier2Boost = async (article: QueueArticle) => {
+    if (!article.id) return;
+    setTier2Id(article.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("tier2-boost", {
+        body: { article_id: article.id, count: 2 },
+      });
+      if (error) throw new Error(error.message);
+      const success = data?.success ?? 0;
+      const total = data?.total ?? 0;
+      toast({
+        title: lang === "ru" ? "Tier-2 буст" : "Tier-2 boost",
+        description: lang === "ru"
+          ? `Опубликовано тизеров: ${success} из ${total}`
+          : `Teasers published: ${success} of ${total}`,
+        variant: success === 0 ? "destructive" : "default",
+      });
+    } catch (e: any) {
+      toast({
+        title: lang === "ru" ? "Ошибка Tier-2" : "Tier-2 error",
+        description: e?.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setTier2Id(null);
+    }
+  };
+
   const handleBatchPublish = async () => {
     if (!selectedProjectId || selectedIds.size === 0) return;
     setBatchPublishing(true);
