@@ -11,6 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
+import { getSiteLangMeta, normalizeSiteLang, type SiteLanguageCode } from "../_shared/siteLanguages.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,35 +62,38 @@ function deterministicEmail(domain: string, seed: string): string {
   return `${MAIL_LOCAL[fnv1a(seed + ":mail") % MAIL_LOCAL.length]}@${domain}`;
 }
 
-function fallback(siteName: string, siteAbout: string, topic: string, projectId: string = "site", lang: string = "ru") {
+function fallback(siteName: string, siteAbout: string, topic: string, projectId: string = "site", lang: SiteLanguageCode = "ru") {
+  const meta = getSiteLangMeta(lang);
   const year = new Date().getFullYear() - Math.floor(2 + Math.random() * 8);
   const dom = domainFromSiteName(siteName, lang);
+  const firstCity = meta.cityExamples.split(",")[0].trim();
+  const [n1 = "", n2 = "", n3 = ""] = meta.nameExamples.split(",").map((s) => s.trim());
   return {
     company_name: siteName,
-    company_address: "г. Москва, БЦ «Деловой», офис 305",
-    legal_address: "г. Москва, БЦ «Деловой», офис 305",
-    company_phone: "+7 (495) 123-45-67",
+    company_address: firstCity,
+    legal_address: firstCity,
+    company_phone: meta.phoneFormat.replace(/X/g, () => String(Math.floor(Math.random() * 10))),
     company_email: deterministicEmail(dom, projectId),
-    work_hours: "Пн-Пт 9:00-18:00 по московскому времени",
+    work_hours: lang === "ru" ? "Пн-Пт 9:00-18:00" : "Mon-Fri 9:00-18:00",
     juridical_inn: deterministicInn(projectId),
     whatsapp_url: "",
     telegram_url: "",
     vk_url: "",
-    clients_count_text: "Более 500 клиентов",
+    clients_count_text: lang === "ru" ? "Более 500 клиентов" : "500+ clients",
     founding_year: year,
     team_members: [
-      { name: "Алексей Смирнов", role: "Главный редактор", bio: "Более 10 лет в нише." },
-      { name: "Мария Иванова", role: "Автор", bio: "Готовит обзоры и практические материалы." },
+      { name: n1 || "Editor", role: "Editor-in-chief", bio: "10+ years in the niche." },
+      { name: n2 || "Author", role: "Author", bio: "Writes practical reviews and guides." },
     ],
     authors: [
-      { name: "Алексей Смирнов", role: "Главный редактор", bio: "Более 10 лет работает с темой.", avatar_seed: "Aleksey-Smirnov" },
-      { name: "Мария Иванова", role: "Автор", bio: "Готовит обзоры и практические материалы.", avatar_seed: "Mariya-Ivanova" },
-      { name: "Дмитрий Соколов", role: "Технический редактор", bio: "Отвечает за факт-чекинг.", avatar_seed: "Dmitriy-Sokolov" },
+      { name: n1 || "Author 1", role: "Editor-in-chief", bio: "10+ years on the topic.", avatar_seed: (n1 || "author-1").replace(/\s+/g, "-") },
+      { name: n2 || "Author 2", role: "Author",          bio: "Practical reviews and guides.", avatar_seed: (n2 || "author-2").replace(/\s+/g, "-") },
+      { name: n3 || "Author 3", role: "Fact-checker",    bio: "Owns fact-checking.",            avatar_seed: (n3 || "author-3").replace(/\s+/g, "-") },
     ],
-    site_about: `<p>${siteAbout}</p><p>Мы работаем с ${year} года и публикуем материалы по теме «${topic}» - без воды, на основе практики.</p>`,
-    site_contacts: `<p>Если хотите связаться с редакцией, напишите нам или позвоните в рабочие часы.</p>`,
-    site_privacy: `<p>Мы уважаем вашу конфиденциальность. Сайт собирает только cookies, необходимые для работы и аналитики, и только после вашего согласия.</p>`,
-    site_terms: `<p>Все материалы сайта носят информационный характер. Использование контента возможно с указанием активной ссылки на источник.</p>`,
+    site_about: `<p>${siteAbout}</p>`,
+    site_contacts: `<p>${meta.cityExamples.split(",")[0].trim()} · ${meta.phoneFormat}</p>`,
+    site_privacy: `<p>Privacy notice for ${siteName}.</p>`,
+    site_terms: `<p>Terms of use for ${siteName}.</p>`,
     business_pages: {},
   };
 }
