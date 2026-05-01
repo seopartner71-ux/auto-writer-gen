@@ -2,3 +2,6 @@ project_id = "mwcejojlbqpolplshjgj"
 
 [functions.sandbox-demo]
 verify_jwt = false
+
+[functions.public-stats]
+verify_jwt = false

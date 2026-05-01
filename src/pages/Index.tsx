@@ -12,6 +12,7 @@ import { useEffect } from "react";
 // Below-fold sections — lazy loaded
 const SectionResearch = lazy(() => import("@/components/landing/SectionResearch").then(m => ({ default: m.SectionResearch })));
 const LandingSandbox = lazy(() => import("@/components/landing/LandingSandbox").then(m => ({ default: m.LandingSandbox })));
+const SectionRealResults = lazy(() => import("@/components/landing/SectionRealResults").then(m => ({ default: m.SectionRealResults })));
 const SectionPersona = lazy(() => import("@/components/landing/SectionPersona").then(m => ({ default: m.SectionPersona })));
 const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
 const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
@@ -150,6 +151,7 @@ export default function Index() {
           <SectionDeepDive />
           <SectionComparison />
           <SectionTestimonials />
+          <SectionRealResults />
           <SectionPricing />
         </Suspense>
         <SectionFaq />
