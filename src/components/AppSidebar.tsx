@@ -3,7 +3,6 @@ import {
   Search,
   ListTree,
   FileText,
-  CalendarDays,
   BarChart3,
   UserPen,
   Settings,
@@ -11,15 +10,13 @@ import {
   Hexagon,
   FolderKanban,
   CreditCard,
-  Zap,
-  Globe,
   Radar,
-  BookMarked,
-  Plug,
   LifeBuoy,
   Factory,
   Activity,
   Crosshair,
+  Send,
+  ChevronDown,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -38,14 +35,14 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useCallback } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useCallback, useState } from "react";
 
 // Prefetch route chunks on hover
 const routePrefetchMap: Record<string, () => void> = {
   "/keywords": () => import("@/pages/KeywordsPage"),
   "/plan-builder": () => import("@/pages/PlanBuilderPage"),
   "/articles": () => import("@/pages/ArticlesPage"),
-  "/calendar": () => import("@/pages/CalendarPage"),
   "/analytics": () => import("@/pages/AnalyticsPage"),
   "/author-profiles": () => import("@/pages/AuthorProfilesPage"),
   "/settings": () => import("@/pages/SettingsPage"),
@@ -53,12 +50,10 @@ const routePrefetchMap: Record<string, () => void> = {
   "/indexing": () => import("@/pages/IndexingPage"),
   "/wordpress": () => import("@/pages/WordPressPage"),
   "/radar": () => import("@/pages/RadarPage"),
-  "/wiki": () => import("@/pages/WikiPage"),
   "/integrations": () => import("@/pages/IntegrationsPage"),
   "/support": () => import("@/pages/SupportPage"),
   "/admin": () => import("@/pages/AdminPage"),
   "/projects": () => import("@/pages/ProjectsPage"),
-  "/my-articles": () => import("@/pages/MyArticlesPage"),
   "/site-factory": () => import("@/pages/SiteFactoryPage"),
   "/network-monitor": () => import("@/pages/NetworkMonitorPage"),
   "/domain-hunter": () => import("@/pages/DomainHunterPage"),
@@ -82,31 +77,37 @@ export function AppSidebar() {
   const plan = profile?.plan ?? "free";
   const isFactory = plan === "pro";
 
+  const networkPaths = ["/site-factory", "/network-monitor", "/domain-hunter"];
+  const publishPaths = ["/indexing", "/wordpress", "/integrations"];
+  const [networkOpen, setNetworkOpen] = useState(networkPaths.includes(location.pathname));
+  const [publishOpen, setPublishOpen] = useState(publishPaths.includes(location.pathname));
+
   const mainItems = [
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
     { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
-    { title: t("nav.myArticles"), url: "/my-articles", icon: BookMarked },
     ...(isFactory ? [
-      { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
-      { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
-      { title: lang === "ru" ? "Aged домены" : "Domain Hunter", url: "/domain-hunter", icon: Crosshair },
-      { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
       { title: "AI Radar", url: "/radar", icon: Radar },
     ] : []),
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
-    { title: t("nav.wiki"), url: "/wiki", icon: BookMarked },
   ];
+
+  const networkItems = isFactory ? [
+    { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
+    { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
+    { title: lang === "ru" ? "Aged домены" : "Domain Hunter", url: "/domain-hunter", icon: Crosshair },
+  ] : [];
+
+  const publishItems = isFactory ? [
+    { title: t("nav.wordpress"), url: "/wordpress", icon: Send },
+    { title: t("nav.integrations"), url: "/integrations", icon: Send },
+    { title: t("nav.indexing"), url: "/indexing", icon: Send },
+  ] : [];
 
   const settingsItems = [
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
-    ...(isFactory ? [
-      { title: t("nav.wordpress"), url: "/wordpress", icon: Globe },
-      { title: t("nav.integrations"), url: "/integrations", icon: Plug },
-      { title: t("nav.indexing"), url: "/indexing", icon: Zap },
-    ] : []),
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
     { title: t("nav.support"), url: "/support", icon: LifeBuoy },
@@ -152,6 +153,82 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isFactory && networkItems.length > 0 && (
+          <SidebarGroup>
+            <Collapsible open={networkOpen} onOpenChange={setNetworkOpen}>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
+                  <span className="flex items-center gap-1.5">
+                    <Factory className="h-3.5 w-3.5" />
+                    {!collapsed && (lang === "ru" ? "Сеть сайтов" : "Site Network")}
+                  </span>
+                  {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${networkOpen ? "" : "-rotate-90"}`} />}
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {networkItems.map((item) => (
+                      <SidebarMenuItem key={item.url}>
+                        <SidebarMenuButton asChild>
+                          <NavLink
+                            to={item.url}
+                            className="hover:bg-sidebar-accent/50"
+                            activeClassName="bg-sidebar-accent text-primary font-medium"
+                            onClick={handleNavClick}
+                            onMouseEnter={() => handlePrefetch(item.url)}
+                          >
+                            <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                            {!collapsed && <span>{item.title}</span>}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {isFactory && publishItems.length > 0 && (
+          <SidebarGroup>
+            <Collapsible open={publishOpen} onOpenChange={setPublishOpen}>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
+                  <span className="flex items-center gap-1.5">
+                    <Send className="h-3.5 w-3.5" />
+                    {!collapsed && (lang === "ru" ? "Публикация" : "Publishing")}
+                  </span>
+                  {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${publishOpen ? "" : "-rotate-90"}`} />}
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {publishItems.map((item) => (
+                      <SidebarMenuItem key={item.url}>
+                        <SidebarMenuButton asChild>
+                          <NavLink
+                            to={item.url}
+                            className="hover:bg-sidebar-accent/50"
+                            activeClassName="bg-sidebar-accent text-primary font-medium"
+                            onClick={handleNavClick}
+                            onMouseEnter={() => handlePrefetch(item.url)}
+                          >
+                            <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                            {!collapsed && <span>{item.title}</span>}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel>{t("nav.tools")}</SidebarGroupLabel>
