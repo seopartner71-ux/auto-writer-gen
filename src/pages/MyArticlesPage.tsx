@@ -8,6 +8,8 @@ import { Copy, Trash2, Check, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { QualityBadgeIcon } from "@/components/article/QualityCheckPanel";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +34,7 @@ export default function MyArticlesPage() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("articles")
-        .select("id, title, content, created_at, status")
+        .select("id, title, content, created_at, status, quality_badge")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -129,6 +131,7 @@ export default function MyArticlesPage() {
               <TableHeader>
                 <TableRow className="border-border">
                   <TableHead className="w-16">№</TableHead>
+                  <TableHead className="w-12 text-center">Q</TableHead>
                   <TableHead>{t("myArticles.heading")}</TableHead>
                   <TableHead className="w-40">{t("myArticles.dateGen")}</TableHead>
                   <TableHead className="w-32 text-right">{t("myArticles.actions")}</TableHead>
@@ -139,6 +142,11 @@ export default function MyArticlesPage() {
                   <TableRow key={article.id} className="border-border">
                     <TableCell className="font-mono text-muted-foreground">
                       {index + 1}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <TooltipProvider>
+                        <QualityBadgeIcon badge={(article as any).quality_badge} />
+                      </TooltipProvider>
                     </TableCell>
                     <TableCell className="font-medium max-w-[400px]">
                       <span className="line-clamp-2">

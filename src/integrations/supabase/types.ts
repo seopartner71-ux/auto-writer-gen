@@ -305,6 +305,7 @@ export type Database = {
       articles: {
         Row: {
           ai_content_gap: Json | null
+          ai_human_score: number | null
           anchor_target_url: string | null
           author_profile_id: string | null
           blogger_blog_id: string | null
@@ -324,6 +325,9 @@ export type Database = {
           meta_description: string | null
           project_id: string | null
           published_url: string | null
+          quality_badge: string | null
+          quality_checked_at: string | null
+          quality_details: Json | null
           scheduled_at: string | null
           seo_score: Json | null
           share_token: string | null
@@ -334,11 +338,14 @@ export type Database = {
           title: string | null
           translated_content_en: string | null
           translated_title_en: string | null
+          turgenev_score: number | null
+          uniqueness_percent: number | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           ai_content_gap?: Json | null
+          ai_human_score?: number | null
           anchor_target_url?: string | null
           author_profile_id?: string | null
           blogger_blog_id?: string | null
@@ -358,6 +365,9 @@ export type Database = {
           meta_description?: string | null
           project_id?: string | null
           published_url?: string | null
+          quality_badge?: string | null
+          quality_checked_at?: string | null
+          quality_details?: Json | null
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
@@ -368,11 +378,14 @@ export type Database = {
           title?: string | null
           translated_content_en?: string | null
           translated_title_en?: string | null
+          turgenev_score?: number | null
+          uniqueness_percent?: number | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           ai_content_gap?: Json | null
+          ai_human_score?: number | null
           anchor_target_url?: string | null
           author_profile_id?: string | null
           blogger_blog_id?: string | null
@@ -392,6 +405,9 @@ export type Database = {
           meta_description?: string | null
           project_id?: string | null
           published_url?: string | null
+          quality_badge?: string | null
+          quality_checked_at?: string | null
+          quality_details?: Json | null
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
@@ -402,6 +418,8 @@ export type Database = {
           title?: string | null
           translated_content_en?: string | null
           translated_title_en?: string | null
+          turgenev_score?: number | null
+          uniqueness_percent?: number | null
           updated_at?: string | null
           user_id?: string
         }
