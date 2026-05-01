@@ -1393,7 +1393,7 @@ export default function SiteFactoryPage() {
                       : "Missing GitHub data: token and repository. Deployment is not possible."}
                   </p>
                   <ul className="text-xs opacity-90 list-disc pl-4 space-y-0.5">
-                    <li>{!selectedProject?.github_token && (lang === "ru" ? "GitHub токен" : "GitHub token")}</li>
+                    <li>{!(selectedProject as any)?.has_github_token && (lang === "ru" ? "GitHub токен" : "GitHub token")}</li>
                     <li>{!selectedProject?.github_repo && (lang === "ru" ? "GitHub репозиторий (owner/repo)" : "GitHub repository (owner/repo)")}</li>
                   </ul>
                   <Button asChild size="sm" variant="outline" className="h-7 text-xs mt-1">
