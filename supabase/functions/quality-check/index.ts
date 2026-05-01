@@ -156,9 +156,10 @@ ${sample}`;
 
 // ---- 3. Text.ru uniqueness ----
 // Two-step: POST /post -> uid; then poll POST /post (with uid) until result ready.
-async function runTextRuUniqueness(plain: string, apiKey: string): Promise<{
-  uniqueness: number; words: number; raw: any;
-} | null> {
+async function runTextRuUniqueness(plain: string, apiKey: string): Promise<
+  | { ok: true; uniqueness: number; words: number; raw: any }
+  | { ok: false; error: string; code?: number }
+> {
   // Step 1: submit
   const fd1 = new FormData();
   fd1.append("text", plain);
@@ -168,7 +169,11 @@ async function runTextRuUniqueness(plain: string, apiKey: string): Promise<{
   const submitJson: any = await submitRes.json().catch(() => ({}));
   if (!submitJson?.text_uid) {
     console.error("[quality-check] text.ru submit failed", submitJson);
-    return null;
+    const code = Number(submitJson?.error_code) || 0;
+    let msg = submitJson?.error_desc || "Сервис Text.ru недоступен";
+    if (code === 142) msg = "На балансе Text.ru закончились символы. Свяжитесь с поддержкой.";
+    else if (code === 111 || code === 112) msg = "Неверный API-ключ Text.ru. Свяжитесь с поддержкой.";
+    return { ok: false, error: msg, code };
   }
   const uid = submitJson.text_uid;
 
@@ -190,13 +195,14 @@ async function runTextRuUniqueness(plain: string, apiKey: string): Promise<{
       let parsedRes: any = {};
       try { parsedRes = typeof pollJson.result_json === "string" ? JSON.parse(pollJson.result_json) : (pollJson.result_json || {}); } catch {}
       return {
+        ok: true,
         uniqueness: unique,
         words: Number(parsedRes?.unique_check_resultat?.count_words) || plain.split(/\s+/).length,
         raw: { uid, spam: parsedRes?.spam_check_resultat, water: parsedRes?.water_check_resultat },
       };
     }
   }
-  return null;
+  return { ok: false, error: "Text.ru не вернул результат за отведённое время" };
 }
 
 function computeBadge(turg: number | null, uniq: number | null, ai: number | null): "excellent" | "good" | "needs_work" | null {
@@ -268,14 +274,24 @@ Deno.serve(async (req) => {
     results.forEach((r, i) => { out[labels[i]] = r; });
 
     const turg = out.score?.score ?? null;
-    const uniq = out.uniqueness?.uniqueness ?? null;
+    const uniqResult = out.uniqueness;
+    const uniqOk = uniqResult && uniqResult.ok === true;
+    const uniq = uniqOk ? uniqResult.uniqueness : null;
+    const uniqError = uniqResult && uniqResult.ok === false ? uniqResult.error : null;
     const ai = out.ai?.score ?? null;
 
     // If uniqueness was charged but failed - refund
     if (requested.has("uniqueness") && uniq === null && creditCharged) {
-      await admin.from("profiles").update({ credits_amount: undefined }).eq("id", user.id); // placeholder
-      // Use admin RPC equivalent: refund by direct update
-      await admin.rpc("admin_add_credits", { p_user_id: user.id, p_amount: 1, p_notify: false, p_comment: "Возврат за упавшую проверку Text.ru" }).catch(() => null);
+      try {
+        await admin.rpc("admin_add_credits", {
+          p_user_id: user.id,
+          p_amount: 1,
+          p_notify: false,
+          p_comment: "Возврат за упавшую проверку Text.ru",
+        });
+      } catch (e) {
+        console.error("[quality-check] refund failed", e);
+      }
     }
 
     const existingDetails = (art.quality_details as any) || {};
@@ -333,6 +349,8 @@ Deno.serve(async (req) => {
       quality_badge: badge,
       details,
       checked_at: update.quality_checked_at,
+      uniqueness_error: uniqError,
+      credit_refunded: requested.has("uniqueness") && uniq === null && creditCharged,
     });
   } catch (e: any) {
     console.error("[quality-check] fatal", e);
