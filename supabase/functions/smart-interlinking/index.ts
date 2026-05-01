@@ -9,7 +9,10 @@
 // 3. Builds a relevance matrix (keyword overlap weight 3, topics 2, entities 1).
 // 4. For each article, picks top-2 most relevant peers and injects ONE
 //    contextual <a href> per peer (max 2 outbound). The anchor is a natural
-//    2-4 word phrase already present in the body (NOT the peer title).
+//    2-4 word phrase already present in the body. Anchor TYPE is distributed
+//    50% keyword-rich / 30% brand-or-url / 20% generic across the whole site
+//    to avoid over-optimization (Penguin-safe profile). Each donor page may
+//    contain at most ONE keyword-rich anchor.
 // 5. Writes back articles.content. Optionally calls deploy-cloudflare-direct
 //    so the static site picks up the new links and an updated sitemap lastmod.
 //
@@ -29,6 +32,70 @@ const corsHeaders = {
 };
 
 const ANALYSIS_MODEL = "google/gemini-2.5-flash-lite";
+
+// Generic anchor pools — language-aware. Picked when distribution slot is "generic".
+const GENERIC_ANCHORS_RU = [
+  "читать подробнее", "по этой теме", "узнать больше", "подробнее здесь",
+  "смотреть материал", "связанный материал", "дополнительно", "источник",
+  "детали здесь", "по ссылке",
+];
+const GENERIC_ANCHORS_EN = [
+  "read more", "learn more", "see details", "related guide",
+  "more here", "full article", "source", "details here",
+  "related post", "see this",
+];
+
+type AnchorType = "keyword" | "brand" | "generic";
+
+// Deterministic hash → 0..99 bucket from the (donor, target) pair so the same
+// pair always gets the same anchor type across reruns and the global mix tends
+// toward the desired 50 / 30 / 20 distribution.
+function pairHashBucket(a: string, b: string): number {
+  const s = `${a}::${b}`;
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h % 100;
+}
+
+function pickAnchorType(donorId: string, targetId: string): AnchorType {
+  const b = pairHashBucket(donorId, targetId);
+  if (b < 50) return "keyword";
+  if (b < 80) return "brand";
+  return "generic";
+}
+
+function isCyrillic(text: string): boolean {
+  return /[а-яА-ЯёЁ]/.test(text);
+}
+
+// Build anchor candidates for a brand-style link: title head, domain, first
+// keyword as a brand-ish noun. Tries to find one already present in donor text;
+// if not, returns the title head as a fresh insertable phrase (the injector
+// will skip it and the loop will try the next anchor type).
+function brandAnchorCandidates(targetTitle: string, targetDomain: string): string[] {
+  const out: string[] = [];
+  const title = String(targetTitle || "").trim();
+  if (title) {
+    const words = title.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) out.push(words.slice(0, 2).join(" "));
+    if (words.length >= 3) out.push(words.slice(0, 3).join(" "));
+    out.push(words[0]);
+  }
+  const host = String(targetDomain || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (host) {
+    const brandPart = host.split(".")[0];
+    if (brandPart && brandPart.length >= 3) out.push(brandPart);
+  }
+  return out.filter((s) => s && s.length >= 3);
+}
+
+function genericAnchorPool(donorText: string, targetText: string): string[] {
+  const ru = isCyrillic(donorText) || isCyrillic(targetText);
+  return ru ? GENERIC_ANCHORS_RU : GENERIC_ANCHORS_EN;
+}
 
 async function getOpenRouterKey(admin: any): Promise<string | null> {
   try {
@@ -134,6 +201,42 @@ function findAnchorPhrase(text: string, terms: string[]): string | null {
     const re2 = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[a-zа-я]*\\b`, "i");
     const m2 = text.match(re2);
     if (m2 && m2[0]) return m2[0];
+  }
+  return null;
+}
+
+// For "generic" anchors we don't require the phrase to already exist in the
+// body — we will inject a tiny trailing sentence into a middle paragraph.
+function pickFirstPresent(text: string, candidates: string[]): string | null {
+  for (const c of candidates) {
+    if (!c) continue;
+    const re = new RegExp(`\\b${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    if (re.test(text)) return c;
+  }
+  return null;
+}
+
+// Inject a generic-anchor link by appending a short " (anchor)." span into the
+// FIRST middle paragraph that has no <a> yet. Keeps the rule "no first/last <p>".
+function injectGenericLink(html: string, href: string, anchor: string, alreadyHrefs: Set<string>): string | null {
+  if (!html || !href || !anchor) return null;
+  if (alreadyHrefs.has(href)) return null;
+  const pRe = /<p[^>]*>[\s\S]*?<\/p>/gi;
+  const pMatches: { start: number; end: number; html: string }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pRe.exec(html)) !== null) {
+    pMatches.push({ start: m.index, end: m.index + m[0].length, html: m[0] });
+  }
+  if (pMatches.length < 3) return null;
+  for (let i = 1; i < pMatches.length - 1; i++) {
+    const block = pMatches[i].html;
+    if (/<a\b[^>]*>/i.test(block)) continue;
+    // Insert before the closing </p>
+    const closeIdx = block.lastIndexOf("</p>");
+    if (closeIdx < 0) continue;
+    const inject = ` <a href="${href}" class="internal-link">${anchor}</a>.`;
+    const updatedBlock = block.slice(0, closeIdx) + inject + block.slice(closeIdx);
+    return html.slice(0, pMatches[i].start) + updatedBlock + html.slice(pMatches[i].end);
   }
   return null;
 }
@@ -260,18 +363,11 @@ serve(async (req) => {
         analyzed.push({ ...a, topics: [], entities: [], type: "guide" });
       }
     }
-    void logCost(admin, {
-      project_id: projectId, user_id: user.id,
-      operation_type: "smart_interlinking_analysis",
-      model: ANALYSIS_MODEL,
-      tokens_input: totalIn, tokens_output: totalOut,
-      metadata: { articles: analyzed.length },
-    });
-
     // Step 3: relevance matrix — for each article, pick top-2 peers.
     const domain = project.custom_domain || project.domain || "";
     let articlesUpdated = 0;
     let linksInserted = 0;
+    const anchorTypeStats = { keyword: 0, brand: 0, generic: 0 };
 
     for (const a of analyzed) {
       const ranked = analyzed
@@ -288,6 +384,7 @@ serve(async (req) => {
 
       const plainText = stripHtml(html);
       let inserted = 0;
+      let keywordAnchorsOnPage = 0;
 
       for (const r of ranked) {
         if (inserted >= 2) break;
@@ -295,23 +392,87 @@ serve(async (req) => {
         const peerUrl = peer.published_url || buildArticleUrl(domain, peer.id, peer.title);
         if (placedHrefs.has(peerUrl)) continue;
 
-        // Build candidate anchor terms: shared topic, shared entity, peer keywords, peer topics.
-        const candidates: string[] = [];
-        if (r.sharedTopic) candidates.push(r.sharedTopic);
-        if (r.sharedEntity) candidates.push(r.sharedEntity);
-        candidates.push(...(peer.keywords || []).map((k) => k.toLowerCase()));
-        candidates.push(...peer.topics);
-        candidates.push(...peer.entities.slice(0, 5));
+        // Decide preferred anchor type with a deterministic 50/30/20 hash bucket.
+        let preferred = pickAnchorType(a.id, peer.id);
+        // Dilution: never put 2 keyword-rich anchors on the same donor page.
+        if (preferred === "keyword" && keywordAnchorsOnPage >= 1) {
+          // Demote to brand or generic depending on the bucket value
+          preferred = pairHashBucket(a.id, peer.id) % 2 === 0 ? "brand" : "generic";
+        }
 
-        const anchor = findAnchorPhrase(plainText, candidates);
-        if (!anchor) continue;
+        // Try preferred type first, then a fallback chain so we don't lose the link.
+        const tryOrder: AnchorType[] = preferred === "keyword"
+          ? ["keyword", "brand", "generic"]
+          : preferred === "brand"
+            ? ["brand", "generic", "keyword"]
+            : ["generic", "brand", "keyword"];
 
-        const updated = injectLink(html, peerUrl, anchor, placedHrefs);
-        if (updated) {
-          html = updated;
+        let placedType: AnchorType | null = null;
+        let usedAnchor: string | null = null;
+
+        for (const kind of tryOrder) {
+          if (kind === "keyword") {
+            if (keywordAnchorsOnPage >= 1) continue;
+            const candidates: string[] = [];
+            if (r.sharedTopic) candidates.push(r.sharedTopic);
+            if (r.sharedEntity) candidates.push(r.sharedEntity);
+            candidates.push(...(peer.keywords || []).map((k) => String(k).toLowerCase()));
+            candidates.push(...peer.topics);
+            candidates.push(...peer.entities.slice(0, 5));
+            const anchor = findAnchorPhrase(plainText, candidates);
+            if (!anchor) continue;
+            const updated = injectLink(html, peerUrl, anchor, placedHrefs);
+            if (updated) {
+              html = updated;
+              usedAnchor = anchor;
+              placedType = "keyword";
+              break;
+            }
+          } else if (kind === "brand") {
+            const brandCands = brandAnchorCandidates(peer.title || "", domain);
+            // Prefer a brand phrase already present in body (natural anchor).
+            const present = pickFirstPresent(plainText, brandCands);
+            if (present) {
+              const updated = injectLink(html, peerUrl, present, placedHrefs);
+              if (updated) {
+                html = updated;
+                usedAnchor = present;
+                placedType = "brand";
+                break;
+              }
+            }
+            // Otherwise inject the brand head as a generic-style appended anchor.
+            const fallback = brandCands[0];
+            if (fallback) {
+              const updated = injectGenericLink(html, peerUrl, fallback, placedHrefs);
+              if (updated) {
+                html = updated;
+                usedAnchor = fallback;
+                placedType = "brand";
+                break;
+              }
+            }
+          } else {
+            // generic
+            const pool = genericAnchorPool(plainText, peer.title || "");
+            const idx = pairHashBucket(a.id, peer.id) % pool.length;
+            const anchor = pool[idx];
+            const updated = injectGenericLink(html, peerUrl, anchor, placedHrefs);
+            if (updated) {
+              html = updated;
+              usedAnchor = anchor;
+              placedType = "generic";
+              break;
+            }
+          }
+        }
+
+        if (placedType && usedAnchor) {
           placedHrefs.add(peerUrl);
           inserted++;
           linksInserted++;
+          anchorTypeStats[placedType]++;
+          if (placedType === "keyword") keywordAnchorsOnPage++;
         }
       }
 
@@ -323,6 +484,19 @@ serve(async (req) => {
         else console.warn("[smart-interlinking] update fail:", a.id, updErr.message);
       }
     }
+
+    void logCost(admin, {
+      project_id: projectId, user_id: user.id,
+      operation_type: "smart_interlinking_analysis",
+      model: ANALYSIS_MODEL,
+      tokens_input: totalIn, tokens_output: totalOut,
+      metadata: {
+        articles: analyzed.length,
+        links_inserted: linksInserted,
+        articles_updated: articlesUpdated,
+        anchor_distribution: anchorTypeStats,
+      },
+    });
 
     // Step 4: trigger redeploy so the static site picks up new links + sitemap lastmod.
     let redeployed = false;
@@ -351,6 +525,7 @@ serve(async (req) => {
       articles_analyzed: analyzed.length,
       articles_updated: articlesUpdated,
       links_inserted: linksInserted,
+      anchor_distribution: anchorTypeStats,
       redeployed,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
