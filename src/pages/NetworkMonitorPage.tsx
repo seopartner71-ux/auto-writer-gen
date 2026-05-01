@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { Link } from "react-router-dom";
+import { getSiteLanguageMeta } from "@/shared/utils/siteLanguages";
 
 interface HealthResult {
   id: string;
@@ -391,6 +392,9 @@ export default function NetworkMonitorPage() {
                         <TableCell className="cursor-pointer" onClick={() => loadTopPages(project.id)}>
                           <div>
                             <span className="font-medium">{project.name}</span>
+                            <Badge variant="outline" className="ml-2 text-[10px] h-4 px-1">
+                              {getSiteLanguageMeta(project.language).iso}
+                            </Badge>
                             {host && <span className="text-xs text-muted-foreground ml-2">{host}</span>}
                           </div>
                         </TableCell>
