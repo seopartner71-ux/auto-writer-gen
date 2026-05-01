@@ -1398,6 +1398,7 @@ export type Database = {
           ghost_api_key: string | null
           ghost_url: string | null
           gsc_json_key: string | null
+          gsc_site_url: string | null
           id: string
           is_active: boolean
           last_ip: string | null
@@ -1421,6 +1422,7 @@ export type Database = {
           ghost_api_key?: string | null
           ghost_url?: string | null
           gsc_json_key?: string | null
+          gsc_site_url?: string | null
           id: string
           is_active?: boolean
           last_ip?: string | null
@@ -1444,6 +1446,7 @@ export type Database = {
           ghost_api_key?: string | null
           ghost_url?: string | null
           gsc_json_key?: string | null
+          gsc_site_url?: string | null
           id?: string
           is_active?: boolean
           last_ip?: string | null
