@@ -188,6 +188,51 @@ export type Database = {
           },
         ]
       }
+      article_sections: {
+        Row: {
+          article_id: string
+          content: string | null
+          created_at: string
+          error_message: string | null
+          generated_at: string | null
+          h2_title: string
+          id: string
+          prompt: string | null
+          section_index: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          content?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_at?: string | null
+          h2_title: string
+          id?: string
+          prompt?: string | null
+          section_index: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          content?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_at?: string | null
+          h2_title?: string
+          id?: string
+          prompt?: string | null
+          section_index?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       article_telegraph_tokens: {
         Row: {
           access_token: string
