@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -53,6 +53,31 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate }: Pro
     turgenev_score: null, uniqueness_percent: null, ai_human_score: null, quality_badge: null,
   });
   const [loadingSet, setLoadingSet] = useState<Set<string>>(new Set());
+
+  // Load existing quality data when article changes
+  useEffect(() => {
+    if (!articleId) {
+      setResult({ turgenev_score: null, uniqueness_percent: null, ai_human_score: null, quality_badge: null });
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("articles")
+        .select("turgenev_score,uniqueness_percent,ai_human_score,quality_badge,quality_details,quality_checked_at")
+        .eq("id", articleId)
+        .maybeSingle();
+      if (data) {
+        setResult({
+          turgenev_score: data.turgenev_score ?? null,
+          uniqueness_percent: data.uniqueness_percent ?? null,
+          ai_human_score: data.ai_human_score ?? null,
+          quality_badge: (data.quality_badge as any) ?? null,
+          details: data.quality_details,
+          checked_at: data.quality_checked_at,
+        });
+      }
+    })();
+  }, [articleId]);
 
   const isLoading = (k: string) => loadingSet.has(k);
 
