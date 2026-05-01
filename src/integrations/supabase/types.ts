@@ -564,6 +564,7 @@ export type Database = {
           default_blog_id: string | null
           default_blog_name: string | null
           google_email: string | null
+          has_tokens: boolean
           id: string
           refresh_token: string
           token_expires_at: string | null
@@ -577,6 +578,7 @@ export type Database = {
           default_blog_id?: string | null
           default_blog_name?: string | null
           google_email?: string | null
+          has_tokens?: boolean
           id?: string
           refresh_token: string
           token_expires_at?: string | null
@@ -590,6 +592,7 @@ export type Database = {
           default_blog_id?: string | null
           default_blog_name?: string | null
           google_email?: string | null
+          has_tokens?: boolean
           id?: string
           refresh_token?: string
           token_expires_at?: string | null
@@ -1399,6 +1402,9 @@ export type Database = {
           ghost_url: string | null
           gsc_json_key: string | null
           gsc_site_url: string | null
+          has_ghost_key: boolean
+          has_gsc_key: boolean
+          has_medium_token: boolean
           id: string
           is_active: boolean
           last_ip: string | null
@@ -1423,6 +1429,9 @@ export type Database = {
           ghost_url?: string | null
           gsc_json_key?: string | null
           gsc_site_url?: string | null
+          has_ghost_key?: boolean
+          has_gsc_key?: boolean
+          has_medium_token?: boolean
           id: string
           is_active?: boolean
           last_ip?: string | null
@@ -1447,6 +1456,9 @@ export type Database = {
           ghost_url?: string | null
           gsc_json_key?: string | null
           gsc_site_url?: string | null
+          has_ghost_key?: boolean
+          has_gsc_key?: boolean
+          has_medium_token?: boolean
           id?: string
           is_active?: boolean
           last_ip?: string | null
@@ -1488,6 +1500,7 @@ export type Database = {
           github_repo: string | null
           github_token: string | null
           google_verification: string | null
+          has_github_token: boolean
           hashnode_publication_id: string | null
           homepage_style: string
           hosting_platform: string | null
@@ -1551,6 +1564,7 @@ export type Database = {
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
+          has_github_token?: boolean
           hashnode_publication_id?: string | null
           homepage_style?: string
           hosting_platform?: string | null
@@ -1614,6 +1628,7 @@ export type Database = {
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
+          has_github_token?: boolean
           hashnode_publication_id?: string | null
           homepage_style?: string
           hosting_platform?: string | null
@@ -2492,6 +2507,7 @@ export type Database = {
         Row: {
           app_password: string
           created_at: string | null
+          has_app_password: boolean
           id: string
           is_connected: boolean | null
           site_name: string | null
@@ -2503,6 +2519,7 @@ export type Database = {
         Insert: {
           app_password: string
           created_at?: string | null
+          has_app_password?: boolean
           id?: string
           is_connected?: boolean | null
           site_name?: string | null
@@ -2514,6 +2531,7 @@ export type Database = {
         Update: {
           app_password?: string
           created_at?: string | null
+          has_app_password?: boolean
           id?: string
           is_connected?: boolean | null
           site_name?: string | null
