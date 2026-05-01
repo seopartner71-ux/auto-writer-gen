@@ -2368,7 +2368,7 @@ export default function SiteFactoryPage() {
                           variant="ghost"
                           onClick={() => handleSyndicate(article)}
                           disabled={!article.content || isGen || syndicatingId === article.id}
-                          title={lang === "ru" ? "Синдицировать на Blogger/Hashnode/Dev.to" : "Syndicate to Blogger/Hashnode/Dev.to"}
+                          title={lang === "ru" ? "Синдицировать на Blogger" : "Syndicate to Blogger"}
                         >
                           {syndicatingId === article.id
                             ? <Loader2 className="h-4 w-4 animate-spin" />

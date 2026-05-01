@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Share2 } from "lucide-react";
@@ -13,21 +12,19 @@ interface Props {
   lang: "ru" | "en";
 }
 
-type Platform = "blogger" | "hashnode" | "devto";
+type Platform = "blogger" | "telegraph";
 
-const ALL_PLATFORMS: Platform[] = ["blogger", "hashnode", "devto"];
+const ALL_PLATFORMS: Platform[] = ["blogger", "telegraph"];
 
 const LABELS: Record<Platform, string> = {
-  blogger: "Blogger (RU, без перевода)",
-  hashnode: "Hashnode (EN, с переводом)",
-  devto: "Dev.to (EN, с переводом)",
+  blogger: "Blogger",
+  telegraph: "Telegra.ph",
 };
 
 export function SyndicationSettings({ projectId, lang }: Props) {
   const { toast } = useToast();
   const [enabled, setEnabled] = useState(false);
   const [platforms, setPlatforms] = useState<Platform[]>([...ALL_PLATFORMS]);
-  const [hashnodePubId, setHashnodePubId] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,12 +32,11 @@ export function SyndicationSettings({ projectId, lang }: Props) {
     (async () => {
       const { data } = await supabase
         .from("projects")
-        .select("syndication_enabled, syndication_platforms, hashnode_publication_id")
+        .select("syndication_enabled, syndication_platforms")
         .eq("id", projectId).maybeSingle();
       if (data) {
         setEnabled(!!data.syndication_enabled);
         setPlatforms(((data.syndication_platforms as Platform[] | null) || ALL_PLATFORMS).filter((p) => ALL_PLATFORMS.includes(p as Platform)));
-        setHashnodePubId(data.hashnode_publication_id || "");
       }
     })();
   }, [projectId]);
@@ -101,30 +97,10 @@ export function SyndicationSettings({ projectId, lang }: Props) {
           ))}
         </div>
 
-        {platforms.includes("hashnode") && (
-          <div className="space-y-1.5 pt-2">
-            <Label className="text-xs text-muted-foreground">
-              Hashnode Publication ID
-            </Label>
-            <Input
-              value={hashnodePubId}
-              onChange={(e) => setHashnodePubId(e.target.value)}
-              onBlur={() => save({ hashnode_publication_id: hashnodePubId.trim() || null })}
-              placeholder="65f1a2b3c4d5e6f7a8b9c0d1"
-              className="h-8 text-xs"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              {lang === "ru"
-                ? "ID публикации Hashnode. Найти можно в URL панели управления блогом."
-                : "Hashnode publication ID. Find it in your blog dashboard URL."}
-            </p>
-          </div>
-        )}
-
         <p className="text-[11px] text-muted-foreground pt-1 border-t border-border">
           {lang === "ru"
-            ? "Blogger: используется ваше OAuth-подключение. Hashnode/Dev.to: используются глобальные API-ключи системы."
-            : "Blogger: uses your own OAuth connection. Hashnode/Dev.to: use system-wide API keys."}
+            ? "Blogger: используется ваше OAuth-подключение. Telegra.ph: публикуется без регистрации."
+            : "Blogger: uses your own OAuth connection. Telegra.ph: anonymous publishing."}
         </p>
       </CardContent>
     </Card>
