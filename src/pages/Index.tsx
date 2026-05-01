@@ -13,6 +13,7 @@ import { useEffect } from "react";
 const SectionResearch = lazy(() => import("@/components/landing/SectionResearch").then(m => ({ default: m.SectionResearch })));
 const LandingSandbox = lazy(() => import("@/components/landing/LandingSandbox").then(m => ({ default: m.LandingSandbox })));
 const SectionRealResults = lazy(() => import("@/components/landing/SectionRealResults").then(m => ({ default: m.SectionRealResults })));
+const SectionVideoDemo = lazy(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
 const SectionPersona = lazy(() => import("@/components/landing/SectionPersona").then(m => ({ default: m.SectionPersona })));
 const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
 const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
@@ -143,6 +144,7 @@ export default function Index() {
       <div className="relative z-[2]">
         <SectionHero />
         <Suspense fallback={null}>
+          <SectionVideoDemo />
           <LandingSandbox />
           <SectionResearch />
           <SectionPersona />
