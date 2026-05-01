@@ -1235,6 +1235,17 @@ export default function ArticlesPage() {
 
         {/* Content formatting options */}
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border mt-3">
+          {(() => {
+            // Telegra.ph не поддерживает HTML-таблицы и микроразметку — принудительно
+            // выключаем чип "Таблица сравнения" при выборе автора Телеграф.
+            const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
+              authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
+            if (isTelegraphAuthor && includeComparisonTable) {
+              // отложенно сбросим, чтобы не дёргать setState во время рендера
+              setTimeout(() => setIncludeComparisonTable(false), 0);
+            }
+            return null;
+          })()}
           <button
             type="button"
             onClick={() => setIncludeExpertQuote(!includeExpertQuote)}
@@ -1247,18 +1258,28 @@ export default function ArticlesPage() {
             <Quote className={`h-3.5 w-3.5 ${includeExpertQuote ? 'text-purple-400' : 'text-slate-500'}`} />
             {t("articles.expertQuote")}
           </button>
-          <button
-            type="button"
-            onClick={() => setIncludeComparisonTable(!includeComparisonTable)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 select-none cursor-pointer ${
-              includeComparisonTable
-                ? 'border-purple-500/60 text-white bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
-                : 'border-slate-800 text-slate-400 bg-white/5 hover:bg-white/10 hover:border-slate-700'
-            }`}
-          >
-            <Table2 className={`h-3.5 w-3.5 ${includeComparisonTable ? 'text-purple-400' : 'text-slate-500'}`} />
-            {t("articles.comparisonTable")}
-          </button>
+          {(() => {
+            const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
+              authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
+            return (
+              <button
+                type="button"
+                disabled={isTelegraphAuthor}
+                title={isTelegraphAuthor ? "Telegra.ph не поддерживает таблицы" : undefined}
+                onClick={() => !isTelegraphAuthor && setIncludeComparisonTable(!includeComparisonTable)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 select-none ${
+                  isTelegraphAuthor
+                    ? 'border-slate-800 text-slate-600 bg-white/5 opacity-50 cursor-not-allowed'
+                    : includeComparisonTable
+                      ? 'border-purple-500/60 text-white bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.4)] cursor-pointer'
+                      : 'border-slate-800 text-slate-400 bg-white/5 hover:bg-white/10 hover:border-slate-700 cursor-pointer'
+                }`}
+              >
+                <Table2 className={`h-3.5 w-3.5 ${includeComparisonTable && !isTelegraphAuthor ? 'text-purple-400' : 'text-slate-500'}`} />
+                {t("articles.comparisonTable")}
+              </button>
+            );
+          })()}
         </div>
 
         {/* SEO Keywords, Geo, Custom Instructions */}
