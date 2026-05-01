@@ -274,14 +274,24 @@ Deno.serve(async (req) => {
     results.forEach((r, i) => { out[labels[i]] = r; });
 
     const turg = out.score?.score ?? null;
-    const uniq = out.uniqueness?.uniqueness ?? null;
+    const uniqResult = out.uniqueness;
+    const uniqOk = uniqResult && uniqResult.ok === true;
+    const uniq = uniqOk ? uniqResult.uniqueness : null;
+    const uniqError = uniqResult && uniqResult.ok === false ? uniqResult.error : null;
     const ai = out.ai?.score ?? null;
 
     // If uniqueness was charged but failed - refund
     if (requested.has("uniqueness") && uniq === null && creditCharged) {
-      await admin.from("profiles").update({ credits_amount: undefined }).eq("id", user.id); // placeholder
-      // Use admin RPC equivalent: refund by direct update
-      await admin.rpc("admin_add_credits", { p_user_id: user.id, p_amount: 1, p_notify: false, p_comment: "Возврат за упавшую проверку Text.ru" }).catch(() => null);
+      try {
+        await admin.rpc("admin_add_credits", {
+          p_user_id: user.id,
+          p_amount: 1,
+          p_notify: false,
+          p_comment: "Возврат за упавшую проверку Text.ru",
+        });
+      } catch (e) {
+        console.error("[quality-check] refund failed", e);
+      }
     }
 
     const existingDetails = (art.quality_details as any) || {};
@@ -339,6 +349,8 @@ Deno.serve(async (req) => {
       quality_badge: badge,
       details,
       checked_at: update.quality_checked_at,
+      uniqueness_error: uniqError,
+      credit_refunded: requested.has("uniqueness") && uniq === null && creditCharged,
     });
   } catch (e: any) {
     console.error("[quality-check] fatal", e);
