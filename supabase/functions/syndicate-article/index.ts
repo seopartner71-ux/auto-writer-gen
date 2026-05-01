@@ -378,12 +378,9 @@ serve(async (req) => {
 
     const { data: project } = await admin
       .from("projects")
-      .select("id, name, custom_domain, domain, hashnode_publication_id, syndication_enabled, syndication_platforms, language")
+      .select("id, name, custom_domain, domain, syndication_enabled, syndication_platforms, language")
       .eq("id", article.project_id).maybeSingle();
     if (!project) return json({ error: "Project not found" }, 404);
-
-    const siteLang = String((project as any).language || "ru").toLowerCase().slice(0, 2);
-    const isEnglishSite = siteLang === "en";
 
     // Determine canonical URL = the live PBN article URL
     const baseDomain = project.custom_domain || project.domain;
