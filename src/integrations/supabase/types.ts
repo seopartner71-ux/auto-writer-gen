@@ -2226,6 +2226,70 @@ export type Database = {
           },
         ]
       }
+      tier2_backlinks: {
+        Row: {
+          article_id: string | null
+          canonical_url: string
+          created_at: string
+          error: string | null
+          external_url: string | null
+          id: string
+          platform: string
+          project_id: string
+          status: string
+          teaser_title: string | null
+          user_id: string
+        }
+        Insert: {
+          article_id?: string | null
+          canonical_url: string
+          created_at?: string
+          error?: string | null
+          external_url?: string | null
+          id?: string
+          platform: string
+          project_id: string
+          status?: string
+          teaser_title?: string | null
+          user_id: string
+        }
+        Update: {
+          article_id?: string | null
+          canonical_url?: string
+          created_at?: string
+          error?: string | null
+          external_url?: string | null
+          id?: string
+          platform?: string
+          project_id?: string
+          status?: string
+          teaser_title?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tier2_backlinks_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tier2_backlinks_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tier2_backlinks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_logs: {
         Row: {
           action: string | null
