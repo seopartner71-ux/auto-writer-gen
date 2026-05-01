@@ -44,6 +44,7 @@ const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const MyArticlesPage = lazy(() => import("@/pages/MyArticlesPage"));
 const SiteFactoryPage = lazy(() => import("@/pages/SiteFactoryPage"));
 const NetworkMonitorPage = lazy(() => import("@/pages/NetworkMonitorPage"));
+const DomainHunterPage = lazy(() => import("@/pages/DomainHunterPage"));
 const OfferPage = lazy(() => import("@/pages/OfferPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
@@ -137,6 +138,7 @@ const App = () => (
                   <Route path="/my-articles" element={<MyArticlesPage />} />
                   <Route path="/site-factory" element={<SiteFactoryPage />} />
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
+                  <Route path="/domain-hunter" element={<DomainHunterPage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>

@@ -19,6 +19,7 @@ import {
   LifeBuoy,
   Factory,
   Activity,
+  Crosshair,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -60,6 +61,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/my-articles": () => import("@/pages/MyArticlesPage"),
   "/site-factory": () => import("@/pages/SiteFactoryPage"),
   "/network-monitor": () => import("@/pages/NetworkMonitorPage"),
+  "/domain-hunter": () => import("@/pages/DomainHunterPage"),
 };
 
 export function AppSidebar() {
@@ -90,6 +92,7 @@ export function AppSidebar() {
     ...(isFactory ? [
       { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
       { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
+      { title: lang === "ru" ? "Aged домены" : "Domain Hunter", url: "/domain-hunter", icon: Crosshair },
       { title: t("nav.calendar"), url: "/calendar", icon: CalendarDays },
       { title: "AI Radar", url: "/radar", icon: Radar },
     ] : []),

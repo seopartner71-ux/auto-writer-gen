@@ -787,6 +787,72 @@ export type Database = {
         }
         Relationships: []
       }
+      domain_checks: {
+        Row: {
+          age_years: number | null
+          archive_first_date: string | null
+          archive_has_snapshots: boolean | null
+          archive_last_date: string | null
+          assigned_project_id: string | null
+          bl: number | null
+          cf: number | null
+          checked_at: string
+          created_at: string
+          domain: string
+          google_indexed: boolean | null
+          google_results_count: number | null
+          id: string
+          raw_csv_data: Json | null
+          score: number
+          spam_listed: boolean | null
+          status: string
+          tf: number | null
+          user_id: string
+        }
+        Insert: {
+          age_years?: number | null
+          archive_first_date?: string | null
+          archive_has_snapshots?: boolean | null
+          archive_last_date?: string | null
+          assigned_project_id?: string | null
+          bl?: number | null
+          cf?: number | null
+          checked_at?: string
+          created_at?: string
+          domain: string
+          google_indexed?: boolean | null
+          google_results_count?: number | null
+          id?: string
+          raw_csv_data?: Json | null
+          score?: number
+          spam_listed?: boolean | null
+          status?: string
+          tf?: number | null
+          user_id: string
+        }
+        Update: {
+          age_years?: number | null
+          archive_first_date?: string | null
+          archive_has_snapshots?: boolean | null
+          archive_last_date?: string | null
+          assigned_project_id?: string | null
+          bl?: number | null
+          cf?: number | null
+          checked_at?: string
+          created_at?: string
+          domain?: string
+          google_indexed?: boolean | null
+          google_results_count?: number | null
+          id?: string
+          raw_csv_data?: Json | null
+          score?: number
+          spam_listed?: boolean | null
+          status?: string
+          tf?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       faq_articles: {
         Row: {
           category_id: string
