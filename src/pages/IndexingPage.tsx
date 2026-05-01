@@ -24,6 +24,26 @@ export default function IndexingPage() {
   const [gscKey, setGscKey] = useState("");
   const [savingKey, setSavingKey] = useState(false);
   const [isReplacingKey, setIsReplacingKey] = useState(false);
+  const [gscSiteUrl, setGscSiteUrl] = useState((profile as any)?.gsc_site_url || "");
+  const [savingSite, setSavingSite] = useState(false);
+
+  const handleSaveSiteUrl = async () => {
+    if (!gscSiteUrl.trim()) return;
+    setSavingSite(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ gsc_site_url: gscSiteUrl.trim() } as any)
+        .eq("id", user!.id);
+      if (error) throw error;
+      await refreshProfile();
+      toast.success(lang === "ru" ? "Адрес сайта сохранён" : "Site URL saved");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSavingSite(false);
+    }
+  };
 
   // Load logs
   const { data: logs = [], refetch: refetchLogs } = useQuery({
