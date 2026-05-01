@@ -1012,6 +1012,7 @@ export default function SiteFactoryPage() {
   };
 
   const handleBatchPublish = async () => {
+    // placeholder anchor for next hunk
     if (!selectedProjectId || selectedIds.size === 0) return;
     setBatchPublishing(true);
     addDeployLog("publishing", lang === "ru" ? `Пакетная публикация ${selectedIds.size} статей...` : `Batch publishing ${selectedIds.size} articles...`);
