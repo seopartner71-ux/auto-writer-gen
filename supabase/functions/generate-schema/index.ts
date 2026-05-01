@@ -185,6 +185,12 @@ Generate:
     
     console.log("Parsed keys:", Object.keys(result));
 
+    // When publishing to Telegra.ph, strip any schema the model might have produced anyway.
+    if (skipSchema) {
+      delete result.faq_schema;
+      delete result.article_schema;
+    }
+
     // Schema 3.0 Validation: basic structure checks
     if (result.faq_schema) {
       const faq = result.faq_schema;
