@@ -284,51 +284,72 @@ Deno.serve(async (req) => {
       creditCharged = true;
     }
 
-    // Run checks in parallel where possible
-    const promises: Promise<any>[] = [];
-    const labels: string[] = [];
-    if (requested.has("score")) { promises.push(withTimeout(runSeoModuleScore(plain, apiKey), 35000, "seo-score")); labels.push("score"); }
-    if (requested.has("ai")) { promises.push(withTimeout(runAiScore(plain, apiKey), 35000, "ai-score")); labels.push("ai"); }
-    if (requested.has("uniqueness")) { promises.push(withTimeout(runTextRuUniqueness(plain, textRuKey!), 70000, "textru")); labels.push("uniqueness"); }
+    // Run fast checks (score + ai) inline. Uniqueness (text.ru, can take 60-120s) runs in background.
+    const fastPromises: Promise<any>[] = [];
+    const fastLabels: string[] = [];
+    if (requested.has("score")) { fastPromises.push(withTimeout(runSeoModuleScore(plain, apiKey), 30000, "seo-score")); fastLabels.push("score"); }
+    if (requested.has("ai")) { fastPromises.push(withTimeout(runAiScore(plain, apiKey), 30000, "ai-score")); fastLabels.push("ai"); }
 
-    const results = await Promise.all(promises);
+    const fastResults = await Promise.all(fastPromises);
     const out: Record<string, any> = {};
-    results.forEach((r, i) => {
-      // Normalize timeout (null) into a uniqueness error object so we still refund
-      if (r === null && labels[i] === "uniqueness") {
-        out[labels[i]] = { ok: false, error: "Сервис Text.ru не ответил вовремя. Кредит возвращён." };
-      } else {
-        out[labels[i]] = r;
-      }
-    });
+    fastResults.forEach((r, i) => { out[fastLabels[i]] = r; });
+
+    // Schedule uniqueness check as background task (does not block response).
+    const uniquenessQueued = requested.has("uniqueness") && !!textRuKey;
+    if (uniquenessQueued) {
+      // Mark as pending so client UI can show "checking..." state
+      try {
+        await admin.from("articles").update({
+          quality_details: { ...(art.quality_details as any || {}), uniqueness_pending: true },
+        }).eq("id", article_id);
+      } catch (_) { /* ignore */ }
+
+      // Background task: run text.ru, write result, refund on failure.
+      const bgTask = (async () => {
+        try {
+          const uniqRes = await withTimeout(runTextRuUniqueness(plain, textRuKey!), 120000, "textru-bg");
+          const ok = uniqRes && (uniqRes as any).ok === true;
+          const uniqVal = ok ? (uniqRes as any).uniqueness : null;
+          const updPatch: Record<string, any> = {
+            quality_details: {
+              ...(art.quality_details as any || {}),
+              uniqueness_pending: false,
+              uniqueness_details: ok ? { words: (uniqRes as any).words } : undefined,
+              uniqueness_error: !ok ? ((uniqRes as any)?.error || "Сервис Text.ru не ответил вовремя") : undefined,
+            },
+          };
+          if (uniqVal !== null) updPatch.uniqueness_percent = uniqVal;
+          await admin.from("articles").update(updPatch).eq("id", article_id);
+
+          // Refund credit if failed
+          if (!ok && creditCharged) {
+            await admin.rpc("admin_add_credits", {
+              p_user_id: user.id, p_amount: 1, p_notify: false,
+              p_comment: "Возврат за упавшую проверку Text.ru",
+            }).catch(() => {});
+          }
+        } catch (e) {
+          console.error("[quality-check] bg textru error", e);
+        }
+      })();
+      try { (globalThis as any).EdgeRuntime?.waitUntil?.(bgTask); } catch (_) { void bgTask; }
+    }
 
     const turg = out.score?.score ?? null;
-    const uniqResult = out.uniqueness;
-    const uniqOk = uniqResult && uniqResult.ok === true;
-    const uniq = uniqOk ? uniqResult.uniqueness : null;
-    const uniqError = uniqResult && uniqResult.ok === false ? uniqResult.error : null;
+    // Uniqueness handled in background; not part of inline response.
+    const uniq: number | null = null;
+    const uniqError: string | null = null;
     const ai = out.ai?.score ?? null;
 
-    // If uniqueness was charged but failed - refund
-    if (requested.has("uniqueness") && uniq === null && creditCharged) {
-      try {
-        await admin.rpc("admin_add_credits", {
-          p_user_id: user.id,
-          p_amount: 1,
-          p_notify: false,
-          p_comment: "Возврат за упавшую проверку Text.ru",
-        });
-      } catch (e) {
-        console.error("[quality-check] refund failed", e);
-      }
-    }
+    // (refund logic moved into background task above)
 
     const existingDetails = (art.quality_details as any) || {};
     const details = {
       ...existingDetails,
       score_details: out.score ? { stylistics: out.score.stylistics, water: out.score.water, reasons: out.score.reasons } : existingDetails.score_details,
       ai_details: out.ai ? { verdict: out.ai.verdict, reasons: out.ai.reasons } : existingDetails.ai_details,
-      uniqueness_details: out.uniqueness ? { words: out.uniqueness.words } : existingDetails.uniqueness_details,
+      uniqueness_details: existingDetails.uniqueness_details,
+      uniqueness_pending: uniquenessQueued ? true : existingDetails.uniqueness_pending,
     };
 
     const update: Record<string, any> = {
@@ -379,7 +400,8 @@ Deno.serve(async (req) => {
       details,
       checked_at: update.quality_checked_at,
       uniqueness_error: uniqError,
-      credit_refunded: requested.has("uniqueness") && uniq === null && creditCharged,
+      uniqueness_pending: uniquenessQueued,
+      credit_refunded: false,
     });
   } catch (e: any) {
     console.error("[quality-check] fatal", e);
