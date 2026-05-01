@@ -90,6 +90,37 @@ serve(async (req) => {
       });
       if (res.ok) scheduled++; else failed++;
 
+      // Trigger external syndication (Blogger/Hashnode/Dev.to) if enabled on the project.
+      // bulk-generate created a queue item; the article will be ready in ~1-2 minutes,
+      // so we fire a delayed background task that picks the latest article and syndicates.
+      try {
+        const { data: pRow } = await admin
+          .from("projects").select("syndication_enabled").eq("id", p.id).maybeSingle();
+        if (pRow?.syndication_enabled && res.ok) {
+          (async () => {
+            await new Promise((r) => setTimeout(r, 90_000));
+            const { data: latest } = await admin
+              .from("articles")
+              .select("id")
+              .eq("project_id", p.id)
+              .order("created_at", { ascending: false })
+              .limit(1).maybeSingle();
+            if (!latest?.id) return;
+            await fetch(`${supabaseUrl}/functions/v1/syndicate-article`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${service}`,
+                "x-syndicate-user-id": p.user_id,
+              },
+              body: JSON.stringify({ article_id: latest.id }),
+            }).catch((e) => console.warn("[auto-publish] syndicate trigger failed", e?.message));
+          })();
+        }
+      } catch (e: any) {
+        console.warn("[auto-publish] syndication scheduling error", e?.message);
+      }
+
       // Cost-log marker for cron usage (zero direct cost — actual cost is
       // logged inside generate-article when bulk-generate triggers it).
       void logCost(admin, {

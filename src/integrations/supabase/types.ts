@@ -287,6 +287,8 @@ export type Database = {
           telegraph_path: string | null
           telegraph_url: string | null
           title: string | null
+          translated_content_en: string | null
+          translated_title_en: string | null
           updated_at: string | null
           user_id: string
         }
@@ -319,6 +321,8 @@ export type Database = {
           telegraph_path?: string | null
           telegraph_url?: string | null
           title?: string | null
+          translated_content_en?: string | null
+          translated_title_en?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -351,6 +355,8 @@ export type Database = {
           telegraph_path?: string | null
           telegraph_url?: string | null
           title?: string | null
+          translated_content_en?: string | null
+          translated_title_en?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -1308,6 +1314,7 @@ export type Database = {
           github_repo: string | null
           github_token: string | null
           google_verification: string | null
+          hashnode_publication_id: string | null
           homepage_style: string
           hosting_platform: string | null
           id: string
@@ -1330,6 +1337,8 @@ export type Database = {
           site_name: string | null
           site_privacy: string | null
           site_terms: string | null
+          syndication_enabled: boolean
+          syndication_platforms: string[]
           team_members: Json | null
           telegram_url: string | null
           template_font_pair: string | null
@@ -1367,6 +1376,7 @@ export type Database = {
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
+          hashnode_publication_id?: string | null
           homepage_style?: string
           hosting_platform?: string | null
           id?: string
@@ -1389,6 +1399,8 @@ export type Database = {
           site_name?: string | null
           site_privacy?: string | null
           site_terms?: string | null
+          syndication_enabled?: boolean
+          syndication_platforms?: string[]
           team_members?: Json | null
           telegram_url?: string | null
           template_font_pair?: string | null
@@ -1426,6 +1438,7 @@ export type Database = {
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
+          hashnode_publication_id?: string | null
           homepage_style?: string
           hosting_platform?: string | null
           id?: string
@@ -1448,6 +1461,8 @@ export type Database = {
           site_name?: string | null
           site_privacy?: string | null
           site_terms?: string | null
+          syndication_enabled?: boolean
+          syndication_platforms?: string[]
           team_members?: Json | null
           telegram_url?: string | null
           template_font_pair?: string | null
@@ -2046,6 +2061,48 @@ export type Database = {
           replied_at?: string | null
           status?: string
           subject?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      syndication_log: {
+        Row: {
+          article_id: string
+          canonical_url: string | null
+          created_at: string
+          error_message: string | null
+          external_post_id: string | null
+          id: string
+          platform: string
+          project_id: string | null
+          published_url: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          canonical_url?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_post_id?: string | null
+          id?: string
+          platform: string
+          project_id?: string | null
+          published_url?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          canonical_url?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_post_id?: string | null
+          id?: string
+          platform?: string
+          project_id?: string | null
+          published_url?: string | null
+          status?: string
           user_id?: string
         }
         Relationships: []

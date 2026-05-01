@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Zap, Settings } from "lucide-react";
+import { Factory, Globe, FileText, Upload, Eye, ExternalLink, Loader2, Rocket, CheckCircle, AlertCircle, ImageIcon, ShieldCheck, HelpCircle, Copy, Link2, Shuffle, User, Trash2, Pencil, Plus, FolderInput, PackageCheck, Cloud, Github, Zap, Settings, Share2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import DOMPurify from "dompurify";
 import { SiteGridCreator } from "@/components/site-factory/SiteGridCreator";
 import { SitesListTable } from "@/components/site-factory/SitesListTable";
 import { InjectionLinksPreview } from "@/components/site-factory/InjectionLinksPreview";
+import { SyndicationSettings } from "@/components/site-factory/SyndicationSettings";
 
 interface AuthorProfile {
   id: string;
@@ -142,6 +143,7 @@ export default function SiteFactoryPage() {
   const [articles, setArticles] = useState<QueueArticle[]>([]);
   const [previewArticle, setPreviewArticle] = useState<QueueArticle | null>(null);
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [syndicatingId, setSyndicatingId] = useState<string | null>(null);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [repoStatus, setRepoStatus] = useState<"idle" | "checking" | "empty" | "initializing" | "ready" | "error">("idle");
   const [aiFillLoading, setAiFillLoading] = useState(false);
@@ -1006,6 +1008,33 @@ export default function SiteFactoryPage() {
       });
     } finally {
       setPublishing(null);
+    }
+  };
+
+  const handleSyndicate = async (article: QueueArticle) => {
+    if (!article.id) return;
+    setSyndicatingId(article.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("syndicate-article", {
+        body: { article_id: article.id },
+      });
+      if (error) throw new Error(error.message);
+      const results = data?.results || {};
+      const ok = Object.values(results).filter((r: any) => r?.ok).length;
+      const total = Object.keys(results).length;
+      toast({
+        title: lang === "ru" ? "Синдикация запущена" : "Syndication done",
+        description: lang === "ru" ? `Успешно: ${ok} из ${total}` : `Success: ${ok} of ${total}`,
+        variant: ok === 0 ? "destructive" : "default",
+      });
+    } catch (e: any) {
+      toast({
+        title: lang === "ru" ? "Ошибка синдикации" : "Syndication error",
+        description: e?.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setSyndicatingId(null);
     }
   };
 
@@ -2333,6 +2362,17 @@ export default function SiteFactoryPage() {
                           disabled={!article.content || isGen}
                         >
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleSyndicate(article)}
+                          disabled={!article.content || isGen || syndicatingId === article.id}
+                          title={lang === "ru" ? "Синдицировать на Blogger/Hashnode/Dev.to" : "Syndicate to Blogger/Hashnode/Dev.to"}
+                        >
+                          {syndicatingId === article.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <Share2 className="h-4 w-4" />}
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
