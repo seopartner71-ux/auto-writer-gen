@@ -36,6 +36,7 @@ import { MiralinksWidget, type MiralinksLink } from "@/components/article/Mirali
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
+import { SectionedGenerator } from "@/components/article/SectionedGenerator";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
