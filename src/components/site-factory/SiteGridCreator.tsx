@@ -152,7 +152,7 @@ export function SiteGridCreator() {
           try {
             const niceTopic = spec.region ? `${topic} в ${spec.region}` : topic;
             const { data: nameData } = await supabase.functions.invoke("generate-site-name", {
-              body: { topic: niceTopic, language: "ru" },
+              body: { topic: niceTopic, language: spec.language },
             });
             if (nameData?.name) projectName = String(nameData.name);
           } catch { /* fallback to raw topic */ }
@@ -166,8 +166,8 @@ export function SiteGridCreator() {
             user_id: user.id,
             name: projectName,
             domain: "",
-            language: "ru",
-            region: spec.region || "RU",
+            language: spec.language,
+            region: spec.region || (spec.language === "ru" ? "RU" : spec.language.toUpperCase()),
             hosting_platform: "cloudflare",
             site_name: projectName,
             site_about: spec.services
