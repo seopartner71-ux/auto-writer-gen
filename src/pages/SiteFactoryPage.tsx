@@ -1011,11 +1011,6 @@ export default function SiteFactoryPage() {
     }
   };
 
-  const handleBatchPublish = async () => {
-    // placeholder anchor
-    void 0;
-  };
-
   const handleSyndicate = async (article: QueueArticle) => {
     if (!article.id) return;
     setSyndicatingId(article.id);
@@ -1043,7 +1038,7 @@ export default function SiteFactoryPage() {
     }
   };
 
-  const _handleBatchPublishOriginal = async () => {
+  const handleBatchPublish = async () => {
     if (!selectedProjectId || selectedIds.size === 0) return;
     setBatchPublishing(true);
     addDeployLog("publishing", lang === "ru" ? `Пакетная публикация ${selectedIds.size} статей...` : `Batch publishing ${selectedIds.size} articles...`);
