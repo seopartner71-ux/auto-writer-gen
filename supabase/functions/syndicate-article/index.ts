@@ -76,6 +76,7 @@ async function translateToEnglish(
   article: any,
   userId: string,
   projectId: string | null,
+  sourceLang: string,
 ): Promise<{ title: string; content: string } | null> {
   // Reuse cached translation
   if (article.translated_title_en && article.translated_content_en) {
@@ -89,7 +90,12 @@ async function translateToEnglish(
   }
 
   const sourceContent = htmlToMarkdown(article.content || "");
-  const prompt = `Переведи статью на английский. Сохрани структуру markdown, заголовки, списки, ссылки и смысл. Верни только переведенный текст без пояснений.\n\nЗАГОЛОВОК:\n${article.title || ""}\n\nКОНТЕНТ:\n${sourceContent}`;
+  const langNames: Record<string, string> = {
+    ru: "Russian", en: "English", de: "German", es: "Spanish", fr: "French",
+    it: "Italian", pl: "Polish", uk: "Ukrainian", tr: "Turkish", pt: "Portuguese",
+  };
+  const srcName = langNames[sourceLang] || "the source language";
+  const prompt = `Translate the article from ${srcName} to English. Preserve markdown structure, headings, lists, links and meaning. Return only the translated text, no explanations.\n\nTITLE:\n${article.title || ""}\n\nCONTENT:\n${sourceContent}`;
 
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -98,7 +104,7 @@ async function translateToEnglish(
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
-          { role: "system", content: "You are a professional RU->EN translator. Output only the translation." },
+          { role: "system", content: `You are a professional ${srcName}->English translator. Output only the translation.` },
           { role: "user", content: prompt },
         ],
       }),
@@ -372,9 +378,12 @@ serve(async (req) => {
 
     const { data: project } = await admin
       .from("projects")
-      .select("id, name, custom_domain, domain, hashnode_publication_id, syndication_enabled, syndication_platforms")
+      .select("id, name, custom_domain, domain, hashnode_publication_id, syndication_enabled, syndication_platforms, language")
       .eq("id", article.project_id).maybeSingle();
     if (!project) return json({ error: "Project not found" }, 404);
+
+    const siteLang = String((project as any).language || "ru").toLowerCase().slice(0, 2);
+    const isEnglishSite = siteLang === "en";
 
     // Determine canonical URL = the live PBN article URL
     const baseDomain = project.custom_domain || project.domain;
@@ -391,10 +400,16 @@ serve(async (req) => {
     const tags = pickTags(article);
     const results: Record<string, any> = {};
 
-    // Translate once if hashnode or devto requested
+    // Hashnode + Dev.to are English-only platforms. If the source site is
+    // already English, skip translation entirely; otherwise translate once
+    // from the site's source language to English.
     let en: { title: string; content: string } | null = null;
     if (enabledPlatforms.includes("hashnode") || enabledPlatforms.includes("devto")) {
-      en = await translateToEnglish(admin, article, userId, article.project_id);
+      if (isEnglishSite) {
+        en = { title: article.title || "", content: htmlToMarkdown(article.content || "") };
+      } else {
+        en = await translateToEnglish(admin, article, userId, article.project_id, siteLang);
+      }
       if (!en) {
         // log failures for both EN platforms, continue with blogger only
         for (const p of enabledPlatforms) {
@@ -407,7 +422,8 @@ serve(async (req) => {
       }
     }
 
-    // Blogger (RU)
+    // Blogger publishes in the site's source language as-is (Blogger supports
+    // any locale, so RU/DE/PL/UK projects post in their own language).
     if (enabledPlatforms.includes("blogger")) {
       const r = await publishToBlogger(admin, article, userId, canonicalUrl, project.name || "");
       await logResult(admin, userId, article, article.project_id, "blogger", r, canonicalUrl);

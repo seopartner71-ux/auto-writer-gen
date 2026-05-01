@@ -1794,8 +1794,13 @@ ${sfWidgetsCss(ctx.totopPosition || "left-bottom")}
 
   const allLd = [localBusiness, ...servicesLd];
 
+  const _localeMap: Record<string, string> = {
+    ru: "ru-RU", en: "en-US", de: "de-DE", es: "es-ES", fr: "fr-FR",
+    it: "it-IT", pl: "pl-PL", uk: "uk-UA", tr: "tr-TR", pt: "pt-BR",
+  };
+  const _htmlLocale = _localeMap[String((ctx as any).lang || "ru").toLowerCase().slice(0, 2)] || "ru-RU";
   return `<!doctype html>
-<html lang="${isRu ? "ru" : "en"}">
+<html lang="${_htmlLocale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

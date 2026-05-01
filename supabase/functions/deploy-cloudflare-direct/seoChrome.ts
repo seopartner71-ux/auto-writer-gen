@@ -7,6 +7,7 @@
 
 import { widgetsCss, widgetsHtml as renderSiteWidgets } from "./siteWidgets.ts";
 import { pickPhrase, svgMonogramDataUrl } from "./phrasePools.ts";
+import { getSiteLangMeta } from "../_shared/siteLanguages.ts";
 
 /** Stable per-site seed for phrase pools (falls back to domain/site name). */
 export function siteSeed(c: { projectId?: string; domain?: string; siteName?: string }): string {
@@ -640,8 +641,19 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
 
   const fontsHref = googleFontsHref(c.headingFont, c.bodyFont);
 
+  // hreflang: a Site Factory site is single-locale, so we emit a self-reference
+  // in the BCP-47 form (e.g. "de-DE") plus an x-default fallback. Search engines
+  // use this to confirm the page's intended audience even when only one locale
+  // exists.
+  const langMeta = getSiteLangMeta(c.lang);
+  const hreflangTags = [
+    `<link rel="alternate" hreflang="${escAttr(langMeta.htmlLocale)}" href="${escAttr(canonical)}">`,
+    `<link rel="alternate" hreflang="x-default" href="${escAttr(canonical)}">`,
+  ].join("\n  ");
+  const ogLocale = langMeta.htmlLocale.replace("-", "_"); // "de-DE" -> "de_DE"
+
   return `<!DOCTYPE html>
-<html lang="${escAttr(c.lang)}">
+<html lang="${escAttr(langMeta.htmlLocale)}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -650,11 +662,13 @@ export function buildHead(c: SiteChrome, m: PageMeta): string {
   <meta name="robots" content="${robots}">
   <meta name="theme-color" content="${escAttr(c.accent)}">
   <link rel="canonical" href="${escAttr(canonical)}">
+  ${hreflangTags}
   <meta property="og:type" content="${m.type === "article" ? "article" : "website"}">
   <meta property="og:title" content="${escAttr(m.title)}">
   <meta property="og:description" content="${escAttr(m.description)}">
   <meta property="og:url" content="${escAttr(canonical)}">
   <meta property="og:site_name" content="${escAttr(c.siteName)}">
+  <meta property="og:locale" content="${escAttr(ogLocale)}">
   ${ogImage ? `<meta property="og:image" content="${escAttr(ogImage)}">` : ""}
   <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">
   <meta name="twitter:title" content="${escAttr(m.title)}">

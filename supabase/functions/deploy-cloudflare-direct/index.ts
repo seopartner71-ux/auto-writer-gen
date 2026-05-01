@@ -1093,7 +1093,10 @@ serve(async (req) => {
         domain,
         siteName,
         siteAbout: siteAbout || topic || siteName,
-        lang,
+        // Pass the project's full language code (e.g. "de", "es") rather than
+        // the chrome-locale fallback so wp-json/index.html and the RSS feed
+        // expose the real site language to crawlers.
+        lang: rawLang,
         posts: posts.map((p: any) => ({
           title: p.title,
           slug: p.slug,

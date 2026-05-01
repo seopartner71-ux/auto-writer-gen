@@ -108,6 +108,13 @@ function getPosts(ctx: RenderCtx, n: number): { title: string; excerpt: string; 
 
 function commonHead(ctx: RenderCtx, extraCss = ""): string {
   const fontsHref = googleFontsHref(ctx.headingFont, ctx.bodyFont);
+  const lang = String(ctx.lang || "ru").toLowerCase().slice(0, 2);
+  // Map ISO -> BCP-47. Mirrors _shared/siteLanguages.ts to avoid a runtime import here.
+  const localeMap: Record<string, string> = {
+    ru: "ru-RU", en: "en-US", de: "de-DE", es: "es-ES", fr: "fr-FR",
+    it: "it-IT", pl: "pl-PL", uk: "uk-UA", tr: "tr-TR", pt: "pt-BR",
+  };
+  const htmlLocale = localeMap[lang] || "ru-RU";
   const meta = shuffle([
     `<meta name="description" content="${esc(ctx.siteAbout)}">`,
     `<meta name="theme-color" content="${ctx.accent}">`,
@@ -117,7 +124,7 @@ function commonHead(ctx: RenderCtx, extraCss = ""): string {
     `<meta property="og:type" content="website">`,
   ]).join("\n  ");
   return `<!DOCTYPE html>
-<html lang="ru">
+<html lang="${htmlLocale}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
