@@ -2454,6 +2454,11 @@ export default function SiteFactoryPage() {
         </Card>
       )}
 
+      {/* Syndication Settings */}
+      {selectedProjectId && (
+        <SyndicationSettings projectId={selectedProjectId} lang={lang} />
+      )}
+
       {/* Preview Dialog — matches published site design */}
       <Dialog open={!!previewArticle} onOpenChange={() => setPreviewArticle(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0 bg-gray-50 border-0">
