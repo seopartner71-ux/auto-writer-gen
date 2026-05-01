@@ -21,7 +21,44 @@ import { toast } from "sonner";
 import { format, subDays, startOfDay } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ArrowRight } from "lucide-react";
+
+/* ──────────── Quick Start Banner ──────────── */
+function QuickStartBanner() {
+  const navigate = useNavigate();
+  const { lang } = useI18n();
+  return (
+    <Card
+      onClick={() => navigate("/quick-start")}
+      className="group relative cursor-pointer overflow-hidden border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent hover:border-primary/50 transition-all"
+    >
+      <div className="absolute inset-0 opacity-30 pointer-events-none">
+        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-primary/20 blur-3xl" />
+      </div>
+      <CardContent className="relative flex items-center gap-4 p-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-[hsl(217,91%,60%)] text-white shadow-lg shadow-primary/20">
+          <Sparkles className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-semibold text-sm">
+              {lang === "ru" ? "Статья за 60 секунд" : "Article in 60 seconds"}
+            </h3>
+            <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+              {lang === "ru" ? "Авто-режим" : "Auto mode"}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {lang === "ru"
+              ? "Введите ключ - получите Research, структуру и готовый текст за один клик"
+              : "Enter a keyword - get Research, structure and ready text in one click"}
+          </p>
+        </div>
+        <ArrowRight className="h-4 w-4 text-primary shrink-0 transition-transform group-hover:translate-x-0.5" />
+      </CardContent>
+    </Card>
+  );
+}
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "hsl(var(--muted-foreground))",
