@@ -8,6 +8,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
+import { getSiteLangMeta, normalizeSiteLang, type SiteLanguageCode } from "../_shared/siteLanguages.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -286,13 +287,14 @@ serve(async (req) => {
       });
     }
 
-    const lang: "ru" | "en" = String(project.language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en";
+    const lang: SiteLanguageCode = normalizeSiteLang((project as any).language);
+    const langMeta = getSiteLangMeta(lang);
     // CRITICAL: site_name / project.name is the BRAND (e.g. "Новости Тулы"), not the niche.
     // Topic (the actual subject of articles) must come from body.topic or site_about.
     // Never fall back to project.name — that produces "Как выбрать Новости Тулы".
-    const rawTopic = body.topic || project.site_about || (lang === "ru" ? "выбранная ниша" : "the chosen niche");
+    const rawTopic = body.topic || project.site_about || "the chosen niche";
     // Trim site_about to a short niche phrase (first clause, max 80 chars).
-    const topic = String(rawTopic).replace(/<[^>]+>/g, " ").split(/[.!?\n«»]/)[0].trim().slice(0, 80) || (lang === "ru" ? "ниша" : "niche");
+    const topic = String(rawTopic).replace(/<[^>]+>/g, " ").split(/[.!?\n«»]/)[0].trim().slice(0, 80) || "niche";
     const brandName = String(project.site_name || project.name || "").trim() || undefined;
     const apiKey = await getOpenRouterKey(admin);
     const modelId = resolveOpenRouterModel((project as any).ai_model);
@@ -325,7 +327,7 @@ serve(async (req) => {
         meta_description: art.meta_description,
         status: "completed",
         language: lang,
-        geo: lang === "ru" ? "RU" : "US",
+        geo: langMeta.geo,
         featured_image_url: heroUrl,
       }).select("id").maybeSingle();
       if (insErr) {
