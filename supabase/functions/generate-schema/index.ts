@@ -26,7 +26,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const { title, content, keyword, questions, lsi_keywords, mode } = await req.json();
+    const { title, content, keyword, questions, lsi_keywords, mode, skip_schema } = await req.json();
     if (!content) throw new Error("Content is required");
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -47,9 +47,22 @@ serve(async (req) => {
     const faqSection = faqMatch ? faqMatch[0] : "";
 
     const isSerpDominance = mode === "serp-dominance";
+    const skipSchema = skip_schema === true;
 
     // --- SYSTEM PROMPT ---
-    const systemPrompt = isSerpDominance
+    // When skipSchema=true (e.g. Telegra.ph publishing), only the markdown FAQ block is needed —
+    // Telegra.ph strips <script type="application/ld+json"> so JSON-LD would just bloat the response.
+    const systemPromptSkipSchema = `You are an SEO FAQ expert for Telegra.ph. Telegra.ph does NOT support JSON-LD structured data, so DO NOT generate any schema.
+
+Return a JSON object with EXACTLY ONE key:
+
+"faq_text_block": A Markdown string starting with "## ${isRussian ? "Часто задаваемые вопросы (FAQ)" : "Frequently Asked Questions (FAQ)"}" followed by 3-5 "### Question" headings and answer paragraphs (Direct Answer First pattern, 150-300 chars per answer).
+
+Do NOT include "article_schema" or "faq_schema" keys. Write in ${lang} language.`;
+
+    const systemPrompt = skipSchema
+      ? systemPromptSkipSchema
+      : isSerpDominance
       ? `### SYSTEM INSTRUCTION FOR СЕО-Модуль FAQ ENGINE v2.0 ###
 
 CONTEXT:
