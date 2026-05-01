@@ -2099,6 +2099,9 @@ export default function ArticlesPage() {
             </TabsList>
 
             <TabsContent value="dashboard" className="mt-3 space-y-4">
+              {/* Quality check: SEO-Module Score, Uniqueness, AI-detector */}
+              <QualityCheckPanel articleId={currentArticleId} content={content} />
+
               {/* Author prompt compliance check */}
               {selectedAuthorId && selectedAuthorId !== "none" && (() => {
                 const a: any = authorProfiles.find((x: any) => x.id === selectedAuthorId);
