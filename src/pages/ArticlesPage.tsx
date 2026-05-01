@@ -1252,6 +1252,19 @@ export default function ArticlesPage() {
                 Generate
               </Button>
             )}
+            {!isStreaming && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!selectedKeywordId}
+                className="w-full mt-1.5 gap-2 text-xs"
+                onClick={() => setSectionedOpen(true)}
+                title="Генерировать по разделам со стримингом и регенерацией каждого H2"
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                По разделам (beta)
+              </Button>
+            )}
           </div>
         </div>
 
