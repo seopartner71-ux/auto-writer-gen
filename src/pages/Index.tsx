@@ -145,9 +145,9 @@ export default function Index() {
       <div className="relative z-[2]">
         <SectionHero />
         <Suspense fallback={null}>
+          <LandingSandbox />
           <SectionVideoDemo />
           <SectionRealCase />
-          <LandingSandbox />
           <SectionResearch />
           <SectionPersona />
           <SectionGeo />
