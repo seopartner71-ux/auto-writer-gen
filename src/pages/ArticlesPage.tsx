@@ -194,12 +194,14 @@ export default function ArticlesPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamPhase, setStreamPhase] = useState<"thinking" | "writing" | null>(null);
   const [streamElapsed, setStreamElapsed] = useState(0);
-  const [schemaJson, setSchemaJson] = useState<string>("");
-  const [schemaCopied, setSchemaCopied] = useState(false);
-  const [faqTextBlock, setFaqTextBlock] = useState<string>("");
-  const [faqCopied, setFaqCopied] = useState(false);
-  const [schemaGenerating, setSchemaGenerating] = useState(false);
-  const [faqMode, setFaqMode] = useState<"standard" | "serp-dominance">("serp-dominance");
+  const {
+    schemaJson, setSchemaJson,
+    schemaCopied, setSchemaCopied,
+    faqTextBlock, setFaqTextBlock,
+    faqCopied, setFaqCopied,
+    schemaGenerating, setSchemaGenerating,
+    faqMode, setFaqMode,
+  } = useSchemaFaqState();
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
@@ -222,21 +224,23 @@ export default function ArticlesPage() {
   }, [content, complianceResult]);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [textCopied, setTextCopied] = useState(false);
-  const [publishingTo, setPublishingTo] = useState<string | null>(null);
-  const [miralinksLinks, setMiralinksLinks] = useState<MiralinksLink[]>([{ url: "", anchor: "" }]);
-  const [miralinksFollowRules, setMiralinksFollowRules] = useState(true);
-  const [gogetlinksLinks, setGogetlinksLinks] = useState<GoGetLinksLink[]>([{ url: "", anchor: "" }]);
-  const [gogetlinksFollowRules, setGogetlinksFollowRules] = useState(true);
+  const {
+    publishingTo, setPublishingTo,
+    miralinksLinks, setMiralinksLinks,
+    miralinksFollowRules, setMiralinksFollowRules,
+    gogetlinksLinks, setGogetlinksLinks,
+    gogetlinksFollowRules, setGogetlinksFollowRules,
+    telegraphPath, setTelegraphPath,
+    telegraphUrl, setTelegraphUrl,
+    publishedUrl, setPublishedUrl,
+    anchorLinks, setAnchorLinks,
+  } = usePublishingState();
   const [includeExpertQuote, setIncludeExpertQuote] = useState(true);
   const [includeComparisonTable, setIncludeComparisonTable] = useState(true);
   const [seoKeywords, setSeoKeywords] = useState("");
   const [enableGeo, setEnableGeo] = useState(false);
   const [geoLocation, setGeoLocation] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
-  const [telegraphPath, setTelegraphPath] = useState("");
-  const [telegraphUrl, setTelegraphUrl] = useState("");
-  const [publishedUrl, setPublishedUrl] = useState("");
-  const [anchorLinks, setAnchorLinks] = useState<{ url: string; anchor: string }[]>([{ url: "", anchor: "" }]);
   const [finishReason, setFinishReason] = useState<string | null>(null);
   const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
