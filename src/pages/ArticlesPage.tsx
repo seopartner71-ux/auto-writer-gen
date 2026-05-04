@@ -253,12 +253,6 @@ export default function ArticlesPage() {
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
   const { snapshot: snapshotVersion } = useArticleVersions();
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
-  const [titleAbOpen, setTitleAbOpen] = useState(false);
-  const [internalLinksOpen, setInternalLinksOpen] = useState(false);
-  const [serpOpen, setSerpOpen] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
-
-  useBackgroundJobsListener(user?.id);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
