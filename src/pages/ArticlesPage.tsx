@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
-  Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
+  Wand2, Loader2, Hash, FileText, Save, Code2, Trash2, History,
   CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, ShieldAlert, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus, UserPlus, ChevronDown, ChevronUp, ExternalLink
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +44,8 @@ import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGe
 import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { SectionedGenerator } from "@/components/article/SectionedGenerator";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
+import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
+import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -250,6 +252,8 @@ export default function ArticlesPage() {
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
+  const { snapshot: snapshotVersion } = useArticleVersions();
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
@@ -652,6 +656,13 @@ export default function ArticlesPage() {
     setIsStreaming(true);
     setStreamPhase("thinking");
     const prevContent = content;
+    // Snapshot before destructive rewrite
+    snapshotVersion({
+      articleId: currentArticleId,
+      content: prevContent,
+      title: title || undefined,
+      reason: issueKey === "humanize-all" ? "humanize" : "fix",
+    });
     setContent("");
 
     const isHumanize = issueKey === "humanize-all";
@@ -746,7 +757,7 @@ export default function ArticlesPage() {
       setFixingIssue(null);
       abortRef.current = null;
     }
-  }, [selectedKeywordId, selectedAuthorId, content, outline, lsiKeywords, selectedKeyword, lang, t]);
+  }, [selectedKeywordId, selectedAuthorId, content, outline, lsiKeywords, selectedKeyword, lang, t, currentArticleId, title, snapshotVersion]);
 
   // Save article
   const saveArticle = useMutation({
@@ -1519,7 +1530,16 @@ export default function ArticlesPage() {
                 )}
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
                 {currentArticleId && content && !isStreaming && (
-                  <div className="flex justify-end mb-2">
+                  <div className="flex justify-end items-center gap-2 mb-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => setVersionHistoryOpen(true)}
+                    >
+                      <History className="w-3 h-3" />
+                      История
+                    </Button>
                     <LiveQualityBadge
                       articleId={currentArticleId}
                       content={content}
@@ -1971,6 +1991,26 @@ export default function ArticlesPage() {
                     benchmarkContext = cached.context;
                     instructions = cached.instructions;
                   } else {
+                    // Try persistent cache (DB, TTL 7 days)
+                    const userId = freshSession?.user?.id;
+                    let dbHit: any = null;
+                    if (userId) {
+                      const { data: row } = await supabase
+                        .from("benchmark_cache" as any)
+                        .select("data, context, instructions, expires_at")
+                        .eq("user_id", userId)
+                        .eq("keyword_id", selectedKeywordId)
+                        .gt("expires_at", new Date().toISOString())
+                        .maybeSingle();
+                      dbHit = row;
+                    }
+                    if (dbHit) {
+                      toast.info("Используем сохранённый анализ ТОП-10...", { duration: 3000 });
+                      data = (dbHit as any).data;
+                      benchmarkContext = (dbHit as any).context;
+                      instructions = (dbHit as any).instructions;
+                      benchmarkCacheRef.current.set(selectedKeywordId, { data, context: benchmarkContext, instructions });
+                    } else {
                     toast.info("Анализ ТОП-10 и сущностей...", { duration: 8000 });
                     data = await fetchAndAnalyze(selectedKeywordId, token, false);
                     benchmarkContext = buildAnalysisContext(data);
@@ -1984,11 +2024,30 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
 
 Сохрани стиль и тональность. Не добавляй вымышленных фактов.`;
                     benchmarkCacheRef.current.set(selectedKeywordId, { data, context: benchmarkContext, instructions });
+                    if (userId) {
+                      try {
+                        await supabase.from("benchmark_cache" as any).upsert({
+                          user_id: userId,
+                          keyword_id: selectedKeywordId,
+                          data,
+                          context: benchmarkContext,
+                          instructions,
+                          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                        } as any, { onConflict: "user_id,keyword_id" });
+                      } catch (e) { console.warn("benchmark cache upsert failed", e); }
+                    }
+                    }
                   }
 
                   setIsStreaming(true);
                   setStreamPhase("thinking");
                   const prevContent = content;
+                  snapshotVersion({
+                    articleId: currentArticleId,
+                    content: prevContent,
+                    title: title || undefined,
+                    reason: "benchmark",
+                  });
                   setContent("");
                   const controller = new AbortController();
                   abortRef.current = controller;
@@ -2315,6 +2374,12 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                     setIsStreaming(true);
                     setStreamPhase("thinking");
                     const prevContent = content;
+                    snapshotVersion({
+                      articleId: currentArticleId,
+                      content: prevContent,
+                      title: title || undefined,
+                      reason: "optimize",
+                    });
                     setContent("");
                     const controller = new AbortController();
                     abortRef.current = controller;
@@ -2755,6 +2820,12 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                   setIsStreaming(true);
                   setStreamPhase("thinking");
                   const prevContent = content;
+                  snapshotVersion({
+                    articleId: currentArticleId,
+                    content: prevContent,
+                    title: title || undefined,
+                    reason: "rewrite",
+                  });
                   setContent("");
                   const controller = new AbortController();
                   abortRef.current = controller;
@@ -2852,6 +2923,22 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           </div>
         </SheetContent>
       </Sheet>
+      <VersionHistoryDialog
+        open={versionHistoryOpen}
+        onOpenChange={setVersionHistoryOpen}
+        articleId={currentArticleId}
+        currentContent={content}
+        onRestore={(c) => {
+          // snapshot current before restoring so it can be re-restored
+          snapshotVersion({
+            articleId: currentArticleId,
+            content,
+            title: title || undefined,
+            reason: "auto",
+          });
+          setContent(c);
+        }}
+      />
     </div>
   );
 }

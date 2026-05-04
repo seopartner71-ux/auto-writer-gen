@@ -314,18 +314,30 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          reason: string
+          title: string | null
+          user_id: string
+          word_count: number | null
         }
         Insert: {
           article_id: string
           content: string
           created_at?: string | null
           id?: string
+          reason?: string
+          title?: string | null
+          user_id: string
+          word_count?: number | null
         }
         Update: {
           article_id?: string
           content?: string
           created_at?: string | null
           id?: string
+          reason?: string
+          title?: string | null
+          user_id?: string
+          word_count?: number | null
         }
         Relationships: [
           {
@@ -553,6 +565,39 @@ export type Database = {
           type?: string
           user_id?: string | null
           voice_tone?: string | null
+        }
+        Relationships: []
+      }
+      benchmark_cache: {
+        Row: {
+          context: string
+          created_at: string
+          data: Json
+          expires_at: string
+          id: string
+          instructions: string
+          keyword_id: string
+          user_id: string
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          data: Json
+          expires_at?: string
+          id?: string
+          instructions: string
+          keyword_id: string
+          user_id: string
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          data?: Json
+          expires_at?: string
+          id?: string
+          instructions?: string
+          keyword_id?: string
+          user_id?: string
         }
         Relationships: []
       }

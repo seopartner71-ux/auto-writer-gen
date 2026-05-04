@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, Sparkles, ShieldCheck, BrainCircuit, AlertTriangle, Trophy, ThumbsUp, Share2, Info, Rocket, Target } from "lucide-react";
+import { Loader2, Sparkles, ShieldCheck, BrainCircuit, AlertTriangle, Trophy, ThumbsUp, Share2, Info, Rocket, Target, CheckCircle2, Circle, XCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -109,6 +109,12 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
   const [autoDialogOpen, setAutoDialogOpen] = useState(false);
   const [uniqPending, setUniqPending] = useState(false);
   const [useBenchmark, setUseBenchmark] = useState(false);
+  type StepKey = "benchmark" | "humanize" | "score" | "uniqueness";
+  type StepState = "pending" | "running" | "done" | "error";
+  const [stepStates, setStepStates] = useState<Record<StepKey, StepState>>({
+    benchmark: "pending", humanize: "pending", score: "pending", uniqueness: "pending",
+  });
+  const totalCost = (useBenchmark && onBenchmarkOptimize && benchmarkReady ? 1 : 0) + 1 + 0 + 1;
 
   // Load existing quality data when article changes
   useEffect(() => {
@@ -295,18 +301,27 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       return;
     }
     setAutoImproving(true);
+    setStepStates({
+      benchmark: useBenchmark && onBenchmarkOptimize && benchmarkReady ? "pending" : "done",
+      humanize: "pending", score: "pending", uniqueness: "pending",
+    });
     try {
       if (useBenchmark && onBenchmarkOptimize && benchmarkReady) {
-        toast.info("Шаг 0: Оптимизация под ТОП-10 (Benchmark)...", { duration: 6000 });
-        await onBenchmarkOptimize();
+        setStepStates(s => ({ ...s, benchmark: "running" }));
+        try { await onBenchmarkOptimize(); setStepStates(s => ({ ...s, benchmark: "done" })); }
+        catch (e) { setStepStates(s => ({ ...s, benchmark: "error" })); throw e; }
       }
-      toast.info("Шаг 1/3: Humanize Fix - убираем запах GPT...", { duration: 6000 });
-      await onHumanize();
-      toast.info("Шаг 2/3: Score + AI-детектор...", { duration: 4000 });
-      await runChecks(["score", "ai"]);
-      toast.info("Шаг 3/3: Уникальность через Text.ru...", { duration: 4000 });
-      await runChecks(["uniqueness"]);
-      toast.success("Auto-Improve завершён - проверьте вердикт выше");
+      setStepStates(s => ({ ...s, humanize: "running" }));
+      try { await onHumanize(); setStepStates(s => ({ ...s, humanize: "done" })); }
+      catch (e) { setStepStates(s => ({ ...s, humanize: "error" })); throw e; }
+      setStepStates(s => ({ ...s, score: "running" }));
+      try { await runChecks(["score", "ai"]); setStepStates(s => ({ ...s, score: "done" })); }
+      catch (e) { setStepStates(s => ({ ...s, score: "error" })); throw e; }
+      setStepStates(s => ({ ...s, uniqueness: "running" }));
+      try { await runChecks(["uniqueness"]); setStepStates(s => ({ ...s, uniqueness: "done" })); }
+      catch (e) { setStepStates(s => ({ ...s, uniqueness: "error" })); throw e; }
+      toast.success("Готово - текст доведен до ТОПа. Проверьте вердикт выше.");
+      setTimeout(() => setAutoDialogOpen(false), 800);
     } catch (e: any) {
       toast.error(e?.message || "Ошибка Auto-Improve");
     } finally {
@@ -429,7 +444,10 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
         </div>
       </Card>
 
-      <AlertDialog open={autoDialogOpen} onOpenChange={setAutoDialogOpen}>
+      <AlertDialog open={autoDialogOpen} onOpenChange={(v) => {
+        setAutoDialogOpen(v);
+        if (v && !autoImproving) setStepStates({ benchmark: "pending", humanize: "pending", score: "pending", uniqueness: "pending" });
+      }}>
         <AlertDialogContent className="border-border/60 bg-gradient-to-b from-card to-card/80 backdrop-blur-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -444,34 +462,31 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
                   Запустим полный цикл доводки текста до уровня публикации:
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">1</div>
-                    <div className="flex-1 text-xs">
-                      <div className="font-medium text-foreground">Humanize Fix</div>
-                      <div className="text-muted-foreground">Перепишем AI-абзацы под живой стиль</div>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">1 ₵</span>
-                  </div>
-                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">2</div>
-                    <div className="flex-1 text-xs">
-                      <div className="font-medium text-foreground">Score + AI-детектор</div>
-                      <div className="text-muted-foreground">Стилистика, вода, человечность</div>
-                    </div>
-                    <span className="text-[10px] text-emerald-400">free</span>
-                  </div>
-                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">3</div>
-                    <div className="flex-1 text-xs">
-                      <div className="font-medium text-foreground">Уникальность Text.ru</div>
-                      <div className="text-muted-foreground">Антиплагиат - норма 85%+</div>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">1 ₵</span>
-                  </div>
+                  {([
+                    { key: "benchmark" as const, title: "Оптимизация под TOP-10", desc: "Объем, LSI, сущности по медиане конкурентов", cost: "1 ₵", show: useBenchmark && !!onBenchmarkOptimize && !!benchmarkReady },
+                    { key: "humanize" as const, title: "Humanize Fix", desc: "Перепишем AI-абзацы под живой стиль", cost: "1 ₵", show: true },
+                    { key: "score" as const, title: "Score + AI-детектор", desc: "Стилистика, вода, человечность", cost: "free", show: true },
+                    { key: "uniqueness" as const, title: "Уникальность Text.ru", desc: "Антиплагиат - норма 85%+", cost: "1 ₵", show: true },
+                  ]).filter(s => s.show).map((step, idx) => {
+                    const state = stepStates[step.key];
+                    const Icon = state === "done" ? CheckCircle2 : state === "running" ? Loader2 : state === "error" ? XCircle : Circle;
+                    const iconColor = state === "done" ? "text-emerald-400" : state === "running" ? "text-primary" : state === "error" ? "text-destructive" : "text-muted-foreground/60";
+                    const ring = state === "running" ? "border-primary/50 bg-primary/5" : state === "done" ? "border-emerald-500/30 bg-emerald-500/5" : state === "error" ? "border-destructive/40 bg-destructive/5" : "border-border/40 bg-muted/20";
+                    return (
+                      <div key={step.key} className={`flex items-start gap-3 rounded-lg border p-2.5 transition-colors ${ring}`}>
+                        <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${iconColor} ${state === "running" ? "animate-spin" : ""}`} />
+                        <div className="flex-1 text-xs">
+                          <div className="font-medium text-foreground">{idx + 1}. {step.title}</div>
+                          <div className="text-muted-foreground">{step.desc}</div>
+                        </div>
+                        <span className={`text-[10px] ${step.cost === "free" ? "text-emerald-400" : "text-muted-foreground"}`}>{step.cost}</span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
                   <span className="text-xs text-muted-foreground">Итого спишется</span>
-                  <span className="text-sm font-semibold text-foreground">{useBenchmark && onBenchmarkOptimize && benchmarkReady ? "~3 кредита" : "~2 кредита"}</span>
+                  <span className="text-sm font-semibold text-foreground">{totalCost} ₵</span>
                 </div>
 
                 {onBenchmarkOptimize && (
@@ -506,10 +521,11 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction
               onClick={autoImproveToTop}
+              disabled={autoImproving}
               className="bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 text-white hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700"
             >
-              <Rocket className="h-3.5 w-3.5 mr-1.5" />
-              Запустить (~2 ₵)
+              {autoImproving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
+              {autoImproving ? "Идет доводка..." : `Запустить (${totalCost} ₵)`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
