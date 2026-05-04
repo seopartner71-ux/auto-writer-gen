@@ -1937,7 +1937,21 @@ export default function ArticlesPage() {
 
             <TabsContent value="dashboard" className="mt-3 space-y-4">
               {/* Quality check: SEO-Module Score, Uniqueness, AI-detector */}
-              <QualityCheckPanel articleId={currentArticleId} content={content} />
+              <QualityCheckPanel
+                articleId={currentArticleId}
+                content={content}
+                onHumanize={async () => {
+                  const personaStyle = (() => {
+                    if (!selectedAuthorId || selectedAuthorId === "none") return undefined;
+                    const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
+                    if (!author) return undefined;
+                    return `${author.name}${author.voice_tone ? ': ' + author.voice_tone : ''}${author.description ? ' — ' + author.description : ''}`;
+                  })();
+                  const lng = detectContentLanguage(content);
+                  const instr = getFixInstructions(lng, personaStyle)["humanize-all"];
+                  await runFixIssue("humanize-all", instr);
+                }}
+              />
 
               {/* Author prompt compliance check */}
               {selectedAuthorId && selectedAuthorId !== "none" && (() => {
