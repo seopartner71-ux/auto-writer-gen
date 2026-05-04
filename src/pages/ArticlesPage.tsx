@@ -28,6 +28,7 @@ import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { PlanGate } from "@/shared/components/PlanGate";
 import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
+import { fetchAndAnalyze, buildAnalysisContext } from "@/entities/competitor/analysisService";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanScorePanel";
@@ -1955,6 +1956,82 @@ export default function ArticlesPage() {
                   const instr = getFixInstructions(lng, personaStyle)["humanize-all"];
                   await runFixIssue("humanize-all", instr);
                 }}
+                benchmarkReady={!!selectedKeywordId}
+                onBenchmarkOptimize={selectedKeywordId ? async () => {
+                  if (isStreaming) return;
+                  const { data: { session: freshSession } } = await supabase.auth.refreshSession();
+                  const token = freshSession?.access_token;
+                  if (!token) throw new Error("Not authenticated");
+                  toast.info("Анализ ТОП-10 и сущностей...", { duration: 8000 });
+                  const data = await fetchAndAnalyze(selectedKeywordId, token, false);
+                  const benchmarkContext = buildAnalysisContext(data);
+                  const instructions = `Перепиши статью с учетом ТОП-10:
+- Целевой объем: ${data.benchmark.target_word_count} слов (медиана: ${data.benchmark.median_word_count})
+- H2: ${data.benchmark.target_h2_count}, H3 медиана: ${data.benchmark.median_h3_count}
+- Изображений: ${data.benchmark.target_img_count}
+- Плотность ключа: около ${data.benchmark.median_keyword_density}%
+${data.must_use_phrases.length > 0 ? `\nОбязательные фразы из ТОП-10:\n${data.must_use_phrases.slice(0,12).map((p:any)=>`- ${p.phrase}`).join('\n')}` : ''}
+${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевые сущности:\n${data.entities.filter((e:any)=>e.importance>=5).slice(0,15).map((e:any)=>`- ${e.name}`).join('\n')}` : ''}
+
+Сохрани стиль и тональность. Не добавляй вымышленных фактов.`;
+
+                  setIsStreaming(true);
+                  setStreamPhase("thinking");
+                  const prevContent = content;
+                  setContent("");
+                  const controller = new AbortController();
+                  abortRef.current = controller;
+                  try {
+                    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
+                    const resp = await fetch(url, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                      },
+                      body: JSON.stringify({
+                        keyword_id: selectedKeywordId,
+                        author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
+                        outline,
+                        lsi_keywords: lsiKeywords,
+                        language: (selectedKeyword as any)?.language || null,
+                        optimize_instructions: instructions,
+                        deep_analysis_context: benchmarkContext,
+                        existing_content: prevContent,
+                      }),
+                      signal: controller.signal,
+                    });
+                    if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = ""; let fullContent = "";
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+                      buffer += decoder.decode(value, { stream: true });
+                      let ni: number;
+                      while ((ni = buffer.indexOf("\n")) !== -1) {
+                        let line = buffer.slice(0, ni);
+                        buffer = buffer.slice(ni + 1);
+                        if (line.endsWith("\r")) line = line.slice(0, -1);
+                        if (line.startsWith(":") || line.trim() === "" || !line.startsWith("data: ")) continue;
+                        const jsonStr = line.slice(6).trim();
+                        if (jsonStr === "[DONE]") break;
+                        try {
+                          const parsed = JSON.parse(jsonStr);
+                          const delta = parsed.choices?.[0]?.delta?.content;
+                          if (delta) { if (!fullContent) setStreamPhase("writing"); fullContent += delta; setContent(fullContent); }
+                        } catch { buffer = line + "\n" + buffer; break; }
+                      }
+                    }
+                    toast.success("Оптимизировано под ТОП-10");
+                  } finally {
+                    setIsStreaming(false);
+                    setStreamPhase(null);
+                    abortRef.current = null;
+                  }
+                } : undefined}
               />
 
               {/* Author prompt compliance check */}
