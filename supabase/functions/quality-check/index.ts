@@ -200,9 +200,13 @@ async function runTextRuUniqueness(plain: string, apiKey: string): Promise<
     console.error("[quality-check] text.ru neuro submit failed", submitRes.status, submitJson);
     const code = Number(submitJson?.code) || submitRes.status;
     let msg = submitJson?.message || submitJson?.error_desc || "Сервис Text.ru недоступен";
-    if (code === 400030) msg = "На балансе Text.ru закончились нейросимволы. Свяжитесь с поддержкой.";
-    else if (submitRes.status === 401) msg = "Неверный API-ключ Text.ru. Свяжитесь с поддержкой.";
-    else if (submitRes.status === 429) msg = "Превышен лимит запросов к Text.ru, попробуйте позже.";
+    if (code === 400030 || /баланс/i.test(msg) || /нейросимвол/i.test(msg)) {
+      msg = "На балансе Text.ru закончились нейросимволы. Пополните баланс на text.ru/account/balance или напишите в поддержку - мы поможем.";
+    } else if (submitRes.status === 401 || code === 401 || /ключ|key|userkey/i.test(msg)) {
+      msg = "Неверный или просроченный API-ключ Text.ru (TEXTRU_API_KEY). Проверьте ключ в настройках интеграций или обновите его через поддержку.";
+    } else if (submitRes.status === 429 || code === 429) {
+      msg = "Превышен лимит запросов к Text.ru. Попробуйте через минуту.";
+    }
     return { ok: false, error: msg, code };
   }
   const taskId = String(submitJson.taskId);
