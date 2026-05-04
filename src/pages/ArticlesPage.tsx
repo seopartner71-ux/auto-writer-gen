@@ -1269,17 +1269,6 @@ export default function ArticlesPage() {
           {/* Title & Meta — compact */}
           <Card className="bg-card border-border">
             <CardContent className="pt-3 pb-3 space-y-2">
-              <div className="flex justify-end -mb-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary"
-                  disabled={!selectedKeyword || !content}
-                  onClick={() => setTitleAbOpen(true)}
-                >
-                  <Wand2 className="w-3 h-3" /> A/B варианты
-                </Button>
-              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-[10px] text-muted-foreground">Title (SEO)</Label>
@@ -1305,58 +1294,13 @@ export default function ArticlesPage() {
                 <Label className="text-[10px] text-muted-foreground">
                   Meta Description <span className="text-muted-foreground/60">({metaDescription.length}/160)</span>
                 </Label>
-                <div className="flex gap-1">
-                  <Input
-                    value={metaDescription}
-                    onChange={(e) => setMetaDescription(e.target.value)}
-                    placeholder={t("articles.metaPlaceholder")}
-                    maxLength={160}
-                    className="h-8 text-sm"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-2 text-[11px] shrink-0"
-                    disabled={!currentArticleId || !content || metaLoading}
-                    onClick={async () => {
-                      if (!currentArticleId) { toast.error(lang === "ru" ? "Сначала сохраните статью" : "Save the article first"); return; }
-                      setMetaLoading(true);
-                      try {
-                        const { data, error } = await supabase.functions.invoke("generate-meta-tags", { body: { articleId: currentArticleId } });
-                        if (error || data?.error) throw new Error(data?.error || error?.message);
-                        if (data?.title) setTitle(data.title);
-                        if (data?.meta_description) setMetaDescription(data.meta_description);
-                        toast.success(lang === "ru" ? "Мета-теги обновлены" : "Meta tags updated");
-                      } catch (e: any) {
-                        toast.error(e?.message || (lang === "ru" ? "Не удалось сгенерировать" : "Failed to generate"));
-                      } finally { setMetaLoading(false); }
-                    }}
-                  >
-                    {metaLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "AI"}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-2 text-[11px] shrink-0"
-                    disabled={!currentArticleId || !content || translateLoading}
-                    title={lang === "ru" ? "Перевести RU↔EN" : "Translate RU↔EN"}
-                    onClick={async () => {
-                      if (!currentArticleId) { toast.error(lang === "ru" ? "Сначала сохраните статью" : "Save the article first"); return; }
-                      setTranslateLoading(true);
-                      try {
-                        const { data, error } = await supabase.functions.invoke("translate-article", { body: { articleId: currentArticleId } });
-                        if (error || data?.error) throw new Error(data?.error || error?.message);
-                        toast.success(lang === "ru" ? `Перевод готов (${data?.target?.toUpperCase() || ""})` : `Translation ready (${data?.target?.toUpperCase() || ""})`);
-                      } catch (e: any) {
-                        toast.error(e?.message || (lang === "ru" ? "Не удалось перевести" : "Translation failed"));
-                      } finally { setTranslateLoading(false); }
-                    }}
-                  >
-                    {translateLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : (lang === "ru" ? "RU↔EN" : "RU↔EN")}
-                  </Button>
-                </div>
+                <Input
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  placeholder={t("articles.metaPlaceholder")}
+                  maxLength={160}
+                  className="h-8 text-sm"
+                />
               </div>
               {/* Published URL for interlinking */}
               <div className="space-y-0.5">
