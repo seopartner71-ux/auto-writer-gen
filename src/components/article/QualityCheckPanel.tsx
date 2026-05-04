@@ -101,6 +101,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
   });
   const [loadingSet, setLoadingSet] = useState<Set<string>>(new Set());
   const [autoImproving, setAutoImproving] = useState(false);
+  const [uniqDialogOpen, setUniqDialogOpen] = useState(false);
+  const [autoDialogOpen, setAutoDialogOpen] = useState(false);
 
   // Load existing quality data when article changes
   useEffect(() => {
