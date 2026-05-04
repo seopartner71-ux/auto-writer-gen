@@ -341,10 +341,12 @@ Deno.serve(async (req) => {
 
           // Refund credit if failed
           if (!ok && creditCharged) {
-            await admin.rpc("admin_add_credits", {
-              p_user_id: user.id, p_amount: 1, p_notify: false,
-              p_comment: "Возврат за упавшую проверку Text.ru",
-            }).catch(() => {});
+            try {
+              await admin.rpc("admin_add_credits", {
+                p_user_id: user.id, p_amount: 1, p_notify: false,
+                p_comment: "Возврат за упавшую проверку Text.ru",
+              });
+            } catch (_) { /* ignore */ }
           }
         } catch (e) {
           console.error("[quality-check] bg textru error", e);
