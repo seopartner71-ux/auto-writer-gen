@@ -1259,6 +1259,17 @@ export default function ArticlesPage() {
           {/* Title & Meta — compact */}
           <Card className="bg-card border-border">
             <CardContent className="pt-3 pb-3 space-y-2">
+              <div className="flex justify-end -mb-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary"
+                  disabled={!selectedKeyword || !content}
+                  onClick={() => setTitleAbOpen(true)}
+                >
+                  <Wand2 className="w-3 h-3" /> A/B варианты
+                </Button>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-[10px] text-muted-foreground">Title (SEO)</Label>
