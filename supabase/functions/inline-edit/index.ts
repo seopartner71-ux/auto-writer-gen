@@ -5,7 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
-import { buildStealthSystemAddon } from "../_shared/stealth.ts";
+import { buildStealthSystemAddon, applyStealthPostProcess } from "../_shared/stealth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,8 +98,9 @@ Deno.serve(async (req) => {
       return json({ error: "AI gateway error", status: res.status }, 500);
     }
     const data = await res.json();
-    const rewritten = String(data?.choices?.[0]?.message?.content || "").trim();
+    let rewritten = String(data?.choices?.[0]?.message?.content || "").trim();
     if (!rewritten) return json({ error: "empty response" }, 500);
+    rewritten = applyStealthPostProcess(rewritten, lang);
 
     void logCost(admin, {
       user_id: user.id,
