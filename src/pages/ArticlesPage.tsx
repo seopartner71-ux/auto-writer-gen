@@ -2332,6 +2332,12 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                     setIsStreaming(true);
                     setStreamPhase("thinking");
                     const prevContent = content;
+                    snapshotVersion({
+                      articleId: currentArticleId,
+                      content: prevContent,
+                      title: title || undefined,
+                      reason: "optimize",
+                    });
                     setContent("");
                     const controller = new AbortController();
                     abortRef.current = controller;
