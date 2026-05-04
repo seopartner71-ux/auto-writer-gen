@@ -2952,6 +2952,19 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           setContent(c);
         }}
       />
+      <TitleVariantsDialog
+        open={titleAbOpen}
+        onOpenChange={setTitleAbOpen}
+        keyword={(selectedKeyword as any)?.seed_keyword || ""}
+        content={content}
+        language={(selectedKeyword as any)?.language === "en" ? "en" : "ru"}
+        currentTitle={title}
+        currentMeta={metaDescription}
+        onApply={(v) => {
+          setTitle(v.title);
+          setMetaDescription(v.meta);
+        }}
+      />
     </div>
   );
 }
