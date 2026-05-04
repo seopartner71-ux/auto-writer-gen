@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
-  Wand2, Loader2, Hash, FileText, Save, Code2, Trash2,
+  Wand2, Loader2, Hash, FileText, Save, Code2, Trash2, History,
   CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, ShieldAlert, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus, UserPlus, ChevronDown, ChevronUp, ExternalLink
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +44,8 @@ import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGe
 import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { SectionedGenerator } from "@/components/article/SectionedGenerator";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
+import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
+import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
