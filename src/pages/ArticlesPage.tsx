@@ -264,6 +264,8 @@ export default function ArticlesPage() {
   const [serpOpen, setSerpOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
 
+  useBackgroundJobsListener(user?.id);
+
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
     if (!transferArticleId || !transferEmail.trim()) return;
