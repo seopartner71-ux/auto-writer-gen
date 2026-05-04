@@ -222,6 +222,96 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
   const failedFlags = aiProb.flags.filter(f => !f.passed);
   const hasFixableIssues = failedFlags.length > 0 || stopWords.length > 0;
 
+  // ─── Real AI Detector (server-side) ─────────────────────────────────
+  const [detectorScore, setDetectorScore] = useState<number | null>(null);
+  const [detectorVerdict, setDetectorVerdict] = useState<string | null>(null);
+  const [detectorLoading, setDetectorLoading] = useState(false);
+  const [autoLoop, setAutoLoop] = useState(false);
+  const loopIterRef = useRef(0);
+
+  const runDetector = useCallback(async (): Promise<number | null> => {
+    if (wordCount < 30) return null;
+    setDetectorLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("detect-ai", {
+        body: { content, language: contentLang },
+      });
+      if (error) throw error;
+      const score = typeof data?.ai_score === "number" ? data.ai_score : null;
+      setDetectorScore(score);
+      setDetectorVerdict(data?.verdict || null);
+      return score;
+    } catch (e: any) {
+      toast.error(contentLang === "ru" ? "Сканер недоступен" : "Detector unavailable");
+      return null;
+    } finally {
+      setDetectorLoading(false);
+    }
+  }, [content, contentLang, wordCount]);
+
+  // Reset detector when content changes significantly.
+  useEffect(() => {
+    setDetectorScore(null);
+    setDetectorVerdict(null);
+  }, [content]);
+
+  // Auto-loop: when humanize finishes (isFixing returns to null) and we are
+  // in auto mode, re-scan; if still high, fire humanize-all again (max 2x).
+  useEffect(() => {
+    if (!autoLoop || !onFixIssue) return;
+    if (isFixing) return; // wait for fix to finish
+    if (loopIterRef.current === 0) return; // not in loop
+
+    let cancelled = false;
+    (async () => {
+      const score = await runDetector();
+      if (cancelled || score === null) { loopIterRef.current = 0; return; }
+      if (score >= 40 && loopIterRef.current < 2) {
+        loopIterRef.current += 1;
+        toast.info(
+          contentLang === "ru"
+            ? `AI score ${score}% - запускаю humanize (проход ${loopIterRef.current}/2)`
+            : `AI score ${score}% - running humanize (pass ${loopIterRef.current}/2)`
+        );
+        const instr = FIX_INSTRUCTIONS["humanize-all"];
+        onFixIssue("humanize-all", instr);
+      } else {
+        loopIterRef.current = 0;
+        toast.success(
+          contentLang === "ru"
+            ? `Готово. Финальный AI score: ${score}%`
+            : `Done. Final AI score: ${score}%`
+        );
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFixing, autoLoop]);
+
+  const startAutoLoop = useCallback(async () => {
+    if (!onFixIssue) return;
+    const score = await runDetector();
+    if (score === null) return;
+    if (score < 40) {
+      toast.success(contentLang === "ru" ? `Текст уже человечный (${score}%)` : `Already human-like (${score}%)`);
+      return;
+    }
+    setAutoLoop(true);
+    loopIterRef.current = 1;
+    toast.info(
+      contentLang === "ru"
+        ? `AI score ${score}% - запускаю humanize (проход 1/2)`
+        : `AI score ${score}% - running humanize (pass 1/2)`
+    );
+    onFixIssue("humanize-all", FIX_INSTRUCTIONS["humanize-all"]);
+  }, [onFixIssue, runDetector, contentLang, FIX_INSTRUCTIONS]);
+
+  const detectorColor =
+    detectorScore === null ? { text: "text-muted-foreground", bg: "bg-muted" } :
+    detectorScore >= 70 ? { text: "text-red-500", bg: "bg-red-500" } :
+    detectorScore >= 40 ? { text: "text-yellow-500", bg: "bg-yellow-500" } :
+    { text: "text-green-500", bg: "bg-green-500" };
+
   if (wordCount < 30) {
     return (
       <Card className="bg-card border-border">
