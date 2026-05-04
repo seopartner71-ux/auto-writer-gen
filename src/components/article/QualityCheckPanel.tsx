@@ -101,8 +101,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
   });
   const [loadingSet, setLoadingSet] = useState<Set<string>>(new Set());
   const [autoImproving, setAutoImproving] = useState(false);
-  const [uniqDialogOpen, setUniqDialogOpen] = useState(false);
   const [autoDialogOpen, setAutoDialogOpen] = useState(false);
+  const [uniqPending, setUniqPending] = useState(false);
 
   // Load existing quality data when article changes
   useEffect(() => {
@@ -125,9 +125,46 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
           details: data.quality_details,
           checked_at: data.quality_checked_at,
         });
+        setUniqPending(Boolean((data.quality_details as any)?.uniqueness_pending));
       }
     })();
   }, [articleId]);
+
+  // Poll for background uniqueness result (Text.ru runs in background up to ~2 min)
+  useEffect(() => {
+    if (!articleId || !uniqPending) return;
+    let stopped = false;
+    let attempts = 0;
+    const tick = async () => {
+      if (stopped) return;
+      attempts++;
+      const { data } = await supabase
+        .from("articles")
+        .select("uniqueness_percent,quality_badge,quality_details,quality_checked_at")
+        .eq("id", articleId)
+        .maybeSingle();
+      if (!data) return;
+      const pending = Boolean((data.quality_details as any)?.uniqueness_pending);
+      const errMsg = (data.quality_details as any)?.uniqueness_error;
+      if (!pending) {
+        setUniqPending(false);
+        setResult((prev) => ({
+          ...prev,
+          uniqueness_percent: data.uniqueness_percent ?? prev.uniqueness_percent,
+          quality_badge: (data.quality_badge as any) ?? prev.quality_badge,
+          details: data.quality_details ?? prev.details,
+          checked_at: data.quality_checked_at ?? prev.checked_at,
+        }));
+        if (errMsg) toast.error(String(errMsg), { duration: 9000 });
+        else if (data.uniqueness_percent !== null) toast.success(`Уникальность: ${data.uniqueness_percent}%`);
+        return;
+      }
+      if (attempts > 36) { setUniqPending(false); return; } // ~3 min
+      setTimeout(tick, 5000);
+    };
+    const t = setTimeout(tick, 5000);
+    return () => { stopped = true; clearTimeout(t); };
+  }, [articleId, uniqPending]);
 
   const isLoading = (k: string) => loadingSet.has(k);
 
@@ -185,7 +222,12 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       };
       setResult(updated);
       onUpdate?.(updated);
-      if (!data?.uniqueness_error) toast.success("Проверка завершена");
+      if (data?.uniqueness_pending) {
+        setUniqPending(true);
+        toast.info("Уникальность проверяется через Text.ru (до 2 минут)...", { duration: 6000 });
+      } else if (!data?.uniqueness_error) {
+        toast.success("Проверка завершена");
+      }
     } catch (e: any) {
       toast.error(e?.message || "Ошибка проверки");
     } finally {
@@ -314,8 +356,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
           <MetricRow
             icon={ShieldCheck}
             title="Уникальность"
-            hint={result.details?.uniqueness_details?.words ? `${result.details.uniqueness_details.words} слов - Text.ru` : "Антиплагиат через Text.ru"}
-            value={result.uniqueness_percent !== null ? `${result.uniqueness_percent}%` : "-"}
+            hint={uniqPending ? "Идет проверка через Text.ru..." : (result.details?.uniqueness_details?.words ? `${result.details.uniqueness_details.words} слов - Text.ru` : "Антиплагиат через Text.ru")}
+            value={uniqPending ? "..." : (result.uniqueness_percent !== null ? `${result.uniqueness_percent}%` : "-")}
             status={sUniq}
             progress={uniqProgress}
           />
@@ -332,81 +374,50 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
 
         {/* Actions */}
         <div className="flex flex-col gap-2 border-t border-border/40 bg-muted/10 p-3">
-          {onHumanize && (
+          {onHumanize ? (
             <Button
               size="sm"
-              disabled={autoImproving || loadingFree || loadingUniq}
+              disabled={autoImproving || loadingFree || loadingUniq || uniqPending}
               onClick={() => setAutoDialogOpen(true)}
-              className="h-10 font-semibold text-white bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700 hover:scale-[1.01] transition-all"
+              className="h-11 font-semibold text-white bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700 hover:scale-[1.01] transition-all shadow-[0_0_24px_-8px_hsl(var(--primary)/0.6)]"
             >
               {autoImproving
-                ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Auto-Improve...</>
-                : <><Rocket className="h-4 w-4 mr-1.5" /> Auto-Improve to TOP <span className="ml-1.5 text-[10px] opacity-80">~2 ₵</span></>}
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Доводим до ТОПа...</>
+                : <><Rocket className="h-4 w-4 mr-1.5" /> Довести до ТОПа <span className="ml-1.5 text-[10px] opacity-80">~2 ₵</span></>}
             </Button>
-          )}
-          <div className="grid grid-cols-2 gap-2">
+          ) : (
             <Button
               size="sm"
-              variant="default"
+              disabled={loadingFree || loadingUniq || uniqPending}
+              onClick={() => runChecks(["score", "ai", "uniqueness"]) }
+              className="h-11 font-semibold text-white bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700 hover:scale-[1.01] transition-all"
+            >
+              {loadingFree || loadingUniq
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Проверяем...</>
+                : <><Sparkles className="h-4 w-4 mr-1.5" /> Проверить качество <span className="ml-1.5 text-[10px] opacity-80">1 ₵</span></>}
+            </Button>
+          )}
+          <div className="flex items-center justify-between text-[11px]">
+            <button
+              type="button"
               disabled={loadingFree}
               onClick={() => runChecks(["score", "ai"])}
-              className="h-9 font-medium"
+              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             >
-              {loadingFree
-                ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Анализ...</>
-                : <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Проверить (free)</>}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loadingUniq}
-              onClick={() => setUniqDialogOpen(true)}
-              className="h-9 font-medium"
-            >
-              {loadingUniq
-                ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Проверка...</>
-                : <><ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Уникальность <span className="ml-1 text-[10px] text-muted-foreground">1 ₵</span></>}
-            </Button>
+              {loadingFree ? "Анализ..." : "Только бесплатные (Score + AI)"}
+            </button>
+            {badgeMeta && (
+              <button
+                type="button"
+                onClick={shareCard}
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Share2 className="h-3 w-3" /> Поделиться
+              </button>
+            )}
           </div>
-          {badgeMeta && (
-            <Button size="sm" variant="ghost" className="h-8 w-full text-xs" onClick={shareCard}>
-              <Share2 className="h-3 w-3 mr-1.5" />
-              Поделиться результатом
-            </Button>
-          )}
         </div>
       </Card>
-
-      <AlertDialog open={uniqDialogOpen} onOpenChange={setUniqDialogOpen}>
-        <AlertDialogContent className="border-border/60 bg-gradient-to-b from-card to-card/80 backdrop-blur-xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <ShieldCheck className="h-3.5 w-3.5" />
-              </div>
-              Проверка уникальности
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2 pt-2">
-              <span className="block">
-                Антиплагиат через Text.ru. Спишется <span className="font-semibold text-foreground">1 кредит</span> с вашего баланса.
-              </span>
-              <span className="block text-xs text-muted-foreground">
-                Норма для ТОПа - от 85%. Кредит вернётся, если сервис Text.ru недоступен.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => runChecks(["uniqueness"]) }
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
-              Запустить (1 ₵)
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={autoDialogOpen} onOpenChange={setAutoDialogOpen}>
         <AlertDialogContent className="border-border/60 bg-gradient-to-b from-card to-card/80 backdrop-blur-xl">
