@@ -25,7 +25,7 @@ interface HumanScorePanelProps {
   personaStyle?: string;
 }
 
-function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Record<string, string> {
+export function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Record<string, string> {
   const personaBlock = personaStyle
     ? (lang === "ru"
       ? `\n\nАДАПТАЦИЯ К ПЕРСОНЕ: Сохрани тон и стиль выбранного автора: "${personaStyle}". Если автор 'Скептик' — сделай текст ворчливым и прямым. Если 'Блогер' — более эмоциональным и неформальным. Если стиль нейтральный — сделай профессиональную, чистую, человечную редактуру.`
