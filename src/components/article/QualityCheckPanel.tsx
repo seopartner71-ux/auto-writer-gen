@@ -109,6 +109,12 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
   const [autoDialogOpen, setAutoDialogOpen] = useState(false);
   const [uniqPending, setUniqPending] = useState(false);
   const [useBenchmark, setUseBenchmark] = useState(false);
+  type StepKey = "benchmark" | "humanize" | "score" | "uniqueness";
+  type StepState = "pending" | "running" | "done" | "error";
+  const [stepStates, setStepStates] = useState<Record<StepKey, StepState>>({
+    benchmark: "pending", humanize: "pending", score: "pending", uniqueness: "pending",
+  });
+  const totalCost = (useBenchmark && onBenchmarkOptimize && benchmarkReady ? 1 : 0) + 1 + 0 + 1;
 
   // Load existing quality data when article changes
   useEffect(() => {
