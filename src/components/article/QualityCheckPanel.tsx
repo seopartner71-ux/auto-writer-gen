@@ -518,10 +518,11 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction
               onClick={autoImproveToTop}
+              disabled={autoImproving}
               className="bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 text-white hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700"
             >
-              <Rocket className="h-3.5 w-3.5 mr-1.5" />
-              Запустить (~2 ₵)
+              {autoImproving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
+              {autoImproving ? "Идет доводка..." : `Запустить (${totalCost} ₵)`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
