@@ -1612,33 +1612,6 @@ export default function ArticlesPage() {
                       variant="outline"
                       size="sm"
                       className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setInternalLinksOpen(true)}
-                    >
-                      <Link2 className="w-3 h-3" />
-                      Перелинковка
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setSerpOpen(true)}
-                    >
-                      <Search className="w-3 h-3" />
-                      SERP
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setCommentsOpen(true)}
-                    >
-                      <MessageSquarePlus className="w-3 h-3" />
-                      Заметки
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
                       onClick={async () => {
                         if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
                         try {
