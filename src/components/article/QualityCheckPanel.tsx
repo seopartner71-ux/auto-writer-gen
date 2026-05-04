@@ -138,7 +138,29 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate }: Pro
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.uniqueness_error) {
-        toast.error(data.uniqueness_error + (data.credit_refunded ? " Кредит возвращён." : ""));
+        const msg = String(data.uniqueness_error);
+        const isBalance = /нейросимвол|баланс/i.test(msg);
+        const isKey = /ключ|key|TEXTRU/i.test(msg);
+        toast.error(msg + (data.credit_refunded ? " Кредит возвращён." : ""), {
+          duration: 10000,
+          action: (isBalance || isKey)
+            ? {
+                label: isBalance ? "Пополнить" : "В поддержку",
+                onClick: () => {
+                  if (isBalance) {
+                    window.open("https://text.ru/account/balance", "_blank", "noopener");
+                  } else {
+                    window.location.href = "/support";
+                  }
+                },
+              }
+            : undefined,
+          description: isBalance
+            ? "Проверка уникальности использует API Text.ru. Пополните баланс нейросимволов или напишите нам - поможем."
+            : isKey
+            ? "Откройте раздел Поддержка - мы быстро обновим ключ TEXTRU_API_KEY."
+            : undefined,
+        });
       }
       const updated: QualityResult = {
         turgenev_score: data.turgenev_score,
