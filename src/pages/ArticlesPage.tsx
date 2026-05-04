@@ -46,6 +46,8 @@ import { SectionedGenerator } from "@/components/article/SectionedGenerator";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
+import { TitleVariantsDialog } from "@/features/title-ab/TitleVariantsDialog";
+import { InternalLinksDialog } from "@/features/internal-links/InternalLinksDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -254,6 +256,8 @@ export default function ArticlesPage() {
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
   const { snapshot: snapshotVersion } = useArticleVersions();
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
+  const [titleAbOpen, setTitleAbOpen] = useState(false);
+  const [internalLinksOpen, setInternalLinksOpen] = useState(false);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
@@ -1257,6 +1261,17 @@ export default function ArticlesPage() {
           {/* Title & Meta — compact */}
           <Card className="bg-card border-border">
             <CardContent className="pt-3 pb-3 space-y-2">
+              <div className="flex justify-end -mb-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary"
+                  disabled={!selectedKeyword || !content}
+                  onClick={() => setTitleAbOpen(true)}
+                >
+                  <Wand2 className="w-3 h-3" /> A/B варианты
+                </Button>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-[10px] text-muted-foreground">Title (SEO)</Label>
@@ -1539,6 +1554,50 @@ export default function ArticlesPage() {
                     >
                       <History className="w-3 h-3" />
                       История
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => setInternalLinksOpen(true)}
+                    >
+                      <Link2 className="w-3 h-3" />
+                      Перелинковка
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={async () => {
+                        if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
+                        try {
+                          const { data: row } = await supabase
+                            .from("articles")
+                            .select("share_token, is_public")
+                            .eq("id", currentArticleId)
+                            .maybeSingle();
+                          let token = row?.share_token as string | null;
+                          if (!token || !row?.is_public) {
+                            const upd: any = { is_public: true };
+                            if (!token) {
+                              token = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+                                ? (crypto as any).randomUUID()
+                                : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+                              upd.share_token = token;
+                            }
+                            const { error } = await supabase.from("articles").update(upd).eq("id", currentArticleId);
+                            if (error) throw error;
+                          }
+                          const url = `${window.location.origin}/share/${token}`;
+                          await navigator.clipboard.writeText(url);
+                          toast.success("Ссылка скопирована: " + url, { duration: 6000 });
+                        } catch (e: any) {
+                          toast.error(e?.message || "Не удалось создать ссылку");
+                        }
+                      }}
+                    >
+                      <Send className="w-3 h-3" />
+                      Поделиться
                     </Button>
                     <LiveQualityBadge
                       articleId={currentArticleId}
@@ -2937,6 +2996,42 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
             reason: "auto",
           });
           setContent(c);
+        }}
+      />
+      <TitleVariantsDialog
+        open={titleAbOpen}
+        onOpenChange={setTitleAbOpen}
+        keyword={(selectedKeyword as any)?.seed_keyword || ""}
+        content={content}
+        language={(selectedKeyword as any)?.language === "en" ? "en" : "ru"}
+        currentTitle={title}
+        currentMeta={metaDescription}
+        onApply={(v) => {
+          setTitle(v.title);
+          setMetaDescription(v.meta);
+        }}
+      />
+      <InternalLinksDialog
+        open={internalLinksOpen}
+        onOpenChange={setInternalLinksOpen}
+        projectId={selectedProjectId && selectedProjectId !== "none" ? selectedProjectId : null}
+        currentArticleId={currentArticleId}
+        content={content}
+        onInsert={(anchor, url) => {
+          // Replace first un-linked occurrence of the anchor with a markdown link
+          setContent((prev) => {
+            const idx = prev.toLowerCase().indexOf(anchor.toLowerCase());
+            if (idx === -1) {
+              toast.warning("Анкор не найден в текущем тексте");
+              return prev;
+            }
+            const real = prev.slice(idx, idx + anchor.length);
+            // Skip if already inside [..](..)
+            const before = prev.slice(Math.max(0, idx - 1), idx);
+            if (before === "[") return prev;
+            const replacement = `[${real}](${url})`;
+            return prev.slice(0, idx) + replacement + prev.slice(idx + anchor.length);
+          });
         }}
       />
     </div>
