@@ -2085,16 +2085,6 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                   setContent("");
                   const controller = new AbortController();
                   abortRef.current = controller;
-                  let bgJobId: string | null = null;
-                  if (user?.id) {
-                    try {
-                      bgJobId = await startBackgroundJob({
-                        userId: user.id,
-                        articleId: currentArticleId,
-                        jobType: "benchmark",
-                      });
-                    } catch {}
-                  }
                   try {
                     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
                     const resp = await fetch(url, {
@@ -2140,9 +2130,7 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                       }
                     }
                     toast.success("Оптимизировано под ТОП-10");
-                    if (bgJobId) await finishBackgroundJob(bgJobId, { ok: true });
                   } catch (e: any) {
-                    if (bgJobId) await failBackgroundJob(bgJobId, e?.message || "error");
                     throw e;
                   } finally {
                     setIsStreaming(false);
