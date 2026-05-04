@@ -3083,6 +3083,7 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           userId={user.id}
         />
       )}
+      <BackgroundJobsPanel userId={user?.id} />
     </div>
   );
 }
