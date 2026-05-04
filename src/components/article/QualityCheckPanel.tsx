@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, Sparkles, ShieldCheck, BrainCircuit, AlertTriangle, Trophy, ThumbsUp, Share2, Info, Rocket, Target } from "lucide-react";
+import { Loader2, Sparkles, ShieldCheck, BrainCircuit, AlertTriangle, Trophy, ThumbsUp, Share2, Info, Rocket, Target, CheckCircle2, Circle, XCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
