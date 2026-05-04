@@ -28,6 +28,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { PlanGate } from "@/shared/components/PlanGate";
 import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { fetchAndAnalyze, buildAnalysisContext } from "@/entities/competitor/analysisService";
+import MyArticlesPage from "@/pages/MyArticlesPage";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanScorePanel";
