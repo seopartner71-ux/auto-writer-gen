@@ -93,7 +93,6 @@ export function AppSidebar() {
       { title: "AI Radar", url: "/radar", icon: Radar },
     ] : []),
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
-    { title: lang === "ru" ? "Задачи" : "Jobs", url: "/jobs", icon: Workflow },
   ];
 
   const networkItems = isFactory ? [

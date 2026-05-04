@@ -21,7 +21,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import MyArticlesPage from "@/pages/MyArticlesPage";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -29,6 +28,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { PlanGate } from "@/shared/components/PlanGate";
 import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { fetchAndAnalyze, buildAnalysisContext } from "@/entities/competitor/analysisService";
+import MyArticlesPage from "@/pages/MyArticlesPage";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
 import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanScorePanel";
@@ -46,17 +46,6 @@ import { SectionedGenerator } from "@/components/article/SectionedGenerator";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
-import { TitleVariantsDialog } from "@/features/title-ab/TitleVariantsDialog";
-import { InternalLinksDialog } from "@/features/internal-links/InternalLinksDialog";
-import { SerpTrackingDialog } from "@/features/serp-tracking/SerpTrackingDialog";
-import { CommentsDialog } from "@/features/article-comments/CommentsDialog";
-import {
-  useBackgroundJobsListener,
-  startBackgroundJob,
-  finishBackgroundJob,
-  failBackgroundJob,
-} from "@/features/background-jobs/useBackgroundJobs";
-import { BackgroundJobsPanel } from "@/features/background-jobs/BackgroundJobsPanel";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -220,8 +209,6 @@ export default function ArticlesPage() {
     faqMode, setFaqMode,
   } = useSchemaFaqState();
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
-  const [metaLoading, setMetaLoading] = useState(false);
-  const [translateLoading, setTranslateLoading] = useState(false);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
   const complianceCheckedLenRef = useRef<number>(0);
@@ -267,12 +254,6 @@ export default function ArticlesPage() {
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
   const { snapshot: snapshotVersion } = useArticleVersions();
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
-  const [titleAbOpen, setTitleAbOpen] = useState(false);
-  const [internalLinksOpen, setInternalLinksOpen] = useState(false);
-  const [serpOpen, setSerpOpen] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
-
-  useBackgroundJobsListener(user?.id);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
@@ -695,16 +676,6 @@ export default function ArticlesPage() {
 
     const controller = new AbortController();
     abortRef.current = controller;
-    let bgJobId: string | null = null;
-    if (user?.id) {
-      try {
-        bgJobId = await startBackgroundJob({
-          userId: user.id,
-          articleId: currentArticleId,
-          jobType: isHumanize ? "humanize" : "optimize",
-        });
-      } catch {}
-    }
     try {
       const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
       const token = freshSession?.access_token;
@@ -770,7 +741,6 @@ export default function ArticlesPage() {
       } else {
         toast.success(lang === "ru" ? "Проблема исправлена — проверьте Human Score" : "Issue fixed — check Human Score");
       }
-      if (bgJobId) await finishBackgroundJob(bgJobId, { ok: true });
     } catch (e: any) {
       if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
       else {
@@ -779,10 +749,8 @@ export default function ArticlesPage() {
           : e.message
         );
         setContent(prevContent);
-        if (bgJobId) await failBackgroundJob(bgJobId, e?.message || "error");
         throw e;
       }
-      if (bgJobId && e?.name === "AbortError") await failBackgroundJob(bgJobId, "aborted");
     } finally {
       setIsStreaming(false);
       setStreamPhase(null);
@@ -1289,17 +1257,6 @@ export default function ArticlesPage() {
           {/* Title & Meta — compact */}
           <Card className="bg-card border-border">
             <CardContent className="pt-3 pb-3 space-y-2">
-              <div className="flex justify-end -mb-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary"
-                  disabled={!selectedKeyword || !content}
-                  onClick={() => setTitleAbOpen(true)}
-                >
-                  <Wand2 className="w-3 h-3" /> A/B варианты
-                </Button>
-              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-[10px] text-muted-foreground">Title (SEO)</Label>
@@ -1325,58 +1282,13 @@ export default function ArticlesPage() {
                 <Label className="text-[10px] text-muted-foreground">
                   Meta Description <span className="text-muted-foreground/60">({metaDescription.length}/160)</span>
                 </Label>
-                <div className="flex gap-1">
-                  <Input
-                    value={metaDescription}
-                    onChange={(e) => setMetaDescription(e.target.value)}
-                    placeholder={t("articles.metaPlaceholder")}
-                    maxLength={160}
-                    className="h-8 text-sm"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-2 text-[11px] shrink-0"
-                    disabled={!currentArticleId || !content || metaLoading}
-                    onClick={async () => {
-                      if (!currentArticleId) { toast.error(lang === "ru" ? "Сначала сохраните статью" : "Save the article first"); return; }
-                      setMetaLoading(true);
-                      try {
-                        const { data, error } = await supabase.functions.invoke("generate-meta-tags", { body: { articleId: currentArticleId } });
-                        if (error || data?.error) throw new Error(data?.error || error?.message);
-                        if (data?.title) setTitle(data.title);
-                        if (data?.meta_description) setMetaDescription(data.meta_description);
-                        toast.success(lang === "ru" ? "Мета-теги обновлены" : "Meta tags updated");
-                      } catch (e: any) {
-                        toast.error(e?.message || (lang === "ru" ? "Не удалось сгенерировать" : "Failed to generate"));
-                      } finally { setMetaLoading(false); }
-                    }}
-                  >
-                    {metaLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "AI"}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-2 text-[11px] shrink-0"
-                    disabled={!currentArticleId || !content || translateLoading}
-                    title={lang === "ru" ? "Перевести RU↔EN" : "Translate RU↔EN"}
-                    onClick={async () => {
-                      if (!currentArticleId) { toast.error(lang === "ru" ? "Сначала сохраните статью" : "Save the article first"); return; }
-                      setTranslateLoading(true);
-                      try {
-                        const { data, error } = await supabase.functions.invoke("translate-article", { body: { articleId: currentArticleId } });
-                        if (error || data?.error) throw new Error(data?.error || error?.message);
-                        toast.success(lang === "ru" ? `Перевод готов (${data?.target?.toUpperCase() || ""})` : `Translation ready (${data?.target?.toUpperCase() || ""})`);
-                      } catch (e: any) {
-                        toast.error(e?.message || (lang === "ru" ? "Не удалось перевести" : "Translation failed"));
-                      } finally { setTranslateLoading(false); }
-                    }}
-                  >
-                    {translateLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : (lang === "ru" ? "RU↔EN" : "RU↔EN")}
-                  </Button>
-                </div>
+                <Input
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  placeholder={t("articles.metaPlaceholder")}
+                  maxLength={160}
+                  className="h-8 text-sm"
+                />
               </div>
               {/* Published URL for interlinking */}
               <div className="space-y-0.5">
@@ -1627,33 +1539,6 @@ export default function ArticlesPage() {
                     >
                       <History className="w-3 h-3" />
                       История
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setInternalLinksOpen(true)}
-                    >
-                      <Link2 className="w-3 h-3" />
-                      Перелинковка
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setSerpOpen(true)}
-                    >
-                      <Search className="w-3 h-3" />
-                      SERP
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setCommentsOpen(true)}
-                    >
-                      <MessageSquarePlus className="w-3 h-3" />
-                      Заметки
                     </Button>
                     <Button
                       variant="outline"
@@ -2201,16 +2086,6 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                   setContent("");
                   const controller = new AbortController();
                   abortRef.current = controller;
-                  let bgJobId: string | null = null;
-                  if (user?.id) {
-                    try {
-                      bgJobId = await startBackgroundJob({
-                        userId: user.id,
-                        articleId: currentArticleId,
-                        jobType: "benchmark",
-                      });
-                    } catch {}
-                  }
                   try {
                     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
                     const resp = await fetch(url, {
@@ -2256,9 +2131,7 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                       }
                     }
                     toast.success("Оптимизировано под ТОП-10");
-                    if (bgJobId) await finishBackgroundJob(bgJobId, { ok: true });
                   } catch (e: any) {
-                    if (bgJobId) await failBackgroundJob(bgJobId, e?.message || "error");
                     throw e;
                   } finally {
                     setIsStreaming(false);
@@ -3103,61 +2976,6 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           setContent(c);
         }}
       />
-      <TitleVariantsDialog
-        open={titleAbOpen}
-        onOpenChange={setTitleAbOpen}
-        keyword={(selectedKeyword as any)?.seed_keyword || ""}
-        content={content}
-        language={(selectedKeyword as any)?.language === "en" ? "en" : "ru"}
-        currentTitle={title}
-        currentMeta={metaDescription}
-        onApply={(v) => {
-          setTitle(v.title);
-          setMetaDescription(v.meta);
-        }}
-      />
-      <InternalLinksDialog
-        open={internalLinksOpen}
-        onOpenChange={setInternalLinksOpen}
-        projectId={selectedProjectId && selectedProjectId !== "none" ? selectedProjectId : null}
-        currentArticleId={currentArticleId}
-        content={content}
-        onInsert={(anchor, url) => {
-          // Replace first un-linked occurrence of the anchor with a markdown link
-          setContent((prev) => {
-            const idx = prev.toLowerCase().indexOf(anchor.toLowerCase());
-            if (idx === -1) {
-              toast.warning("Анкор не найден в текущем тексте");
-              return prev;
-            }
-            const real = prev.slice(idx, idx + anchor.length);
-            // Skip if already inside [..](..)
-            const before = prev.slice(Math.max(0, idx - 1), idx);
-            if (before === "[") return prev;
-            const replacement = `[${real}](${url})`;
-            return prev.slice(0, idx) + replacement + prev.slice(idx + anchor.length);
-          });
-        }}
-      />
-      {currentArticleId && (
-        <SerpTrackingDialog
-          open={serpOpen}
-          onOpenChange={setSerpOpen}
-          articleId={currentArticleId}
-          defaultKeyword={(selectedKeyword as any)?.seed_keyword || ""}
-          geo={(selectedKeyword as any)?.geo || "ru"}
-          language={(selectedKeyword as any)?.language || "ru"}
-        />
-      )}
-      {currentArticleId && user?.id && (
-        <CommentsDialog
-          open={commentsOpen}
-          onOpenChange={setCommentsOpen}
-          articleId={currentArticleId}
-          userId={user.id}
-        />
-      )}
-      <BackgroundJobsPanel userId={user?.id} />
     </div>
   );
 }
