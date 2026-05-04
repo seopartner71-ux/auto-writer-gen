@@ -2060,6 +2060,36 @@ export type Database = {
           },
         ]
       }
+      seo_tips: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          language: string
+          source: string | null
+          tip: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          source?: string | null
+          tip: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          source?: string | null
+          tip?: string
+        }
+        Relationships: []
+      }
       serp_results: {
         Row: {
           analyzed_at: string | null
