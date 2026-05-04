@@ -41,18 +41,15 @@ const WikiPage = lazy(() => import("@/pages/WikiPage"));
 const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
 const SupportPage = lazy(() => import("@/pages/SupportPage"));
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
-const MyArticlesPage = lazy(() => import("@/pages/MyArticlesPage"));
 const SiteFactoryPage = lazy(() => import("@/pages/SiteFactoryPage"));
 const NetworkMonitorPage = lazy(() => import("@/pages/NetworkMonitorPage"));
 const DomainHunterPage = lazy(() => import("@/pages/DomainHunterPage"));
-const JobsPage = lazy(() => import("@/pages/JobsPage"));
 const OfferPage = lazy(() => import("@/pages/OfferPage"));
 const QuickStartPage = lazy(() => import("@/pages/QuickStartPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
 const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 const PaymentSuccessPage = lazy(() => import("@/pages/PaymentSuccessPage"));
-const PublicArticlePage = lazy(() => import("@/pages/PublicArticlePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -119,8 +116,6 @@ const App = () => (
                 <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
                 <Route path="/cookies" element={<Suspense fallback={<PageLoader />}><CookiesPage /></Suspense>} />
                 <Route path="/payment-success" element={<Suspense fallback={<PageLoader />}><PaymentSuccessPage /></Suspense>} />
-                <Route path="/share/:token" element={<Suspense fallback={<PageLoader />}><PublicArticlePage /></Suspense>} />
-
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
@@ -140,7 +135,6 @@ const App = () => (
                   <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="/support" element={<SupportPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
-                  <Route path="/jobs" element={<Suspense fallback={<PageLoader />}><JobsPage /></Suspense>} />
                   <Route path="/my-articles" element={<Navigate to="/articles" replace />} />
                   <Route path="/site-factory" element={<SiteFactoryPage />} />
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
