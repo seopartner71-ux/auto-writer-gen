@@ -51,6 +51,7 @@ const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
 const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 const PaymentSuccessPage = lazy(() => import("@/pages/PaymentSuccessPage"));
+const PublicArticlePage = lazy(() => import("@/pages/PublicArticlePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
