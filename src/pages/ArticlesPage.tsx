@@ -1530,7 +1530,16 @@ export default function ArticlesPage() {
                 )}
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
                 {currentArticleId && content && !isStreaming && (
-                  <div className="flex justify-end mb-2">
+                  <div className="flex justify-end items-center gap-2 mb-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => setVersionHistoryOpen(true)}
+                    >
+                      <History className="w-3 h-3" />
+                      История
+                    </Button>
                     <LiveQualityBadge
                       articleId={currentArticleId}
                       content={content}
