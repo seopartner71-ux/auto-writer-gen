@@ -68,7 +68,7 @@ export default function ArticlesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "admin";
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
