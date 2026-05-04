@@ -252,6 +252,8 @@ export default function ArticlesPage() {
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
+  const { snapshot: snapshotVersion } = useArticleVersions();
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
