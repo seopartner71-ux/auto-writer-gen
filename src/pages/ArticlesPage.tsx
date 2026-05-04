@@ -1564,6 +1564,41 @@ export default function ArticlesPage() {
                       <Link2 className="w-3 h-3" />
                       Перелинковка
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={async () => {
+                        if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
+                        try {
+                          const { data: row } = await supabase
+                            .from("articles")
+                            .select("share_token, is_public")
+                            .eq("id", currentArticleId)
+                            .maybeSingle();
+                          let token = row?.share_token as string | null;
+                          if (!token || !row?.is_public) {
+                            const upd: any = { is_public: true };
+                            if (!token) {
+                              token = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+                                ? (crypto as any).randomUUID()
+                                : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+                              upd.share_token = token;
+                            }
+                            const { error } = await supabase.from("articles").update(upd).eq("id", currentArticleId);
+                            if (error) throw error;
+                          }
+                          const url = `${window.location.origin}/share/${token}`;
+                          await navigator.clipboard.writeText(url);
+                          toast.success("Ссылка скопирована: " + url, { duration: 6000 });
+                        } catch (e: any) {
+                          toast.error(e?.message || "Не удалось создать ссылку");
+                        }
+                      }}
+                    >
+                      <Send className="w-3 h-3" />
+                      Поделиться
+                    </Button>
                     <LiveQualityBadge
                       articleId={currentArticleId}
                       content={content}
