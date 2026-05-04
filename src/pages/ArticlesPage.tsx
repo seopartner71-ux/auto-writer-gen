@@ -43,6 +43,7 @@ import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/co
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { SectionedGenerator } from "@/components/article/SectionedGenerator";
+import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMount";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
