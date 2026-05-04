@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
-import { marked } from "marked";
+import { markdownToPreviewHtml } from "@/pages/articles/utils";
 import { Card } from "@/components/ui/card";
 import { Loader2, FileText } from "lucide-react";
 
@@ -62,7 +62,7 @@ export default function PublicArticlePage() {
     );
   }
 
-  const html = DOMPurify.sanitize(String(marked.parse(article.content || "", { async: false }) || ""));
+  const html = DOMPurify.sanitize(markdownToPreviewHtml(article.content || ""));
 
   return (
     <div className="min-h-screen bg-background">
