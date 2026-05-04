@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.public-stats]
 verify_jwt = false
+
+[functions.refresh-serp-positions]
+verify_jwt = false
