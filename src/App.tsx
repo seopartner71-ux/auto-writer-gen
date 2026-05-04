@@ -140,6 +140,7 @@ const App = () => (
                   <Route path="/integrations" element={<IntegrationsPage />} />
                   <Route path="/support" element={<SupportPage />} />
                   <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/jobs" element={<Suspense fallback={<PageLoader />}><JobsPage /></Suspense>} />
                   <Route path="/my-articles" element={<Navigate to="/articles" replace />} />
                   <Route path="/site-factory" element={<SiteFactoryPage />} />
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
