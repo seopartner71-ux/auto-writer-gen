@@ -2976,6 +2976,29 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           setMetaDescription(v.meta);
         }}
       />
+      <InternalLinksDialog
+        open={internalLinksOpen}
+        onOpenChange={setInternalLinksOpen}
+        projectId={selectedProjectId && selectedProjectId !== "none" ? selectedProjectId : null}
+        currentArticleId={currentArticleId}
+        content={content}
+        onInsert={(anchor, url) => {
+          // Replace first un-linked occurrence of the anchor with a markdown link
+          setContent((prev) => {
+            const idx = prev.toLowerCase().indexOf(anchor.toLowerCase());
+            if (idx === -1) {
+              toast.warning("Анкор не найден в текущем тексте");
+              return prev;
+            }
+            const real = prev.slice(idx, idx + anchor.length);
+            // Skip if already inside [..](..)
+            const before = prev.slice(Math.max(0, idx - 1), idx);
+            if (before === "[") return prev;
+            const replacement = `[${real}](${url})`;
+            return prev.slice(0, idx) + replacement + prev.slice(idx + anchor.length);
+          });
+        }}
+      />
     </div>
   );
 }
