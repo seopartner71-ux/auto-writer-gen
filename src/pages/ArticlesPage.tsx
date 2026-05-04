@@ -48,6 +48,9 @@ import { useArticleVersions } from "@/features/article-versions/useArticleVersio
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
 import { TitleVariantsDialog } from "@/features/title-ab/TitleVariantsDialog";
 import { InternalLinksDialog } from "@/features/internal-links/InternalLinksDialog";
+import { SerpTrackingDialog } from "@/features/serp-tracking/SerpTrackingDialog";
+import { CommentsDialog } from "@/features/article-comments/CommentsDialog";
+import { useBackgroundJobsListener } from "@/features/background-jobs/useBackgroundJobs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -65,7 +68,7 @@ export default function ArticlesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { limits } = usePlanLimits();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "admin";
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
@@ -258,6 +261,10 @@ export default function ArticlesPage() {
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [titleAbOpen, setTitleAbOpen] = useState(false);
   const [internalLinksOpen, setInternalLinksOpen] = useState(false);
+  const [serpOpen, setSerpOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+
+  useBackgroundJobsListener(user?.id);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
@@ -1563,6 +1570,24 @@ export default function ArticlesPage() {
                     >
                       <Link2 className="w-3 h-3" />
                       Перелинковка
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => setSerpOpen(true)}
+                    >
+                      <Search className="w-3 h-3" />
+                      SERP
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => setCommentsOpen(true)}
+                    >
+                      <MessageSquarePlus className="w-3 h-3" />
+                      Заметки
                     </Button>
                     <Button
                       variant="outline"
@@ -3034,6 +3059,24 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           });
         }}
       />
+      {currentArticleId && (
+        <SerpTrackingDialog
+          open={serpOpen}
+          onOpenChange={setSerpOpen}
+          articleId={currentArticleId}
+          defaultKeyword={(selectedKeyword as any)?.seed_keyword || ""}
+          geo={(selectedKeyword as any)?.geo || "ru"}
+          language={(selectedKeyword as any)?.language || "ru"}
+        />
+      )}
+      {currentArticleId && user?.id && (
+        <CommentsDialog
+          open={commentsOpen}
+          onOpenChange={setCommentsOpen}
+          articleId={currentArticleId}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 }

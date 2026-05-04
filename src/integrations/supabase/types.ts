@@ -119,6 +119,39 @@ export type Database = {
         }
         Relationships: []
       }
+      article_comments: {
+        Row: {
+          article_id: string
+          comment: string
+          created_at: string
+          id: string
+          resolved: boolean
+          selected_text: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          comment: string
+          created_at?: string
+          id?: string
+          resolved?: boolean
+          selected_text?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          comment?: string
+          created_at?: string
+          id?: string
+          resolved?: boolean
+          selected_text?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       article_metrics: {
         Row: {
           article_id: string
@@ -565,6 +598,51 @@ export type Database = {
           type?: string
           user_id?: string | null
           voice_tone?: string | null
+        }
+        Relationships: []
+      }
+      background_jobs: {
+        Row: {
+          article_id: string | null
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          job_type: string
+          payload: Json | null
+          progress: number
+          result: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          article_id?: string | null
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          job_type: string
+          payload?: Json | null
+          progress?: number
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string | null
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          job_type?: string
+          payload?: Json | null
+          progress?: number
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -2132,6 +2210,42 @@ export type Database = {
           language?: string
           source?: string | null
           tip?: string
+        }
+        Relationships: []
+      }
+      serp_positions: {
+        Row: {
+          article_id: string
+          checked_at: string
+          id: string
+          keyword: string
+          position: number | null
+          region: string
+          search_engine: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          checked_at?: string
+          id?: string
+          keyword: string
+          position?: number | null
+          region?: string
+          search_engine?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          checked_at?: string
+          id?: string
+          keyword?: string
+          position?: number | null
+          region?: string
+          search_engine?: string
+          url?: string | null
+          user_id?: string
         }
         Relationships: []
       }
