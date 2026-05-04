@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildStealthSystemAddon } from "../_shared/stealth.ts";
+import { buildStealthSystemAddon, applyStealthPostProcess } from "../_shared/stealth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,6 +147,10 @@ ${fragment}
     rewritten = rewritten.replace(/^[«"'`]+|[»"'`]+$/g, "").trim();
 
     if (!rewritten) throw new Error("Пустой ответ ИИ");
+
+    // Stealth post-process: enforce burstiness + clean forbidden chars.
+    const ppLang = /[а-я]/i.test(rewritten) ? "ru" : "en";
+    rewritten = applyStealthPostProcess(rewritten, ppLang);
 
     await admin.from("usage_logs").insert({
       user_id: user.id,
