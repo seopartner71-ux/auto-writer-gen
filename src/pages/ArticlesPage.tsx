@@ -3083,61 +3083,6 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           setContent(c);
         }}
       />
-      <TitleVariantsDialog
-        open={titleAbOpen}
-        onOpenChange={setTitleAbOpen}
-        keyword={(selectedKeyword as any)?.seed_keyword || ""}
-        content={content}
-        language={(selectedKeyword as any)?.language === "en" ? "en" : "ru"}
-        currentTitle={title}
-        currentMeta={metaDescription}
-        onApply={(v) => {
-          setTitle(v.title);
-          setMetaDescription(v.meta);
-        }}
-      />
-      <InternalLinksDialog
-        open={internalLinksOpen}
-        onOpenChange={setInternalLinksOpen}
-        projectId={selectedProjectId && selectedProjectId !== "none" ? selectedProjectId : null}
-        currentArticleId={currentArticleId}
-        content={content}
-        onInsert={(anchor, url) => {
-          // Replace first un-linked occurrence of the anchor with a markdown link
-          setContent((prev) => {
-            const idx = prev.toLowerCase().indexOf(anchor.toLowerCase());
-            if (idx === -1) {
-              toast.warning("Анкор не найден в текущем тексте");
-              return prev;
-            }
-            const real = prev.slice(idx, idx + anchor.length);
-            // Skip if already inside [..](..)
-            const before = prev.slice(Math.max(0, idx - 1), idx);
-            if (before === "[") return prev;
-            const replacement = `[${real}](${url})`;
-            return prev.slice(0, idx) + replacement + prev.slice(idx + anchor.length);
-          });
-        }}
-      />
-      {currentArticleId && (
-        <SerpTrackingDialog
-          open={serpOpen}
-          onOpenChange={setSerpOpen}
-          articleId={currentArticleId}
-          defaultKeyword={(selectedKeyword as any)?.seed_keyword || ""}
-          geo={(selectedKeyword as any)?.geo || "ru"}
-          language={(selectedKeyword as any)?.language || "ru"}
-        />
-      )}
-      {currentArticleId && user?.id && (
-        <CommentsDialog
-          open={commentsOpen}
-          onOpenChange={setCommentsOpen}
-          articleId={currentArticleId}
-          userId={user.id}
-        />
-      )}
-      <BackgroundJobsPanel userId={user?.id} />
     </div>
   );
 }
