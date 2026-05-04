@@ -5,6 +5,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
+import { buildStealthSystemAddon } from "../_shared/stealth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,6 +77,7 @@ Deno.serve(async (req) => {
     const sys = lang === "en"
       ? "You are a precise editor. Output ONLY the rewritten text. No preamble, no quotes, no markdown fences, no commentary."
       : "Ты редактор. Выводи ТОЛЬКО переписанный текст. Без вступлений, кавычек, markdown-блоков и комментариев.";
+    const sysWithStealth = `${sys}\n\n${buildStealthSystemAddon(lang)}`;
 
     const userMsg = `${instruction}\n\n---\n${text}\n---`;
 
@@ -85,7 +87,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: sys },
+          { role: "system", content: sysWithStealth },
           { role: "user", content: userMsg },
         ],
       }),
