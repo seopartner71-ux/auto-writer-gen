@@ -368,6 +368,64 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
         </TooltipProvider>
       )}
 
+      {/* ─── Real AI Detector + Auto-Loop ─────────────────────────── */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Radar className="h-4 w-4 text-primary" />
+            {contentLang === "ru" ? "Сканер ИИ-текста" : "AI Text Scanner"}
+            {detectorScore !== null && (
+              <Badge variant="outline" className={`ml-auto text-[10px] ${detectorColor.text}`}>
+                {detectorScore}%
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {detectorScore !== null && (
+            <div>
+              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                <span>{contentLang === "ru" ? "Похожесть на ИИ" : "AI likelihood"}</span>
+                <span className={`font-bold ${detectorColor.text}`}>{detectorScore}%</span>
+              </div>
+              <Progress value={detectorScore} className="h-2.5" indicatorClassName={detectorColor.bg} />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {detectorVerdict === "high_risk" && (contentLang === "ru" ? "Высокий риск - нужен humanize." : "High risk - run humanize.")}
+                {detectorVerdict === "medium_risk" && (contentLang === "ru" ? "Средний риск." : "Medium risk.")}
+                {detectorVerdict === "human_like" && (contentLang === "ru" ? "Похоже на живого автора." : "Looks human.")}
+              </p>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              disabled={detectorLoading || !!isFixing}
+              onClick={runDetector}
+            >
+              {detectorLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+              {contentLang === "ru" ? "Скан" : "Scan"}
+            </Button>
+            <Button
+              size="sm"
+              variant="default"
+              className="gap-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              disabled={!onFixIssue || detectorLoading || !!isFixing}
+              onClick={startAutoLoop}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              {contentLang === "ru" ? "Авто-фикс" : "Auto-fix"}
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {contentLang === "ru"
+              ? "Эвристика + LLM-кросс-чек. Авто-фикс прогоняет humanize до 2 раз, пока score не упадёт ниже 40%."
+              : "Heuristic + LLM cross-check. Auto-fix runs humanize up to 2 times until score drops below 40%."}
+          </p>
+        </CardContent>
+      </Card>
+
       {/* ─── EN Stealth Stats (only for English content) ──────────── */}
       {stealthStats && (stealthStats.bannedPhrasesFound > 0 || stealthStats.contractionsApplied > 0) && (
         <Card className="bg-card border-border">
