@@ -2890,6 +2890,22 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           </div>
         </SheetContent>
       </Sheet>
+      <VersionHistoryDialog
+        open={versionHistoryOpen}
+        onOpenChange={setVersionHistoryOpen}
+        articleId={currentArticleId}
+        currentContent={content}
+        onRestore={(c) => {
+          // snapshot current before restoring so it can be re-restored
+          snapshotVersion({
+            articleId: currentArticleId,
+            content,
+            title: title || undefined,
+            reason: "auto",
+          });
+          setContent(c);
+        }}
+      />
     </div>
   );
 }
