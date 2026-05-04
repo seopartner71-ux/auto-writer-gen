@@ -568,6 +568,39 @@ export type Database = {
         }
         Relationships: []
       }
+      benchmark_cache: {
+        Row: {
+          context: string
+          created_at: string
+          data: Json
+          expires_at: string
+          id: string
+          instructions: string
+          keyword_id: string
+          user_id: string
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          data: Json
+          expires_at?: string
+          id?: string
+          instructions: string
+          keyword_id: string
+          user_id: string
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          data?: Json
+          expires_at?: string
+          id?: string
+          instructions?: string
+          keyword_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       blogger_connections: {
         Row: {
           access_token: string | null
