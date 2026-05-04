@@ -301,18 +301,27 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       return;
     }
     setAutoImproving(true);
+    setStepStates({
+      benchmark: useBenchmark && onBenchmarkOptimize && benchmarkReady ? "pending" : "done",
+      humanize: "pending", score: "pending", uniqueness: "pending",
+    });
     try {
       if (useBenchmark && onBenchmarkOptimize && benchmarkReady) {
-        toast.info("Шаг 0: Оптимизация под ТОП-10 (Benchmark)...", { duration: 6000 });
-        await onBenchmarkOptimize();
+        setStepStates(s => ({ ...s, benchmark: "running" }));
+        try { await onBenchmarkOptimize(); setStepStates(s => ({ ...s, benchmark: "done" })); }
+        catch (e) { setStepStates(s => ({ ...s, benchmark: "error" })); throw e; }
       }
-      toast.info("Шаг 1/3: Humanize Fix - убираем запах GPT...", { duration: 6000 });
-      await onHumanize();
-      toast.info("Шаг 2/3: Score + AI-детектор...", { duration: 4000 });
-      await runChecks(["score", "ai"]);
-      toast.info("Шаг 3/3: Уникальность через Text.ru...", { duration: 4000 });
-      await runChecks(["uniqueness"]);
-      toast.success("Auto-Improve завершён - проверьте вердикт выше");
+      setStepStates(s => ({ ...s, humanize: "running" }));
+      try { await onHumanize(); setStepStates(s => ({ ...s, humanize: "done" })); }
+      catch (e) { setStepStates(s => ({ ...s, humanize: "error" })); throw e; }
+      setStepStates(s => ({ ...s, score: "running" }));
+      try { await runChecks(["score", "ai"]); setStepStates(s => ({ ...s, score: "done" })); }
+      catch (e) { setStepStates(s => ({ ...s, score: "error" })); throw e; }
+      setStepStates(s => ({ ...s, uniqueness: "running" }));
+      try { await runChecks(["uniqueness"]); setStepStates(s => ({ ...s, uniqueness: "done" })); }
+      catch (e) { setStepStates(s => ({ ...s, uniqueness: "error" })); throw e; }
+      toast.success("Готово - текст доведен до ТОПа. Проверьте вердикт выше.");
+      setTimeout(() => setAutoDialogOpen(false), 800);
     } catch (e: any) {
       toast.error(e?.message || "Ошибка Auto-Improve");
     } finally {
