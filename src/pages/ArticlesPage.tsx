@@ -757,7 +757,7 @@ export default function ArticlesPage() {
       setFixingIssue(null);
       abortRef.current = null;
     }
-  }, [selectedKeywordId, selectedAuthorId, content, outline, lsiKeywords, selectedKeyword, lang, t]);
+  }, [selectedKeywordId, selectedAuthorId, content, outline, lsiKeywords, selectedKeyword, lang, t, currentArticleId, title, snapshotVersion]);
 
   // Save article
   const saveArticle = useMutation({
