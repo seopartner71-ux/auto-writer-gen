@@ -118,6 +118,7 @@ const App = () => (
                 <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
                 <Route path="/cookies" element={<Suspense fallback={<PageLoader />}><CookiesPage /></Suspense>} />
                 <Route path="/payment-success" element={<Suspense fallback={<PageLoader />}><PaymentSuccessPage /></Suspense>} />
+                <Route path="/share/:token" element={<Suspense fallback={<PageLoader />}><PublicArticlePage /></Suspense>} />
 
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>
