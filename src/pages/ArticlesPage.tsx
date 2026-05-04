@@ -220,6 +220,8 @@ export default function ArticlesPage() {
     faqMode, setFaqMode,
   } = useSchemaFaqState();
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [translateLoading, setTranslateLoading] = useState(false);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
   const complianceCheckedLenRef = useRef<number>(0);
