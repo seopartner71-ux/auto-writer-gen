@@ -693,6 +693,16 @@ export default function ArticlesPage() {
 
     const controller = new AbortController();
     abortRef.current = controller;
+    let bgJobId: string | null = null;
+    if (user?.id) {
+      try {
+        bgJobId = await startBackgroundJob({
+          userId: user.id,
+          articleId: currentArticleId,
+          jobType: isHumanize ? "humanize" : "optimize",
+        });
+      } catch {}
+    }
     try {
       const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
       const token = freshSession?.access_token;
