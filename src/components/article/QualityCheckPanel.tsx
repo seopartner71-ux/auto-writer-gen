@@ -459,34 +459,31 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
                   Запустим полный цикл доводки текста до уровня публикации:
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">1</div>
-                    <div className="flex-1 text-xs">
-                      <div className="font-medium text-foreground">Humanize Fix</div>
-                      <div className="text-muted-foreground">Перепишем AI-абзацы под живой стиль</div>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">1 ₵</span>
-                  </div>
-                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">2</div>
-                    <div className="flex-1 text-xs">
-                      <div className="font-medium text-foreground">Score + AI-детектор</div>
-                      <div className="text-muted-foreground">Стилистика, вода, человечность</div>
-                    </div>
-                    <span className="text-[10px] text-emerald-400">free</span>
-                  </div>
-                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">3</div>
-                    <div className="flex-1 text-xs">
-                      <div className="font-medium text-foreground">Уникальность Text.ru</div>
-                      <div className="text-muted-foreground">Антиплагиат - норма 85%+</div>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">1 ₵</span>
-                  </div>
+                  {([
+                    { key: "benchmark" as const, title: "Оптимизация под TOP-10", desc: "Объем, LSI, сущности по медиане конкурентов", cost: "1 ₵", show: useBenchmark && !!onBenchmarkOptimize && !!benchmarkReady },
+                    { key: "humanize" as const, title: "Humanize Fix", desc: "Перепишем AI-абзацы под живой стиль", cost: "1 ₵", show: true },
+                    { key: "score" as const, title: "Score + AI-детектор", desc: "Стилистика, вода, человечность", cost: "free", show: true },
+                    { key: "uniqueness" as const, title: "Уникальность Text.ru", desc: "Антиплагиат - норма 85%+", cost: "1 ₵", show: true },
+                  ]).filter(s => s.show).map((step, idx) => {
+                    const state = stepStates[step.key];
+                    const Icon = state === "done" ? CheckCircle2 : state === "running" ? Loader2 : state === "error" ? XCircle : Circle;
+                    const iconColor = state === "done" ? "text-emerald-400" : state === "running" ? "text-primary" : state === "error" ? "text-destructive" : "text-muted-foreground/60";
+                    const ring = state === "running" ? "border-primary/50 bg-primary/5" : state === "done" ? "border-emerald-500/30 bg-emerald-500/5" : state === "error" ? "border-destructive/40 bg-destructive/5" : "border-border/40 bg-muted/20";
+                    return (
+                      <div key={step.key} className={`flex items-start gap-3 rounded-lg border p-2.5 transition-colors ${ring}`}>
+                        <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${iconColor} ${state === "running" ? "animate-spin" : ""}`} />
+                        <div className="flex-1 text-xs">
+                          <div className="font-medium text-foreground">{idx + 1}. {step.title}</div>
+                          <div className="text-muted-foreground">{step.desc}</div>
+                        </div>
+                        <span className={`text-[10px] ${step.cost === "free" ? "text-emerald-400" : "text-muted-foreground"}`}>{step.cost}</span>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
                   <span className="text-xs text-muted-foreground">Итого спишется</span>
-                  <span className="text-sm font-semibold text-foreground">{useBenchmark && onBenchmarkOptimize && benchmarkReady ? "~3 кредита" : "~2 кредита"}</span>
+                  <span className="text-sm font-semibold text-foreground">{totalCost} ₵</span>
                 </div>
 
                 {onBenchmarkOptimize && (
