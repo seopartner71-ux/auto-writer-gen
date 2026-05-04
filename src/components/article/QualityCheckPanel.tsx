@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, Sparkles, ShieldCheck, BrainCircuit, AlertTriangle, Trophy, ThumbsUp, Share2, Info, Rocket } from "lucide-react";
+import { Loader2, Sparkles, ShieldCheck, BrainCircuit, AlertTriangle, Trophy, ThumbsUp, Share2, Info, Rocket, Target } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -32,6 +33,10 @@ interface Props {
   onUpdate?: (r: QualityResult) => void;
   // Triggers Humanize Fix in parent (regenerates content). Should resolve when done.
   onHumanize?: () => Promise<void>;
+  // Optional: optimize against TOP-10 benchmark before Humanize. Resolves when done.
+  onBenchmarkOptimize?: () => Promise<void>;
+  // Whether benchmark data is already loaded (TOP-10 parsed).
+  benchmarkReady?: boolean;
 }
 
 type Status = "ok" | "warn" | "bad" | "none";
@@ -95,7 +100,7 @@ function MetricRow({
   );
 }
 
-export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHumanize }: Props) {
+export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHumanize, onBenchmarkOptimize, benchmarkReady }: Props) {
   const [result, setResult] = useState<QualityResult>(initial || {
     turgenev_score: null, uniqueness_percent: null, ai_human_score: null, quality_badge: null,
   });
@@ -103,6 +108,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
   const [autoImproving, setAutoImproving] = useState(false);
   const [autoDialogOpen, setAutoDialogOpen] = useState(false);
   const [uniqPending, setUniqPending] = useState(false);
+  const [useBenchmark, setUseBenchmark] = useState(false);
 
   // Load existing quality data when article changes
   useEffect(() => {
@@ -290,6 +296,10 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
     }
     setAutoImproving(true);
     try {
+      if (useBenchmark && onBenchmarkOptimize && benchmarkReady) {
+        toast.info("Шаг 0: Оптимизация под ТОП-10 (Benchmark)...", { duration: 6000 });
+        await onBenchmarkOptimize();
+      }
       toast.info("Шаг 1/3: Humanize Fix - убираем запах GPT...", { duration: 6000 });
       await onHumanize();
       toast.info("Шаг 2/3: Score + AI-детектор...", { duration: 4000 });
@@ -461,8 +471,34 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
                   <span className="text-xs text-muted-foreground">Итого спишется</span>
-                  <span className="text-sm font-semibold text-foreground">~2 кредита</span>
+                  <span className="text-sm font-semibold text-foreground">{useBenchmark && onBenchmarkOptimize && benchmarkReady ? "~3 кредита" : "~2 кредита"}</span>
                 </div>
+
+                {onBenchmarkOptimize && (
+                  <label className={`flex items-start gap-3 rounded-lg border p-2.5 cursor-pointer transition-colors ${
+                    benchmarkReady
+                      ? (useBenchmark ? "border-primary/50 bg-primary/10" : "border-border/40 bg-muted/20 hover:bg-muted/30")
+                      : "border-border/30 bg-muted/10 opacity-60 cursor-not-allowed"
+                  }`}>
+                    <Checkbox
+                      checked={useBenchmark && benchmarkReady}
+                      disabled={!benchmarkReady}
+                      onCheckedChange={(v) => setUseBenchmark(Boolean(v))}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 text-xs">
+                      <div className="flex items-center gap-1.5 font-medium text-foreground">
+                        <Target className="h-3.5 w-3.5 text-primary" />
+                        Учесть конкурентов TOP-10
+                      </div>
+                      <div className="text-muted-foreground mt-0.5">
+                        {benchmarkReady
+                          ? "Перепишем под медианы TOP-10: объем, LSI, сущности. +1 ₵, +60 сек"
+                          : "Сначала откройте вкладку Benchmark и нажмите 'Загрузить Benchmark'"}
+                      </div>
+                    </div>
+                  </label>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
