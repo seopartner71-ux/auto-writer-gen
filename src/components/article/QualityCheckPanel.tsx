@@ -444,7 +444,10 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
         </div>
       </Card>
 
-      <AlertDialog open={autoDialogOpen} onOpenChange={setAutoDialogOpen}>
+      <AlertDialog open={autoDialogOpen} onOpenChange={(v) => {
+        setAutoDialogOpen(v);
+        if (v && !autoImproving) setStepStates({ benchmark: "pending", humanize: "pending", score: "pending", uniqueness: "pending" });
+      }}>
         <AlertDialogContent className="border-border/60 bg-gradient-to-b from-card to-card/80 backdrop-blur-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
