@@ -34,6 +34,7 @@ import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanS
 import { detectContentLanguage } from "@/components/article/humanScore/constants";
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
 import { LiveQualityBadge } from "@/components/article/LiveQualityBadge";
+import { SeoTipTicker } from "@/components/article/SeoTipTicker";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
@@ -1510,6 +1511,9 @@ export default function ArticlesPage() {
                         : `${t("articles.generating")} ${streamElapsed}s`}
                     </span>
                   </div>
+                )}
+                {isStreaming && (
+                  <SeoTipTicker language={lang === "ru" ? "ru" : "en"} />
                 )}
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
                 {currentArticleId && content && !isStreaming && (
