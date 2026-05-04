@@ -1991,6 +1991,26 @@ export default function ArticlesPage() {
                     benchmarkContext = cached.context;
                     instructions = cached.instructions;
                   } else {
+                    // Try persistent cache (DB, TTL 7 days)
+                    const userId = freshSession?.user?.id;
+                    let dbHit: any = null;
+                    if (userId) {
+                      const { data: row } = await supabase
+                        .from("benchmark_cache" as any)
+                        .select("data, context, instructions, expires_at")
+                        .eq("user_id", userId)
+                        .eq("keyword_id", selectedKeywordId)
+                        .gt("expires_at", new Date().toISOString())
+                        .maybeSingle();
+                      dbHit = row;
+                    }
+                    if (dbHit) {
+                      toast.info("Используем сохранённый анализ ТОП-10...", { duration: 3000 });
+                      data = (dbHit as any).data;
+                      benchmarkContext = (dbHit as any).context;
+                      instructions = (dbHit as any).instructions;
+                      benchmarkCacheRef.current.set(selectedKeywordId, { data, context: benchmarkContext, instructions });
+                    } else {
                     toast.info("Анализ ТОП-10 и сущностей...", { duration: 8000 });
                     data = await fetchAndAnalyze(selectedKeywordId, token, false);
                     benchmarkContext = buildAnalysisContext(data);
@@ -2004,6 +2024,19 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
 
 Сохрани стиль и тональность. Не добавляй вымышленных фактов.`;
                     benchmarkCacheRef.current.set(selectedKeywordId, { data, context: benchmarkContext, instructions });
+                    if (userId) {
+                      try {
+                        await supabase.from("benchmark_cache" as any).upsert({
+                          user_id: userId,
+                          keyword_id: selectedKeywordId,
+                          data,
+                          context: benchmarkContext,
+                          instructions,
+                          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                        } as any, { onConflict: "user_id,keyword_id" });
+                      } catch (e) { console.warn("benchmark cache upsert failed", e); }
+                    }
+                    }
                   }
 
                   setIsStreaming(true);
