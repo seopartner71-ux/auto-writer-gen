@@ -140,9 +140,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       toast.error("Текст слишком короткий для проверки (минимум 200 символов)");
       return;
     }
-    if (opts?.confirmCredit) {
-      if (!confirm("Проверка уникальности через Text.ru стоит 1 кредит. Продолжить?")) return;
-    }
+    // confirmation handled via AlertDialog at the call site
     const next = new Set(loadingSet);
     checks.forEach((c) => next.add(c));
     setLoadingSet(next);
