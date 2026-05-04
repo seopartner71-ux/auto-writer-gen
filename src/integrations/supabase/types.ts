@@ -314,18 +314,30 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          reason: string
+          title: string | null
+          user_id: string
+          word_count: number | null
         }
         Insert: {
           article_id: string
           content: string
           created_at?: string | null
           id?: string
+          reason?: string
+          title?: string | null
+          user_id: string
+          word_count?: number | null
         }
         Update: {
           article_id?: string
           content?: string
           created_at?: string | null
           id?: string
+          reason?: string
+          title?: string | null
+          user_id?: string
+          word_count?: number | null
         }
         Relationships: [
           {
