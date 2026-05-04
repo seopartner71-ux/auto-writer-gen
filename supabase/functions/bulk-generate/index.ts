@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildStealthSystemAddon } from "../_shared/stealth.ts";
+import { buildStealthSystemAddon, applyStealthPostProcess } from "../_shared/stealth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -275,7 +275,8 @@ Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
     }
 
     const articleData = await articleResp.json();
-    const articleContent = articleData.choices?.[0]?.message?.content || "";
+    const rawContent = articleData.choices?.[0]?.message?.content || "";
+    const articleContent = applyStealthPostProcess(rawContent, isRussian ? "ru" : "en");
 
     const h1Match = articleContent.match(/^#\s+(.+)$/m);
     const articleTitle = h1Match?.[1] || item.seed_keyword;
