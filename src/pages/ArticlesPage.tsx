@@ -50,7 +50,13 @@ import { TitleVariantsDialog } from "@/features/title-ab/TitleVariantsDialog";
 import { InternalLinksDialog } from "@/features/internal-links/InternalLinksDialog";
 import { SerpTrackingDialog } from "@/features/serp-tracking/SerpTrackingDialog";
 import { CommentsDialog } from "@/features/article-comments/CommentsDialog";
-import { useBackgroundJobsListener } from "@/features/background-jobs/useBackgroundJobs";
+import {
+  useBackgroundJobsListener,
+  startBackgroundJob,
+  finishBackgroundJob,
+  failBackgroundJob,
+} from "@/features/background-jobs/useBackgroundJobs";
+import { BackgroundJobsPanel } from "@/features/background-jobs/BackgroundJobsPanel";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
