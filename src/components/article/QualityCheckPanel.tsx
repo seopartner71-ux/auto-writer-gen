@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, Sparkles, ShieldCheck, BrainCircuit, CheckCircle2, AlertTriangle, XCircle, Trophy, ThumbsUp, Share2, Info } from "lucide-react";
+import { Loader2, Sparkles, ShieldCheck, BrainCircuit, CheckCircle2, AlertTriangle, XCircle, Trophy, ThumbsUp, Share2, Info, Rocket, Zap } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
@@ -20,6 +20,8 @@ interface Props {
   content: string;
   initial?: QualityResult;
   onUpdate?: (r: QualityResult) => void;
+  // Triggers Humanize Fix in parent (regenerates content). Should resolve when done.
+  onHumanize?: () => Promise<void>;
 }
 
 type Status = "ok" | "warn" | "bad" | "none";
@@ -83,11 +85,12 @@ function MetricRow({
   );
 }
 
-export function QualityCheckPanel({ articleId, content, initial, onUpdate }: Props) {
+export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHumanize }: Props) {
   const [result, setResult] = useState<QualityResult>(initial || {
     turgenev_score: null, uniqueness_percent: null, ai_human_score: null, quality_badge: null,
   });
   const [loadingSet, setLoadingSet] = useState<Set<string>>(new Set());
+  const [autoImproving, setAutoImproving] = useState(false);
 
   // Load existing quality data when article changes
   useEffect(() => {
@@ -220,6 +223,43 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate }: Pro
   const loadingFree = isLoading("score") || isLoading("ai");
   const loadingUniq = isLoading("uniqueness");
 
+  async function autoImproveToTop() {
+    if (!articleId) {
+      toast.error("Сначала сохраните статью");
+      return;
+    }
+    if (!onHumanize) {
+      toast.error("Гуманизация недоступна в этом контексте");
+      return;
+    }
+    if (!content || content.replace(/<[^>]+>/g, "").trim().length < 200) {
+      toast.error("Текст слишком короткий (минимум 200 символов)");
+      return;
+    }
+    if (!confirm(
+      "Auto-Improve to TOP запустит:\n" +
+      "1) Humanize Fix - перепишет AI-абзацы (1 кредит)\n" +
+      "2) Score + AI-детектор - бесплатно\n" +
+      "3) Уникальность через Text.ru (1 кредит)\n\n" +
+      "Итого ~2 кредита. Продолжить?"
+    )) return;
+
+    setAutoImproving(true);
+    try {
+      toast.info("Шаг 1/3: Humanize Fix - убираем запах GPT...", { duration: 6000 });
+      await onHumanize();
+      toast.info("Шаг 2/3: Score + AI-детектор...", { duration: 4000 });
+      await runChecks(["score", "ai"]);
+      toast.info("Шаг 3/3: Уникальность через Text.ru...", { duration: 4000 });
+      await runChecks(["uniqueness"]);
+      toast.success("Auto-Improve завершён - проверьте вердикт выше");
+    } catch (e: any) {
+      toast.error(e?.message || "Ошибка Auto-Improve");
+    } finally {
+      setAutoImproving(false);
+    }
+  }
+
   return (
     <TooltipProvider delayDuration={200}>
       <Card className="overflow-hidden border-border/60 bg-gradient-to-b from-card/80 to-card/40 backdrop-blur-xl">
@@ -290,6 +330,18 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate }: Pro
 
         {/* Actions */}
         <div className="flex flex-col gap-2 border-t border-border/40 bg-muted/10 p-3">
+          {onHumanize && (
+            <Button
+              size="sm"
+              disabled={autoImproving || loadingFree || loadingUniq}
+              onClick={autoImproveToTop}
+              className="h-10 font-semibold text-white bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700 hover:scale-[1.01] transition-all"
+            >
+              {autoImproving
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Auto-Improve...</>
+                : <><Rocket className="h-4 w-4 mr-1.5" /> Auto-Improve to TOP <span className="ml-1.5 text-[10px] opacity-80">~2 ₵</span></>}
+            </Button>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <Button
               size="sm"
