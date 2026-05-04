@@ -3059,6 +3059,24 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           });
         }}
       />
+      {currentArticleId && (
+        <SerpTrackingDialog
+          open={serpOpen}
+          onOpenChange={setSerpOpen}
+          articleId={currentArticleId}
+          defaultKeyword={(selectedKeyword as any)?.seed_keyword || ""}
+          geo={(selectedKeyword as any)?.geo || "ru"}
+          language={(selectedKeyword as any)?.language || "ru"}
+        />
+      )}
+      {currentArticleId && user?.id && (
+        <CommentsDialog
+          open={commentsOpen}
+          onOpenChange={setCommentsOpen}
+          articleId={currentArticleId}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 }
