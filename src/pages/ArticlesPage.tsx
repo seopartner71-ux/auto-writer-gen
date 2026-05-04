@@ -1555,6 +1555,15 @@ export default function ArticlesPage() {
                       <History className="w-3 h-3" />
                       История
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => setInternalLinksOpen(true)}
+                    >
+                      <Link2 className="w-3 h-3" />
+                      Перелинковка
+                    </Button>
                     <LiveQualityBadge
                       articleId={currentArticleId}
                       content={content}
