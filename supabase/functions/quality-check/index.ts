@@ -323,7 +323,12 @@ Deno.serve(async (req) => {
             quality_details: {
               ...(art.quality_details as any || {}),
               uniqueness_pending: false,
-              uniqueness_details: ok ? { words: (uniqRes as any).words } : undefined,
+              uniqueness_details: ok ? {
+                words: (uniqRes as any).words,
+                ai_percent: (uniqRes as any).raw?.ai_percent,
+                ai_phrases: (uniqRes as any).ai_phrases,
+                source: "text.ru/neuro/detector",
+              } : undefined,
               uniqueness_error: !ok ? ((uniqRes as any)?.error || "Сервис Text.ru не ответил вовремя") : undefined,
             },
           };
