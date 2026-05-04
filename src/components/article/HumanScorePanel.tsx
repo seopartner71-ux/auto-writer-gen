@@ -1,13 +1,14 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
   CheckCircle2, Circle, Shield, Activity, Zap, Brain, AlertTriangle,
-  Plus, Search, ChevronDown, ChevronUp, Eye, Wrench, Loader2,
+  Plus, Search, ChevronDown, ChevronUp, Eye, Wrench, Loader2, Radar,
 } from "lucide-react";
 import {
   computeBurstiness, computeAiProbability, computePerplexity,
@@ -15,6 +16,8 @@ import {
 } from "./humanScore/analysis";
 import { detectContentLanguage } from "./humanScore/constants";
 import { getEnStealthStats, type EnStealthStats } from "@/shared/utils/contentValidator";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface HumanScorePanelProps {
   content: string;
