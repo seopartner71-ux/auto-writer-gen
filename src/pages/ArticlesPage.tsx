@@ -257,6 +257,7 @@ export default function ArticlesPage() {
   const { snapshot: snapshotVersion } = useArticleVersions();
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [titleAbOpen, setTitleAbOpen] = useState(false);
+  const [internalLinksOpen, setInternalLinksOpen] = useState(false);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
