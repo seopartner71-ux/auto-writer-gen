@@ -21,7 +21,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import MyArticlesPage from "@/pages/MyArticlesPage";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -46,17 +45,6 @@ import { SectionedGenerator } from "@/components/article/SectionedGenerator";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
-import { TitleVariantsDialog } from "@/features/title-ab/TitleVariantsDialog";
-import { InternalLinksDialog } from "@/features/internal-links/InternalLinksDialog";
-import { SerpTrackingDialog } from "@/features/serp-tracking/SerpTrackingDialog";
-import { CommentsDialog } from "@/features/article-comments/CommentsDialog";
-import {
-  useBackgroundJobsListener,
-  startBackgroundJob,
-  finishBackgroundJob,
-  failBackgroundJob,
-} from "@/features/background-jobs/useBackgroundJobs";
-import { BackgroundJobsPanel } from "@/features/background-jobs/BackgroundJobsPanel";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
