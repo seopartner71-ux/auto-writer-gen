@@ -768,6 +768,7 @@ export default function ArticlesPage() {
       } else {
         toast.success(lang === "ru" ? "Проблема исправлена — проверьте Human Score" : "Issue fixed — check Human Score");
       }
+      if (bgJobId) await finishBackgroundJob(bgJobId, { ok: true });
     } catch (e: any) {
       if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
       else {
@@ -776,15 +777,17 @@ export default function ArticlesPage() {
           : e.message
         );
         setContent(prevContent);
+        if (bgJobId) await failBackgroundJob(bgJobId, e?.message || "error");
         throw e;
       }
+      if (bgJobId && e?.name === "AbortError") await failBackgroundJob(bgJobId, "aborted");
     } finally {
       setIsStreaming(false);
       setStreamPhase(null);
       setFixingIssue(null);
       abortRef.current = null;
     }
-  }, [selectedKeywordId, selectedAuthorId, content, outline, lsiKeywords, selectedKeyword, lang, t, currentArticleId, title, snapshotVersion]);
+  }, [selectedKeywordId, selectedAuthorId, content, outline, lsiKeywords, selectedKeyword, lang, t, currentArticleId, title, snapshotVersion, user?.id]);
 
   // Save article
   const saveArticle = useMutation({
