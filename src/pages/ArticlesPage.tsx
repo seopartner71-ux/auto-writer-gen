@@ -249,6 +249,7 @@ export default function ArticlesPage() {
   const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
