@@ -276,6 +276,7 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
         onFixIssue("humanize-all", instr);
       } else {
         loopIterRef.current = 0;
+        setAutoLoop(false);
         toast.success(
           contentLang === "ru"
             ? `Готово. Финальный AI score: ${score}%`
