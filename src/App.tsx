@@ -45,6 +45,7 @@ const MyArticlesPage = lazy(() => import("@/pages/MyArticlesPage"));
 const SiteFactoryPage = lazy(() => import("@/pages/SiteFactoryPage"));
 const NetworkMonitorPage = lazy(() => import("@/pages/NetworkMonitorPage"));
 const DomainHunterPage = lazy(() => import("@/pages/DomainHunterPage"));
+const JobsPage = lazy(() => import("@/pages/JobsPage"));
 const OfferPage = lazy(() => import("@/pages/OfferPage"));
 const QuickStartPage = lazy(() => import("@/pages/QuickStartPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
