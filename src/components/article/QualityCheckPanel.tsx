@@ -246,14 +246,6 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       toast.error("Текст слишком короткий (минимум 200 символов)");
       return;
     }
-    if (!confirm(
-      "Auto-Improve to TOP запустит:\n" +
-      "1) Humanize Fix - перепишет AI-абзацы (1 кредит)\n" +
-      "2) Score + AI-детектор - бесплатно\n" +
-      "3) Уникальность через Text.ru (1 кредит)\n\n" +
-      "Итого ~2 кредита. Продолжить?"
-    )) return;
-
     setAutoImproving(true);
     try {
       toast.info("Шаг 1/3: Humanize Fix - убираем запах GPT...", { duration: 6000 });
@@ -344,7 +336,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
             <Button
               size="sm"
               disabled={autoImproving || loadingFree || loadingUniq}
-              onClick={autoImproveToTop}
+              onClick={() => setAutoDialogOpen(true)}
               className="h-10 font-semibold text-white bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700 hover:scale-[1.01] transition-all"
             >
               {autoImproving
@@ -368,7 +360,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
               size="sm"
               variant="outline"
               disabled={loadingUniq}
-              onClick={() => runChecks(["uniqueness"], { confirmCredit: true })}
+              onClick={() => setUniqDialogOpen(true)}
               className="h-9 font-medium"
             >
               {loadingUniq
@@ -384,6 +376,97 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
           )}
         </div>
       </Card>
+
+      <AlertDialog open={uniqDialogOpen} onOpenChange={setUniqDialogOpen}>
+        <AlertDialogContent className="border-border/60 bg-gradient-to-b from-card to-card/80 backdrop-blur-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <ShieldCheck className="h-3.5 w-3.5" />
+              </div>
+              Проверка уникальности
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                Антиплагиат через Text.ru. Спишется <span className="font-semibold text-foreground">1 кредит</span> с вашего баланса.
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Норма для ТОПа - от 85%. Кредит вернётся, если сервис Text.ru недоступен.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => runChecks(["uniqueness"]) }
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+              Запустить (1 ₵)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={autoDialogOpen} onOpenChange={setAutoDialogOpen}>
+        <AlertDialogContent className="border-border/60 bg-gradient-to-b from-card to-card/80 backdrop-blur-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-purple-400">
+                <Rocket className="h-3.5 w-3.5" />
+              </div>
+              Auto-Improve to TOP
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="pt-2 space-y-3">
+                <div className="text-sm text-muted-foreground">
+                  Запустим полный цикл доводки текста до уровня публикации:
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">1</div>
+                    <div className="flex-1 text-xs">
+                      <div className="font-medium text-foreground">Humanize Fix</div>
+                      <div className="text-muted-foreground">Перепишем AI-абзацы под живой стиль</div>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">1 ₵</span>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">2</div>
+                    <div className="flex-1 text-xs">
+                      <div className="font-medium text-foreground">Score + AI-детектор</div>
+                      <div className="text-muted-foreground">Стилистика, вода, человечность</div>
+                    </div>
+                    <span className="text-[10px] text-emerald-400">free</span>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/20 p-2.5">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">3</div>
+                    <div className="flex-1 text-xs">
+                      <div className="font-medium text-foreground">Уникальность Text.ru</div>
+                      <div className="text-muted-foreground">Антиплагиат - норма 85%+</div>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">1 ₵</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Итого спишется</span>
+                  <span className="text-sm font-semibold text-foreground">~2 кредита</span>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={autoImproveToTop}
+              className="bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 text-white hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700"
+            >
+              <Rocket className="h-3.5 w-3.5 mr-1.5" />
+              Запустить (~2 ₵)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }
