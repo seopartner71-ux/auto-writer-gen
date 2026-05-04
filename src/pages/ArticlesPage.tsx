@@ -249,6 +249,7 @@ export default function ArticlesPage() {
   const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
@@ -1962,10 +1963,18 @@ export default function ArticlesPage() {
                   const { data: { session: freshSession } } = await supabase.auth.refreshSession();
                   const token = freshSession?.access_token;
                   if (!token) throw new Error("Not authenticated");
-                  toast.info("Анализ ТОП-10 и сущностей...", { duration: 8000 });
-                  const data = await fetchAndAnalyze(selectedKeywordId, token, false);
-                  const benchmarkContext = buildAnalysisContext(data);
-                  const instructions = `Перепиши статью с учетом ТОП-10:
+                  const cached = benchmarkCacheRef.current.get(selectedKeywordId);
+                  let data: any, benchmarkContext: string, instructions: string;
+                  if (cached) {
+                    toast.info("Используем кэш ТОП-10...", { duration: 3000 });
+                    data = cached.data;
+                    benchmarkContext = cached.context;
+                    instructions = cached.instructions;
+                  } else {
+                    toast.info("Анализ ТОП-10 и сущностей...", { duration: 8000 });
+                    data = await fetchAndAnalyze(selectedKeywordId, token, false);
+                    benchmarkContext = buildAnalysisContext(data);
+                    instructions = `Перепиши статью с учетом ТОП-10:
 - Целевой объем: ${data.benchmark.target_word_count} слов (медиана: ${data.benchmark.median_word_count})
 - H2: ${data.benchmark.target_h2_count}, H3 медиана: ${data.benchmark.median_h3_count}
 - Изображений: ${data.benchmark.target_img_count}
@@ -1974,6 +1983,8 @@ ${data.must_use_phrases.length > 0 ? `\nОбязательные фразы из
 ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевые сущности:\n${data.entities.filter((e:any)=>e.importance>=5).slice(0,15).map((e:any)=>`- ${e.name}`).join('\n')}` : ''}
 
 Сохрани стиль и тональность. Не добавляй вымышленных фактов.`;
+                    benchmarkCacheRef.current.set(selectedKeywordId, { data, context: benchmarkContext, instructions });
+                  }
 
                   setIsStreaming(true);
                   setStreamPhase("thinking");
