@@ -656,6 +656,13 @@ export default function ArticlesPage() {
     setIsStreaming(true);
     setStreamPhase("thinking");
     const prevContent = content;
+    // Snapshot before destructive rewrite
+    snapshotVersion({
+      articleId: currentArticleId,
+      content: prevContent,
+      title: title || undefined,
+      reason: issueKey === "humanize-all" ? "humanize" : "fix",
+    });
     setContent("");
 
     const isHumanize = issueKey === "humanize-all";
