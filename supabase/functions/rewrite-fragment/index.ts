@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildStealthSystemAddon } from "../_shared/stealth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,7 +85,9 @@ serve(async (req) => {
 Перепиши ${scopeLabel} строго по инструкции автора, исправив все указанные нарушения.
 Сохрани смысл, факты и примерный объём. НЕ добавляй новые факты, НЕ выдумывай данные.
 ИСПОЛЬЗУЙ HTML-теги, если они уместны (<p>, <strong>, <em>, <a>) — но только если они были в исходном фрагменте.
-Верни ТОЛЬКО переписанный текст. Без пояснений, без префиксов, без кавычек вокруг.`;
+Верни ТОЛЬКО переписанный текст. Без пояснений, без префиксов, без кавычек вокруг.
+
+${buildStealthSystemAddon(/[а-я]/i.test(fragment) ? "ru" : "en")}`;
 
     const userPrompt = `=== ИНСТРУКЦИЯ АВТОРА (закон) ===
 ${systemInstruction || "(не задана)"}
