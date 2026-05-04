@@ -48,6 +48,9 @@ import { useArticleVersions } from "@/features/article-versions/useArticleVersio
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
 import { TitleVariantsDialog } from "@/features/title-ab/TitleVariantsDialog";
 import { InternalLinksDialog } from "@/features/internal-links/InternalLinksDialog";
+import { SerpTrackingDialog } from "@/features/serp-tracking/SerpTrackingDialog";
+import { CommentsDialog } from "@/features/article-comments/CommentsDialog";
+import { useBackgroundJobsListener } from "@/features/background-jobs/useBackgroundJobs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -258,6 +261,8 @@ export default function ArticlesPage() {
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [titleAbOpen, setTitleAbOpen] = useState(false);
   const [internalLinksOpen, setInternalLinksOpen] = useState(false);
+  const [serpOpen, setSerpOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   // Admin: transfer article to another user
   const handleTransferArticle = useCallback(async () => {
