@@ -1648,7 +1648,6 @@ export default function ArticlesPage() {
             content={content}
             selectedKeyword={selectedKeyword}
             selectedKeywordId={selectedKeywordId}
-            articleId={currentArticleId}
             onContentImproved={(c) => setContent(c)}
           />
           <EditorSidebar
