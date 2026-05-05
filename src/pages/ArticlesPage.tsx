@@ -2381,7 +2381,6 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                             onClick={(e) => {
                               e.stopPropagation();
                               setTransferArticleId(a.id);
-                              setTransferEmail("");
                               setTransferDialogOpen(true);
                             }}
                           >
