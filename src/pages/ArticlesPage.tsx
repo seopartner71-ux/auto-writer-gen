@@ -44,11 +44,12 @@ import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMount";
 import { ArticlesPageHeader } from "@/pages/articles/ArticlesPageHeader";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
-import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
-import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
+import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanel } from "@/features/article-editor/SeoSidePanel";
+import { TransferDialog } from "@/features/article-transfer/TransferDialog";
+import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
