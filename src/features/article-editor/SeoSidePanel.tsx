@@ -23,6 +23,8 @@ interface Props {
   onPickKeyword?: () => void;
   articleId?: string | null;
   onContentImproved?: (newContent: string) => void;
+  isStreaming?: boolean;
+  quickMode?: boolean;
 }
 
 const STORAGE_KEY = "seo_side_panel_collapsed";
@@ -31,13 +33,28 @@ function stripHtml(s: string) {
   return s.replace(/<[^>]*>/g, " ");
 }
 
-function useDebounced<T>(value: T, delay = 800): T {
+function useDebouncedWithStatus<T>(value: T, delay = 800, paused = false): { value: T; pending: boolean } {
   const [v, setV] = useState(value);
+  const [pending, setPending] = useState(false);
   useEffect(() => {
-    const id = setTimeout(() => setV(value), delay);
+    if (paused) { setPending(false); return; }
+    setPending(true);
+    const id = setTimeout(() => { setV(value); setPending(false); }, delay);
     return () => clearTimeout(id);
-  }, [value, delay]);
-  return v;
+  }, [value, delay, paused]);
+  return { value: v, pending };
+}
+
+function LiveDot({ pending }: { pending: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider text-muted-foreground">
+      <span className={cn(
+        "h-1.5 w-1.5 rounded-full",
+        pending ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
+      )} />
+      Live
+    </span>
+  );
 }
 
 function scoreColor(s: number) {
