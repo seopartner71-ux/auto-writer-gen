@@ -841,6 +841,37 @@ export default function ArticlesPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  // ── Auto-save: debounced 8s after last edit, only if article already saved ──
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const lastSavedContentRef = useRef<string>("");
+  useEffect(() => {
+    if (!currentArticleId) return;
+    if (isStreaming) return;
+    if (!content || content.length < 50) return;
+    if (content === lastSavedContentRef.current) return;
+    if (saveArticle.isPending) return;
+    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from("articles")
+          .update({
+            content,
+            title: title || null,
+            meta_description: metaDescription || null,
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("id", currentArticleId);
+        if (!error) {
+          lastSavedContentRef.current = content;
+        }
+      } catch { /* silent */ }
+    }, 8000);
+    return () => {
+      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [content, title, metaDescription, currentArticleId, isStreaming, saveArticle.isPending]);
+
   // Generate schema
   const generateSchema = useMutation({
     mutationFn: async () => {
