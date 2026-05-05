@@ -430,6 +430,7 @@ export type Database = {
           quality_status: string | null
           rewritten: boolean
           scheduled_at: string | null
+          seo_improve_count: number
           seo_score: Json | null
           share_token: string | null
           status: string | null
@@ -481,6 +482,7 @@ export type Database = {
           quality_status?: string | null
           rewritten?: boolean
           scheduled_at?: string | null
+          seo_improve_count?: number
           seo_score?: Json | null
           share_token?: string | null
           status?: string | null
@@ -532,6 +534,7 @@ export type Database = {
           quality_status?: string | null
           rewritten?: boolean
           scheduled_at?: string | null
+          seo_improve_count?: number
           seo_score?: Json | null
           share_token?: string | null
           status?: string | null

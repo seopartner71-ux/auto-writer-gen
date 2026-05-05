@@ -1986,6 +1986,8 @@ export default function ArticlesPage() {
             terms={seoPanelTerms}
             benchmark={serpBenchmark || null}
             hasKeyword={!!selectedKeywordId}
+            articleId={currentArticleId}
+            onContentImproved={(c) => setContent(c)}
           />
           <EditorSidebar
             content={content}
