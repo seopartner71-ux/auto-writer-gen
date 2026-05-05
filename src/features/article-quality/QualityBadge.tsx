@@ -2,9 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Wand2, RotateCcw, History, Trophy, ThumbsUp, AlertTriangle, FileWarning, CircleDashed } from "lucide-react";
+import {
+  Loader2, Wand2, RotateCcw, History, Trophy, ThumbsUp,
+  AlertTriangle, FileWarning, CircleDashed,
+} from "lucide-react";
 import { toast } from "sonner";
 
+/**
+ * Unified quality badge — replaces AutoQualityBadge + LiveQualityBadge.
+ * Compact icon button; popover shows AI score / burstiness / keyword density
+ * with quick actions: improve, recheck, version history.
+ * Subscribes to realtime updates on the article row.
+ */
 interface Props {
   articleId: string;
   initial?: {
@@ -15,6 +24,7 @@ interface Props {
     keyword_density?: number | null;
     keyword_density_status?: string | null;
   };
+  onOpenVersions?: () => void;
 }
 
 const STATUS_META: Record<string, { Icon: any; label: string; color: string }> = {
@@ -33,7 +43,7 @@ function dotFor(s: string | null | undefined) {
   return "⏳";
 }
 
-export function AutoQualityBadge({ articleId, initial }: Props) {
+export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
   const [data, setData] = useState<any>(initial || {});
   const [improving, setImproving] = useState(false);
   const [rechecking, setRechecking] = useState(false);
@@ -52,9 +62,6 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
     }
   }
 
-  // Realtime subscription replaces polling — one channel per badge,
-  // server pushes updates when row changes. Fallback timeout marks
-  // status as 'timeout' if no update arrives in 3 minutes.
   function startRealtime() {
     cleanupChannel();
     const ch = supabase
@@ -82,7 +89,6 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
       .subscribe();
     channelRef.current = ch;
 
-    // Safety net: if still 'checking' after 3 min, mark timeout
     fallbackTimerRef.current = window.setTimeout(() => {
       if (stoppedRef.current) return;
       setData((d: any) => (d.quality_status === "checking" ? { ...d, quality_status: "timeout" } : d));
@@ -102,7 +108,6 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
   useEffect(() => {
     stoppedRef.current = false;
     if (!data.quality_status || data.quality_status === "checking") {
-      // If we already know it's checking, just subscribe; otherwise fetch then decide
       if (data.quality_status === "checking") startRealtime();
       else fetchOnce();
     }
@@ -174,7 +179,9 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
       <PopoverContent align="start" className="w-72 p-3 text-xs space-y-2" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="font-medium text-sm">Качество статьи</div>
-          <span className={`text-[10px] uppercase tracking-wide ${meta.color.replace("animate-spin", "")}`}>{status === "timeout" ? "Таймаут" : meta.label}</span>
+          <span className={`text-[10px] uppercase tracking-wide ${meta.color.replace("animate-spin", "")}`}>
+            {status === "timeout" ? "Таймаут" : meta.label}
+          </span>
         </div>
         {status === "too_short" && (
           <div className="text-muted-foreground text-[11px] leading-snug">
@@ -222,7 +229,8 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
             className="w-full text-[11px] h-7"
             onClick={(e) => {
               e.stopPropagation();
-              window.dispatchEvent(new CustomEvent("open-article-versions", { detail: { articleId } }));
+              if (onOpenVersions) onOpenVersions();
+              else window.dispatchEvent(new CustomEvent("open-article-versions", { detail: { articleId } }));
             }}
           >
             <History className="h-3 w-3 mr-1" />

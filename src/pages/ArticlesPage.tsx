@@ -34,7 +34,6 @@ import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanScorePanel";
 import { detectContentLanguage } from "@/components/article/humanScore/constants";
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
-import { LiveQualityBadge } from "@/components/article/LiveQualityBadge";
 import { SeoTipTicker } from "@/components/article/SeoTipTicker";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
@@ -47,6 +46,7 @@ import { ArticlesPageHeader } from "@/pages/articles/ArticlesPageHeader";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
+import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanel } from "@/features/article-editor/SeoSidePanel";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1602,18 +1602,12 @@ export default function ArticlesPage() {
                       <Send className="w-3 h-3" />
                       Поделиться
                     </Button>
-                    <LiveQualityBadge
-                      articleId={currentArticleId}
-                      content={content}
-                      enabled={localStorage.getItem("live_quality_disabled") !== "1"}
-                       onClick={() => {
-                         // Scroll the quality panel into view (right-side dashboard)
-                         try {
-                           const el = document.getElementById("quality-check-panel");
-                           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                         } catch {}
-                       }}
-                    />
+                    {currentArticleId && (
+                      <QualityBadge
+                        articleId={currentArticleId}
+                        onOpenVersions={() => setVersionHistoryOpen(true)}
+                      />
+                    )}
                   </div>
                 )}
                 <TabsContent value="edit" className="mt-0">
