@@ -203,14 +203,6 @@ export function GenerationForm(props: GenerationFormProps) {
       {/* Content formatting options */}
       {!quickMode && (
       <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border mt-3">
-        {(() => {
-          // Telegra.ph не поддерживает HTML-таблицы и микроразметку — принудительно
-          // выключаем чип "Таблица сравнения" при выборе автора Телеграф.
-          if (isTelegraphAuthor && includeComparisonTable) {
-            setTimeout(() => onComparisonTableChange(false), 0);
-          }
-          return null;
-        })()}
         <button
           type="button"
           onClick={() => onExpertQuoteChange(!includeExpertQuote)}
