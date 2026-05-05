@@ -70,7 +70,7 @@ function scoreLabel(s: number) {
   return "Плохо";
 }
 
-export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword, articleId, onContentImproved }: Props) {
+export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword, articleId, onContentImproved, isStreaming = false, quickMode = false }: Props) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
   });
@@ -83,7 +83,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
     try { localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0"); } catch {}
   }, [collapsed]);
 
-  const debounced = useDebounced(content, 800);
+  const { value: debounced, pending } = useDebouncedWithStatus(content, 800, isStreaming);
 
   const metrics = useMemo(() => {
     const text = stripHtml(debounced || "").trim();
@@ -129,6 +129,39 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
   const lScore = medianLists > 0 ? Math.min(100, (metrics.listCount / medianLists) * 100) : 100;
   const structureScore = wScore * 0.4 + hScore * 0.3 + lScore * 0.3;
   const totalScore = Math.round(densityScore * 0.3 + coverageScore * 0.4 + structureScore * 0.3);
+
+  // Streaming placeholder
+  if (isStreaming) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="pt-3 pb-3 text-center text-xs text-muted-foreground space-y-2">
+          <div className="text-2xl">⏳</div>
+          <div className="font-semibold text-sm text-foreground">Генерация...</div>
+          <div>SEO Score обновится после завершения</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Quick mode — compact score-only view
+  if (quickMode) {
+    if (!hasKeyword) return null;
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="pt-3 pb-3 space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-sm">SEO Score</span>
+            <LiveDot pending={pending} />
+          </div>
+          <div className="flex items-end justify-between">
+            <div className={cn("text-4xl font-bold font-mono transition-all duration-300", scoreColor(totalScore))}>{totalScore}</div>
+            <div className={cn("text-sm font-semibold", scoreColor(totalScore))}>{scoreLabel(totalScore)}</div>
+          </div>
+          <Progress value={totalScore} className="h-2" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (collapsed) {
     return (
