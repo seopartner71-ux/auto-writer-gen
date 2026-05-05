@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface FixIssueDeps {
   selectedKeywordId: string;
   selectedAuthorId: string;
-  outline: string;
+  outline: any;
   lsiKeywords: string[];
   selectedKeyword: any;
   content: string;
