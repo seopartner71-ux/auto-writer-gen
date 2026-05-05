@@ -197,6 +197,7 @@ export function GenerationForm(props: GenerationFormProps) {
         authors={authorProfiles}
         selectedId={selectedAuthorId}
         onSelect={onAuthorChange}
+        quickMode={quickMode}
       />
 
       {/* Content formatting options */}

@@ -9,6 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -50,6 +51,7 @@ interface PersonaSelectorProps {
   authors: AuthorProfile[];
   selectedId: string;
   onSelect: (id: string) => void;
+  quickMode?: boolean;
 }
 
 const SYNTAX_PRESETS: { key: string; label: string }[] = [
@@ -61,7 +63,7 @@ const SYNTAX_PRESETS: { key: string; label: string }[] = [
   { key: "academic", label: "Академик" },
 ];
 
-export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelectorProps) {
+export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: PersonaSelectorProps) {
   const { t } = useI18n();
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -148,6 +150,34 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
       setIsSaving(false);
     }
   }, [newName, newInstruction, queryClient, t]);
+
+  if (quickMode) {
+    return (
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">{t("ps.authorStyle")}</Label>
+        <Select
+          value={selectedId || "none"}
+          onValueChange={(v) => onSelect(v)}
+        >
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder={t("ps.noStyle")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">{t("ps.noStyle")}</SelectItem>
+            {presets.map(a => (
+              <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+            ))}
+            {customs.length > 0 && (
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Мои авторы</div>
+            )}
+            {customs.map(a => (
+              <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
