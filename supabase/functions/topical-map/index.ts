@@ -129,7 +129,11 @@ async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, num
       if (kw && freq != null) {
         const norm = String(kw).toLowerCase().trim().replace(/\s+/g, " ");
         const n = Number(freq) || 0;
-        if (n > 0) result.set(norm, n);
+        if (n > 0) {
+          result.set(norm, n);
+          const nm = normalizeForMatch(String(kw));
+          if (nm && !result.has(nm)) result.set(nm, n);
+        }
       }
     }
 
@@ -145,6 +149,22 @@ function freqToVolume(freq: number): { label: string; value: number; display: st
   if (freq >= 1000) return { label: "medium", value: freq, display: freq.toLocaleString("ru") + "/мес" };
   if (freq > 0) return { label: "low", value: freq, display: freq.toLocaleString("ru") + "/мес" };
   return { label: "unknown", value: 0, display: "—" };
+}
+
+const STOP_WORDS = new Set([
+  "в","на","для","по","из","от","до","за","под","над","при","со","об","о","к","у","с",
+  "и","или","а","но","же","ли","бы","как","что","это","то",
+]);
+
+function normalizeForMatch(s: string): string {
+  return String(s || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+    .slice(0, 4)
+    .join(" ");
 }
 
 async function clusterWithAI(topic: string, keywords: string[], lang: string): Promise<any> {
@@ -282,31 +302,35 @@ Deno.serve(async (req) => {
       }
       const freqMap = await getBukvarixFrequency(allKws);
       const lookup = (kw: string): number => {
-        const norm = String(kw || "").toLowerCase().trim().replace(/\s+/g, " ");
-        if (!norm) return 0;
-        // 1) exact
-        let f = freqMap.get(norm) || 0;
+        const orig = String(kw || "").toLowerCase().trim().replace(/\s+/g, " ");
+        if (!orig) return 0;
+        // 1) exact original
+        let f = freqMap.get(orig) || 0;
         if (f > 0) return f;
-        // 2) partial includes (longer match wins)
-        let bestLen = 0;
+        // 2) normalized (no stopwords, base form approximation)
+        const norm = normalizeForMatch(kw);
+        if (norm) {
+          f = freqMap.get(norm) || 0;
+          if (f > 0) return f;
+        }
+        // 3) fuzzy: count matched word stems (>= 60% of significant words)
+        const kwWords = (norm || orig).split(" ").filter((w) => w.length > 2);
+        if (kwWords.length === 0) return 0;
+        const need = Math.max(1, Math.ceil(kwWords.length * 0.6));
+        let bestVal = 0;
         for (const [key, val] of freqMap) {
-          if (key === norm) continue;
-          if (key.includes(norm) || norm.includes(key)) {
-            if (key.length > bestLen) { f = val; bestLen = key.length; }
+          const keyWords = key.split(" ").filter((w) => w.length > 2);
+          if (keyWords.length === 0) continue;
+          let matches = 0;
+          for (const w of kwWords) {
+            const stem = w.slice(0, 5);
+            if (keyWords.some((kk) => kk.startsWith(stem) || w.startsWith(kk.slice(0, 5)))) {
+              matches++;
+            }
           }
+          if (matches >= need && val > bestVal) bestVal = val;
         }
-        if (f > 0) return f;
-        // 3) short fallback: first 2-3 words
-        const words = norm.split(" ");
-        if (words.length > 2) {
-          const k3 = words.slice(0, 3).join(" ");
-          f = freqMap.get(k3) || 0;
-          if (f > 0) return f;
-          const k2 = words.slice(0, 2).join(" ");
-          f = freqMap.get(k2) || 0;
-          if (f > 0) return f;
-        }
-        return 0;
+        return bestVal;
       };
       for (const c of clusters) {
         let sum = 0;
