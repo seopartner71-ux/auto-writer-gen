@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,19 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
   ShieldAlert, Heart, Cpu, Flame, GraduationCap,
-  Plus, User, Loader2, X, Check, HeartPulse, Link2, Sun, Newspaper,
+  Plus, User, Loader2, X, Pencil, HeartPulse, Link2, Sun, Newspaper,
   TrendingDown, HardHat, Terminal, BrainCircuit, Wrench, Scale,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -36,6 +42,8 @@ interface AuthorProfile {
   voice_tone?: string;
   niche?: string;
   temperature?: number;
+  stop_words?: string[] | null;
+  style_analysis?: any;
 }
 
 interface PersonaSelectorProps {
@@ -43,6 +51,15 @@ interface PersonaSelectorProps {
   selectedId: string;
   onSelect: (id: string) => void;
 }
+
+const SYNTAX_PRESETS: { key: string; label: string }[] = [
+  { key: "standard", label: "Стандартный" },
+  { key: "blogger", label: "Блогер" },
+  { key: "practitioner", label: "Практик" },
+  { key: "skeptic", label: "Скептик" },
+  { key: "provocateur", label: "Провокатор" },
+  { key: "academic", label: "Академик" },
+];
 
 export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelectorProps) {
   const { t } = useI18n();
@@ -136,8 +153,8 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
       <Label className="text-xs text-muted-foreground">{t("ps.authorStyle")}</Label>
 
       <TooltipProvider delayDuration={300}>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          <PersonaCard
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
+          <PersonaChip
             name={t("ps.noStyle")}
             description={t("ps.defaultCopywriter")}
             icon="User"
@@ -146,7 +163,7 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
           />
 
           {presets.map(a => (
-            <PersonaCard
+            <PersonaChip
               key={a.id}
               name={a.name}
               description={a.description || ""}
@@ -156,29 +173,46 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
               temperature={a.temperature}
             />
           ))}
-
-          {customs.map(a => (
-            <PersonaCard
-              key={a.id}
-              name={a.name}
-              description={a.description || a.voice_tone || ""}
-              icon={a.avatar_icon || "User"}
-              isActive={selectedId === a.id}
-              onClick={() => onSelect(a.id)}
-              isCustom
-            />
-          ))}
-
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="flex min-h-[112px] w-full flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-muted-foreground/30 p-3 text-center transition-all hover:border-primary/50 hover:bg-accent/50"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <Plus className="h-4 w-4" />
-            </div>
-            <span className="text-[11px] font-medium leading-tight text-muted-foreground">{t("ps.createOwn")}</span>
-          </button>
         </div>
+
+        {(customs.length > 0 || true) && (
+          <>
+            <div className="flex items-center gap-2 pt-1">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Мои авторы</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
+              {customs.map(a => (
+                <PersonaChip
+                  key={a.id}
+                  name={a.name}
+                  description={a.description || a.voice_tone || ""}
+                  icon={a.avatar_icon || "User"}
+                  isActive={selectedId === a.id}
+                  onClick={() => onSelect(a.id)}
+                  isCustom
+                  editable
+                  author={a}
+                  onEdited={(updated) => {
+                    queryClient.invalidateQueries({ queryKey: ["author-profiles-for-writer"] });
+                  }}
+                  onDeleted={() => {
+                    if (selectedId === a.id) onSelect("none");
+                    queryClient.invalidateQueries({ queryKey: ["author-profiles-for-writer"] });
+                  }}
+                />
+              ))}
+              <button
+                onClick={() => setCreateOpen(true)}
+                className="flex h-[70px] w-full items-center justify-center gap-1 rounded-md border border-dashed border-muted-foreground/30 px-2 text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground hover:bg-accent/30"
+              >
+                <Plus className="h-3 w-3" />
+                <span>Создать автора</span>
+              </button>
+            </div>
+          </>
+        )}
       </TooltipProvider>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
