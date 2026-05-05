@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -48,7 +48,7 @@ function cmpVersions(a: string, b: string) {
 
 /** Reads if there is an unseen latest version (for sidebar dot). */
 export function useUnseenChangelog() {
-  const [unseen, setUnseen] = (require("react") as typeof import("react")).useState(false);
+  const [unseen, setUnseen] = useState(false);
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
