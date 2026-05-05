@@ -144,7 +144,7 @@ async function processQueuedItem(params: {
   serperApiKey: string | null;
   writerModel: string;
   researchModel: string;
-  authorPrompt: string;
+  authorProfile: any | null;
   bulkJobId: string;
   completedCount: number;
 }) {
@@ -157,7 +157,7 @@ async function processQueuedItem(params: {
     serperApiKey,
     writerModel,
     researchModel,
-    authorPrompt,
+    authorProfile,
     bulkJobId,
     completedCount,
   } = params;
@@ -247,14 +247,63 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
 
     const headings = analysis.recommended_headings || [];
     const lsiKeywords = analysis.lsi_keywords || [];
-    const articleLang = isRussian ? "русском" : "English";
 
-    const articlePrompt = `Write a comprehensive SEO article on the topic: "${item.seed_keyword}"
-Language: ${articleLang}
-${headings.length > 0 ? `Use these headings: ${headings.join(", ")}` : ""}
-${lsiKeywords.length > 0 ? `Include LSI keywords: ${lsiKeywords.join(", ")}` : ""}
-Target word count: ${analysis.recommended_word_count || 2000}
-Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
+    // Build outline from recommended_headings (default to H2 level).
+    const outlineForPrompt = headings.map((h: string) => ({ text: String(h), level: "h2" }));
+
+    // Build the EXACT same system prompt as single-article generation.
+    // Anything missing from request_payload defaults to empty so old queue
+    // entries do not break.
+    const payload = (item.request_payload || {}) as Record<string, any>;
+    const { system: baseSystemPrompt } = generateStealthPrompt({
+      authorProfile,
+      serpData: (competitors || []).map((c: any) => ({
+        title: c.title || "",
+        snippet: c.snippet || "",
+        url: c.link || c.url || "",
+      })),
+      lsiKeywords,
+      userStructure: outlineForPrompt,
+      keyword: {
+        seed_keyword: item.seed_keyword,
+        intent: analysis.intent,
+        difficulty: analysis.difficulty,
+        questions: analysis.questions || [],
+        language: isRussian ? "ru" : "en",
+      },
+      competitorTables: payload.competitor_tables || [],
+      competitorLists: payload.competitor_lists || [],
+      deepAnalysisContext: payload.deep_analysis_context || "",
+      miralinksLinks: payload.miralinks_links || [],
+      gogetlinksLinks: payload.gogetlinks_links || [],
+      includeExpertQuote: payload.include_expert_quote !== false,
+      includeComparisonTable: payload.include_comparison_table !== false,
+      dataNuggets: payload.data_nuggets || [],
+      seoKeywords: payload.seo_keywords || null,
+      geoLocation: payload.geo_location || null,
+      customInstructions: payload.custom_instructions || null,
+      interlinkingContext: payload.interlinkingContext || null,
+    });
+    const lexiconBlock = buildRareLexiconAddon(lsiKeywords, isRussian ? "ru" : "en");
+    const systemPrompt = lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt;
+
+    const userPrompt = buildNewArticleUserPrompt(
+      { seed_keyword: item.seed_keyword, intent: analysis.intent, difficulty: analysis.recommended_word_count ? 50 : 30, questions: analysis.questions || [] },
+      outlineForPrompt.map((o: any) => `## ${o.text}`).join("\n"),
+      (competitors || []).map((c: any, i: number) => `${i + 1}. "${c.title}" - ${c.snippet || ""}`).join("\n"),
+      lsiKeywords.join(", "),
+      (analysis.questions || []).join("\n- "),
+      payload.miralinks_links || [],
+      payload.gogetlinks_links || [],
+      analysis.must_cover_topics || [],
+      analysis.content_gaps || [],
+      [],
+      payload.expert_insights || [],
+      payload.anchor_links || [],
+      payload.seo_keywords || null,
+      payload.geo_location || null,
+      payload.custom_instructions || null,
+    );
 
     const articleResp = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -265,13 +314,10 @@ Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
       body: JSON.stringify({
         model: writerModel,
         messages: [
-          { role: "system", content: [
-              buildStealthSystemAddon(isRussian ? "ru" : "en"),
-              buildRareLexiconAddon(lsiKeywords, isRussian ? "ru" : "en"),
-            ].filter(Boolean).join("\n\n") },
-          { role: "user", content: articlePrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
-        temperature: 0.85,
+        temperature: authorProfile?.temperature ? Number(authorProfile.temperature) : 0.85,
       }),
     }, AI_TIMEOUT_MS);
 
