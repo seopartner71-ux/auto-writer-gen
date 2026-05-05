@@ -120,6 +120,8 @@ export default function KeywordsPage() {
     return GEO_OPTIONS.find((o) => o.value === geo)?.cities || [];
   }, [geo]);
 
+  const autoRanRef = useRef(false);
+
   const research = useMutation({
     mutationFn: async () => {
       const clean = sanitizeKeyword(keyword);
