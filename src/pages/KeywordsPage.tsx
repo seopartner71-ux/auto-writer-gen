@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -107,6 +108,7 @@ export interface ResearchData {
 
 export default function KeywordsPage() {
   const { t } = useI18n();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [keyword, setKeyword] = useState("");
   const [geo, setGeo] = useState("ru");
   const [geoMode, setGeoMode] = useState<"country" | "city">("country");
@@ -120,6 +122,7 @@ export default function KeywordsPage() {
 
   const research = useMutation({
     mutationFn: async () => {
+      const raw = arguments.length > 0 ? "" : keyword;
       const clean = sanitizeKeyword(keyword);
       const vErr = validateKeywordInput(clean);
       if (vErr) throw new Error(vErr === "too_short" ? "Слишком короткий запрос" : "Слишком длинный запрос");
