@@ -16,9 +16,13 @@ const stripHtml = (s: string) => s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")
 function countTags(html: string) {
   return {
     h2: (html.match(/<h2[\s>]/gi) || []).length,
+    h3: (html.match(/<h3[\s>]/gi) || []).length,
     h: (html.match(/<h[1-6][\s>]/gi) || []).length,
     a: (html.match(/<a\s[^>]*href=/gi) || []).length,
     table: (html.match(/<table[\s>]/gi) || []).length,
+    ul: (html.match(/<ul[\s>]/gi) || []).length,
+    ol: (html.match(/<ol[\s>]/gi) || []).length,
+    li: (html.match(/<li[\s>]/gi) || []).length,
     words: stripHtml(html).split(/\s+/).filter(Boolean).length,
   };
 }
@@ -27,9 +31,13 @@ function htmlIntegrityOk(before: string, after: string): { ok: boolean; reason?:
   if (a.words < b.words * 0.95) return { ok: false, reason: `text shrunk ${b.words}->${a.words}` };
   if (a.words > b.words * 1.6) return { ok: false, reason: `text inflated ${b.words}->${a.words}` };
   if (a.h2 < b.h2) return { ok: false, reason: `H2 lost ${b.h2}->${a.h2}` };
+  if (a.h3 < b.h3) return { ok: false, reason: `H3 lost ${b.h3}->${a.h3}` };
   if (a.h < b.h) return { ok: false, reason: `headings lost ${b.h}->${a.h}` };
   if (a.a < b.a) return { ok: false, reason: `links lost ${b.a}->${a.a}` };
-  if (a.table < b.table) return { ok: false, reason: `tables lost` };
+  if (a.table < b.table) return { ok: false, reason: `tables lost ${b.table}->${a.table}` };
+  if (a.ul < b.ul) return { ok: false, reason: `UL lost ${b.ul}->${a.ul}` };
+  if (a.ol < b.ol) return { ok: false, reason: `OL lost ${b.ol}->${a.ol}` };
+  if (a.li < Math.floor(b.li * 0.9)) return { ok: false, reason: `LI lost ${b.li}->${a.li}` };
   return { ok: true };
 }
 
