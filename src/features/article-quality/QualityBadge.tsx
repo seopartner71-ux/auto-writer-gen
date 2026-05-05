@@ -176,31 +176,43 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articleId]);
 
+  async function callEdge(fnName: string, body: Record<string, unknown>): Promise<any> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("Нужно войти заново — сессия истекла");
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fnName}`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+    let payload: any = null;
+    try { payload = await resp.json(); } catch { /* non-JSON */ }
+    if (!resp.ok) {
+      throw new Error(payload?.error || `Ошибка ${resp.status}. Попробуйте снова.`);
+    }
+    return payload;
+  }
+
   async function runImprove() {
     setImproving(true);
     try {
-      const { data: res, error } = await supabase.functions.invoke("improve-article", {
-        body: { article_id: articleId },
-      });
-      if (error) {
-        const ctx: any = (error as any).context;
-        let msg = error.message;
-        try {
-          const body = ctx?.body ? (typeof ctx.body === "string" ? JSON.parse(ctx.body) : ctx.body) : null;
-          if (body?.error) msg = body.error;
-        } catch { /* ignore */ }
-        throw new Error(msg);
-      }
-      if ((res as any)?.cooldown) {
-        toast.warning((res as any).message || "Подождите перед повторной доработкой");
+      const res = await callEdge("improve-article", { article_id: articleId });
+      if (res?.cooldown) {
+        toast.warning(res.message || "Подождите перед повторной доработкой");
         return;
       }
-      toast.success("Запущена авто-доработка");
+      toast.success("Готово ✓ Статья улучшена");
       setData((d: any) => ({ ...d, quality_status: "checking" }));
       stoppedRef.current = false;
       startRealtime();
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка авто-доработки");
+      toast.error(e?.message || "Не удалось выполнить запрос");
     } finally {
       setImproving(false);
     }
@@ -210,24 +222,14 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     setRechecking(true);
     try {
       const { data: art } = await supabase.from("articles").select("content").eq("id", articleId).maybeSingle();
-      if (!art?.content) { toast.error("Нет контента"); return; }
-      const { error } = await supabase.functions.invoke("quality-check", {
-        body: { article_id: articleId, content: art.content, mode: "auto" },
-      });
-      if (error) {
-        const ctx: any = (error as any).context;
-        let msg = error.message;
-        try {
-          const body = ctx?.body ? (typeof ctx.body === "string" ? JSON.parse(ctx.body) : ctx.body) : null;
-          if (body?.error) msg = body.error;
-        } catch { /* ignore */ }
-        throw new Error(msg);
-      }
+      if (!art?.content) { toast.error("Нет контента для проверки"); return; }
+      await callEdge("quality-check", { article_id: articleId, content: art.content, mode: "auto" });
+      toast.success("Готово ✓ Проверка запущена");
       setData((d: any) => ({ ...d, quality_status: "checking" }));
       stoppedRef.current = false;
       startRealtime();
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка");
+      toast.error(e?.message || "Не удалось выполнить запрос");
     } finally {
       setRechecking(false);
     }
