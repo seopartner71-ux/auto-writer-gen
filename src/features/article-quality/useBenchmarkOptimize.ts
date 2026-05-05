@@ -1,10 +1,13 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAndAnalyze, buildAnalysisContext } from "@/entities/competitor/analysisService";
+import { fetchAndAnalyze, buildAnalysisContext, type DeepParseResult } from "@/entities/competitor/analysisService";
+import { useArticleEditor } from "@/features/article-editor/ArticleEditorContext";
+import { parseSseStream } from "@/features/article-editor/parseSseStream";
+import type { KeywordRef } from "@/features/article-editor/types";
 
 export interface BenchmarkCacheEntry {
-  data: any;
+  data: DeepParseResult;
   context: string;
   instructions: string;
 }
@@ -12,19 +15,15 @@ export interface BenchmarkCacheEntry {
 export interface BenchmarkOptimizeDeps {
   selectedKeywordId: string;
   selectedAuthorId: string;
-  outline: any;
+  outline: unknown;
   lsiKeywords: string[];
-  selectedKeyword: any;
+  selectedKeyword: KeywordRef | null;
   content: string;
   setContent: (c: string) => void;
-  currentArticleId: string | null;
   title: string;
-  isStreaming: boolean;
-  setIsStreaming: (v: boolean) => void;
   setStreamPhase: (p: "thinking" | "writing" | null) => void;
   abortRef: React.MutableRefObject<AbortController | null>;
-  benchmarkCacheRef: React.MutableRefObject<Map<string, BenchmarkCacheEntry>>;
-  snapshotVersion: (a: any) => void;
+  snapshotVersion: (a: { articleId: string | null; content: string; title?: string; reason: string }) => void;
 }
 
 /**
@@ -34,8 +33,9 @@ export interface BenchmarkOptimizeDeps {
  * version that lived inside QualityCheckPanel callback in ArticlesPage.
  */
 export function useBenchmarkOptimize(deps: BenchmarkOptimizeDeps) {
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const { currentArticleId, isStreaming, setIsStreaming, benchmarkCache } = useArticleEditor();
+  const depsRef = useRef({ ...deps, currentArticleId, isStreaming, setIsStreaming, benchmarkCacheRef: benchmarkCache });
+  depsRef.current = { ...deps, currentArticleId, isStreaming, setIsStreaming, benchmarkCacheRef: benchmarkCache };
 
   return useCallback(async () => {
     const d = depsRef.current;
@@ -45,7 +45,7 @@ export function useBenchmarkOptimize(deps: BenchmarkOptimizeDeps) {
     const token = freshSession?.access_token;
     if (!token) throw new Error("Not authenticated");
     const cached = d.benchmarkCacheRef.current.get(d.selectedKeywordId);
-    let data: any, benchmarkContext: string, instructions: string;
+    let data: DeepParseResult, benchmarkContext: string, instructions: string;
     if (cached) {
       toast.info("Используем кэш ТОП-10...", { duration: 3000 });
       data = cached.data; benchmarkContext = cached.context; instructions = cached.instructions;
@@ -131,28 +131,12 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
         signal: controller.signal,
       });
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = ""; let fullContent = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let ni: number;
-        while ((ni = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, ni);
-          buffer = buffer.slice(ni + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "" || !line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) { if (!fullContent) d.setStreamPhase("writing"); fullContent += delta; d.setContent(fullContent); }
-          } catch { buffer = line + "\n" + buffer; break; }
-        }
-      }
+      let fullContent = "";
+      await parseSseStream(resp.body, (delta) => {
+        if (!fullContent) d.setStreamPhase("writing");
+        fullContent += delta;
+        d.setContent(fullContent);
+      });
       toast.success("Оптимизировано под ТОП-10");
     } catch (e: any) {
       throw e;

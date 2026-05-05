@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SeoSidePanel } from "./SeoSidePanel";
+import { useArticleEditor } from "./ArticleEditorContext";
+import type { KeywordRef } from "./types";
 
 interface SeoSidePanelContainerProps {
   content: string;
-  selectedKeyword: any | null;
+  selectedKeyword: (KeywordRef & Record<string, unknown>) | null;
   selectedKeywordId: string;
-  articleId: string | null;
   onContentImproved: (content: string) => void;
 }
 
@@ -18,9 +19,9 @@ export function SeoSidePanelContainer({
   content,
   selectedKeyword,
   selectedKeywordId,
-  articleId,
   onContentImproved,
 }: SeoSidePanelContainerProps) {
+  const { currentArticleId } = useArticleEditor();
   const { data: serpBenchmark } = useQuery({
     queryKey: ["serp-benchmark", selectedKeywordId],
     queryFn: async () => {
@@ -58,7 +59,7 @@ export function SeoSidePanelContainer({
       terms={seoPanelTerms}
       benchmark={serpBenchmark || null}
       hasKeyword={!!selectedKeywordId}
-      articleId={articleId}
+      articleId={currentArticleId}
       onContentImproved={onContentImproved}
     />
   );

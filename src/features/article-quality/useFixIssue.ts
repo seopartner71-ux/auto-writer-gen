@@ -1,20 +1,21 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useArticleEditor } from "@/features/article-editor/ArticleEditorContext";
+import { parseSseStream } from "@/features/article-editor/parseSseStream";
+import type { KeywordRef } from "@/features/article-editor/types";
 
 export interface FixIssueDeps {
   selectedKeywordId: string;
   selectedAuthorId: string;
-  outline: any;
+  outline: unknown;
   lsiKeywords: string[];
-  selectedKeyword: any;
+  selectedKeyword: KeywordRef | null;
   content: string;
   setContent: (c: string) => void;
-  currentArticleId: string | null;
   title: string;
   lang: string;
   t: (k: string) => string;
-  setIsStreaming: (v: boolean) => void;
   setStreamPhase: (p: "thinking" | "writing" | null) => void;
   setFixingIssue: (k: string | null) => void;
   abortRef: React.MutableRefObject<AbortController | null>;
@@ -27,10 +28,11 @@ export interface FixIssueDeps {
  * Behaviour identical to the inline version in ArticlesPage.
  */
 export function useFixIssue(deps: FixIssueDeps) {
-  // Hold latest deps in a ref so the returned callback identity is stable
-  // and matches the original useCallback semantics.
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const { currentArticleId, setIsStreaming, setFactCheckStatus } = useArticleEditor();
+  // Hold latest deps + context values in a ref so the returned callback identity
+  // is stable (matches original useCallback semantics).
+  const depsRef = useRef({ ...deps, currentArticleId, setIsStreaming, setFactCheckStatus });
+  depsRef.current = { ...deps, currentArticleId, setIsStreaming, setFactCheckStatus };
 
   const runFixIssue = useCallback(async (issueKey: string, instruction: string) => {
     const d = depsRef.current;
@@ -91,31 +93,12 @@ export function useFixIssue(deps: FixIssueDeps) {
         throw new Error(err.error || `HTTP ${resp.status}`);
       }
       if (!resp.body) throw new Error("No stream body");
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let fullContent = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let ni: number;
-        while ((ni = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, ni);
-          buffer = buffer.slice(ni + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) { if (!fullContent) d.setStreamPhase("writing"); fullContent += delta; d.setContent(fullContent); }
-          } catch { buffer = line + "\n" + buffer; break; }
-        }
-      }
+      await parseSseStream(resp.body, (delta) => {
+        if (!fullContent) d.setStreamPhase("writing");
+        fullContent += delta;
+        d.setContent(fullContent);
+      });
 
       if (isHumanize) {
         toast.success(d.lang === "ru"
