@@ -398,18 +398,27 @@ Deno.serve(async (req) => {
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
     if (!apiKey) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
 
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: "Unauthorized" }, 401);
-
     const body = await req.json().catch(() => ({}));
     const { article_id, content, checks, mode } = body as {
       article_id?: string; content?: string; checks?: string[]; mode?: string;
     };
     if (!article_id) return json({ error: "article_id required" }, 400);
     if (!content || typeof content !== "string") return json({ error: "content required" }, 400);
+
+    // Resolve user: try service-role bypass first (auto mode from bulk), then user JWT.
+    const serviceToken = authHeader.replace(/^Bearer\s+/i, "") === serviceKey;
+    let user: { id: string } | null = null;
+    if (serviceToken) {
+      const { data: art0 } = await admin.from("articles").select("user_id").eq("id", article_id).maybeSingle();
+      if (art0?.user_id) user = { id: art0.user_id };
+    } else {
+      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user: u } } = await userClient.auth.getUser();
+      if (u) user = { id: u.id };
+    }
+    if (!user) return json({ error: "Unauthorized" }, 401);
 
     // ── AUTO mode: run AI(internal+ZeroGPT) + burstiness + density in background, no credits ──
     if (mode === "auto") {
