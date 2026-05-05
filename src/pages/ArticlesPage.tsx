@@ -48,6 +48,7 @@ import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
+import { SeoSidePanel } from "@/features/article-editor/SeoSidePanel";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -296,6 +297,37 @@ export default function ArticlesPage() {
 
   const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
+
+  // SEO Side Panel: load SERP benchmark for selected keyword (one-shot per keyword)
+  const { data: serpBenchmark } = useQuery({
+    queryKey: ["serp-benchmark", selectedKeywordId],
+    queryFn: async () => {
+      if (!selectedKeywordId) return null;
+      const { data } = await supabase
+        .from("serp_results")
+        .select("deep_analysis")
+        .eq("keyword_id", selectedKeywordId)
+        .not("deep_analysis", "is", null)
+        .limit(1)
+        .maybeSingle();
+      const cached = (data?.deep_analysis as any)?._cached_result?.benchmark;
+      if (!cached) return null;
+      return {
+        medianWordCount: cached.median_word_count ?? cached.target_word_count ?? null,
+        medianH2: cached.median_h2_count ?? cached.target_h2_count ?? null,
+        medianLists: cached.median_paragraph_count ?? null,
+        medianKeywordDensity: cached.median_keyword_density ?? null,
+      };
+    },
+    enabled: !!selectedKeywordId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const seoPanelTerms: string[] = [
+    ...((selectedKeyword?.must_cover_topics as string[]) || []),
+    ...(((selectedKeyword?.content_gaps as any[]) || []).map((g: any) => typeof g === "string" ? g : g?.topic || g?.title).filter(Boolean)),
+    ...(((selectedKeyword?.lsi_keywords as string[]) || []).slice(0, 20)),
+  ];
 
   // Auto-generate SEO Title via AI
   const generateSeoTitle = useCallback(async (articleContent: string) => {
