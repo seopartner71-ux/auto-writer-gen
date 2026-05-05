@@ -1112,14 +1112,18 @@ export default function ArticlesPage() {
                       <Eye className="h-3 w-3" />
                       {t("articles.preview")}
                     </TabsTrigger>
-                    <TabsTrigger value="html" className="text-xs gap-1 px-2.5">
-                      <Code2 className="h-3 w-3" />
-                      HTML
-                    </TabsTrigger>
-                    <TabsTrigger value="schema" className="text-xs gap-1 px-2.5">
-                      <Code2 className="h-3 w-3" />
-                      FAQ & Schema
-                    </TabsTrigger>
+                    {!isQuickMode && (
+                      <>
+                        <TabsTrigger value="html" className="text-xs gap-1 px-2.5">
+                          <Code2 className="h-3 w-3" />
+                          HTML
+                        </TabsTrigger>
+                        <TabsTrigger value="schema" className="text-xs gap-1 px-2.5">
+                          <Code2 className="h-3 w-3" />
+                          FAQ & Schema
+                        </TabsTrigger>
+                      </>
+                    )}
                   </TabsList>
                   <Separator orientation="vertical" className="h-5" />
                     <Button
