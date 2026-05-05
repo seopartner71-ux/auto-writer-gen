@@ -57,7 +57,7 @@ export default function ChangelogPage() {
         .select("*")
         .order("release_date", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Release[];
+      return (data ?? []) as unknown as Release[];
     },
   });
 
