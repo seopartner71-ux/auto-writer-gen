@@ -395,13 +395,13 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
               disabled={improving || rechecking}
             >
               {improving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
-              Улучшить автоматически
+              {improving ? "Выполняется..." : "Улучшить автоматически"}
             </Button>
           )}
           {showRetry && (
             <Button size="sm" variant="outline" className="w-full" onClick={runRecheck} disabled={rechecking || improving}>
               {rechecking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}
-              Перепроверить
+              {rechecking ? "Выполняется..." : "Перепроверить"}
             </Button>
           )}
           <Button
