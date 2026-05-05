@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2, History,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, ShieldAlert, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus, UserPlus, ChevronDown, ChevronUp, ExternalLink
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, ShieldAlert, CreditCard, AlertTriangle, Send, Link2, MessageSquarePlus, UserPlus
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -36,13 +36,11 @@ import { detectContentLanguage } from "@/components/article/humanScore/constants
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
 import { SeoTipTicker } from "@/components/article/SeoTipTicker";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
-import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMount";
-import { ArticlesPageHeader } from "@/pages/articles/ArticlesPageHeader";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
