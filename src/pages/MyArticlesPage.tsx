@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { AutoQualityBadge } from "@/components/article/AutoQualityBadge";
+import { VersionHistoryDialog } from "@/components/article/VersionHistoryDialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -80,6 +81,7 @@ export default function MyArticlesPage() {
 
   return (
     <div className="space-y-6">
+      <VersionHistoryDialog />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{t("myArticles.title")}</h1>
