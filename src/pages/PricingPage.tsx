@@ -310,6 +310,34 @@ export default function PricingPage() {
       </div>
 
       <div className="text-center text-xs text-muted-foreground max-w-lg mx-auto">{t("pricing.creditNote")}</div>
+
+      {/* Plan comparison table */}
+      <div className="max-w-4xl mx-auto px-2">
+        <h2 className="text-xl font-bold text-center mb-4">
+          {isEn ? "Plan comparison" : "Сравнение тарифов"}
+        </h2>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40">
+              <tr>
+                <th className="text-left p-3 font-semibold">{isEn ? "Feature" : "Функция"}</th>
+                <th className="p-3 font-semibold">NANO</th>
+                <th className="p-3 font-semibold">PRO</th>
+                <th className="p-3 font-semibold">FACTORY</th>
+              </tr>
+            </thead>
+            <tbody className="[&_tr]:border-t [&_tr]:border-border [&_td]:p-3 [&_td:not(:first-child)]:text-center">
+              <tr><td>{isEn ? "Articles per month" : "Статей в месяц"}</td><td>5</td><td>40</td><td>150</td></tr>
+              <tr><td>{isEn ? "SEO improvements" : "SEO улучшений"}</td><td>3</td><td>∞</td><td>∞</td></tr>
+              <tr><td>{isEn ? "Bulk generation" : "Bulk генерация"}</td><td>—</td><td>{isEn ? "up to 10" : "до 10"}</td><td>{isEn ? "unlimited" : "без лимита"}</td></tr>
+              <tr><td>{isEn ? "WordPress publishing" : "WordPress публикация"}</td><td>—</td><td>✓</td><td>✓</td></tr>
+              <tr><td>{isEn ? "Users" : "Пользователей"}</td><td>1</td><td>1</td><td>2</td></tr>
+              <tr><td>{isEn ? "API access" : "API доступ"}</td><td>—</td><td>—</td><td>✓</td></tr>
+              <tr><td>{isEn ? "Support" : "Поддержка"}</td><td>{isEn ? "Basic" : "Базовая"}</td><td>{isEn ? "Basic" : "Базовая"}</td><td>{isEn ? "Priority" : "Приоритет"}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
