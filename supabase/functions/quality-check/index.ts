@@ -381,7 +381,7 @@ async function runAutoQuality(
 
   // Fetch article + keyword (for density target)
   const { data: art } = await admin.from("articles")
-    .select("keyword_id, keywords").eq("id", articleId).maybeSingle();
+    .select("keyword_id, keywords, language").eq("id", articleId).maybeSingle();
 
   let primaryKeyword = "";
   let medianDensity = 0;
@@ -398,9 +398,19 @@ async function runAutoQuality(
 
   const orKey = Deno.env.get("OPENROUTER_API_KEY");
 
-  const [aiInternalRes, claudeRes] = await Promise.all([
+  // Resolve Turgenev key from admin api_keys vault (only RU articles)
+  let turgenevKey: string | null = null;
+  const isRu = String(art?.language || "ru").toLowerCase() === "ru";
+  if (isRu) {
+    const { data: tk } = await admin.from("api_keys")
+      .select("api_key").eq("provider", "turgenev").eq("is_active", true).maybeSingle();
+    if (tk?.api_key) turgenevKey = tk.api_key as string;
+  }
+
+  const [aiInternalRes, claudeRes, turgenevRes] = await Promise.all([
     withTimeout(runAiScore(plain, apiKey), 30000, "ai-internal"),
     orKey ? withTimeout(runClaudeAiScore(plain, orKey), 30000, "ai-claude") : Promise.resolve(null),
+    turgenevKey ? withTimeout(runTurgenevCheck(plain, turgenevKey), 12000, "turgenev") : Promise.resolve(null),
   ]);
 
   const aiInternal = aiInternalRes?.score ?? null;
@@ -420,7 +430,13 @@ async function runAutoQuality(
     if (aiCombined < 50) aiStatus = "fail";
     else if (aiCombined < 70) aiStatus = "warning";
   }
-  const all = [aiStatus, burst.status, dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail")];
+  const turgStatus: "ok" | "warning" | "fail" = (turgenevRes as TurgenevResult | null)?.status ?? "ok";
+  const all = [
+    aiStatus,
+    burst.status,
+    dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail"),
+    turgenevRes ? turgStatus : "ok",
+  ];
   let quality: "ok" | "warning" | "fail" = "ok";
   if (all.includes("fail")) quality = "fail";
   else if (all.includes("warning")) quality = "warning";
@@ -428,7 +444,7 @@ async function runAutoQuality(
   // Mirror to legacy badge
   const badge = quality === "ok" ? "excellent" : (quality === "warning" ? "good" : "needs_work");
 
-  await admin.from("articles").update({
+  const updatePatch: Record<string, any> = {
     ai_score_internal: aiInternal,
     ai_score_claude: aiClaude,
     ai_score: aiCombined,
@@ -440,7 +456,13 @@ async function runAutoQuality(
     quality_status: quality,
     quality_badge: badge,
     quality_checked_at: new Date().toISOString(),
-  }).eq("id", articleId);
+  };
+  if (turgenevRes) {
+    updatePatch.turgenev_score = (turgenevRes as TurgenevResult).score;
+    updatePatch.turgenev_status = turgStatus;
+    updatePatch.turgenev_details = (turgenevRes as TurgenevResult).details;
+  }
+  await admin.from("articles").update(updatePatch).eq("id", articleId);
 }
 
 Deno.serve(async (req) => {
