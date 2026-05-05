@@ -45,6 +45,7 @@ import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
+import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
 import { useFactCheck } from "@/features/article-editor/useFactCheck";
@@ -77,6 +78,19 @@ export default function ArticlesPage() {
   const isAdmin = role === "admin";
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [aiwriterMode, setAiwriterModeState] = useState<"quick" | "expert">(() => {
+    if (typeof window === "undefined") return "expert";
+    const v = localStorage.getItem("aiwriter_mode");
+    return v === "quick" ? "quick" : "expert";
+  });
+  const setAiwriterMode = (m: "quick" | "expert") => {
+    setAiwriterModeState(m);
+    try {
+      localStorage.setItem("aiwriter_mode", m);
+      window.dispatchEvent(new CustomEvent("aiwriter-mode-changed", { detail: m }));
+    } catch { /* ignore */ }
+  };
+  const isQuickMode = aiwriterMode === "quick" && mode === "single";
   const [sectionedOpen, setSectionedOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
