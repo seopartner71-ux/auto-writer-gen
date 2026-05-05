@@ -385,7 +385,8 @@ const PersonaChip = React.forwardRef<HTMLButtonElement, PersonaChipProps>(functi
       )}
     </Popover>
   );
-}
+});
+PersonaChip.displayName = "PersonaChip";
 
 function EditAuthorForm({
   author, onClose, onSaved, onDeleted,
