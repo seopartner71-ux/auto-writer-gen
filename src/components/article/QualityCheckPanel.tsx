@@ -114,7 +114,15 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
   const [stepStates, setStepStates] = useState<Record<StepKey, StepState>>({
     benchmark: "pending", humanize: "pending", score: "pending", uniqueness: "pending",
   });
-  const totalCost = (useBenchmark && onBenchmarkOptimize && benchmarkReady ? 1 : 0) + 1 + 0 + 1;
+  // User can enable/disable each paid step
+  const [stepEnabled, setStepEnabled] = useState<Record<StepKey, boolean>>({
+    benchmark: false, humanize: true, score: true, uniqueness: true,
+  });
+  const totalCost =
+    (stepEnabled.benchmark && useBenchmark && onBenchmarkOptimize && benchmarkReady ? 1 : 0) +
+    (stepEnabled.humanize ? 1 : 0) +
+    0 +
+    (stepEnabled.uniqueness ? 1 : 0);
 
   // Load existing quality data when article changes
   useEffect(() => {
@@ -306,20 +314,32 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       humanize: "pending", score: "pending", uniqueness: "pending",
     });
     try {
-      if (useBenchmark && onBenchmarkOptimize && benchmarkReady) {
+      if (stepEnabled.benchmark && useBenchmark && onBenchmarkOptimize && benchmarkReady) {
         setStepStates(s => ({ ...s, benchmark: "running" }));
         try { await onBenchmarkOptimize(); setStepStates(s => ({ ...s, benchmark: "done" })); }
         catch (e) { setStepStates(s => ({ ...s, benchmark: "error" })); throw e; }
       }
-      setStepStates(s => ({ ...s, humanize: "running" }));
-      try { await onHumanize(); setStepStates(s => ({ ...s, humanize: "done" })); }
-      catch (e) { setStepStates(s => ({ ...s, humanize: "error" })); throw e; }
-      setStepStates(s => ({ ...s, score: "running" }));
-      try { await runChecks(["score", "ai"]); setStepStates(s => ({ ...s, score: "done" })); }
-      catch (e) { setStepStates(s => ({ ...s, score: "error" })); throw e; }
-      setStepStates(s => ({ ...s, uniqueness: "running" }));
-      try { await runChecks(["uniqueness"]); setStepStates(s => ({ ...s, uniqueness: "done" })); }
-      catch (e) { setStepStates(s => ({ ...s, uniqueness: "error" })); throw e; }
+      if (stepEnabled.humanize) {
+        setStepStates(s => ({ ...s, humanize: "running" }));
+        try { await onHumanize(); setStepStates(s => ({ ...s, humanize: "done" })); }
+        catch (e) { setStepStates(s => ({ ...s, humanize: "error" })); throw e; }
+      } else {
+        setStepStates(s => ({ ...s, humanize: "done" }));
+      }
+      if (stepEnabled.score) {
+        setStepStates(s => ({ ...s, score: "running" }));
+        try { await runChecks(["score", "ai"]); setStepStates(s => ({ ...s, score: "done" })); }
+        catch (e) { setStepStates(s => ({ ...s, score: "error" })); throw e; }
+      } else {
+        setStepStates(s => ({ ...s, score: "done" }));
+      }
+      if (stepEnabled.uniqueness) {
+        setStepStates(s => ({ ...s, uniqueness: "running" }));
+        try { await runChecks(["uniqueness"]); setStepStates(s => ({ ...s, uniqueness: "done" })); }
+        catch (e) { setStepStates(s => ({ ...s, uniqueness: "error" })); throw e; }
+      } else {
+        setStepStates(s => ({ ...s, uniqueness: "done" }));
+      }
       toast.success("Готово - текст доведен до ТОПа. Проверьте вердикт выше.");
       setTimeout(() => setAutoDialogOpen(false), 800);
     } catch (e: any) {
@@ -469,18 +489,31 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
                     { key: "uniqueness" as const, title: "Уникальность Text.ru", desc: "Антиплагиат - норма 85%+", cost: "1 ₵", show: true },
                   ]).filter(s => s.show).map((step, idx) => {
                     const state = stepStates[step.key];
-                    const Icon = state === "done" ? CheckCircle2 : state === "running" ? Loader2 : state === "error" ? XCircle : Circle;
-                    const iconColor = state === "done" ? "text-emerald-400" : state === "running" ? "text-primary" : state === "error" ? "text-destructive" : "text-muted-foreground/60";
-                    const ring = state === "running" ? "border-primary/50 bg-primary/5" : state === "done" ? "border-emerald-500/30 bg-emerald-500/5" : state === "error" ? "border-destructive/40 bg-destructive/5" : "border-border/40 bg-muted/20";
+                    const enabled = stepEnabled[step.key];
+                    const ring = state === "running" ? "border-primary/50 bg-primary/5"
+                      : state === "done" ? "border-emerald-500/30 bg-emerald-500/5"
+                      : state === "error" ? "border-destructive/40 bg-destructive/5"
+                      : enabled ? "border-primary/40 bg-primary/5"
+                      : "border-border/40 bg-muted/20";
+                    const StatusIcon = state === "done" ? CheckCircle2 : state === "running" ? Loader2 : state === "error" ? XCircle : null;
+                    const statusColor = state === "done" ? "text-emerald-400" : state === "running" ? "text-primary" : state === "error" ? "text-destructive" : "";
                     return (
-                      <div key={step.key} className={`flex items-start gap-3 rounded-lg border p-2.5 transition-colors ${ring}`}>
-                        <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${iconColor} ${state === "running" ? "animate-spin" : ""}`} />
+                      <label key={step.key} className={`flex items-start gap-3 rounded-lg border p-2.5 transition-colors cursor-pointer ${ring}`}>
+                        <Checkbox
+                          checked={enabled}
+                          disabled={autoImproving}
+                          onCheckedChange={(v) => setStepEnabled(s => ({ ...s, [step.key]: Boolean(v) }))}
+                          className="mt-0.5"
+                        />
                         <div className="flex-1 text-xs">
-                          <div className="font-medium text-foreground">{idx + 1}. {step.title}</div>
+                          <div className="font-medium text-foreground flex items-center gap-1.5">
+                            {idx + 1}. {step.title}
+                            {StatusIcon && <StatusIcon className={`h-3.5 w-3.5 ${statusColor} ${state === "running" ? "animate-spin" : ""}`} />}
+                          </div>
                           <div className="text-muted-foreground">{step.desc}</div>
                         </div>
                         <span className={`text-[10px] ${step.cost === "free" ? "text-emerald-400" : "text-muted-foreground"}`}>{step.cost}</span>
-                      </div>
+                      </label>
                     );
                   })}
                 </div>
