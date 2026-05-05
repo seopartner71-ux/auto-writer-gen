@@ -104,9 +104,9 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
         <div className="font-medium text-sm">Качество статьи</div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span>{dotFor(data.ai_score == null ? "checking" : (data.ai_score >= 60 ? "ok" : data.ai_score >= 30 ? "warning" : "fail"))} AI-детектор</span>
+            <span>{dotFor(data.ai_score == null ? "checking" : (data.ai_score >= 70 ? "ok" : data.ai_score >= 50 ? "warning" : "fail"))} AI-детектор</span>
             <span className="font-mono text-muted-foreground">
-              {data.ai_score != null ? `${100 - data.ai_score}%` : "..."}
+              {data.ai_score != null ? `${data.ai_score}` : "..."}
             </span>
           </div>
           <div className="flex items-center justify-between">

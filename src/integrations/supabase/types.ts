@@ -394,6 +394,7 @@ export type Database = {
           ai_content_gap: Json | null
           ai_human_score: number | null
           ai_score: number | null
+          ai_score_claude: number | null
           ai_score_internal: number | null
           ai_score_zerogpt: number | null
           anchor_target_url: string | null
@@ -423,6 +424,7 @@ export type Database = {
           quality_checked_at: string | null
           quality_details: Json | null
           quality_status: string | null
+          rewritten: boolean
           scheduled_at: string | null
           seo_score: Json | null
           share_token: string | null
@@ -442,6 +444,7 @@ export type Database = {
           ai_content_gap?: Json | null
           ai_human_score?: number | null
           ai_score?: number | null
+          ai_score_claude?: number | null
           ai_score_internal?: number | null
           ai_score_zerogpt?: number | null
           anchor_target_url?: string | null
@@ -471,6 +474,7 @@ export type Database = {
           quality_checked_at?: string | null
           quality_details?: Json | null
           quality_status?: string | null
+          rewritten?: boolean
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
@@ -490,6 +494,7 @@ export type Database = {
           ai_content_gap?: Json | null
           ai_human_score?: number | null
           ai_score?: number | null
+          ai_score_claude?: number | null
           ai_score_internal?: number | null
           ai_score_zerogpt?: number | null
           anchor_target_url?: string | null
@@ -519,6 +524,7 @@ export type Database = {
           quality_checked_at?: string | null
           quality_details?: Json | null
           quality_status?: string | null
+          rewritten?: boolean
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
