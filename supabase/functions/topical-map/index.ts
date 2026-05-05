@@ -4,10 +4,11 @@
 
 import { corsHeaders, jsonResponse, errorResponse, handlePreflight } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
-import { withTimeout } from "../_shared/withTimeout.ts";
+import { withTimeout, fetchWithTimeout } from "../_shared/withTimeout.ts";
 
 const SERPER_TIMEOUT_MS = 12000;
 const AI_TIMEOUT_MS = 60000;
+const BUKVARIX_TIMEOUT_MS = 15000;
 
 type SerperResp = {
   organic?: Array<{ title?: string; snippet?: string }>;
@@ -75,6 +76,48 @@ function dedupeNormalize(items: string[]): string[] {
     result.push(String(raw).trim());
   }
   return result.slice(0, 120);
+}
+
+async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  const batch = keywords.slice(0, 100);
+  if (batch.length === 0) return result;
+  try {
+    const body = new URLSearchParams();
+    body.append("q", batch.join("\r\n"));
+    body.append("api_key", "free");
+    body.append("num", "250");
+    body.append("format", "json");
+
+    const res = await fetchWithTimeout("http://api.bukvarix.com/v1/mkeywords/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+      timeoutMs: BUKVARIX_TIMEOUT_MS,
+    });
+    if (!res.ok) {
+      console.warn("[topical-map] bukvarix", res.status);
+      return result;
+    }
+    const data = await res.json().catch(() => null) as any;
+    const items: any[] = Array.isArray(data) ? data : (data?.data || data?.keywords || []);
+    for (const item of items) {
+      const kw = item?.keyword;
+      if (kw && item?.broad != null) {
+        result.set(String(kw).toLowerCase().trim(), Number(item.broad) || 0);
+      }
+    }
+  } catch (e) {
+    console.warn("[topical-map] bukvarix error", e instanceof Error ? e.message : String(e));
+  }
+  return result;
+}
+
+function freqToVolume(freq: number): { label: string; value: number; display: string } {
+  if (freq >= 10000) return { label: "high", value: freq, display: freq.toLocaleString("ru") + "/мес" };
+  if (freq >= 1000) return { label: "medium", value: freq, display: freq.toLocaleString("ru") + "/мес" };
+  if (freq > 0) return { label: "low", value: freq, display: freq.toLocaleString("ru") + "/мес" };
+  return { label: "unknown", value: 0, display: "—" };
 }
 
 async function clusterWithAI(topic: string, keywords: string[], lang: string): Promise<any> {
@@ -198,14 +241,45 @@ Deno.serve(async (req) => {
     // Cluster with AI
     const clustered = await clusterWithAI(topic, keywords, language);
     const clusters = Array.isArray(clustered?.clusters) ? clustered.clusters : [];
+    if (clusters.length === 0) {
+      return errorResponse("AI не смог кластеризовать запросы", 500);
+    }
+
+    // Enrich with real Bukvarix frequencies (best-effort)
+    try {
+      const allKws: string[] = [];
+      for (const c of clusters) {
+        for (const k of (c.keywords || [])) {
+          if (k?.keyword) allKws.push(String(k.keyword));
+        }
+      }
+      const freqMap = await getBukvarixFrequency(allKws);
+      for (const c of clusters) {
+        let sum = 0;
+        for (const k of (c.keywords || [])) {
+          const f = freqMap.get(String(k.keyword || "").toLowerCase().trim()) || 0;
+          if (f > 0) {
+            const v = freqToVolume(f);
+            k.volume = v.label;
+            k.frequency = v.value;
+            k.frequency_display = v.display;
+          } else {
+            k.frequency = 0;
+            k.frequency_display = "—";
+          }
+          sum += k.frequency || 0;
+        }
+        c.avg_frequency = Math.round(sum / Math.max(1, (c.keywords?.length || 1)));
+        c.total_frequency = sum;
+      }
+    } catch (e) {
+      console.warn("[topical-map] enrichment failed", e instanceof Error ? e.message : String(e));
+    }
+
     const totalKw = clusters.reduce(
       (s: number, c: any) => s + (Array.isArray(c?.keywords) ? c.keywords.length : 0),
       0,
     );
-
-    if (clusters.length === 0) {
-      return errorResponse("AI не смог кластеризовать запросы", 500);
-    }
 
     // Save
     const { data: saved, error: saveErr } = await admin
