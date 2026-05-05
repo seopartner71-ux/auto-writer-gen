@@ -119,13 +119,18 @@ export function AppSidebar() {
   const unseenChangelog = useUnseenChangelog();
   const APP_VERSION = "v2.4";
 
-  const [aiwriterMode, setAiwriterMode] = useState<"quick" | "expert" | null>(() => {
+  const [aiwriterMode, setAiwriterMode] = useState<"quick" | "expert" | "bulk" | null>(() => {
     if (typeof window === "undefined") return null;
     const v = localStorage.getItem("aiwriter_mode");
     return v === "quick" ? "quick" : v === "expert" ? "expert" : null;
   });
   useEffect(() => {
-    const handler = (e: any) => setAiwriterMode(e?.detail === "quick" ? "quick" : "expert");
+    const handler = (e: any) => {
+      const d = e?.detail;
+      if (d === "bulk") setAiwriterMode("bulk");
+      else if (d === "quick") setAiwriterMode("quick");
+      else setAiwriterMode("expert");
+    };
     window.addEventListener("aiwriter-mode-changed", handler);
     return () => window.removeEventListener("aiwriter-mode-changed", handler);
   }, []);
@@ -167,7 +172,7 @@ export function AppSidebar() {
                           <span>{item.title}</span>
                           {item.url === "/articles" && aiwriterMode && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium uppercase">
-                              {aiwriterMode === "quick" ? "Старт" : "Эксперт"}
+                              {aiwriterMode === "bulk" ? "Factory" : aiwriterMode === "quick" ? "Старт" : "Эксперт"}
                             </span>
                           )}
                         </span>

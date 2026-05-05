@@ -91,6 +91,15 @@ export default function ArticlesPage() {
     } catch { /* ignore */ }
   };
   const isQuickMode = aiwriterMode === "quick" && mode === "single";
+
+  // Dispatch sidebar badge update when generation mode (single/bulk) changes
+  useEffect(() => {
+    try {
+      window.dispatchEvent(new CustomEvent("aiwriter-mode-changed", {
+        detail: mode === "bulk" ? "bulk" : aiwriterMode,
+      }));
+    } catch { /* ignore */ }
+  }, [mode, aiwriterMode]);
   const [sectionedOpen, setSectionedOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
@@ -281,6 +290,16 @@ export default function ArticlesPage() {
     const interval = setInterval(() => setStreamElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(interval);
   }, [isStreaming]);
+
+  // Auto-disable comparison table for Telegraph author (Telegra.ph не поддерживает HTML-таблицы)
+  useEffect(() => {
+    if (!selectedAuthorId || selectedAuthorId === "none") return;
+    const author: any = authorProfiles.find((a: any) => a.id === selectedAuthorId);
+    const isTelegraph = author?.name === "Телеграф" || author?.is_telegraph_author;
+    if (isTelegraph && includeComparisonTable) {
+      setIncludeComparisonTable(false);
+    }
+  }, [selectedAuthorId, authorProfiles, includeComparisonTable]);
 
   const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
