@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
     if (!article_id) return json({ error: "article_id required" }, 400);
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language")
+      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
@@ -142,6 +142,25 @@ Deno.serve(async (req) => {
     if (!content) return json({ error: "Article has no content" }, 400);
     const originalContent = content;
     const originalAiScore = art.ai_score;
+
+    // Plan-based limits per article. DB plan ids: free=NANO, basic=PRO, pro=FACTORY.
+    const PLAN_LIMITS: Record<string, number> = {
+      free: 3, nano: 3,
+      basic: 999, pro: 999,
+      factory: 999,
+      default: 3,
+    };
+    const { data: pProfile } = await admin.from("profiles").select("plan").eq("id", user.id).maybeSingle();
+    const planRaw = String((pProfile as any)?.plan || "").toLowerCase();
+    const improveLimit = PLAN_LIMITS[planRaw] ?? PLAN_LIMITS.default;
+    const usedImprove = Number((art as any).seo_improve_count || 0);
+    if (usedImprove >= improveLimit) {
+      return json({
+        ok: false,
+        limit_reached: true,
+        error: `Лимит улучшений для вашего плана исчерпан (${improveLimit}). Обновите тариф для продолжения.`,
+      }, 429);
+    }
 
     // ── Cooldown: 60s between improve calls per article ──
     if (art.last_improve_at) {
