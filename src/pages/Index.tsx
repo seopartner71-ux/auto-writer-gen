@@ -19,6 +19,7 @@ const SectionPersona = lazy(() => import("@/components/landing/SectionPersona").
 const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
 const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
 const SectionDeepDive = lazy(() => import("@/components/landing/SectionDeepDive").then(m => ({ default: m.SectionDeepDive })));
+const SectionContentFlow = lazy(() => import("@/components/landing/SectionContentFlow").then(m => ({ default: m.SectionContentFlow })));
 const SectionComparison = lazy(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
 const SectionTestimonials = lazy(() => import("@/components/landing/SectionTestimonials").then(m => ({ default: m.SectionTestimonials })));
 const SectionPricing = lazy(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
@@ -153,6 +154,7 @@ export default function Index() {
           <SectionGeo />
           <SectionStealthEngine />
           <SectionDeepDive />
+          <SectionContentFlow />
           <SectionComparison />
           <SectionTestimonials />
           <SectionRealResults />
