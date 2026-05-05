@@ -1668,6 +1668,16 @@ export default function ArticlesPage() {
 
         {/* Right: SEO Dashboard */}
         <div className="space-y-4 md:sticky md:top-4 md:self-start md:max-h-[calc(100vh-2rem)] md:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
+          {isQuickMode ? (
+            <QuickStartSummary
+              articleId={currentArticleId}
+              hasContent={!!content}
+              onSave={() => saveArticle.mutate()}
+              saveDisabled={!content}
+              saving={saveArticle.isPending}
+            />
+          ) : (
+          <>
           <SeoSidePanelContainer
             content={content}
             selectedKeyword={selectedKeyword}
