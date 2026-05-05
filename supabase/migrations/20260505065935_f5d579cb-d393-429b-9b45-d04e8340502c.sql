@@ -1,0 +1,1 @@
+ALTER TABLE public.articles ADD COLUMN IF NOT EXISTS seo_improve_count integer NOT NULL DEFAULT 0;
