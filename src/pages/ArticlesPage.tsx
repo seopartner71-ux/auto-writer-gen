@@ -34,7 +34,6 @@ import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanScorePanel";
 import { detectContentLanguage } from "@/components/article/humanScore/constants";
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
-import { LiveQualityBadge } from "@/components/article/LiveQualityBadge";
 import { SeoTipTicker } from "@/components/article/SeoTipTicker";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
