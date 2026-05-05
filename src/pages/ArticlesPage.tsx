@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2, History,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, ShieldAlert, CreditCard, AlertTriangle, Send, Link2, Quote, Table2, MapPin, Search, MessageSquarePlus, UserPlus, ChevronDown, ChevronUp, ExternalLink
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, ShieldAlert, CreditCard, AlertTriangle, Send, Link2, MessageSquarePlus, UserPlus
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -36,19 +36,18 @@ import { detectContentLanguage } from "@/components/article/humanScore/constants
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
 import { SeoTipTicker } from "@/components/article/SeoTipTicker";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
-import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMount";
-import { ArticlesPageHeader } from "@/pages/articles/ArticlesPageHeader";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
-import { SeoSidePanel } from "@/features/article-editor/SeoSidePanel";
+import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
+import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
@@ -253,7 +252,6 @@ export default function ArticlesPage() {
   const [geoLocation, setGeoLocation] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
   const [finishReason, setFinishReason] = useState<string | null>(null);
-  const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
@@ -268,37 +266,6 @@ export default function ArticlesPage() {
 
   const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
-
-  // SEO Side Panel: load SERP benchmark for selected keyword (one-shot per keyword)
-  const { data: serpBenchmark } = useQuery({
-    queryKey: ["serp-benchmark", selectedKeywordId],
-    queryFn: async () => {
-      if (!selectedKeywordId) return null;
-      const { data } = await supabase
-        .from("serp_results")
-        .select("deep_analysis")
-        .eq("keyword_id", selectedKeywordId)
-        .not("deep_analysis", "is", null)
-        .limit(1)
-        .maybeSingle();
-      const cached = (data?.deep_analysis as any)?._cached_result?.benchmark;
-      if (!cached) return null;
-      return {
-        medianWordCount: cached.median_word_count ?? cached.target_word_count ?? null,
-        medianH2: cached.median_h2_count ?? cached.target_h2_count ?? null,
-        medianLists: cached.median_paragraph_count ?? null,
-        medianKeywordDensity: cached.median_keyword_density ?? null,
-      };
-    },
-    enabled: !!selectedKeywordId,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const seoPanelTerms: string[] = [
-    ...((selectedKeyword?.must_cover_topics as string[]) || []),
-    ...(((selectedKeyword?.content_gaps as any[]) || []).map((g: any) => typeof g === "string" ? g : g?.topic || g?.title).filter(Boolean)),
-    ...(((selectedKeyword?.lsi_keywords as string[]) || []).slice(0, 20)),
-  ];
 
   // Auto-generate SEO Title via AI
   const generateSeoTitle = useCallback(async (articleContent: string) => {
@@ -408,17 +375,8 @@ export default function ArticlesPage() {
   const readability = useMemo(() => fleschScore(content), [content]);
   const readInfo = readabilityLabel(readability, t);
 
-  // Debounced fact-check to avoid freezing during streaming
-  useEffect(() => {
-    if (!content || content.length < 100 || isStreaming) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      const result = validateContent(content);
-      setFactCheckStatus(result.issues.length > 0 ? "warning" : "verified");
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [content, isStreaming]);
+  // Debounced fact-check (extracted hook). setter exposed for handleGenerate / runFixIssue.
+  const { factCheckStatus, setFactCheckStatus } = useFactCheck(content, isStreaming);
 
   // Stream article generation
   const handleGenerate = useCallback(async () => {
@@ -1754,12 +1712,10 @@ export default function ArticlesPage() {
 
         {/* Right: SEO Dashboard */}
         <div className="space-y-4 md:sticky md:top-4 md:self-start md:max-h-[calc(100vh-2rem)] md:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
-          <SeoSidePanel
+          <SeoSidePanelContainer
             content={content}
-            keyword={selectedKeyword?.seed_keyword || null}
-            terms={seoPanelTerms}
-            benchmark={serpBenchmark || null}
-            hasKeyword={!!selectedKeywordId}
+            selectedKeyword={selectedKeyword}
+            selectedKeywordId={selectedKeywordId}
             articleId={currentArticleId}
             onContentImproved={(c) => setContent(c)}
           />
