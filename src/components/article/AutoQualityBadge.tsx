@@ -37,47 +37,78 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
   const [data, setData] = useState<any>(initial || {});
   const [improving, setImproving] = useState(false);
   const [rechecking, setRechecking] = useState(false);
-  const timerRef = useRef<number | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const fallbackTimerRef = useRef<number | null>(null);
   const stoppedRef = useRef(false);
 
-  function clearTimer() {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
+  function cleanupChannel() {
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    if (fallbackTimerRef.current !== null) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
     }
   }
 
-  function startPolling() {
-    clearTimer();
-    let attempts = 0;
-    const tick = async () => {
-      if (stoppedRef.current) return;
-      attempts++;
-      const { data: row } = await supabase.from("articles")
-        .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status")
-        .eq("id", articleId).maybeSingle();
-      if (stoppedRef.current) return;
-      if (row) setData(row as any);
-      if (row && row.quality_status === "checking") {
-        if (attempts < 60) {
-          timerRef.current = window.setTimeout(tick, 3000);
-        } else {
-          // timeout: reset to none so user can retry
-          setData((d: any) => ({ ...d, quality_status: "timeout" }));
+  // Realtime subscription replaces polling — one channel per badge,
+  // server pushes updates when row changes. Fallback timeout marks
+  // status as 'timeout' if no update arrives in 3 minutes.
+  function startRealtime() {
+    cleanupChannel();
+    const ch = supabase
+      .channel(`article-quality-${articleId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "articles", filter: `id=eq.${articleId}` },
+        (payload: any) => {
+          if (stoppedRef.current) return;
+          const row = payload?.new || {};
+          setData((d: any) => ({
+            ...d,
+            quality_status: row.quality_status,
+            ai_score: row.ai_score,
+            burstiness_score: row.burstiness_score,
+            burstiness_status: row.burstiness_status,
+            keyword_density: row.keyword_density,
+            keyword_density_status: row.keyword_density_status,
+          }));
+          if (row.quality_status && row.quality_status !== "checking") {
+            cleanupChannel();
+          }
         }
-      }
-    };
-    tick();
+      )
+      .subscribe();
+    channelRef.current = ch;
+
+    // Safety net: if still 'checking' after 3 min, mark timeout
+    fallbackTimerRef.current = window.setTimeout(() => {
+      if (stoppedRef.current) return;
+      setData((d: any) => (d.quality_status === "checking" ? { ...d, quality_status: "timeout" } : d));
+      cleanupChannel();
+    }, 180_000);
+  }
+
+  async function fetchOnce() {
+    const { data: row } = await supabase.from("articles")
+      .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status")
+      .eq("id", articleId).maybeSingle();
+    if (stoppedRef.current) return;
+    if (row) setData((d: any) => ({ ...d, ...row }));
+    if (!row || row.quality_status === "checking") startRealtime();
   }
 
   useEffect(() => {
     stoppedRef.current = false;
     if (!data.quality_status || data.quality_status === "checking") {
-      startPolling();
+      // If we already know it's checking, just subscribe; otherwise fetch then decide
+      if (data.quality_status === "checking") startRealtime();
+      else fetchOnce();
     }
     return () => {
       stoppedRef.current = true;
-      clearTimer();
+      cleanupChannel();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articleId]);
@@ -96,7 +127,7 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
       toast.success("Запущена авто-доработка");
       setData((d: any) => ({ ...d, quality_status: "checking" }));
       stoppedRef.current = false;
-      startPolling();
+      startRealtime();
     } catch (e: any) {
       toast.error(e?.message || "Ошибка авто-доработки");
     } finally {
@@ -115,7 +146,7 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
       if (error) throw error;
       setData((d: any) => ({ ...d, quality_status: "checking" }));
       stoppedRef.current = false;
-      startPolling();
+      startRealtime();
     } catch (e: any) {
       toast.error(e?.message || "Ошибка");
     } finally {

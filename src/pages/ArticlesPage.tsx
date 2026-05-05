@@ -47,6 +47,7 @@ import { ArticlesPageHeader } from "@/pages/articles/ArticlesPageHeader";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
+import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -839,6 +840,37 @@ export default function ArticlesPage() {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  // ── Auto-save: debounced 8s after last edit, only if article already saved ──
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const lastSavedContentRef = useRef<string>("");
+  useEffect(() => {
+    if (!currentArticleId) return;
+    if (isStreaming) return;
+    if (!content || content.length < 50) return;
+    if (content === lastSavedContentRef.current) return;
+    if (saveArticle.isPending) return;
+    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from("articles")
+          .update({
+            content,
+            title: title || null,
+            meta_description: metaDescription || null,
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("id", currentArticleId);
+        if (!error) {
+          lastSavedContentRef.current = content;
+        }
+      } catch { /* silent */ }
+    }, 8000);
+    return () => {
+      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [content, title, metaDescription, currentArticleId, isStreaming, saveArticle.isPending]);
 
   // Generate schema
   const generateSchema = useMutation({
@@ -1916,6 +1948,24 @@ export default function ArticlesPage() {
 
         {/* Right: SEO Dashboard */}
         <div className="space-y-4 md:sticky md:top-4 md:self-start md:max-h-[calc(100vh-2rem)] md:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
+          <EditorSidebar
+            content={content}
+            title={title}
+            metaDescription={metaDescription}
+            domain={publishedUrl ? (() => { try { return new URL(publishedUrl).host; } catch { return null; } })() : null}
+            slug={publishedUrl ? (() => { try { return new URL(publishedUrl).pathname.replace(/^\//, "").replace(/\/$/, ""); } catch { return ""; } })() : ""}
+            onJump={(idx, text) => {
+              const ta = editorTextareaRef.current;
+              if (!ta) return;
+              ta.focus();
+              ta.setSelectionRange(idx, idx + text.length);
+              // approximate scroll: lines before idx
+              const before = content.slice(0, idx);
+              const lineNum = before.split("\n").length;
+              const lineHeight = parseFloat(getComputedStyle(ta).lineHeight || "20") || 20;
+              ta.scrollTop = Math.max(0, (lineNum - 3) * lineHeight);
+            }}
+          />
           <Tabs defaultValue="dashboard">
             <TabsList className="w-full h-8 grid grid-cols-3 gap-0.5">
               <TabsTrigger value="dashboard" className="text-[10px] gap-1 px-1 min-w-0">
