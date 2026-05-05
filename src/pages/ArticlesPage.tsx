@@ -1980,6 +1980,13 @@ export default function ArticlesPage() {
 
         {/* Right: SEO Dashboard */}
         <div className="space-y-4 md:sticky md:top-4 md:self-start md:max-h-[calc(100vh-2rem)] md:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
+          <SeoSidePanel
+            content={content}
+            keyword={selectedKeyword?.seed_keyword || null}
+            terms={seoPanelTerms}
+            benchmark={serpBenchmark || null}
+            hasKeyword={!!selectedKeywordId}
+          />
           <EditorSidebar
             content={content}
             title={title}
