@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import {
 export default function MyArticlesPage() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const { data: articles = [], isLoading } = useQuery({
@@ -140,11 +142,15 @@ export default function MyArticlesPage() {
               </TableHeader>
               <TableBody>
                 {articles.map((article, index) => (
-                  <TableRow key={article.id} className="border-border">
+                  <TableRow
+                    key={article.id}
+                    className="border-border cursor-pointer hover:bg-muted/40 transition-colors"
+                    onClick={() => navigate(`/articles?edit=${article.id}`)}
+                  >
                     <TableCell className="font-mono text-muted-foreground">
                       {index + 1}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       <TooltipProvider>
                         {(article as any).quality_status ? (
                           <AutoQualityBadge
@@ -173,7 +179,7 @@ export default function MyArticlesPage() {
                         ? format(new Date(article.created_at), "dd.MM.yyyy HH:mm")
                         : "—"}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
