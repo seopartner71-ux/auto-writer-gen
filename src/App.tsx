@@ -50,6 +50,7 @@ const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
 const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 const PaymentSuccessPage = lazy(() => import("@/pages/PaymentSuccessPage"));
+const ChangelogPage = lazy(() => import("@/pages/ChangelogPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -139,6 +140,7 @@ const App = () => (
                   <Route path="/site-factory" element={<SiteFactoryPage />} />
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
                   <Route path="/domain-hunter" element={<DomainHunterPage />} />
+                  <Route path="/changelog" element={<ChangelogPage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>

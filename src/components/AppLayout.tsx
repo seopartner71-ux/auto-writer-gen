@@ -10,6 +10,7 @@ import { useTrialStatus } from "@/shared/hooks/useTrialStatus";
 import { PaywallModal } from "@/components/trial/PaywallModal";
 import { useOnboarding } from "@/shared/hooks/useOnboarding";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
+import { useChangelogNotifier } from "@/shared/hooks/useChangelogNotifier";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -17,6 +18,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { lang, setLang, t } = useI18n();
   const { showPaywall, paywallReason } = useTrialStatus();
   const onboarding = useOnboarding();
+  useChangelogNotifier();
 
   return (
     <SidebarProvider>

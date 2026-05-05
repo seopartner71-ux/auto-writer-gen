@@ -18,12 +18,14 @@ import {
   Send,
   ChevronDown,
   Workflow,
+  Sparkles,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";
+import { useUnseenChangelog } from "@/shared/hooks/useChangelogNotifier";
 import {
   Sidebar,
   SidebarContent,
@@ -113,6 +115,9 @@ export function AppSidebar() {
     { title: t("nav.settings"), url: "/settings", icon: Settings },
     { title: t("nav.support"), url: "/support", icon: LifeBuoy },
   ];
+
+  const unseenChangelog = useUnseenChangelog();
+  const APP_VERSION = "v2.4";
 
   const adminItems = [
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
@@ -280,6 +285,36 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink
+                    to="/changelog"
+                    className="hover:bg-sidebar-accent/50"
+                    activeClassName="bg-sidebar-accent text-primary font-medium"
+                    onClick={handleNavClick}
+                  >
+                    <span className="relative mr-2 flex items-center">
+                      <Sparkles className="h-4 w-4 shrink-0" />
+                      {unseenChangelog && (
+                        <span className="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-sidebar" />
+                      )}
+                    </span>
+                    {!collapsed && (
+                      <span className="flex-1 flex items-center justify-between">
+                        <span>{lang === "ru" ? "Обновления" : "Changelog"}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">{APP_VERSION}</span>
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       {!collapsed && (
