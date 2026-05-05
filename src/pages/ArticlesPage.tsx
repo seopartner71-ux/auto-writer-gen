@@ -44,6 +44,7 @@ import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMount";
 import { ArticlesPageHeader } from "@/pages/articles/ArticlesPageHeader";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
+import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
@@ -255,6 +256,7 @@ export default function ArticlesPage() {
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
+  const { snapshot: snapshotVersion } = useArticleVersions();
 
   useEffect(() => {
     if (!isStreaming) { setStreamElapsed(0); return; }
