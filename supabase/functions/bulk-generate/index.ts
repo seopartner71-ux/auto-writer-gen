@@ -508,8 +508,9 @@ serve(async (req) => {
     const userId = getUserIdFromRequest(req);
     const { data: profile } = await admin.from("profiles").select("plan").eq("id", userId).single();
     // Bulk available on PRO (basic) and FACTORY (pro). NANO (free) blocked.
-    const planRaw = String(profile?.plan || "").toLowerCase();
-    const allowedPlans = new Set(["basic", "pro", "factory"]);
+    const planRaw = String(profile?.plan || "").toLowerCase().trim().replace(/[^a-z]/g, "");
+    const allowedPlans = new Set(["basic", "pro", "factory", "business", "enterprise", "admin"]);
+    console.log("[bulk-generate][plan-check] user:", userId, "plan:", profile?.plan, "key:", planRaw, "allowed:", allowedPlans.has(planRaw));
     if (!profile || !allowedPlans.has(planRaw)) {
       return jsonResponse({ error: "Массовая генерация доступна только на тарифах PRO и FACTORY" }, 403);
     }
