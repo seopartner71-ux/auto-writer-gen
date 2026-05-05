@@ -622,11 +622,9 @@ export default function ArticlesPage() {
     selectedKeyword,
     content,
     setContent,
-    currentArticleId,
     title,
     lang,
     t,
-    setIsStreaming,
     setStreamPhase,
     setFixingIssue,
     abortRef,
@@ -641,13 +639,9 @@ export default function ArticlesPage() {
     selectedKeyword,
     content,
     setContent,
-    currentArticleId,
     title,
-    isStreaming,
-    setIsStreaming,
     setStreamPhase,
     abortRef,
-    benchmarkCacheRef,
     snapshotVersion,
   });
 
@@ -868,6 +862,7 @@ export default function ArticlesPage() {
     <ArticleEditorProvider
       currentArticleId={currentArticleId}
       isStreaming={isStreaming}
+      setIsStreaming={setIsStreaming}
       factCheckStatus={factCheckStatus}
       setFactCheckStatus={setFactCheckStatus}
       lsiStatus={lsiStatus}
