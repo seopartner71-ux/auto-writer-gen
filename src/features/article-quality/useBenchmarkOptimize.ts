@@ -1,8 +1,7 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, type MutableRefObject } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAndAnalyze, buildAnalysisContext, type DeepParseResult } from "@/entities/competitor/analysisService";
-import { useArticleEditor } from "@/features/article-editor/ArticleEditorContext";
 import { parseSseStream } from "@/features/article-editor/parseSseStream";
 import type { KeywordRef } from "@/features/article-editor/types";
 
@@ -24,6 +23,10 @@ export interface BenchmarkOptimizeDeps {
   setStreamPhase: (p: "thinking" | "writing" | null) => void;
   abortRef: React.MutableRefObject<AbortController | null>;
   snapshotVersion: (a: { articleId: string | null; content: string; title?: string; reason: string }) => void;
+  currentArticleId: string | null;
+  isStreaming: boolean;
+  setIsStreaming: (v: boolean) => void;
+  benchmarkCacheRef: MutableRefObject<Map<string, BenchmarkCacheEntry>>;
 }
 
 /**
@@ -33,9 +36,8 @@ export interface BenchmarkOptimizeDeps {
  * version that lived inside QualityCheckPanel callback in ArticlesPage.
  */
 export function useBenchmarkOptimize(deps: BenchmarkOptimizeDeps) {
-  const { currentArticleId, isStreaming, setIsStreaming, benchmarkCache } = useArticleEditor();
-  const depsRef = useRef({ ...deps, currentArticleId, isStreaming, setIsStreaming, benchmarkCacheRef: benchmarkCache });
-  depsRef.current = { ...deps, currentArticleId, isStreaming, setIsStreaming, benchmarkCacheRef: benchmarkCache };
+  const depsRef = useRef(deps);
+  depsRef.current = deps;
 
   return useCallback(async () => {
     const d = depsRef.current;
