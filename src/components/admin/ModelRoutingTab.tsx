@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Brain, PenTool, Sparkles, Zap, Clock, AlertTriangle, Info } from "lucide-react";
+import { Brain, PenTool, Sparkles, Zap, Clock, AlertTriangle, Info, Wand2, Layers } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TaskAssignment {
@@ -24,6 +24,8 @@ const TASKS = [
   { key: "researcher", label: "Researcher", description: "Анализ конкурентов и SERP", icon: Brain },
   { key: "writer_basic", label: "Writer Basic", description: "Генерация для Free/Basic", icon: PenTool },
   { key: "writer_pro", label: "Writer Pro", description: "Генерация для Pro", icon: Sparkles },
+  { key: "humanize_polish", label: "Humanize Polish", description: "Финальная полировка / Auto-fix цикл", icon: Wand2 },
+  { key: "section_writer", label: "Section Writer", description: "Потоковая генерация по секциям", icon: Layers },
 ];
 
 const MODEL_SPEED_INFO: Record<string, { speed: "fast" | "medium" | "slow"; note: string }> = {
@@ -110,7 +112,7 @@ export function ModelRoutingTab() {
         </AlertDescription>
       </Alert>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
         {TASKS.map((task) => {
           const current = assignments.find((a) => a.task_key === task.key);
           const currentSpeed = current ? MODEL_SPEED_INFO[current.model_key] : null;
