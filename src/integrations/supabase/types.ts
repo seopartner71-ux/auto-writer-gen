@@ -875,6 +875,36 @@ export type Database = {
           },
         ]
       }
+      changelog: {
+        Row: {
+          created_at: string
+          id: string
+          is_major: boolean
+          items: Json
+          release_date: string
+          title: string
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_major?: boolean
+          items?: Json
+          release_date?: string
+          title: string
+          version: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_major?: boolean
+          items?: Json
+          release_date?: string
+          title?: string
+          version?: string
+        }
+        Relationships: []
+      }
       clusters: {
         Row: {
           created_at: string | null
