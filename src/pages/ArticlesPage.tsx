@@ -48,7 +48,8 @@ import { useArticleVersions } from "@/features/article-versions/useArticleVersio
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
-import { SeoSidePanel } from "@/features/article-editor/SeoSidePanel";
+import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
+import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
@@ -253,7 +254,6 @@ export default function ArticlesPage() {
   const [geoLocation, setGeoLocation] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
   const [finishReason, setFinishReason] = useState<string | null>(null);
-  const [factCheckStatus, setFactCheckStatus] = useState<"verified" | "warning" | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
@@ -268,37 +268,6 @@ export default function ArticlesPage() {
 
   const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
-
-  // SEO Side Panel: load SERP benchmark for selected keyword (one-shot per keyword)
-  const { data: serpBenchmark } = useQuery({
-    queryKey: ["serp-benchmark", selectedKeywordId],
-    queryFn: async () => {
-      if (!selectedKeywordId) return null;
-      const { data } = await supabase
-        .from("serp_results")
-        .select("deep_analysis")
-        .eq("keyword_id", selectedKeywordId)
-        .not("deep_analysis", "is", null)
-        .limit(1)
-        .maybeSingle();
-      const cached = (data?.deep_analysis as any)?._cached_result?.benchmark;
-      if (!cached) return null;
-      return {
-        medianWordCount: cached.median_word_count ?? cached.target_word_count ?? null,
-        medianH2: cached.median_h2_count ?? cached.target_h2_count ?? null,
-        medianLists: cached.median_paragraph_count ?? null,
-        medianKeywordDensity: cached.median_keyword_density ?? null,
-      };
-    },
-    enabled: !!selectedKeywordId,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const seoPanelTerms: string[] = [
-    ...((selectedKeyword?.must_cover_topics as string[]) || []),
-    ...(((selectedKeyword?.content_gaps as any[]) || []).map((g: any) => typeof g === "string" ? g : g?.topic || g?.title).filter(Boolean)),
-    ...(((selectedKeyword?.lsi_keywords as string[]) || []).slice(0, 20)),
-  ];
 
   // Auto-generate SEO Title via AI
   const generateSeoTitle = useCallback(async (articleContent: string) => {
