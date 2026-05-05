@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Loader2, Wand2, RotateCcw, History, Trophy, ThumbsUp,
-  AlertTriangle, FileWarning, CircleDashed,
+  Loader2, Wand2, RotateCcw, History, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,20 +30,72 @@ interface Props {
   onOpenVersions?: () => void;
 }
 
-const STATUS_META: Record<string, { Icon: any; label: string; color: string }> = {
-  ok:        { Icon: Trophy,        label: "Отлично",         color: "text-emerald-400" },
-  warning:   { Icon: ThumbsUp,      label: "Хорошо",          color: "text-amber-400" },
-  fail:      { Icon: AlertTriangle, label: "Нужна доработка", color: "text-rose-400" },
-  too_short: { Icon: FileWarning,   label: "Текст короткий",  color: "text-muted-foreground" },
-  checking:  { Icon: Loader2,       label: "Проверка",        color: "text-muted-foreground animate-spin" },
-  none:      { Icon: CircleDashed,  label: "Не проверено",    color: "text-muted-foreground/60" },
+function bandFromScore(score: number): "ok" | "warning" | "fail" {
+  if (score >= 70) return "ok";
+  if (score >= 40) return "warning";
+  return "fail";
+}
+const BAND_META: Record<"ok" | "warning" | "fail", { dot: string; pill: string; bar: string; label: string }> = {
+  ok:      { dot: "🟢", pill: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", bar: "bg-emerald-500", label: "ОТЛИЧНО" },
+  warning: { dot: "🟡", pill: "bg-amber-500/15 text-amber-300 border-amber-500/30",       bar: "bg-amber-500",   label: "ХОРОШО" },
+  fail:    { dot: "🔴", pill: "bg-rose-500/15 text-rose-300 border-rose-500/30",          bar: "bg-rose-500",    label: "СЛАБО" },
 };
 
-function dotFor(s: string | null | undefined) {
-  if (s === "ok") return "🟢";
-  if (s === "warning" || s === "underuse") return "🟡";
-  if (s === "fail" || s === "overuse") return "🔴";
-  return "⏳";
+function aiBand(score: number | null | undefined): "ok" | "warning" | "fail" | null {
+  if (score == null) return null;
+  if (score >= 80) return "ok";
+  if (score >= 60) return "ok";
+  if (score >= 40) return "warning";
+  return "fail";
+}
+function aiHint(score: number): string {
+  if (score >= 80) return "Отлично - текст как человеческий";
+  if (score >= 60) return "Хорошо - слабые следы ИИ";
+  if (score >= 40) return "Средне - заметны паттерны ИИ";
+  return "Плохо - явный ИИ-текст";
+}
+function burstBand(sigma: number | null | undefined): "ok" | "warning" | "fail" | null {
+  if (sigma == null) return null;
+  if (sigma >= 10) return "ok";
+  if (sigma >= 7) return "ok";
+  if (sigma >= 5) return "warning";
+  return "fail";
+}
+function burstHint(sigma: number): string {
+  if (sigma >= 10) return "Отличная вариация предложений";
+  if (sigma >= 7) return "Хорошая вариация";
+  if (sigma >= 5) return "Слабая вариация - текст монотонный";
+  return "Плохо - все предложения одинаковые";
+}
+function densityBand(s: string | null | undefined): "ok" | "warning" | "fail" | null {
+  if (!s) return null;
+  if (s === "ok") return "ok";
+  if (s === "underuse") return "warning";
+  if (s === "overuse") return "fail";
+  return null;
+}
+function densityHint(pct: number | null | undefined, status: string | null | undefined): string {
+  const v = pct == null ? "—" : `${pct}%`;
+  if (status === "overuse") return `${v} - переспам, нужно убрать повторы`;
+  if (status === "underuse") return `${v} - мало, ключ встречается слишком редко`;
+  return `${v} - в норме`;
+}
+function turgBand(score: number | null | undefined): "ok" | "warning" | "fail" | null {
+  if (score == null) return null;
+  if (score <= 5) return "ok";
+  if (score <= 10) return "warning";
+  return "fail";
+}
+function turgHint(score: number): string {
+  if (score <= 5) return `${score} бал. - безопасно для Яндекса`;
+  if (score <= 10) return `${score} бал. - есть риск фильтра`;
+  return `${score} бал. - высокий риск Баден-Бадена`;
+}
+function bandToScore(b: "ok" | "warning" | "fail" | null): number | null {
+  if (b === "ok") return 90;
+  if (b === "warning") return 55;
+  if (b === "fail") return 25;
+  return null;
 }
 
 export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
@@ -183,71 +234,138 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
   }
 
   const status = data.quality_status || "none";
-  const meta = STATUS_META[status] || STATUS_META.none;
-  const showImprove = status === "warning" || status === "fail";
-  const showRetry = status === "timeout" || status === "fail" || status === "warning" || status === "ok";
-  const Icon = status === "timeout" ? AlertTriangle : meta.Icon;
+  const isChecking = status === "checking";
+  const isShort = status === "too_short";
+  const isTimeout = status === "timeout";
+  const noData = status === "none";
+
+  const aiB = aiBand(data.ai_score);
+  const burstB = burstBand(data.burstiness_score);
+  const densB = densityBand(data.keyword_density_status);
+  const turgB = turgBand(data.turgenev_score);
+
+  // Overall score: average of available metric "scores"
+  const overall = useMemo<number | null>(() => {
+    const parts: number[] = [];
+    if (data.ai_score != null) parts.push(Math.max(0, Math.min(100, Number(data.ai_score))));
+    const bs = bandToScore(burstB); if (bs != null) parts.push(bs);
+    const ds = bandToScore(densB);  if (ds != null) parts.push(ds);
+    const ts = bandToScore(turgB);  if (ts != null) parts.push(ts);
+    if (!parts.length) return null;
+    return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
+  }, [data.ai_score, burstB, densB, turgB]);
+
+  const overallBand = overall != null ? bandFromScore(overall) : null;
+  const meta = overallBand ? BAND_META[overallBand] : null;
+  const showImprove = overallBand === "warning" || overallBand === "fail" || status === "warning" || status === "fail";
+  const showRetry = !isChecking;
+
+  // Pill trigger content
+  const pillClasses = isChecking
+    ? "bg-muted/40 text-muted-foreground border-border"
+    : isShort || isTimeout || noData || !meta
+      ? "bg-muted/30 text-muted-foreground border-border"
+      : meta.pill;
+  const pillText = isChecking
+    ? "..."
+    : isShort
+      ? "—"
+      : isTimeout
+        ? "?"
+        : overall != null
+          ? String(overall)
+          : "—";
+  const pillEmoji = isChecking ? "⏳" : meta?.dot ?? "⚪";
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted/40 transition-colors"
-          title={status === "timeout" ? "Проверка не ответила" : meta.label}
+          className={`inline-flex items-center gap-1 h-7 px-2 rounded-full border text-[11px] font-mono font-semibold tabular-nums transition-colors hover:opacity-90 ${pillClasses}`}
+          title={isTimeout ? "Проверка не ответила" : isShort ? "Текст короткий" : isChecking ? "Проверка..." : meta?.label ?? "Не проверено"}
           onClick={(e) => e.stopPropagation()}
         >
-          <Icon className={`h-4 w-4 ${meta.color}`} />
+          <span className="text-[11px] leading-none">{pillEmoji}</span>
+          <span>{pillText}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-3 text-xs space-y-2" onClick={(e) => e.stopPropagation()}>
+      <PopoverContent align="start" className="w-80 p-4 text-xs space-y-3" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="font-medium text-sm">Качество статьи</div>
-          <span className={`text-[10px] uppercase tracking-wide ${meta.color.replace("animate-spin", "")}`}>
-            {status === "timeout" ? "Таймаут" : meta.label}
+          <div className="font-semibold text-sm">Качество статьи</div>
+          <span className={`text-[10px] font-semibold uppercase tracking-wider ${overallBand === "ok" ? "text-emerald-400" : overallBand === "warning" ? "text-amber-400" : overallBand === "fail" ? "text-rose-400" : "text-muted-foreground"}`}>
+            {isChecking ? "ПРОВЕРКА" : isShort ? "КОРОТКИЙ" : isTimeout ? "ТАЙМАУТ" : meta?.label ?? "НЕТ ДАННЫХ"}
           </span>
         </div>
-        {status === "too_short" && (
+
+        {/* Overall progress bar */}
+        {overall != null && (
+          <div className="space-y-1">
+            <div className="h-2 w-full rounded-full bg-muted/40 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${meta?.bar ?? "bg-muted"}`}
+                style={{ width: `${overall}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+              <span>Общий балл</span>
+              <span className="font-semibold text-foreground">{overall}/100</span>
+            </div>
+          </div>
+        )}
+
+        {isShort && (
           <div className="text-muted-foreground text-[11px] leading-snug">
             Текст короче 200 символов - проверка качества не проводилась.
           </div>
         )}
-        {status !== "too_short" && status !== "none" && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span>{dotFor(data.ai_score == null ? "checking" : (data.ai_score >= 70 ? "ok" : data.ai_score >= 50 ? "warning" : "fail"))} AI-детектор</span>
-              <span className="font-mono text-muted-foreground">
-                {data.ai_score != null ? `${data.ai_score}` : "..."}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>{dotFor(data.burstiness_status)} Длина предложений</span>
-              <span className="font-mono text-muted-foreground">
-                {data.burstiness_score != null ? `σ=${data.burstiness_score}` : "..."}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>{dotFor(data.keyword_density_status)} Плотность ключа</span>
-              <span className="font-mono text-muted-foreground">
-                {data.keyword_density != null ? `${data.keyword_density}%${data.keyword_density_status === "overuse" ? "↑" : data.keyword_density_status === "underuse" ? "↓" : ""}` : "..."}
-              </span>
-            </div>
-            {data.turgenev_score != null && data.turgenev_score > 0 && (
+
+        {!isShort && !noData && (
+          <div className="space-y-2.5">
+            {/* AI detector */}
+            {data.ai_score != null && aiB && (
+              <MetricRow
+                emoji={BAND_META[aiB].dot}
+                title="AI-детектор"
+                value={`${data.ai_score}/100`}
+                hint={aiHint(data.ai_score)}
+              />
+            )}
+            {/* Burstiness */}
+            {data.burstiness_score != null && burstB && (
+              <MetricRow
+                emoji={BAND_META[burstB].dot}
+                title="Ритм текста"
+                value={`σ=${data.burstiness_score}`}
+                hint={burstHint(Number(data.burstiness_score))}
+              />
+            )}
+            {/* Keyword density */}
+            {data.keyword_density_status && densB && (
+              <MetricRow
+                emoji={BAND_META[densB].dot}
+                title="Плотность ключа"
+                value={data.keyword_density != null ? `${data.keyword_density}%${data.keyword_density_status === "overuse" ? "↑" : data.keyword_density_status === "underuse" ? "↓" : ""}` : "—"}
+                hint={densityHint(data.keyword_density, data.keyword_density_status)}
+              />
+            )}
+            {/* Turgenev */}
+            {data.turgenev_score != null && turgB && (
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex items-center justify-between cursor-help">
-                      <span>{dotFor(data.turgenev_status)} Тургенев</span>
-                      <span className="font-mono text-muted-foreground">
-                        {data.turgenev_score} бал.
-                      </span>
+                    <div className="cursor-help">
+                      <MetricRow
+                        emoji={BAND_META[turgB].dot}
+                        title="Тургенев"
+                        value={`${data.turgenev_score} бал.`}
+                        hint={turgHint(Number(data.turgenev_score))}
+                      />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-[260px] text-[11px] leading-snug">
-                    <div className="font-medium mb-1">Риск фильтра Яндекса Баден-Баден</div>
-                    <div className="text-muted-foreground mb-2">
-                      До 5 баллов - безопасно. 6-10 - есть риск. 11+ - высокий риск фильтра.
-                    </div>
-                    {data.turgenev_details && (
+                  {data.turgenev_details && (
+                    <TooltipContent side="left" className="max-w-[260px] text-[11px] leading-snug">
+                      <div className="font-medium mb-1">Риск фильтра Баден-Баден</div>
                       <div className="space-y-0.5">
                         <div>Повторы: {data.turgenev_details.repeats ?? 0} бал.</div>
                         <div>Стилистика: {data.turgenev_details.style ?? 0} бал.</div>
@@ -255,21 +373,28 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
                         <div>Вода: {data.turgenev_details.water ?? 0} бал.</div>
                         <div>Читаемость: {data.turgenev_details.readability ?? 0} бал.</div>
                       </div>
-                    )}
-                  </TooltipContent>
+                    </TooltipContent>
+                  )}
                 </Tooltip>
               </TooltipProvider>
             )}
           </div>
         )}
+
+        {/* Actions */}
         <div className="flex flex-col gap-1.5 pt-1">
           {showImprove && (
-            <Button size="sm" className="w-full" onClick={runImprove} disabled={improving || rechecking}>
-              {improving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+            <Button
+              size="sm"
+              className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white border-0 shadow-md shadow-violet-500/20"
+              onClick={runImprove}
+              disabled={improving || rechecking}
+            >
+              {improving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
               Улучшить автоматически
             </Button>
           )}
-          {showRetry && status !== "checking" && (
+          {showRetry && (
             <Button size="sm" variant="outline" className="w-full" onClick={runRecheck} disabled={rechecking || improving}>
               {rechecking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}
               Перепроверить
@@ -291,5 +416,20 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function MetricRow({ emoji, title, value, hint }: { emoji: string; title: string; value: string; hint: string }) {
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5">
+          <span className="text-[11px] leading-none">{emoji}</span>
+          <span className="font-medium">{title}</span>
+        </span>
+        <span className="font-mono text-[11px] text-foreground/80 tabular-nums">{value}</span>
+      </div>
+      <div className="text-[10.5px] text-muted-foreground leading-snug pl-5">{hint}</div>
+    </div>
   );
 }
