@@ -634,6 +634,24 @@ export default function ArticlesPage() {
     snapshotVersion,
   });
 
+  const benchmarkOptimize = useBenchmarkOptimize({
+    selectedKeywordId,
+    selectedAuthorId,
+    outline,
+    lsiKeywords,
+    selectedKeyword,
+    content,
+    setContent,
+    currentArticleId,
+    title,
+    isStreaming,
+    setIsStreaming,
+    setStreamPhase,
+    abortRef,
+    benchmarkCacheRef,
+    snapshotVersion,
+  });
+
   // Save article
   const saveArticle = useMutation({
     mutationFn: async () => {
