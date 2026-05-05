@@ -440,7 +440,9 @@ export type Database = {
           title: string | null
           translated_content_en: string | null
           translated_title_en: string | null
+          turgenev_details: Json | null
           turgenev_score: number | null
+          turgenev_status: string | null
           uniqueness_percent: number | null
           updated_at: string | null
           user_id: string
@@ -492,7 +494,9 @@ export type Database = {
           title?: string | null
           translated_content_en?: string | null
           translated_title_en?: string | null
+          turgenev_details?: Json | null
           turgenev_score?: number | null
+          turgenev_status?: string | null
           uniqueness_percent?: number | null
           updated_at?: string | null
           user_id: string
@@ -544,7 +548,9 @@ export type Database = {
           title?: string | null
           translated_content_en?: string | null
           translated_title_en?: string | null
+          turgenev_details?: Json | null
           turgenev_score?: number | null
+          turgenev_status?: string | null
           uniqueness_percent?: number | null
           updated_at?: string | null
           user_id?: string

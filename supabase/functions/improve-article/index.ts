@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
     if (!article_id) return json({ error: "article_id required" }, 400);
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at")
+      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
@@ -241,6 +241,30 @@ ${content}`;
       content = content.replace(/(<(?:p|li)[^>]*>)([\s\S]*?)(<\/(?:p|li)>)/gi, (_m, open, inner, close) => {
         return `${open}${splitLongSentences(inner)}${close}`;
       });
+    }
+
+    // 4) Turgenev (Yandex Baden-Baden) fix when status = fail (RU only, needs OpenRouter)
+    const turgStatus = String((art as any).turgenev_status || "ok");
+    const isRu = String((art as any).language || "ru").toLowerCase() === "ru";
+    if (turgStatus === "fail" && isRu && orKey) {
+      const sys = "Ты редактор. Улучшаешь текст под требования Яндекса. Возвращай ТОЛЬКО исправленный HTML без комментариев и markdown-обёрток.";
+      const usr = `Улучши текст чтобы снизить риск фильтра Яндекса Баден-Баден:
+
+1. Найди фразы длиннее 4 слов которые повторяются более 3 раз - перефразируй каждое повторение по-разному.
+2. Убери канцеляризмы: "является", "осуществляет", "в целях", "в рамках", "на сегодняшний день", "на протяжении", "в настоящее время".
+3. Убери воду: "следует отметить", "стоит сказать", "необходимо учитывать", "как известно", "не секрет что", "само собой разумеется".
+4. Предложения длиннее 30 слов - разбей на два.
+5. Сохрани все факты, цифры, H2/H3, таблицы, FAQ и HTML-структуру (теги <h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
+
+Текст:
+${content}`;
+      const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+      if (fixed && fixed.length > 200) {
+        const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        const integrity = htmlIntegrityOk(content, candidate);
+        if (integrity.ok) content = candidate;
+        else console.warn("[improve-article] turgenev-fix rejected:", integrity.reason);
+      }
     }
 
     // Save improved content

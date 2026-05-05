@@ -16,6 +16,7 @@ const PROVIDERS = [
   { key: "gemini", label: "Google Gemini", placeholder: "AIza...", hasBalance: false },
   { key: "serper", label: "Serper.dev", placeholder: "your-serper-key", hasBalance: false },
   { key: "fal_ai", label: "Fal.ai", placeholder: "your-fal-ai-key", hasBalance: true },
+  { key: "turgenev", label: "Тургенев (Ашманов)", placeholder: "ключ из ЛК turgenev.ashmanov.com", hasBalance: false },
 ];
 
 interface ApiKey {
