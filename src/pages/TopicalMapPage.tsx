@@ -89,6 +89,27 @@ function escapeCsv(s: string) {
   return s;
 }
 
+// Cleans noisy SERP titles into a pure search query.
+function cleanKeyword(raw: string): string {
+  let s = String(raw || "").trim();
+  // Remove trailing intent labels
+  s = s.replace(/\s*[—–-]\s*(commercial|transactional|informational|navigational)\s*$/i, "");
+  // Remove known site-name tails after dash
+  s = s.replace(/\s*[—–-]\s*(профи\.ру|profi\.ru|ozon|avito|wildberries|wb|dns|эльдорадо|mvideo|м\.видео|ситилинк|яндекс[^—–-]*|google[^—–-]*)\b.*$/i, "");
+  // Remove tail after dash if it contains a domain or starts with capital + brand-ish word
+  s = s.replace(/\s*[—–-]\s*[^—–-]*?\.(ru|com|рф|net|org|ua|by|kz)\b.*$/i, "");
+  // Strip surrounding quotes
+  s = s.replace(/^["'«»]+|["'«»]+$/g, "");
+  // Collapse whitespace
+  s = s.replace(/\s{2,}/g, " ").trim();
+  // If still too long, take part before first " - " / em-dash
+  if (s.length > 60) {
+    const parts = s.split(/\s*[—–-]\s*/);
+    if (parts[0] && parts[0].length >= 3) s = parts[0].trim();
+  }
+  return s;
+}
+
 function downloadCsv(map: TopicalMap) {
   const rows: string[] = ["Кластер,Ключевое слово,Интент,Объем,Сложность"];
   for (const c of map.clusters || []) {
