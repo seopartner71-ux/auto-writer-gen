@@ -443,6 +443,7 @@ export type Database = {
           turgenev_details: Json | null
           turgenev_score: number | null
           turgenev_status: string | null
+          uniqueness_checked_at: string | null
           uniqueness_percent: number | null
           updated_at: string | null
           user_id: string
@@ -497,6 +498,7 @@ export type Database = {
           turgenev_details?: Json | null
           turgenev_score?: number | null
           turgenev_status?: string | null
+          uniqueness_checked_at?: string | null
           uniqueness_percent?: number | null
           updated_at?: string | null
           user_id: string
@@ -551,6 +553,7 @@ export type Database = {
           turgenev_details?: Json | null
           turgenev_score?: number | null
           turgenev_status?: string | null
+          uniqueness_checked_at?: string | null
           uniqueness_percent?: number | null
           updated_at?: string | null
           user_id?: string
