@@ -2158,6 +2158,8 @@ export default function ArticlesPage() {
               </PlanGate>
             </TabsContent>
           </Tabs>
+          </>
+          )}
         </div>
       </div>
       </>
