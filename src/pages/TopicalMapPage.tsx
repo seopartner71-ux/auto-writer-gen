@@ -115,7 +115,7 @@ function downloadCsv(map: TopicalMap) {
   for (const c of map.clusters || []) {
     for (const kw of c.keywords || []) {
       rows.push(
-        [c.name, kw.keyword, c.intent || "", kw.volume || "", kw.difficulty || ""]
+        [c.name, cleanKeyword(kw.keyword), c.intent || "", kw.volume || "", kw.difficulty || ""]
           .map((v) => escapeCsv(String(v ?? "")))
           .join(","),
       );
