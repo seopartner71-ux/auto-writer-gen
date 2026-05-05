@@ -2592,40 +2592,11 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
       </Dialog>
 
       {/* Admin: Transfer Article Dialog */}
-      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
-              {lang === "ru" ? "Передать статью пользователю" : "Transfer article to user"}
-            </DialogTitle>
-            <DialogDescription>
-              {lang === "ru" ? "Введите email пользователя, которому хотите передать статью" : "Enter the email of the user to transfer the article to"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder="user@example.com"
-              value={transferEmail}
-              onChange={(e) => setTransferEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && transferEmail.trim() && handleTransferArticle()}
-            />
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setTransferDialogOpen(false)}>
-                {t("common.close")}
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={!transferEmail.trim()}
-                onClick={handleTransferArticle}
-              >
-                <UserPlus className="h-4 w-4 mr-1.5" />
-                {lang === "ru" ? "Передать" : "Transfer"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <TransferDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        articleId={transferArticleId}
+      />
 
       {/* Compliance: edit single deviation */}
       <Dialog open={!!activeDeviation} onOpenChange={(o) => { if (!o) { setActiveDeviation(null); setIsRewritingFragment(false); } }}>
@@ -2977,22 +2948,6 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           </div>
         </SheetContent>
       </Sheet>
-      <VersionHistoryDialog
-        open={versionHistoryOpen}
-        onOpenChange={setVersionHistoryOpen}
-        articleId={currentArticleId}
-        currentContent={content}
-        onRestore={(c) => {
-          // snapshot current before restoring so it can be re-restored
-          snapshotVersion({
-            articleId: currentArticleId,
-            content,
-            title: title || undefined,
-            reason: "auto",
-          });
-          setContent(c);
-        }}
-      />
     </div>
   );
 }
