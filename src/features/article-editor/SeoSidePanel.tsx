@@ -187,7 +187,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
         return;
       }
       if (!payload?.ok || !payload?.content) {
-        throw new Error(payload?.error || "Не удалось улучшить");
+        throw new Error(payload?.error || "Не удалось улучшить без потери форматирования. Попробуйте снова или отредактируйте вручную.");
       }
       setImproveStage("Проверяю результат...");
       onContentImproved(payload.content);
