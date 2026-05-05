@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
+import { buildRareLexiconAddon } from "../_shared/stealth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1153,7 +1154,18 @@ serve(async (req) => {
       interlinkingContext,
     };
 
-    const { system: systemPrompt } = generateStealthPrompt(stealthInput);
+    const { system: baseSystemPrompt } = generateStealthPrompt(stealthInput);
+
+    // Rare-lexicon perplexity boost: merge top SERP entities + LSI keywords.
+    const lexiconTerms = Array.from(new Set([
+      ...(allEntities || []),
+      ...((lsi_keywords || keyword.lsi_keywords || []) as string[]),
+    ])).slice(0, 25);
+    const lexiconBlock = buildRareLexiconAddon(
+      lexiconTerms,
+      bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
+    );
+    const systemPrompt = lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt;
 
     // Build user prompt
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
