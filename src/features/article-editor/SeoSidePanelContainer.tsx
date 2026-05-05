@@ -9,6 +9,8 @@ interface SeoSidePanelContainerProps {
   selectedKeyword: (KeywordRef & Record<string, unknown>) | null;
   selectedKeywordId: string;
   onContentImproved: (content: string) => void;
+  isStreaming?: boolean;
+  quickMode?: boolean;
 }
 
 /**
@@ -20,6 +22,8 @@ export function SeoSidePanelContainer({
   selectedKeyword,
   selectedKeywordId,
   onContentImproved,
+  isStreaming = false,
+  quickMode = false,
 }: SeoSidePanelContainerProps) {
   const { currentArticleId } = useArticleEditor();
   const { data: serpBenchmark } = useQuery({
@@ -61,6 +65,8 @@ export function SeoSidePanelContainer({
       hasKeyword={!!selectedKeywordId}
       articleId={currentArticleId}
       onContentImproved={onContentImproved}
+      isStreaming={isStreaming}
+      quickMode={quickMode}
     />
   );
 }

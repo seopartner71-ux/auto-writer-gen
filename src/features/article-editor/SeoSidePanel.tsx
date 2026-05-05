@@ -23,6 +23,8 @@ interface Props {
   onPickKeyword?: () => void;
   articleId?: string | null;
   onContentImproved?: (newContent: string) => void;
+  isStreaming?: boolean;
+  quickMode?: boolean;
 }
 
 const STORAGE_KEY = "seo_side_panel_collapsed";
@@ -31,13 +33,28 @@ function stripHtml(s: string) {
   return s.replace(/<[^>]*>/g, " ");
 }
 
-function useDebounced<T>(value: T, delay = 800): T {
+function useDebouncedWithStatus<T>(value: T, delay = 800, paused = false): { value: T; pending: boolean } {
   const [v, setV] = useState(value);
+  const [pending, setPending] = useState(false);
   useEffect(() => {
-    const id = setTimeout(() => setV(value), delay);
+    if (paused) { setPending(false); return; }
+    setPending(true);
+    const id = setTimeout(() => { setV(value); setPending(false); }, delay);
     return () => clearTimeout(id);
-  }, [value, delay]);
-  return v;
+  }, [value, delay, paused]);
+  return { value: v, pending };
+}
+
+function LiveDot({ pending }: { pending: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider text-muted-foreground">
+      <span className={cn(
+        "h-1.5 w-1.5 rounded-full",
+        pending ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
+      )} />
+      Live
+    </span>
+  );
 }
 
 function scoreColor(s: number) {
@@ -53,7 +70,7 @@ function scoreLabel(s: number) {
   return "Плохо";
 }
 
-export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword, articleId, onContentImproved }: Props) {
+export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword, articleId, onContentImproved, isStreaming = false, quickMode = false }: Props) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
   });
@@ -66,7 +83,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
     try { localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0"); } catch {}
   }, [collapsed]);
 
-  const debounced = useDebounced(content, 800);
+  const { value: debounced, pending } = useDebouncedWithStatus(content, 800, isStreaming);
 
   const metrics = useMemo(() => {
     const text = stripHtml(debounced || "").trim();
@@ -112,6 +129,39 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
   const lScore = medianLists > 0 ? Math.min(100, (metrics.listCount / medianLists) * 100) : 100;
   const structureScore = wScore * 0.4 + hScore * 0.3 + lScore * 0.3;
   const totalScore = Math.round(densityScore * 0.3 + coverageScore * 0.4 + structureScore * 0.3);
+
+  // Streaming placeholder
+  if (isStreaming) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="pt-3 pb-3 text-center text-xs text-muted-foreground space-y-2">
+          <div className="text-2xl">⏳</div>
+          <div className="font-semibold text-sm text-foreground">Генерация...</div>
+          <div>SEO Score обновится после завершения</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Quick mode — compact score-only view
+  if (quickMode) {
+    if (!hasKeyword) return null;
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="pt-3 pb-3 space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-sm">SEO Score</span>
+            <LiveDot pending={pending} />
+          </div>
+          <div className="flex items-end justify-between">
+            <div className={cn("text-4xl font-bold font-mono transition-all duration-300", scoreColor(totalScore))}>{totalScore}</div>
+            <div className={cn("text-sm font-semibold", scoreColor(totalScore))}>{scoreLabel(totalScore)}</div>
+          </div>
+          <Progress value={totalScore} className="h-2" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (collapsed) {
     return (
@@ -216,7 +266,10 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
       <CardContent className="pt-3 pb-3 space-y-3 text-xs">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-sm">SEO Score</span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">SEO Score</span>
+            <LiveDot pending={pending} />
+          </div>
           <button onClick={() => setCollapsed(true)} className="text-muted-foreground hover:text-foreground" title="Свернуть">
             <ChevronRight className="h-3 w-3" />
           </button>
@@ -224,12 +277,13 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
 
         {/* Section 1 — Total */}
         <div className="flex items-end justify-between border-b border-border pb-2">
-          <div className={cn("text-3xl font-bold font-mono", scoreColor(totalScore))}>{totalScore}</div>
+          <div className={cn("text-3xl font-bold font-mono transition-all duration-300", scoreColor(totalScore))}>{totalScore}</div>
           <div className="text-right">
             <div className={cn("text-xs font-semibold", scoreColor(totalScore))}>{scoreLabel(totalScore)}</div>
             <div className="text-[10px] text-muted-foreground">из 100</div>
           </div>
         </div>
+        <Progress value={totalScore} className="h-1.5" />
 
         {/* Section 2 — Density */}
         <div className="space-y-1">
@@ -349,7 +403,9 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
               ) : (
                 <>
                   <Sparkles className="h-3 w-3" />
-                  Улучшить SEO до 80+
+                  {totalScore < 40 ? "Серьёзно улучшить до 80+ 🔧"
+                    : totalScore < 60 ? "Улучшить до 80+ ⚡"
+                    : "Улучшить до 80+ 🚀"}
                 </>
               )}
             </Button>
