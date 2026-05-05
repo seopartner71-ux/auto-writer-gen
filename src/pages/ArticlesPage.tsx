@@ -51,6 +51,7 @@ import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanel } from "@/features/article-editor/SeoSidePanel";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
+import { GenerationForm } from "@/features/article-editor/GenerationForm";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
