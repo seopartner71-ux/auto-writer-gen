@@ -83,8 +83,10 @@ serve(async (req) => {
 
     // Get user profile for tier and credits
     const { data: profile } = await supabase.from("profiles").select("plan, credits_amount").eq("id", user.id).single();
-    const userPlan = profile?.plan || "basic";
+    const rawPlan = profile?.plan || "basic";
+    const userPlan = String(rawPlan).toLowerCase().trim().replace(/[^a-z]/g, "");
     const credits = profile?.credits_amount ?? 0;
+    console.log("[generate-article][plan-check] user:", user.id, "plan:", rawPlan, "key:", userPlan, "credits:", credits);
 
     // isAdmin already checked above
 
