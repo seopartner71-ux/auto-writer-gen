@@ -281,10 +281,37 @@ Deno.serve(async (req) => {
         }
       }
       const freqMap = await getBukvarixFrequency(allKws);
+      const lookup = (kw: string): number => {
+        const norm = String(kw || "").toLowerCase().trim().replace(/\s+/g, " ");
+        if (!norm) return 0;
+        // 1) exact
+        let f = freqMap.get(norm) || 0;
+        if (f > 0) return f;
+        // 2) partial includes (longer match wins)
+        let bestLen = 0;
+        for (const [key, val] of freqMap) {
+          if (key === norm) continue;
+          if (key.includes(norm) || norm.includes(key)) {
+            if (key.length > bestLen) { f = val; bestLen = key.length; }
+          }
+        }
+        if (f > 0) return f;
+        // 3) short fallback: first 2-3 words
+        const words = norm.split(" ");
+        if (words.length > 2) {
+          const k3 = words.slice(0, 3).join(" ");
+          f = freqMap.get(k3) || 0;
+          if (f > 0) return f;
+          const k2 = words.slice(0, 2).join(" ");
+          f = freqMap.get(k2) || 0;
+          if (f > 0) return f;
+        }
+        return 0;
+      };
       for (const c of clusters) {
         let sum = 0;
         for (const k of (c.keywords || [])) {
-          const f = freqMap.get(String(k.keyword || "").toLowerCase().trim()) || 0;
+          const f = lookup(String(k.keyword || ""));
           if (f > 0) {
             const v = freqToVolume(f);
             k.volume = v.label;
