@@ -102,7 +102,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "keywords.title": { ru: "Smart Research", en: "Smart Research" },
   "keywords.subtitle": { ru: "Анализ выдачи Google и интеллектуальная обработка конкурентов", en: "Google SERP analysis and intelligent competitor processing" },
   "keywords.keyword": { ru: "Ключевое слово", en: "Keyword" },
-  "keywords.keywordPlaceholder": { ru: "Например: best project management tools", en: "E.g.: best project management tools" },
+  "keywords.keywordPlaceholder": { ru: "например: купить газовую колонку", en: "e.g.: best project management tools" },
   "keywords.geo": { ru: "ГЕО", en: "GEO" },
   "keywords.language": { ru: "Язык", en: "Language" },
   "keywords.analyzing": { ru: "Анализ...", en: "Analyzing..." },

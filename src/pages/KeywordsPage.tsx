@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -107,6 +108,7 @@ export interface ResearchData {
 
 export default function KeywordsPage() {
   const { t } = useI18n();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [keyword, setKeyword] = useState("");
   const [geo, setGeo] = useState("ru");
   const [geoMode, setGeoMode] = useState<"country" | "city">("country");
@@ -117,6 +119,8 @@ export default function KeywordsPage() {
   const currentCities = useMemo(() => {
     return GEO_OPTIONS.find((o) => o.value === geo)?.cities || [];
   }, [geo]);
+
+  const autoRanRef = useRef(false);
 
   const research = useMutation({
     mutationFn: async () => {
@@ -136,6 +140,22 @@ export default function KeywordsPage() {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  useEffect(() => {
+    const seed = searchParams.get("seed");
+    if (seed && !autoRanRef.current) {
+      autoRanRef.current = true;
+      setKeyword(seed);
+      // Clear param so refresh doesn't retrigger
+      const next = new URLSearchParams(searchParams);
+      next.delete("seed");
+      setSearchParams(next, { replace: true });
+      setTimeout(() => {
+        research.mutate();
+      }, 400);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-6">
