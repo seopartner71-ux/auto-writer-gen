@@ -1027,14 +1027,26 @@ serve(async (req) => {
     }
 
     // Get model assignment
-    const writerTask = userPlan === "pro" ? "writer_pro" : "writer_basic";
+    // Humanize / Auto-fix loop sends optimize_instructions starting with the marker
+    // "ЗАДАЧА: Исправь ТОЛЬКО указанную проблему" + the humanize text. Route those
+    // through the dedicated humanize_polish slot so admins can pick a stronger
+    // model (e.g. Claude Opus) for the final polish without slowing main generation.
+    const isHumanizePolish =
+      typeof optimize_instructions === "string" &&
+      /UNIVERSAL STEALTH BYPASS|0% AI TARGET|0% AI detection|elite human editor/i.test(optimize_instructions);
+    const writerTask = isHumanizePolish
+      ? "humanize_polish"
+      : (userPlan === "pro" ? "writer_pro" : "writer_basic");
     const { data: assignment } = await supabaseAdmin
       .from("task_model_assignments")
       .select("model_key")
       .eq("task_key", writerTask)
-      .single();
-    const fallbackModel = userPlan === "pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash-lite";
+      .maybeSingle();
+    const fallbackModel = isHumanizePolish
+      ? "anthropic/claude-sonnet-4"
+      : (userPlan === "pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash-lite");
     let model = assignment?.model_key || fallbackModel;
+    if (isHumanizePolish) console.log("[generate-article] humanize_polish route ->", model);
 
     // Site Factory project override: respect project.ai_model preference.
     if (project_id) {
