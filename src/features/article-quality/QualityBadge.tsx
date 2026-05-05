@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -23,6 +24,9 @@ interface Props {
     burstiness_status?: string | null;
     keyword_density?: number | null;
     keyword_density_status?: string | null;
+    turgenev_score?: number | null;
+    turgenev_status?: string | null;
+    turgenev_details?: { repeats?: number; style?: number; spam?: number; water?: number; readability?: number } | null;
   };
   onOpenVersions?: () => void;
 }
@@ -80,6 +84,9 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             burstiness_status: row.burstiness_status,
             keyword_density: row.keyword_density,
             keyword_density_status: row.keyword_density_status,
+            turgenev_score: row.turgenev_score,
+            turgenev_status: row.turgenev_status,
+            turgenev_details: row.turgenev_details,
           }));
           if (row.quality_status && row.quality_status !== "checking") {
             cleanupChannel();
@@ -98,7 +105,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
 
   async function fetchOnce() {
     const { data: row } = await supabase.from("articles")
-      .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status")
+      .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status,turgenev_score,turgenev_status,turgenev_details")
       .eq("id", articleId).maybeSingle();
     if (stoppedRef.current) return;
     if (row) setData((d: any) => ({ ...d, ...row }));
@@ -208,6 +215,35 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
                 {data.keyword_density != null ? `${data.keyword_density}%${data.keyword_density_status === "overuse" ? "↑" : data.keyword_density_status === "underuse" ? "↓" : ""}` : "..."}
               </span>
             </div>
+            {data.turgenev_score != null && data.turgenev_score > 0 && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center justify-between cursor-help">
+                      <span>{dotFor(data.turgenev_status)} Тургенев</span>
+                      <span className="font-mono text-muted-foreground">
+                        {data.turgenev_score} бал.
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-[260px] text-[11px] leading-snug">
+                    <div className="font-medium mb-1">Риск фильтра Яндекса Баден-Баден</div>
+                    <div className="text-muted-foreground mb-2">
+                      До 5 баллов - безопасно. 6-10 - есть риск. 11+ - высокий риск фильтра.
+                    </div>
+                    {data.turgenev_details && (
+                      <div className="space-y-0.5">
+                        <div>Повторы: {data.turgenev_details.repeats ?? 0} бал.</div>
+                        <div>Стилистика: {data.turgenev_details.style ?? 0} бал.</div>
+                        <div>Переспам: {data.turgenev_details.spam ?? 0} бал.</div>
+                        <div>Вода: {data.turgenev_details.water ?? 0} бал.</div>
+                        <div>Читаемость: {data.turgenev_details.readability ?? 0} бал.</div>
+                      </div>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         )}
         <div className="flex flex-col gap-1.5 pt-1">
