@@ -978,7 +978,7 @@ export default function ArticlesPage() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <ArticlesPageHeader
+      <HeaderModeSwitcher
         mode={mode}
         onModeChange={setMode}
         hasBulkMode={limits.hasBulkMode}
@@ -1528,15 +1528,12 @@ export default function ArticlesPage() {
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
                 {currentArticleId && content && !isStreaming && (
                   <div className="flex justify-end items-center gap-2 mb-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setVersionHistoryOpen(true)}
-                    >
-                      <History className="w-3 h-3" />
-                      История
-                    </Button>
+                    <VersionsBlock
+                      articleId={currentArticleId}
+                      currentContent={content}
+                      currentTitle={title}
+                      onRestoreVersion={(c) => setContent(c)}
+                    />
                     <Button
                       variant="outline"
                       size="sm"
@@ -1575,7 +1572,7 @@ export default function ArticlesPage() {
                     {currentArticleId && (
                       <QualityBadge
                         articleId={currentArticleId}
-                        onOpenVersions={() => setVersionHistoryOpen(true)}
+                        onOpenVersions={() => window.dispatchEvent(new CustomEvent("open-article-versions", { detail: { articleId: currentArticleId } }))}
                       />
                     )}
                   </div>
