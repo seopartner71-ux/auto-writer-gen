@@ -88,6 +88,7 @@ async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, num
     body.append("api_key", "free");
     body.append("num", "250");
     body.append("format", "json");
+    body.append("json_type", "array");
 
     console.log("[bukvarix] sending keywords:", batch.slice(0, 5));
     const res = await fetchWithTimeout("https://api.bukvarix.com/v1/mkeywords/", {
