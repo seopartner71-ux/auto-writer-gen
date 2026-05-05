@@ -1,20 +1,21 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useArticleEditor } from "@/features/article-editor/ArticleEditorContext";
+import { parseSseStream } from "@/features/article-editor/parseSseStream";
+import type { KeywordRef } from "@/features/article-editor/types";
 
 export interface FixIssueDeps {
   selectedKeywordId: string;
   selectedAuthorId: string;
-  outline: any;
+  outline: unknown;
   lsiKeywords: string[];
-  selectedKeyword: any;
+  selectedKeyword: KeywordRef | null;
   content: string;
   setContent: (c: string) => void;
-  currentArticleId: string | null;
   title: string;
   lang: string;
   t: (k: string) => string;
-  setIsStreaming: (v: boolean) => void;
   setStreamPhase: (p: "thinking" | "writing" | null) => void;
   setFixingIssue: (k: string | null) => void;
   abortRef: React.MutableRefObject<AbortController | null>;
@@ -27,10 +28,16 @@ export interface FixIssueDeps {
  * Behaviour identical to the inline version in ArticlesPage.
  */
 export function useFixIssue(deps: FixIssueDeps) {
+  const { currentArticleId, setFactCheckStatus } = useArticleEditor();
+  // We also need setIsStreaming — but provider does not expose it as a setter.
+  // Streaming is reflected in context via parent state; to keep parity we mirror
+  // it through a setter passed via deps. To avoid prop drilling for that one
+  // value we rely on the parent's setIsStreaming through abort/stream callbacks
+  // expressed in setStreamPhase. Streaming flag toggling stays on parent.
   // Hold latest deps in a ref so the returned callback identity is stable
   // and matches the original useCallback semantics.
-  const depsRef = useRef(deps);
-  depsRef.current = deps;
+  const depsRef = useRef({ ...deps, currentArticleId, setFactCheckStatus });
+  depsRef.current = { ...deps, currentArticleId, setFactCheckStatus };
 
   const runFixIssue = useCallback(async (issueKey: string, instruction: string) => {
     const d = depsRef.current;
@@ -39,7 +46,6 @@ export function useFixIssue(deps: FixIssueDeps) {
       return;
     }
     d.setFixingIssue(issueKey);
-    d.setIsStreaming(true);
     d.setStreamPhase("thinking");
     const prevContent = d.content;
     d.snapshotVersion({
