@@ -81,8 +81,17 @@ Deno.serve(async (req) => {
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
     const improveCount = Number((art as any).seo_improve_count || 0);
-    if (improveCount >= 3) {
-      return json({ error: "Достигнут лимит улучшений (3). Отредактируйте текст вручную.", limit_reached: true }, 429);
+
+    // Plan-based limits
+    const PLAN_LIMITS: Record<string, number> = { nano: 5, pro: 15, factory: 999, default: 5 };
+    const { data: profile } = await admin.from("profiles").select("plan").eq("id", user.id).maybeSingle();
+    const planRaw = String((profile as any)?.plan || "").toLowerCase();
+    const limit = PLAN_LIMITS[planRaw] ?? PLAN_LIMITS.default;
+    if (improveCount >= limit) {
+      return json({
+        error: `Лимит улучшений для вашего плана исчерпан (${limit}). Обновите тариф для продолжения.`,
+        limit_reached: true,
+      }, 429);
     }
 
     const original: string = art.content || body.content || "";
