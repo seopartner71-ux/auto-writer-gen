@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildStealthSystemAddon, applyStealthPostProcess } from "../_shared/stealth.ts";
+import { buildStealthSystemAddon, applyStealthPostProcess, buildRareLexiconAddon } from "../_shared/stealth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -262,7 +262,10 @@ Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
       body: JSON.stringify({
         model: writerModel,
         messages: [
-          { role: "system", content: buildStealthSystemAddon(isRussian ? "ru" : "en") },
+          { role: "system", content: [
+              buildStealthSystemAddon(isRussian ? "ru" : "en"),
+              buildRareLexiconAddon(lsiKeywords, isRussian ? "ru" : "en"),
+            ].filter(Boolean).join("\n\n") },
           { role: "user", content: articlePrompt },
         ],
         temperature: 0.85,
