@@ -131,7 +131,15 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
       const { data: res, error } = await supabase.functions.invoke("improve-article", {
         body: { article_id: articleId },
       });
-      if (error) throw error;
+      if (error) {
+        const ctx: any = (error as any).context;
+        let msg = error.message;
+        try {
+          const body = ctx?.body ? (typeof ctx.body === "string" ? JSON.parse(ctx.body) : ctx.body) : null;
+          if (body?.error) msg = body.error;
+        } catch { /* ignore */ }
+        throw new Error(msg);
+      }
       if ((res as any)?.cooldown) {
         toast.warning((res as any).message || "Подождите перед повторной доработкой");
         return;
@@ -155,7 +163,15 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
       const { error } = await supabase.functions.invoke("quality-check", {
         body: { article_id: articleId, content: art.content, mode: "auto" },
       });
-      if (error) throw error;
+      if (error) {
+        const ctx: any = (error as any).context;
+        let msg = error.message;
+        try {
+          const body = ctx?.body ? (typeof ctx.body === "string" ? JSON.parse(ctx.body) : ctx.body) : null;
+          if (body?.error) msg = body.error;
+        } catch { /* ignore */ }
+        throw new Error(msg);
+      }
       setData((d: any) => ({ ...d, quality_status: "checking" }));
       stoppedRef.current = false;
       startRealtime();
