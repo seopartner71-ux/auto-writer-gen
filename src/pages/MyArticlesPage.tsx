@@ -24,7 +24,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export default function MyArticlesPage() {
+interface MyArticlesPageProps {
+  onArticleSelect?: () => void;
+}
+
+export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps = {}) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -146,7 +150,10 @@ export default function MyArticlesPage() {
                   <TableRow
                     key={article.id}
                     className="border-border cursor-pointer hover:bg-muted/40 transition-colors"
-                    onClick={() => navigate(`/articles?edit=${article.id}`)}
+                    onClick={() => {
+                      navigate(`/articles?edit=${article.id}`);
+                      onArticleSelect?.();
+                    }}
                   >
                     <TableCell className="font-mono text-muted-foreground">
                       {index + 1}
