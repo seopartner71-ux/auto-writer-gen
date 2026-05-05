@@ -28,16 +28,11 @@ export interface FixIssueDeps {
  * Behaviour identical to the inline version in ArticlesPage.
  */
 export function useFixIssue(deps: FixIssueDeps) {
-  const { currentArticleId, setFactCheckStatus } = useArticleEditor();
-  // We also need setIsStreaming — but provider does not expose it as a setter.
-  // Streaming is reflected in context via parent state; to keep parity we mirror
-  // it through a setter passed via deps. To avoid prop drilling for that one
-  // value we rely on the parent's setIsStreaming through abort/stream callbacks
-  // expressed in setStreamPhase. Streaming flag toggling stays on parent.
-  // Hold latest deps in a ref so the returned callback identity is stable
-  // and matches the original useCallback semantics.
-  const depsRef = useRef({ ...deps, currentArticleId, setFactCheckStatus });
-  depsRef.current = { ...deps, currentArticleId, setFactCheckStatus };
+  const { currentArticleId, setIsStreaming, setFactCheckStatus } = useArticleEditor();
+  // Hold latest deps + context values in a ref so the returned callback identity
+  // is stable (matches original useCallback semantics).
+  const depsRef = useRef({ ...deps, currentArticleId, setIsStreaming, setFactCheckStatus });
+  depsRef.current = { ...deps, currentArticleId, setIsStreaming, setFactCheckStatus };
 
   const runFixIssue = useCallback(async (issueKey: string, instruction: string) => {
     const d = depsRef.current;
@@ -46,6 +41,7 @@ export function useFixIssue(deps: FixIssueDeps) {
       return;
     }
     d.setFixingIssue(issueKey);
+    d.setIsStreaming(true);
     d.setStreamPhase("thinking");
     const prevContent = d.content;
     d.snapshotVersion({
@@ -97,31 +93,12 @@ export function useFixIssue(deps: FixIssueDeps) {
         throw new Error(err.error || `HTTP ${resp.status}`);
       }
       if (!resp.body) throw new Error("No stream body");
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let fullContent = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let ni: number;
-        while ((ni = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, ni);
-          buffer = buffer.slice(ni + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) { if (!fullContent) d.setStreamPhase("writing"); fullContent += delta; d.setContent(fullContent); }
-          } catch { buffer = line + "\n" + buffer; break; }
-        }
-      }
+      await parseSseStream(resp.body, (delta) => {
+        if (!fullContent) d.setStreamPhase("writing");
+        fullContent += delta;
+        d.setContent(fullContent);
+      });
 
       if (isHumanize) {
         toast.success(d.lang === "ru"
