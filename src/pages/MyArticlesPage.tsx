@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { QualityBadgeIcon } from "@/components/article/QualityCheckPanel";
+import { AutoQualityBadge } from "@/components/article/AutoQualityBadge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -34,7 +35,7 @@ export default function MyArticlesPage() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("articles")
-        .select("id, title, content, created_at, status, quality_badge")
+        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -145,7 +146,21 @@ export default function MyArticlesPage() {
                     </TableCell>
                     <TableCell className="text-center">
                       <TooltipProvider>
-                        <QualityBadgeIcon badge={(article as any).quality_badge} />
+                        {(article as any).quality_status ? (
+                          <AutoQualityBadge
+                            articleId={article.id}
+                            initial={{
+                              quality_status: (article as any).quality_status,
+                              ai_score: (article as any).ai_score,
+                              burstiness_score: (article as any).burstiness_score,
+                              burstiness_status: (article as any).burstiness_status,
+                              keyword_density: (article as any).keyword_density,
+                              keyword_density_status: (article as any).keyword_density_status,
+                            }}
+                          />
+                        ) : (
+                          <QualityBadgeIcon badge={(article as any).quality_badge} />
+                        )}
                       </TooltipProvider>
                     </TableCell>
                     <TableCell className="font-medium max-w-[400px]">

@@ -299,7 +299,25 @@ Format: Markdown with proper H2/H3 headings.${authorPrompt}`;
       content: articleContent,
       meta_description: metaDesc,
       status: "published",
+      quality_status: "checking",
     }).select("id").single();
+
+    // Auto quality check (background, no credit)
+    if (articleRecord?.id && articleContent && articleContent.length > 200) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        // fire-and-forget
+        void fetch(`${supabaseUrl}/functions/v1/quality-check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ article_id: articleRecord.id, content: articleContent, mode: "auto" }),
+        }).catch(() => {});
+      } catch (_) { /* ignore */ }
+    }
 
     // Optional: auto-publish to Blogger with natural delay
     if (articleRecord?.id && (job as any).auto_publish_blogger) {

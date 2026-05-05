@@ -828,6 +828,14 @@ export default function ArticlesPage() {
       } else {
         toast.success(t("articles.articleSaved"));
       }
+      // Auto quality check (background, no credits)
+      if (content && content.length > 200) {
+        setTimeout(() => {
+          supabase.functions.invoke("quality-check", {
+            body: { article_id: result.id, content, mode: "auto" },
+          }).catch(() => { /* silent */ });
+        }, 500);
+      }
     },
     onError: (e) => toast.error(e.message),
   });
