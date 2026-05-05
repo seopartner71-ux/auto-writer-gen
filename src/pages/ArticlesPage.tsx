@@ -1332,6 +1332,10 @@ export default function ArticlesPage() {
                       {selectedAuthorId && selectedAuthorId !== "none" && (() => {
                         const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
                         if (!author) return null;
+                        const rawDesc: string = (author.description || "").trim();
+                        const isPromptLike = rawDesc.length > 60 || /\n/.test(rawDesc) || /\b(you|вы|ты)\b/i.test(rawDesc.slice(0, 30));
+                        const safeDesc = !rawDesc || isPromptLike ? "" : rawDesc;
+                        const subtitle = safeDesc || author.niche || author.voice_tone || (author.type === "preset" ? "Preset author" : "Custom author");
                         return (
                           <div className="flex items-center gap-3 p-4 mb-6 rounded-lg bg-muted/50 border border-border">
                             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary">
@@ -1339,15 +1343,8 @@ export default function ArticlesPage() {
                             </div>
                             <div>
                               <p className="text-sm font-semibold">{author.name}</p>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                {author.description && <span>{author.description}</span>}
-                                {!author.description && author.niche && <span>{author.niche}</span>}
-                                {!author.description && author.voice_tone && (
-                                  <>
-                                    <span>•</span>
-                                    <span>{author.voice_tone}</span>
-                                  </>
-                                )}
+                              <div className="text-xs text-muted-foreground line-clamp-1">
+                                {subtitle.split(/\s+/).slice(0, 6).join(" ")}
                               </div>
                             </div>
                           </div>
