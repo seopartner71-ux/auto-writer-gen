@@ -2731,6 +2731,39 @@ export type Database = {
           },
         ]
       }
+      topical_maps: {
+        Row: {
+          clusters: Json
+          created_at: string
+          geo: string
+          id: string
+          language: string
+          topic: string
+          total_keywords: number
+          user_id: string
+        }
+        Insert: {
+          clusters?: Json
+          created_at?: string
+          geo?: string
+          id?: string
+          language?: string
+          topic: string
+          total_keywords?: number
+          user_id: string
+        }
+        Update: {
+          clusters?: Json
+          created_at?: string
+          geo?: string
+          id?: string
+          language?: string
+          topic?: string
+          total_keywords?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       usage_logs: {
         Row: {
           action: string | null
