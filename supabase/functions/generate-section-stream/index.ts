@@ -89,6 +89,21 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+
+    // Resolve model via admin routing (task_key='section_writer'); default to Gemini Flash.
+    const { data: routing } = await admin
+      .from("task_model_assignments")
+      .select("model_key")
+      .eq("task_key", "section_writer")
+      .maybeSingle();
+    const sectionModel = routing?.model_key || "google/gemini-2.5-flash";
+    // Anthropic + OpenAI go through OpenRouter; Google stays on Lovable Gateway by default.
+    const useOpenRouter = !!OPENROUTER_API_KEY && /^(anthropic|openai)\//.test(sectionModel);
+    const aiUrl = useOpenRouter
+      ? "https://openrouter.ai/api/v1/chat/completions"
+      : "https://ai.gateway.lovable.dev/v1/chat/completions";
+    const aiKey = useOpenRouter ? OPENROUTER_API_KEY! : LOVABLE_API_KEY;
 
     const langName: Record<string, string> = {
       ru: "русском", en: "English", es: "Spanish", de: "German",
@@ -140,14 +155,14 @@ ${kindHint}
 ${extra_prompt ? `Дополнительные инструкции пользователя:\n${extra_prompt}\n` : ""}
 Объём раздела: 250-450 слов. Начни вывод СРАЗУ с заголовка "## ${h2_title}" (если это не intro/conclusion — тогда без H2).`;
 
-    const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const upstream = await fetch(aiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${aiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: sectionModel,
         stream: true,
         messages: [
           { role: "system", content: systemPrompt },
