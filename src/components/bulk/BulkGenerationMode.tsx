@@ -174,6 +174,17 @@ export function BulkGenerationMode() {
       if (keywords.length === 0) throw new Error(t("bulk.uploadError"));
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("Not authenticated");
+      // Plan-based bulk size limit. DB plans: free=NANO (no bulk), basic=PRO (≤10), pro=FACTORY (∞)
+      const { data: prof } = await supabase.from("profiles").select("plan").eq("id", session.user.id).maybeSingle();
+      const plan = String((prof as any)?.plan || "").toLowerCase();
+      const BULK_MAX: Record<string, number> = { free: 0, basic: 10, pro: 999 };
+      const maxItems = BULK_MAX[plan] ?? 0;
+      if (maxItems === 0) {
+        throw new Error("Массовая генерация доступна на тарифах PRO и FACTORY");
+      }
+      if (keywords.length > maxItems) {
+        throw new Error(`Ваш тариф позволяет до ${maxItems} статей за раз. Обновите до FACTORY для безлимита.`);
+      }
       const { data: job, error: jobErr } = await supabase
         .from("bulk_jobs")
         .insert({ user_id: session.user.id, author_profile_id: selectedAuthorId || null, total_items: keywords.length, status: "pending" })
