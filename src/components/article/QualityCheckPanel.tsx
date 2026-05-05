@@ -114,7 +114,15 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
   const [stepStates, setStepStates] = useState<Record<StepKey, StepState>>({
     benchmark: "pending", humanize: "pending", score: "pending", uniqueness: "pending",
   });
-  const totalCost = (useBenchmark && onBenchmarkOptimize && benchmarkReady ? 1 : 0) + 1 + 0 + 1;
+  // User can enable/disable each paid step
+  const [stepEnabled, setStepEnabled] = useState<Record<StepKey, boolean>>({
+    benchmark: false, humanize: true, score: true, uniqueness: true,
+  });
+  const totalCost =
+    (stepEnabled.benchmark && useBenchmark && onBenchmarkOptimize && benchmarkReady ? 1 : 0) +
+    (stepEnabled.humanize ? 1 : 0) +
+    0 +
+    (stepEnabled.uniqueness ? 1 : 0);
 
   // Load existing quality data when article changes
   useEffect(() => {
@@ -306,20 +314,32 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       humanize: "pending", score: "pending", uniqueness: "pending",
     });
     try {
-      if (useBenchmark && onBenchmarkOptimize && benchmarkReady) {
+      if (stepEnabled.benchmark && useBenchmark && onBenchmarkOptimize && benchmarkReady) {
         setStepStates(s => ({ ...s, benchmark: "running" }));
         try { await onBenchmarkOptimize(); setStepStates(s => ({ ...s, benchmark: "done" })); }
         catch (e) { setStepStates(s => ({ ...s, benchmark: "error" })); throw e; }
       }
-      setStepStates(s => ({ ...s, humanize: "running" }));
-      try { await onHumanize(); setStepStates(s => ({ ...s, humanize: "done" })); }
-      catch (e) { setStepStates(s => ({ ...s, humanize: "error" })); throw e; }
-      setStepStates(s => ({ ...s, score: "running" }));
-      try { await runChecks(["score", "ai"]); setStepStates(s => ({ ...s, score: "done" })); }
-      catch (e) { setStepStates(s => ({ ...s, score: "error" })); throw e; }
-      setStepStates(s => ({ ...s, uniqueness: "running" }));
-      try { await runChecks(["uniqueness"]); setStepStates(s => ({ ...s, uniqueness: "done" })); }
-      catch (e) { setStepStates(s => ({ ...s, uniqueness: "error" })); throw e; }
+      if (stepEnabled.humanize) {
+        setStepStates(s => ({ ...s, humanize: "running" }));
+        try { await onHumanize(); setStepStates(s => ({ ...s, humanize: "done" })); }
+        catch (e) { setStepStates(s => ({ ...s, humanize: "error" })); throw e; }
+      } else {
+        setStepStates(s => ({ ...s, humanize: "done" }));
+      }
+      if (stepEnabled.score) {
+        setStepStates(s => ({ ...s, score: "running" }));
+        try { await runChecks(["score", "ai"]); setStepStates(s => ({ ...s, score: "done" })); }
+        catch (e) { setStepStates(s => ({ ...s, score: "error" })); throw e; }
+      } else {
+        setStepStates(s => ({ ...s, score: "done" }));
+      }
+      if (stepEnabled.uniqueness) {
+        setStepStates(s => ({ ...s, uniqueness: "running" }));
+        try { await runChecks(["uniqueness"]); setStepStates(s => ({ ...s, uniqueness: "done" })); }
+        catch (e) { setStepStates(s => ({ ...s, uniqueness: "error" })); throw e; }
+      } else {
+        setStepStates(s => ({ ...s, uniqueness: "done" }));
+      }
       toast.success("Готово - текст доведен до ТОПа. Проверьте вердикт выше.");
       setTimeout(() => setAutoDialogOpen(false), 800);
     } catch (e: any) {
