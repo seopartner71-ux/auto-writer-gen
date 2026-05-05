@@ -55,25 +55,32 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
       // have per-character coordinates in a textarea, so use the textarea
       // viewport position with an offset.
       const taRect = ta.getBoundingClientRect();
-      const rect = new DOMRect(
-        taRect.left + Math.min(taRect.width - 320, 40),
-        taRect.top + 12,
-        300,
-        40,
-      );
+      // Clamp toolbar inside viewport so it's always visible while editing
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+      const desiredTop = Math.max(72, Math.min(taRect.top + 12, vh - 60));
+      const desiredLeft = Math.max(12, Math.min(taRect.left + 24, vw - 340));
+      const rect = new DOMRect(desiredLeft, desiredTop, 320, 40);
       setSel({ start, end, text, rect });
     };
     const onSelChange = () => {
       if (document.activeElement === ta) update();
     };
+    const onScroll = () => { if (document.activeElement === ta) update(); };
     ta.addEventListener("mouseup", update);
     ta.addEventListener("keyup", update);
-    ta.addEventListener("blur", () => setTimeout(() => setSel(null), 150));
+    ta.addEventListener("select", update);
+    ta.addEventListener("blur", () => setTimeout(() => setSel(null), 200));
     document.addEventListener("selectionchange", onSelChange);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
     return () => {
       ta.removeEventListener("mouseup", update);
       ta.removeEventListener("keyup", update);
+      ta.removeEventListener("select", update);
       document.removeEventListener("selectionchange", onSelChange);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
     };
   }, [textareaRef]);
 
