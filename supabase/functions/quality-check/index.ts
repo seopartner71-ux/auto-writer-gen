@@ -575,14 +575,18 @@ Deno.serve(async (req) => {
               uniqueness_pending: false,
               uniqueness_details: ok ? {
                 words: (uniqRes as any).words,
-                ai_percent: (uniqRes as any).raw?.ai_percent,
-                ai_phrases: (uniqRes as any).ai_phrases,
-                source: "text.ru/neuro/detector",
+                spam_percent: (uniqRes as any).raw?.spam_percent,
+                water_percent: (uniqRes as any).raw?.water_percent,
+                matches: (uniqRes as any).matches,
+                source: "text.ru/antiplagiat",
               } : undefined,
               uniqueness_error: !ok ? ((uniqRes as any)?.error || "Сервис Text.ru не ответил вовремя") : undefined,
             },
           };
-          if (uniqVal !== null) updPatch.uniqueness_percent = uniqVal;
+          if (uniqVal !== null) {
+            updPatch.uniqueness_percent = uniqVal;
+            updPatch.uniqueness_checked_at = new Date().toISOString();
+          }
           await admin.from("articles").update(updPatch).eq("id", article_id);
 
           // Refund credit if failed
