@@ -39,7 +39,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // Prefetch route chunks on hover
 const routePrefetchMap: Record<string, () => void> = {
@@ -119,6 +119,17 @@ export function AppSidebar() {
   const unseenChangelog = useUnseenChangelog();
   const APP_VERSION = "v2.4";
 
+  const [aiwriterMode, setAiwriterMode] = useState<"quick" | "expert" | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem("aiwriter_mode");
+    return v === "quick" ? "quick" : v === "expert" ? "expert" : null;
+  });
+  useEffect(() => {
+    const handler = (e: any) => setAiwriterMode(e?.detail === "quick" ? "quick" : "expert");
+    window.addEventListener("aiwriter-mode-changed", handler);
+    return () => window.removeEventListener("aiwriter-mode-changed", handler);
+  }, []);
+
   const adminItems = [
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
   ];
@@ -151,7 +162,16 @@ export function AppSidebar() {
                       onMouseEnter={() => handlePrefetch(item.url)}
                     >
                       <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && (
+                        <span className="flex-1 flex items-center justify-between gap-2">
+                          <span>{item.title}</span>
+                          {item.url === "/articles" && aiwriterMode && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium uppercase">
+                              {aiwriterMode === "quick" ? "Старт" : "Эксперт"}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
