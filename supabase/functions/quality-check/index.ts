@@ -293,20 +293,37 @@ function densityStatus(density: number, median: number): "ok" | "overuse" | "und
   if (density < median - 0.5) return "underuse";
   return "ok";
 }
-async function runZeroGpt(plain: string, key: string): Promise<number | null> {
+async function runClaudeAiScore(plain: string, key: string): Promise<number | null> {
   try {
-    const res = await fetchWithTimeout("https://api.zerogpt.com/api/detect/detectText", {
+    const sample = plain.slice(0, 2000);
+    const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "ApiKey": key },
-      body: JSON.stringify({ input_text: plain.slice(0, 8000) }),
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "anthropic/claude-sonnet-4",
+        max_tokens: 10,
+        temperature: 0,
+        messages: [
+          { role: "system", content: "Ты - детектор ИИ-текста. Отвечай только числом." },
+          { role: "user", content: `Оцени текст по шкале 0-100.\n100 = написан живым человеком, естественный стиль.\n0 = явный ИИ, шаблонные фразы, предсказуемый ритм.\nВерни ТОЛЬКО целое число, ничего больше.\n\nТекст:\n${sample}` },
+        ],
+      }),
     }, 30000);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("[quality-check] claude ai-score error", res.status);
+      return null;
+    }
     const data = await res.json();
-    const fake = Number(data?.data?.fakePercentage ?? data?.fakePercentage);
-    if (Number.isNaN(fake)) return null;
-    // ai_score: human-likeness 0-100. ZeroGPT returns AI-percentage → invert.
-    return Math.max(0, Math.min(100, Math.round(100 - fake)));
-  } catch { return null; }
+    const raw = String(data?.choices?.[0]?.message?.content || "").trim();
+    const m = raw.match(/\d{1,3}/);
+    if (!m) return 50;
+    const n = parseInt(m[0], 10);
+    if (Number.isNaN(n)) return 50;
+    return Math.max(0, Math.min(100, n));
+  } catch (e) {
+    console.error("[quality-check] claude ai-score exception", e);
+    return null;
+  }
 }
 
 async function runAutoQuality(
@@ -338,29 +355,29 @@ async function runAutoQuality(
     primaryKeyword = String(art.keywords[0]);
   }
 
-  const zeroKey = Deno.env.get("ZEROGPT_API_KEY");
+  const orKey = Deno.env.get("OPENROUTER_API_KEY");
 
-  const [aiInternalRes, zeroRes] = await Promise.all([
+  const [aiInternalRes, claudeRes] = await Promise.all([
     withTimeout(runAiScore(plain, apiKey), 30000, "ai-internal"),
-    zeroKey ? withTimeout(runZeroGpt(plain, zeroKey), 30000, "zerogpt") : Promise.resolve(null),
+    orKey ? withTimeout(runClaudeAiScore(plain, orKey), 30000, "ai-claude") : Promise.resolve(null),
   ]);
 
   const aiInternal = aiInternalRes?.score ?? null;
-  const aiZero = zeroRes ?? null;
-  const aiCombined = aiInternal !== null && aiZero !== null
-    ? Math.round((aiInternal + aiZero) / 2)
-    : (aiInternal ?? aiZero ?? null);
+  const aiClaude = claudeRes ?? null;
+  const aiCombined = aiInternal !== null && aiClaude !== null
+    ? Math.round((aiInternal + aiClaude) / 2)
+    : (aiInternal ?? aiClaude ?? null);
 
   const burst = computeBurstiness(plain);
   const density = primaryKeyword ? computeDensity(plain, primaryKeyword) : 0;
   const dStatus = primaryKeyword && medianDensity > 0 ? densityStatus(density, medianDensity) : "ok";
 
   // Compute aggregate quality_status
-  // ai_score: <30 fail, 30-60 warning, >=60 ok (lower = more AI-like)
+  // ai_score: <50 fail, 50-69 warning, >=70 ok (higher = more human-like)
   let aiStatus: "ok" | "warning" | "fail" = "ok";
   if (aiCombined !== null) {
-    if (aiCombined < 30) aiStatus = "fail";
-    else if (aiCombined < 60) aiStatus = "warning";
+    if (aiCombined < 50) aiStatus = "fail";
+    else if (aiCombined < 70) aiStatus = "warning";
   }
   const all = [aiStatus, burst.status, dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail")];
   let quality: "ok" | "warning" | "fail" = "ok";
@@ -372,7 +389,7 @@ async function runAutoQuality(
 
   await admin.from("articles").update({
     ai_score_internal: aiInternal,
-    ai_score_zerogpt: aiZero,
+    ai_score_claude: aiClaude,
     ai_score: aiCombined,
     ai_human_score: aiCombined,
     burstiness_score: burst.sigma,
