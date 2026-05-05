@@ -306,21 +306,24 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
   );
 }
 
-function PersonaChip({
-  name, description, icon, isActive, onClick, temperature, isCustom,
-  editable, author, onEdited, onDeleted,
-}: {
+interface PersonaChipProps {
   name: string; description: string; icon: string; isActive: boolean;
   onClick: () => void; temperature?: number; isCustom?: boolean;
   editable?: boolean; author?: AuthorProfile;
   onEdited?: (a: AuthorProfile) => void;
   onDeleted?: () => void;
-}) {
+}
+
+const PersonaChip = React.forwardRef<HTMLButtonElement, PersonaChipProps>(function PersonaChip({
+  name, description, icon, isActive, onClick, temperature, isCustom,
+  editable, author, onEdited, onDeleted,
+}, ref) {
   const Icon = ICON_MAP[icon] || User;
   const [editOpen, setEditOpen] = useState(false);
 
   const chip = (
     <button
+      ref={ref}
       onClick={onClick}
       className={`
         group relative flex h-[70px] w-full items-center gap-2 rounded-md border px-2 text-left transition-all
