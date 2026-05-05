@@ -252,6 +252,139 @@ function computeBadge(turg: number | null, uniq: number | null, ai: number | nul
   return "needs_work";
 }
 
+// ─── AUTO-MODE HELPERS (burstiness, keyword density, ZeroGPT) ───
+function splitSentences(text: string): string[] {
+  return text
+    .split(/[.!?]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+function computeBurstiness(plain: string): { sigma: number; status: "ok" | "warning" | "fail" } {
+  const sents = splitSentences(plain);
+  if (sents.length < 5) return { sigma: 0, status: "fail" };
+  const lens = sents.map((s) => s.split(/\s+/).filter(Boolean).length);
+  const mean = lens.reduce((a, b) => a + b, 0) / lens.length;
+  const variance = lens.reduce((a, b) => a + (b - mean) ** 2, 0) / lens.length;
+  const sigma = Math.sqrt(variance);
+  let status: "ok" | "warning" | "fail" = "fail";
+  if (sigma >= 8) status = "ok";
+  else if (sigma >= 5) status = "warning";
+  return { sigma: Math.round(sigma * 100) / 100, status };
+}
+function computeDensity(plain: string, keyword: string): number {
+  if (!keyword) return 0;
+  const words = plain.toLowerCase().split(/\s+/).filter(Boolean);
+  const total = words.length;
+  if (!total) return 0;
+  const kw = keyword.toLowerCase().trim();
+  const kwWords = kw.split(/\s+/).filter(Boolean);
+  let count = 0;
+  if (kwWords.length === 1) {
+    count = words.filter((w) => w.replace(/[^а-яa-zё0-9-]/gi, "") === kwWords[0]).length;
+  } else {
+    const re = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
+    count = (plain.match(re) || []).length;
+  }
+  return Math.round(((count / total) * 100) * 100) / 100;
+}
+function densityStatus(density: number, median: number): "ok" | "overuse" | "underuse" {
+  if (median <= 0) return "ok";
+  if (density > median + 0.5) return "overuse";
+  if (density < median - 0.5) return "underuse";
+  return "ok";
+}
+async function runZeroGpt(plain: string, key: string): Promise<number | null> {
+  try {
+    const res = await fetchWithTimeout("https://api.zerogpt.com/api/detect/detectText", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "ApiKey": key },
+      body: JSON.stringify({ input_text: plain.slice(0, 8000) }),
+    }, 30000);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const fake = Number(data?.data?.fakePercentage ?? data?.fakePercentage);
+    if (Number.isNaN(fake)) return null;
+    // ai_score: human-likeness 0-100. ZeroGPT returns AI-percentage → invert.
+    return Math.max(0, Math.min(100, Math.round(100 - fake)));
+  } catch { return null; }
+}
+
+async function runAutoQuality(
+  admin: any, articleId: string, userId: string, content: string, apiKey: string,
+) {
+  const plain = stripHtml(content);
+  if (plain.length < 200) {
+    await admin.from("articles").update({ quality_status: "fail" }).eq("id", articleId);
+    return;
+  }
+
+  // Mark as checking
+  await admin.from("articles").update({ quality_status: "checking" }).eq("id", articleId);
+
+  // Fetch article + keyword (for density target)
+  const { data: art } = await admin.from("articles")
+    .select("keyword_id, keywords").eq("id", articleId).maybeSingle();
+
+  let primaryKeyword = "";
+  let medianDensity = 0;
+  if (art?.keyword_id) {
+    const { data: kw } = await admin.from("keywords")
+      .select("seed_keyword, competitor_lists").eq("id", art.keyword_id).maybeSingle();
+    primaryKeyword = String(kw?.seed_keyword || "");
+    const cached = (kw?.competitor_lists as any)?._cached_result;
+    medianDensity = Number(cached?.benchmark?.median_keyword_density) || 0;
+  }
+  if (!primaryKeyword && Array.isArray(art?.keywords) && art.keywords.length) {
+    primaryKeyword = String(art.keywords[0]);
+  }
+
+  const zeroKey = Deno.env.get("ZEROGPT_API_KEY");
+
+  const [aiInternalRes, zeroRes] = await Promise.all([
+    withTimeout(runAiScore(plain, apiKey), 30000, "ai-internal"),
+    zeroKey ? withTimeout(runZeroGpt(plain, zeroKey), 30000, "zerogpt") : Promise.resolve(null),
+  ]);
+
+  const aiInternal = aiInternalRes?.score ?? null;
+  const aiZero = zeroRes ?? null;
+  const aiCombined = aiInternal !== null && aiZero !== null
+    ? Math.round((aiInternal + aiZero) / 2)
+    : (aiInternal ?? aiZero ?? null);
+
+  const burst = computeBurstiness(plain);
+  const density = primaryKeyword ? computeDensity(plain, primaryKeyword) : 0;
+  const dStatus = primaryKeyword && medianDensity > 0 ? densityStatus(density, medianDensity) : "ok";
+
+  // Compute aggregate quality_status
+  // ai_score: <30 fail, 30-60 warning, >=60 ok (lower = more AI-like)
+  let aiStatus: "ok" | "warning" | "fail" = "ok";
+  if (aiCombined !== null) {
+    if (aiCombined < 30) aiStatus = "fail";
+    else if (aiCombined < 60) aiStatus = "warning";
+  }
+  const all = [aiStatus, burst.status, dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail")];
+  let quality: "ok" | "warning" | "fail" = "ok";
+  if (all.includes("fail")) quality = "fail";
+  else if (all.includes("warning")) quality = "warning";
+
+  // Mirror to legacy badge
+  const badge = quality === "ok" ? "excellent" : (quality === "warning" ? "good" : "needs_work");
+
+  await admin.from("articles").update({
+    ai_score_internal: aiInternal,
+    ai_score_zerogpt: aiZero,
+    ai_score: aiCombined,
+    ai_human_score: aiCombined,
+    burstiness_score: burst.sigma,
+    burstiness_status: burst.status,
+    keyword_density: density,
+    keyword_density_status: dStatus,
+    quality_status: quality,
+    quality_badge: badge,
+    quality_checked_at: new Date().toISOString(),
+  }).eq("id", articleId);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -272,11 +405,24 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({}));
-    const { article_id, content, checks } = body as {
-      article_id?: string; content?: string; checks?: string[];
+    const { article_id, content, checks, mode } = body as {
+      article_id?: string; content?: string; checks?: string[]; mode?: string;
     };
     if (!article_id) return json({ error: "article_id required" }, 400);
     if (!content || typeof content !== "string") return json({ error: "content required" }, 400);
+
+    // ── AUTO mode: run AI(internal+ZeroGPT) + burstiness + density in background, no credits ──
+    if (mode === "auto") {
+      const { data: ownCheck } = await admin.from("articles").select("user_id").eq("id", article_id).maybeSingle();
+      if (!ownCheck || ownCheck.user_id !== user.id) return json({ error: "Article not found" }, 404);
+      // Mark immediately so polling sees "checking"
+      await admin.from("articles").update({ quality_status: "checking" }).eq("id", article_id);
+      const bg = runAutoQuality(admin, article_id, user.id, content, apiKey).catch((e) => {
+        console.error("[quality-check] auto bg error", e);
+      });
+      try { (globalThis as any).EdgeRuntime?.waitUntil?.(bg); } catch (_) { void bg; }
+      return json({ ok: true, queued: true });
+    }
 
     const requested = new Set(Array.isArray(checks) && checks.length ? checks : ["score", "uniqueness", "ai"]);
 
