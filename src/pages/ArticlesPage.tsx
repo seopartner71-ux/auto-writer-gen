@@ -940,6 +940,7 @@ export default function ArticlesPage() {
         onGenerate={handleGenerate}
         onStop={handleStop}
         onOpenSectioned={() => setSectionedOpen(true)}
+        quickMode={isQuickMode}
       />
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
