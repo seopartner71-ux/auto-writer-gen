@@ -45,6 +45,7 @@ import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
+import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
 import { useFactCheck } from "@/features/article-editor/useFactCheck";
@@ -77,6 +78,19 @@ export default function ArticlesPage() {
   const isAdmin = role === "admin";
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [aiwriterMode, setAiwriterModeState] = useState<"quick" | "expert">(() => {
+    if (typeof window === "undefined") return "expert";
+    const v = localStorage.getItem("aiwriter_mode");
+    return v === "quick" ? "quick" : "expert";
+  });
+  const setAiwriterMode = (m: "quick" | "expert") => {
+    setAiwriterModeState(m);
+    try {
+      localStorage.setItem("aiwriter_mode", m);
+      window.dispatchEvent(new CustomEvent("aiwriter-mode-changed", { detail: m }));
+    } catch { /* ignore */ }
+  };
+  const isQuickMode = aiwriterMode === "quick" && mode === "single";
   const [sectionedOpen, setSectionedOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
@@ -880,6 +894,8 @@ export default function ArticlesPage() {
         mode={mode}
         onModeChange={setMode}
         hasBulkMode={limits.hasBulkMode}
+        aiwriterMode={aiwriterMode}
+        onAiwriterModeChange={setAiwriterMode}
       />
 
       {keywords.length === 0 && (
@@ -924,6 +940,7 @@ export default function ArticlesPage() {
         onGenerate={handleGenerate}
         onStop={handleStop}
         onOpenSectioned={() => setSectionedOpen(true)}
+        quickMode={isQuickMode}
       />
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -1095,14 +1112,18 @@ export default function ArticlesPage() {
                       <Eye className="h-3 w-3" />
                       {t("articles.preview")}
                     </TabsTrigger>
-                    <TabsTrigger value="html" className="text-xs gap-1 px-2.5">
-                      <Code2 className="h-3 w-3" />
-                      HTML
-                    </TabsTrigger>
-                    <TabsTrigger value="schema" className="text-xs gap-1 px-2.5">
-                      <Code2 className="h-3 w-3" />
-                      FAQ & Schema
-                    </TabsTrigger>
+                    {!isQuickMode && (
+                      <>
+                        <TabsTrigger value="html" className="text-xs gap-1 px-2.5">
+                          <Code2 className="h-3 w-3" />
+                          HTML
+                        </TabsTrigger>
+                        <TabsTrigger value="schema" className="text-xs gap-1 px-2.5">
+                          <Code2 className="h-3 w-3" />
+                          FAQ & Schema
+                        </TabsTrigger>
+                      </>
+                    )}
                   </TabsList>
                   <Separator orientation="vertical" className="h-5" />
                     <Button
@@ -1236,7 +1257,7 @@ export default function ArticlesPage() {
                   <SeoTipTicker language={lang === "ru" ? "ru" : "en"} />
                 )}
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
-                {currentArticleId && content && !isStreaming && (
+                {currentArticleId && content && !isStreaming && !isQuickMode && (
                   <div className="flex justify-end items-center gap-2 mb-2">
                     <VersionsBlock
                       articleId={currentArticleId}
@@ -1311,6 +1332,10 @@ export default function ArticlesPage() {
                       {selectedAuthorId && selectedAuthorId !== "none" && (() => {
                         const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
                         if (!author) return null;
+                        const rawDesc: string = (author.description || "").trim();
+                        const isPromptLike = rawDesc.length > 60 || /\n/.test(rawDesc) || /\b(you|вы|ты)\b/i.test(rawDesc.slice(0, 30));
+                        const safeDesc = !rawDesc || isPromptLike ? "" : rawDesc;
+                        const subtitle = safeDesc || author.niche || author.voice_tone || (author.type === "preset" ? "Preset author" : "Custom author");
                         return (
                           <div className="flex items-center gap-3 p-4 mb-6 rounded-lg bg-muted/50 border border-border">
                             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary">
@@ -1318,15 +1343,8 @@ export default function ArticlesPage() {
                             </div>
                             <div>
                               <p className="text-sm font-semibold">{author.name}</p>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                {author.description && <span>{author.description}</span>}
-                                {!author.description && author.niche && <span>{author.niche}</span>}
-                                {!author.description && author.voice_tone && (
-                                  <>
-                                    <span>•</span>
-                                    <span>{author.voice_tone}</span>
-                                  </>
-                                )}
+                              <div className="text-xs text-muted-foreground line-clamp-1">
+                                {subtitle.split(/\s+/).slice(0, 6).join(" ")}
                               </div>
                             </div>
                           </div>
@@ -1651,6 +1669,16 @@ export default function ArticlesPage() {
 
         {/* Right: SEO Dashboard */}
         <div className="space-y-4 md:sticky md:top-4 md:self-start md:max-h-[calc(100vh-2rem)] md:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
+          {isQuickMode ? (
+            <QuickStartSummary
+              articleId={currentArticleId}
+              hasContent={!!content}
+              onSave={() => saveArticle.mutate()}
+              saveDisabled={!content}
+              saving={saveArticle.isPending}
+            />
+          ) : (
+          <>
           <SeoSidePanelContainer
             content={content}
             selectedKeyword={selectedKeyword}
@@ -2131,6 +2159,8 @@ export default function ArticlesPage() {
               </PlanGate>
             </TabsContent>
           </Tabs>
+          </>
+          )}
         </div>
       </div>
       </>

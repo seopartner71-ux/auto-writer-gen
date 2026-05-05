@@ -130,7 +130,8 @@ export function PersonaSelector({ authors, selectedId, onSelect }: PersonaSelect
         type: "custom",
         system_instruction: newInstruction.trim(),
         user_id: user.id,
-        description: newInstruction.trim().slice(0, 100),
+        // Не сохраняем системный промпт в description — он показывается пользователям.
+        description: null,
         avatar_icon: "User",
       });
       if (error) throw error;

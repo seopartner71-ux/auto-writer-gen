@@ -11,17 +11,20 @@ interface Props {
   mode: "single" | "bulk";
   onModeChange: (mode: "single" | "bulk") => void;
   hasBulkMode: boolean;
+  aiwriterMode?: "quick" | "expert";
+  onAiwriterModeChange?: (m: "quick" | "expert") => void;
 }
 
 /**
  * Header for the Writer page (mode switcher + "My articles" sheet).
  * Extracted from ArticlesPage.tsx to start splitting the monolith.
  */
-export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode }: Props) {
+export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode, aiwriterMode, onAiwriterModeChange }: Props) {
   const { t } = useI18n();
   const [openMyArticles, setOpenMyArticles] = useState(false);
 
   return (
+    <div className="space-y-3">
     <div className="flex items-center gap-3">
       <FileText className="h-6 w-6 text-primary" />
       <div>
@@ -71,6 +74,33 @@ export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode }: Props) {
           </div>
         </SheetContent>
       </Sheet>
+    </div>
+      {aiwriterMode && onAiwriterModeChange && mode === "single" && (
+        <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 p-1">
+          <button
+            type="button"
+            onClick={() => onAiwriterModeChange("quick")}
+            className={`min-w-[160px] px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              aiwriterMode === "quick"
+                ? "bg-primary text-primary-foreground shadow"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            🚀 Быстрый старт
+          </button>
+          <button
+            type="button"
+            onClick={() => onAiwriterModeChange("expert")}
+            className={`min-w-[160px] px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              aiwriterMode === "expert"
+                ? "bg-primary text-primary-foreground shadow"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            ⚙️ Эксперт
+          </button>
+        </div>
+      )}
     </div>
   );
 }
