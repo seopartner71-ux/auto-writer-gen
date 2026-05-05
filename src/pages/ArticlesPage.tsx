@@ -291,6 +291,16 @@ export default function ArticlesPage() {
     return () => clearInterval(interval);
   }, [isStreaming]);
 
+  // Auto-disable comparison table for Telegraph author (Telegra.ph не поддерживает HTML-таблицы)
+  useEffect(() => {
+    if (!selectedAuthorId || selectedAuthorId === "none") return;
+    const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
+    const isTelegraph = author?.name === "Телеграф" || author?.is_telegraph_author;
+    if (isTelegraph && includeComparisonTable) {
+      setIncludeComparisonTable(false);
+    }
+  }, [selectedAuthorId, authorProfiles, includeComparisonTable]);
+
   const selectedKeyword = keywords.find((k: any) => k.id === selectedKeywordId);
   const lsiKeywords: string[] = (selectedKeyword?.lsi_keywords as string[]) || [];
 
