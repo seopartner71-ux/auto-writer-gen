@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildStealthSystemAddon, applyStealthPostProcess, buildRareLexiconAddon } from "../_shared/stealth.ts";
+import { applyStealthPostProcess, buildRareLexiconAddon } from "../_shared/stealth.ts";
+import {
+  generateStealthPrompt,
+  buildNewArticleUserPrompt,
+} from "../_shared/promptBuilder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,18 +68,17 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-async function getAuthorPrompt(admin: AdminClient, authorProfileId: string | null) {
-  if (!authorProfileId) return "";
-
-  const { data: author } = await admin.from("author_profiles").select("voice_tone, system_prompt_override, stop_words").eq("id", authorProfileId).single();
-  if (!author) return "";
-
-  let authorPrompt = `\n\nАвторский стиль: ${author.voice_tone || "нейтральный"}. ${author.system_prompt_override || ""}`;
-  if (author.stop_words?.length) {
-    authorPrompt += `\nНе используй слова: ${author.stop_words.join(", ")}`;
-  }
-
-  return authorPrompt;
+// NOTE: Author-aware prompt is now built per-item via the SAME
+// generateStealthPrompt that powers single-article generation. The author
+// profile is fetched once per chunk and passed into processQueuedItem.
+async function fetchAuthorProfile(admin: AdminClient, authorProfileId: string | null) {
+  if (!authorProfileId) return null;
+  const { data: author } = await admin
+    .from("author_profiles")
+    .select("*")
+    .eq("id", authorProfileId)
+    .single();
+  return author || null;
 }
 
 async function finalizeJob(admin: AdminClient, bulkJobId: string, fallbackCompletedItems: number) {
