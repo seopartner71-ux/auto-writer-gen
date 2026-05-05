@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Workflow,
   Sparkles,
+  Map,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -44,6 +45,7 @@ import { useCallback, useEffect, useState } from "react";
 // Prefetch route chunks on hover
 const routePrefetchMap: Record<string, () => void> = {
   "/keywords": () => import("@/pages/KeywordsPage"),
+  "/topical-map": () => import("@/pages/TopicalMapPage"),
   "/plan-builder": () => import("@/pages/PlanBuilderPage"),
   "/articles": () => import("@/pages/ArticlesPage"),
   "/analytics": () => import("@/pages/AnalyticsPage"),
@@ -89,6 +91,7 @@ export function AppSidebar() {
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
     { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
+    { title: lang === "ru" ? "Карта тем" : "Topical Map", url: "/topical-map", icon: Map },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     ...(isFactory ? [
