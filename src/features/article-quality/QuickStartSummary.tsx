@@ -149,6 +149,29 @@ export function QuickStartSummary({ articleId, hasContent, onSave, saveDisabled,
   const burst = burstLabel(data.burstiness_score);
   const dens = densityLabel(data.keyword_density_status);
   const turg = turgLabel(data.turgenev_score);
+
+  const allEmpty =
+    data.ai_score == null &&
+    data.burstiness_score == null &&
+    data.keyword_density == null &&
+    data.turgenev_score == null;
+
+  if (allEmpty) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-6 text-center space-y-3">
+        <div className="text-3xl">⏳</div>
+        <p className="text-sm font-medium">Проверяем качество статьи...</p>
+        <p className="text-xs text-muted-foreground">Результаты появятся через несколько секунд</p>
+        {onSave && (
+          <Button variant="outline" className="w-full gap-2 mt-2" disabled={saveDisabled || saving} onClick={onSave}>
+            <Save className="h-4 w-4" />
+            {saving ? "..." : "Сохранить статью"}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   const status = overallStatus([ai, burst, dens, turg]);
 
   const hasIssues = [ai, burst, dens, turg].some(r => r.tone === "warn" || r.tone === "fail");
