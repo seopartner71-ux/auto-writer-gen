@@ -347,6 +347,7 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          metadata: Json | null
           reason: string
           title: string | null
           user_id: string
@@ -357,6 +358,7 @@ export type Database = {
           content: string
           created_at?: string | null
           id?: string
+          metadata?: Json | null
           reason?: string
           title?: string | null
           user_id: string
@@ -367,6 +369,7 @@ export type Database = {
           content?: string
           created_at?: string | null
           id?: string
+          metadata?: Json | null
           reason?: string
           title?: string | null
           user_id?: string
@@ -416,6 +419,7 @@ export type Database = {
           keyword_id: string | null
           keywords: string[] | null
           language: string | null
+          last_improve_at: string | null
           lsi_keywords: Json | null
           meta_description: string | null
           project_id: string | null
@@ -466,6 +470,7 @@ export type Database = {
           keyword_id?: string | null
           keywords?: string[] | null
           language?: string | null
+          last_improve_at?: string | null
           lsi_keywords?: Json | null
           meta_description?: string | null
           project_id?: string | null
@@ -516,6 +521,7 @@ export type Database = {
           keyword_id?: string | null
           keywords?: string[] | null
           language?: string | null
+          last_improve_at?: string | null
           lsi_keywords?: Json | null
           meta_description?: string | null
           project_id?: string | null
