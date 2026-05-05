@@ -122,7 +122,6 @@ export default function KeywordsPage() {
 
   const research = useMutation({
     mutationFn: async () => {
-      const raw = arguments.length > 0 ? "" : keyword;
       const clean = sanitizeKeyword(keyword);
       const vErr = validateKeywordInput(clean);
       if (vErr) throw new Error(vErr === "too_short" ? "Слишком короткий запрос" : "Слишком длинный запрос");
