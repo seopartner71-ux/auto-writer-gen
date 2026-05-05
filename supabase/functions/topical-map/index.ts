@@ -89,26 +89,53 @@ async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, num
     body.append("num", "250");
     body.append("format", "json");
 
-    const res = await fetchWithTimeout("http://api.bukvarix.com/v1/mkeywords/", {
+    console.log("[bukvarix] sending keywords:", batch.slice(0, 5));
+    const res = await fetchWithTimeout("https://api.bukvarix.com/v1/mkeywords/", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
       timeoutMs: BUKVARIX_TIMEOUT_MS,
     });
     if (!res.ok) {
-      console.warn("[topical-map] bukvarix", res.status);
+      const text = await res.text().catch(() => "");
+      console.warn("[bukvarix] http", res.status, text.slice(0, 200));
       return result;
     }
-    const data = await res.json().catch(() => null) as any;
-    const items: any[] = Array.isArray(data) ? data : (data?.data || data?.keywords || []);
+    const raw = await res.text();
+    console.log("[bukvarix] raw:", raw.slice(0, 500));
+    let data: any = null;
+    try { data = JSON.parse(raw); } catch { /* maybe csv */ }
+
+    let items: any[] = [];
+    if (Array.isArray(data)) items = data;
+    else if (Array.isArray(data?.data)) items = data.data;
+    else if (Array.isArray(data?.keywords)) items = data.keywords;
+    else if (Array.isArray(data?.result)) items = data.result;
+    else if (Array.isArray(data?.data?.keywords)) items = data.data.keywords;
+
+    console.log("[bukvarix] response sample:", JSON.stringify(items.slice(0, 3)));
+
     for (const item of items) {
-      const kw = item?.keyword;
-      if (kw && item?.broad != null) {
-        result.set(String(kw).toLowerCase().trim(), Number(item.broad) || 0);
+      let kw: any = null;
+      let freq: any = null;
+      if (Array.isArray(item)) {
+        kw = item[0];
+        // typical CSV: keyword, word_count, char_count, broad, exact
+        freq = item[3] ?? item[1];
+      } else if (item && typeof item === "object") {
+        kw = item.keyword ?? item.phrase ?? item.word ?? item.q;
+        freq = item.broad ?? item.frequency ?? item.shows ?? item.count ?? item.exact;
+      }
+      if (kw && freq != null) {
+        const norm = String(kw).toLowerCase().trim().replace(/\s+/g, " ");
+        const n = Number(freq) || 0;
+        if (n > 0) result.set(norm, n);
       }
     }
+
+    console.log("[bukvarix] freq map size:", result.size);
   } catch (e) {
-    console.warn("[topical-map] bukvarix error", e instanceof Error ? e.message : String(e));
+    console.warn("[bukvarix] error", e instanceof Error ? e.message : String(e));
   }
   return result;
 }
@@ -254,10 +281,37 @@ Deno.serve(async (req) => {
         }
       }
       const freqMap = await getBukvarixFrequency(allKws);
+      const lookup = (kw: string): number => {
+        const norm = String(kw || "").toLowerCase().trim().replace(/\s+/g, " ");
+        if (!norm) return 0;
+        // 1) exact
+        let f = freqMap.get(norm) || 0;
+        if (f > 0) return f;
+        // 2) partial includes (longer match wins)
+        let bestLen = 0;
+        for (const [key, val] of freqMap) {
+          if (key === norm) continue;
+          if (key.includes(norm) || norm.includes(key)) {
+            if (key.length > bestLen) { f = val; bestLen = key.length; }
+          }
+        }
+        if (f > 0) return f;
+        // 3) short fallback: first 2-3 words
+        const words = norm.split(" ");
+        if (words.length > 2) {
+          const k3 = words.slice(0, 3).join(" ");
+          f = freqMap.get(k3) || 0;
+          if (f > 0) return f;
+          const k2 = words.slice(0, 2).join(" ");
+          f = freqMap.get(k2) || 0;
+          if (f > 0) return f;
+        }
+        return 0;
+      };
       for (const c of clusters) {
         let sum = 0;
         for (const k of (c.keywords || [])) {
-          const f = freqMap.get(String(k.keyword || "").toLowerCase().trim()) || 0;
+          const f = lookup(String(k.keyword || ""));
           if (f > 0) {
             const v = freqToVolume(f);
             k.volume = v.label;
