@@ -89,107 +89,145 @@ Deno.serve(async (req) => {
       return json({ error: "Нечего улучшать — SEO уже в норме" }, 400);
     }
 
-    const sys = `Ты SEO-редактор. Улучшаешь текст органично, вставляя слова в существующие HTML абзацы.
+    // ── Параграф-by-параграф подход ──
+    // Извлекаем ТОЛЬКО содержимое <p>...</p> (без вложенных таблиц/списков/figure/script).
+    // LLM получает массив абзацев и возвращает JSON {id: improved_text}.
+    // Вся структура (H2/H3/таблицы/списки/JSON-LD/ссылки внутри других тегов) физически
+    // не отдаётся модели и поэтому не может быть потеряна.
 
-КРИТИЧЕСКИ ВАЖНО — текст содержит HTML разметку. Ты ОБЯЗАН сохранить ВСЮ HTML разметку без изменений:
-- Все теги <h1>, <h2>, <h3>, <h4> и их содержимое
-- Все теги <table>, <thead>, <tbody>, <tr>, <td>, <th> целиком
-- Все теги <ul>, <ol>, <li>
-- Все теги <p>, <strong>, <em>, <a>, <blockquote>, <figure>, <img>
-- Все атрибуты тегов (class, href, src, id и др.)
-- Все <script type="application/ld+json"> Schema.org блоки в конце
+    type Para = { id: string; text: string; full: string };
+    const paragraphs: Para[] = [];
+    const placeholders: string[] = [];
+    let pIdx = 0;
+    // Match <p ...>...</p> blocks at top level. Skip <p> внутри <li>/<td> по эвристике (если содержит вложенные блочные теги).
+    const skeleton = original.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (full, inner) => {
+      const inn = String(inner).trim();
+      if (!inn) return full;
+      // Пропускаем <p> с вложенной разметкой (img/figure/script) — не трогаем
+      if (/<\s*(img|figure|script|table|iframe)\b/i.test(inn)) return full;
+      // Текст < 30 симв — пропускаем
+      const plainLen = inn.replace(/<[^>]+>/g, "").trim().length;
+      if (plainLen < 30) return full;
+      const id = `__P_${pIdx++}__`;
+      paragraphs.push({ id, text: inn, full });
+      placeholders.push(id);
+      return `<p>${id}</p>`;
+    });
 
-Возвращай ПОЛНЫЙ HTML документ как есть — только добавляй слова органично внутри существующих <p> абзацев.
-НИКОГДА не конвертируй HTML в plain text или markdown.
-НИКОГДА не удаляй и не переписывай заголовки, таблицы, списки, JSON-LD.
-Возвращай ТОЛЬКО исправленный HTML, без комментариев, объяснений и markdown-обёрток (без \`\`\`html).
-Сохраняй авторский стиль, тон, факты и цифры.`;
-
-    const tasks: string[] = [];
-    if (missing_terms.length > 0) {
-      tasks.push(`ЗАДАЧА 1 — Вставь эти термины естественно в текст (каждый минимум 1 раз):
-${missing_terms.map(t => `- ${t}`).join("\n")}
-
-Правила:
-- Только там где это логично по смыслу
-- Можно добавить новое предложение или расширить абзац
-- Нельзя менять факты, цифры, заголовки H1/H2/H3`);
-    }
-    if (keywords_to_add > 0 && keyword) {
-      tasks.push(`ЗАДАЧА 2 — Добавь ключевую фразу "${keyword}" ещё ${keywords_to_add} раз в текст.
-Текущих вхождений: ${currentKwCount}
-Целевых вхождений: ${targetKwCount}
-
-Правила:
-- Только там где звучит естественно
-- Можно менять падеж и форму слова
-- Нельзя ставить ключ два раза подряд в одном абзаце
-- Нельзя ставить ключ в каждом предложении`);
-    }
-
-    const usr = `Улучши SEO HTML-текста органично:
-
-${tasks.join("\n\n")}
-
-ПРАВИЛА HTML:
-- Вставляй термины и ключи ТОЛЬКО внутрь существующих <p> абзацев
-- НЕ удаляй и НЕ изменяй теги <h2>, <h3>, <table>, <ul>, <ol>, <li>, <a>, <script>
-- НЕ конвертируй разметку в markdown или plain text
-- Возвращай ПОЛНЫЙ HTML документ со всеми исходными тегами и Schema.org блоками
-
-ИСХОДНЫЙ HTML:
-${original}`;
-
-    let improved: string | null = null;
-    if (orKey) {
-      try {
-        const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${orKey}` },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [{ role: "system", content: sys }, { role: "user", content: usr }],
-            max_tokens: 12000,
-            temperature: 0.6,
-          }),
-        });
-        if (r.ok) {
-          const data = await r.json();
-          improved = data?.choices?.[0]?.message?.content || null;
-        } else {
-          console.error("[improve-seo] OR error", r.status, await r.text());
-        }
-      } catch (e) { console.error("[improve-seo] OR exception", e); }
-    }
-    if (!improved && lovableKey) {
-      try {
-        const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${lovableKey}` },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [{ role: "system", content: sys }, { role: "user", content: usr }],
-          }),
-        });
-        if (r.ok) {
-          const data = await r.json();
-          improved = data?.choices?.[0]?.message?.content || null;
-        }
-      } catch (e) { console.error("[improve-seo] gateway exception", e); }
-    }
-
-    if (!improved || improved.length < 200) {
-      return json({ error: "Не удалось получить улучшенную версию от модели" }, 502);
-    }
-
-    const candidate = improved.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
-    const integrity = htmlIntegrityOk(original, candidate);
-    if (!integrity.ok) {
-      console.warn("[improve-seo] rejected:", integrity.reason);
+    if (paragraphs.length === 0) {
       return json({
         ok: false,
         content: original,
-        error: `Не удалось улучшить без потери форматирования (${integrity.reason}). Попробуйте снова или отредактируйте вручную.`,
+        error: "В статье нет редактируемых абзацев для улучшения.",
+      }, 200);
+    }
+
+    const sys = `Ты SEO-редактор. Получаешь список абзацев. Для каждого возвращаешь улучшенную версию того же абзаца.
+
+СТРОГИЕ ПРАВИЛА:
+- Возвращай ТОЛЬКО валидный JSON вида {"paragraphs":[{"id":"__P_0__","text":"..."},...]}
+- Сохраняй ВСЕ inline-теги внутри текста: <strong>, <em>, <a href="..."> — не удаляй и не меняй href.
+- НЕ добавляй <p>, <h2>, <ul>, <table>, <script> и любые блочные теги.
+- НЕ используй markdown.
+- Сохраняй авторский стиль, факты, цифры.
+- Длина абзаца не должна сильно отличаться (±40%).`;
+
+    const tasksHints: string[] = [];
+    if (missing_terms.length > 0) {
+      tasksHints.push(`Вставь органично эти термины (распредели по разным абзацам, каждый минимум 1 раз):
+${missing_terms.map(t => `- ${t}`).join("\n")}`);
+    }
+    if (keywords_to_add > 0 && keyword) {
+      tasksHints.push(`Добавь ключевую фразу "${keyword}" ещё ~${keywords_to_add} раз суммарно по всем абзацам (можно менять падеж). Сейчас вхождений: ${currentKwCount}, цель: ${targetKwCount}. Не более 1 ключа на абзац.`);
+    }
+
+    const inputJson = JSON.stringify({
+      paragraphs: paragraphs.map(p => ({ id: p.id, text: p.text })),
+    });
+
+    const usr = `${tasksHints.join("\n\n")}
+
+Верни JSON для всех ${paragraphs.length} абзацев. ID не менять.
+
+ВХОД:
+${inputJson}`;
+
+    let improvedRaw: string | null = null;
+    const callModel = async (url: string, key: string, withMaxTokens: boolean) => {
+      const body: any = {
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "system", content: sys }, { role: "user", content: usr }],
+        temperature: 0.5,
+        response_format: { type: "json_object" },
+      };
+      if (withMaxTokens) body.max_tokens = 16000;
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) { console.error("[improve-seo] model error", r.status, await r.text().catch(() => "")); return null; }
+      const data = await r.json();
+      return data?.choices?.[0]?.message?.content || null;
+    };
+    if (orKey) {
+      try { improvedRaw = await callModel("https://openrouter.ai/api/v1/chat/completions", orKey, true); }
+      catch (e) { console.error("[improve-seo] OR exception", e); }
+    }
+    if (!improvedRaw && lovableKey) {
+      try { improvedRaw = await callModel("https://ai.gateway.lovable.dev/v1/chat/completions", lovableKey, false); }
+      catch (e) { console.error("[improve-seo] gateway exception", e); }
+    }
+    if (!improvedRaw) {
+      return json({ ok: false, content: original, error: "Не удалось получить ответ от модели. Попробуйте снова." }, 200);
+    }
+
+    let parsed: any = null;
+    try {
+      const cleaned = improvedRaw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      parsed = JSON.parse(cleaned);
+    } catch (e) {
+      console.error("[improve-seo] JSON parse failed", e);
+      return json({ ok: false, content: original, error: "Модель вернула некорректный ответ. Попробуйте снова." }, 200);
+    }
+    const improvedList: Array<{ id: string; text: string }> = Array.isArray(parsed?.paragraphs) ? parsed.paragraphs : [];
+    const improvedMap = new Map<string, string>();
+    for (const it of improvedList) {
+      if (it && typeof it.id === "string" && typeof it.text === "string") {
+        // Жёстко вычищаем блочные теги, если модель их всё-таки добавила
+        const safe = it.text
+          .replace(/<\/?(?:h[1-6]|p|div|section|article|table|thead|tbody|tr|td|th|ul|ol|li|figure|figcaption|script|iframe)[^>]*>/gi, "")
+          .trim();
+        improvedMap.set(it.id, safe);
+      }
+    }
+
+    // Собираем финальный HTML, подставляя улучшенные абзацы вместо плейсхолдеров.
+    let candidate = skeleton;
+    let replaced = 0;
+    for (const p of paragraphs) {
+      const newInner = improvedMap.get(p.id);
+      if (newInner && newInner.length >= 10) {
+        candidate = candidate.replace(`<p>${p.id}</p>`, `<p>${newInner}</p>`);
+        replaced++;
+      } else {
+        // не заменили — возвращаем оригинальный <p>
+        candidate = candidate.replace(`<p>${p.id}</p>`, p.full);
+      }
+    }
+
+    if (replaced === 0) {
+      return json({ ok: false, content: original, error: "Модель не вернула ни одного улучшенного абзаца. Попробуйте снова." }, 200);
+    }
+
+    // Контрольная проверка целостности структуры — структура НЕ должна меняться вообще
+    const integrity = htmlIntegrityOk(original, candidate);
+    if (!integrity.ok) {
+      console.warn("[improve-seo] integrity check failed:", integrity.reason);
+      return json({
+        ok: false,
+        content: original,
+        error: `Не удалось улучшить без потери форматирования (${integrity.reason}). Попробуйте снова.`,
       }, 200);
     }
 
