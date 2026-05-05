@@ -53,6 +53,7 @@ interface GenerationFormProps {
   onGenerate: () => void;
   onStop: () => void;
   onOpenSectioned: () => void;
+  quickMode?: boolean;
 }
 
 /**
@@ -76,6 +77,7 @@ export function GenerationForm(props: GenerationFormProps) {
     geoLocation, onGeoLocationChange,
     customInstructions, onCustomInstructionsChange,
     isStreaming, onGenerate, onStop, onOpenSectioned,
+    quickMode,
   } = props;
 
   const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
@@ -104,7 +106,7 @@ export function GenerationForm(props: GenerationFormProps) {
       )}
 
       {/* Interlinking articles panel */}
-      {selectedProjectId && selectedProjectId !== "none" && projectArticlesForLinks.length > 0 && (
+      {!quickMode && selectedProjectId && selectedProjectId !== "none" && projectArticlesForLinks.length > 0 && (
         <div className="mb-3 pb-3 border-b border-border">
           <button
             type="button"
@@ -174,6 +176,7 @@ export function GenerationForm(props: GenerationFormProps) {
             </Button>
           )}
           {!isStreaming && (
+            !quickMode &&
             <Button
               variant="outline"
               size="sm"
@@ -197,6 +200,7 @@ export function GenerationForm(props: GenerationFormProps) {
       />
 
       {/* Content formatting options */}
+      {!quickMode && (
       <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border mt-3">
         {(() => {
           // Telegra.ph не поддерживает HTML-таблицы и микроразметку — принудительно
@@ -235,8 +239,10 @@ export function GenerationForm(props: GenerationFormProps) {
           {t("articles.comparisonTable")}
         </button>
       </div>
+      )}
 
       {/* SEO Keywords, Geo, Custom Instructions */}
+      {!quickMode && (
       <div className="space-y-3 pt-3 border-t border-border">
         <div className="space-y-1">
           <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
@@ -290,6 +296,7 @@ export function GenerationForm(props: GenerationFormProps) {
           />
         </div>
       </div>
+      )}
     </div>
   );
 }
