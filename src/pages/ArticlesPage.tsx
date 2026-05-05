@@ -1542,10 +1542,13 @@ export default function ArticlesPage() {
                       articleId={currentArticleId}
                       content={content}
                       enabled={localStorage.getItem("live_quality_disabled") !== "1"}
-                      onClick={() => {
-                        // Scroll up to make the right-side dashboard visible
-                        try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
-                      }}
+                       onClick={() => {
+                         // Scroll the quality panel into view (right-side dashboard)
+                         try {
+                           const el = document.getElementById("quality-check-panel");
+                           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                         } catch {}
+                       }}
                     />
                   </div>
                 )}
@@ -1959,7 +1962,7 @@ export default function ArticlesPage() {
               )}
             </TabsList>
 
-            <TabsContent value="dashboard" className="mt-3 space-y-4">
+            <TabsContent value="dashboard" className="mt-3 space-y-4" id="quality-check-panel">
               {/* Quality check: SEO-Module Score, Uniqueness, AI-detector */}
               <QualityCheckPanel
                 articleId={currentArticleId}
