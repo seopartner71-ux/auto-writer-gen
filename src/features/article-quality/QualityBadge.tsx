@@ -260,33 +260,35 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
   const showImprove = overallBand === "warning" || overallBand === "fail" || status === "warning" || status === "fail";
   const showRetry = !isChecking;
 
-  // Pill trigger content
-  const pillClasses = isChecking
-    ? "bg-muted/40 text-muted-foreground border-border"
-    : isShort || isTimeout || noData || !meta
-      ? "bg-muted/30 text-muted-foreground border-border"
-      : meta.pill;
-  const pillText = isChecking
-    ? "..."
-    : isShort
-      ? "—"
-      : isTimeout
-        ? "?"
-        : overall != null
-          ? String(overall)
-          : "—";
-  const pillEmoji = isChecking ? "⏳" : meta?.dot ?? "⚪";
+  // Status-driven trigger pill (text + icon, fixed width, semantic colors)
+  type TriggerKind = "ok" | "warning" | "fail" | "checking" | "timeout" | "none";
+  const triggerKind: TriggerKind =
+    isChecking ? "checking"
+    : isTimeout ? "timeout"
+    : status === "ok" ? "ok"
+    : status === "warning" ? "warning"
+    : status === "fail" ? "fail"
+    : "none";
+  const TRIGGER_META: Record<TriggerKind, { icon: string; label: string; cls: string }> = {
+    ok:       { icon: "✓", label: "Готово",     cls: "bg-success/15 text-success border-success/30" },
+    warning:  { icon: "!", label: "Проверьте",  cls: "bg-warning/15 text-warning border-warning/30" },
+    fail:     { icon: "✗", label: "Доработка",  cls: "bg-destructive/15 text-destructive border-destructive/30" },
+    checking: { icon: "⏳", label: "Проверка...", cls: "bg-muted/40 text-muted-foreground border-border" },
+    timeout:  { icon: "!", label: "Таймаут",    cls: "bg-muted/40 text-muted-foreground border-border" },
+    none:     { icon: "◎", label: "Качество",   cls: "bg-secondary text-secondary-foreground border-border" },
+  };
+  const trig = TRIGGER_META[triggerKind];
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`inline-flex items-center gap-1 h-7 px-2 rounded-full border text-[11px] font-mono font-semibold tabular-nums transition-colors hover:opacity-90 ${pillClasses}`}
-          title={isTimeout ? "Проверка не ответила" : isShort ? "Текст короткий" : isChecking ? "Проверка..." : meta?.label ?? "Не проверено"}
+          className={`inline-flex items-center justify-center gap-1.5 h-8 w-[120px] rounded-md border text-xs font-medium transition-colors hover:opacity-90 ${trig.cls}`}
+          title={isShort ? "Текст короткий для проверки" : trig.label}
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="text-[11px] leading-none">{pillEmoji}</span>
-          <span>{pillText}</span>
+          <span className="leading-none">{trig.icon}</span>
+          <span>{trig.label}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-4 text-xs space-y-3" onClick={(e) => e.stopPropagation()}>

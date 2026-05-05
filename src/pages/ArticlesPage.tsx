@@ -1178,8 +1178,8 @@ export default function ArticlesPage() {
                       {saveArticle.isPending ? "..." : t("common.save")}
                     </Button>
 
-                    {/* Blog platform publish buttons — PRO only */}
-                    {currentArticleId && content && limits.hasProImageGen && (
+                    {/* Blog platform publish buttons — PRO only, Telegra.ph author only */}
+                    {currentArticleId && content && limits.hasProImageGen && !!authorProfiles.find((a: any) => a.id === selectedAuthorId && (a.name === "Телеграф" || a.is_telegraph_author)) && (
                       <>
                         <Separator orientation="vertical" className="h-5" />
                         <Button
