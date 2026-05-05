@@ -141,6 +141,22 @@ export default function KeywordsPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  useEffect(() => {
+    const seed = searchParams.get("seed");
+    if (seed && !autoRanRef.current) {
+      autoRanRef.current = true;
+      setKeyword(seed);
+      // Clear param so refresh doesn't retrigger
+      const next = new URLSearchParams(searchParams);
+      next.delete("seed");
+      setSearchParams(next, { replace: true });
+      setTimeout(() => {
+        research.mutate();
+      }, 400);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
