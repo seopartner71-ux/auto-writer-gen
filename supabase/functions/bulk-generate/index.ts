@@ -452,7 +452,7 @@ async function processBulkChunk(params: {
     return;
   }
 
-  const authorPrompt = await getAuthorPrompt(admin, job.author_profile_id || null);
+  const authorProfile = await fetchAuthorProfile(admin, job.author_profile_id || null);
   const writerModel = writerAssignment?.model_key || "google/gemini-2.5-pro";
   const researchModel = researchAssignment?.model_key || "google/gemini-2.5-flash";
   const serperApiKey = serperKeys?.[0]?.api_key || null;
@@ -472,7 +472,7 @@ async function processBulkChunk(params: {
       serperApiKey,
       writerModel,
       researchModel,
-      authorPrompt,
+      authorProfile,
       bulkJobId,
       completedCount,
     });
