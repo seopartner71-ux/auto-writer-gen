@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, Gem, Factory, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import MyArticlesPage from "@/pages/MyArticlesPage";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -22,6 +23,24 @@ interface Props {
 export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode, aiwriterMode, onAiwriterModeChange }: Props) {
   const { t } = useI18n();
   const [openMyArticles, setOpenMyArticles] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!aiwriterMode || mode !== "single") return;
+    try {
+      const seen = localStorage.getItem("aiwriter_mode_hint_shown");
+      if (seen !== "true") {
+        const t = setTimeout(() => setHintOpen(true), 600);
+        return () => clearTimeout(t);
+      }
+    } catch { /* ignore */ }
+  }, [aiwriterMode, mode]);
+
+  const dismissHint = () => {
+    setHintOpen(false);
+    try { localStorage.setItem("aiwriter_mode_hint_shown", "true"); } catch { /* ignore */ }
+  };
 
   return (
     <div className="space-y-3">
@@ -76,8 +95,10 @@ export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode, aiwriterMo
       </Sheet>
     </div>
       {aiwriterMode && onAiwriterModeChange && mode === "single" && (
-        <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 p-1">
-          <button
+        <Popover open={hintOpen} onOpenChange={(o) => { if (!o) dismissHint(); }}>
+          <PopoverTrigger asChild>
+            <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 p-1">
+              <button
             type="button"
             onClick={() => onAiwriterModeChange("quick")}
             className={`min-w-[160px] px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
@@ -99,7 +120,23 @@ export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode, aiwriterMo
           >
             ⚙️ Эксперт
           </button>
-        </div>
+            </div>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" align="start" className="w-80 p-4 space-y-3">
+            <div className="text-sm font-semibold">👋 Два режима работы</div>
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <div>
+                <span className="text-foreground font-medium">🚀 Быстрый старт</span> — минимум настроек.
+                Просто выберите тему и жмите Generate.
+              </div>
+              <div>
+                <span className="text-foreground font-medium">⚙️ Эксперт</span> — полный контроль:
+                SEO настройки, авторский стиль, детальные метрики.
+              </div>
+            </div>
+            <Button size="sm" className="w-full" onClick={dismissHint}>Понятно!</Button>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );

@@ -92,6 +92,18 @@ export default function ArticlesPage() {
   };
   const isQuickMode = aiwriterMode === "quick" && mode === "single";
 
+  // Sync aiwriter_mode across browser tabs
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === "aiwriter_mode") {
+        const v = e.newValue === "quick" ? "quick" : "expert";
+        setAiwriterModeState(v);
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
   // Dispatch sidebar badge update when generation mode (single/bulk) changes
   useEffect(() => {
     try {
