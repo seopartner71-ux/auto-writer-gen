@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
-import { buildStealthSystemAddon } from "../_shared/stealth.ts";
+import { buildStealthSystemAddon, applyStealthPostProcess } from "../_shared/stealth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -204,12 +204,8 @@ ${extra_prompt ? `Дополнительные инструкции пользо
         } finally {
           controller.close();
 
-          // Sanitize per project rules: no bold, no ё, no em-dash
-          const cleaned = fullText
-            .replace(/\*\*/g, "")
-            .replace(/[—–]/g, "-")
-            .replace(/ё/g, "е")
-            .replace(/Ё/g, "Е");
+          // Sanitize + burstiness post-processing per shared stealth pipeline.
+          const cleaned = applyStealthPostProcess(fullText, language);
 
           if (cleaned.trim().length > 0) {
             await admin.from("article_sections").update({

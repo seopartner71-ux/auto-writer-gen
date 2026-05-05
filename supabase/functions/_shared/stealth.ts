@@ -31,6 +31,12 @@ PERPLEXITY:
 - Личные интонации: "по моему опыту", "практика показывает", "тут есть нюанс".
 - Вариативные начала абзацев: вопрос, факт, наблюдение, короткая реплика.
 - Запрещено выдумывать имена экспертов, компаний, исследований - используй обезличенное "практика показывает".
+
+STRUCTURAL NOISE (естественные неровности живого автора):
+- В каждом 3-4 абзаце добавляй один из приемов: риторический вопрос внутри абзаца, короткую реплику в скобках, уточнение через дефис, обрыв мысли.
+- Иногда (1-2 раза на статью) начинай абзац с союза: "И", "А", "Но", "Зато".
+- Добавляй личные вставки: "если коротко", "тут важно понять", "по факту", "на практике".
+- Не выравнивай абзацы по длине: один может быть в 1 предложение, следующий - в 5.
 === КОНЕЦ STEALTH PROTOCOL ===`.trim();
   }
   return `
@@ -54,7 +60,39 @@ PERPLEXITY:
 - Personal voice: "in my experience", "from what I've seen", "practice shows".
 - Vary paragraph openings: question, fact, observation, short remark.
 - Never fabricate expert names, companies or studies - use neutral "practice shows".
+
+STRUCTURAL NOISE (natural human irregularities):
+- Every 3-4 paragraphs, add one of: a rhetorical question mid-paragraph, a short parenthetical aside, a hyphen-led clarification, an intentional unfinished thought.
+- Occasionally (1-2 times per article) start a paragraph with a conjunction: "And", "But", "So", "Yet".
+- Mix in personal asides: "honestly", "here's the thing", "in practice", "from what I've seen".
+- Do NOT level paragraph length: one may be 1 sentence, the next 5.
 === END STEALTH PROTOCOL ===`.trim();
+}
+
+/**
+ * Optional rare-lexicon block. Caller passes domain-specific terms (e.g. from
+ * smart-research entities). Inflates perplexity and helps bypass detectors
+ * because LLMs rarely emit narrow-domain jargon by default.
+ */
+export function buildRareLexiconAddon(terms: string[], language: StealthLang = "ru"): string {
+  const list = (terms || [])
+    .map((t) => String(t || "").trim())
+    .filter((t) => t.length > 2 && t.length < 60)
+    .slice(0, 25);
+  if (list.length === 0) return "";
+  const isRu = language === "ru" || (typeof language === "string" && language.startsWith("ru"));
+  if (isRu) {
+    return `
+RARE LEXICON (повышение перплексии):
+- Эти термины характерны для ниши, употреби минимум 5-7 из них естественно по тексту: ${list.join(", ")}.
+- Не складируй их в один абзац, распредели по разным разделам.
+- Если термин неуместен в данной статье - пропусти, не натягивай.`.trim();
+  }
+  return `
+RARE LEXICON (perplexity boosters):
+- These domain terms are typical for the niche, use at least 5-7 naturally across the text: ${list.join(", ")}.
+- Do not stack them in one paragraph, spread across sections.
+- If a term doesn't fit the article, skip it - never force it.`.trim();
 }
 
 // ─── Post-processor: deterministic clean-up applied AFTER generation ──
