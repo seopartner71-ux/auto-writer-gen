@@ -52,7 +52,7 @@ export function EditorSidebar({ content, title, metaDescription, domain, slug, o
   const descColor = descLen > 160 ? "text-amber-400" : descLen < 50 ? "text-amber-400" : "text-emerald-400";
 
   return (
-    <div className="space-y-3 sticky top-4">
+    <div className="space-y-3">
       <Card className="bg-card border-border p-3">
         <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-muted-foreground">
           <Search className="h-3.5 w-3.5" />
