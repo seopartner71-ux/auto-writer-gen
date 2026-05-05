@@ -590,6 +590,7 @@ export type Database = {
           is_miralinks_profile: boolean
           name: string
           niche: string | null
+          stealth_profile: Json | null
           stop_words: string[] | null
           style_analysis: Json | null
           style_examples: string | null
@@ -609,6 +610,7 @@ export type Database = {
           is_miralinks_profile?: boolean
           name: string
           niche?: string | null
+          stealth_profile?: Json | null
           stop_words?: string[] | null
           style_analysis?: Json | null
           style_examples?: string | null
@@ -628,6 +630,7 @@ export type Database = {
           is_miralinks_profile?: boolean
           name?: string
           niche?: string | null
+          stealth_profile?: Json | null
           stop_words?: string[] | null
           style_analysis?: Json | null
           style_examples?: string | null
@@ -2989,6 +2992,33 @@ export type Database = {
           p_window_minutes?: number
         }
         Returns: boolean
+      }
+      claim_queue_items: {
+        Args: { batch_size: number }
+        Returns: {
+          article_id: string | null
+          author_profile_id: string | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          idempotency_key: string | null
+          keyword_id: string | null
+          max_retries: number
+          priority: number
+          request_payload: Json
+          retry_count: number
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "generation_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       cleanup_rate_limits: { Args: never; Returns: undefined }
       decrypt_sensitive: { Args: { ciphertext: string }; Returns: string }

@@ -34,14 +34,11 @@ serve(async (req) => {
       });
     }
 
-    // Fetch next items from queue (priority DESC, created_at ASC)
+    // Atomically claim items via SECURITY DEFINER RPC using
+    // UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED).
+    // Two concurrent workers can never claim the same row.
     const { data: queueItems, error: fetchErr } = await admin
-      .from("generation_queue")
-      .select("*")
-      .in("status", ["queued", "retry"])
-      .order("priority", { ascending: false })
-      .order("created_at", { ascending: true })
-      .limit(availableSlots);
+      .rpc("claim_queue_items", { batch_size: availableSlots });
 
     if (fetchErr) throw fetchErr;
     if (!queueItems?.length) {
@@ -54,12 +51,7 @@ serve(async (req) => {
 
     // Process items concurrently (up to availableSlots)
     const promises = queueItems.map(async (item) => {
-      // Mark as processing
-      await admin.from("generation_queue").update({ 
-        status: "processing", 
-        started_at: new Date().toISOString() 
-      }).eq("id", item.id);
-
+      // Already marked as 'processing' by claim_queue_items RPC.
       try {
         // Call generate-article with the stored payload
         const payload = item.request_payload as Record<string, unknown>;
