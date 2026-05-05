@@ -48,11 +48,9 @@ serve(async (req) => {
     }
 
     // Decrypt key
-    const { data: decryptedKey, error: decErr } = await admin.rpc("decrypt_sensitive", {
-      ciphertext: profile.gsc_json_key,
-    });
-    const rawKey = decErr ? profile.gsc_json_key : (decryptedKey ?? profile.gsc_json_key);
-    const keyData = JSON.parse(rawKey);
+    const { data: decryptedKey } = await admin.rpc("decrypt_sensitive", { ciphertext: profile.gsc_json_key });
+    if (!decryptedKey) throw new Error("Не удалось расшифровать GSC ключ. Обратитесь в поддержку.");
+    const keyData = JSON.parse(decryptedKey);
 
     const token = await getGoogleAccessToken(keyData, "https://www.googleapis.com/auth/webmasters.readonly");
 

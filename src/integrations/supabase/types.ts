@@ -1120,6 +1120,30 @@ export type Database = {
         }
         Relationships: []
       }
+      error_logs: {
+        Row: {
+          context: string
+          created_at: string
+          id: string
+          message: string
+          metadata: Json | null
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json | null
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
       faq_articles: {
         Row: {
           category_id: string
@@ -1199,6 +1223,7 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
+          idempotency_key: string | null
           keyword_id: string | null
           max_retries: number
           priority: number
@@ -1216,6 +1241,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
           keyword_id?: string | null
           max_retries?: number
           priority?: number
@@ -1233,6 +1259,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
           keyword_id?: string | null
           max_retries?: number
           priority?: number

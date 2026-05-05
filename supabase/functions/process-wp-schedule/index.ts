@@ -42,9 +42,9 @@ serve(async (req) => {
         const article = post.articles;
         if (!site || !article) throw new Error("Missing site or article data");
 
-        // Decrypt app_password
-        const { data: decryptedPw, error: decErr } = await admin.rpc("decrypt_sensitive", { ciphertext: site.app_password });
-        const plainPassword = decErr ? site.app_password : (decryptedPw ?? site.app_password);
+        const { data: decryptedPw } = await admin.rpc("decrypt_sensitive", { ciphertext: site.app_password });
+        if (!decryptedPw) throw new Error("Не удалось расшифровать пароль WP. Обратитесь в поддержку.");
+        const plainPassword = decryptedPw;
         const wpAuth = btoa(`${site.username}:${plainPassword}`);
         const baseUrl = site.site_url.replace(/\/+$/, "");
 
