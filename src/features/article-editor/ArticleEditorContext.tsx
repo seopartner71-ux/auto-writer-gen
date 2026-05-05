@@ -16,6 +16,7 @@ export interface LsiStatusItem {
 export interface ArticleEditorState {
   currentArticleId: string | null;
   isStreaming: boolean;
+  setIsStreaming: (v: boolean) => void;
   factCheckStatus: FactCheckStatus;
   setFactCheckStatus: (s: FactCheckStatus) => void;
   lsiStatus: LsiStatusItem[];
@@ -39,6 +40,7 @@ export function ArticleEditorProvider({ children, ...state }: ProviderProps) {
   const value = useMemo<ArticleEditorState>(() => ({
     currentArticleId: state.currentArticleId,
     isStreaming: state.isStreaming,
+    setIsStreaming: state.setIsStreaming,
     factCheckStatus: state.factCheckStatus,
     setFactCheckStatus: state.setFactCheckStatus,
     lsiStatus: state.lsiStatus,
@@ -46,6 +48,7 @@ export function ArticleEditorProvider({ children, ...state }: ProviderProps) {
   }), [
     state.currentArticleId,
     state.isStreaming,
+    state.setIsStreaming,
     state.factCheckStatus,
     state.setFactCheckStatus,
     state.lsiStatus,
