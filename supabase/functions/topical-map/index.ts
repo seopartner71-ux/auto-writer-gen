@@ -1,5 +1,5 @@
 // Topical Map: cluster keywords by intent into a content map.
-// Body: { topic: string, geo?: string, language?: string }
+// Body: { topic: string, geo?: string, city?: string, language?: string }
 // Returns: { ok, map_id, clusters, total_keywords, main_topic }
 
 import { corsHeaders, jsonResponse, errorResponse, handlePreflight } from "../_shared/cors.ts";
@@ -51,12 +51,25 @@ function extractKeywords(serp: SerperResp): string[] {
   return out;
 }
 
+const SPAM_PATTERNS = [
+  /ozon|wildberries|dns|eldorado|mvideo|avito/i,
+  /всеинструмент|русклимат|юлмарт|ситилинк/i,
+  /официальный сайт|интернет-магазин/i,
+  /\.(ru|com|рф|net|org)\b/i,
+  /[-–—]\s*(эльдорадо|dns|ozon|mvideo|ballu)/i,
+  /\b(2024|2025|2026)\s*года?\b/i,
+];
+
+const isSpam = (s: string) =>
+  SPAM_PATTERNS.some((p) => p.test(s)) || s.length > 65;
+
 function dedupeNormalize(items: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const raw of items) {
     const norm = String(raw).trim().replace(/\s+/g, " ").toLowerCase();
     if (norm.length < 3 || norm.length > 120) continue;
+    if (isSpam(raw)) continue;
     if (seen.has(norm)) continue;
     seen.add(norm);
     result.push(String(raw).trim());
@@ -134,6 +147,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const topic = String(body.topic || "").trim();
     const geo = String(body.geo || "ru").toLowerCase();
+    const city = String(body.city || "").trim();
     const language = String(body.language || "ru").toLowerCase();
     if (topic.length < 2 || topic.length > 120) {
       return errorResponse("topic required (2-120 chars)", 400);
@@ -153,14 +167,22 @@ Deno.serve(async (req) => {
       return errorResponse("Serper API key not configured", 400);
     }
 
-    // 5 search queries
-    const queries = [
-      topic,
-      `как ${topic}`,
-      `${topic} цена`,
-      `${topic} отзывы`,
-      `${topic} выбрать`,
-    ];
+    // 5 search queries (city-aware if specified)
+    const queries = city
+      ? [
+          `${topic} ${city}`,
+          `как ${topic} ${city}`,
+          `${topic} цена ${city}`,
+          `${topic} отзывы ${city}`,
+          `купить ${topic} ${city}`,
+        ]
+      : [
+          topic,
+          `как ${topic}`,
+          `${topic} цена`,
+          `${topic} отзывы`,
+          `${topic} выбрать`,
+        ];
     const serpResults = await Promise.all(
       queries.map((q) => serperQuery(serperRow.api_key, q, geo, language)),
     );
@@ -192,6 +214,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         topic,
         geo,
+        city: city || null,
         language,
         clusters,
         total_keywords: totalKw,
