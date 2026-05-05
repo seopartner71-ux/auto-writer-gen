@@ -53,6 +53,9 @@ import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
 import { ArticleEditorProvider } from "@/features/article-editor/ArticleEditorContext";
 import { useFixIssue } from "@/features/article-quality/useFixIssue";
+import { useBenchmarkOptimize } from "@/features/article-quality/useBenchmarkOptimize";
+import { DeviationFixDialog } from "@/features/article-quality/DeviationFixDialog";
+import { RewriteAllDialog } from "@/features/article-quality/RewriteAllDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
