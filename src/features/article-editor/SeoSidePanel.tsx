@@ -266,7 +266,10 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
       <CardContent className="pt-3 pb-3 space-y-3 text-xs">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-sm">SEO Score</span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">SEO Score</span>
+            <LiveDot pending={pending} />
+          </div>
           <button onClick={() => setCollapsed(true)} className="text-muted-foreground hover:text-foreground" title="Свернуть">
             <ChevronRight className="h-3 w-3" />
           </button>
@@ -274,12 +277,13 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
 
         {/* Section 1 — Total */}
         <div className="flex items-end justify-between border-b border-border pb-2">
-          <div className={cn("text-3xl font-bold font-mono", scoreColor(totalScore))}>{totalScore}</div>
+          <div className={cn("text-3xl font-bold font-mono transition-all duration-300", scoreColor(totalScore))}>{totalScore}</div>
           <div className="text-right">
             <div className={cn("text-xs font-semibold", scoreColor(totalScore))}>{scoreLabel(totalScore)}</div>
             <div className="text-[10px] text-muted-foreground">из 100</div>
           </div>
         </div>
+        <Progress value={totalScore} className="h-1.5" />
 
         {/* Section 2 — Density */}
         <div className="space-y-1">
@@ -399,7 +403,9 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
               ) : (
                 <>
                   <Sparkles className="h-3 w-3" />
-                  Улучшить SEO до 80+
+                  {totalScore < 40 ? "Серьёзно улучшить до 80+ 🔧"
+                    : totalScore < 60 ? "Улучшить до 80+ ⚡"
+                    : "Улучшить до 80+ 🚀"}
                 </>
               )}
             </Button>
