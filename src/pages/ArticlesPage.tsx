@@ -294,7 +294,7 @@ export default function ArticlesPage() {
   // Auto-disable comparison table for Telegraph author (Telegra.ph не поддерживает HTML-таблицы)
   useEffect(() => {
     if (!selectedAuthorId || selectedAuthorId === "none") return;
-    const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
+    const author: any = authorProfiles.find((a: any) => a.id === selectedAuthorId);
     const isTelegraph = author?.name === "Телеграф" || author?.is_telegraph_author;
     if (isTelegraph && includeComparisonTable) {
       setIncludeComparisonTable(false);
