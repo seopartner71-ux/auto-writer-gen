@@ -2733,6 +2733,7 @@ export type Database = {
       }
       topical_maps: {
         Row: {
+          city: string | null
           clusters: Json
           created_at: string
           geo: string
@@ -2743,6 +2744,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          city?: string | null
           clusters?: Json
           created_at?: string
           geo?: string
@@ -2753,6 +2755,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          city?: string | null
           clusters?: Json
           created_at?: string
           geo?: string

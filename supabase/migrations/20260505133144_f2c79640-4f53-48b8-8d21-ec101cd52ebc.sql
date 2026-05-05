@@ -1,0 +1,1 @@
+ALTER TABLE public.topical_maps ADD COLUMN IF NOT EXISTS city text;
