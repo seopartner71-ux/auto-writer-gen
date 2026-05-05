@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, ChevronLeft, Copy } from "lucide-react";
+import { ChevronRight, ChevronLeft, Copy, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Benchmark {
   medianWordCount?: number | null;
@@ -20,6 +21,8 @@ interface Props {
   benchmark?: Benchmark | null;
   hasKeyword?: boolean;
   onPickKeyword?: () => void;
+  articleId?: string | null;
+  onContentImproved?: (newContent: string) => void;
 }
 
 const STORAGE_KEY = "seo_side_panel_collapsed";
@@ -50,11 +53,14 @@ function scoreLabel(s: number) {
   return "Плохо";
 }
 
-export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword }: Props) {
+export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword, articleId, onContentImproved }: Props) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
   });
   const [showAllTerms, setShowAllTerms] = useState(false);
+  const [improving, setImproving] = useState(false);
+  const [improveStage, setImproveStage] = useState<string>("");
+  const [limitReached, setLimitReached] = useState(false);
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0"); } catch {}
@@ -150,6 +156,52 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
     return ca - cb;
   });
   const visibleTerms = showAllTerms ? sortedTerms : sortedTerms.slice(0, 15);
+
+  const missingTerms = metrics.uniqueTerms.filter(t => !metrics.covered.has(t));
+
+  const handleImprove = async () => {
+    if (!articleId) { toast.error("Сначала сохраните статью"); return; }
+    if (!onContentImproved) return;
+    if (improving) return;
+    setImproving(true);
+    setImproveStage("Анализирую текст...");
+    const scoreBefore = totalScore;
+    try {
+      setImproveStage("Вставляю термины...");
+      const { data, error } = await supabase.functions.invoke("improve-seo", {
+        body: {
+          article_id: articleId,
+          content,
+          keyword: keyword || "",
+          missing_terms: missingTerms.slice(0, 8),
+          current_density: metrics.density,
+          target_density: medianDensity,
+          word_count: metrics.wordCount,
+        },
+      });
+      if (error) throw error;
+      const payload: any = data;
+      if (payload?.limit_reached) {
+        setLimitReached(true);
+        toast.error(payload?.error || "Лимит улучшений достигнут");
+        return;
+      }
+      if (!payload?.ok || !payload?.content) {
+        throw new Error(payload?.error || "Не удалось улучшить");
+      }
+      setImproveStage("Проверяю результат...");
+      onContentImproved(payload.content);
+      // estimate new score quickly: re-run on next render via debounced effect; show before/after
+      toast.success(`SEO улучшен: score был ${scoreBefore}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Ошибка улучшения");
+    } finally {
+      setImproving(false);
+      setImproveStage("");
+    }
+  };
+
+  const canImprove = totalScore < 75 && !limitReached && (missingTerms.length > 0 || metrics.density < medianDensity);
 
   const cellColor = (val: number, median: number) => {
     if (median <= 0) return "text-foreground";
@@ -270,6 +322,42 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
             <div className="text-right font-mono text-muted-foreground">—</div>
           </div>
         </div>
+
+        {/* Section 5 — Improve action */}
+        {totalScore >= 75 ? (
+          <div className="flex items-center justify-center gap-1.5 py-2 text-emerald-400 text-[12px] font-medium border-t border-border">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Готово к публикации
+          </div>
+        ) : limitReached ? (
+          <div className="text-[10px] text-muted-foreground text-center pt-2 border-t border-border leading-snug">
+            Достигнут лимит улучшений (3). Отредактируйте текст вручную.
+          </div>
+        ) : (
+          <div className="space-y-1 pt-2 border-t border-border">
+            <Button
+              size="sm"
+              className="w-full h-8 text-[11px] gap-1.5"
+              onClick={handleImprove}
+              disabled={improving || !canImprove || !articleId}
+            >
+              {improving ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {improveStage || "Улучшаем..."}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3 w-3" />
+                  Улучшить SEO до 80+
+                </>
+              )}
+            </Button>
+            <div className="text-[10px] text-muted-foreground text-center leading-snug">
+              Добавит термины и скорректирует плотность ключа
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
