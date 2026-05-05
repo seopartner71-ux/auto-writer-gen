@@ -377,17 +377,8 @@ export default function ArticlesPage() {
   const readability = useMemo(() => fleschScore(content), [content]);
   const readInfo = readabilityLabel(readability, t);
 
-  // Debounced fact-check to avoid freezing during streaming
-  useEffect(() => {
-    if (!content || content.length < 100 || isStreaming) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      const result = validateContent(content);
-      setFactCheckStatus(result.issues.length > 0 ? "warning" : "verified");
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [content, isStreaming]);
+  // Debounced fact-check (extracted hook). setter exposed for handleGenerate / runFixIssue.
+  const { factCheckStatus, setFactCheckStatus } = useFactCheck(content, isStreaming);
 
   // Stream article generation
   const handleGenerate = useCallback(async () => {
@@ -1723,12 +1714,10 @@ export default function ArticlesPage() {
 
         {/* Right: SEO Dashboard */}
         <div className="space-y-4 md:sticky md:top-4 md:self-start md:max-h-[calc(100vh-2rem)] md:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
-          <SeoSidePanel
+          <SeoSidePanelContainer
             content={content}
-            keyword={selectedKeyword?.seed_keyword || null}
-            terms={seoPanelTerms}
-            benchmark={serpBenchmark || null}
-            hasKeyword={!!selectedKeywordId}
+            selectedKeyword={selectedKeyword}
+            selectedKeywordId={selectedKeywordId}
             articleId={currentArticleId}
             onContentImproved={(c) => setContent(c)}
           />
