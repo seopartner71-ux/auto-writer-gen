@@ -205,8 +205,8 @@ export default function TopicalMapPage() {
     mutationFn: async (cluster: Cluster | null) => {
       if (!user) throw new Error("Не авторизован");
       const kws = cluster
-        ? cluster.keywords.map((k) => k.keyword)
-        : (activeMap?.clusters || []).flatMap((c) => c.keywords.map((k) => k.keyword));
+        ? cluster.keywords.map((k) => cleanKeyword(k.keyword))
+        : (activeMap?.clusters || []).flatMap((c) => c.keywords.map((k) => cleanKeyword(k.keyword)));
       if (kws.length === 0) throw new Error("Нет ключевых слов");
 
       const { data: job, error: jobErr } = await supabase
@@ -230,7 +230,7 @@ export default function TopicalMapPage() {
   });
 
   const handleGenerateOne = (kw: string) => {
-    navigate(`/keywords?seed=${encodeURIComponent(kw)}`);
+    navigate(`/keywords?seed=${encodeURIComponent(cleanKeyword(kw))}`);
   };
 
   const totalInActive = useMemo(
