@@ -393,11 +393,16 @@ export type Database = {
         Row: {
           ai_content_gap: Json | null
           ai_human_score: number | null
+          ai_score: number | null
+          ai_score_internal: number | null
+          ai_score_zerogpt: number | null
           anchor_target_url: string | null
           author_profile_id: string | null
           blogger_blog_id: string | null
           blogger_post_id: string | null
           blogger_post_url: string | null
+          burstiness_score: number | null
+          burstiness_status: string | null
           cluster_id: string | null
           content: string | null
           created_at: string | null
@@ -405,6 +410,8 @@ export type Database = {
           geo: string | null
           id: string
           is_public: boolean | null
+          keyword_density: number | null
+          keyword_density_status: string | null
           keyword_id: string | null
           keywords: string[] | null
           language: string | null
@@ -415,6 +422,7 @@ export type Database = {
           quality_badge: string | null
           quality_checked_at: string | null
           quality_details: Json | null
+          quality_status: string | null
           scheduled_at: string | null
           seo_score: Json | null
           share_token: string | null
@@ -433,11 +441,16 @@ export type Database = {
         Insert: {
           ai_content_gap?: Json | null
           ai_human_score?: number | null
+          ai_score?: number | null
+          ai_score_internal?: number | null
+          ai_score_zerogpt?: number | null
           anchor_target_url?: string | null
           author_profile_id?: string | null
           blogger_blog_id?: string | null
           blogger_post_id?: string | null
           blogger_post_url?: string | null
+          burstiness_score?: number | null
+          burstiness_status?: string | null
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
@@ -445,6 +458,8 @@ export type Database = {
           geo?: string | null
           id?: string
           is_public?: boolean | null
+          keyword_density?: number | null
+          keyword_density_status?: string | null
           keyword_id?: string | null
           keywords?: string[] | null
           language?: string | null
@@ -455,6 +470,7 @@ export type Database = {
           quality_badge?: string | null
           quality_checked_at?: string | null
           quality_details?: Json | null
+          quality_status?: string | null
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
@@ -473,11 +489,16 @@ export type Database = {
         Update: {
           ai_content_gap?: Json | null
           ai_human_score?: number | null
+          ai_score?: number | null
+          ai_score_internal?: number | null
+          ai_score_zerogpt?: number | null
           anchor_target_url?: string | null
           author_profile_id?: string | null
           blogger_blog_id?: string | null
           blogger_post_id?: string | null
           blogger_post_url?: string | null
+          burstiness_score?: number | null
+          burstiness_status?: string | null
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
@@ -485,6 +506,8 @@ export type Database = {
           geo?: string | null
           id?: string
           is_public?: boolean | null
+          keyword_density?: number | null
+          keyword_density_status?: string | null
           keyword_id?: string | null
           keywords?: string[] | null
           language?: string | null
@@ -495,6 +518,7 @@ export type Database = {
           quality_badge?: string | null
           quality_checked_at?: string | null
           quality_details?: Json | null
+          quality_status?: string | null
           scheduled_at?: string | null
           seo_score?: Json | null
           share_token?: string | null
