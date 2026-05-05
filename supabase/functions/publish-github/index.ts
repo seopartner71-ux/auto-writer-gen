@@ -588,9 +588,9 @@ async function autoSubmitIndexing(
     // 1. Google Indexing API
     if (hasGscKey) {
       try {
-        const { data: decryptedKey, error: decErr } = await supabase.rpc("decrypt_sensitive", { ciphertext: profile.gsc_json_key });
-        const rawKey = decErr ? profile.gsc_json_key : (decryptedKey ?? profile.gsc_json_key);
-        const keyData = JSON.parse(rawKey);
+        const { data: decryptedKey } = await supabase.rpc("decrypt_sensitive", { ciphertext: profile.gsc_json_key });
+        if (!decryptedKey) throw new Error("Не удалось расшифровать GSC ключ. Обратитесь в поддержку.");
+        const keyData = JSON.parse(decryptedKey);
         const token = await getGoogleAccessToken(keyData);
         const googleResp = await fetch("https://indexing.googleapis.com/v3/urlNotifications:publish", {
           method: "POST",

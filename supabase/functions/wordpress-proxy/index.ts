@@ -36,9 +36,12 @@ serve(async (req) => {
       .single();
     if (siteErr || !site) throw new Error("WordPress site not found");
 
-    // Decrypt app_password
-    const { data: decryptedPw, error: decErr } = await admin.rpc("decrypt_sensitive", { ciphertext: site.app_password });
-    const plainPassword = decErr ? site.app_password : (decryptedPw ?? site.app_password);
+    // Decrypt app_password — NULL means decrypt failed (key rotation, vault issue).
+    const { data: decryptedPw } = await admin.rpc("decrypt_sensitive", { ciphertext: site.app_password });
+    if (!decryptedPw) {
+      throw new Error("Не удалось расшифровать пароль приложения. Обратитесь в поддержку.");
+    }
+    const plainPassword = decryptedPw;
     const wpAuth = btoa(`${site.username}:${plainPassword}`);
     const baseUrl = site.site_url.replace(/\/+$/, "");
 
