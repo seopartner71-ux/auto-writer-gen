@@ -45,10 +45,12 @@ import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMoun
 import { ArticlesPageHeader } from "@/pages/articles/ArticlesPageHeader";
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
-import { VersionHistoryDialog } from "@/features/article-versions/VersionHistoryDialog";
+import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanel } from "@/features/article-editor/SeoSidePanel";
+import { TransferDialog } from "@/features/article-transfer/TransferDialog";
+import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -73,7 +75,6 @@ export default function ArticlesPage() {
   const [sectionedOpen, setSectionedOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
-  const [transferEmail, setTransferEmail] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     () => localStorage.getItem("active_project_id") || "none"
   );
@@ -256,37 +257,6 @@ export default function ArticlesPage() {
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const benchmarkCacheRef = useRef<Map<string, { data: any; context: string; instructions: string }>>(new Map());
   const { snapshot: snapshotVersion } = useArticleVersions();
-  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
-
-  // Admin: transfer article to another user
-  const handleTransferArticle = useCallback(async () => {
-    if (!transferArticleId || !transferEmail.trim()) return;
-    try {
-      // Find user by email
-      const { data: targetProfile, error: profileErr } = await supabase
-        .from("profiles")
-        .select("id, email")
-        .eq("email", transferEmail.trim())
-        .single();
-      if (profileErr || !targetProfile) {
-        toast.error(lang === "ru" ? "Пользователь не найден" : "User not found");
-        return;
-      }
-      // Update article user_id
-      const { error: updateErr } = await supabase
-        .from("articles")
-        .update({ user_id: targetProfile.id })
-        .eq("id", transferArticleId);
-      if (updateErr) throw updateErr;
-      toast.success(lang === "ru" ? `Статья передана ${targetProfile.email}` : `Article transferred to ${targetProfile.email}`);
-      setTransferDialogOpen(false);
-      setTransferArticleId(null);
-      setTransferEmail("");
-      queryClient.invalidateQueries({ queryKey: ["articles-list"] });
-    } catch (e: any) {
-      toast.error(e.message || "Transfer failed");
-    }
-  }, [transferArticleId, transferEmail, lang, queryClient]);
 
   useEffect(() => {
     if (!isStreaming) { setStreamElapsed(0); return; }
@@ -1008,7 +978,7 @@ export default function ArticlesPage() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <ArticlesPageHeader
+      <HeaderModeSwitcher
         mode={mode}
         onModeChange={setMode}
         hasBulkMode={limits.hasBulkMode}
@@ -1558,15 +1528,12 @@ export default function ArticlesPage() {
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
                 {currentArticleId && content && !isStreaming && (
                   <div className="flex justify-end items-center gap-2 mb-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={() => setVersionHistoryOpen(true)}
-                    >
-                      <History className="w-3 h-3" />
-                      История
-                    </Button>
+                    <VersionsBlock
+                      articleId={currentArticleId}
+                      currentContent={content}
+                      currentTitle={title}
+                      onRestoreVersion={(c) => setContent(c)}
+                    />
                     <Button
                       variant="outline"
                       size="sm"
@@ -1605,7 +1572,7 @@ export default function ArticlesPage() {
                     {currentArticleId && (
                       <QualityBadge
                         articleId={currentArticleId}
-                        onOpenVersions={() => setVersionHistoryOpen(true)}
+                        onOpenVersions={() => window.dispatchEvent(new CustomEvent("open-article-versions", { detail: { articleId: currentArticleId } }))}
                       />
                     )}
                   </div>
@@ -2414,7 +2381,6 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
                             onClick={(e) => {
                               e.stopPropagation();
                               setTransferArticleId(a.id);
-                              setTransferEmail("");
                               setTransferDialogOpen(true);
                             }}
                           >
@@ -2626,40 +2592,11 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
       </Dialog>
 
       {/* Admin: Transfer Article Dialog */}
-      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
-              {lang === "ru" ? "Передать статью пользователю" : "Transfer article to user"}
-            </DialogTitle>
-            <DialogDescription>
-              {lang === "ru" ? "Введите email пользователя, которому хотите передать статью" : "Enter the email of the user to transfer the article to"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder="user@example.com"
-              value={transferEmail}
-              onChange={(e) => setTransferEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && transferEmail.trim() && handleTransferArticle()}
-            />
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setTransferDialogOpen(false)}>
-                {t("common.close")}
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={!transferEmail.trim()}
-                onClick={handleTransferArticle}
-              >
-                <UserPlus className="h-4 w-4 mr-1.5" />
-                {lang === "ru" ? "Передать" : "Transfer"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <TransferDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        articleId={transferArticleId}
+      />
 
       {/* Compliance: edit single deviation */}
       <Dialog open={!!activeDeviation} onOpenChange={(o) => { if (!o) { setActiveDeviation(null); setIsRewritingFragment(false); } }}>
@@ -3011,22 +2948,6 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
           </div>
         </SheetContent>
       </Sheet>
-      <VersionHistoryDialog
-        open={versionHistoryOpen}
-        onOpenChange={setVersionHistoryOpen}
-        articleId={currentArticleId}
-        currentContent={content}
-        onRestore={(c) => {
-          // snapshot current before restoring so it can be re-restored
-          snapshotVersion({
-            articleId: currentArticleId,
-            content,
-            title: title || undefined,
-            reason: "auto",
-          });
-          setContent(c);
-        }}
-      />
     </div>
   );
 }
