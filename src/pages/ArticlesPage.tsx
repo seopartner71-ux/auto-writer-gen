@@ -629,6 +629,9 @@ export default function ArticlesPage() {
     setFixingIssue,
     abortRef,
     snapshotVersion,
+    currentArticleId,
+    setIsStreaming,
+    setFactCheckStatus,
   });
 
   const benchmarkOptimize = useBenchmarkOptimize({
@@ -643,6 +646,10 @@ export default function ArticlesPage() {
     setStreamPhase,
     abortRef,
     snapshotVersion,
+    currentArticleId,
+    isStreaming,
+    setIsStreaming,
+    benchmarkCacheRef,
   });
 
   // Save article
