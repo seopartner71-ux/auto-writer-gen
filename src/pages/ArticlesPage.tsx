@@ -51,6 +51,8 @@ import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
+import { ArticleEditorProvider } from "@/features/article-editor/ArticleEditorContext";
+import { useFixIssue } from "@/features/article-quality/useFixIssue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -610,117 +612,24 @@ export default function ArticlesPage() {
   const handleStop = () => abortRef.current?.abort();
 
   // Shared: runs a Human/Fix instruction through generate-article (also used by Auto-Improve)
-  const runFixIssue = useCallback(async (issueKey: string, instruction: string) => {
-    if (!selectedKeywordId || !content.trim()) {
-      toast.error("Нет контента для исправления");
-      return;
-    }
-    setFixingIssue(issueKey);
-    setIsStreaming(true);
-    setStreamPhase("thinking");
-    const prevContent = content;
-    // Snapshot before destructive rewrite
-    snapshotVersion({
-      articleId: currentArticleId,
-      content: prevContent,
-      title: title || undefined,
-      reason: issueKey === "humanize-all" ? "humanize" : "fix",
-    });
-    setContent("");
-
-    const isHumanize = issueKey === "humanize-all";
-    if (isHumanize) {
-      toast.info(lang === "ru"
-        ? "Анализируем структуру текста и убираем AI-паттерны..."
-        : "Analyzing text structure and removing AI patterns...",
-        { duration: 8000 }
-      );
-    }
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
-      const token = freshSession?.access_token;
-      if (refreshError || !token) throw new Error("Not authenticated");
-
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({
-          keyword_id: selectedKeywordId,
-          author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
-          outline,
-          lsi_keywords: lsiKeywords,
-          language: (selectedKeyword as any)?.language || null,
-          optimize_instructions: `ЗАДАЧА: Исправь ТОЛЬКО указанную проблему, сохрани весь остальной текст максимально близко к оригиналу.\n\n${instruction}\n\nВАЖНО: НЕ переписывай статью целиком. Измени только те части, которые нарушают указанное правило. Сохрани структуру, заголовки и объём.`,
-          existing_content: prevContent,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(err.error || `HTTP ${resp.status}`);
-      }
-      if (!resp.body) throw new Error("No stream body");
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let fullContent = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let ni: number;
-        while ((ni = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, ni);
-          buffer = buffer.slice(ni + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) { if (!fullContent) setStreamPhase("writing"); fullContent += delta; setContent(fullContent); }
-          } catch { buffer = line + "\n" + buffer; break; }
-        }
-      }
-
-      if (isHumanize) {
-        toast.success(lang === "ru"
-          ? "Текст успешно гуманизирован! Запах GPT устранён."
-          : "Text humanized successfully! GPT smell eliminated.",
-          { duration: 5000 }
-        );
-      } else {
-        toast.success(lang === "ru" ? "Проблема исправлена — проверьте Human Score" : "Issue fixed — check Human Score");
-      }
-    } catch (e: any) {
-      if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
-      else {
-        toast.error(isHumanize
-          ? (lang === "ru" ? "Ошибка при обработке текста. Попробуйте ещё раз." : "Error processing text. Please try again.")
-          : e.message
-        );
-        setContent(prevContent);
-        throw e;
-      }
-    } finally {
-      setIsStreaming(false);
-      setStreamPhase(null);
-      setFixingIssue(null);
-      abortRef.current = null;
-    }
-  }, [selectedKeywordId, selectedAuthorId, content, outline, lsiKeywords, selectedKeyword, lang, t, currentArticleId, title, snapshotVersion, user?.id]);
+  const runFixIssue = useFixIssue({
+    selectedKeywordId,
+    selectedAuthorId,
+    outline,
+    lsiKeywords,
+    selectedKeyword,
+    content,
+    setContent,
+    currentArticleId,
+    title,
+    lang,
+    t,
+    setIsStreaming,
+    setStreamPhase,
+    setFixingIssue,
+    abortRef,
+    snapshotVersion,
+  });
 
   // Save article
   const saveArticle = useMutation({
@@ -936,6 +845,14 @@ export default function ArticlesPage() {
   }, [selectedKeywordId]);
 
   return (
+    <ArticleEditorProvider
+      currentArticleId={currentArticleId}
+      isStreaming={isStreaming}
+      factCheckStatus={factCheckStatus}
+      setFactCheckStatus={setFactCheckStatus}
+      lsiStatus={lsiStatus}
+      benchmarkCache={benchmarkCacheRef}
+    >
     <div className="space-y-6 overflow-x-hidden">
       <HeaderModeSwitcher
         mode={mode}
@@ -2718,6 +2635,7 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
         </SheetContent>
       </Sheet>
     </div>
+    </ArticleEditorProvider>
   );
 }
 
