@@ -9,8 +9,7 @@ import { Copy, Trash2, Check, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
-import { AutoQualityBadge } from "@/components/article/AutoQualityBadge";
-import { VersionHistoryDialog } from "@/components/article/VersionHistoryDialog";
+import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -85,7 +84,6 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
 
   return (
     <div className="space-y-6">
-      <VersionHistoryDialog />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{t("myArticles.title")}</h1>
@@ -160,7 +158,7 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
                     </TableCell>
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       <TooltipProvider>
-                        <AutoQualityBadge
+                        <QualityBadge
                           articleId={article.id}
                           initial={{
                             quality_status: (article as any).quality_status
