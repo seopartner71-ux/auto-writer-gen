@@ -1601,18 +1601,12 @@ export default function ArticlesPage() {
                       <Send className="w-3 h-3" />
                       Поделиться
                     </Button>
-                    <LiveQualityBadge
-                      articleId={currentArticleId}
-                      content={content}
-                      enabled={localStorage.getItem("live_quality_disabled") !== "1"}
-                       onClick={() => {
-                         // Scroll the quality panel into view (right-side dashboard)
-                         try {
-                           const el = document.getElementById("quality-check-panel");
-                           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                         } catch {}
-                       }}
-                    />
+                    {currentArticleId && (
+                      <QualityBadge
+                        articleId={currentArticleId}
+                        onOpenVersions={() => setVersionHistoryOpen(true)}
+                      />
+                    )}
                   </div>
                 )}
                 <TabsContent value="edit" className="mt-0">
