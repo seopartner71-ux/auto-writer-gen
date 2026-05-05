@@ -114,8 +114,11 @@ export default function PricingPage() {
       showShield: false,
       features: getFeatures("free", [
         { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
-        { text: isEn ? "1 author profile" : "1 профиль автора", included: true },
-        { text: isEn ? "HTML export" : "Экспорт в HTML", included: true },
+        { text: isEn ? "AI + Turgenev quality check" : "AI + Тургенев проверка качества", included: true },
+        { text: isEn ? "3 SEO improvements per article" : "3 SEO-улучшения на статью", included: true },
+        { text: isEn ? "All author profiles (15+ styles)" : "Все авторские профили (15+ стилей)", included: true },
+        { text: isEn ? "Quick Start mode" : "Быстрый старт режим", included: true },
+        { text: isEn ? "Realtime SEO Score" : "Realtime SEO Score", included: true },
       ]),
     },
     {
@@ -130,8 +133,11 @@ export default function PricingPage() {
       showShield: true,
       features: getFeatures("basic", [
         { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
-        { text: isEn ? "5 author profiles" : "5 профилей авторов", included: true },
-        { text: isEn ? "Uniqueness check" : "Проверка уникальности", included: true },
+        { text: isEn ? "Everything in NANO" : "Всё из NANO", included: true },
+        { text: isEn ? "Unlimited SEO improvements" : "Безлимит SEO-улучшений", included: true },
+        { text: isEn ? "Bulk up to 10 articles" : "Bulk генерация до 10 статей", included: true },
+        { text: isEn ? "Priority queue" : "Приоритетная очередь", included: true },
+        { text: isEn ? "WordPress auto-publish" : "WordPress автопубликация", included: true },
       ]),
     },
     {
@@ -146,8 +152,12 @@ export default function PricingPage() {
       showShield: true,
       features: getFeatures("pro", [
         { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
-        { text: isEn ? "All AI models" : "Все модели AI", included: true },
-        { text: isEn ? "Bulk generation" : "Массовая генерация", included: true },
+        { text: isEn ? "Everything in PRO" : "Всё из PRO", included: true },
+        { text: isEn ? "Unlimited bulk (100+ articles)" : "Bulk без лимита (100+ статей)", included: true },
+        { text: isEn ? "2 users per account" : "2 пользователя в аккаунте", included: true },
+        { text: isEn ? "Site Factory / Programmatic SEO" : "Site Factory / Programmatic SEO", included: true },
+        { text: isEn ? "API access" : "API доступ", included: true },
+        { text: isEn ? "Priority support" : "Приоритетная поддержка", included: true },
       ]),
     },
   ];
@@ -300,6 +310,34 @@ export default function PricingPage() {
       </div>
 
       <div className="text-center text-xs text-muted-foreground max-w-lg mx-auto">{t("pricing.creditNote")}</div>
+
+      {/* Plan comparison table */}
+      <div className="max-w-4xl mx-auto px-2">
+        <h2 className="text-xl font-bold text-center mb-4">
+          {isEn ? "Plan comparison" : "Сравнение тарифов"}
+        </h2>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40">
+              <tr>
+                <th className="text-left p-3 font-semibold">{isEn ? "Feature" : "Функция"}</th>
+                <th className="p-3 font-semibold">NANO</th>
+                <th className="p-3 font-semibold">PRO</th>
+                <th className="p-3 font-semibold">FACTORY</th>
+              </tr>
+            </thead>
+            <tbody className="[&_tr]:border-t [&_tr]:border-border [&_td]:p-3 [&_td:not(:first-child)]:text-center">
+              <tr><td>{isEn ? "Articles per month" : "Статей в месяц"}</td><td>5</td><td>40</td><td>150</td></tr>
+              <tr><td>{isEn ? "SEO improvements" : "SEO улучшений"}</td><td>3</td><td>∞</td><td>∞</td></tr>
+              <tr><td>{isEn ? "Bulk generation" : "Bulk генерация"}</td><td>—</td><td>{isEn ? "up to 10" : "до 10"}</td><td>{isEn ? "unlimited" : "без лимита"}</td></tr>
+              <tr><td>{isEn ? "WordPress publishing" : "WordPress публикация"}</td><td>—</td><td>✓</td><td>✓</td></tr>
+              <tr><td>{isEn ? "Users" : "Пользователей"}</td><td>1</td><td>1</td><td>2</td></tr>
+              <tr><td>{isEn ? "API access" : "API доступ"}</td><td>—</td><td>—</td><td>✓</td></tr>
+              <tr><td>{isEn ? "Support" : "Поддержка"}</td><td>{isEn ? "Basic" : "Базовая"}</td><td>{isEn ? "Basic" : "Базовая"}</td><td>{isEn ? "Priority" : "Приоритет"}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

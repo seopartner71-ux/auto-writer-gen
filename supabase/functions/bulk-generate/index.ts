@@ -507,8 +507,11 @@ serve(async (req) => {
 
     const userId = getUserIdFromRequest(req);
     const { data: profile } = await admin.from("profiles").select("plan").eq("id", userId).single();
-    if (!profile || profile.plan !== "pro") {
-      return jsonResponse({ error: "Bulk generation is only available on the PRO plan" }, 403);
+    // Bulk available on PRO (basic) and FACTORY (pro). NANO (free) blocked.
+    const planRaw = String(profile?.plan || "").toLowerCase();
+    const allowedPlans = new Set(["basic", "pro", "factory"]);
+    if (!profile || !allowedPlans.has(planRaw)) {
+      return jsonResponse({ error: "Массовая генерация доступна только на тарифах PRO и FACTORY" }, 403);
     }
 
     const { bulk_job_id } = await req.json();
