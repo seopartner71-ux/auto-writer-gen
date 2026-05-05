@@ -414,7 +414,9 @@ export default function TopicalMapPage() {
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">{im.tip}</TooltipContent>
                             </Tooltip>
-                            <span className="text-xs text-muted-foreground">{count} запросов</span>
+                            <span className="text-xs text-muted-foreground">
+                              {count} запросов{cluster.total_frequency && cluster.total_frequency > 0 ? ` · ~${cluster.total_frequency.toLocaleString("ru")}/мес` : ""}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -429,9 +431,9 @@ export default function TopicalMapPage() {
                     </div>
 
                     {/* Keywords table header */}
-                    <div className="hidden sm:grid grid-cols-[1fr_120px_140px_auto] gap-2 px-2 pb-1 text-xs text-muted-foreground border-b border-border/50 mb-1">
+                    <div className="hidden sm:grid grid-cols-[1fr_140px_140px_auto] gap-2 px-2 pb-1 text-xs text-muted-foreground border-b border-border/50 mb-1">
                       <span>Ключевое слово</span>
-                      <span>Объем</span>
+                      <span>Частотность</span>
                       <span>Сложность</span>
                       <span></span>
                     </div>
@@ -439,12 +441,24 @@ export default function TopicalMapPage() {
                     <ul className="space-y-1">
                       {(cluster.keywords || []).map((kw, ki) => {
                         const dm = difficultyMeta(kw.difficulty);
-                        const vol = kw.volume === "high" ? "Высокий" : kw.volume === "medium" ? "Средний" : kw.volume === "low" ? "Низкий" : "—";
                         const display = cleanKeyword(kw.keyword);
+                        const f = kw.frequency || 0;
+                        const freqCls = f >= 10000 ? "text-emerald-400" : f >= 1000 ? "text-amber-400" : f > 0 ? "text-muted-foreground" : "text-muted-foreground";
+                        const freqIcon = f >= 10000 ? "🟢" : f >= 1000 ? "🟡" : f > 0 ? "⚫" : "";
+                        const freqText = kw.frequency_display || (f > 0 ? f.toLocaleString("ru") + "/мес" : "—");
                         return (
-                          <li key={ki} className="grid grid-cols-1 sm:grid-cols-[1fr_120px_140px_auto] items-center gap-2 text-sm py-1 px-2 rounded hover:bg-muted/30 group">
+                          <li key={ki} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_140px_auto] items-center gap-2 text-sm py-1 px-2 rounded hover:bg-muted/30 group">
                             <span className="truncate text-foreground/90" title={display}>{display}</span>
-                            <span className="text-xs text-muted-foreground">{vol}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className={`text-xs cursor-help ${freqCls}`}>
+                                  {freqIcon ? `${freqIcon} ` : ""}{freqText}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                Широкая частотность из базы Букварикс. Показывает сколько раз в месяц ищут этот запрос в Яндексе.
+                              </TooltipContent>
+                            </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className={`text-xs cursor-help ${dm.cls}`}>{dm.label}</span>
