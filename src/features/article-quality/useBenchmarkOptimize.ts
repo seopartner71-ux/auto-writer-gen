@@ -1,13 +1,13 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAndAnalyze, buildAnalysisContext } from "@/entities/competitor/analysisService";
+import { fetchAndAnalyze, buildAnalysisContext, type DeepParseResult } from "@/entities/competitor/analysisService";
 import { useArticleEditor } from "@/features/article-editor/ArticleEditorContext";
 import { parseSseStream } from "@/features/article-editor/parseSseStream";
-import type { KeywordRef, BenchmarkData } from "@/features/article-editor/types";
+import type { KeywordRef } from "@/features/article-editor/types";
 
 export interface BenchmarkCacheEntry {
-  data: BenchmarkData;
+  data: DeepParseResult;
   context: string;
   instructions: string;
 }
@@ -45,7 +45,7 @@ export function useBenchmarkOptimize(deps: BenchmarkOptimizeDeps) {
     const token = freshSession?.access_token;
     if (!token) throw new Error("Not authenticated");
     const cached = d.benchmarkCacheRef.current.get(d.selectedKeywordId);
-    let data: BenchmarkData, benchmarkContext: string, instructions: string;
+    let data: DeepParseResult, benchmarkContext: string, instructions: string;
     if (cached) {
       toast.info("Используем кэш ТОП-10...", { duration: 3000 });
       data = cached.data; benchmarkContext = cached.context; instructions = cached.instructions;
