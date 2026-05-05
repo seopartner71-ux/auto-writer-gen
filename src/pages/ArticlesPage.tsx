@@ -1948,6 +1948,24 @@ export default function ArticlesPage() {
 
         {/* Right: SEO Dashboard */}
         <div className="space-y-4 md:sticky md:top-4 md:self-start md:max-h-[calc(100vh-2rem)] md:overflow-y-auto overflow-x-hidden scrollbar-hide min-w-0">
+          <EditorSidebar
+            content={content}
+            title={title}
+            metaDescription={metaDescription}
+            domain={publishedUrl ? (() => { try { return new URL(publishedUrl).host; } catch { return null; } })() : null}
+            slug={publishedUrl ? (() => { try { return new URL(publishedUrl).pathname.replace(/^\//, "").replace(/\/$/, ""); } catch { return ""; } })() : ""}
+            onJump={(idx, text) => {
+              const ta = editorTextareaRef.current;
+              if (!ta) return;
+              ta.focus();
+              ta.setSelectionRange(idx, idx + text.length);
+              // approximate scroll: lines before idx
+              const before = content.slice(0, idx);
+              const lineNum = before.split("\n").length;
+              const lineHeight = parseFloat(getComputedStyle(ta).lineHeight || "20") || 20;
+              ta.scrollTop = Math.max(0, (lineNum - 3) * lineHeight);
+            }}
+          />
           <Tabs defaultValue="dashboard">
             <TabsList className="w-full h-8 grid grid-cols-3 gap-0.5">
               <TabsTrigger value="dashboard" className="text-[10px] gap-1 px-1 min-w-0">
