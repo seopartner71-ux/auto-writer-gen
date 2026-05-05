@@ -147,6 +147,22 @@ function freqToVolume(freq: number): { label: string; value: number; display: st
   return { label: "unknown", value: 0, display: "—" };
 }
 
+const STOP_WORDS = new Set([
+  "в","на","для","по","из","от","до","за","под","над","при","со","об","о","к","у","с",
+  "и","или","а","но","же","ли","бы","как","что","это","то",
+]);
+
+function normalizeForMatch(s: string): string {
+  return String(s || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+    .slice(0, 4)
+    .join(" ");
+}
+
 async function clusterWithAI(topic: string, keywords: string[], lang: string): Promise<any> {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableKey) throw new Error("LOVABLE_API_KEY missing");
