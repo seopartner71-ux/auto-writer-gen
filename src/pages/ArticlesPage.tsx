@@ -845,6 +845,14 @@ export default function ArticlesPage() {
   }, [selectedKeywordId]);
 
   return (
+    <ArticleEditorProvider
+      currentArticleId={currentArticleId}
+      isStreaming={isStreaming}
+      factCheckStatus={factCheckStatus}
+      setFactCheckStatus={setFactCheckStatus}
+      lsiStatus={lsiStatus}
+      benchmarkCache={benchmarkCacheRef}
+    >
     <div className="space-y-6 overflow-x-hidden">
       <HeaderModeSwitcher
         mode={mode}
@@ -2627,6 +2635,7 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
         </SheetContent>
       </Sheet>
     </div>
+    </ArticleEditorProvider>
   );
 }
 
