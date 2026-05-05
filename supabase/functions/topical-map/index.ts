@@ -91,7 +91,10 @@ async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, num
     body.append("json_type", "array");
 
     console.log("[bukvarix] sending keywords:", batch.slice(0, 5));
-    const res = await fetchWithTimeout("https://api.bukvarix.com/v1/mkeywords/", {
+    const BUKVARIX_URL = "https://api.bukvarix.com/v1/mkeywords/";
+    const PROXY_URL = "https://seo-modul.pro/api/proxy.php";
+    const proxied = `${PROXY_URL}?external_url=${encodeURIComponent(BUKVARIX_URL)}`;
+    const res = await fetchWithTimeout(proxied, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
