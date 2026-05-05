@@ -502,7 +502,7 @@ export default function ArticlesPage() {
           seo_keywords: seoKeywords.trim() || null,
           geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
           custom_instructions: customInstructions.trim() || null,
-          project_id: selectedProjectId || null,
+          project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
         }),
         signal: controller.signal,
       });
