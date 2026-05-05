@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Loader2, Wand2, RotateCcw, History, Sparkles,
+  Loader2, Wand2, RotateCcw, History, Sparkles, ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +26,8 @@ interface Props {
     turgenev_score?: number | null;
     turgenev_status?: string | null;
     turgenev_details?: { repeats?: number; style?: number; spam?: number; water?: number; readability?: number } | null;
+    uniqueness_percent?: number | null;
+    uniqueness_checked_at?: string | null;
   };
   onOpenVersions?: () => void;
 }
@@ -102,6 +104,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
   const [data, setData] = useState<any>(initial || {});
   const [improving, setImproving] = useState(false);
   const [rechecking, setRechecking] = useState(false);
+  const [checkingUniq, setCheckingUniq] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
   const stoppedRef = useRef(false);
@@ -138,6 +141,8 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             turgenev_score: row.turgenev_score,
             turgenev_status: row.turgenev_status,
             turgenev_details: row.turgenev_details,
+            uniqueness_percent: row.uniqueness_percent,
+            uniqueness_checked_at: row.uniqueness_checked_at,
           }));
           if (row.quality_status && row.quality_status !== "checking") {
             cleanupChannel();
@@ -156,7 +161,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
 
   async function fetchOnce() {
     const { data: row } = await supabase.from("articles")
-      .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status,turgenev_score,turgenev_status,turgenev_details")
+      .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status,turgenev_score,turgenev_status,turgenev_details,uniqueness_percent,uniqueness_checked_at")
       .eq("id", articleId).maybeSingle();
     if (stoppedRef.current) return;
     if (row) setData((d: any) => ({ ...d, ...row }));
@@ -232,6 +237,31 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
       toast.error(e?.message || "Не удалось выполнить запрос");
     } finally {
       setRechecking(false);
+    }
+  }
+
+  async function runUniqueness() {
+    setCheckingUniq(true);
+    try {
+      const { data: art } = await supabase.from("articles").select("content").eq("id", articleId).maybeSingle();
+      if (!art?.content) { toast.error("Нет контента для проверки"); return; }
+      toast.info("Запущена проверка уникальности через text.ru. Результат через 1-2 мин.");
+      const res = await callEdge("quality-check", {
+        article_id: articleId,
+        content: art.content,
+        checks: ["uniqueness"],
+      });
+      if (res?.uniqueness_pending) {
+        stoppedRef.current = false;
+        startRealtime();
+      } else if (res?.uniqueness_percent != null) {
+        setData((d: any) => ({ ...d, uniqueness_percent: res.uniqueness_percent, uniqueness_checked_at: new Date().toISOString() }));
+        toast.success(`Уникальность: ${res.uniqueness_percent}%`);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось проверить уникальность");
+    } finally {
+      setCheckingUniq(false);
     }
   }
 
@@ -382,6 +412,21 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
                 </Tooltip>
               </TooltipProvider>
             )}
+            {/* Uniqueness (text.ru antiplagiat) — manual only */}
+            {data.uniqueness_percent != null && (
+              <MetricRow
+                emoji={data.uniqueness_percent >= 85 ? "🟢" : data.uniqueness_percent >= 70 ? "🟡" : "🔴"}
+                title="Уникальность"
+                value={`${data.uniqueness_percent}%`}
+                hint={
+                  data.uniqueness_percent >= 85
+                    ? "Отличная уникальность (text.ru антиплагиат)"
+                    : data.uniqueness_percent >= 70
+                    ? "Средняя уникальность - есть совпадения"
+                    : "Низкая уникальность - много совпадений"
+                }
+              />
+            )}
           </div>
         )}
 
@@ -404,6 +449,17 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
               {rechecking ? "Выполняется..." : "Перепроверить"}
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full"
+            onClick={runUniqueness}
+            disabled={checkingUniq || rechecking || improving}
+            title="Запустить отдельную проверку уникальности через text.ru (1 кредит)"
+          >
+            {checkingUniq ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
+            {checkingUniq ? "Запуск..." : "Проверить уникальность (text.ru)"}
+          </Button>
           <Button
             size="sm"
             variant="ghost"
