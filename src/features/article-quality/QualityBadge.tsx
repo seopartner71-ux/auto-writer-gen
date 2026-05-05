@@ -412,6 +412,21 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
                 </Tooltip>
               </TooltipProvider>
             )}
+            {/* Uniqueness (text.ru antiplagiat) — manual only */}
+            {data.uniqueness_percent != null && (
+              <MetricRow
+                emoji={data.uniqueness_percent >= 85 ? "🟢" : data.uniqueness_percent >= 70 ? "🟡" : "🔴"}
+                title="Уникальность"
+                value={`${data.uniqueness_percent}%`}
+                hint={
+                  data.uniqueness_percent >= 85
+                    ? "Отличная уникальность (text.ru антиплагиат)"
+                    : data.uniqueness_percent >= 70
+                    ? "Средняя уникальность - есть совпадения"
+                    : "Низкая уникальность - много совпадений"
+                }
+              />
+            )}
           </div>
         )}
 
@@ -434,6 +449,17 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
               {rechecking ? "Выполняется..." : "Перепроверить"}
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full"
+            onClick={runUniqueness}
+            disabled={checkingUniq || rechecking || improving}
+            title="Запустить отдельную проверку уникальности через text.ru (1 кредит)"
+          >
+            {checkingUniq ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
+            {checkingUniq ? "Запуск..." : "Проверить уникальность (text.ru)"}
+          </Button>
           <Button
             size="sm"
             variant="ghost"
