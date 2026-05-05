@@ -1257,7 +1257,7 @@ export default function ArticlesPage() {
                   <SeoTipTicker language={lang === "ru" ? "ru" : "en"} />
                 )}
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
-                {currentArticleId && content && !isStreaming && (
+                {currentArticleId && content && !isStreaming && !isQuickMode && (
                   <div className="flex justify-end items-center gap-2 mb-2">
                     <VersionsBlock
                       articleId={currentArticleId}
