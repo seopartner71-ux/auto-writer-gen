@@ -894,6 +894,8 @@ export default function ArticlesPage() {
         mode={mode}
         onModeChange={setMode}
         hasBulkMode={limits.hasBulkMode}
+        aiwriterMode={aiwriterMode}
+        onAiwriterModeChange={setAiwriterMode}
       />
 
       {keywords.length === 0 && (
