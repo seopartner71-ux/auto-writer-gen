@@ -176,66 +176,77 @@ ${sample}`;
   } catch { return null; }
 }
 
-// ---- 3. Text.ru uniqueness ----
-// Использует Text.ru Нейропомощник (Detector). Уникальность = 100 - % AI.
-// Два шага: POST /task/detector -> taskId; затем GET /task/detector/{taskId} до status=READY.
+// ---- 3. Text.ru uniqueness (АНТИПЛАГИАТ — НЕ AI-детектор) ----
+// Стандартный antiplagiat API text.ru: POST /post -> uid; затем POST /post с uid до получения text_unique.
+// AI-score рассчитывается отдельно через Claude+Gemini, text.ru тут не участвует.
 async function runTextRuUniqueness(plain: string, apiKey: string): Promise<
-  | { ok: true; uniqueness: number; words: number; raw: any; ai_phrases: string[] }
+  | { ok: true; uniqueness: number; words: number; raw: any; matches: any[] }
   | { ok: false; error: string; code?: number }
 > {
-  // Neuro API limit: 20..20000 chars
-  const text = plain.slice(0, 20000);
-  if (text.length < 20) {
-    return { ok: false, error: "Текст слишком короткий для проверки Text.ru (минимум 20 символов)" };
+  const text = plain.slice(0, 150000);
+  if (text.length < 100) {
+    return { ok: false, error: "Текст слишком короткий для проверки уникальности (минимум 100 символов)" };
   }
 
-  // Step 1: create task
-  const submitRes = await fetch("https://api.text.ru/neurotools/api/v1/task/detector", {
-    method: "POST",
-    headers: { "X-USERKEY": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+  const post = async (form: Record<string, string>) => {
+    const fd = new URLSearchParams();
+    for (const [k, v] of Object.entries(form)) fd.append(k, v);
+    const res = await fetch("https://api.text.ru/post", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: fd.toString(),
+    });
+    const j: any = await res.json().catch(() => ({}));
+    return { res, j };
+  };
+
+  // Step 1: submit text for antiplagiat check
+  const { res: submitRes, j: submitJson } = await post({
+    text,
+    userkey: apiKey,
+    visible: "vis_on",
   });
-  const submitJson: any = await submitRes.json().catch(() => ({}));
-  if (!submitRes.ok || !submitJson?.taskId) {
-    console.error("[quality-check] text.ru neuro submit failed", submitRes.status, submitJson);
-    const code = Number(submitJson?.code) || submitRes.status;
-    let msg = submitJson?.message || submitJson?.error_desc || "Сервис Text.ru недоступен";
-    if (code === 400030 || /баланс/i.test(msg) || /нейросимвол/i.test(msg)) {
-      msg = "На балансе Text.ru закончились нейросимволы. Пополните баланс на text.ru/account/balance или напишите в поддержку - мы поможем.";
-    } else if (submitRes.status === 401 || code === 401 || /ключ|key|userkey/i.test(msg)) {
-      msg = "Неверный или просроченный API-ключ Text.ru (TEXTRU_API_KEY). Проверьте ключ в настройках интеграций или обновите его через поддержку.";
-    } else if (submitRes.status === 429 || code === 429) {
+  if (!submitRes.ok || !submitJson?.text_uid) {
+    console.error("[quality-check] text.ru antiplagiat submit failed", submitRes.status, submitJson);
+    const code = Number(submitJson?.error_code) || submitRes.status;
+    let msg = submitJson?.error_desc || "Сервис Text.ru недоступен";
+    if (/баланс|symbol/i.test(msg)) {
+      msg = "На балансе Text.ru закончились символы. Пополните баланс на text.ru/account/balance.";
+    } else if (submitRes.status === 401 || /ключ|key|userkey/i.test(msg)) {
+      msg = "Неверный или просроченный API-ключ Text.ru (TEXTRU_API_KEY).";
+    } else if (submitRes.status === 429) {
       msg = "Превышен лимит запросов к Text.ru. Попробуйте через минуту.";
     }
     return { ok: false, error: msg, code };
   }
-  const taskId = String(submitJson.taskId);
+  const uid = String(submitJson.text_uid);
 
-  // Step 2: poll up to ~60s (30 * 2s)
-  for (let i = 0; i < 30; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
-    const pollRes = await fetch(
-      `https://api.text.ru/neurotools/api/v1/task/detector/${encodeURIComponent(taskId)}`,
-      { method: "GET", headers: { "X-USERKEY": apiKey } },
-    );
-    const pollJson: any = await pollRes.json().catch(() => ({}));
-    const status = String(pollJson?.status || "").toUpperCase();
-    if (status === "ERROR" || status === "FAILED") {
-      return { ok: false, error: pollJson?.message || "Text.ru вернул ошибку выполнения" };
+  // Step 2: poll for result up to ~120s (40 * 3s)
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const { j: pollJson } = await post({ uid, userkey: apiKey, jsonvisible: "detail" });
+    // While processing, text.ru returns error_code=181 ("Текст еще не проверен")
+    if (pollJson?.error_code && Number(pollJson.error_code) === 181) continue;
+    if (pollJson?.text_unique != null) {
+      const uniq = Math.max(0, Math.min(100, Math.round(Number(pollJson.text_unique))));
+      let matches: any[] = [];
+      try {
+        const detail = typeof pollJson.result_json === "string"
+          ? JSON.parse(pollJson.result_json)
+          : pollJson.result_json;
+        if (Array.isArray(detail?.urls)) matches = detail.urls.slice(0, 10);
+      } catch { /* ignore */ }
+      return {
+        ok: true,
+        uniqueness: uniq,
+        words: text.trim().split(/\s+/).filter(Boolean).length,
+        raw: { uid, text_unique: uniq, spam_percent: pollJson.spam_percent, water_percent: pollJson.water_percent },
+        matches,
+      };
     }
-    if (status !== "READY") continue;
-
-    const aiPercent = Math.max(0, Math.min(100, Math.round(Number(pollJson?.result?.percent) || 0)));
-    const phrases = Array.isArray(pollJson?.result?.phrases)
-      ? pollJson.result.phrases.slice(0, 10).map((p: any) => String(p?.phrase ?? p ?? "")).filter(Boolean)
-      : [];
-    return {
-      ok: true,
-      uniqueness: 100 - aiPercent,
-      words: text.trim().split(/\s+/).filter(Boolean).length,
-      raw: { taskId, ai_percent: aiPercent, neurosymbols: pollJson?.neurosymbols },
-      ai_phrases: phrases,
-    };
+    if (pollJson?.error_code) {
+      return { ok: false, error: pollJson?.error_desc || "Text.ru вернул ошибку", code: Number(pollJson.error_code) };
+    }
   }
   return { ok: false, error: "Text.ru не вернул результат за отведённое время" };
 }
