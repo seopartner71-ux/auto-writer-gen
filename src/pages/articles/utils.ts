@@ -40,6 +40,29 @@ export function readabilityLabel(
 }
 
 export function markdownToPreviewHtml(md: string): string {
+  const addClass = (tag: string, attrs: string = "", className: string) => {
+    if (/\sclass\s*=\s*["']/i.test(attrs)) {
+      return `<${tag}${attrs.replace(/\sclass\s*=\s*(["'])(.*?)\1/i, (_m, quote, value) => {
+        const classes = String(value).split(/\s+/);
+        return ` class=${quote}${classes.includes(className) ? value : `${value} ${className}`}${quote}`;
+      })}>`;
+    }
+    return `<${tag}${attrs} class="${className}">`;
+  };
+
+  const normalizeArticleHtml = (html: string) => html
+    .replace(/<h([1-6])([^>]*)>/gi, (_m, level, attrs) => addClass(`h${level}`, attrs || "", `md-h${level}`))
+    .replace(/<p([^>]*)>/gi, (_m, attrs) => addClass("p", attrs || "", "md-p"))
+    .replace(/<ul([^>]*)>/gi, (_m, attrs) => addClass("ul", attrs || "", "md-ul"))
+    .replace(/<ol([^>]*)>/gi, (_m, attrs) => addClass("ol", attrs || "", "md-ol"))
+    .replace(/<li([^>]*)>/gi, (_m, attrs) => addClass("li", attrs || "", "md-ul-li"))
+    .replace(/<table([^>]*)>/gi, (_m, attrs) => addClass("table", attrs || "", "md-table"))
+    .replace(/<img([^>]*)>/gi, (_m, attrs) => addClass("img", attrs || "", "md-img"));
+
+  if (/<\/?(?:h[1-6]|p|ul|ol|li|table|thead|tbody|tr|td|th|blockquote|figure|img)\b/i.test(md)) {
+    return normalizeArticleHtml(md);
+  }
+
   let html = md.replace(
     /(?:^|\n)((?:\|.+\|\s*\n)+)/g,
     (_, tableBlock: string) => {
@@ -86,7 +109,7 @@ export function markdownToPreviewHtml(md: string): string {
   html = html.replace(/<p class="md-p">\s*(<h[1-6]|<ul|<ol|<table)/g, "$1");
   html = html.replace(/(<\/h[1-6]>|<\/ul>|<\/ol>|<\/table>)\s*<\/p>/g, "$1");
 
-  return html;
+  return normalizeArticleHtml(html);
 }
 
 export function highlightHtml(code: string): string {
