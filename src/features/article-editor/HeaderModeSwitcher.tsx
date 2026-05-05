@@ -6,6 +6,8 @@ interface HeaderModeSwitcherProps {
   hasBulkMode: boolean;
   /** Optional hook to open the sectioned generator sheet. */
   onOpenSectioned?: () => void;
+  aiwriterMode?: "quick" | "expert";
+  onAiwriterModeChange?: (m: "quick" | "expert") => void;
 }
 
 /**
@@ -13,12 +15,14 @@ interface HeaderModeSwitcherProps {
  * Provides a stable extraction point for Step 1 of the ArticlesPage refactor
  * without changing existing header markup or behavior.
  */
-export function HeaderModeSwitcher({ mode, onModeChange, hasBulkMode }: HeaderModeSwitcherProps) {
+export function HeaderModeSwitcher({ mode, onModeChange, hasBulkMode, aiwriterMode, onAiwriterModeChange }: HeaderModeSwitcherProps) {
   return (
     <ArticlesPageHeader
       mode={mode}
       onModeChange={onModeChange}
       hasBulkMode={hasBulkMode}
+      aiwriterMode={aiwriterMode}
+      onAiwriterModeChange={onAiwriterModeChange}
     />
   );
 }
