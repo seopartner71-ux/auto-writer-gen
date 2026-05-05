@@ -331,7 +331,11 @@ async function runAutoQuality(
 ) {
   const plain = stripHtml(content);
   if (plain.length < 200) {
-    await admin.from("articles").update({ quality_status: "fail" }).eq("id", articleId);
+    await admin.from("articles").update({
+      quality_status: "too_short",
+      quality_badge: "needs_work",
+      quality_checked_at: new Date().toISOString(),
+    }).eq("id", articleId);
     return;
   }
 

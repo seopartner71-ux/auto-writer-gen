@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Wand2 } from "lucide-react";
+import { Loader2, Wand2, RotateCcw, History, Trophy, ThumbsUp, AlertTriangle, FileWarning, CircleDashed } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -17,11 +17,13 @@ interface Props {
   };
 }
 
-const STATUS_META: Record<string, { dot: string; label: string; ring: string }> = {
-  ok: { dot: "bg-emerald-500", label: "Готово", ring: "ring-emerald-500/40" },
-  warning: { dot: "bg-amber-500", label: "Проверьте", ring: "ring-amber-500/40" },
-  fail: { dot: "bg-rose-500", label: "Нужна доработка", ring: "ring-rose-500/40" },
-  checking: { dot: "bg-muted-foreground/50 animate-pulse", label: "Проверка...", ring: "ring-border" },
+const STATUS_META: Record<string, { Icon: any; label: string; color: string }> = {
+  ok:        { Icon: Trophy,        label: "Отлично",         color: "text-emerald-400" },
+  warning:   { Icon: ThumbsUp,      label: "Хорошо",          color: "text-amber-400" },
+  fail:      { Icon: AlertTriangle, label: "Нужна доработка", color: "text-rose-400" },
+  too_short: { Icon: FileWarning,   label: "Текст короткий",  color: "text-muted-foreground" },
+  checking:  { Icon: Loader2,       label: "Проверка",        color: "text-muted-foreground animate-spin" },
+  none:      { Icon: CircleDashed,  label: "Не проверено",    color: "text-muted-foreground/60" },
 };
 
 function dotFor(s: string | null | undefined) {
@@ -32,56 +34,69 @@ function dotFor(s: string | null | undefined) {
 }
 
 export function AutoQualityBadge({ articleId, initial }: Props) {
-  const [data, setData] = useState(initial || {});
+  const [data, setData] = useState<any>(initial || {});
   const [improving, setImproving] = useState(false);
+  const [rechecking, setRechecking] = useState(false);
+  const timerRef = useRef<number | null>(null);
+  const stoppedRef = useRef(false);
 
-  // Polling when checking
-  useEffect(() => {
-    let stopped = false;
+  function clearTimer() {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }
+
+  function startPolling() {
+    clearTimer();
     let attempts = 0;
-    async function tick() {
-      if (stopped) return;
+    const tick = async () => {
+      if (stoppedRef.current) return;
       attempts++;
       const { data: row } = await supabase.from("articles")
         .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status")
         .eq("id", articleId).maybeSingle();
+      if (stoppedRef.current) return;
       if (row) setData(row as any);
-      if (row && row.quality_status === "checking" && attempts < 60) {
-        setTimeout(tick, 3000);
+      if (row && row.quality_status === "checking") {
+        if (attempts < 60) {
+          timerRef.current = window.setTimeout(tick, 3000);
+        } else {
+          // timeout: reset to none so user can retry
+          setData((d: any) => ({ ...d, quality_status: "timeout" }));
+        }
       }
-    }
-    if (!data.quality_status || data.quality_status === "checking") {
-      tick();
-    }
-    return () => { stopped = true; };
-  }, [articleId]);
+    };
+    tick();
+  }
 
-  const status = data.quality_status || "checking";
-  const meta = STATUS_META[status] || STATUS_META.checking;
-  const showImprove = status === "warning" || status === "fail";
+  useEffect(() => {
+    stoppedRef.current = false;
+    if (!data.quality_status || data.quality_status === "checking") {
+      startPolling();
+    }
+    return () => {
+      stoppedRef.current = true;
+      clearTimer();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articleId]);
 
   async function runImprove() {
     setImproving(true);
     try {
-      const { error } = await supabase.functions.invoke("improve-article", {
+      const { data: res, error } = await supabase.functions.invoke("improve-article", {
         body: { article_id: articleId },
       });
       if (error) throw error;
-      toast.success("Запущена авто-доработка. Дождитесь повторной проверки.");
-      setData((d) => ({ ...d, quality_status: "checking" }));
-      // restart polling
-      setTimeout(async () => {
-        let n = 0;
-        const poll = async () => {
-          n++;
-          const { data: row } = await supabase.from("articles")
-            .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status")
-            .eq("id", articleId).maybeSingle();
-          if (row) setData(row as any);
-          if (row && row.quality_status === "checking" && n < 60) setTimeout(poll, 3000);
-        };
-        poll();
-      }, 1000);
+      if ((res as any)?.cooldown) {
+        toast.warning((res as any).message || "Подождите перед повторной доработкой");
+        return;
+      }
+      toast.success("Запущена авто-доработка");
+      setData((d: any) => ({ ...d, quality_status: "checking" }));
+      stoppedRef.current = false;
+      startPolling();
     } catch (e: any) {
       toast.error(e?.message || "Ошибка авто-доработки");
     } finally {
@@ -89,50 +104,100 @@ export function AutoQualityBadge({ articleId, initial }: Props) {
     }
   }
 
+  async function runRecheck() {
+    setRechecking(true);
+    try {
+      const { data: art } = await supabase.from("articles").select("content").eq("id", articleId).maybeSingle();
+      if (!art?.content) { toast.error("Нет контента"); return; }
+      const { error } = await supabase.functions.invoke("quality-check", {
+        body: { article_id: articleId, content: art.content, mode: "auto" },
+      });
+      if (error) throw error;
+      setData((d: any) => ({ ...d, quality_status: "checking" }));
+      stoppedRef.current = false;
+      startPolling();
+    } catch (e: any) {
+      toast.error(e?.message || "Ошибка");
+    } finally {
+      setRechecking(false);
+    }
+  }
+
+  const status = data.quality_status || "none";
+  const meta = STATUS_META[status] || STATUS_META.none;
+  const showImprove = status === "warning" || status === "fail";
+  const showRetry = status === "timeout" || status === "fail" || status === "warning" || status === "ok";
+  const Icon = status === "timeout" ? AlertTriangle : meta.Icon;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/40 px-2 py-0.5 text-[11px] hover:border-border ring-1 ${meta.ring}`}
-          title={meta.label}
+          className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted/40 transition-colors"
+          title={status === "timeout" ? "Проверка не ответила" : meta.label}
+          onClick={(e) => e.stopPropagation()}
         >
-          <span className={`inline-block h-2 w-2 rounded-full ${meta.dot}`} />
-          <span className="text-muted-foreground">{meta.label}</span>
+          <Icon className={`h-4 w-4 ${meta.color}`} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-3 text-xs space-y-2">
-        <div className="font-medium text-sm">Качество статьи</div>
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span>{dotFor(data.ai_score == null ? "checking" : (data.ai_score >= 70 ? "ok" : data.ai_score >= 50 ? "warning" : "fail"))} AI-детектор</span>
-            <span className="font-mono text-muted-foreground">
-              {data.ai_score != null ? `${data.ai_score}` : "..."}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>{dotFor(data.burstiness_status)} Ритм текста</span>
-            <span className="font-mono text-muted-foreground">
-              {data.burstiness_score != null ? `σ=${data.burstiness_score}` : "..."}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>{dotFor(data.keyword_density_status)} Плотность</span>
-            <span className="font-mono text-muted-foreground">
-              {data.keyword_density != null ? `${data.keyword_density}%${data.keyword_density_status === "overuse" ? "↑" : data.keyword_density_status === "underuse" ? "↓" : ""}` : "..."}
-            </span>
-          </div>
+      <PopoverContent align="start" className="w-72 p-3 text-xs space-y-2" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="font-medium text-sm">Качество статьи</div>
+          <span className={`text-[10px] uppercase tracking-wide ${meta.color.replace("animate-spin", "")}`}>{status === "timeout" ? "Таймаут" : meta.label}</span>
         </div>
-        {showImprove && (
+        {status === "too_short" && (
+          <div className="text-muted-foreground text-[11px] leading-snug">
+            Текст короче 200 символов - проверка качества не проводилась.
+          </div>
+        )}
+        {status !== "too_short" && status !== "none" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span>{dotFor(data.ai_score == null ? "checking" : (data.ai_score >= 70 ? "ok" : data.ai_score >= 50 ? "warning" : "fail"))} AI-детектор</span>
+              <span className="font-mono text-muted-foreground">
+                {data.ai_score != null ? `${data.ai_score}` : "..."}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>{dotFor(data.burstiness_status)} Длина предложений</span>
+              <span className="font-mono text-muted-foreground">
+                {data.burstiness_score != null ? `σ=${data.burstiness_score}` : "..."}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>{dotFor(data.keyword_density_status)} Плотность ключа</span>
+              <span className="font-mono text-muted-foreground">
+                {data.keyword_density != null ? `${data.keyword_density}%${data.keyword_density_status === "overuse" ? "↑" : data.keyword_density_status === "underuse" ? "↓" : ""}` : "..."}
+              </span>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-col gap-1.5 pt-1">
+          {showImprove && (
+            <Button size="sm" className="w-full" onClick={runImprove} disabled={improving || rechecking}>
+              {improving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+              Улучшить автоматически
+            </Button>
+          )}
+          {showRetry && status !== "checking" && (
+            <Button size="sm" variant="outline" className="w-full" onClick={runRecheck} disabled={rechecking || improving}>
+              {rechecking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}
+              Перепроверить
+            </Button>
+          )}
           <Button
             size="sm"
-            className="w-full mt-2"
-            onClick={runImprove}
-            disabled={improving}
+            variant="ghost"
+            className="w-full text-[11px] h-7"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(new CustomEvent("open-article-versions", { detail: { articleId } }));
+            }}
           >
-            {improving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
-            Улучшить автоматически
+            <History className="h-3 w-3 mr-1" />
+            История версий
           </Button>
-        )}
+        </div>
       </PopoverContent>
     </Popover>
   );

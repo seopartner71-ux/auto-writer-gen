@@ -21,6 +21,30 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Count critical structural HTML elements to detect rewrite damage.
+function countTags(html: string): { h: number; a: number; p: number; li: number; table: number; words: number } {
+  return {
+    h: (html.match(/<h[1-6][\s>]/gi) || []).length,
+    a: (html.match(/<a\s[^>]*href=/gi) || []).length,
+    p: (html.match(/<p[\s>]/gi) || []).length,
+    li: (html.match(/<li[\s>]/gi) || []).length,
+    table: (html.match(/<table[\s>]/gi) || []).length,
+    words: stripHtml(html).split(/\s+/).filter(Boolean).length,
+  };
+}
+
+// Returns true if the rewritten HTML preserves structure (within tolerance).
+function htmlIntegrityOk(before: string, after: string): { ok: boolean; reason?: string } {
+  const b = countTags(before);
+  const a = countTags(after);
+  if (a.words < b.words * 0.6) return { ok: false, reason: `words shrunk ${b.words}->${a.words}` };
+  if (a.words > b.words * 1.6) return { ok: false, reason: `words inflated ${b.words}->${a.words}` };
+  if (a.h < b.h) return { ok: false, reason: `headings lost ${b.h}->${a.h}` };
+  if (a.a < b.a) return { ok: false, reason: `links lost ${b.a}->${a.a}` };
+  if (a.table < b.table) return { ok: false, reason: `tables lost ${b.table}->${a.table}` };
+  return { ok: true };
+}
+
 // Remove every Nth occurrence of keyword (default every 3rd) from HTML, preserving tags.
 function removeEveryNthKeyword(html: string, keyword: string, n = 3): string {
   if (!keyword) return html;
@@ -110,12 +134,43 @@ Deno.serve(async (req) => {
     if (!article_id) return json({ error: "article_id required" }, 400);
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density")
+      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
     let content: string = art.content || "";
     if (!content) return json({ error: "Article has no content" }, 400);
+    const originalContent = content;
+    const originalAiScore = art.ai_score;
+
+    // ── Cooldown: 60s between improve calls per article ──
+    if (art.last_improve_at) {
+      const elapsed = Date.now() - new Date(art.last_improve_at as string).getTime();
+      if (elapsed < 60_000) {
+        return json({
+          ok: false,
+          cooldown: true,
+          retry_after: Math.ceil((60_000 - elapsed) / 1000),
+          message: `Подождите ${Math.ceil((60_000 - elapsed) / 1000)} сек. перед повторной доработкой`,
+        });
+      }
+    }
+
+    // Snapshot BEFORE any change so user can rollback
+    try {
+      await admin.from("article_versions").insert({
+        article_id,
+        user_id: user.id,
+        title: art.title ?? null,
+        content: originalContent,
+        reason: "auto_improve_before",
+        word_count: stripHtml(originalContent).split(/\s+/).filter(Boolean).length,
+        metadata: { ai_score_before: originalAiScore },
+      } as any);
+    } catch (e) {
+      console.warn("[improve-article] snapshot failed", e);
+    }
+    await admin.from("articles").update({ last_improve_at: new Date().toISOString() }).eq("id", article_id);
 
     // Mark as checking
     await admin.from("articles").update({ quality_status: "checking" }).eq("id", article_id);
@@ -150,7 +205,13 @@ ${content}`;
       }
       if (rewritten && rewritten.length > 200) {
         // Strip stray markdown code fences
-        content = rewritten.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        const candidate = rewritten.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        const integrity = htmlIntegrityOk(content, candidate);
+        if (integrity.ok) {
+          content = candidate;
+        } else {
+          console.warn("[improve-article] rewrite rejected:", integrity.reason);
+        }
       }
     }
 
@@ -167,7 +228,10 @@ ${content}`;
       if (lovableKey) added = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey);
       if (!added && orKey) added = await callOpenRouter("google/gemini-2.5-flash", sys, usr, orKey);
       if (added && added.length > 200) {
-        content = added.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        const candidate = added.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        const integrity = htmlIntegrityOk(content, candidate);
+        if (integrity.ok) content = candidate;
+        else console.warn("[improve-article] density-fix rejected:", integrity.reason);
       }
     }
 
