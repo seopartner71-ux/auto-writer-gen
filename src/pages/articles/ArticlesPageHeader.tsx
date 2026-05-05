@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { FileText, Gem, Factory, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ interface Props {
  */
 export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode }: Props) {
   const { t } = useI18n();
+  const [openMyArticles, setOpenMyArticles] = useState(false);
 
   return (
     <div className="flex items-center gap-3">
@@ -53,7 +55,7 @@ export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode }: Props) {
           {!hasBulkMode && <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PRO</Badge>}
         </Button>
       </div>
-      <Sheet>
+      <Sheet open={openMyArticles} onOpenChange={setOpenMyArticles}>
         <SheetTrigger asChild>
           <Button variant="outline" size="sm" className="gap-1.5">
             <BookOpen className="h-3.5 w-3.5" />
@@ -65,7 +67,7 @@ export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode }: Props) {
             <SheetTitle>{t("nav.myArticles")}</SheetTitle>
           </SheetHeader>
           <div className="mt-4">
-            <MyArticlesPage />
+            <MyArticlesPage onArticleSelect={() => setOpenMyArticles(false)} />
           </div>
         </SheetContent>
       </Sheet>
