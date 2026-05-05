@@ -51,6 +51,8 @@ import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
+import { ArticleEditorProvider } from "@/features/article-editor/ArticleEditorContext";
+import { useFixIssue } from "@/features/article-quality/useFixIssue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
