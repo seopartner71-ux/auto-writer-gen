@@ -6,6 +6,7 @@
 // Returns: { ok: true } and re-triggers quality-check auto-mode in background.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -143,17 +144,11 @@ Deno.serve(async (req) => {
     const originalContent = content;
     const originalAiScore = art.ai_score;
 
-    // Plan-based limits per article. DB plan ids: free=NANO, basic=PRO, pro=FACTORY.
-    const PLAN_LIMITS: Record<string, number> = {
-      free: 3, nano: 3,
-      basic: 999, pro: 999,
-      factory: 999,
-      default: 3,
-    };
     const { data: pProfile } = await admin.from("profiles").select("plan").eq("id", user.id).maybeSingle();
-    const planRaw = String((pProfile as any)?.plan || "").toLowerCase();
-    const improveLimit = PLAN_LIMITS[planRaw] ?? PLAN_LIMITS.default;
+    const planRaw = (pProfile as any)?.plan ?? null;
+    const improveLimit = getPlanLimit(planRaw, IMPROVE_LIMITS);
     const usedImprove = Number((art as any).seo_improve_count || 0);
+    console.log("[improve-article][plan-check] user:", user.id, "plan:", planRaw, "key:", normalizePlanKey(planRaw), "limit:", improveLimit, "used:", usedImprove);
     if (usedImprove >= improveLimit) {
       return json({
         ok: false,
