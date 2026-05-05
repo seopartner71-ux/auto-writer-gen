@@ -91,6 +91,15 @@ export default function ArticlesPage() {
     } catch { /* ignore */ }
   };
   const isQuickMode = aiwriterMode === "quick" && mode === "single";
+
+  // Dispatch sidebar badge update when generation mode (single/bulk) changes
+  useEffect(() => {
+    try {
+      window.dispatchEvent(new CustomEvent("aiwriter-mode-changed", {
+        detail: mode === "bulk" ? "bulk" : aiwriterMode,
+      }));
+    } catch { /* ignore */ }
+  }, [mode, aiwriterMode]);
   const [sectionedOpen, setSectionedOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferArticleId, setTransferArticleId] = useState<string | null>(null);
