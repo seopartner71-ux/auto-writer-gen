@@ -63,7 +63,29 @@ serve(async (req) => {
       try {
         // Call generate-article with the stored payload
         const payload = item.request_payload as Record<string, unknown>;
-        
+
+        // ── Idempotency: if a previous attempt already produced an article
+        // for this queue item, do NOT re-charge or regenerate. Just mark done.
+        if (item.idempotency_key) {
+          const { data: existing } = await admin
+            .from("generation_queue")
+            .select("id, article_id, status")
+            .eq("idempotency_key", item.idempotency_key)
+            .eq("status", "completed")
+            .neq("id", item.id)
+            .maybeSingle();
+          if (existing?.article_id) {
+            await admin.from("generation_queue").update({
+              status: "completed",
+              article_id: existing.article_id,
+              completed_at: new Date().toISOString(),
+              error_message: "deduped via idempotency_key",
+            }).eq("id", item.id);
+            results.push({ id: item.id, status: "completed" });
+            return;
+          }
+        }
+
         // Get user's auth - we use service role to call the function directly
         const response = await fetch(`${supabaseUrl}/functions/v1/generate-article`, {
           method: "POST",
