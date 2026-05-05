@@ -1,9 +1,9 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useArticleEditor } from "@/features/article-editor/ArticleEditorContext";
 import { parseSseStream } from "@/features/article-editor/parseSseStream";
 import type { KeywordRef } from "@/features/article-editor/types";
+import type { FactCheckStatus } from "@/features/article-editor/ArticleEditorContext";
 
 export interface FixIssueDeps {
   selectedKeywordId: string;
@@ -20,6 +20,9 @@ export interface FixIssueDeps {
   setFixingIssue: (k: string | null) => void;
   abortRef: React.MutableRefObject<AbortController | null>;
   snapshotVersion: (args: { articleId: string | null; content: string; title?: string; reason: string }) => void;
+  currentArticleId: string | null;
+  setIsStreaming: (v: boolean) => void;
+  setFactCheckStatus: (s: FactCheckStatus) => void;
 }
 
 /**
@@ -28,11 +31,8 @@ export interface FixIssueDeps {
  * Behaviour identical to the inline version in ArticlesPage.
  */
 export function useFixIssue(deps: FixIssueDeps) {
-  const { currentArticleId, setIsStreaming, setFactCheckStatus } = useArticleEditor();
-  // Hold latest deps + context values in a ref so the returned callback identity
-  // is stable (matches original useCallback semantics).
-  const depsRef = useRef({ ...deps, currentArticleId, setIsStreaming, setFactCheckStatus });
-  depsRef.current = { ...deps, currentArticleId, setIsStreaming, setFactCheckStatus };
+  const depsRef = useRef(deps);
+  depsRef.current = deps;
 
   const runFixIssue = useCallback(async (issueKey: string, instruction: string) => {
     const d = depsRef.current;
