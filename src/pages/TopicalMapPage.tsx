@@ -18,12 +18,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { toast } from "sonner";
 
-type ClusterKeyword = { keyword: string; volume?: string; difficulty?: string };
+type ClusterKeyword = {
+  keyword: string;
+  volume?: string;
+  difficulty?: string;
+  frequency?: number;
+  frequency_display?: string;
+};
 type Cluster = {
   name: string;
   icon?: string;
   intent?: "informational" | "commercial" | "transactional" | "navigational" | string;
   keywords: ClusterKeyword[];
+  avg_frequency?: number;
+  total_frequency?: number;
 };
 type TopicalMap = {
   id: string;
@@ -111,11 +119,11 @@ function cleanKeyword(raw: string): string {
 }
 
 function downloadCsv(map: TopicalMap) {
-  const rows: string[] = ["Кластер,Ключевое слово,Интент,Объем,Сложность"];
+  const rows: string[] = ["Кластер,Ключевое слово,Интент,Частотность,Объем,Сложность"];
   for (const c of map.clusters || []) {
     for (const kw of c.keywords || []) {
       rows.push(
-        [c.name, cleanKeyword(kw.keyword), c.intent || "", kw.volume || "", kw.difficulty || ""]
+        [c.name, cleanKeyword(kw.keyword), c.intent || "", kw.frequency ?? "", kw.volume || "", kw.difficulty || ""]
           .map((v) => escapeCsv(String(v ?? "")))
           .join(","),
       );
