@@ -432,9 +432,10 @@ export default function TopicalMapPage() {
                       {(cluster.keywords || []).map((kw, ki) => {
                         const dm = difficultyMeta(kw.difficulty);
                         const vol = kw.volume === "high" ? "Высокий" : kw.volume === "medium" ? "Средний" : kw.volume === "low" ? "Низкий" : "—";
+                        const display = cleanKeyword(kw.keyword);
                         return (
                           <li key={ki} className="grid grid-cols-1 sm:grid-cols-[1fr_120px_140px_auto] items-center gap-2 text-sm py-1 px-2 rounded hover:bg-muted/30 group">
-                            <span className="truncate text-foreground/90">{kw.keyword}</span>
+                            <span className="truncate text-foreground/90" title={display}>{display}</span>
                             <span className="text-xs text-muted-foreground">{vol}</span>
                             <Tooltip>
                               <TooltipTrigger asChild>
