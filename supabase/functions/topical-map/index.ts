@@ -78,73 +78,63 @@ function dedupeNormalize(items: string[]): string[] {
   return result.slice(0, 120);
 }
 
+const PROXY_BASE = "https://seo-modul.pro/api/proxy.php";
+
 async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, number>> {
   const result = new Map<string, number>();
   const batch = keywords.slice(0, 100);
   if (batch.length === 0) return result;
-  try {
-    const body = new URLSearchParams();
-    body.append("q", batch.join("\r\n"));
-    body.append("api_key", "free");
-    body.append("num", "250");
-    body.append("format", "json");
-    body.append("json_type", "array");
 
-    console.log("[bukvarix] sending keywords:", batch.slice(0, 5));
-    const BUKVARIX_URL = "https://api.bukvarix.com/v1/mkeywords/";
-    const PROXY_URL = "https://seo-modul.pro/api/proxy.php";
-    const proxied = `${PROXY_URL}?external_url=${encodeURIComponent(BUKVARIX_URL)}`;
-    const res = await fetchWithTimeout(proxied, {
+  try {
+    const q = batch.join("\r\n");
+    const bukvarixUrl =
+      "https://api.bukvarix.com/v1/mkeywords/" +
+      "?api_key=free" +
+      "&format=json" +
+      "&json_type=array" +
+      "&num=250";
+
+    const proxyUrl = `${PROXY_BASE}?external_url=${encodeURIComponent(bukvarixUrl)}`;
+
+    console.log("[bukvarix] sending via proxy:", batch.slice(0, 3));
+    const res = await fetchWithTimeout(proxyUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ q }).toString(),
       timeoutMs: BUKVARIX_TIMEOUT_MS,
     });
+
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.warn("[bukvarix] http", res.status, text.slice(0, 200));
+      console.warn("[bukvarix] error:", res.status);
       return result;
     }
-    const raw = await res.text();
-    console.log("[bukvarix] raw:", raw.slice(0, 500));
-    let data: any = null;
-    try { data = JSON.parse(raw); } catch { /* maybe csv */ }
 
-    let items: any[] = [];
-    if (Array.isArray(data)) items = data;
-    else if (Array.isArray(data?.data)) items = data.data;
-    else if (Array.isArray(data?.keywords)) items = data.keywords;
-    else if (Array.isArray(data?.result)) items = data.result;
-    else if (Array.isArray(data?.data?.keywords)) items = data.data.keywords;
+    const data = await res.json().catch(() => null);
+    console.log("[bukvarix] items:", Array.isArray(data) ? data.length : 0);
 
-    console.log("[bukvarix] response sample:", JSON.stringify(items.slice(0, 3)));
-
+    const items = Array.isArray(data) ? data : [];
     for (const item of items) {
-      let kw: any = null;
-      let freq: any = null;
-      if (Array.isArray(item)) {
-        kw = item[0];
-        // typical CSV: keyword, word_count, char_count, broad, exact
-        freq = item[3] ?? item[1];
-      } else if (item && typeof item === "object") {
-        kw = item.keyword ?? item.phrase ?? item.word ?? item.q;
-        freq = item.broad ?? item.frequency ?? item.shows ?? item.count ?? item.exact;
-      }
-      if (kw && freq != null) {
-        const norm = String(kw).toLowerCase().trim().replace(/\s+/g, " ");
-        const n = Number(freq) || 0;
-        if (n > 0) {
-          result.set(norm, n);
-          const nm = normalizeForMatch(String(kw));
-          if (nm && !result.has(nm)) result.set(nm, n);
-        }
+      if (!Array.isArray(item)) continue;
+      const kw = item[0];
+      const broad = item[3];
+      if (kw && broad != null) {
+        result.set(
+          String(kw).toLowerCase().trim(),
+          Number(broad) || 0,
+        );
       }
     }
 
-    console.log("[bukvarix] freq map size:", result.size);
+    console.log("[bukvarix] loaded:", result.size);
   } catch (e) {
-    console.warn("[bukvarix] error", e instanceof Error ? e.message : String(e));
+    console.warn(
+      "[bukvarix] exception:",
+      e instanceof Error ? e.message : String(e),
+    );
   }
+
   return result;
 }
 
