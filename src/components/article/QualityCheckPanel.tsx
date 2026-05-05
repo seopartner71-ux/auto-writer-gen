@@ -489,18 +489,31 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
                     { key: "uniqueness" as const, title: "Уникальность Text.ru", desc: "Антиплагиат - норма 85%+", cost: "1 ₵", show: true },
                   ]).filter(s => s.show).map((step, idx) => {
                     const state = stepStates[step.key];
-                    const Icon = state === "done" ? CheckCircle2 : state === "running" ? Loader2 : state === "error" ? XCircle : Circle;
-                    const iconColor = state === "done" ? "text-emerald-400" : state === "running" ? "text-primary" : state === "error" ? "text-destructive" : "text-muted-foreground/60";
-                    const ring = state === "running" ? "border-primary/50 bg-primary/5" : state === "done" ? "border-emerald-500/30 bg-emerald-500/5" : state === "error" ? "border-destructive/40 bg-destructive/5" : "border-border/40 bg-muted/20";
+                    const enabled = stepEnabled[step.key];
+                    const ring = state === "running" ? "border-primary/50 bg-primary/5"
+                      : state === "done" ? "border-emerald-500/30 bg-emerald-500/5"
+                      : state === "error" ? "border-destructive/40 bg-destructive/5"
+                      : enabled ? "border-primary/40 bg-primary/5"
+                      : "border-border/40 bg-muted/20";
+                    const StatusIcon = state === "done" ? CheckCircle2 : state === "running" ? Loader2 : state === "error" ? XCircle : null;
+                    const statusColor = state === "done" ? "text-emerald-400" : state === "running" ? "text-primary" : state === "error" ? "text-destructive" : "";
                     return (
-                      <div key={step.key} className={`flex items-start gap-3 rounded-lg border p-2.5 transition-colors ${ring}`}>
-                        <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${iconColor} ${state === "running" ? "animate-spin" : ""}`} />
+                      <label key={step.key} className={`flex items-start gap-3 rounded-lg border p-2.5 transition-colors cursor-pointer ${ring}`}>
+                        <Checkbox
+                          checked={enabled}
+                          disabled={autoImproving}
+                          onCheckedChange={(v) => setStepEnabled(s => ({ ...s, [step.key]: Boolean(v) }))}
+                          className="mt-0.5"
+                        />
                         <div className="flex-1 text-xs">
-                          <div className="font-medium text-foreground">{idx + 1}. {step.title}</div>
+                          <div className="font-medium text-foreground flex items-center gap-1.5">
+                            {idx + 1}. {step.title}
+                            {StatusIcon && <StatusIcon className={`h-3.5 w-3.5 ${statusColor} ${state === "running" ? "animate-spin" : ""}`} />}
+                          </div>
                           <div className="text-muted-foreground">{step.desc}</div>
                         </div>
                         <span className={`text-[10px] ${step.cost === "free" ? "text-emerald-400" : "text-muted-foreground"}`}>{step.cost}</span>
-                      </div>
+                      </label>
                     );
                   })}
                 </div>
