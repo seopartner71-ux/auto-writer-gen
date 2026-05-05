@@ -326,6 +326,43 @@ async function runClaudeAiScore(plain: string, key: string): Promise<number | nu
   }
 }
 
+// ---- Turgenev (Ashmanov) - real Yandex Baden-Baden risk check ----
+interface TurgenevResult {
+  score: number;
+  status: "ok" | "warning" | "fail";
+  details: { repeats: number; style: number; spam: number; water: number; readability: number };
+}
+async function runTurgenevCheck(plain: string, turgenevKey: string): Promise<TurgenevResult | null> {
+  try {
+    const res = await fetchWithTimeout("https://turgenev.ashmanov.com/api/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: plain.slice(0, 50000), apikey: turgenevKey }),
+    }, 10000);
+    if (!res.ok) {
+      console.error("[quality-check] turgenev http", res.status);
+      return null;
+    }
+    const data: any = await res.json().catch(() => ({}));
+    const totalScore = Number(data?.total) || 0;
+    const status: TurgenevResult["status"] = totalScore <= 5 ? "ok" : totalScore <= 10 ? "warning" : "fail";
+    return {
+      score: totalScore,
+      status,
+      details: {
+        repeats: Number(data?.repeats) || 0,
+        style: Number(data?.style) || 0,
+        spam: Number(data?.spam) || 0,
+        water: Number(data?.water) || 0,
+        readability: Number(data?.readability) || 0,
+      },
+    };
+  } catch (e) {
+    console.error("[quality-check] turgenev exception", e);
+    return null;
+  }
+}
+
 async function runAutoQuality(
   admin: any, articleId: string, userId: string, content: string, apiKey: string,
 ) {
