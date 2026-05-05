@@ -79,6 +79,7 @@ function dedupeNormalize(items: string[]): string[] {
 }
 
 const PROXY_BASE = "https://seo-modul.pro/api/proxy.php";
+const BUKVARIX_URL = "https://api.bukvarix.com/v1/mkeywords/";
 
 async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, number>> {
   const result = new Map<string, number>();
@@ -86,23 +87,23 @@ async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, num
   if (batch.length === 0) return result;
 
   try {
-    const q = batch.join("\r\n");
-    const bukvarixUrl =
-      "https://api.bukvarix.com/v1/mkeywords/" +
-      "?api_key=free" +
-      "&format=json" +
-      "&json_type=array" +
-      "&num=250";
+    const postBody = new URLSearchParams({
+      api_key: "free",
+      format: "json",
+      json_type: "array",
+      num: "250",
+      q: batch.join("\r\n"),
+    });
 
-    const proxyUrl = `${PROXY_BASE}?external_url=${encodeURIComponent(bukvarixUrl)}`;
+    const proxyUrl = `${PROXY_BASE}?external_url=${encodeURIComponent(BUKVARIX_URL)}`;
 
-    console.log("[bukvarix] sending via proxy:", batch.slice(0, 3));
+    console.log("[bukvarix] sending", batch.length, "keywords via proxy");
     const res = await fetchWithTimeout(proxyUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ q }).toString(),
+      body: postBody.toString(),
       timeoutMs: BUKVARIX_TIMEOUT_MS,
     });
 
@@ -112,9 +113,8 @@ async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, num
     }
 
     const data = await res.json().catch(() => null);
-    console.log("[bukvarix] items:", Array.isArray(data) ? data.length : 0);
-
     const items = Array.isArray(data) ? data : [];
+    console.log("[bukvarix] received", items.length, "items");
     for (const item of items) {
       if (!Array.isArray(item)) continue;
       const kw = item[0];
@@ -127,7 +127,7 @@ async function getBukvarixFrequency(keywords: string[]): Promise<Map<string, num
       }
     }
 
-    console.log("[bukvarix] loaded:", result.size);
+    console.log("[bukvarix] loaded:", result.size, "frequencies");
   } catch (e) {
     console.warn(
       "[bukvarix] exception:",
