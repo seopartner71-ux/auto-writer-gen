@@ -9,7 +9,6 @@ import { Copy, Trash2, Check, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
-import { QualityBadgeIcon } from "@/components/article/QualityCheckPanel";
 import { AutoQualityBadge } from "@/components/article/AutoQualityBadge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -152,21 +151,21 @@ export default function MyArticlesPage() {
                     </TableCell>
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       <TooltipProvider>
-                        {(article as any).quality_status ? (
-                          <AutoQualityBadge
-                            articleId={article.id}
-                            initial={{
-                              quality_status: (article as any).quality_status,
-                              ai_score: (article as any).ai_score,
-                              burstiness_score: (article as any).burstiness_score,
-                              burstiness_status: (article as any).burstiness_status,
-                              keyword_density: (article as any).keyword_density,
-                              keyword_density_status: (article as any).keyword_density_status,
-                            }}
-                          />
-                        ) : (
-                          <QualityBadgeIcon badge={(article as any).quality_badge} />
-                        )}
+                        <AutoQualityBadge
+                          articleId={article.id}
+                          initial={{
+                            quality_status: (article as any).quality_status
+                              || ((article as any).quality_badge === "excellent" ? "ok"
+                                : (article as any).quality_badge === "good" ? "warning"
+                                : (article as any).quality_badge === "needs_work" ? "fail"
+                                : null),
+                            ai_score: (article as any).ai_score,
+                            burstiness_score: (article as any).burstiness_score,
+                            burstiness_status: (article as any).burstiness_status,
+                            keyword_density: (article as any).keyword_density,
+                            keyword_density_status: (article as any).keyword_density_status,
+                          }}
+                        />
                       </TooltipProvider>
                     </TableCell>
                     <TableCell className="font-medium max-w-[400px]">
