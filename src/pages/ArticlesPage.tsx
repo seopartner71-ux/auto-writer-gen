@@ -53,6 +53,9 @@ import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
 import { ArticleEditorProvider } from "@/features/article-editor/ArticleEditorContext";
 import { useFixIssue } from "@/features/article-quality/useFixIssue";
+import { useBenchmarkOptimize } from "@/features/article-quality/useBenchmarkOptimize";
+import { DeviationFixDialog } from "@/features/article-quality/DeviationFixDialog";
+import { RewriteAllDialog } from "@/features/article-quality/RewriteAllDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   countWords,
@@ -220,7 +223,6 @@ export default function ArticlesPage() {
   const complianceCheckedLenRef = useRef<number>(0);
   const [activeDeviation, setActiveDeviation] = useState<{ idx: number; quote: string } | null>(null);
   const [deviationFixText, setDeviationFixText] = useState("");
-  const [isRewritingFragment, setIsRewritingFragment] = useState(false);
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [editorComments, setEditorComments] = useState<Array<{ id: string; category: string; rule: string; quote: string; note: string; createdAt: number }>>([]);
 
@@ -628,6 +630,24 @@ export default function ArticlesPage() {
     setStreamPhase,
     setFixingIssue,
     abortRef,
+    snapshotVersion,
+  });
+
+  const benchmarkOptimize = useBenchmarkOptimize({
+    selectedKeywordId,
+    selectedAuthorId,
+    outline,
+    lsiKeywords,
+    selectedKeyword,
+    content,
+    setContent,
+    currentArticleId,
+    title,
+    isStreaming,
+    setIsStreaming,
+    setStreamPhase,
+    abortRef,
+    benchmarkCacheRef,
     snapshotVersion,
   });
 
@@ -1717,132 +1737,7 @@ export default function ArticlesPage() {
                   await runFixIssue("humanize-all", instr);
                 }}
                 benchmarkReady={!!selectedKeywordId}
-                onBenchmarkOptimize={selectedKeywordId ? async () => {
-                  if (isStreaming) return;
-                  const { data: { session: freshSession } } = await supabase.auth.refreshSession();
-                  const token = freshSession?.access_token;
-                  if (!token) throw new Error("Not authenticated");
-                  const cached = benchmarkCacheRef.current.get(selectedKeywordId);
-                  let data: any, benchmarkContext: string, instructions: string;
-                  if (cached) {
-                    toast.info("Используем кэш ТОП-10...", { duration: 3000 });
-                    data = cached.data;
-                    benchmarkContext = cached.context;
-                    instructions = cached.instructions;
-                  } else {
-                    // Try persistent cache (DB, TTL 7 days)
-                    const userId = freshSession?.user?.id;
-                    let dbHit: any = null;
-                    if (userId) {
-                      const { data: row } = await supabase
-                        .from("benchmark_cache" as any)
-                        .select("data, context, instructions, expires_at")
-                        .eq("user_id", userId)
-                        .eq("keyword_id", selectedKeywordId)
-                        .gt("expires_at", new Date().toISOString())
-                        .maybeSingle();
-                      dbHit = row;
-                    }
-                    if (dbHit) {
-                      toast.info("Используем сохранённый анализ ТОП-10...", { duration: 3000 });
-                      data = (dbHit as any).data;
-                      benchmarkContext = (dbHit as any).context;
-                      instructions = (dbHit as any).instructions;
-                      benchmarkCacheRef.current.set(selectedKeywordId, { data, context: benchmarkContext, instructions });
-                    } else {
-                    toast.info("Анализ ТОП-10 и сущностей...", { duration: 8000 });
-                    data = await fetchAndAnalyze(selectedKeywordId, token, false);
-                    benchmarkContext = buildAnalysisContext(data);
-                    instructions = `Перепиши статью с учетом ТОП-10:
-- Целевой объем: ${data.benchmark.target_word_count} слов (медиана: ${data.benchmark.median_word_count})
-- H2: ${data.benchmark.target_h2_count}, H3 медиана: ${data.benchmark.median_h3_count}
-- Изображений: ${data.benchmark.target_img_count}
-- Плотность ключа: около ${data.benchmark.median_keyword_density}%
-${data.must_use_phrases.length > 0 ? `\nОбязательные фразы из ТОП-10:\n${data.must_use_phrases.slice(0,12).map((p:any)=>`- ${p.phrase}`).join('\n')}` : ''}
-${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевые сущности:\n${data.entities.filter((e:any)=>e.importance>=5).slice(0,15).map((e:any)=>`- ${e.name}`).join('\n')}` : ''}
-
-Сохрани стиль и тональность. Не добавляй вымышленных фактов.`;
-                    benchmarkCacheRef.current.set(selectedKeywordId, { data, context: benchmarkContext, instructions });
-                    if (userId) {
-                      try {
-                        await supabase.from("benchmark_cache" as any).upsert({
-                          user_id: userId,
-                          keyword_id: selectedKeywordId,
-                          data,
-                          context: benchmarkContext,
-                          instructions,
-                          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                        } as any, { onConflict: "user_id,keyword_id" });
-                      } catch (e) { console.warn("benchmark cache upsert failed", e); }
-                    }
-                    }
-                  }
-
-                  setIsStreaming(true);
-                  setStreamPhase("thinking");
-                  const prevContent = content;
-                  snapshotVersion({
-                    articleId: currentArticleId,
-                    content: prevContent,
-                    title: title || undefined,
-                    reason: "benchmark",
-                  });
-                  setContent("");
-                  const controller = new AbortController();
-                  abortRef.current = controller;
-                  try {
-                    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
-                    const resp = await fetch(url, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                      },
-                      body: JSON.stringify({
-                        keyword_id: selectedKeywordId,
-                        author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
-                        outline,
-                        lsi_keywords: lsiKeywords,
-                        language: (selectedKeyword as any)?.language || null,
-                        optimize_instructions: instructions,
-                        deep_analysis_context: benchmarkContext,
-                        existing_content: prevContent,
-                      }),
-                      signal: controller.signal,
-                    });
-                    if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
-                    const reader = resp.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = ""; let fullContent = "";
-                    while (true) {
-                      const { done, value } = await reader.read();
-                      if (done) break;
-                      buffer += decoder.decode(value, { stream: true });
-                      let ni: number;
-                      while ((ni = buffer.indexOf("\n")) !== -1) {
-                        let line = buffer.slice(0, ni);
-                        buffer = buffer.slice(ni + 1);
-                        if (line.endsWith("\r")) line = line.slice(0, -1);
-                        if (line.startsWith(":") || line.trim() === "" || !line.startsWith("data: ")) continue;
-                        const jsonStr = line.slice(6).trim();
-                        if (jsonStr === "[DONE]") break;
-                        try {
-                          const parsed = JSON.parse(jsonStr);
-                          const delta = parsed.choices?.[0]?.delta?.content;
-                          if (delta) { if (!fullContent) setStreamPhase("writing"); fullContent += delta; setContent(fullContent); }
-                        } catch { buffer = line + "\n" + buffer; break; }
-                      }
-                    }
-                    toast.success("Оптимизировано под ТОП-10");
-                  } catch (e: any) {
-                    throw e;
-                  } finally {
-                    setIsStreaming(false);
-                    setStreamPhase(null);
-                    abortRef.current = null;
-                  }
-                } : undefined}
+                onBenchmarkOptimize={selectedKeywordId ? benchmarkOptimize : undefined}
               />
 
               {/* Author prompt compliance check */}
@@ -2285,331 +2180,36 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
       />
 
       {/* Compliance: edit single deviation */}
-      <Dialog open={!!activeDeviation} onOpenChange={(o) => { if (!o) { setActiveDeviation(null); setIsRewritingFragment(false); } }}>
-        <DialogContent className="max-w-lg">
-          {activeDeviation && complianceResult?.deviations[activeDeviation.idx] && (() => {
-            const dev = complianceResult.deviations[activeDeviation.idx];
-            const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            const findFragmentRange = (scope: "sentence" | "paragraph"): { match: string; before: string; after: string } | null => {
-              const orig = activeDeviation.quote.trim();
-              if (!orig) return null;
-              // find quote position (exact or soft)
-              let idx = content.indexOf(orig);
-              let matched = orig;
-              if (idx === -1) {
-                const re = new RegExp(escRegex(orig).replace(/\s+/g, "\\s+"), "i");
-                const m = re.exec(content);
-                if (!m) return null;
-                idx = m.index;
-                matched = m[0];
-              }
-              const end = idx + matched.length;
-              if (scope === "paragraph") {
-                // find paragraph: bounded by blank line, </p>, <p>, or HTML block tags
-                const before = content.slice(0, idx);
-                const after = content.slice(end);
-                const startMatches = [
-                  before.lastIndexOf("\n\n"),
-                  before.lastIndexOf("</p>"),
-                  before.lastIndexOf("</h1>"),
-                  before.lastIndexOf("</h2>"),
-                  before.lastIndexOf("</h3>"),
-                  before.lastIndexOf("</li>"),
-                  before.lastIndexOf("</ul>"),
-                  before.lastIndexOf("</ol>"),
-                  before.lastIndexOf("<p>"),
-                ];
-                let startCut = Math.max(...startMatches);
-                if (startCut < 0) startCut = 0;
-                else {
-                  // move past the boundary tag/newlines
-                  const slice = before.slice(startCut);
-                  startCut += slice.search(/\S/) >= 0 ? slice.indexOf(slice.trim()[0]) : 0;
-                }
-                const endMatches = [
-                  after.indexOf("\n\n"),
-                  after.indexOf("</p>"),
-                  after.indexOf("<h1"),
-                  after.indexOf("<h2"),
-                  after.indexOf("<h3"),
-                  after.indexOf("<p>"),
-                  after.indexOf("<ul"),
-                  after.indexOf("<ol"),
-                ].filter(n => n >= 0);
-                let endCut = endMatches.length ? Math.min(...endMatches) : after.length;
-                // include closing </p> if it was the boundary
-                const closingP = after.indexOf("</p>");
-                if (closingP >= 0 && closingP === endCut) endCut += "</p>".length;
-                return {
-                  match: content.slice(startCut, end + endCut),
-                  before: content.slice(0, startCut),
-                  after: content.slice(end + endCut),
-                };
-              }
-              // sentence scope: from previous .!?…\n to next .!?…
-              const sentStart = (() => {
-                const slice = content.slice(0, idx);
-                const m = slice.match(/[.!?…]["»)\s]*\s+(?=\S[^.!?…]*$)/);
-                if (!m) return 0;
-                return slice.length - (slice.length - (m.index || 0)) + m[0].length;
-              })();
-              const sentEnd = (() => {
-                const slice = content.slice(end);
-                const m = slice.match(/[^.!?…]*[.!?…]+["»)]?/);
-                return end + (m ? m[0].length : slice.length);
-              })();
-              return {
-                match: content.slice(sentStart, sentEnd),
-                before: content.slice(0, sentStart),
-                after: content.slice(sentEnd),
-              };
-            };
-
-            const handleRewrite = async (scope: "sentence" | "paragraph") => {
-              const range = findFragmentRange(scope);
-              if (!range) {
-                toast.error("Не удалось найти фрагмент в тексте");
-                return;
-              }
-              setIsRewritingFragment(true);
-              try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const token = session?.access_token;
-                if (!token) throw new Error("Not authenticated");
-                const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rewrite-fragment`;
-                const resp = await fetch(url, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                  },
-                  body: JSON.stringify({
-                    fragment: range.match,
-                    scope,
-                    author_profile_id: selectedAuthorId,
-                    violations: (complianceResult?.deviations || []).map(d => ({
-                      category: d.category, rule: d.rule, suggestion: d.suggestion,
-                    })),
-                    context_before: range.before,
-                    context_after: range.after,
-                  }),
-                });
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-                const rewritten = (data.rewritten || "").toString().trim();
-                if (!rewritten) throw new Error("Пустой ответ");
-                setContent(range.before + rewritten + range.after);
-                toast.success(scope === "paragraph" ? "Абзац переписан с учётом требований автора" : "Предложение переписано с учётом требований автора");
-                setActiveDeviation(null);
-              } catch (e: any) {
-                toast.error(e.message || "Ошибка переписывания");
-              } finally {
-                setIsRewritingFragment(false);
-              }
-            };
-            return (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <ShieldAlert className="h-4 w-4 text-warning" />
-                    Правка отклонения
-                  </DialogTitle>
-                  <DialogDescription>
-                    <span className="font-medium text-foreground">{dev.category}</span> · {dev.rule}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground">Цитата из статьи</Label>
-                    <div className="mt-1 p-2 rounded-md bg-muted/50 border border-border text-xs italic">
-                      «{activeDeviation.quote}»
-                    </div>
-                  </div>
-                  {dev.suggestion && (
-                    <div className="text-[11px] text-muted-foreground">
-                      Подсказка ИИ: <span className="text-foreground">{dev.suggestion}</span>
-                    </div>
-                  )}
-                  <div className="text-[11px] text-muted-foreground">
-                    ИИ перепишет фрагмент строго по инструкции автора, исправив все найденные нарушения. Факты сохранятся.
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="default"
-                      className="w-full"
-                      disabled={isRewritingFragment || !selectedAuthorId || selectedAuthorId === "none"}
-                      onClick={() => handleRewrite("sentence")}
-                    >
-                      {isRewritingFragment ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
-                      Переписать предложение
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="w-full"
-                      disabled={isRewritingFragment || !selectedAuthorId || selectedAuthorId === "none"}
-                      onClick={() => handleRewrite("paragraph")}
-                    >
-                      {isRewritingFragment ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
-                      Переписать абзац
-                    </Button>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    className="w-full text-destructive hover:text-destructive"
-                    disabled={isRewritingFragment}
-                    onClick={() => {
-                      const orig = activeDeviation.quote.trim();
-                      if (!orig) return;
-                      if (content.includes(orig)) {
-                        setContent(content.replace(orig, ""));
-                        toast.success("Фрагмент удален из текста");
-                        setActiveDeviation(null);
-                      } else {
-                        const escRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                        const re = new RegExp(escRegex(orig).replace(/\s+/g, "\\s+"), "i");
-                        if (re.test(content)) {
-                          setContent(content.replace(re, ""));
-                          toast.success("Фрагмент удален из текста");
-                          setActiveDeviation(null);
-                        } else {
-                          toast.error("Не удалось найти фрагмент");
-                        }
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Удалить фрагмент из текста
-                  </Button>
-                  <Button variant="ghost" className="w-full" onClick={() => setActiveDeviation(null)}>
-                    Отмена
-                  </Button>
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      <DeviationFixDialog
+        activeDeviation={activeDeviation}
+        onClose={() => setActiveDeviation(null)}
+        complianceResult={complianceResult}
+        content={content}
+        setContent={setContent}
+        selectedAuthorId={selectedAuthorId}
+      />
 
       {/* Compliance: rewrite whole article with all fixes */}
-      <Dialog open={rewriteOpen} onOpenChange={setRewriteOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wand2 className="h-4 w-4 text-primary" />
-              Переписать статью с учётом всех отклонений
-            </DialogTitle>
-            <DialogDescription>
-              ИИ получит список найденных нарушений и перепишет проблемные фрагменты, сохранив структуру и объём.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {complianceResult && (
-              <div className="max-h-[200px] overflow-y-auto scrollbar-hide space-y-1 text-[11px]">
-                {complianceResult.deviations.map((d, i) => (
-                  <div key={i} className="p-1.5 rounded border border-border bg-muted/30">
-                    <span className="font-medium">{d.category}:</span> {d.rule}
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setRewriteOpen(false)} disabled={isStreaming}>
-                Отмена
-              </Button>
-              <Button
-                className="flex-1"
-                disabled={isStreaming || !complianceResult || complianceResult.deviations.length === 0 || !selectedKeywordId}
-                onClick={async () => {
-                  if (!complianceResult) return;
-                  setRewriteOpen(false);
-                  const rules = complianceResult.deviations.map((d, i) =>
-                    `${i + 1}. [${d.severity}/${d.category}] ${d.rule}\n   Цитата: «${d.quote}»\n   Что сделать: ${d.suggestion || "переписать в стиле автора"}`
-                  ).join("\n\n");
-                  const instruction =
-                    `Перепиши статью, ИСПРАВИВ следующие отклонения от инструкции автора. Сохрани структуру, заголовки, объём и факты. Меняй ТОЛЬКО проблемные фрагменты.\n\nОТКЛОНЕНИЯ:\n${rules}`;
-                  setIsStreaming(true);
-                  setStreamPhase("thinking");
-                  const prevContent = content;
-                  snapshotVersion({
-                    articleId: currentArticleId,
-                    content: prevContent,
-                    title: title || undefined,
-                    reason: "rewrite",
-                  });
-                  setContent("");
-                  const controller = new AbortController();
-                  abortRef.current = controller;
-                  try {
-                    const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
-                    const token = freshSession?.access_token;
-                    if (refreshError || !token) throw new Error("Not authenticated");
-                    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-article`;
-                    const resp = await fetch(url, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                      },
-                      body: JSON.stringify({
-                        keyword_id: selectedKeywordId,
-                        author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
-                        outline,
-                        lsi_keywords: lsiKeywords,
-                        optimize_instructions: instruction,
-                        existing_content: prevContent,
-                      }),
-                      signal: controller.signal,
-                    });
-                    if (!resp.ok) {
-                      const err = await resp.json().catch(() => ({ error: "Unknown" }));
-                      throw new Error(err.error || `HTTP ${resp.status}`);
-                    }
-                    if (!resp.body) throw new Error("No stream body");
-                    const reader = resp.body.getReader();
-                    const decoder = new TextDecoder();
-                    let buffer = "";
-                    let fullContent = "";
-                    while (true) {
-                      const { done, value } = await reader.read();
-                      if (done) break;
-                      buffer += decoder.decode(value, { stream: true });
-                      let ni: number;
-                      while ((ni = buffer.indexOf("\n")) !== -1) {
-                        let line = buffer.slice(0, ni);
-                        buffer = buffer.slice(ni + 1);
-                        if (line.endsWith("\r")) line = line.slice(0, -1);
-                        if (!line.startsWith("data: ")) continue;
-                        const jsonStr = line.slice(6).trim();
-                        if (jsonStr === "[DONE]") break;
-                        try {
-                          const parsed = JSON.parse(jsonStr);
-                          const delta = parsed.choices?.[0]?.delta?.content;
-                          if (delta) { if (!fullContent) setStreamPhase("writing"); fullContent += delta; setContent(fullContent); }
-                        } catch { buffer = line + "\n" + buffer; break; }
-                      }
-                    }
-                    setComplianceResult(null);
-                    complianceCheckedLenRef.current = 0;
-                    toast.success("Статья переписана. Запустите проверку заново.");
-                  } catch (e: any) {
-                    if (e.name === "AbortError") toast.info("Переписывание остановлено");
-                    else { toast.error(e.message); setContent(prevContent); }
-                  } finally {
-                    setIsStreaming(false);
-                    setStreamPhase(null);
-                    abortRef.current = null;
-                  }
-                }}
-              >
-                <Wand2 className="h-3 w-3 mr-1" />
-                Переписать
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <RewriteAllDialog
+        open={rewriteOpen}
+        onOpenChange={setRewriteOpen}
+        complianceResult={complianceResult}
+        setComplianceResult={setComplianceResult}
+        complianceCheckedLenRef={complianceCheckedLenRef}
+        isStreaming={isStreaming}
+        setIsStreaming={setIsStreaming}
+        setStreamPhase={setStreamPhase}
+        abortRef={abortRef}
+        content={content}
+        setContent={setContent}
+        selectedKeywordId={selectedKeywordId}
+        selectedAuthorId={selectedAuthorId}
+        outline={outline}
+        lsiKeywords={lsiKeywords}
+        currentArticleId={currentArticleId}
+        title={title}
+        snapshotVersion={snapshotVersion}
+      />
 
       {/* Sectioned (streamed) generator */}
       <Sheet open={sectionedOpen} onOpenChange={setSectionedOpen}>
