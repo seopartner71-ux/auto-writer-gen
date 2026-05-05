@@ -241,14 +241,45 @@ Deno.serve(async (req) => {
     // Cluster with AI
     const clustered = await clusterWithAI(topic, keywords, language);
     const clusters = Array.isArray(clustered?.clusters) ? clustered.clusters : [];
+    if (clusters.length === 0) {
+      return errorResponse("AI не смог кластеризовать запросы", 500);
+    }
+
+    // Enrich with real Bukvarix frequencies (best-effort)
+    try {
+      const allKws: string[] = [];
+      for (const c of clusters) {
+        for (const k of (c.keywords || [])) {
+          if (k?.keyword) allKws.push(String(k.keyword));
+        }
+      }
+      const freqMap = await getBukvarixFrequency(allKws);
+      for (const c of clusters) {
+        let sum = 0;
+        for (const k of (c.keywords || [])) {
+          const f = freqMap.get(String(k.keyword || "").toLowerCase().trim()) || 0;
+          if (f > 0) {
+            const v = freqToVolume(f);
+            k.volume = v.label;
+            k.frequency = v.value;
+            k.frequency_display = v.display;
+          } else {
+            k.frequency = 0;
+            k.frequency_display = "—";
+          }
+          sum += k.frequency || 0;
+        }
+        c.avg_frequency = Math.round(sum / Math.max(1, (c.keywords?.length || 1)));
+        c.total_frequency = sum;
+      }
+    } catch (e) {
+      console.warn("[topical-map] enrichment failed", e instanceof Error ? e.message : String(e));
+    }
+
     const totalKw = clusters.reduce(
       (s: number, c: any) => s + (Array.isArray(c?.keywords) ? c.keywords.length : 0),
       0,
     );
-
-    if (clusters.length === 0) {
-      return errorResponse("AI не смог кластеризовать запросы", 500);
-    }
 
     // Save
     const { data: saved, error: saveErr } = await admin
