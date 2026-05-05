@@ -89,7 +89,21 @@ Deno.serve(async (req) => {
       return json({ error: "Нечего улучшать — SEO уже в норме" }, 400);
     }
 
-    const sys = "Ты SEO-редактор. Улучшаешь текст органично. Возвращаешь ТОЛЬКО исправленный HTML, без комментариев, объяснений и markdown-обёрток. Сохраняй все HTML теги, заголовки H1/H2/H3, структуру, ссылки и таблицы. Сохраняй авторский стиль и тон. Не меняй факты и цифры.";
+    const sys = `Ты SEO-редактор. Улучшаешь текст органично, вставляя слова в существующие HTML абзацы.
+
+КРИТИЧЕСКИ ВАЖНО — текст содержит HTML разметку. Ты ОБЯЗАН сохранить ВСЮ HTML разметку без изменений:
+- Все теги <h1>, <h2>, <h3>, <h4> и их содержимое
+- Все теги <table>, <thead>, <tbody>, <tr>, <td>, <th> целиком
+- Все теги <ul>, <ol>, <li>
+- Все теги <p>, <strong>, <em>, <a>, <blockquote>, <figure>, <img>
+- Все атрибуты тегов (class, href, src, id и др.)
+- Все <script type="application/ld+json"> Schema.org блоки в конце
+
+Возвращай ПОЛНЫЙ HTML документ как есть — только добавляй слова органично внутри существующих <p> абзацев.
+НИКОГДА не конвертируй HTML в plain text или markdown.
+НИКОГДА не удаляй и не переписывай заголовки, таблицы, списки, JSON-LD.
+Возвращай ТОЛЬКО исправленный HTML, без комментариев, объяснений и markdown-обёрток (без \`\`\`html).
+Сохраняй авторский стиль, тон, факты и цифры.`;
 
     const tasks: string[] = [];
     if (missing_terms.length > 0) {
@@ -113,11 +127,17 @@ ${missing_terms.map(t => `- ${t}`).join("\n")}
 - Нельзя ставить ключ в каждом предложении`);
     }
 
-    const usr = `Улучши SEO текста органично:
+    const usr = `Улучши SEO HTML-текста органично:
 
 ${tasks.join("\n\n")}
 
-ИСХОДНЫЙ ТЕКСТ:
+ПРАВИЛА HTML:
+- Вставляй термины и ключи ТОЛЬКО внутрь существующих <p> абзацев
+- НЕ удаляй и НЕ изменяй теги <h2>, <h3>, <table>, <ul>, <ol>, <li>, <a>, <script>
+- НЕ конвертируй разметку в markdown или plain text
+- Возвращай ПОЛНЫЙ HTML документ со всеми исходными тегами и Schema.org блоками
+
+ИСХОДНЫЙ HTML:
 ${original}`;
 
     let improved: string | null = null;
@@ -166,7 +186,11 @@ ${original}`;
     const integrity = htmlIntegrityOk(original, candidate);
     if (!integrity.ok) {
       console.warn("[improve-seo] rejected:", integrity.reason);
-      return json({ error: `Результат отклонён: ${integrity.reason}` }, 422);
+      return json({
+        ok: false,
+        content: original,
+        error: `Не удалось улучшить без потери форматирования (${integrity.reason}). Попробуйте снова или отредактируйте вручную.`,
+      }, 200);
     }
 
     // Validate density not over-spammed
