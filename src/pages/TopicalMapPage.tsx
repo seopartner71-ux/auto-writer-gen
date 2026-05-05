@@ -89,12 +89,33 @@ function escapeCsv(s: string) {
   return s;
 }
 
+// Cleans noisy SERP titles into a pure search query.
+function cleanKeyword(raw: string): string {
+  let s = String(raw || "").trim();
+  // Remove trailing intent labels
+  s = s.replace(/\s*[—–-]\s*(commercial|transactional|informational|navigational)\s*$/i, "");
+  // Remove known site-name tails after dash
+  s = s.replace(/\s*[—–-]\s*(профи\.ру|profi\.ru|ozon|avito|wildberries|wb|dns|эльдорадо|mvideo|м\.видео|ситилинк|яндекс[^—–-]*|google[^—–-]*)\b.*$/i, "");
+  // Remove tail after dash if it contains a domain or starts with capital + brand-ish word
+  s = s.replace(/\s*[—–-]\s*[^—–-]*?\.(ru|com|рф|net|org|ua|by|kz)\b.*$/i, "");
+  // Strip surrounding quotes
+  s = s.replace(/^["'«»]+|["'«»]+$/g, "");
+  // Collapse whitespace
+  s = s.replace(/\s{2,}/g, " ").trim();
+  // If still too long, take part before first " - " / em-dash
+  if (s.length > 60) {
+    const parts = s.split(/\s*[—–-]\s*/);
+    if (parts[0] && parts[0].length >= 3) s = parts[0].trim();
+  }
+  return s;
+}
+
 function downloadCsv(map: TopicalMap) {
   const rows: string[] = ["Кластер,Ключевое слово,Интент,Объем,Сложность"];
   for (const c of map.clusters || []) {
     for (const kw of c.keywords || []) {
       rows.push(
-        [c.name, kw.keyword, c.intent || "", kw.volume || "", kw.difficulty || ""]
+        [c.name, cleanKeyword(kw.keyword), c.intent || "", kw.volume || "", kw.difficulty || ""]
           .map((v) => escapeCsv(String(v ?? "")))
           .join(","),
       );
@@ -184,8 +205,8 @@ export default function TopicalMapPage() {
     mutationFn: async (cluster: Cluster | null) => {
       if (!user) throw new Error("Не авторизован");
       const kws = cluster
-        ? cluster.keywords.map((k) => k.keyword)
-        : (activeMap?.clusters || []).flatMap((c) => c.keywords.map((k) => k.keyword));
+        ? cluster.keywords.map((k) => cleanKeyword(k.keyword))
+        : (activeMap?.clusters || []).flatMap((c) => c.keywords.map((k) => cleanKeyword(k.keyword)));
       if (kws.length === 0) throw new Error("Нет ключевых слов");
 
       const { data: job, error: jobErr } = await supabase
@@ -209,7 +230,7 @@ export default function TopicalMapPage() {
   });
 
   const handleGenerateOne = (kw: string) => {
-    navigate(`/keywords?seed=${encodeURIComponent(kw)}`);
+    navigate(`/keywords?seed=${encodeURIComponent(cleanKeyword(kw))}`);
   };
 
   const totalInActive = useMemo(
@@ -411,9 +432,10 @@ export default function TopicalMapPage() {
                       {(cluster.keywords || []).map((kw, ki) => {
                         const dm = difficultyMeta(kw.difficulty);
                         const vol = kw.volume === "high" ? "Высокий" : kw.volume === "medium" ? "Средний" : kw.volume === "low" ? "Низкий" : "—";
+                        const display = cleanKeyword(kw.keyword);
                         return (
                           <li key={ki} className="grid grid-cols-1 sm:grid-cols-[1fr_120px_140px_auto] items-center gap-2 text-sm py-1 px-2 rounded hover:bg-muted/30 group">
-                            <span className="truncate text-foreground/90">{kw.keyword}</span>
+                            <span className="truncate text-foreground/90" title={display}>{display}</span>
                             <span className="text-xs text-muted-foreground">{vol}</span>
                             <Tooltip>
                               <TooltipTrigger asChild>
