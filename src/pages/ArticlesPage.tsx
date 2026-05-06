@@ -50,7 +50,6 @@ import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelCon
 import { runAutoStealthPass } from "@/features/article-editor/autoStealthPass";
 import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { ArticleQualityHints } from "@/components/article/ArticleQualityHints";
-import { Globe } from "lucide-react";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
