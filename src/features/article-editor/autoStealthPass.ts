@@ -34,6 +34,10 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
   const timeLeft = () => TOTAL_BUDGET_MS - (Date.now() - startedAt);
 
   setStealthFlag(articleId, true);
+  // Clear any stale flag from a previous session before re-setting it.
+  try { sessionStorage.removeItem(`stealth_running_${articleId}`); } catch { /* noop */ }
+  try { sessionStorage.setItem(`stealth_running_${articleId}`, "true"); } catch { /* noop */ }
+  console.log("[stealth] START", articleId);
   toast.loading(t("Проверяем качество текста...", "Checking text quality..."), {
     id: toastId,
     duration: TOTAL_BUDGET_MS,
@@ -43,7 +47,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     // Step 1 — initial quality-check
     let qc = await invokeQualityCheck(articleId);
     let currentAiScore = numberOr(qc?.ai_score, 100);
-    console.log("[auto-stealth] initial ai_score:", currentAiScore);
+    console.log("[stealth] quality-check done:", qc?.ai_score, "turgenev:", qc?.turgenev_status);
 
     // Step 2 — iterative humanize (up to MAX_PASSES). First pass only if < 60,
     // second pass if still < 70 after the first.
@@ -66,7 +70,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         body: { article_id: articleId, fix_type: "humanize" },
       });
       if (error) {
-        console.warn(`[auto-stealth] pass ${passCount} failed`, error);
+        console.warn(`[stealth] humanize pass ${passCount} failed`, error);
         break;
       }
 
@@ -74,7 +78,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       await waitForQualityIdle(articleId);
       qc = await invokeQualityCheck(articleId);
       currentAiScore = numberOr(qc?.ai_score, currentAiScore);
-      console.log(`[auto-stealth] pass ${passCount} ai_score:`, currentAiScore);
+      console.log(`[stealth] humanize pass ${passCount} done, ai_score:`, currentAiScore);
     }
 
     // Step 3 — Turgenev (Baden-Baden) auto-fix when flagged
@@ -89,8 +93,9 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       const { error } = await supabase.functions.invoke("improve-article", {
         body: { article_id: articleId, fix_type: "turgenev" },
       });
-      if (error) console.warn("[auto-turgenev] fix failed", error);
+      if (error) console.warn("[stealth] turgenev fix failed", error);
       else await waitForQualityIdle(articleId);
+      console.log("[stealth] turgenev check done");
     }
 
     // Step 4 — final quality-check for the summary toast
@@ -108,11 +113,13 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     }
 
     toast.success(buildSummary(final, lang), { id: toastId, duration: 6000 });
+    console.log("[stealth] END", articleId, "final ai_score:", final?.ai_score);
   } catch (e) {
-    console.warn("[auto-stealth] error", e);
+    console.warn("[stealth] ERROR", e);
     toast.dismiss(toastId);
   } finally {
     setStealthFlag(articleId, false);
+    console.log("[stealth] flag cleared", articleId);
   }
 }
 
