@@ -44,10 +44,16 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
   });
 
   try {
-    // Step 1 — initial quality-check
-    let qc = await invokeQualityCheck(articleId);
-    let currentAiScore = numberOr(qc?.ai_score, 100);
-    console.log("[stealth] quality-check done:", qc?.ai_score, "turgenev:", qc?.turgenev_status);
+    // Step 1 — initial quality-check (independent: failure must not break the chain)
+    let qc: any = null;
+    try {
+      qc = await invokeQualityCheck(articleId);
+      console.log("[stealth] quality-check done:", qc?.ai_score, "turgenev:", qc?.turgenev_status);
+    } catch (e) {
+      console.warn("[stealth] quality-check failed:", (e as any)?.message ?? e);
+    }
+    // Fallback: if quality-check failed, treat ai_score as 0 so humanize still runs.
+    let currentAiScore = numberOr(qc?.ai_score, 0);
 
     // Step 2 — iterative humanize (up to MAX_PASSES). First pass only if < 60,
     // second pass if still < 70 after the first.
@@ -66,19 +72,26 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         { id: toastId, duration: timeLeft() },
       );
 
-      const { error } = await supabase.functions.invoke("improve-article", {
-        body: { article_id: articleId, fix_type: "humanize" },
-      });
-      if (error) {
-        console.warn(`[stealth] humanize pass ${passCount} failed`, error);
+      try {
+        const { error } = await supabase.functions.invoke("improve-article", {
+          body: { article_id: articleId, fix_type: "humanize" },
+        });
+        if (error) {
+          console.warn(`[stealth] humanize pass ${passCount} failed`, error);
+          break;
+        }
+        await waitForQualityIdle(articleId);
+        try {
+          qc = await invokeQualityCheck(articleId);
+        } catch (e) {
+          console.warn(`[stealth] quality-check after pass ${passCount} failed:`, (e as any)?.message ?? e);
+        }
+        currentAiScore = numberOr(qc?.ai_score, currentAiScore);
+        console.log(`[stealth] humanize pass ${passCount} done, ai_score:`, currentAiScore);
+      } catch (e) {
+        console.warn(`[stealth] humanize pass ${passCount} threw:`, (e as any)?.message ?? e);
         break;
       }
-
-      // Wait for the recheck to finish, then re-read the score.
-      await waitForQualityIdle(articleId);
-      qc = await invokeQualityCheck(articleId);
-      currentAiScore = numberOr(qc?.ai_score, currentAiScore);
-      console.log(`[stealth] humanize pass ${passCount} done, ai_score:`, currentAiScore);
     }
 
     // Step 3 — Turgenev (Baden-Baden) auto-fix when flagged
@@ -90,16 +103,27 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         id: toastId,
         duration: timeLeft(),
       });
-      const { error } = await supabase.functions.invoke("improve-article", {
-        body: { article_id: articleId, fix_type: "turgenev" },
-      });
-      if (error) console.warn("[stealth] turgenev fix failed", error);
-      else await waitForQualityIdle(articleId);
-      console.log("[stealth] turgenev check done");
+      try {
+        const { error } = await supabase.functions.invoke("improve-article", {
+          body: { article_id: articleId, fix_type: "turgenev" },
+        });
+        if (error) console.warn("[stealth] turgenev fix failed", error);
+        else await waitForQualityIdle(articleId);
+        console.log("[stealth] turgenev check done");
+      } catch (e) {
+        console.warn("[stealth] turgenev step threw:", (e as any)?.message ?? e);
+      }
     }
 
-    // Step 4 — final quality-check for the summary toast
-    const final = (turgRisky || passCount > 0) ? await invokeQualityCheck(articleId) : qc;
+    // Step 4 — final quality-check for the summary toast (best-effort)
+    let final: any = qc;
+    if (turgRisky || passCount > 0) {
+      try {
+        final = await invokeQualityCheck(articleId);
+      } catch (e) {
+        console.warn("[stealth] final quality-check failed:", (e as any)?.message ?? e);
+      }
+    }
 
     if (timeLeft() <= 0) {
       toast.warning(
@@ -124,13 +148,44 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
 }
 
 async function invokeQualityCheck(articleId: string): Promise<any | null> {
+  // Load fresh content + scores from DB. quality-check requires `content`
+  // in the request body; without it the function returns 400 and the whole
+  // chain silently no-ops. We also use mode:"auto" so no credits are spent
+  // and uniqueness (text.ru) is not blocking — auto path runs AI + Turgenev
+  // + burstiness in the background and writes scores to the row.
   try {
-    const { data } = await supabase.functions.invoke("quality-check", {
-      body: { article_id: articleId },
-    });
-    return data ?? null;
+    const { data: row } = await supabase
+      .from("articles")
+      .select("content, ai_score, turgenev_status, turgenev_score, uniqueness_percent")
+      .eq("id", articleId)
+      .maybeSingle();
+    const content = (row as any)?.content as string | undefined;
+    if (!content || content.length < 50) {
+      console.warn("[stealth] no content for quality-check");
+      return row ?? null;
+    }
+
+    // Fire auto quality-check (background on the server side).
+    try {
+      await supabase.functions.invoke("quality-check", {
+        body: { article_id: articleId, content, mode: "auto" },
+      });
+    } catch (e) {
+      console.warn("[stealth] quality-check invoke failed:", (e as any)?.message ?? e);
+    }
+
+    // Wait for server to finish (quality_status flips off "checking").
+    await waitForQualityIdle(articleId);
+
+    // Re-read updated scores from the row.
+    const { data: updated } = await supabase
+      .from("articles")
+      .select("ai_score, turgenev_status, turgenev_score, uniqueness_percent")
+      .eq("id", articleId)
+      .maybeSingle();
+    return updated ?? row ?? null;
   } catch (e) {
-    console.warn("[auto-stealth] quality-check invoke failed", e);
+    console.warn("[stealth] invokeQualityCheck threw:", (e as any)?.message ?? e);
     return null;
   }
 }
