@@ -70,6 +70,62 @@ function scoreLabel(s: number) {
   return "Плохо";
 }
 
+function scoreStrokeColor(s: number) {
+  if (s >= 80) return "#22c55e";
+  if (s >= 60) return "#eab308";
+  if (s >= 40) return "#f97316";
+  return "#ef4444";
+}
+function scoreStatus(s: number) {
+  if (s >= 80) return { dot: "bg-emerald-400", text: "Отлично - готово к публикации", color: "text-emerald-400" };
+  if (s >= 60) return { dot: "bg-amber-400", text: "Хорошо - можно улучшить", color: "text-amber-400" };
+  if (s >= 40) return { dot: "bg-orange-400", text: "Слабо - нужно улучшение", color: "text-orange-400" };
+  return { dot: "bg-rose-400", text: "Плохо - требует доработки", color: "text-rose-400" };
+}
+
+function ScoreDonut({ score, size = 140, stroke = 12 }: { score: number; size?: number; stroke?: number }) {
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, score));
+  const offset = circumference - (clamped / 100) * circumference;
+  const color = scoreStrokeColor(clamped);
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#1e293b"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div
+          className="font-bold font-mono leading-none transition-colors"
+          style={{ fontSize: Math.round(size * 0.42), color }}
+        >
+          {clamped}
+        </div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">из 100</div>
+      </div>
+    </div>
+  );
+}
+
 export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword, articleId, onContentImproved, isStreaming = false, quickMode = false }: Props) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
@@ -146,18 +202,21 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
   // Quick mode — compact score-only view
   if (quickMode) {
     if (!hasKeyword) return null;
+    const status = scoreStatus(totalScore);
     return (
       <Card className="bg-card border-border">
-        <CardContent className="pt-3 pb-3 space-y-2 text-xs">
+        <CardContent className="pt-3 pb-3 space-y-3 text-xs">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-sm">SEO Score</span>
             <LiveDot pending={pending} />
           </div>
-          <div className="flex items-end justify-between">
-            <div className={cn("text-4xl font-bold font-mono transition-all duration-300", scoreColor(totalScore))}>{totalScore}</div>
-            <div className={cn("text-sm font-semibold", scoreColor(totalScore))}>{scoreLabel(totalScore)}</div>
+          <div className="flex justify-center pt-1">
+            <ScoreDonut score={totalScore} size={120} stroke={10} />
           </div>
-          <Progress value={totalScore} className="h-2" />
+          <div className={cn("flex items-center justify-center gap-1.5 text-[11px] font-medium", status.color)}>
+            <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+            {status.text}
+          </div>
         </CardContent>
       </Card>
     );
@@ -285,15 +344,45 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
           </button>
         </div>
 
-        {/* Section 1 — Total */}
-        <div className="flex items-end justify-between border-b border-border pb-2">
-          <div className={cn("text-3xl font-bold font-mono transition-all duration-300", scoreColor(totalScore))}>{totalScore}</div>
-          <div className="text-right">
-            <div className={cn("text-xs font-semibold", scoreColor(totalScore))}>{scoreLabel(totalScore)}</div>
-            <div className="text-[10px] text-muted-foreground">из 100</div>
-          </div>
-        </div>
-        <Progress value={totalScore} className="h-1.5" />
+        {/* Section 1 — Donut Score */}
+        {(() => {
+          const status = scoreStatus(totalScore);
+          const wordsDelta = metrics.wordCount - medianWords;
+          const wordsDeltaText = wordsDelta === 0 ? "= топ" : wordsDelta > 0 ? `топ+${wordsDelta}` : `топ${wordsDelta}`;
+          const wordsDeltaColor = wordsDelta >= 0 ? "text-emerald-400" : "text-rose-400";
+          return (
+            <div className="flex flex-col items-center gap-2 border-b border-border pb-3">
+              <ScoreDonut score={totalScore} size={140} stroke={12} />
+              <div className={cn("flex items-center justify-center gap-1.5 text-[11px] font-medium text-center", status.color)}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+                {status.text}
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 w-full pt-1">
+                <div className="rounded-md border border-border bg-muted/20 p-1.5 text-center">
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Плотность</div>
+                  <div className={cn("text-xs font-mono font-semibold", densityScore >= 70 ? "text-emerald-400" : densityScore >= 40 ? "text-amber-400" : "text-rose-400")}>
+                    {metrics.density.toFixed(1)}%
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">из {medianDensity.toFixed(1)}%</div>
+                </div>
+                <div className="rounded-md border border-border bg-muted/20 p-1.5 text-center">
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">NLP</div>
+                  <div className={cn("text-xs font-mono font-semibold", coverageScore >= 70 ? "text-emerald-400" : coverageScore >= 40 ? "text-amber-400" : "text-rose-400")}>
+                    {metrics.covered.size}/{metrics.uniqueTerms.length || 0}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">терминов</div>
+                </div>
+                <div className="rounded-md border border-border bg-muted/20 p-1.5 text-center">
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Структура</div>
+                  <div className={cn("text-xs font-mono font-semibold", wordsDeltaColor)}>
+                    {wordsDeltaText}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">слов</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Section 2 — Density */}
         <div className="space-y-1">
