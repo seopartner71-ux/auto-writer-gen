@@ -251,7 +251,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
     }
   };
 
-  const canImprove = totalScore < 75 && !limitReached && (missingTerms.length > 0 || metrics.density < medianDensity);
+  const canImprove = totalScore < 80 && !limitReached && (missingTerms.length > 0 || metrics.density < medianDensity);
 
   const cellColor = (val: number, median: number) => {
     if (median <= 0) return "text-foreground";
@@ -378,7 +378,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
         </div>
 
         {/* Section 5 — Improve action */}
-        {totalScore >= 75 ? (
+        {totalScore >= 80 ? (
           <div className="flex items-center justify-center gap-1.5 py-2 text-emerald-400 text-[12px] font-medium border-t border-border">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Готово к публикации
@@ -403,7 +403,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
               ) : (
                 <>
                   <Sparkles className="h-3 w-3" />
-                  {totalScore < 40 ? "Серьёзно улучшить до 80+ 🔧"
+                  {totalScore < 40 ? "Серьезно улучшить 🔧"
                     : totalScore < 60 ? "Улучшить до 80+ ⚡"
                     : "Улучшить до 80+ 🚀"}
                 </>
