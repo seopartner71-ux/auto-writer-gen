@@ -31,7 +31,7 @@ serve(async (req) => {
       .select("model_key")
       .eq("task_key", "writer")
       .maybeSingle();
-    const model = assignment?.model_key || "anthropic/claude-3.5-sonnet";
+    const model = assignment?.model_key || "google/gemini-2.5-flash";
 
     const sysRu = "Ты SEO-копирайтер. Возвращай только валидный JSON массив строк, без пояснений. Никогда не используй букву 'е' с двумя точками - всегда обычную 'е'. Без markdown, без жирного шрифта.";
     const sysEn = "You are an SEO copywriter. Return ONLY a valid JSON array of strings, no explanation, no markdown.";
