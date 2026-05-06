@@ -1338,12 +1338,6 @@ export default function ArticlesPage() {
                       <Send className="w-3 h-3" />
                       Поделиться
                     </Button>
-                    {currentArticleId && (
-                      <QualityBadge
-                        articleId={currentArticleId}
-                        onOpenVersions={() => window.dispatchEvent(new CustomEvent("open-article-versions", { detail: { articleId: currentArticleId } }))}
-                      />
-                    )}
                   </div>
                 )}
                 <TabsContent value="edit" className="mt-0">
