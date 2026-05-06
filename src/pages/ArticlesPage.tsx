@@ -200,7 +200,23 @@ export default function ArticlesPage() {
   // Load article for editing from ?edit= query param
   useEffect(() => {
     const editId = searchParams.get("edit");
-    if (!editId) return;
+    const titleParam = searchParams.get("title");
+    const keywordParam = searchParams.get("keyword");
+
+    if (!editId) {
+      // Prefill from audit "Rewrite" deep-link
+      if (titleParam || keywordParam) {
+        if (titleParam) setTitle(titleParam);
+        const next = new URLSearchParams(searchParams);
+        next.delete("title");
+        next.delete("keyword");
+        next.delete("source_url");
+        next.delete("autostart");
+        next.delete("mode");
+        setSearchParams(next, { replace: true });
+      }
+      return;
+    }
 
     const loadArticle = async () => {
       const { data, error } = await supabase
