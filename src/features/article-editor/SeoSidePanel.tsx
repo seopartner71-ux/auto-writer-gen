@@ -217,6 +217,16 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
     setImproveStage("Анализирую текст...");
     const scoreBefore = totalScore;
     try {
+      // Verify article exists in DB (avoid stale currentArticleId -> 404)
+      const { data: exists } = await supabase
+        .from("articles")
+        .select("id")
+        .eq("id", articleId)
+        .maybeSingle();
+      if (!exists) {
+        toast.error("Статья еще не сохранена. Подождите пару секунд и повторите.");
+        return;
+      }
       setImproveStage("Вставляю термины...");
       const { data, error } = await supabase.functions.invoke("improve-seo", {
         body: {
