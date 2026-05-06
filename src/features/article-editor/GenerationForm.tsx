@@ -193,12 +193,14 @@ export function GenerationForm(props: GenerationFormProps) {
       </div>
 
       {/* Persona Selector */}
-      <PersonaSelector
-        authors={authorProfiles}
-        selectedId={selectedAuthorId}
-        onSelect={onAuthorChange}
-        quickMode={quickMode}
-      />
+      <div id="persona-selector-anchor">
+        <PersonaSelector
+          authors={authorProfiles}
+          selectedId={selectedAuthorId}
+          onSelect={onAuthorChange}
+          quickMode={quickMode}
+        />
+      </div>
 
       {/* Content formatting options */}
       {!quickMode && (
