@@ -534,13 +534,26 @@ Deno.serve(async (req) => {
     if (plain.length < 200) return json({ error: "Текст слишком короткий для проверки (минимум 200 символов)" }, 400);
     if (plain.length > 50000) return json({ error: "Текст слишком длинный (максимум 50000 символов)" }, 400);
 
-    // Charge 1 credit only if uniqueness requested
+    // Charge 1 credit only if uniqueness requested. If text.ru is unusable
+    // (no key / no balance / no credits), skip uniqueness silently instead
+    // of breaking the whole quality-check call.
     let creditCharged = false;
+    let uniquenessSkipReason: string | null = null;
     if (requested.has("uniqueness")) {
-      if (!textRuKey) return json({ error: "TEXTRU_API_KEY not configured" }, 500);
-      const { data: ok } = await admin.rpc("deduct_credit", { p_user_id: user.id });
-      if (!ok) return json({ error: "Недостаточно кредитов для проверки уникальности" }, 402);
-      creditCharged = true;
+      if (!textRuKey) {
+        console.warn("[quality-check] uniqueness skipped: TEXTRU_API_KEY missing");
+        uniquenessSkipReason = "textru_key_missing";
+        requested.delete("uniqueness");
+      } else {
+        const { data: ok } = await admin.rpc("deduct_credit", { p_user_id: user.id });
+        if (!ok) {
+          console.warn("[quality-check] uniqueness skipped: not enough credits");
+          uniquenessSkipReason = "no_credits";
+          requested.delete("uniqueness");
+        } else {
+          creditCharged = true;
+        }
+      }
     }
 
     // Run fast checks (score + ai) inline. Uniqueness (text.ru, can take 60-120s) runs in background.
