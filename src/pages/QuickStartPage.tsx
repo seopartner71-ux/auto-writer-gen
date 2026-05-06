@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ interface StageInfo {
 
 export default function QuickStartPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { lang, t } = useI18n();
   const [keyword, setKeyword] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
