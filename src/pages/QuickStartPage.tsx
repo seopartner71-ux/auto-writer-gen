@@ -39,6 +39,19 @@ export default function QuickStartPage() {
   const elapsedTimerRef = useRef<number | null>(null);
   const autostartedRef = useRef(false);
 
+  // Score prediction
+  const [prediction, setPrediction] = useState<{
+    competition: number;   // 0-100
+    difficulty: number;    // 0-100
+    medianWords: number;
+    medianH2: number;
+    medianLists: number;
+    predictedScore: number;
+    label: string;         // displayed keyword
+  } | null>(null);
+  const [predictionLoading, setPredictionLoading] = useState(false);
+  const predictionAbortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     if (autostartedRef.current) return;
     const kw = searchParams.get("keyword");
