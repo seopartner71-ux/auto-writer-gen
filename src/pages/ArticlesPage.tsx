@@ -1161,6 +1161,19 @@ export default function ArticlesPage() {
           {/* Title & Meta — compact */}
           <Card className="bg-card border-border">
             <CardContent className="pt-3 pb-3 space-y-2">
+              <ArticleQualityHints
+                authorSelected={!!(selectedAuthorId && selectedAuthorId !== "none")}
+                authorLabel={authorProfiles.find((a: any) => a.id === selectedAuthorId)?.name || null}
+                onPickAuthor={pickAuthor}
+                aiScore={aiScore}
+                onRunStealth={runStealthFromHint}
+                stealthRunning={false}
+                factIssuesCount={factIssuesCount}
+                factCheckStatus={factCheckStatus}
+                onOpenFactCheck={openFactCheck}
+                onAutoFix={autoFixFacts}
+                hasContent={!!content && content.length > 200}
+              />
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-0.5">
                   <Label className="text-[10px] text-muted-foreground">Title (SEO)</Label>
