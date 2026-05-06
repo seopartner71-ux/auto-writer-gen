@@ -44,7 +44,6 @@ import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMoun
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
-import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
