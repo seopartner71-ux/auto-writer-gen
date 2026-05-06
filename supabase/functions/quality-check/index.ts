@@ -517,8 +517,11 @@ Deno.serve(async (req) => {
       if (!ownCheck || ownCheck.user_id !== user.id) return json({ error: "Article not found" }, 404);
       // Mark immediately so polling sees "checking"
       await admin.from("articles").update({ quality_status: "checking" }).eq("id", article_id);
-      const bg = runAutoQuality(admin, article_id, user.id, content, apiKey).catch((e) => {
+      const bg = runAutoQuality(admin, article_id, user.id, content, apiKey).catch(async (e) => {
         console.error("[quality-check] auto bg error", e);
+        try {
+          await admin.from("articles").update({ quality_status: "idle" }).eq("id", article_id);
+        } catch (_) { /* ignore */ }
       });
       try { (globalThis as any).EdgeRuntime?.waitUntil?.(bg); } catch (_) { void bg; }
       return json({ ok: true, queued: true });
