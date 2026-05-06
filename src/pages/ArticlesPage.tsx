@@ -1525,6 +1525,34 @@ export default function ArticlesPage() {
                             : "text.ru"}
                     </Button>
 
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!content || !currentArticleId || checkingGeo}
+                      onClick={checkGeoFromArticle}
+                      title="Проверить видимость в AI-поиске"
+                    >
+                      <Globe className="h-3 w-3 mr-1" />
+                      {checkingGeo ? "⏳ GEO..." : "GEO Score"}
+                    </Button>
+                    {geoResult && (
+                      <div className="flex items-center gap-1.5 text-[11px] ml-1">
+                        {geoResult.map((r, i) => (
+                          <span
+                            key={i}
+                            className={
+                              r.status === "ok" ? "text-green-500"
+                                : r.status === "partial" ? "text-yellow-500"
+                                : "text-red-500"
+                            }
+                            title={r.note || ""}
+                          >
+                            {r.model}: {r.status === "ok" ? "✅" : r.status === "partial" ? "⚠️" : "❌"}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Blog platform publish buttons — PRO only, Telegra.ph author only */}
                     {currentArticleId && content && limits.hasProImageGen && !!authorProfiles.find((a: any) => a.id === selectedAuthorId && (a.name === "Телеграф" || a.is_telegraph_author)) && (
                       <>
