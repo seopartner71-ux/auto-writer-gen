@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, X, Send, Trash2, Loader2, Sparkles } from "lucide-react";
+import { MessageCircle, Send, Trash2, Loader2, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -129,9 +129,6 @@ export function AIAssistantFab() {
               <Sparkles className="h-4 w-4 text-primary" />
               <div className="font-semibold text-sm">AI-помощник по SEO</div>
             </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(false)}>
-              <X className="h-4 w-4" />
-            </Button>
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
