@@ -93,7 +93,10 @@ const scoreGradient = (score: number) => {
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export function SeoBenchmark({ keywordId, content, title, metaDescription, onOptimize }: SeoBenchmarkProps) {
+export const SeoBenchmark = forwardRef<HTMLDivElement, SeoBenchmarkProps>(function SeoBenchmark(
+  { keywordId, content, title, metaDescription, onOptimize },
+  ref,
+) {
   const { session } = useAuth();
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
