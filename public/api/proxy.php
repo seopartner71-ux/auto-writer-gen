@@ -22,6 +22,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// External URL proxy (Bukvarix и другие API)
+if (isset($_GET['external_url'])) {
+    $url = $_GET['external_url'];
+    $allowed = [
+        'api.bukvarix.com',
+        'turgenev.ashmanov.com',
+    ];
+    $host = parse_url($url, PHP_URL_HOST);
+    if (!in_array($host, $allowed)) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Domain not allowed']);
+        exit;
+    }
+
+    $method = $_SERVER['REQUEST_METHOD'];
+    $body = file_get_contents('php://input');
+    $headers = [];
+    if (isset($_SERVER['CONTENT_TYPE'])) {
+        $headers[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
+    }
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    if ($method === 'POST') {
+        curl_setopt($ch, CURLOPT_POST, true);
+        if ($body) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        }
+    }
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+
+    if ($error) {
+        http_response_code(502);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Curl error: ' . $error]);
+        exit;
+    }
+
+    http_response_code($httpCode ?: 502);
+    header('Content-Type: application/json');
+    echo $response;
+    exit;
+}
+
 $SUPABASE_URL = 'https://mwcejojlbqpolplshjgj.supabase.co';
 $SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13Y2Vqb2psYnFwb2xwbHNoamdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwOTM5ODIsImV4cCI6MjA4OTY2OTk4Mn0.J9VPQi7CIudwmbXJw4vr8WjIrplVdNU5o5X06bliulU';
 $ALLOWED_PREFIXES = ['/functions/v1/', '/rest/v1/', '/auth/v1/', '/storage/v1/'];
