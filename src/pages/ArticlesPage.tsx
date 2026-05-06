@@ -257,6 +257,10 @@ export default function ArticlesPage() {
     faqMode, setFaqMode,
   } = useSchemaFaqState();
   const [currentArticleId, setCurrentArticleId] = useState<string | null>(null);
+  const [checkingTurgenev, setCheckingTurgenev] = useState(false);
+  const [checkingUniq, setCheckingUniq] = useState(false);
+  const [turgenevScore, setTurgenevScore] = useState<number | null>(null);
+  const [uniqPercent, setUniqPercent] = useState<number | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
   const complianceCheckedLenRef = useRef<number>(0);
