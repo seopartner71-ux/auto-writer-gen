@@ -457,7 +457,32 @@ export function BulkGenerationMode() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Progress value={progressPercent} className="h-2" />
+            {/* Visual queue banner */}
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+                <span className="flex items-center gap-1.5 text-emerald-500">
+                  <CheckCircle2 className="h-4 w-4" /> Готово: <b>{counts.done}</b>
+                </span>
+                <span className="flex items-center gap-1.5 text-yellow-500">
+                  <Loader2 className={`h-4 w-4 ${counts.working > 0 ? "animate-spin" : ""}`} /> В работе: <b>{counts.working}</b>
+                </span>
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <FileText className="h-4 w-4" /> Ждут: <b>{counts.queued}</b>
+                </span>
+                {counts.error > 0 && (
+                  <span className="flex items-center gap-1.5 text-destructive">
+                    <AlertTriangle className="h-4 w-4" /> Ошибки: <b>{counts.error}</b>
+                  </span>
+                )}
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {progressPercent}% ({activeJob.completed_items} из {activeJob.total_items})
+                  {remainingSec > 0 && activeJob.status === "processing" && (
+                    <> - примерно {formatEta(remainingSec)} до завершения</>
+                  )}
+                </span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+            </div>
             <div className="rounded-lg border border-border overflow-hidden">
               <Table>
                 <TableHeader>
