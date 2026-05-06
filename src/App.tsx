@@ -10,7 +10,6 @@ import { I18nProvider } from "@/shared/hooks/useI18n";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { SEOManager } from "@/components/SEOManager";
-import { HelpFab } from "@/components/HelpFab";
 import { AIAssistantFab } from "@/components/AIAssistantFab";
 import { Loader2 } from "lucide-react";
 
@@ -156,7 +155,6 @@ const App = () => (
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              <HelpFab />
               <AIAssistantFab />
             </AuthProvider>
           </BrowserRouter>

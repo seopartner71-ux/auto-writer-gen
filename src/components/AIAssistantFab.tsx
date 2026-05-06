@@ -75,15 +75,52 @@ export function AIAssistantFab() {
 
   return (
     <>
-      <Button
+      <button
         onClick={() => setOpen(true)}
-        size="icon"
-        className="fixed bottom-20 right-5 z-40 h-12 w-12 rounded-full shadow-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground hover:opacity-90"
         title="AI-помощник"
         aria-label="AI-помощник"
+        className="ai-fab-btn fixed z-40 flex items-center gap-2 text-white font-medium text-sm"
+        style={{
+          bottom: "24px",
+          right: "24px",
+          padding: "12px 20px",
+          borderRadius: "28px",
+          background: "linear-gradient(135deg, #7c3aed, #2563eb)",
+          boxShadow: "0 4px 20px rgba(124,58,237,0.4)",
+          transition: "transform 0.2s ease",
+          animation: "aiFabSlideUp 0.5s ease 2s both",
+        }}
       >
-        <MessageCircle className="h-6 w-6" />
-      </Button>
+        <MessageCircle className="h-5 w-5" />
+        <span>AI-помощник</span>
+        {!open && (
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "-2px",
+              right: "-2px",
+              width: "12px",
+              height: "12px",
+              borderRadius: "50%",
+              background: "#22c55e",
+              boxShadow: "0 0 0 2px rgba(255,255,255,0.9)",
+              animation: "aiFabPulse 3s ease-in-out infinite",
+            }}
+          />
+        )}
+      </button>
+      <style>{`
+        @keyframes aiFabSlideUp {
+          from { opacity: 0; transform: translateY(40px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes aiFabPulse {
+          0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 0 0 0 rgba(34,197,94,0.6); }
+          50% { transform: scale(1.15); opacity: 0.95; box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 0 0 8px rgba(34,197,94,0); }
+        }
+        .ai-fab-btn:hover { transform: scale(1.05); }
+      `}</style>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="w-full sm:max-w-[420px] p-0 flex flex-col">
