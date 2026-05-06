@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useI18n();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -24,7 +25,9 @@ export default function LoginPage() {
     if (error) {
       toast.error(error.message);
     } else {
-      navigate("/dashboard");
+      const isWelcome = searchParams.get("welcome") === "1";
+      const wizardShown = localStorage.getItem("first_article_wizard_shown") === "true";
+      navigate(isWelcome && !wizardShown ? "/welcome" : "/dashboard");
     }
   };
 

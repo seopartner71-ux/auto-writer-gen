@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ interface StageInfo {
 
 export default function QuickStartPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { lang, t } = useI18n();
   const [keyword, setKeyword] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
@@ -36,6 +37,20 @@ export default function QuickStartPage() {
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const startRef = useRef<number>(0);
   const elapsedTimerRef = useRef<number | null>(null);
+  const autostartedRef = useRef(false);
+
+  useEffect(() => {
+    if (autostartedRef.current) return;
+    const kw = searchParams.get("keyword");
+    const auto = searchParams.get("autostart") === "true";
+    if (kw && kw.trim().length >= 2) setKeyword(kw);
+    if (kw && auto && stage === "idle") {
+      autostartedRef.current = true;
+      const timer = setTimeout(() => { runPipeline(); }, 1000);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const stages: StageInfo[] = lang === "ru" ? [
     { key: "research",  icon: Search,      label: "Анализируем конкурентов", hint: "Сбор данных из ТОП-10 Google" },

@@ -152,7 +152,7 @@ export default function RegisterPage() {
       }
     } else {
       toast.success(t("auth.registerSuccess"), { duration: 8000 });
-      navigate("/login");
+      navigate("/login?welcome=1");
     }
   };
 

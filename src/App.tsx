@@ -53,6 +53,7 @@ const PaymentSuccessPage = lazy(() => import("@/pages/PaymentSuccessPage"));
 const ChangelogPage = lazy(() => import("@/pages/ChangelogPage"));
 const TopicalMapPage = lazy(() => import("@/pages/TopicalMapPage"));
 const ArticleAuditPage = lazy(() => import("@/pages/ArticleAuditPage"));
+const WelcomePage = lazy(() => import("@/pages/WelcomePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -123,6 +124,7 @@ const App = () => (
                 <Route element={<ProtectedAppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/quick-start" element={<QuickStartPage />} />
+                  <Route path="/welcome" element={<WelcomePage />} />
                   <Route path="/keywords" element={<KeywordsPage />} />
                   <Route path="/topical-map" element={<TopicalMapPage />} />
                   <Route path="/article-audit" element={<ArticleAuditPage />} />
