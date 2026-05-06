@@ -37,6 +37,20 @@ export default function QuickStartPage() {
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const startRef = useRef<number>(0);
   const elapsedTimerRef = useRef<number | null>(null);
+  const autostartedRef = useRef(false);
+
+  useEffect(() => {
+    if (autostartedRef.current) return;
+    const kw = searchParams.get("keyword");
+    const auto = searchParams.get("autostart") === "true";
+    if (kw && kw.trim().length >= 2) setKeyword(kw);
+    if (kw && auto && stage === "idle") {
+      autostartedRef.current = true;
+      const timer = setTimeout(() => { runPipeline(); }, 1000);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const stages: StageInfo[] = lang === "ru" ? [
     { key: "research",  icon: Search,      label: "Анализируем конкурентов", hint: "Сбор данных из ТОП-10 Google" },
