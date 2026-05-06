@@ -291,6 +291,7 @@ ${keyword ? `- Плотность ключа: ${density}%
       strengths: (analysis.strengths || []).slice(0, 10),
       improvements: (analysis.improvements || []).slice(0, 12),
       priorities: (analysis.priorities || []).slice(0, 5),
+      h1: h1List[0] || null,
       stats: {
         title: pageTitle,
         h1: h1List[0] || null,
@@ -310,12 +311,33 @@ ${keyword ? `- Плотность ключа: ${density}%
       },
     };
 
-    const { data: saved, error: saveErr } = await admin
+    // Dedupe: update existing audit for same url, otherwise insert
+    const { data: existing } = await admin
       .from("article_audits")
-      .insert({ user_id: userId, url, keyword: keyword || null, result })
-      .select("id, created_at")
-      .single();
-    if (saveErr) console.error("Save audit error:", saveErr);
+      .select("id")
+      .eq("user_id", userId)
+      .eq("url", url)
+      .maybeSingle();
+
+    let saved: { id: string; created_at: string } | null = null;
+    if (existing?.id) {
+      const { data: updated, error: updErr } = await admin
+        .from("article_audits")
+        .update({ result, keyword: keyword || null, updated_at: new Date().toISOString() })
+        .eq("id", existing.id)
+        .select("id, created_at")
+        .single();
+      if (updErr) console.error("Update audit error:", updErr);
+      saved = updated as any;
+    } else {
+      const { data: inserted, error: insErr } = await admin
+        .from("article_audits")
+        .insert({ user_id: userId, url, keyword: keyword || null, result })
+        .select("id, created_at")
+        .single();
+      if (insErr) console.error("Insert audit error:", insErr);
+      saved = inserted as any;
+    }
 
     return jsonResponse({ id: saved?.id, created_at: saved?.created_at, result });
   } catch (e) {

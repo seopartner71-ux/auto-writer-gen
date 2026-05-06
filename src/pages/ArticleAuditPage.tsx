@@ -121,11 +121,17 @@ export default function ArticleAuditPage() {
 
   const rewriteThis = () => {
     if (!current) return;
-    const title = current.result.stats?.h1 || current.result.stats?.title || "";
+    const h1 =
+      (current.result as any).h1 ||
+      current.result.stats?.h1 ||
+      current.result.stats?.title ||
+      "";
     const params = new URLSearchParams();
     if (current.keyword) params.set("keyword", current.keyword);
-    if (title) params.set("title", title);
-    params.set("mode", "rewrite");
+    if (h1) params.set("title", h1);
+    if (current.url) params.set("source_url", current.url);
+    params.set("autostart", "true");
+    params.set("mode", "quick");
     navigate(`/articles?${params.toString()}`);
   };
 
