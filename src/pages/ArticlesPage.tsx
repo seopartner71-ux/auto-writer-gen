@@ -834,6 +834,25 @@ export default function ArticlesPage() {
     };
   }, [content, title, metaDescription, currentArticleId, isStreaming, saveArticle.isPending]);
 
+  // Poll ai_score after article id appears (stealth pass updates row async)
+  useEffect(() => {
+    if (!currentArticleId) { setAiScore(null); return; }
+    let cancelled = false;
+    const fetchScore = async () => {
+      const { data } = await supabase
+        .from("articles")
+        .select("ai_score")
+        .eq("id", currentArticleId)
+        .maybeSingle();
+      if (!cancelled && data && typeof (data as any).ai_score === "number") {
+        setAiScore((data as any).ai_score);
+      }
+    };
+    fetchScore();
+    const interval = window.setInterval(fetchScore, 8000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [currentArticleId]);
+
   // Generate schema
   const generateSchema = useMutation({
     mutationFn: async () => {
