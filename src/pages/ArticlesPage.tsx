@@ -48,6 +48,7 @@ import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
+import { runAutoStealthPass } from "@/features/article-editor/autoStealthPass";
 import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
