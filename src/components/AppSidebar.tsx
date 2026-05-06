@@ -46,6 +46,7 @@ import { useCallback, useEffect, useState } from "react";
 const routePrefetchMap: Record<string, () => void> = {
   "/keywords": () => import("@/pages/KeywordsPage"),
   "/topical-map": () => import("@/pages/TopicalMapPage"),
+  "/article-audit": () => import("@/pages/ArticleAuditPage"),
   "/plan-builder": () => import("@/pages/PlanBuilderPage"),
   "/articles": () => import("@/pages/ArticlesPage"),
   "/analytics": () => import("@/pages/AnalyticsPage"),
@@ -92,6 +93,7 @@ export function AppSidebar() {
     { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: lang === "ru" ? "Карта тем" : "Topical Map", url: "/topical-map", icon: Map },
+    { title: lang === "ru" ? "Аудит статьи" : "Article Audit", url: "/article-audit", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     ...(isFactory ? [

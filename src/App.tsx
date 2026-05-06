@@ -52,6 +52,7 @@ const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 const PaymentSuccessPage = lazy(() => import("@/pages/PaymentSuccessPage"));
 const ChangelogPage = lazy(() => import("@/pages/ChangelogPage"));
 const TopicalMapPage = lazy(() => import("@/pages/TopicalMapPage"));
+const ArticleAuditPage = lazy(() => import("@/pages/ArticleAuditPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -124,6 +125,7 @@ const App = () => (
                   <Route path="/quick-start" element={<QuickStartPage />} />
                   <Route path="/keywords" element={<KeywordsPage />} />
                   <Route path="/topical-map" element={<TopicalMapPage />} />
+                  <Route path="/article-audit" element={<ArticleAuditPage />} />
                   <Route path="/plan-builder" element={<PlanBuilderPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />

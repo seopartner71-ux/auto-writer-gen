@@ -119,6 +119,33 @@ export type Database = {
         }
         Relationships: []
       }
+      article_audits: {
+        Row: {
+          created_at: string
+          id: string
+          keyword: string | null
+          result: Json
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          keyword?: string | null
+          result?: Json
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          keyword?: string | null
+          result?: Json
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       article_comments: {
         Row: {
           article_id: string
