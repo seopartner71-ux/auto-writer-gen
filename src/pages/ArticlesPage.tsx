@@ -1041,12 +1041,49 @@ export default function ArticlesPage() {
                 </div>
                 <div className="space-y-0.5">
                   <Label className="text-[10px] text-muted-foreground">{t("articles.h1Title")}</Label>
-                  <Input
-                    value={h1}
-                    onChange={(e) => setH1(e.target.value)}
-                    placeholder={t("articles.h1Title")}
-                    className="h-8 text-sm font-semibold"
-                  />
+                  <div className="flex gap-1">
+                    <Input
+                      value={h1}
+                      onChange={(e) => setH1(e.target.value)}
+                      placeholder={t("articles.h1Title")}
+                      className="h-8 text-sm font-semibold"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2 shrink-0 gap-1"
+                      title="Варианты заголовка"
+                      disabled={titleVariantsLoading}
+                      onClick={async () => {
+                        const kw = selectedKeyword?.seed_keyword || h1 || title;
+                        if (!kw) { toast.error("Выберите ключевое слово"); return; }
+                        setTitleVariantsOpen(true);
+                        setTitleVariants([]);
+                        setSelectedTitleVariant("");
+                        setTitleVariantsLoading(true);
+                        try {
+                          const lang = /[а-яa-z]/i.test(kw) && /[а-я]/i.test(kw) ? "ru" : "en";
+                          const { data, error } = await supabase.functions.invoke("generate-titles", {
+                            body: { keyword: kw, current_title: h1 || title, language: lang },
+                          });
+                          if (error) throw error;
+                          if (data?.error) throw new Error(data.error);
+                          const arr: string[] = Array.isArray(data?.titles) ? data.titles : [];
+                          if (arr.length === 0) throw new Error("Не удалось сгенерировать варианты");
+                          setTitleVariants(arr);
+                        } catch (e: any) {
+                          toast.error(e?.message || "Ошибка генерации заголовков");
+                          setTitleVariantsOpen(false);
+                        } finally {
+                          setTitleVariantsLoading(false);
+                        }
+                      }}
+                    >
+                      {titleVariantsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                      <span className="text-[11px]">Варианты</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="space-y-0.5">
