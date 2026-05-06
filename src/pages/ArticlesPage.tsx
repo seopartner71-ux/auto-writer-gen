@@ -261,6 +261,7 @@ export default function ArticlesPage() {
   const [checkingUniq, setCheckingUniq] = useState(false);
   const [turgenevScore, setTurgenevScore] = useState<number | null>(null);
   const [uniqPercent, setUniqPercent] = useState<number | null>(null);
+  const [uniqError, setUniqError] = useState<string | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
   const complianceCheckedLenRef = useRef<number>(0);
@@ -1330,33 +1331,57 @@ export default function ArticlesPage() {
                       onClick={async () => {
                         if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
                         setCheckingUniq(true);
-                        try {
-                          toast.info("Проверка уникальности через text.ru. Результат через 1-2 мин.");
-                          const { data, error } = await supabase.functions.invoke("quality-check", {
-                            body: { article_id: currentArticleId, content, checks: ["uniqueness"] },
-                          });
-                          if (error) throw error;
-                          const pct = (data as any)?.uniqueness_percent;
-                          if (pct != null) {
-                            setUniqPercent(pct);
-                            if (pct >= 80) toast.success(`Уникальность: ${pct}%`);
-                            else toast.error(`Уникальность: ${pct}% - низкая`);
+                        setUniqError(null);
+                        setUniqPercent(null);
+                        toast.info("Проверка уникальности через text.ru запущена в фоне");
+                        // Non-blocking: fire and handle async with 30s timeout
+                        (async () => {
+                          try {
+                            const timeoutPromise = new Promise<never>((_, reject) =>
+                              setTimeout(() => reject(new Error("TIMEOUT")), 30000)
+                            );
+                            const callPromise = supabase.functions.invoke("quality-check", {
+                              body: { article_id: currentArticleId, content, checks: ["uniqueness"] },
+                            });
+                            const { data, error } = await Promise.race([callPromise, timeoutPromise]) as any;
+                            if (error) throw error;
+                            const pct = (data as any)?.uniqueness_percent;
+                            if (pct != null) {
+                              setUniqPercent(pct);
+                              if (pct >= 80) toast.success(`Уникальность: ${pct}%`);
+                              else toast.warning(`Уникальность: ${pct}% - низкая`);
+                            } else {
+                              setUniqError("Нет баланса");
+                              toast.error("Сервис недоступен. Проверьте баланс text.ru");
+                            }
+                          } catch (e: any) {
+                            setUniqError("Нет баланса");
+                            if (e?.message === "TIMEOUT") {
+                              toast.error("Сервис недоступен. Проверьте баланс text.ru");
+                            } else {
+                              toast.error("Сервис недоступен. Проверьте баланс text.ru");
+                            }
+                          } finally {
+                            setCheckingUniq(false);
                           }
-                        } catch (e: any) {
-                          toast.error(e?.message || "Ошибка проверки");
-                        } finally {
-                          setCheckingUniq(false);
-                        }
+                        })();
                       }}
                       className={
+                        uniqError ? "border-red-500 text-red-600" :
                         uniqPercent == null ? "" :
                         uniqPercent >= 80 ? "border-green-500 text-green-600" :
-                        "border-red-500 text-red-600"
+                        "border-yellow-500 text-yellow-600"
                       }
                       title="Проверка уникальности через text.ru"
                     >
                       <BarChart3 className="h-3 w-3 mr-1" />
-                      {checkingUniq ? "..." : uniqPercent != null ? `text.ru ${uniqPercent}%` : "text.ru"}
+                      {checkingUniq
+                        ? "⏳ Проверяем..."
+                        : uniqError
+                          ? "❌ Ошибка - нет баланса"
+                          : uniqPercent != null
+                            ? `${uniqPercent >= 80 ? "✅" : "⚠️"} ${uniqPercent}% уникальность`
+                            : "text.ru"}
                     </Button>
 
                     {/* Blog platform publish buttons — PRO only, Telegra.ph author only */}
