@@ -504,6 +504,27 @@ export function BulkGenerationMode() {
                         <TableCell><Badge variant="secondary" className={`gap-1 ${cfg.className}`}><Icon className="h-3 w-3" />{cfg.label}</Badge></TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {item.status === "error" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-yellow-500 hover:text-yellow-400 gap-1"
+                                title="Повторить"
+                                onClick={async () => {
+                                  await supabase.from("bulk_job_items")
+                                    .update({ status: "queued", error_message: null })
+                                    .eq("id", item.id);
+                                  await supabase.from("bulk_jobs")
+                                    .update({ status: "processing" })
+                                    .eq("id", activeJob!.id);
+                                  startProcessing.mutate(activeJob!.id);
+                                  queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] });
+                                  toast.success("Поставлено в очередь");
+                                }}
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             {item.status === "done" && item.article_id && (
                               <>
                                 <Button size="sm" variant="ghost" onClick={() => window.location.href = `/articles?edit=${item.article_id}`} title="Редактировать">
