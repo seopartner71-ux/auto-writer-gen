@@ -49,6 +49,8 @@ import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
 import { runAutoStealthPass } from "@/features/article-editor/autoStealthPass";
 import { useFactCheck } from "@/features/article-editor/useFactCheck";
+import { ArticleQualityHints } from "@/components/article/ArticleQualityHints";
+import { Globe } from "lucide-react";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
@@ -262,6 +264,9 @@ export default function ArticlesPage() {
   const [turgenevScore, setTurgenevScore] = useState<number | null>(null);
   const [uniqPercent, setUniqPercent] = useState<number | null>(null);
   const [uniqError, setUniqError] = useState<string | null>(null);
+  const [aiScore, setAiScore] = useState<number | null>(null);
+  const [checkingGeo, setCheckingGeo] = useState(false);
+  const [geoResult, setGeoResult] = useState<Array<{ model: string; status: "ok" | "miss" | "partial"; note?: string }> | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
   const complianceCheckedLenRef = useRef<number>(0);
