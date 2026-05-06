@@ -17,6 +17,8 @@ import {
   AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus, Pause, RotateCcw, Globe
 } from "lucide-react";
 import { toast } from "sonner";
+import JSZip from "jszip";
+import { Download as DownloadIcon, FileSpreadsheet } from "lucide-react";
 
 interface BulkJobItem { id: string; seed_keyword: string; status: string; article_id: string | null; error_message: string | null; }
 interface BulkJob { id: string; status: string; total_items: number; completed_items: number; author_profile_id: string | null; created_at: string; }
@@ -299,22 +301,96 @@ export function BulkGenerationMode() {
     onError: (e) => toast.error(e.message),
   });
 
-  const handleDownloadAll = useCallback(async () => {
-    if (!activeJobId) return;
+  const slugify = (s: string) =>
+    (s || "article")
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[^a-zа-я0-9\s-]/gi, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .slice(0, 80) || "article";
+
+  const fetchDoneArticles = useCallback(async () => {
+    if (!activeJobId) return null;
     const doneItems = jobItems.filter((i) => i.status === "done" && i.article_id);
-    if (doneItems.length === 0) { toast.error(t("bulk.noArticlesReady")); return; }
+    if (doneItems.length === 0) { toast.error(t("bulk.noArticlesReady")); return null; }
     const articleIds = doneItems.map((i) => i.article_id!);
-    const { data: articles, error } = await supabase.from("articles").select("title, content").in("id", articleIds);
-    if (error || !articles) { toast.error(t("bulk.noArticlesReady")); return; }
-    let combined = "";
-    articles.forEach((a, i) => { combined += `# ${a.title || "Untitled"}\n\n${a.content || ""}\n\n`; if (i < articles.length - 1) combined += "---\n\n"; });
-    const blob = new Blob([combined], { type: "text/markdown" });
+    const { data: articles, error } = await supabase
+      .from("articles")
+      .select("id, title, content, meta_description, seo_score, created_at")
+      .in("id", articleIds);
+    if (error || !articles) { toast.error(t("bulk.noArticlesReady")); return null; }
+    return articles as any[];
+  }, [activeJobId, jobItems, t]);
+
+  const handleDownloadAll = useCallback(async () => {
+    const articles = await fetchDoneArticles();
+    if (!articles) return;
+    const zip = new JSZip();
+    const used = new Set<string>();
+    for (const a of articles) {
+      let name = slugify(a.title || "article");
+      let unique = name;
+      let i = 2;
+      while (used.has(unique)) unique = `${name}-${i++}`;
+      used.add(unique);
+      const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>${(a.title || "Untitled").replace(/</g, "&lt;")}</title>
+  <meta name="description" content="${(a.meta_description || "").replace(/"/g, "&quot;")}">
+</head>
+<body>
+  <h1>${(a.title || "").replace(/</g, "&lt;")}</h1>
+  ${a.content || ""}
+</body>
+</html>`;
+      zip.file(`${unique}.html`, html);
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url; link.download = `bulk-articles-${new Date().toISOString().slice(0, 10)}.md`;
-    link.click(); URL.revokeObjectURL(url);
-    toast.success(`${t("bulk.downloaded")} ${articles.length} ${t("bulk.articlesCount")}`);
-  }, [activeJobId, jobItems, t]);
+    link.href = url;
+    link.download = `articles-${new Date().toISOString().slice(0, 10)}.zip`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`ZIP создан: ${articles.length} файлов`);
+  }, [fetchDoneArticles]);
+
+  const handleDownloadCsv = useCallback(async () => {
+    const articles = await fetchDoneArticles();
+    if (!articles) return;
+    const esc = (v: any) => {
+      const s = String(v ?? "");
+      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = [
+      ["Заголовок", "URL", "Слов", "SEO Score", "Дата"],
+      ...articles.map((a: any) => {
+        const words = a.content ? String(a.content).split(/\s+/).filter(Boolean).length : 0;
+        const score = a.seo_score && typeof a.seo_score === "object"
+          ? Math.round(((a.seo_score.readability ?? 0) + (a.seo_score.keywordDensity ?? 0) + (a.seo_score.structure ?? 0)) / 3)
+          : "";
+        return [
+          a.title || "",
+          `${window.location.origin}/articles?edit=${a.id}`,
+          words,
+          score,
+          a.created_at ? new Date(a.created_at).toLocaleDateString() : "",
+        ];
+      }),
+    ];
+    const csv = "\uFEFF" + rows.map(r => r.map(esc).join(";")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `articles-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`CSV создан: ${articles.length} строк`);
+  }, [fetchDoneArticles]);
 
   const progressPercent = activeJob ? Math.round((activeJob.completed_items / Math.max(activeJob.total_items, 1)) * 100) : 0;
   const isProcessing = activeJob?.status === "processing" || activeJob?.status === "pending" || startProcessing.isPending || resumeJob.isPending;
@@ -433,7 +509,16 @@ export function BulkGenerationMode() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">{t("bulk.progress")}: {activeJob.completed_items} / {activeJob.total_items}</CardTitle>
               <div className="flex items-center gap-2">
-                {activeJob.status === "completed" && <Button size="sm" variant="outline" onClick={handleDownloadAll} className="gap-1.5"><Download className="h-4 w-4" />{t("bulk.downloadAll")}</Button>}
+                {activeJob.status === "completed" && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleDownloadAll} className="gap-1.5">
+                      <DownloadIcon className="h-4 w-4" />Скачать ZIP (HTML)
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleDownloadCsv} className="gap-1.5">
+                      <FileSpreadsheet className="h-4 w-4" />Экспорт CSV
+                    </Button>
+                  </>
+                )}
                 {activeJob.status === "processing" && (
                   <Button size="sm" variant="outline" onClick={() => pauseJob.mutate(activeJob.id)} disabled={pauseJob.isPending} className="gap-1.5">
                     {pauseJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
