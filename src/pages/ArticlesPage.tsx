@@ -48,6 +48,7 @@ import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
+import { runAutoStealthPass } from "@/features/article-editor/autoStealthPass";
 import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
@@ -771,6 +772,10 @@ export default function ArticlesPage() {
           supabase.functions.invoke("quality-check", {
             body: { article_id: result.id, content, mode: "auto" },
           }).catch(() => { /* silent */ });
+          // Auto Stealth Pass: if ai_score < 60, run humanize improve-article.
+          if (result.isNew) {
+            void runAutoStealthPass(result.id, lang);
+          }
         }, 500);
       }
     },
