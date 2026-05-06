@@ -155,7 +155,6 @@ const App = () => (
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              <HelpFab />
               <AIAssistantFab />
             </AuthProvider>
           </BrowserRouter>
