@@ -320,6 +320,22 @@ export function BulkGenerationMode() {
   const isProcessing = activeJob?.status === "processing" || activeJob?.status === "pending" || startProcessing.isPending || resumeJob.isPending;
   const isPaused = activeJob?.status === "paused";
 
+  // Visual queue counts
+  const counts = {
+    done: jobItems.filter((i) => i.status === "done").length,
+    working: jobItems.filter((i) => ["researching", "writing"].includes(i.status)).length,
+    queued: jobItems.filter((i) => i.status === "queued").length,
+    error: jobItems.filter((i) => i.status === "error").length,
+  };
+  const remainingSec = (counts.queued + counts.working) * 90;
+  const formatEta = (sec: number) => {
+    if (sec <= 0) return "—";
+    const h = Math.floor(sec / 3600);
+    const m = Math.round((sec % 3600) / 60);
+    if (h > 0) return `${h} ч ${m} мин`;
+    return `${m} мин`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
