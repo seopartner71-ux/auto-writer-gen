@@ -70,6 +70,62 @@ function scoreLabel(s: number) {
   return "Плохо";
 }
 
+function scoreStrokeColor(s: number) {
+  if (s >= 80) return "#22c55e";
+  if (s >= 60) return "#eab308";
+  if (s >= 40) return "#f97316";
+  return "#ef4444";
+}
+function scoreStatus(s: number) {
+  if (s >= 80) return { dot: "bg-emerald-400", text: "Отлично - готово к публикации", color: "text-emerald-400" };
+  if (s >= 60) return { dot: "bg-amber-400", text: "Хорошо - можно улучшить", color: "text-amber-400" };
+  if (s >= 40) return { dot: "bg-orange-400", text: "Слабо - нужно улучшение", color: "text-orange-400" };
+  return { dot: "bg-rose-400", text: "Плохо - требует доработки", color: "text-rose-400" };
+}
+
+function ScoreDonut({ score, size = 140, stroke = 12 }: { score: number; size?: number; stroke?: number }) {
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, score));
+  const offset = circumference - (clamped / 100) * circumference;
+  const color = scoreStrokeColor(clamped);
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#1e293b"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 0.5s ease, stroke 0.3s ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div
+          className="font-bold font-mono leading-none transition-colors"
+          style={{ fontSize: Math.round(size * 0.42), color }}
+        >
+          {clamped}
+        </div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">из 100</div>
+      </div>
+    </div>
+  );
+}
+
 export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword, articleId, onContentImproved, isStreaming = false, quickMode = false }: Props) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
