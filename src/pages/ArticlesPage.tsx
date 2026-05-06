@@ -265,6 +265,12 @@ export default function ArticlesPage() {
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [editorComments, setEditorComments] = useState<Array<{ id: string; category: string; rule: string; quote: string; note: string; createdAt: number }>>([]);
 
+  // Title A/B variants
+  const [titleVariantsOpen, setTitleVariantsOpen] = useState(false);
+  const [titleVariants, setTitleVariants] = useState<string[]>([]);
+  const [titleVariantsLoading, setTitleVariantsLoading] = useState(false);
+  const [selectedTitleVariant, setSelectedTitleVariant] = useState<string>("");
+
   // Invalidate compliance result when content changes significantly after a check
   useEffect(() => {
     if (!complianceResult) return;
