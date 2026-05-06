@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
   Wand2, Loader2, Hash, FileText, Save, Code2, Trash2, History,
-  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, ShieldAlert, CreditCard, AlertTriangle, Send, Link2, MessageSquarePlus, UserPlus
+  CheckCircle2, Circle, BarChart3, BookOpen, Copy, Check, Download, Eye, Pencil, User, Target, Factory, Gem, Shield, ShieldAlert, CreditCard, AlertTriangle, Send, Link2, MessageSquarePlus, UserPlus, Globe
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
