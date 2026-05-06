@@ -360,6 +360,30 @@ ${a.content || ""}
           )}
         </CardContent>
       </Card>
+
+      {selected.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
+          <span className="text-sm font-medium pr-2 border-r border-border">
+            Выбрано: {selected.size}
+          </span>
+          <Button size="sm" variant="outline" onClick={handleZipExport} disabled={exporting} className="gap-1.5">
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Скачать ZIP
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCsvExport} className="gap-1.5">
+            <FileSpreadsheet className="h-4 w-4" />
+            Экспорт CSV
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleBatchDelete} className="gap-1.5 text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+            Удалить
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearSelection} className="gap-1.5">
+            <X className="h-4 w-4" />
+            Отменить
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
