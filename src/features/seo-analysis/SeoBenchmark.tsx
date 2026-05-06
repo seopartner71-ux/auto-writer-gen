@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, forwardRef } from "react";
 import { sanitizeKeyword } from "@/shared/utils/sanitizeKeyword";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -411,7 +411,7 @@ export const SeoBenchmark = forwardRef<HTMLDivElement, SeoBenchmarkProps>(functi
   }
 
   return (
-    <div className="space-y-4 sticky top-4">
+    <div ref={ref} className="space-y-4 sticky top-4">
       {/* ── Content Health Score (Donut) ── */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
@@ -634,4 +634,4 @@ export const SeoBenchmark = forwardRef<HTMLDivElement, SeoBenchmarkProps>(functi
       </Card>
     </div>
   );
-}
+});
