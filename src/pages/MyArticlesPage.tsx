@@ -244,6 +244,13 @@ ${a.content || ""}
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleAll}
+                      aria-label="Выбрать все"
+                    />
+                  </TableHead>
                   <TableHead className="w-16">№</TableHead>
                   <TableHead className="w-12 text-center">Q</TableHead>
                   <TableHead>{t("myArticles.heading")}</TableHead>
@@ -255,12 +262,20 @@ ${a.content || ""}
                 {articles.map((article, index) => (
                   <TableRow
                     key={article.id}
-                    className="border-border cursor-pointer hover:bg-muted/40 transition-colors"
+                    className={`border-border cursor-pointer hover:bg-muted/40 transition-colors group ${selected.has(article.id) ? "bg-primary/5" : ""}`}
                     onClick={() => {
                       navigate(`/articles?edit=${article.id}`);
                       onArticleSelect?.();
                     }}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selected.has(article.id)}
+                        onCheckedChange={() => toggleOne(article.id)}
+                        className={`${selected.has(article.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}
+                        aria-label="Выбрать"
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-muted-foreground">
                       {index + 1}
                     </TableCell>
