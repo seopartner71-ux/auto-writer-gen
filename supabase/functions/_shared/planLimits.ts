@@ -1,32 +1,52 @@
-// Centralized plan-based limits. DB stores: free (NANO) | basic (PRO) | pro (FACTORY).
-// We also accept marketing aliases (nano/pro/factory) for forward-compat.
+// Centralized plan-based limits.
+// REAL DB plan ids: basic = NANO, pro = PRO, factory = FACTORY.
+// We also accept marketing aliases (nano/free/business/...) for forward-compat.
 
-export const IMPROVE_LIMITS: Record<string, number> = {
-  // DB ids
-  free: 3,
-  basic: 999,
-  pro: 999,
-  // Marketing aliases
-  nano: 3,
-  factory: 999,
-  // Other tiers
-  starter: 3,
-  business: 999,
-  enterprise: 999,
-  admin: 999,
-  default: 3,
-};
-
-export const BULK_LIMITS: Record<string, number> = {
-  free: 0,
-  nano: 0,
-  basic: 10,
-  pro: 999,
-  factory: 999,
+// Articles per month (used by generate-article)
+export const PLAN_LIMITS: Record<string, number> = {
+  basic: 5,      // NANO
+  pro: 15,       // PRO
+  factory: 999,  // FACTORY
+  // aliases / fallbacks
+  nano: 5,
+  starter: 5,
+  free: 5,
   business: 30,
   enterprise: 999,
   admin: 999,
-  default: 0,
+  default: 5,
+};
+
+// SEO improve / article improve limits
+export const IMPROVE_LIMITS: Record<string, number> = {
+  basic: 5,      // NANO
+  pro: 999,      // PRO unlimited
+  factory: 999,  // FACTORY unlimited
+  // aliases
+  nano: 5,
+  free: 5,
+  starter: 5,
+  business: 999,
+  enterprise: 999,
+  admin: 999,
+  default: 5,
+};
+
+// Backward-compat alias (some callers may import SEO_IMPROVE_LIMITS)
+export const SEO_IMPROVE_LIMITS = IMPROVE_LIMITS;
+
+// Bulk generation per-job limits
+export const BULK_LIMITS: Record<string, number> = {
+  basic: 1,      // NANO (effectively disabled)
+  pro: 10,       // PRO
+  factory: 999,  // FACTORY
+  // aliases
+  nano: 1,
+  free: 0,
+  business: 20,
+  enterprise: 999,
+  admin: 999,
+  default: 1,
 };
 
 export function normalizePlanKey(plan: string | null | undefined): string {
@@ -35,9 +55,9 @@ export function normalizePlanKey(plan: string | null | undefined): string {
 
 export function getPlanLimit(
   plan: string | null | undefined,
-  limits: Record<string, number> = IMPROVE_LIMITS,
+  limits: Record<string, number> = PLAN_LIMITS,
 ): number {
   const key = normalizePlanKey(plan);
   const v = limits[key];
-  return typeof v === "number" ? v : (limits.default ?? 3);
+  return typeof v === "number" ? v : (limits.default ?? 5);
 }
