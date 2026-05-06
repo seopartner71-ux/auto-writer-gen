@@ -766,15 +766,17 @@ export default function ArticlesPage() {
       } else {
         toast.success(t("articles.articleSaved"));
       }
-      // Auto quality check (background, no credits)
+      // Auto quality check (background, no credits).
+      // For freshly generated articles the auto Stealth Pass owns the
+      // quality-check pipeline to avoid races overwriting ai_score.
       if (content && content.length > 200) {
         setTimeout(() => {
-          supabase.functions.invoke("quality-check", {
-            body: { article_id: result.id, content, mode: "auto" },
-          }).catch(() => { /* silent */ });
-          // Auto Stealth Pass: if ai_score < 60, run humanize improve-article.
           if (result.isNew) {
             void runAutoStealthPass(result.id, lang);
+          } else {
+            supabase.functions.invoke("quality-check", {
+              body: { article_id: result.id, content, mode: "auto" },
+            }).catch(() => { /* silent */ });
           }
         }, 500);
       }
