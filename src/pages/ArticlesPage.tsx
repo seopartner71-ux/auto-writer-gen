@@ -231,6 +231,7 @@ export default function ArticlesPage() {
       setTitle(data.title || "");
       setMetaDescription(data.meta_description || "");
       setCurrentArticleId(data.id);
+      if (typeof (data as any).ai_score === "number") setAiScore((data as any).ai_score);
       if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
       if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
       setTelegraphPath((data as any).telegraph_path || "");
