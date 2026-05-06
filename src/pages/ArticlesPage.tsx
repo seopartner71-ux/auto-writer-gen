@@ -261,6 +261,7 @@ export default function ArticlesPage() {
   const [checkingUniq, setCheckingUniq] = useState(false);
   const [turgenevScore, setTurgenevScore] = useState<number | null>(null);
   const [uniqPercent, setUniqPercent] = useState<number | null>(null);
+  const [uniqError, setUniqError] = useState<string | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
   const complianceCheckedLenRef = useRef<number>(0);
