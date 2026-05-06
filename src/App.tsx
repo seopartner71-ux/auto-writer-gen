@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import { SEOManager } from "@/components/SEOManager";
 import { HelpFab } from "@/components/HelpFab";
+import { AIAssistantFab } from "@/components/AIAssistantFab";
 import { Loader2 } from "lucide-react";
 
 // Eagerly loaded (core auth pages)
@@ -156,6 +157,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <HelpFab />
+              <AIAssistantFab />
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

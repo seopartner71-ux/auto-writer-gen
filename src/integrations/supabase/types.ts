@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_assistant_usage: {
+        Row: {
+          count: number
+          created_at: string
+          date: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          date?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          date?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_models: {
         Row: {
           created_at: string | null
