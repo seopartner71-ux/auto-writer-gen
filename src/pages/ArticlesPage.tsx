@@ -177,18 +177,6 @@ export default function ArticlesPage() {
     },
   });
 
-  const { data: savedArticles = [] } = useQuery({
-    queryKey: ["articles-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("articles")
-        .select("id, title, status, created_at, keyword_id")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
   // State
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");

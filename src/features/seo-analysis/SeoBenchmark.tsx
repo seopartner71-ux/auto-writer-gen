@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, forwardRef } from "react";
 import { sanitizeKeyword } from "@/shared/utils/sanitizeKeyword";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -93,7 +93,10 @@ const scoreGradient = (score: number) => {
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export function SeoBenchmark({ keywordId, content, title, metaDescription, onOptimize }: SeoBenchmarkProps) {
+export const SeoBenchmark = forwardRef<HTMLDivElement, SeoBenchmarkProps>(function SeoBenchmark(
+  { keywordId, content, title, metaDescription, onOptimize },
+  ref,
+) {
   const { session } = useAuth();
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
@@ -408,7 +411,7 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
   }
 
   return (
-    <div className="space-y-4 sticky top-4">
+    <div ref={ref} className="space-y-4 sticky top-4">
       {/* ── Content Health Score (Donut) ── */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
@@ -631,4 +634,4 @@ export function SeoBenchmark({ keywordId, content, title, metaDescription, onOpt
       </Card>
     </div>
   );
-}
+});
