@@ -320,6 +320,22 @@ export function BulkGenerationMode() {
   const isProcessing = activeJob?.status === "processing" || activeJob?.status === "pending" || startProcessing.isPending || resumeJob.isPending;
   const isPaused = activeJob?.status === "paused";
 
+  // Visual queue counts
+  const counts = {
+    done: jobItems.filter((i) => i.status === "done").length,
+    working: jobItems.filter((i) => ["researching", "writing"].includes(i.status)).length,
+    queued: jobItems.filter((i) => i.status === "queued").length,
+    error: jobItems.filter((i) => i.status === "error").length,
+  };
+  const remainingSec = (counts.queued + counts.working) * 90;
+  const formatEta = (sec: number) => {
+    if (sec <= 0) return "—";
+    const h = Math.floor(sec / 3600);
+    const m = Math.round((sec % 3600) / 60);
+    if (h > 0) return `${h} ч ${m} мин`;
+    return `${m} мин`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -441,7 +457,32 @@ export function BulkGenerationMode() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Progress value={progressPercent} className="h-2" />
+            {/* Visual queue banner */}
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+                <span className="flex items-center gap-1.5 text-emerald-500">
+                  <CheckCircle2 className="h-4 w-4" /> Готово: <b>{counts.done}</b>
+                </span>
+                <span className="flex items-center gap-1.5 text-yellow-500">
+                  <Loader2 className={`h-4 w-4 ${counts.working > 0 ? "animate-spin" : ""}`} /> В работе: <b>{counts.working}</b>
+                </span>
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <FileText className="h-4 w-4" /> Ждут: <b>{counts.queued}</b>
+                </span>
+                {counts.error > 0 && (
+                  <span className="flex items-center gap-1.5 text-destructive">
+                    <AlertTriangle className="h-4 w-4" /> Ошибки: <b>{counts.error}</b>
+                  </span>
+                )}
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {progressPercent}% ({activeJob.completed_items} из {activeJob.total_items})
+                  {remainingSec > 0 && activeJob.status === "processing" && (
+                    <> - примерно {formatEta(remainingSec)} до завершения</>
+                  )}
+                </span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+            </div>
             <div className="rounded-lg border border-border overflow-hidden">
               <Table>
                 <TableHeader>
@@ -463,6 +504,27 @@ export function BulkGenerationMode() {
                         <TableCell><Badge variant="secondary" className={`gap-1 ${cfg.className}`}><Icon className="h-3 w-3" />{cfg.label}</Badge></TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {item.status === "error" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-yellow-500 hover:text-yellow-400 gap-1"
+                                title="Повторить"
+                                onClick={async () => {
+                                  await supabase.from("bulk_job_items")
+                                    .update({ status: "queued", error_message: null })
+                                    .eq("id", item.id);
+                                  await supabase.from("bulk_jobs")
+                                    .update({ status: "processing" })
+                                    .eq("id", activeJob!.id);
+                                  startProcessing.mutate(activeJob!.id);
+                                  queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] });
+                                  toast.success("Поставлено в очередь");
+                                }}
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             {item.status === "done" && item.article_id && (
                               <>
                                 <Button size="sm" variant="ghost" onClick={() => window.location.href = `/articles?edit=${item.article_id}`} title="Редактировать">

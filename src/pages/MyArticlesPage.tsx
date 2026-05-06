@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Copy, Trash2, Check, FileText, Loader2 } from "lucide-react";
+import { Copy, Trash2, Check, FileText, Loader2, Download, FileSpreadsheet, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import JSZip from "jszip";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,6 +34,8 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
 
   const { data: articles = [], isLoading } = useQuery({
     queryKey: ["my-articles-list"],
@@ -40,13 +44,117 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
       if (!user) return [];
       const { data, error } = await supabase
         .from("articles")
-        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status")
+        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
   });
+
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allSelected = articles.length > 0 && selected.size === articles.length;
+  const toggleAll = () => {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(articles.map((a: any) => a.id)));
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  const slugify = (s: string) =>
+    (s || "article")
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[^a-zа-я0-9\s-]/gi, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .slice(0, 80) || "article";
+
+  const selectedArticles = useMemo(
+    () => articles.filter((a: any) => selected.has(a.id)),
+    [articles, selected]
+  );
+
+  const handleZipExport = async () => {
+    if (selectedArticles.length === 0) return;
+    setExporting(true);
+    try {
+      const zip = new JSZip();
+      const used = new Set<string>();
+      for (const a of selectedArticles as any[]) {
+        let name = slugify(a.title || "article");
+        let unique = name;
+        let i = 2;
+        while (used.has(unique)) unique = `${name}-${i++}`;
+        used.add(unique);
+        const html = `<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="utf-8" />
+<title>${(a.title || "Untitled").replace(/</g, "&lt;")}</title>
+<meta name="description" content="${(a.meta_description || "").replace(/"/g, "&quot;")}" />
+</head><body>
+${a.content || ""}
+</body></html>`;
+        zip.file(`${unique}.html`, html);
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `articles-${new Date().toISOString().slice(0, 10)}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`ZIP создан: ${selectedArticles.length} файлов`);
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка экспорта");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleCsvExport = () => {
+    if (selectedArticles.length === 0) return;
+    const esc = (v: any) => {
+      const s = String(v ?? "");
+      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = [
+      ["Заголовок", "URL", "Слов", "SEO Score", "AI Score", "Дата создания"],
+      ...selectedArticles.map((a: any) => [
+        a.title || "",
+        `${window.location.origin}/articles?edit=${a.id}`,
+        a.content ? String(a.content).split(/\s+/).filter(Boolean).length : "",
+        "",
+        a.ai_score ?? "",
+        a.created_at ? format(new Date(a.created_at), "dd.MM.yyyy HH:mm") : "",
+      ]),
+    ];
+    const csv = "\uFEFF" + rows.map(r => r.map(esc).join(";")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `articles-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`CSV создан: ${selectedArticles.length} строк`);
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedArticles.length === 0) return;
+    if (!confirm(`Удалить ${selectedArticles.length} статей?`)) return;
+    const ids = selectedArticles.map((a: any) => a.id);
+    const { error } = await supabase.from("articles").delete().in("id", ids);
+    if (error) { toast.error(error.message); return; }
+    queryClient.invalidateQueries({ queryKey: ["my-articles-list"] });
+    clearSelection();
+    toast.success(`Удалено: ${ids.length}`);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -136,6 +244,13 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
             <Table>
               <TableHeader>
                 <TableRow className="border-border">
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleAll}
+                      aria-label="Выбрать все"
+                    />
+                  </TableHead>
                   <TableHead className="w-16">№</TableHead>
                   <TableHead className="w-12 text-center">Q</TableHead>
                   <TableHead>{t("myArticles.heading")}</TableHead>
@@ -147,12 +262,20 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
                 {articles.map((article, index) => (
                   <TableRow
                     key={article.id}
-                    className="border-border cursor-pointer hover:bg-muted/40 transition-colors"
+                    className={`border-border cursor-pointer hover:bg-muted/40 transition-colors group ${selected.has(article.id) ? "bg-primary/5" : ""}`}
                     onClick={() => {
                       navigate(`/articles?edit=${article.id}`);
                       onArticleSelect?.();
                     }}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selected.has(article.id)}
+                        onCheckedChange={() => toggleOne(article.id)}
+                        className={`${selected.has(article.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}
+                        aria-label="Выбрать"
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-muted-foreground">
                       {index + 1}
                     </TableCell>
@@ -237,6 +360,30 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
           )}
         </CardContent>
       </Card>
+
+      {selected.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
+          <span className="text-sm font-medium pr-2 border-r border-border">
+            Выбрано: {selected.size}
+          </span>
+          <Button size="sm" variant="outline" onClick={handleZipExport} disabled={exporting} className="gap-1.5">
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Скачать ZIP
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCsvExport} className="gap-1.5">
+            <FileSpreadsheet className="h-4 w-4" />
+            Экспорт CSV
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleBatchDelete} className="gap-1.5 text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+            Удалить
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearSelection} className="gap-1.5">
+            <X className="h-4 w-4" />
+            Отменить
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

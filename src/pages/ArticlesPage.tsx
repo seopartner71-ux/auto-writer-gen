@@ -265,6 +265,12 @@ export default function ArticlesPage() {
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [editorComments, setEditorComments] = useState<Array<{ id: string; category: string; rule: string; quote: string; note: string; createdAt: number }>>([]);
 
+  // Title A/B variants
+  const [titleVariantsOpen, setTitleVariantsOpen] = useState(false);
+  const [titleVariants, setTitleVariants] = useState<string[]>([]);
+  const [titleVariantsLoading, setTitleVariantsLoading] = useState(false);
+  const [selectedTitleVariant, setSelectedTitleVariant] = useState<string>("");
+
   // Invalidate compliance result when content changes significantly after a check
   useEffect(() => {
     if (!complianceResult) return;
@@ -1035,12 +1041,49 @@ export default function ArticlesPage() {
                 </div>
                 <div className="space-y-0.5">
                   <Label className="text-[10px] text-muted-foreground">{t("articles.h1Title")}</Label>
-                  <Input
-                    value={h1}
-                    onChange={(e) => setH1(e.target.value)}
-                    placeholder={t("articles.h1Title")}
-                    className="h-8 text-sm font-semibold"
-                  />
+                  <div className="flex gap-1">
+                    <Input
+                      value={h1}
+                      onChange={(e) => setH1(e.target.value)}
+                      placeholder={t("articles.h1Title")}
+                      className="h-8 text-sm font-semibold"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2 shrink-0 gap-1"
+                      title="Варианты заголовка"
+                      disabled={titleVariantsLoading}
+                      onClick={async () => {
+                        const kw = selectedKeyword?.seed_keyword || h1 || title;
+                        if (!kw) { toast.error("Выберите ключевое слово"); return; }
+                        setTitleVariantsOpen(true);
+                        setTitleVariants([]);
+                        setSelectedTitleVariant("");
+                        setTitleVariantsLoading(true);
+                        try {
+                          const lang = /[а-яa-z]/i.test(kw) && /[а-я]/i.test(kw) ? "ru" : "en";
+                          const { data, error } = await supabase.functions.invoke("generate-titles", {
+                            body: { keyword: kw, current_title: h1 || title, language: lang },
+                          });
+                          if (error) throw error;
+                          if (data?.error) throw new Error(data.error);
+                          const arr: string[] = Array.isArray(data?.titles) ? data.titles : [];
+                          if (arr.length === 0) throw new Error("Не удалось сгенерировать варианты");
+                          setTitleVariants(arr);
+                        } catch (e: any) {
+                          toast.error(e?.message || "Ошибка генерации заголовков");
+                          setTitleVariantsOpen(false);
+                        } finally {
+                          setTitleVariantsLoading(false);
+                        }
+                      }}
+                    >
+                      {titleVariantsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                      <span className="text-[11px]">Варианты</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="space-y-0.5">
@@ -2090,6 +2133,74 @@ export default function ArticlesPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={titleVariantsOpen} onOpenChange={setTitleVariantsOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4 text-primary" /> Варианты заголовка
+            </DialogTitle>
+            <DialogDescription>
+              Выберите альтернативный заголовок и нажмите "Применить"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="rounded-md border border-border bg-muted/30 p-2">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Текущий</div>
+              <div className="text-sm">{h1 || title || "(пусто)"}</div>
+            </div>
+
+            {titleVariantsLoading && (
+              <div className="flex items-center justify-center py-6 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Генерируем варианты...
+              </div>
+            )}
+
+            {!titleVariantsLoading && titleVariants.length > 0 && (
+              <div className="space-y-2">
+                {titleVariants.map((tv, i) => {
+                  const active = selectedTitleVariant === tv;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedTitleVariant(tv)}
+                      className={`w-full text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                        active ? "border-primary bg-primary/5" : "border-border hover:border-border/70 bg-card"
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 mt-0.5 h-4 w-4 rounded-full border ${active ? "border-primary bg-primary" : "border-muted-foreground/40"} flex items-center justify-center`}>
+                        {active && <div className="h-1.5 w-1.5 rounded-full bg-background" />}
+                      </div>
+                      <div className="flex-1 text-sm">
+                        <span className="text-muted-foreground mr-1">{i + 1}.</span>{tv}
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{tv.length} симв.</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setTitleVariantsOpen(false)}>Закрыть</Button>
+              <Button
+                size="sm"
+                disabled={!selectedTitleVariant}
+                onClick={() => {
+                  setH1(selectedTitleVariant);
+                  setTitle(selectedTitleVariant.slice(0, 70));
+                  setTitleVariantsOpen(false);
+                  toast.success("Заголовок применён");
+                }}
+              >
+                Применить выбранный
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
     </ArticleEditorProvider>
   );
