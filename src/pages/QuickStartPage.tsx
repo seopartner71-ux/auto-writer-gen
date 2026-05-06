@@ -369,6 +369,60 @@ export default function QuickStartPage() {
               autoFocus
             />
           </div>
+
+          {prediction && lang === "ru" && (
+            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <span className="text-base">📊</span>
+                  Прогноз для "{prediction.label}"
+                </div>
+                {predictionLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Конкуренция</span>
+                    <span>{prediction.competition >= 70 ? "Высокая" : prediction.competition >= 40 ? "Средняя" : "Низкая"}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${prediction.competition >= 70 ? "bg-red-500" : prediction.competition >= 40 ? "bg-yellow-500" : "bg-green-500"}`}
+                      style={{ width: `${prediction.competition}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Сложность</span>
+                    <span>{prediction.difficulty >= 70 ? "Высокая" : prediction.difficulty >= 40 ? "Средняя" : "Низкая"}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${prediction.difficulty >= 70 ? "bg-red-500" : prediction.difficulty >= 40 ? "bg-yellow-500" : "bg-green-500"}`}
+                      style={{ width: `${prediction.difficulty}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground border-t border-border pt-2">
+                <span>Медиана ТОП-10:</span>
+                <span>📝 {prediction.medianWords.toLocaleString("ru-RU")} слов</span>
+                <span>📌 {prediction.medianH2} H2</span>
+                <span>📋 {prediction.medianLists} списка</span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
+                <span className="text-xs text-muted-foreground">Если напишем лучше топа:</span>
+                <span className="text-sm font-semibold text-primary">
+                  🎯 Прогноз Score: {prediction.predictedScore}/100
+                </span>
+              </div>
+            </div>
+          )}
+
           <Button
             onClick={runPipeline}
             size="lg"
