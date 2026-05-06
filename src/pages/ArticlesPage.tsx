@@ -2133,6 +2133,74 @@ export default function ArticlesPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog open={titleVariantsOpen} onOpenChange={setTitleVariantsOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4 text-primary" /> Варианты заголовка
+            </DialogTitle>
+            <DialogDescription>
+              Выберите альтернативный заголовок и нажмите "Применить"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="rounded-md border border-border bg-muted/30 p-2">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Текущий</div>
+              <div className="text-sm">{h1 || title || "(пусто)"}</div>
+            </div>
+
+            {titleVariantsLoading && (
+              <div className="flex items-center justify-center py-6 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Генерируем варианты...
+              </div>
+            )}
+
+            {!titleVariantsLoading && titleVariants.length > 0 && (
+              <div className="space-y-2">
+                {titleVariants.map((tv, i) => {
+                  const active = selectedTitleVariant === tv;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedTitleVariant(tv)}
+                      className={`w-full text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                        active ? "border-primary bg-primary/5" : "border-border hover:border-border/70 bg-card"
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 mt-0.5 h-4 w-4 rounded-full border ${active ? "border-primary bg-primary" : "border-muted-foreground/40"} flex items-center justify-center`}>
+                        {active && <div className="h-1.5 w-1.5 rounded-full bg-background" />}
+                      </div>
+                      <div className="flex-1 text-sm">
+                        <span className="text-muted-foreground mr-1">{i + 1}.</span>{tv}
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{tv.length} симв.</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setTitleVariantsOpen(false)}>Закрыть</Button>
+              <Button
+                size="sm"
+                disabled={!selectedTitleVariant}
+                onClick={() => {
+                  setH1(selectedTitleVariant);
+                  setTitle(selectedTitleVariant.slice(0, 70));
+                  setTitleVariantsOpen(false);
+                  toast.success("Заголовок применён");
+                }}
+              >
+                Применить выбранный
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
     </ArticleEditorProvider>
   );
