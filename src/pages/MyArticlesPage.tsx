@@ -44,7 +44,7 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
       if (!user) return [];
       const { data, error } = await supabase
         .from("articles")
-        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description, content_score, word_count")
+        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -128,8 +128,8 @@ ${a.content || ""}
       ...selectedArticles.map((a: any) => [
         a.title || "",
         `${window.location.origin}/articles?edit=${a.id}`,
-        a.word_count ?? "",
-        a.content_score ?? "",
+        a.content ? String(a.content).split(/\s+/).filter(Boolean).length : "",
+        "",
         a.ai_score ?? "",
         a.created_at ? format(new Date(a.created_at), "dd.MM.yyyy HH:mm") : "",
       ]),
