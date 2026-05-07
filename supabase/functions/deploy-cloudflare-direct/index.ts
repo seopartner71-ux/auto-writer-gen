@@ -1266,6 +1266,16 @@ serve(async (req) => {
       metadata: { template: templateKey, url: pagesDevUrl, heading_qa: headingQa },
     });
 
+    // Fire-and-forget: notify search engines (sitemap ping + IndexNow).
+    // Don't await — deploy must return fast even if pings stall.
+    try {
+      void fetch(`${supabaseUrl}/functions/v1/notify-search-engines`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({ project_id: projectId, reason: "deploy" }),
+      });
+    } catch (_e) { /* ignore */ }
+
     return new Response(JSON.stringify({
       success: true,
       project_name: cfProjectName,
