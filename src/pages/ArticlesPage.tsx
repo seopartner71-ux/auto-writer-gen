@@ -2007,16 +2007,21 @@ export default function ArticlesPage() {
               isStreaming={isStreaming}
               quickMode
             />
-            <QuickStartSummary
+            <QualityImproveCard
+              mode="quick"
               articleId={currentArticleId}
-              hasContent={!!content}
-              onSave={() => saveArticle.mutate()}
-              saveDisabled={!content}
-              saving={saveArticle.isPending}
+              currentContent={content}
+              onRevertContent={(c) => setContent(c)}
             />
             </>
           ) : (
           <>
+          <QualityImproveCard
+            mode="expert"
+            articleId={currentArticleId}
+            currentContent={content}
+            onRevertContent={(c) => setContent(c)}
+          />
           <SeoSidePanelContainer
             content={content}
             selectedKeyword={selectedKeyword}
