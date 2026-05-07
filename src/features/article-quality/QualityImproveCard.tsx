@@ -328,6 +328,11 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
           <Row label="AI Score" before={fmtAi(before.ai)} after={fmtAi(after.ai)} ok={aiOk(after.ai)} />
           <Row label="Тургенев"  before={fmtTurg(before.turg)} after={fmtTurg(after.turg)} ok={turgOk(after.turg)} />
+          {warning && (
+            <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
+              ⚠️ {warning}
+            </div>
+          )}
           {mode === "expert" && (
             <button
               type="button"
@@ -338,21 +343,23 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               {showLog ? "Скрыть детали" : "Детали"}
             </button>
           )}
-          {mode === "expert" && showLog && (
-            <div className="text-[11px] space-y-0.5 pt-1 border-t border-border">
-              <div className="text-emerald-400">✅ Анализ завершен</div>
-              <div className="text-emerald-400">✅ Гуманизация выполнена</div>
-              <div className="text-emerald-400">
-                ✅ Тургенев {before.turg != null && after.turg != null ? `${before.turg} → ${after.turg}` : "проверен"}
-              </div>
+          {mode === "expert" && showLog && logLines.length > 0 && (
+            <div className="text-[11px] space-y-0.5 pt-1 border-t border-border max-h-40 overflow-y-auto font-mono">
+              {logLines.map((l, i) => (
+                <div key={i} className={
+                  l.startsWith("✅") ? "text-emerald-400" :
+                  l.startsWith("⚠") ? "text-amber-300" :
+                  l.startsWith("✘") ? "text-rose-400" : "text-muted-foreground"
+                }>{l}</div>
+              ))}
             </div>
           )}
           <div className="grid grid-cols-2 gap-2 pt-2">
-            <Button size="sm" className="gap-1" onClick={accept}>
-              <Check className="h-3.5 w-3.5" /> Принять
+            <Button size="sm" className="gap-1" onClick={warning ? acceptBest : accept}>
+              <Check className="h-3.5 w-3.5" /> {warning ? "Принять лучший" : "Принять"}
             </Button>
             <Button size="sm" variant="outline" className="gap-1" onClick={revert}>
-              <X className="h-3.5 w-3.5" /> Отменить правки
+              <X className="h-3.5 w-3.5" /> {warning ? "Откатить все" : "Отменить правки"}
             </Button>
           </div>
         </div>
