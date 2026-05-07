@@ -213,6 +213,15 @@ export function LandingPricing() {
                   </span>
                 </div>
 
+                {plan.modelLabel && (
+                  <div className={`mb-5 text-[12px] font-tech flex items-center gap-1.5 ${
+                    plan.modelPremium ? "text-primary" : "text-[#9ca3af]"
+                  }`}>
+                    <span>{plan.modelLabel}</span>
+                    {plan.modelPremium && <Sparkles className="h-3 w-3" />}
+                  </div>
+                )}
+
                 <ul className="space-y-2.5 mb-8">
                   {plan.features.map((f, fi) => (
                     <li key={fi} className="flex items-start gap-2.5 text-[13px]">
