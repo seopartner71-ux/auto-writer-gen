@@ -167,7 +167,16 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">{t("ps.noStyle")}</SelectItem>
-            {presets.map(a => (
+            {recommended.length > 0 && (
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-400/90">⭐ Рекомендуемые</div>
+            )}
+            {recommended.map(a => (
+              <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+            ))}
+            {otherPresets.length > 0 && (
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Все авторы</div>
+            )}
+            {otherPresets.map(a => (
               <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
             ))}
             {customs.length > 0 && (
