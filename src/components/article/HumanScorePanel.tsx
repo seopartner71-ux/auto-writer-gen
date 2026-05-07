@@ -443,8 +443,8 @@ export function HumanScorePanel({ content, lsiKeywords, onHighlightStopWords, on
         </Card>
       )}
 
-      {/* ─── Quick Fix All Button ──────────────────────────────────── */}
-      {hasFixableIssues && onFixIssue && (
+      {/* Quick Fix All - hidden, use unified "Улучшить качество текста" in right panel */}
+      {false && hasFixableIssues && onFixIssue && (
         <Button
           size="sm"
           variant="default"
