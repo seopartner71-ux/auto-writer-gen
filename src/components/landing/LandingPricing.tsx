@@ -207,20 +207,23 @@ export function LandingPricing() {
                   <span className="text-[#9ca3af] text-sm font-tech">{plan.period}</span>
                 </div>
 
-                <div className="mb-6">
-                  <span className="text-xs font-tech text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                <div className="flex flex-wrap items-center gap-2 mb-6">
+                  <span className="text-[11px] font-tech text-primary bg-primary/10 px-2.5 py-1 rounded-full">
                     {plan.credits} {t("pricing.articlesPerMonth") || (isEn ? "articles / mo" : "статей / мес")}
                   </span>
+                  {plan.modelLabel && (
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] font-tech px-2.5 py-1 rounded-full border ${
+                        plan.modelPremium
+                          ? "text-primary border-primary/25 bg-primary/[0.08]"
+                          : "text-[#9ca3af] border-white/[0.08] bg-white/[0.02]"
+                      }`}
+                    >
+                      {plan.modelPremium && <Sparkles className="h-2.5 w-2.5" />}
+                      {plan.modelLabel}
+                    </span>
+                  )}
                 </div>
-
-                {plan.modelLabel && (
-                  <div className={`mb-5 text-[12px] font-tech flex items-center gap-1.5 ${
-                    plan.modelPremium ? "text-primary" : "text-[#9ca3af]"
-                  }`}>
-                    <span>{plan.modelLabel}</span>
-                    {plan.modelPremium && <Sparkles className="h-3 w-3" />}
-                  </div>
-                )}
 
                 <ul className="space-y-2.5 mb-8">
                   {plan.features.map((f, fi) => (
