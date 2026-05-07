@@ -103,6 +103,28 @@ export function generateStealthPrompt(input: StealthPromptInput): { system: stri
     if (!isRussian) {
       parts.push(`IMPORTANT: The author persona above may be described in Russian, but you MUST write the article in ${targetLangName.toUpperCase()}. Apply the author's tone, style, and voice in ${targetLangName} writing.`);
     }
+
+    // ═══ SYSTEM ANTI-AI SUFFIX (auto-applied, invisible to user, never edited) ═══
+    const antiAiSuffix = isRussian
+      ? `Дополнительные требования к стилю:
+- Чередуй короткие (5-8 слов) и длинные (20+ слов) предложения
+- Не начинай два абзаца подряд одинаково
+- Используй конкретные цифры и примеры из практики
+- Избегай: следует отметить, важно учитывать, необходимо понимать, таким образом, в заключение следует
+- Иногда задавай риторический вопрос
+- 1-2 раза упомяни личный опыт`
+      : `Additional style requirements:
+- Alternate short (5-8 words) and long (20+ words) sentences
+- Never start two consecutive paragraphs the same way
+- Use specific numbers and examples from practice
+- Avoid: it should be noted, it is important to consider, it is necessary to understand, thus, in conclusion
+- Occasionally ask a rhetorical question
+- Mention personal experience 1-2 times`;
+    parts.push(antiAiSuffix);
+    try {
+      console.log(`Anti-AI суффикс применён к автору: ${authorProfile.name || authorProfile.id || "unknown"}`);
+    } catch (_) { /* noop */ }
+
     blockA = `=== БЛОК А: КОНТЕКСТ АВТОРА (критически важно - строго следуй) ===\n${parts.join("\n")}\n=== КОНЕЦ БЛОКА А ===`;
   }
 
