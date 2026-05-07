@@ -1257,19 +1257,7 @@ export default function ArticlesPage() {
                   className="h-8 text-sm"
                 />
               </div>
-              {/* Published URL for interlinking */}
-              <div className="space-y-0.5">
-                <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Link2 className="h-3 w-3" />
-                  {lang === "ru" ? "URL статьи на сайте (для перелинковки)" : "Published URL (for interlinking)"}
-                </Label>
-                <Input
-                  value={publishedUrl}
-                  onChange={(e) => setPublishedUrl(e.target.value)}
-                  placeholder="https://example.com/my-article"
-                  className="h-8 text-sm"
-                />
-              </div>
+              {/* Published URL field removed — interlinking not used */}
 
               {/* Anchor Links for Telegra.ph — only for "Телеграф" preset + PRO */}
               {limits.hasProImageGen && selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф") && (
