@@ -421,9 +421,40 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {mode === "quick" ? "Улучшить автоматически" : "Улучшить качество текста"}
             </Button>
+            <button
+              type="button"
+              onClick={() => setShowSteps(s => !s)}
+              className="w-full inline-flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              <Info className="h-3 w-3" />
+              {showSteps ? "Скрыть что делают шаги" : "Что произойдёт при нажатии?"}
+              {showSteps ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+            {showSteps && (
+              <div className="rounded-md border border-border bg-muted/20 p-2 text-[11px] space-y-1.5">
+                <Step n="1" name="Гуманизация (Stealth Pass)" what="Чередует длину предложений, добавляет разговорные вставки. Снижает AI Score." />
+                <Step n="2" name="Тургенев-фикс" what="Убирает канцеляризмы, разбивает длинные фразы, перефразирует повторы. Снижает балл Тургенева." />
+                <Step n="3" name="Финальная проверка" what="Перепроверяет AI Score и Тургенев. Если шаг ухудшил метрики - откат." />
+                <div className="pt-1.5 border-t border-border/60 text-muted-foreground/80 leading-snug">
+                  Цель: AI ≥ {AI_TARGET}% (человечно), Тургенев ≤ {TURG_TARGET}. Максимум {MAX_PASSES} прохода. Если оба показателя в норме - кнопка спрячется.
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+function Step({ n, name, what }: { n: string; name: string; what: string }) {
+  return (
+    <div className="flex gap-2">
+      <span className="text-violet-300 font-mono shrink-0">{n}.</span>
+      <div className="flex-1">
+        <div className="text-foreground font-medium">{name}</div>
+        <div className="text-muted-foreground leading-snug">{what}</div>
+      </div>
     </div>
   );
 }
