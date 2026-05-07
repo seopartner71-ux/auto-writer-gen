@@ -131,8 +131,11 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { article_id } = await req.json().catch(() => ({}));
+    const { article_id, fix_type } = await req.json().catch(() => ({}));
     if (!article_id) return json({ error: "article_id required" }, 400);
+    const phase: "humanize" | "turgenev" | "all" =
+      fix_type === "humanize" ? "humanize" :
+      fix_type === "turgenev" ? "turgenev" : "all";
 
     const { data: art } = await admin.from("articles")
       .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count")
@@ -204,7 +207,7 @@ Deno.serve(async (req) => {
     const dStatus = String(art.keyword_density_status || "ok");
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
-    if (aiScore < 70 && (orKey || lovableKey)) {
+    if (phase !== "turgenev" && aiScore < 70 && (orKey || lovableKey)) {
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст сохранив все факты и структуру. Сделай ритм живым: чередуй короткие предложения (3-6 слов) с длинными (20-30 слов). Убери канцелярит. Добавь разговорные вставки типа "на практике это выглядит так", "вот что важно понять", "и вот тут начинается интересное". Не меняй факты, цифры, названия брендов. Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <table>, <a>).
 
@@ -230,9 +233,9 @@ ${content}`;
     }
 
     // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times
-    if (primaryKeyword && dStatus === "overuse") {
+    if (phase !== "turgenev" && primaryKeyword && dStatus === "overuse") {
       content = removeEveryNthKeyword(content, primaryKeyword, 3);
-    } else if (primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
+    } else if (phase !== "turgenev" && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
       const sys = "Ты редактор. Вставляешь фразу в текст органично. Возвращаешь только итоговый HTML.";
       const usr = `Вставь фразу "${primaryKeyword}" органично в 2-3 места текста где это звучит естественно. Не меняй факты. Сохрани все HTML-теги. Верни только исправленный HTML.
 
@@ -250,7 +253,7 @@ ${content}`;
     }
 
     // 3) Burstiness fix: split long sentences (JS post-processor)
-    if (burstStatus === "fail" || burstStatus === "warning") {
+    if (phase !== "turgenev" && (burstStatus === "fail" || burstStatus === "warning")) {
       // Apply only to text inside <p>/<li> blocks
       content = content.replace(/(<(?:p|li)[^>]*>)([\s\S]*?)(<\/(?:p|li)>)/gi, (_m, open, inner, close) => {
         return `${open}${splitLongSentences(inner)}${close}`;
@@ -260,7 +263,7 @@ ${content}`;
     // 4) Turgenev (Yandex Baden-Baden) fix when status = fail (RU only, needs OpenRouter)
     const turgStatus = String((art as any).turgenev_status || "ok");
     const isRu = String((art as any).language || "ru").toLowerCase() === "ru";
-    if (turgStatus === "fail" && isRu && orKey) {
+    if (phase !== "humanize" && turgStatus === "fail" && isRu && orKey) {
       const sys = "Ты редактор. Улучшаешь текст под требования Яндекса. Возвращай ТОЛЬКО исправленный HTML без комментариев и markdown-обёрток.";
       const usr = `Улучши текст чтобы снизить риск фильтра Яндекса Баден-Баден:
 
