@@ -1478,6 +1478,7 @@ export default function ArticlesPage() {
                       <Shield className="h-3 w-3 mr-1" />
                       {checkingTurgenev ? "..." : turgenevScore != null ? `Тургенев ${turgenevScore}` : "Тургенев"}
                     </Button>
+                    {/* Тургенев button moved to right-side Quality card */}
 
                     <Button
                       variant="outline"
