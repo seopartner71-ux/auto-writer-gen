@@ -45,6 +45,7 @@ import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
+import { QualityImproveCard } from "@/features/article-quality/QualityImproveCard";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
 import { runAutoStealthPass } from "@/features/article-editor/autoStealthPass";
@@ -266,6 +267,12 @@ export default function ArticlesPage() {
   const [uniqError, setUniqError] = useState<string | null>(null);
   const [aiScore, setAiScore] = useState<number | null>(null);
   const [checkingGeo, setCheckingGeo] = useState(false);
+  const [qualityImproving, setQualityImproving] = useState(false);
+  useEffect(() => {
+    const h = (e: Event) => setQualityImproving(!!(e as CustomEvent).detail);
+    window.addEventListener("quality-improving", h as EventListener);
+    return () => window.removeEventListener("quality-improving", h as EventListener);
+  }, []);
   const [geoResult, setGeoResult] = useState<Array<{ model: string; status: "ok" | "miss" | "partial"; note?: string }> | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
@@ -1125,7 +1132,14 @@ export default function ArticlesPage() {
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
         {/* Left: Editor */}
-        <div className="space-y-4">
+        <div className="space-y-4 relative">
+          {qualityImproving && (
+            <div className="absolute inset-0 z-30 bg-background/40 backdrop-blur-[1px] cursor-not-allowed flex items-start justify-center pt-10 rounded-md">
+              <div className="rounded-md border border-border bg-card px-4 py-2 text-sm shadow-lg">
+                ⏳ Улучшаем текст... подождите
+              </div>
+            </div>
+          )}
           {/* Pro Image Cover Generator */}
           <ProImageGenerator
             title={title}
@@ -1429,41 +1443,7 @@ export default function ArticlesPage() {
                       {saveArticle.isPending ? "..." : t("common.save")}
                     </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!content || !currentArticleId || checkingTurgenev}
-                      onClick={async () => {
-                        if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
-                        setCheckingTurgenev(true);
-                        try {
-                          const { data, error } = await supabase.functions.invoke("quality-check", {
-                            body: { article_id: currentArticleId, content, checks: ["turgenev"] },
-                          });
-                          if (error) throw error;
-                          const score = (data as any)?.turgenev_score;
-                          if (score == null) { toast.error("Тургенев недоступен"); return; }
-                          setTurgenevScore(score);
-                          if (score <= 5) toast.success(`Тургенев: ${score} - Безопасно`);
-                          else if (score <= 7) toast.warning(`Тургенев: ${score} - Осторожно`);
-                          else toast.error(`Тургенев: ${score} - Риск ББ`);
-                        } catch (e: any) {
-                          toast.error(e?.message || "Ошибка проверки");
-                        } finally {
-                          setCheckingTurgenev(false);
-                        }
-                      }}
-                      className={
-                        turgenevScore == null ? "" :
-                        turgenevScore <= 5 ? "border-green-500 text-green-600" :
-                        turgenevScore <= 7 ? "border-yellow-500 text-yellow-600" :
-                        "border-red-500 text-red-600"
-                      }
-                      title="Проверка Главред / Тургенев"
-                    >
-                      <Shield className="h-3 w-3 mr-1" />
-                      {checkingTurgenev ? "..." : turgenevScore != null ? `Тургенев ${turgenevScore}` : "Тургенев"}
-                    </Button>
+                    {/* Тургенев & AI buttons moved to right-side Quality card to avoid duplication */}
 
                     <Button
                       variant="outline"
@@ -2027,16 +2007,21 @@ export default function ArticlesPage() {
               isStreaming={isStreaming}
               quickMode
             />
-            <QuickStartSummary
+            <QualityImproveCard
+              mode="quick"
               articleId={currentArticleId}
-              hasContent={!!content}
-              onSave={() => saveArticle.mutate()}
-              saveDisabled={!content}
-              saving={saveArticle.isPending}
+              currentContent={content}
+              onRevertContent={(c) => setContent(c)}
             />
             </>
           ) : (
           <>
+          <QualityImproveCard
+            mode="expert"
+            articleId={currentArticleId}
+            currentContent={content}
+            onRevertContent={(c) => setContent(c)}
+          />
           <SeoSidePanelContainer
             content={content}
             selectedKeyword={selectedKeyword}
