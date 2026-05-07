@@ -564,8 +564,33 @@ export default function NetworkMonitorPage() {
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {fmtDate(project.last_deploy_at)}
                         </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {project.last_search_ping_status === "success" ? (
+                            <span className="flex items-center gap-1 text-green-400" title={fmtDate(project.last_search_ping_at ?? null)}>
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {fmtDate(project.last_search_ping_at ?? null)}
+                            </span>
+                          ) : project.last_search_ping_status ? (
+                            <span className="flex items-center gap-1 text-warning" title={project.last_search_ping_status}>
+                              <XCircle className="h-3.5 w-3.5" />
+                              {fmtDate(project.last_search_ping_at ?? null)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              disabled={pingingId === project.id}
+                              onClick={() => sendPing(project.id, host || project.name)}
+                              title={lang === "ru" ? "Пингануть поисковики" : "Ping search engines"}
+                            >
+                              {pingingId === project.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                            </Button>
                             {url && (
                               <Button asChild variant="ghost" size="icon" className="h-7 w-7" title={lang === "ru" ? "Открыть сайт" : "Open site"}>
                                 <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a>
