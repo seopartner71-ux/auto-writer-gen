@@ -345,27 +345,47 @@ interface TurgenevResult {
 }
 async function runTurgenevCheck(plain: string, turgenevKey: string): Promise<TurgenevResult | null> {
   try {
-    const res = await fetchWithTimeout("https://turgenev.ashmanov.com/api/check", {
+    const form = new URLSearchParams();
+    form.set("api", "risk");
+    form.set("key", turgenevKey);
+    form.set("text", plain.slice(0, 50000));
+    form.set("more", "1");
+    const res = await fetchWithTimeout("https://turgenev.ashmanov.com/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: plain.slice(0, 50000), apikey: turgenevKey }),
-    }, 10000);
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    }, 15000);
     if (!res.ok) {
       console.error("[quality-check] turgenev http", res.status);
       return null;
     }
     const data: any = await res.json().catch(() => ({}));
-    const totalScore = Number(data?.total) || 0;
+    if (data?.error) {
+      console.error("[quality-check] turgenev api error:", data.error);
+      return null;
+    }
+    // Real Turgenev API returns: { risk: "22", level: "...", details: [{block,sum},...] }
+    const totalScore = Number(data?.risk);
+    if (!Number.isFinite(totalScore)) {
+      console.error("[quality-check] turgenev unexpected payload", JSON.stringify(data).slice(0, 300));
+      return null;
+    }
     const status: TurgenevResult["status"] = totalScore <= 5 ? "ok" : totalScore <= 10 ? "warning" : "fail";
+    const detailMap: Record<string, number> = {};
+    if (Array.isArray(data?.details)) {
+      for (const d of data.details) {
+        if (d?.block) detailMap[String(d.block)] = Number(d.sum) || 0;
+      }
+    }
     return {
       score: totalScore,
       status,
       details: {
-        repeats: Number(data?.repeats) || 0,
-        style: Number(data?.style) || 0,
-        spam: Number(data?.spam) || 0,
-        water: Number(data?.water) || 0,
-        readability: Number(data?.readability) || 0,
+        repeats: detailMap.frequency || 0,
+        style: detailMap.style || 0,
+        spam: detailMap.keywords || 0,
+        water: detailMap.formality || 0,
+        readability: detailMap.readability || 0,
       },
     };
   } catch (e) {
@@ -564,6 +584,19 @@ Deno.serve(async (req) => {
     const fastLabels: string[] = [];
     if (requested.has("score")) { fastPromises.push(withTimeout(runSeoModuleScore(plain, apiKey), 30000, "seo-score")); fastLabels.push("score"); }
     if (requested.has("ai")) { fastPromises.push(withTimeout(runAiScore(plain, apiKey), 30000, "ai-score")); fastLabels.push("ai"); }
+    // Real Turgenev (Ashmanov) API check, when requested explicitly from UI.
+    if (requested.has("turgenev")) {
+      const { data: tk } = await admin.from("api_keys")
+        .select("api_key").eq("provider", "turgenev").eq("is_valid", true).maybeSingle();
+      const tKey = (tk as any)?.api_key as string | undefined;
+      if (tKey) {
+        fastPromises.push(withTimeout(runTurgenevCheck(plain, tKey), 20000, "turgenev"));
+        fastLabels.push("turgenev");
+      } else {
+        fastPromises.push(Promise.resolve(null));
+        fastLabels.push("turgenev");
+      }
+    }
 
     const fastResults = await Promise.all(fastPromises);
     const out: Record<string, any> = {};
@@ -621,7 +654,11 @@ Deno.serve(async (req) => {
       try { (globalThis as any).EdgeRuntime?.waitUntil?.(bgTask); } catch (_) { void bgTask; }
     }
 
-    const turg = out.score?.score ?? null;
+    // turgenev_score in DB = REAL score from turgenev.ashmanov.com API only.
+    // SEO-Module Score (Gemini emulation, out.score) is stored separately in details.
+    const turg = (out.turgenev as TurgenevResult | null)?.score ?? null;
+    const turgDetails = (out.turgenev as TurgenevResult | null)?.details ?? null;
+    const turgStatus = (out.turgenev as TurgenevResult | null)?.status ?? null;
     // Uniqueness handled in background; not part of inline response.
     const uniq: number | null = null;
     const uniqError: string | null = null;
@@ -643,6 +680,8 @@ Deno.serve(async (req) => {
       quality_checked_at: new Date().toISOString(),
     };
     if (turg !== null) update.turgenev_score = turg;
+    if (turgDetails) update.turgenev_details = turgDetails;
+    if (turgStatus) update.turgenev_status = turgStatus;
     if (uniq !== null) update.uniqueness_percent = uniq;
     if (ai !== null) update.ai_human_score = ai;
 
