@@ -502,14 +502,12 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
               ) : (
                 <>
                   <Sparkles className="h-3 w-3" />
-                  {totalScore < 40 ? "Серьезно улучшить 🔧"
-                    : totalScore < 60 ? "Улучшить до 80+ ⚡"
-                    : "Улучшить до 80+ 🚀"}
+                  Улучшить SEO ⚡
                 </>
               )}
             </Button>
             <div className="text-[10px] text-muted-foreground text-center leading-snug">
-              Добавит термины и скорректирует плотность ключа
+              Только SEO: термины и плотность ключа. Не трогает AI-детектор и Тургенев.
             </div>
           </div>
         )}
