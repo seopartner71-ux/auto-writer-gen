@@ -13,6 +13,43 @@ import { SEOManager } from "@/components/SEOManager";
 import { AIAssistantFab } from "@/components/AIAssistantFab";
 import { Loader2 } from "lucide-react";
 
+/**
+ * Wraps React.lazy with automatic recovery from stale chunk errors.
+ * After a new deploy, old tabs request chunks by outdated hashes — import() rejects
+ * and Suspense hangs forever. We retry once, then force a hard reload (one time only)
+ * so the user gets the new index.html with fresh chunk URLs instead of a frozen page.
+ */
+function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
+  factory: () => Promise<T>
+) {
+  return lazy(async () => {
+    const RELOAD_KEY = "lovable_chunk_reloaded";
+    try {
+      return await factory();
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+      const isChunkError =
+        err?.name === "ChunkLoadError" ||
+        /Loading chunk|Failed to fetch dynamically imported module|Importing a module script failed|dynamically imported module/i.test(msg);
+      if (isChunkError) {
+        // Retry once in-memory (might be a transient network blip)
+        try {
+          return await factory();
+        } catch {
+          // Still failing — almost certainly a stale deploy. Hard-reload once.
+          if (!sessionStorage.getItem(RELOAD_KEY)) {
+            sessionStorage.setItem(RELOAD_KEY, "1");
+            window.location.reload();
+            // Return a placeholder so React doesn't throw before reload kicks in.
+            return { default: () => null } as unknown as T;
+          }
+        }
+      }
+      throw err;
+    }
+  });
+}
+
 // Eagerly loaded (core auth pages)
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
@@ -21,39 +58,39 @@ import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import NotFound from "@/pages/NotFound";
 
 // Lazy loaded
-const Index = lazy(() => import("@/pages/Index"));
-const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const Index = lazyWithRetry(() => import("@/pages/Index"));
+const DashboardPage = lazyWithRetry(() => import("@/pages/DashboardPage"));
 
 // Lazy loaded (heavy / less frequent pages)
-const KeywordsPage = lazy(() => import("@/pages/KeywordsPage"));
-const PlanBuilderPage = lazy(() => import("@/pages/PlanBuilderPage"));
-const ArticlesPage = lazy(() => import("@/pages/ArticlesPage"));
-const CalendarPage = lazy(() => import("@/pages/CalendarPage"));
-const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage"));
-const AuthorProfilesPage = lazy(() => import("@/pages/AuthorProfilesPage"));
-const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const AdminPage = lazy(() => import("@/pages/AdminPage"));
-const PricingPage = lazy(() => import("@/pages/PricingPage"));
-const IndexingPage = lazy(() => import("@/pages/IndexingPage"));
-const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
-const RadarPage = lazy(() => import("@/pages/RadarPage"));
-const WikiPage = lazy(() => import("@/pages/WikiPage"));
-const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
-const SupportPage = lazy(() => import("@/pages/SupportPage"));
-const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
-const SiteFactoryPage = lazy(() => import("@/pages/SiteFactoryPage"));
-const NetworkMonitorPage = lazy(() => import("@/pages/NetworkMonitorPage"));
-const DomainHunterPage = lazy(() => import("@/pages/DomainHunterPage"));
-const OfferPage = lazy(() => import("@/pages/OfferPage"));
-const QuickStartPage = lazy(() => import("@/pages/QuickStartPage"));
-const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
-const TermsPage = lazy(() => import("@/pages/TermsPage"));
-const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
-const PaymentSuccessPage = lazy(() => import("@/pages/PaymentSuccessPage"));
-const ChangelogPage = lazy(() => import("@/pages/ChangelogPage"));
-const TopicalMapPage = lazy(() => import("@/pages/TopicalMapPage"));
-const ArticleAuditPage = lazy(() => import("@/pages/ArticleAuditPage"));
-const WelcomePage = lazy(() => import("@/pages/WelcomePage"));
+const KeywordsPage = lazyWithRetry(() => import("@/pages/KeywordsPage"));
+const PlanBuilderPage = lazyWithRetry(() => import("@/pages/PlanBuilderPage"));
+const ArticlesPage = lazyWithRetry(() => import("@/pages/ArticlesPage"));
+const CalendarPage = lazyWithRetry(() => import("@/pages/CalendarPage"));
+const AnalyticsPage = lazyWithRetry(() => import("@/pages/AnalyticsPage"));
+const AuthorProfilesPage = lazyWithRetry(() => import("@/pages/AuthorProfilesPage"));
+const SettingsPage = lazyWithRetry(() => import("@/pages/SettingsPage"));
+const AdminPage = lazyWithRetry(() => import("@/pages/AdminPage"));
+const PricingPage = lazyWithRetry(() => import("@/pages/PricingPage"));
+const IndexingPage = lazyWithRetry(() => import("@/pages/IndexingPage"));
+const WordPressPage = lazyWithRetry(() => import("@/pages/WordPressPage"));
+const RadarPage = lazyWithRetry(() => import("@/pages/RadarPage"));
+const WikiPage = lazyWithRetry(() => import("@/pages/WikiPage"));
+const IntegrationsPage = lazyWithRetry(() => import("@/pages/IntegrationsPage"));
+const SupportPage = lazyWithRetry(() => import("@/pages/SupportPage"));
+const ProjectsPage = lazyWithRetry(() => import("@/pages/ProjectsPage"));
+const SiteFactoryPage = lazyWithRetry(() => import("@/pages/SiteFactoryPage"));
+const NetworkMonitorPage = lazyWithRetry(() => import("@/pages/NetworkMonitorPage"));
+const DomainHunterPage = lazyWithRetry(() => import("@/pages/DomainHunterPage"));
+const OfferPage = lazyWithRetry(() => import("@/pages/OfferPage"));
+const QuickStartPage = lazyWithRetry(() => import("@/pages/QuickStartPage"));
+const PrivacyPage = lazyWithRetry(() => import("@/pages/PrivacyPage"));
+const TermsPage = lazyWithRetry(() => import("@/pages/TermsPage"));
+const CookiesPage = lazyWithRetry(() => import("@/pages/CookiesPage"));
+const PaymentSuccessPage = lazyWithRetry(() => import("@/pages/PaymentSuccessPage"));
+const ChangelogPage = lazyWithRetry(() => import("@/pages/ChangelogPage"));
+const TopicalMapPage = lazyWithRetry(() => import("@/pages/TopicalMapPage"));
+const ArticleAuditPage = lazyWithRetry(() => import("@/pages/ArticleAuditPage"));
+const WelcomePage = lazyWithRetry(() => import("@/pages/WelcomePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
