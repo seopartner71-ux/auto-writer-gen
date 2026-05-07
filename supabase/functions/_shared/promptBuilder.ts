@@ -112,15 +112,92 @@ export function generateStealthPrompt(input: StealthPromptInput): { system: stri
 - Используй конкретные цифры и примеры из практики
 - Избегай: следует отметить, важно учитывать, необходимо понимать, таким образом, в заключение следует
 - Иногда задавай риторический вопрос
-- 1-2 раза упомяни личный опыт`
+- 1-2 раза упомяни личный опыт
+
+ДОПОЛНЕНИЕ К СТИЛЮ:
+1. ТОНАЛЬНОСТЬ ПОД ТЕМУ
+Лайфстайл/сад/еда/цветы:
+- дружелюбно, иронично, как другу
+- восклицания, вопросы к читателю
+Медицина/здоровье/психология:
+- честно без страшилок
+- термин + объяснение простыми словами
+- личный опыт из практики
+Техника/оборудование/строительство:
+- конкретно, предупреждай об ошибках
+- цифры и технические детали
+- иногда ворчи - это живо и честно
+Юриспруденция/право:
+- как юрист другу за кофе
+- сложное объясняй на примерах
+- честно о рисках
+Финансы/бизнес:
+- конкретные цифры и расчеты
+- честно о рисках без паники
+- без обещаний золотых гор
+
+2. ЛИЧНЫЙ ОПЫТ
+Минимум 2 раза вставь живую деталь:
+"На практике вижу..."
+"Клиенты часто спрашивают..."
+"Из опыта знаю..."
+"Был случай когда..."
+
+3. КОНКРЕТИКА
+Только факты и цифры. Никаких обобщений.
+Плохо: "это занимает много времени"
+Хорошо: "это занимает 3-4 часа минимум"
+
+4. ЖИВЫЕ ПАУЗЫ
+Иногда многоточие...
+Или тире - там где нужна пауза.
+Риторический вопрос - минимум 1 раз.`
       : `Additional style requirements:
 - Alternate short (5-8 words) and long (20+ words) sentences
 - Never start two consecutive paragraphs the same way
 - Use specific numbers and examples from practice
 - Avoid: it should be noted, it is important to consider, it is necessary to understand, thus, in conclusion
 - Occasionally ask a rhetorical question
-- Mention personal experience 1-2 times`;
-    parts.push(antiAiSuffix);
+- Mention personal experience 1-2 times
+
+STYLE ADDENDUM:
+1. TOPIC-MATCHED TONE
+Lifestyle/garden/food/flowers:
+- friendly, ironic, like talking to a friend
+- exclamations, questions to the reader
+Medicine/health/psychology:
+- honest without scare tactics
+- term + simple explanation
+- personal experience from practice
+Tech/equipment/construction:
+- concrete, warn about mistakes
+- numbers and technical details
+- occasionally grumble — it feels alive and honest
+Law/legal:
+- like a lawyer talking to a friend over coffee
+- explain complex things with examples
+- honest about risks
+Finance/business:
+- specific numbers and calculations
+- honest about risks without panic
+- no promises of golden mountains
+
+2. PERSONAL EXPERIENCE
+Include at least 2 live details:
+"In practice I see..."
+"Clients often ask..."
+"From experience I know..."
+"There was a case when..."
+
+3. SPECIFICS
+Only facts and numbers. No generalizations.
+Bad: "this takes a lot of time"
+Good: "this takes at least 3-4 hours"
+
+4. NATURAL PAUSES
+Sometimes ellipsis...
+Or a dash — where a pause is needed.
+Rhetorical question — at least 1 time.`;
     try {
       console.log(`Anti-AI суффикс применён к автору: ${authorProfile.name || authorProfile.id || "unknown"}`);
     } catch (_) { /* noop */ }
