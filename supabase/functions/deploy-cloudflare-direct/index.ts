@@ -1136,6 +1136,18 @@ serve(async (req) => {
     }
 
     // 3. Compute manifest { "/path": hash }
+    // Inject IndexNow verification key file (required for IndexNow API).
+    // Without this file at /{key}.txt the API rejects pings with 403.
+    {
+      let inKey = (project as any).indexnow_key as string | undefined;
+      if (!inKey) {
+        inKey = crypto.randomUUID().replace(/-/g, "");
+        try {
+          await supabaseAdmin.from("projects").update({ indexnow_key: inKey }).eq("id", projectId);
+        } catch (_e) { /* ignore */ }
+      }
+      files[`${inKey}.txt`] = inKey;
+    }
     const manifest: Record<string, string> = {};
     const fileByHash: Record<string, { path: string; content: string }> = {};
     for (const [path, content] of Object.entries(files)) {
