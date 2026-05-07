@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, ShieldCheck, Info } from "lucide-react";
 import { toast } from "sonner";
+import { ImprovingTipsLoader } from "./ImprovingTipsLoader";
 
 type Mode = "quick" | "expert";
 
@@ -314,12 +315,18 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       {/* Running state */}
       {running && (
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">
-            {mode === "quick"
-              ? "⏳ Улучшаем текст... подождите"
-              : `Проход ${Math.min(step, MAX_PASSES)}/${MAX_PASSES} ⏳`}
-          </div>
-          <Progress value={progressPct} className="h-2" />
+          {mode === "quick" ? (
+            <div className="flex justify-center py-1">
+              <ImprovingTipsLoader />
+            </div>
+          ) : (
+            <>
+              <div className="text-xs text-muted-foreground">
+                Проход {Math.min(step, MAX_PASSES)}/{MAX_PASSES} ⏳
+              </div>
+              <Progress value={progressPct} className="h-2" />
+            </>
+          )}
           {/* Always show what's happening right now */}
           {logLines.length > 0 && (
             <div className="text-[11px] text-muted-foreground italic">
