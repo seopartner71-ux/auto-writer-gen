@@ -606,6 +606,8 @@ export default function ArticlesPage() {
     setSchemaJson("");
     setFinishReason(null);
     setFactCheckStatus(null);
+    setInterruptedDraft(null);
+    try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -699,6 +701,14 @@ export default function ArticlesPage() {
               if (!fullContent) setStreamPhase("writing");
               fullContent += delta;
               setContent(fullContent);
+              // Persist partial draft so an interrupted stream is recoverable.
+              try {
+                localStorage.setItem("aiwriter_partial_draft", JSON.stringify({
+                  content: fullContent,
+                  keyword_id: selectedKeywordId,
+                  ts: Date.now(),
+                }));
+              } catch { /* quota — ignore */ }
             }
           } catch {
             buffer = line + "\n" + buffer;
@@ -708,6 +718,8 @@ export default function ArticlesPage() {
       }
 
       setFinishReason(lastFinishReason);
+      // Successful completion — clear the partial draft.
+      try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
 
       // Auto-fill title and meta from generated content
 
@@ -784,6 +796,20 @@ export default function ArticlesPage() {
       if (e.name === "AbortError") {
         toast.info(t("articles.genStopped"));
       } else {
+        // Stream interrupted (network drop, server timeout, etc.).
+        // If we have any partial content, offer recovery instead of silently losing it.
+        try {
+          const raw = localStorage.getItem("aiwriter_partial_draft");
+          if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved?.content && typeof saved.content === "string" && saved.content.length > 200) {
+              setInterruptedDraft(saved.content);
+              setContent(saved.content);
+              toast.warning("Соединение прервано. Черновик сохранен - можно продолжить.", { duration: 8000 });
+              return;
+            }
+          }
+        } catch { /* ignore */ }
         toast.error(e.message);
       }
     } finally {
