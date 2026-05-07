@@ -20,9 +20,9 @@ interface Props {
 }
 
 const STEPS = [
-  "Анализ AI-паттернов",
-  "Гуманизация текста",
-  "Проверка Тургенева",
+  "Гуманизация (AI Score)",
+  "Тургенев-фикс",
+  "Финальная проверка",
 ];
 
 function fmtAi(v: number | null) { return v == null ? "—" : `${Math.round(v)}%`; }
@@ -38,8 +38,9 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const [after, setAfter] = useState<{ ai: number | null; turg: number | null } | null>(null);
   const [showLog, setShowLog] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const stepTimerRef = useRef<number | null>(null);
-  const finishWaitRef = useRef<((r: any) => void) | null>(null);
+  const [logLines, setLogLines] = useState<string[]>([]);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [bestSnapshot, setBestSnapshot] = useState<{ content: string; ai: number | null; turg: number | null } | null>(null);
 
   // Initial fetch + realtime
   useEffect(() => {
@@ -64,17 +65,12 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
             quality_status: r.quality_status,
             content: r.content,
           }));
-          if (finishWaitRef.current && r.quality_status && r.quality_status !== "checking") {
-            finishWaitRef.current(r);
-            finishWaitRef.current = null;
-          }
         })
       .subscribe();
     channelRef.current = ch;
     return () => {
       cancelled = true;
       if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
-      if (stepTimerRef.current) { clearInterval(stepTimerRef.current); stepTimerRef.current = null; }
     };
   }, [articleId]);
 
@@ -83,70 +79,182 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     try { window.dispatchEvent(new CustomEvent("quality-improving", { detail: running })); } catch {}
   }, [running]);
 
+  function log(line: string) {
+    setLogLines((l) => [...l, line]);
+  }
+
+  async function fetchScores(): Promise<{ ai: number | null; turg: number | null; content: string }> {
+    const { data } = await supabase.from("articles")
+      .select("ai_score,turgenev_score,content").eq("id", articleId!).maybeSingle();
+    return {
+      ai: (data?.ai_score ?? null) as number | null,
+      turg: (data?.turgenev_score ?? null) as number | null,
+      content: (data?.content ?? "") as string,
+    };
+  }
+
+  async function waitForIdle(maxMs = 60_000): Promise<void> {
+    const t0 = Date.now();
+    while (Date.now() - t0 < maxMs) {
+      const { data } = await supabase.from("articles")
+        .select("quality_status").eq("id", articleId!).maybeSingle();
+      if ((data as any)?.quality_status !== "checking") return;
+      await new Promise(r => setTimeout(r, 2500));
+    }
+  }
+
+  async function runQualityCheck(): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("Сессия истекла");
+    const cur = await fetchScores();
+    if (!cur.content) return;
+    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quality-check`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify({ article_id: articleId, content: cur.content, mode: "auto" }),
+    });
+    await waitForIdle();
+  }
+
+  async function callImprove(fixType: "humanize" | "turgenev"): Promise<{ ok: boolean; cooldown?: boolean; error?: string }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return { ok: false, error: "Сессия истекла" };
+    const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/improve-article`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify({ article_id: articleId, fix_type: fixType }),
+    });
+    const payload = await resp.json().catch(() => null);
+    if (!resp.ok) return { ok: false, error: payload?.error || `Ошибка ${resp.status}` };
+    if (payload?.cooldown) return { ok: false, cooldown: true, error: payload?.message };
+    return { ok: true };
+  }
+
+  async function rollbackTo(content: string) {
+    await supabase.from("articles")
+      .update({ content, updated_at: new Date().toISOString() })
+      .eq("id", articleId!);
+    onRevertContent(content);
+  }
+
+  // Quality compare: lower AI is better, lower Turgenev is better.
+  function isWorse(after: { ai: number | null; turg: number | null }, before: { ai: number | null; turg: number | null }, metric: "ai" | "turg"): boolean {
+    const a = after[metric]; const b = before[metric];
+    if (a == null || b == null) return false;
+    if (metric === "ai") return a > b + 3; // tolerance
+    return a > b; // turg
+  }
+
   async function runImprove() {
     if (!articleId) { toast.error("Сначала сохраните статью"); return; }
     setRunning(true);
-    setStep(1);
     setAfter(null);
-    const snap: Snapshot = {
-      ai: row.ai_score ?? null,
-      turg: row.turgenev_score ?? null,
-      content: currentContent,
-    };
-    setBefore(snap);
-
-    // step ticker
-    if (stepTimerRef.current) clearInterval(stepTimerRef.current);
-    stepTimerRef.current = window.setInterval(() => {
-      setStep((s) => (s < 3 ? s + 1 : s));
-    }, 7000);
+    setWarning(null);
+    setLogLines([]);
+    setStep(0);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("Сессия истекла");
+      // Snapshot ORIGINAL
+      const origScores = await fetchScores();
+      const origSnap: Snapshot = { ai: origScores.ai, turg: origScores.turg, content: origScores.content || currentContent };
+      setBefore(origSnap);
+      setBestSnapshot({ content: origSnap.content, ai: origSnap.ai, turg: origSnap.turg });
+      log(`▶ Старт: AI ${fmtAi(origSnap.ai)}, Тургенев ${fmtTurg(origSnap.turg)}`);
 
-      // Wait for realtime quality_status to settle (with timeout)
-      const finished = new Promise<any>((resolve) => {
-        finishWaitRef.current = resolve;
-        setTimeout(() => { if (finishWaitRef.current) { finishWaitRef.current(null); finishWaitRef.current = null; } }, 180_000);
-      });
-
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/improve-article`;
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ article_id: articleId }),
-      });
-      const payload = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(payload?.error || "Ошибка улучшения");
-      if (payload?.cooldown) {
-        toast.warning(payload.message || "Подождите перед повторной доработкой");
-        setRunning(false);
-        if (stepTimerRef.current) { clearInterval(stepTimerRef.current); stepTimerRef.current = null; }
-        return;
+      // ---- STEP 1: Humanize (Stealth Pass) ----
+      setStep(1);
+      log("Шаг 1/3: Гуманизация (Stealth Pass)...");
+      const preStep1 = await fetchScores();
+      const r1 = await callImprove("humanize");
+      if (r1.cooldown) { toast.warning(r1.error || "Подождите"); throw new Error("cooldown"); }
+      if (!r1.ok) { log(`✘ Гуманизация не выполнена: ${r1.error}`); }
+      else {
+        await waitForIdle();
+        await runQualityCheck();
+        const post1 = await fetchScores();
+        if (isWorse(post1, preStep1, "ai")) {
+          log(`⚠ Шаг 1 ухудшил AI (${fmtAi(preStep1.ai)} → ${fmtAi(post1.ai)}). Откат.`);
+          await rollbackTo(preStep1.content);
+        } else {
+          log(`✅ Шаг 1: AI ${fmtAi(preStep1.ai)} → ${fmtAi(post1.ai)}`);
+          // update best
+          setBestSnapshot({ content: post1.content, ai: post1.ai, turg: post1.turg });
+        }
       }
 
-      // Wait for re-check to finish
-      const finalRow = await finished;
+      // ---- STEP 2: Turgenev fix ----
+      setStep(2);
+      log("Шаг 2/3: Тургенев-фикс...");
+      const preStep2 = await fetchScores();
+      const r2 = await callImprove("turgenev");
+      if (!r2.ok && !r2.cooldown) { log(`✘ Тургенев-фикс не выполнен: ${r2.error}`); }
+      else if (r2.cooldown) { log("⚠ Тургенев-фикс пропущен (cooldown)"); }
+      else {
+        await waitForIdle();
+        await runQualityCheck();
+        const post2 = await fetchScores();
+        const aiWorse = isWorse(post2, preStep2, "ai");
+        const turgWorse = isWorse(post2, preStep2, "turg");
+        if (aiWorse || turgWorse) {
+          log(`⚠ Шаг 2 ухудшил результат - пропущен. Откат к тексту до Тургенев-фикса.`);
+          setWarning("Шаг 2 ухудшил результат - пропущен");
+          await rollbackTo(preStep2.content);
+        } else {
+          log(`✅ Шаг 2: Тургенев ${fmtTurg(preStep2.turg)} → ${fmtTurg(post2.turg)}, AI ${fmtAi(preStep2.ai)} → ${fmtAi(post2.ai)}`);
+          setBestSnapshot({ content: post2.content, ai: post2.ai, turg: post2.turg });
+        }
+      }
+
+      // ---- STEP 3: Final check ----
       setStep(3);
-      // Pull fresh content + scores
-      const { data: fresh } = await supabase.from("articles")
-        .select("ai_score,turgenev_score,content").eq("id", articleId).maybeSingle();
-      const ai = (fresh?.ai_score ?? finalRow?.ai_score ?? null) as number | null;
-      const turg = (fresh?.turgenev_score ?? finalRow?.turgenev_score ?? null) as number | null;
-      setAfter({ ai, turg });
-      if (fresh?.content && fresh.content !== currentContent) onRevertContent(fresh.content);
-      toast.success("Готово ✓ Текст улучшен");
+      log("Шаг 3/3: Финальная проверка...");
+      await runQualityCheck();
+      const finalScores = await fetchScores();
+      setAfter({ ai: finalScores.ai, turg: finalScores.turg });
+      if (finalScores.content && finalScores.content !== currentContent) onRevertContent(finalScores.content);
+
+      const aiBetter = (finalScores.ai ?? 100) <= (origSnap.ai ?? 100);
+      const turgBetter = (finalScores.turg ?? 99) <= (origSnap.turg ?? 99);
+      if (aiBetter && turgBetter) {
+        log(`✅ Готово: AI ${fmtAi(origSnap.ai)} → ${fmtAi(finalScores.ai)}, Тургенев ${fmtTurg(origSnap.turg)} → ${fmtTurg(finalScores.turg)}`);
+        toast.success("Готово ✓ Текст улучшен");
+      } else {
+        const msg = `Один из показателей ухудшился. AI ${fmtAi(origSnap.ai)} → ${fmtAi(finalScores.ai)}, Тургенев ${fmtTurg(origSnap.turg)} → ${fmtTurg(finalScores.turg)}.`;
+        log(`⚠ ${msg}`);
+        setWarning(msg);
+        toast.warning("Часть метрик ухудшилась - выберите вариант");
+      }
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось улучшить");
+      if (e?.message !== "cooldown") {
+        toast.error(e?.message || "Не удалось улучшить");
+        log(`✘ Ошибка: ${e?.message}`);
+      }
     } finally {
       setRunning(false);
-      if (stepTimerRef.current) { clearInterval(stepTimerRef.current); stepTimerRef.current = null; }
+    }
+  }
+
+  async function acceptBest() {
+    if (!articleId || !bestSnapshot) { setBefore(null); setAfter(null); setWarning(null); return; }
+    try {
+      await supabase.from("articles")
+        .update({ content: bestSnapshot.content, updated_at: new Date().toISOString() })
+        .eq("id", articleId);
+      onRevertContent(bestSnapshot.content);
+      setBefore(null); setAfter(null); setWarning(null);
+      toast.success("Принят лучший вариант");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось применить");
     }
   }
 
@@ -220,6 +328,11 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
           <Row label="AI Score" before={fmtAi(before.ai)} after={fmtAi(after.ai)} ok={aiOk(after.ai)} />
           <Row label="Тургенев"  before={fmtTurg(before.turg)} after={fmtTurg(after.turg)} ok={turgOk(after.turg)} />
+          {warning && (
+            <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
+              ⚠️ {warning}
+            </div>
+          )}
           {mode === "expert" && (
             <button
               type="button"
@@ -230,21 +343,23 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               {showLog ? "Скрыть детали" : "Детали"}
             </button>
           )}
-          {mode === "expert" && showLog && (
-            <div className="text-[11px] space-y-0.5 pt-1 border-t border-border">
-              <div className="text-emerald-400">✅ Анализ завершен</div>
-              <div className="text-emerald-400">✅ Гуманизация выполнена</div>
-              <div className="text-emerald-400">
-                ✅ Тургенев {before.turg != null && after.turg != null ? `${before.turg} → ${after.turg}` : "проверен"}
-              </div>
+          {mode === "expert" && showLog && logLines.length > 0 && (
+            <div className="text-[11px] space-y-0.5 pt-1 border-t border-border max-h-40 overflow-y-auto font-mono">
+              {logLines.map((l, i) => (
+                <div key={i} className={
+                  l.startsWith("✅") ? "text-emerald-400" :
+                  l.startsWith("⚠") ? "text-amber-300" :
+                  l.startsWith("✘") ? "text-rose-400" : "text-muted-foreground"
+                }>{l}</div>
+              ))}
             </div>
           )}
           <div className="grid grid-cols-2 gap-2 pt-2">
-            <Button size="sm" className="gap-1" onClick={accept}>
-              <Check className="h-3.5 w-3.5" /> Принять
+            <Button size="sm" className="gap-1" onClick={warning ? acceptBest : accept}>
+              <Check className="h-3.5 w-3.5" /> {warning ? "Принять лучший" : "Принять"}
             </Button>
             <Button size="sm" variant="outline" className="gap-1" onClick={revert}>
-              <X className="h-3.5 w-3.5" /> Отменить правки
+              <X className="h-3.5 w-3.5" /> {warning ? "Откатить все" : "Отменить правки"}
             </Button>
           </div>
         </div>
