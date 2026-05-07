@@ -848,6 +848,15 @@ serve(async (req) => {
       const projectLang = project?.language || "en";
       queueAutoSubmitIndexing(supabase, user.id, results, projectLang);
 
+      // Notify search engines (sitemap ping + IndexNow) for these URLs
+      try {
+        void fetch(`${supabaseUrl}/functions/v1/notify-search-engines`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHeader },
+          body: JSON.stringify({ project_id, urls: results.map((r) => r.url).filter(Boolean), reason: "article_publish" }),
+        });
+      } catch (_e) { /* ignore */ }
+
       return new Response(JSON.stringify({
         success: true,
         published: results.length,
@@ -967,6 +976,15 @@ serve(async (req) => {
     const { data: projLang } = await supabase.from("projects").select("language").eq("id", project_id).single();
     const projectLang = projLang?.language || "en";
     queueAutoSubmitIndexing(supabase, user.id, [{ articleId: article_id, url: siteUrl }], projectLang);
+
+    // Notify search engines for the single URL
+    try {
+      void fetch(`${supabaseUrl}/functions/v1/notify-search-engines`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({ project_id, urls: siteUrl ? [siteUrl] : [], article_id, reason: "article_publish" }),
+      });
+    } catch (_e) { /* ignore */ }
 
     return new Response(
       JSON.stringify({

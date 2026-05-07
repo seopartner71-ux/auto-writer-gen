@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2, AlertTriangle, Network } from "lucide-react";
+import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2, AlertTriangle, Network, Send, CheckCircle2, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,18 @@ interface ProjectRow {
   last_ping_at: string | null;
   last_deploy_at: string | null;
   total_views: number;
+  last_search_ping_at?: string | null;
+  last_search_ping_status?: string | null;
+}
+
+interface PingLogRow {
+  id: string;
+  provider: string;
+  status: string;
+  response_code: number | null;
+  response_message: string | null;
+  url: string;
+  created_at: string;
 }
 
 interface AnalyticsRow {
@@ -64,13 +76,15 @@ export default function NetworkMonitorPage() {
   const [indexedCounts, setIndexedCounts] = useState<Record<string, { sent: number; total: number }>>({});
   const [ipMap, setIpMap] = useState<Record<string, string>>({}); // host -> IP
   const [resolvingIps, setResolvingIps] = useState(false);
+  const [pingingId, setPingingId] = useState<string | null>(null);
+  const [pingHistory, setPingHistory] = useState<Record<string, PingLogRow[]>>({});
 
   // Load projects
   const loadProjects = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("projects")
-      .select("id, name, domain, hosting_platform, language, last_ping_status, last_ping_at, last_deploy_at, total_views")
+      .select("id, name, domain, hosting_platform, language, last_ping_status, last_ping_at, last_deploy_at, total_views, last_search_ping_at, last_search_ping_status")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setProjects((data as any[]) || []);
@@ -247,6 +261,7 @@ export default function NetworkMonitorPage() {
     }
     const sorted = await _legacyTopUrls(projectId);
     setTopPages((prev) => ({ ...prev, [projectId]: sorted }));
+    loadPingHistory(projectId);
     setExpandedProject(projectId);
   };
 
@@ -265,6 +280,40 @@ export default function NetworkMonitorPage() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const sendPing = async (projectId: string, host: string) => {
+    setPingingId(projectId);
+    try {
+      const { data, error } = await supabase.functions.invoke("notify-search-engines", {
+        body: { project_id: projectId, reason: "manual" },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      const ok = (data?.results || []).filter((r: any) => r.status === "success").length;
+      toast({
+        title: lang === "ru" ? "Пинг отправлен" : "Ping sent",
+        description: `${host} - ${ok}/${(data?.results || []).length} OK`,
+      });
+      loadProjects();
+      // refresh history for this project if expanded
+      loadPingHistory(projectId, true);
+    } catch (e: any) {
+      toast({ title: lang === "ru" ? "Ошибка пинга" : "Ping failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setPingingId(null);
+    }
+  };
+
+  const loadPingHistory = async (projectId: string, force = false) => {
+    if (!force && pingHistory[projectId]) return;
+    const { data } = await supabase
+      .from("search_engine_pings")
+      .select("id, provider, status, response_code, response_message, url, created_at")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setPingHistory((prev) => ({ ...prev, [projectId]: (data as PingLogRow[]) || [] }));
   };
 
   // Stats calculations
@@ -456,6 +505,7 @@ export default function NetworkMonitorPage() {
                   <TableHead>CF&nbsp;30д</TableHead>
                   <TableHead>{lang === "ru" ? "Статьи" : "Posts"}</TableHead>
                   <TableHead>{lang === "ru" ? "Деплой" : "Deploy"}</TableHead>
+                  <TableHead>{lang === "ru" ? "Пинг" : "Ping"}</TableHead>
                   <TableHead className="text-right">{lang === "ru" ? "Действия" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -515,8 +565,33 @@ export default function NetworkMonitorPage() {
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {fmtDate(project.last_deploy_at)}
                         </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {project.last_search_ping_status === "success" ? (
+                            <span className="flex items-center gap-1 text-green-400" title={fmtDate(project.last_search_ping_at ?? null)}>
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {fmtDate(project.last_search_ping_at ?? null)}
+                            </span>
+                          ) : project.last_search_ping_status ? (
+                            <span className="flex items-center gap-1 text-warning" title={project.last_search_ping_status}>
+                              <XCircle className="h-3.5 w-3.5" />
+                              {fmtDate(project.last_search_ping_at ?? null)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              disabled={pingingId === project.id}
+                              onClick={() => sendPing(project.id, host || project.name)}
+                              title={lang === "ru" ? "Пингануть поисковики" : "Ping search engines"}
+                            >
+                              {pingingId === project.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                            </Button>
                             {url && (
                               <Button asChild variant="ghost" size="icon" className="h-7 w-7" title={lang === "ru" ? "Открыть сайт" : "Open site"}>
                                 <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a>
@@ -554,8 +629,9 @@ export default function NetworkMonitorPage() {
                       </TableRow>
                       {isExpanded && (
                         <TableRow key={`${project.id}-detail`}>
-                          <TableCell colSpan={8} className="bg-muted/20 px-8 py-4">
-                            <div>
+                          <TableCell colSpan={9} className="bg-muted/20 px-8 py-4">
+                            <div className="grid md:grid-cols-2 gap-6">
+                              <div>
                               <p className="text-sm font-medium mb-3">
                                 {lang === "ru" ? "Топ-5 страниц" : "Top 5 Pages"}
                               </p>
@@ -573,6 +649,36 @@ export default function NetworkMonitorPage() {
                                   ))}
                                 </div>
                               )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium mb-3">
+                                  {lang === "ru" ? "История пингов поисковиков" : "Search engine ping history"}
+                                </p>
+                                {(pingHistory[project.id] || []).length === 0 ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    {lang === "ru" ? "Пингов ещё не было" : "No pings yet"}
+                                  </p>
+                                ) : (
+                                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                    {(pingHistory[project.id] || []).map((p) => (
+                                      <div key={p.id} className="flex items-center justify-between text-xs gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          {p.status === "success" ? (
+                                            <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0" />
+                                          ) : p.status === "deprecated" ? (
+                                            <AlertTriangle className="h-3 w-3 text-warning shrink-0" />
+                                          ) : (
+                                            <XCircle className="h-3 w-3 text-destructive shrink-0" />
+                                          )}
+                                          <span className="font-medium uppercase">{p.provider}</span>
+                                          <span className="text-muted-foreground truncate">{p.response_message || ""}</span>
+                                        </div>
+                                        <span className="text-muted-foreground whitespace-nowrap">{new Date(p.created_at).toLocaleString(lang === "ru" ? "ru-RU" : "en-US", { dateStyle: "short", timeStyle: "short" })}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>

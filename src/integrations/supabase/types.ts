@@ -1799,6 +1799,7 @@ export type Database = {
           homepage_style: string
           hosting_platform: string | null
           id: string
+          indexnow_key: string | null
           injection_links: Json | null
           instagram_url: string | null
           juridical_inn: string | null
@@ -1807,6 +1808,8 @@ export type Database = {
           last_ping_at: string | null
           last_ping_status: string | null
           last_post_at: string | null
+          last_search_ping_at: string | null
+          last_search_ping_status: string | null
           legal_address: string | null
           name: string
           og_image_url: string | null
@@ -1863,6 +1866,7 @@ export type Database = {
           homepage_style?: string
           hosting_platform?: string | null
           id?: string
+          indexnow_key?: string | null
           injection_links?: Json | null
           instagram_url?: string | null
           juridical_inn?: string | null
@@ -1871,6 +1875,8 @@ export type Database = {
           last_ping_at?: string | null
           last_ping_status?: string | null
           last_post_at?: string | null
+          last_search_ping_at?: string | null
+          last_search_ping_status?: string | null
           legal_address?: string | null
           name: string
           og_image_url?: string | null
@@ -1927,6 +1933,7 @@ export type Database = {
           homepage_style?: string
           hosting_platform?: string | null
           id?: string
+          indexnow_key?: string | null
           injection_links?: Json | null
           instagram_url?: string | null
           juridical_inn?: string | null
@@ -1935,6 +1942,8 @@ export type Database = {
           last_ping_at?: string | null
           last_ping_status?: string | null
           last_post_at?: string | null
+          last_search_ping_at?: string | null
+          last_search_ping_status?: string | null
           legal_address?: string | null
           name?: string
           og_image_url?: string | null
@@ -2353,6 +2362,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      search_engine_pings: {
+        Row: {
+          article_id: string | null
+          created_at: string
+          id: string
+          project_id: string | null
+          provider: string
+          response_code: number | null
+          response_message: string | null
+          status: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          article_id?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          provider: string
+          response_code?: number | null
+          response_message?: string | null
+          status: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          provider?: string
+          response_code?: number | null
+          response_message?: string | null
+          status?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       seo_tips: {
         Row: {

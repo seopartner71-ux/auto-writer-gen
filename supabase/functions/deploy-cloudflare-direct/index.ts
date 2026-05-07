@@ -423,7 +423,7 @@ serve(async (req) => {
 
     const { data: project, error: projErr } = await supabaseAdmin
       .from("projects")
-      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style")
+      .select("name, domain, custom_domain, site_name, site_about, hosting_platform, language, company_name, company_address, company_phone, company_email, founding_year, team_members, site_contacts, site_privacy, site_terms, og_image_url, footer_link, injection_links, legal_address, work_hours, juridical_inn, whatsapp_url, telegram_url, vk_url, youtube_url, instagram_url, clients_count_text, authors, business_pages, homepage_style, indexnow_key")
       .eq("id", projectId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -1136,6 +1136,18 @@ serve(async (req) => {
     }
 
     // 3. Compute manifest { "/path": hash }
+    // Inject IndexNow verification key file (required for IndexNow API).
+    // Without this file at /{key}.txt the API rejects pings with 403.
+    {
+      let inKey = (project as any).indexnow_key as string | undefined;
+      if (!inKey) {
+        inKey = crypto.randomUUID().replace(/-/g, "");
+        try {
+          await supabaseAdmin.from("projects").update({ indexnow_key: inKey }).eq("id", projectId);
+        } catch (_e) { /* ignore */ }
+      }
+      files[`${inKey}.txt`] = inKey;
+    }
     const manifest: Record<string, string> = {};
     const fileByHash: Record<string, { path: string; content: string }> = {};
     for (const [path, content] of Object.entries(files)) {
@@ -1253,6 +1265,16 @@ serve(async (req) => {
       cost_usd: 0,
       metadata: { template: templateKey, url: pagesDevUrl, heading_qa: headingQa },
     });
+
+    // Fire-and-forget: notify search engines (sitemap ping + IndexNow).
+    // Don't await — deploy must return fast even if pings stall.
+    try {
+      void fetch(`${supabaseUrl}/functions/v1/notify-search-engines`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({ project_id: projectId, reason: "deploy" }),
+      });
+    } catch (_e) { /* ignore */ }
 
     return new Response(JSON.stringify({
       success: true,
