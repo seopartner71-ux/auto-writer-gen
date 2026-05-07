@@ -419,7 +419,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
 
         {/* Actions */}
         <div className="flex flex-col gap-2 border-t border-border/40 bg-muted/10 p-3">
-          {onHumanize ? (
+          {/* "Довести до ТОПа" скрыта — улучшение делает единый оркестратор "Улучшить качество текста" в правой панели. Не удаляем, чтобы можно было вернуть. */}
+          {false && onHumanize ? (
             <Button
               size="sm"
               disabled={autoImproving || loadingFree || loadingUniq || uniqPending}
