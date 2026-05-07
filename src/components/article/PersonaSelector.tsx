@@ -75,6 +75,9 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
 
   const presets = authors.filter(a => a.type === "preset");
   const customs = authors.filter(a => a.type !== "preset");
+  const isRecommended = (a: AuthorProfile) => (a.description || "").trim().startsWith("⭐");
+  const recommended = presets.filter(isRecommended);
+  const otherPresets = presets.filter(a => !isRecommended(a));
 
   const handleAnalyzeSample = useCallback(async () => {
     if (!sampleText || sampleText.length < 100) {
