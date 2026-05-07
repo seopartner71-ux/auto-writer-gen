@@ -46,6 +46,7 @@ import { useArticleVersions } from "@/features/article-versions/useArticleVersio
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
 import { QualityImproveCard } from "@/features/article-quality/QualityImproveCard";
+import { ImprovingTipsLoader } from "@/features/article-quality/ImprovingTipsLoader";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
 import { runAutoStealthPass } from "@/features/article-editor/autoStealthPass";
