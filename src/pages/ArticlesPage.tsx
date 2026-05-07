@@ -1159,7 +1159,7 @@ export default function ArticlesPage() {
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
               Найден частично сгенерированный черновик ({Math.round(interruptedDraft.length / 1000)}к символов).
-              Продолжить работу с ним или начать заново?
+              Можно дописать его автоматически с того места, где он оборвался, либо просто восстановить текст в редакторе.
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -1169,11 +1169,30 @@ export default function ArticlesPage() {
                 setContent(interruptedDraft);
                 setInterruptedDraft(null);
                 try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
+                // Триггерим показ кнопки «Дописать» (та же логика, что для finish_reason=length)
+                setFinishReason("length");
+                toast.success("Черновик восстановлен — нажмите «Дописать», чтобы продолжить");
+                // Прокручиваем к кнопке продолжения
+                setTimeout(() => {
+                  const el = document.querySelector('[data-continue-generation]') as HTMLElement | null;
+                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 100);
+              }}
+              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-500 text-amber-950 hover:bg-amber-400"
+            >
+              Восстановить и дописать
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setContent(interruptedDraft);
+                setInterruptedDraft(null);
+                try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
                 toast.success("Черновик восстановлен");
               }}
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500 text-amber-950 hover:bg-amber-400"
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 border border-amber-500/40"
             >
-              Восстановить
+              Только восстановить
             </button>
             <button
               type="button"
@@ -2001,6 +2020,7 @@ export default function ArticlesPage() {
                   <Button
                     size="sm"
                     variant="outline"
+                    data-continue-generation
                     className="shrink-0 gap-1.5 border-warning/50 text-warning hover:bg-warning/10"
                     onClick={async () => {
                       setIsStreaming(true);
