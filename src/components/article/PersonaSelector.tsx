@@ -196,6 +196,33 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
       <Label className="text-xs text-muted-foreground">{t("ps.authorStyle")}</Label>
 
       <TooltipProvider delayDuration={300}>
+        {recommended.length > 0 && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[10px] uppercase tracking-wider text-amber-400/90">⭐ Рекомендуемые</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
+              {recommended.map(a => (
+                <PersonaChip
+                  key={a.id}
+                  name={a.name}
+                  description={a.description || ""}
+                  icon={a.avatar_icon || "User"}
+                  isActive={selectedId === a.id}
+                  onClick={() => onSelect(a.id)}
+                  temperature={a.temperature}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Все авторы</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </>
+        )}
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
           <PersonaChip
             name={t("ps.noStyle")}
@@ -205,7 +232,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
             onClick={() => onSelect("none")}
           />
 
-          {presets.map(a => (
+          {otherPresets.map(a => (
             <PersonaChip
               key={a.id}
               name={a.name}
