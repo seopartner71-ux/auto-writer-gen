@@ -1253,6 +1253,20 @@ export default function ArticlesPage() {
         quickMode={isQuickMode}
       />
 
+      {(() => {
+        const a: any = authorProfiles.find((x: any) => x.id === selectedAuthorId);
+        if (!a) return null;
+        const isFastPlatform =
+          a.is_telegraph_author || a.name === "Телеграф" || a.is_miralinks_profile || a.is_gogetlinks_profile;
+        if (!isFastPlatform) return null;
+        return (
+          <div className="-mt-2 mb-2 text-xs text-muted-foreground flex items-center gap-1.5 px-1">
+            <span className="inline-block size-1.5 rounded-full bg-primary/70" />
+            Для этой платформы используется быстрая модель (Gemini Flash) - ниже стоимость и быстрее результат.
+          </div>
+        );
+      })()}
+
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
         {/* Left: Editor */}
         <div className="space-y-4 relative">

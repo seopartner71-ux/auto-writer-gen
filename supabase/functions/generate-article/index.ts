@@ -176,6 +176,29 @@ serve(async (req) => {
       console.log("[generate-article] No author selected, using default style");
     }
 
+    // Fast-model override for low-quality publishing targets (Telegraph / Miralinks / GoGetLinks).
+    // For these platforms users care about speed/cost more than nuance. Skip if it's a
+    // humanize/polish pass (quality-critical) or a Site Factory project (already overridden).
+    if (
+      authorData &&
+      !isHumanizePolish &&
+      !project_id &&
+      (authorData.is_telegraph_author ||
+        authorData.name === "Телеграф" ||
+        authorData.is_miralinks_profile ||
+        authorData.is_gogetlinks_profile)
+    ) {
+      const prevModel = model;
+      model = "google/gemini-2.5-flash";
+      console.log(
+        "[generate-article] platform fast-model override:",
+        authorData.name,
+        prevModel,
+        "->",
+        model,
+      );
+    }
+
     // Build interlinking context if project_id is provided
     let interlinkingContext: StealthPromptInput["interlinkingContext"] = null;
     if (project_id) {
