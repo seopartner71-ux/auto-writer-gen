@@ -267,6 +267,12 @@ export default function ArticlesPage() {
   const [uniqError, setUniqError] = useState<string | null>(null);
   const [aiScore, setAiScore] = useState<number | null>(null);
   const [checkingGeo, setCheckingGeo] = useState(false);
+  const [qualityImproving, setQualityImproving] = useState(false);
+  useEffect(() => {
+    const h = (e: Event) => setQualityImproving(!!(e as CustomEvent).detail);
+    window.addEventListener("quality-improving", h as EventListener);
+    return () => window.removeEventListener("quality-improving", h as EventListener);
+  }, []);
   const [geoResult, setGeoResult] = useState<Array<{ model: string; status: "ok" | "miss" | "partial"; note?: string }> | null>(null);
   const [fixingIssue, setFixingIssue] = useState<string | null>(null);
   const [complianceResult, setComplianceResult] = useState<ComplianceResult | null>(null);
