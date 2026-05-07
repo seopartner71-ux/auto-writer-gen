@@ -45,6 +45,7 @@ import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
+import { QualityImproveCard } from "@/features/article-quality/QualityImproveCard";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
 import { runAutoStealthPass } from "@/features/article-editor/autoStealthPass";
