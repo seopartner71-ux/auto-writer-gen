@@ -261,6 +261,7 @@ export default function NetworkMonitorPage() {
     }
     const sorted = await _legacyTopUrls(projectId);
     setTopPages((prev) => ({ ...prev, [projectId]: sorted }));
+    loadPingHistory(projectId);
     setExpandedProject(projectId);
   };
 
