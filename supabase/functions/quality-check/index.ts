@@ -584,6 +584,19 @@ Deno.serve(async (req) => {
     const fastLabels: string[] = [];
     if (requested.has("score")) { fastPromises.push(withTimeout(runSeoModuleScore(plain, apiKey), 30000, "seo-score")); fastLabels.push("score"); }
     if (requested.has("ai")) { fastPromises.push(withTimeout(runAiScore(plain, apiKey), 30000, "ai-score")); fastLabels.push("ai"); }
+    // Real Turgenev (Ashmanov) API check, when requested explicitly from UI.
+    if (requested.has("turgenev")) {
+      const { data: tk } = await admin.from("api_keys")
+        .select("api_key").eq("provider", "turgenev").eq("is_valid", true).maybeSingle();
+      const tKey = (tk as any)?.api_key as string | undefined;
+      if (tKey) {
+        fastPromises.push(withTimeout(runTurgenevCheck(plain, tKey), 20000, "turgenev"));
+        fastLabels.push("turgenev");
+      } else {
+        fastPromises.push(Promise.resolve(null));
+        fastLabels.push("turgenev");
+      }
+    }
 
     const fastResults = await Promise.all(fastPromises);
     const out: Record<string, any> = {};
@@ -641,7 +654,11 @@ Deno.serve(async (req) => {
       try { (globalThis as any).EdgeRuntime?.waitUntil?.(bgTask); } catch (_) { void bgTask; }
     }
 
-    const turg = out.score?.score ?? null;
+    // turgenev_score in DB = REAL score from turgenev.ashmanov.com API only.
+    // SEO-Module Score (Gemini emulation, out.score) is stored separately in details.
+    const turg = (out.turgenev as TurgenevResult | null)?.score ?? null;
+    const turgDetails = (out.turgenev as TurgenevResult | null)?.details ?? null;
+    const turgStatus = (out.turgenev as TurgenevResult | null)?.status ?? null;
     // Uniqueness handled in background; not part of inline response.
     const uniq: number | null = null;
     const uniqError: string | null = null;
@@ -663,6 +680,8 @@ Deno.serve(async (req) => {
       quality_checked_at: new Date().toISOString(),
     };
     if (turg !== null) update.turgenev_score = turg;
+    if (turgDetails) update.turgenev_details = turgDetails;
+    if (turgStatus) update.turgenev_status = turgStatus;
     if (uniq !== null) update.uniqueness_percent = uniq;
     if (ai !== null) update.ai_human_score = ai;
 
