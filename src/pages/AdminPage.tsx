@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiVaultTab } from "@/components/admin/ApiVaultTab";
 import { ModelRoutingTab } from "@/components/admin/ModelRoutingTab";
 import { ModelAbTestTab } from "@/components/admin/ModelAbTestTab";
+import { AuthorPromptImproverTab } from "@/components/admin/AuthorPromptImproverTab";
 import { HealthCheckTab } from "@/components/admin/HealthCheckTab";
 import { UserManagementTab } from "@/components/admin/UserManagementTab";
 import { UserContentTab } from "@/components/admin/UserContentTab";
@@ -39,6 +40,7 @@ export default function AdminPage() {
           <TabsTrigger value="vault">API Vault</TabsTrigger>
           <TabsTrigger value="routing">Model Routing</TabsTrigger>
           <TabsTrigger value="abtest">A/B тест</TabsTrigger>
+          <TabsTrigger value="prompts">Промпты авторов</TabsTrigger>
           <TabsTrigger value="health">Health Check</TabsTrigger>
           <TabsTrigger value="errors">{t("admin.tabErrors")}</TabsTrigger>
           <TabsTrigger value="users">{t("admin.users")}</TabsTrigger>
@@ -60,6 +62,7 @@ export default function AdminPage() {
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
         <TabsContent value="routing" className="mt-4"><ModelRoutingTab /></TabsContent>
         <TabsContent value="abtest" className="mt-4"><ModelAbTestTab /></TabsContent>
+        <TabsContent value="prompts" className="mt-4"><AuthorPromptImproverTab /></TabsContent>
         <TabsContent value="health" className="mt-4"><HealthCheckTab /></TabsContent>
         <TabsContent value="errors" className="mt-4"><ErrorLogsTab /></TabsContent>
         <TabsContent value="users" className="mt-4"><UserManagementTab /></TabsContent>
