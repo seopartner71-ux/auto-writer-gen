@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 type Mode = "quick" | "expert";
@@ -19,16 +19,17 @@ interface Props {
   onRevertContent: (content: string) => void;
 }
 
-const STEPS = [
-  "Гуманизация (AI Score)",
-  "Тургенев-фикс",
-  "Финальная проверка",
-];
+// Goals: AI Score >= 70 (human-likeness, i.e. <30% AI) AND Turgenev <= 5
+const AI_TARGET = 70;     // ai_score in DB = human-likeness %; higher = better
+const TURG_TARGET = 5;    // lower = better
+const MAX_PASSES = 2;
+
+type Priority = "auto" | "ai" | "turgenev";
 
 function fmtAi(v: number | null) { return v == null ? "—" : `${Math.round(v)}%`; }
 function fmtTurg(v: number | null) { return v == null ? "—" : `${v}`; }
-function aiOk(v: number | null) { return v != null && v >= 70; }
-function turgOk(v: number | null) { return v != null && v <= 5; }
+function aiOk(v: number | null) { return v != null && v >= AI_TARGET; }
+function turgOk(v: number | null) { return v != null && v <= TURG_TARGET; }
 
 export function QualityImproveCard({ mode, articleId, currentContent, onRevertContent }: Props) {
   const [row, setRow] = useState<any>({});
@@ -41,6 +42,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const [logLines, setLogLines] = useState<string[]>([]);
   const [warning, setWarning] = useState<string | null>(null);
   const [bestSnapshot, setBestSnapshot] = useState<{ content: string; ai: number | null; turg: number | null } | null>(null);
+  const [priority, setPriority] = useState<Priority>("auto");
 
   // Initial fetch + realtime
   useEffect(() => {
@@ -147,12 +149,53 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     onRevertContent(content);
   }
 
-  // Quality compare: lower AI is better, lower Turgenev is better.
-  function isWorse(after: { ai: number | null; turg: number | null }, before: { ai: number | null; turg: number | null }, metric: "ai" | "turg"): boolean {
+  // Higher ai_score = better (more human). Lower turgenev = better.
+  // Returns true if `after` is meaningfully worse than `before` for the given metric.
+  function isWorse(after: { ai: number | null; turg: number | null }, before: { ai: number | null; turg: number | null }, metric: "ai" | "turg", tol = 0): boolean {
     const a = after[metric]; const b = before[metric];
     if (a == null || b == null) return false;
-    if (metric === "ai") return a > b + 3; // tolerance
-    return a > b; // turg
+    if (metric === "ai") return a < b - 3;            // human-likeness dropped >3pp
+    return a > b + tol;                               // turgenev rose
+  }
+
+  function decideFix(scores: { ai: number | null; turg: number | null }, prio: Priority): "humanize" | "turgenev" | null {
+    const aiBad = !aiOk(scores.ai);
+    const turgBad = !turgOk(scores.turg);
+    if (!aiBad && !turgBad) return null;
+    if (prio === "ai") return aiBad ? "humanize" : null;
+    if (prio === "turgenev") return turgBad ? "turgenev" : null;
+    // auto: only critical one; if both bad — humanize first
+    if (aiBad && !turgBad) return "humanize";
+    if (turgBad && !aiBad) return "turgenev";
+    return "humanize";
+  }
+
+  async function runOnePass(fix: "humanize" | "turgenev", passIdx: number): Promise<{ improved: boolean; rolledBack: boolean; scores: { ai: number | null; turg: number | null; content: string } }> {
+    const pre = await fetchScores();
+    log(`Проход ${passIdx}: ${fix === "humanize" ? "Гуманизация" : "Тургенев-фикс"}...`);
+    const r = await callImprove(fix);
+    if (r.cooldown) { log("⚠ Cooldown - подождите"); throw new Error("cooldown"); }
+    if (!r.ok) { log(`✘ ${r.error}`); return { improved: false, rolledBack: false, scores: pre }; }
+    await waitForIdle();
+    await runQualityCheck();
+    const post = await fetchScores();
+
+    // Rollback rule: humanize must not raise turgenev > +2; turgenev must not drop ai > 3pp
+    const turgWorseBig = fix === "humanize" && post.turg != null && pre.turg != null && post.turg > pre.turg + 2;
+    const aiWorseBig = fix === "turgenev" && isWorse(post, pre, "ai");
+
+    if (turgWorseBig || aiWorseBig) {
+      log(`⚠ Проход ${passIdx} ухудшил противоположный показатель - откат.`);
+      await rollbackTo(pre.content);
+      return { improved: false, rolledBack: true, scores: pre };
+    }
+
+    // Track if the targeted metric actually improved
+    const targetImproved = fix === "humanize"
+      ? (post.ai != null && pre.ai != null && post.ai > pre.ai)
+      : (post.turg != null && pre.turg != null && post.turg < pre.turg);
+    log(`${targetImproved ? "✅" : "·"} Проход ${passIdx}: AI ${fmtAi(pre.ai)} → ${fmtAi(post.ai)}, Тургенев ${fmtTurg(pre.turg)} → ${fmtTurg(post.turg)}`);
+    return { improved: targetImproved, rolledBack: false, scores: post };
   }
 
   async function runImprove() {
@@ -164,75 +207,40 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     setStep(0);
 
     try {
-      // Snapshot ORIGINAL
       const origScores = await fetchScores();
       const origSnap: Snapshot = { ai: origScores.ai, turg: origScores.turg, content: origScores.content || currentContent };
       setBefore(origSnap);
       setBestSnapshot({ content: origSnap.content, ai: origSnap.ai, turg: origSnap.turg });
-      log(`▶ Старт: AI ${fmtAi(origSnap.ai)}, Тургенев ${fmtTurg(origSnap.turg)}`);
+      log(`▶ Старт: AI ${fmtAi(origSnap.ai)}, Тургенев ${fmtTurg(origSnap.turg)}. Цель: AI ≥ ${AI_TARGET}%, Тургенев ≤ ${TURG_TARGET}.`);
 
-      // ---- STEP 1: Humanize (Stealth Pass) ----
-      setStep(1);
-      log("Шаг 1/3: Гуманизация (Stealth Pass)...");
-      const preStep1 = await fetchScores();
-      const r1 = await callImprove("humanize");
-      if (r1.cooldown) { toast.warning(r1.error || "Подождите"); throw new Error("cooldown"); }
-      if (!r1.ok) { log(`✘ Гуманизация не выполнена: ${r1.error}`); }
-      else {
-        await waitForIdle();
-        await runQualityCheck();
-        const post1 = await fetchScores();
-        if (isWorse(post1, preStep1, "ai")) {
-          log(`⚠ Шаг 1 ухудшил AI (${fmtAi(preStep1.ai)} → ${fmtAi(post1.ai)}). Откат.`);
-          await rollbackTo(preStep1.content);
-        } else {
-          log(`✅ Шаг 1: AI ${fmtAi(preStep1.ai)} → ${fmtAi(post1.ai)}`);
-          // update best
-          setBestSnapshot({ content: post1.content, ai: post1.ai, turg: post1.turg });
-        }
+      let cur = { ai: origSnap.ai, turg: origSnap.turg, content: origSnap.content };
+      let stoppedReason = "";
+
+      for (let pass = 1; pass <= MAX_PASSES; pass++) {
+        setStep(pass);
+        const fix = decideFix(cur, priority);
+        if (!fix) { stoppedReason = "targets-met"; log("✅ Цели достигнуты - дальнейшие проходы не нужны."); break; }
+        const res = await runOnePass(fix, pass);
+        cur = res.scores;
+        if (aiOk(cur.ai) && turgOk(cur.turg)) { stoppedReason = "targets-met"; log("✅ Оба показателя в норме."); break; }
+        if (res.rolledBack) { stoppedReason = "balanced"; log("⚖ Достигнут баланс - дальнейшее улучшение ухудшает другой показатель."); break; }
+        if (!res.improved) { stoppedReason = "no-progress"; log("· Прогресса нет - останавливаем."); break; }
       }
+      if (!stoppedReason) { stoppedReason = "max-passes"; log(`⏹ Достигнут лимит в ${MAX_PASSES} прохода.`); }
 
-      // ---- STEP 2: Turgenev fix ----
-      setStep(2);
-      log("Шаг 2/3: Тургенев-фикс...");
-      const preStep2 = await fetchScores();
-      const r2 = await callImprove("turgenev");
-      if (!r2.ok && !r2.cooldown) { log(`✘ Тургенев-фикс не выполнен: ${r2.error}`); }
-      else if (r2.cooldown) { log("⚠ Тургенев-фикс пропущен (cooldown)"); }
-      else {
-        await waitForIdle();
-        await runQualityCheck();
-        const post2 = await fetchScores();
-        const aiWorse = isWorse(post2, preStep2, "ai");
-        const turgWorse = isWorse(post2, preStep2, "turg");
-        if (aiWorse || turgWorse) {
-          log(`⚠ Шаг 2 ухудшил результат - пропущен. Откат к тексту до Тургенев-фикса.`);
-          setWarning("Шаг 2 ухудшил результат - пропущен");
-          await rollbackTo(preStep2.content);
-        } else {
-          log(`✅ Шаг 2: Тургенев ${fmtTurg(preStep2.turg)} → ${fmtTurg(post2.turg)}, AI ${fmtAi(preStep2.ai)} → ${fmtAi(post2.ai)}`);
-          setBestSnapshot({ content: post2.content, ai: post2.ai, turg: post2.turg });
-        }
-      }
+      setStep(MAX_PASSES + 1);
+      setAfter({ ai: cur.ai, turg: cur.turg });
+      setBestSnapshot({ content: cur.content, ai: cur.ai, turg: cur.turg });
+      if (cur.content && cur.content !== currentContent) onRevertContent(cur.content);
 
-      // ---- STEP 3: Final check ----
-      setStep(3);
-      log("Шаг 3/3: Финальная проверка...");
-      await runQualityCheck();
-      const finalScores = await fetchScores();
-      setAfter({ ai: finalScores.ai, turg: finalScores.turg });
-      if (finalScores.content && finalScores.content !== currentContent) onRevertContent(finalScores.content);
-
-      const aiBetter = (finalScores.ai ?? 100) <= (origSnap.ai ?? 100);
-      const turgBetter = (finalScores.turg ?? 99) <= (origSnap.turg ?? 99);
-      if (aiBetter && turgBetter) {
-        log(`✅ Готово: AI ${fmtAi(origSnap.ai)} → ${fmtAi(finalScores.ai)}, Тургенев ${fmtTurg(origSnap.turg)} → ${fmtTurg(finalScores.turg)}`);
-        toast.success("Готово ✓ Текст улучшен");
-      } else {
-        const msg = `Один из показателей ухудшился. AI ${fmtAi(origSnap.ai)} → ${fmtAi(finalScores.ai)}, Тургенев ${fmtTurg(origSnap.turg)} → ${fmtTurg(finalScores.turg)}.`;
-        log(`⚠ ${msg}`);
+      const finalAiOk = aiOk(cur.ai);
+      const finalTurgOk = turgOk(cur.turg);
+      if (finalAiOk && finalTurgOk) {
+        toast.success("Готово ✓ Оба показателя в норме");
+      } else if (stoppedReason === "balanced" || stoppedReason === "no-progress" || stoppedReason === "max-passes") {
+        const msg = `Достигнут оптимальный баланс. AI ${fmtAi(cur.ai)}, Тургенев ${fmtTurg(cur.turg)}. Дальнейшее улучшение одного будет ухудшать другой.`;
         setWarning(msg);
-        toast.warning("Часть метрик ухудшилась - выберите вариант");
+        toast.warning("Достигнут баланс");
       }
     } catch (e: any) {
       if (e?.message !== "cooldown") {
@@ -308,15 +316,17 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
           <div className="text-xs text-muted-foreground">
             {mode === "quick"
               ? "⏳ Улучшаем текст... подождите"
-              : `Шаг ${step}/3 — ${STEPS[Math.max(0, step - 1)]}... ⏳`}
+              : `Проход ${Math.min(step, MAX_PASSES)}/${MAX_PASSES} ⏳`}
           </div>
           <Progress value={progressPct} className="h-2" />
-          {mode === "expert" && (
-            <div className="text-[11px] space-y-0.5 mt-2">
-              {STEPS.map((s, i) => (
-                <div key={i} className={i + 1 <= step ? (i + 1 < step ? "text-emerald-400" : "text-amber-300") : "text-muted-foreground"}>
-                  {i + 1 < step ? "✅" : i + 1 === step ? "⏳" : "·"} {s}
-                </div>
+          {mode === "expert" && logLines.length > 0 && (
+            <div className="text-[11px] space-y-0.5 mt-2 max-h-32 overflow-y-auto font-mono">
+              {logLines.slice(-6).map((l, i) => (
+                <div key={i} className={
+                  l.startsWith("✅") ? "text-emerald-400" :
+                  l.startsWith("⚠") || l.startsWith("⚖") ? "text-amber-300" :
+                  l.startsWith("✘") ? "text-rose-400" : "text-muted-foreground"
+                }>{l}</div>
               ))}
             </div>
           )}
@@ -365,17 +375,48 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         </div>
       )}
 
-      {/* Idle state — improve button */}
-      {!running && !(before && after) && (
-        <Button
-          className="w-full gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white"
-          disabled={!articleId || !currentContent}
-          onClick={runImprove}
-        >
-          {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {mode === "quick" ? "Улучшить автоматически" : "Улучшить качество текста"}
-        </Button>
-      )}
+      {/* Idle state */}
+      {!running && !(before && after) && (() => {
+        const ready = articleId && currentContent && aiOk(ai) && turgOk(turg);
+        if (ready) {
+          return (
+            <div className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+              <div className="text-xs text-emerald-100">
+                Статья готова. AI {fmtAi(ai)} (цель ≥{AI_TARGET}%), Тургенев {fmtTurg(turg)} (цель ≤{TURG_TARGET}).
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div className="space-y-2">
+            {mode === "expert" && (
+              <div className="grid grid-cols-3 gap-1 text-[11px]">
+                <button type="button" onClick={() => setPriority("auto")}
+                  className={`rounded border px-2 py-1 ${priority === "auto" ? "border-violet-500 bg-violet-500/15 text-violet-100" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                  Авто
+                </button>
+                <button type="button" onClick={() => setPriority("ai")}
+                  className={`rounded border px-2 py-1 ${priority === "ai" ? "border-violet-500 bg-violet-500/15 text-violet-100" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                  Меньше AI
+                </button>
+                <button type="button" onClick={() => setPriority("turgenev")}
+                  className={`rounded border px-2 py-1 ${priority === "turgenev" ? "border-violet-500 bg-violet-500/15 text-violet-100" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                  Тургенев
+                </button>
+              </div>
+            )}
+            <Button
+              className="w-full gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white"
+              disabled={!articleId || !currentContent}
+              onClick={runImprove}
+            >
+              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {mode === "quick" ? "Улучшить автоматически" : "Улучшить качество текста"}
+            </Button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
