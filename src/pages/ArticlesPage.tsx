@@ -630,6 +630,7 @@ export default function ArticlesPage() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    let idleAborted = false;
     try {
       // Refresh session to ensure fresh token
       const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
@@ -693,8 +694,21 @@ export default function ArticlesPage() {
       let fullContent = "";
       let lastFinishReason: string | null = null;
 
+      // Watchdog: if no bytes from upstream for 90s, abort so the catch block
+      // can offer recovery from the partial draft instead of hanging forever.
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const armIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          idleAborted = true;
+          try { controller.abort(); } catch { /* ignore */ }
+        }, 90000);
+      };
+      armIdle();
+
       while (true) {
         const { done, value } = await reader.read();
+        armIdle();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
@@ -736,6 +750,7 @@ export default function ArticlesPage() {
       }
 
       setFinishReason(lastFinishReason);
+      if (idleTimer) clearTimeout(idleTimer);
       // Successful completion — clear the partial draft.
       try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
 
@@ -811,7 +826,7 @@ export default function ArticlesPage() {
         saveArticle.mutate();
       }, 500);
     } catch (e: any) {
-      if (e.name === "AbortError") {
+      if (e.name === "AbortError" && !idleAborted) {
         toast.info(t("articles.genStopped"));
       } else {
         // Stream interrupted (network drop, server timeout, etc.).

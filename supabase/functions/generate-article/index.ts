@@ -303,10 +303,12 @@ serve(async (req) => {
       });
 
       if (aiResponse.status === 429 && attempt < maxRetries) {
-        const delay = 5000 * Math.pow(2, attempt); // 5s, 10s, 20s
+        // Tightened backoff: 2s, 4s, 0s — frees ~27s of the 150s edge budget for actual generation.
+        const delays = [2000, 4000, 0];
+        const delay = delays[attempt] ?? 0;
         console.log(`[generate-article] 429 rate limited, retry ${attempt + 1}/${maxRetries} after ${delay}ms`);
         await aiResponse.text(); // consume body
-        await new Promise((r) => setTimeout(r, delay));
+        if (delay > 0) await new Promise((r) => setTimeout(r, delay));
         continue;
       }
       break;
@@ -356,7 +358,38 @@ serve(async (req) => {
       });
     } catch (_) { /* ignore */ }
 
-    return new Response(aiResponse.body, {
+    // Wrap upstream stream with keep-alive pings every 20s. Prevents Cloudflare
+    // idle-timeout from killing the connection when the model thinks silently.
+    // SSE comment lines (starting with ":") are ignored by clients.
+    const upstream = aiResponse.body!;
+    const keepAlive = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        const reader = upstream.getReader();
+        let closed = false;
+        const ping = setInterval(() => {
+          if (closed) return;
+          try { controller.enqueue(encoder.encode(": ping\n\n")); } catch { /* ignore */ }
+        }, 20000);
+        (async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              controller.enqueue(value);
+            }
+          } catch (err) {
+            try { controller.error(err); } catch { /* ignore */ }
+          } finally {
+            closed = true;
+            clearInterval(ping);
+            try { controller.close(); } catch { /* ignore */ }
+          }
+        })();
+      },
+    });
+
+    return new Response(keepAlive, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/event-stream",
