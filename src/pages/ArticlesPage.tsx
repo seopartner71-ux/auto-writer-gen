@@ -257,6 +257,24 @@ export default function ArticlesPage() {
   const [streamElapsed, setStreamElapsed] = useState(0);
   // Recovery state — set when generation stream is interrupted mid-way.
   const [interruptedDraft, setInterruptedDraft] = useState<string | null>(null);
+  // On mount: check for an interrupted draft from a previous session.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("aiwriter_partial_draft");
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      // Only offer recovery if draft is fresh (<24h) and substantial (>200 chars).
+      if (saved?.content && typeof saved.content === "string" && saved.content.length > 200) {
+        const ageMs = Date.now() - (saved.ts || 0);
+        if (ageMs < 24 * 60 * 60 * 1000) {
+          setInterruptedDraft(saved.content);
+        } else {
+          localStorage.removeItem("aiwriter_partial_draft");
+        }
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const {
     schemaJson, setSchemaJson,
     schemaCopied, setSchemaCopied,
