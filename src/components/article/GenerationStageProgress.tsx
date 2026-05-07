@@ -8,12 +8,21 @@ interface Props {
   language?: "ru" | "en";
 }
 
-const STAGE_LABELS_RU: Record<StageKey, string> = {
-  research: "Research",
-  outline: "Outline",
-  writing: "Writing",
-  stealth: "Stealth",
-  quality: "Quality",
+const STAGE_LABELS: Record<"ru" | "en", Record<StageKey, string>> = {
+  ru: {
+    research: "Анализ",
+    outline: "План",
+    writing: "Написание",
+    stealth: "Маскировка",
+    quality: "Проверка",
+  },
+  en: {
+    research: "Research",
+    outline: "Outline",
+    writing: "Writing",
+    stealth: "Stealth",
+    quality: "Quality",
+  },
 };
 
 const STAGE_ICONS: Record<StageKey, React.ComponentType<{ className?: string }>> = {
@@ -61,7 +70,7 @@ export function GenerationStageProgress({ phase, language = "ru" }: Props) {
         {stages.map((stage, i) => {
           const status = statusFor(stage);
           const Icon = STAGE_ICONS[stage];
-          const label = STAGE_LABELS_RU[stage];
+          const label = STAGE_LABELS[language][stage];
           const base = "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all whitespace-nowrap";
           const cls =
             status === "done"
