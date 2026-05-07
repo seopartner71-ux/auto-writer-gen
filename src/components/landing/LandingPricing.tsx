@@ -64,6 +64,8 @@ export function LandingPricing() {
       period: `/ ${t("lp.priceMonth")}`,
       credits: fmtCredits("free", 5),
       popular: false,
+      modelLabel: isEn ? "Generation: Claude Sonnet" : "Генерация: Claude Sonnet",
+      modelPremium: false,
       features: getFeatures("free", [
         { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
         { text: isEn ? "AI + Turgenev quality check" : "AI + Тургенев проверка качества", included: true },
@@ -83,6 +85,8 @@ export function LandingPricing() {
       credits: fmtCredits("basic", 40),
       popular: true,
       exclusive: "AI Radar & GEO",
+      modelLabel: isEn ? "Generation: Claude Opus 4" : "Генерация: Claude Opus 4",
+      modelPremium: true,
       features: getFeatures("basic", [
         { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
         { text: isEn ? "Everything in NANO" : "Всё из NANO", included: true },
@@ -101,6 +105,8 @@ export function LandingPricing() {
       period: `/ ${t("lp.priceMonth")}`,
       credits: fmtCredits("pro", 150),
       popular: false,
+      modelLabel: isEn ? "Generation: Claude Opus 4" : "Генерация: Claude Opus 4",
+      modelPremium: true,
       features: getFeatures("pro", [
         { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
         { text: isEn ? "Everything in PRO" : "Всё из PRO", included: true },
@@ -206,6 +212,15 @@ export function LandingPricing() {
                     {plan.credits} {t("pricing.articlesPerMonth") || (isEn ? "articles / mo" : "статей / мес")}
                   </span>
                 </div>
+
+                {plan.modelLabel && (
+                  <div className={`mb-5 text-[12px] font-tech flex items-center gap-1.5 ${
+                    plan.modelPremium ? "text-primary" : "text-[#9ca3af]"
+                  }`}>
+                    <span>{plan.modelLabel}</span>
+                    {plan.modelPremium && <Sparkles className="h-3 w-3" />}
+                  </div>
+                )}
 
                 <ul className="space-y-2.5 mb-8">
                   {plan.features.map((f, fi) => (
