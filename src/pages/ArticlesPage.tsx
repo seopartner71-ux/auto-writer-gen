@@ -82,9 +82,12 @@ export default function ArticlesPage() {
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [aiwriterMode, setAiwriterModeState] = useState<"quick" | "expert">(() => {
-    if (typeof window === "undefined") return "expert";
+    if (typeof window === "undefined") return "quick";
     const v = localStorage.getItem("aiwriter_mode");
-    return v === "quick" ? "quick" : "expert";
+    // Returning user with explicit choice — respect it.
+    if (v === "quick" || v === "expert") return v;
+    // New user (no saved mode) — Quick Start by default.
+    return "quick";
   });
   const setAiwriterMode = (m: "quick" | "expert") => {
     setAiwriterModeState(m);
@@ -252,6 +255,26 @@ export default function ArticlesPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamPhase, setStreamPhase] = useState<"thinking" | "writing" | null>(null);
   const [streamElapsed, setStreamElapsed] = useState(0);
+  // Recovery state — set when generation stream is interrupted mid-way.
+  const [interruptedDraft, setInterruptedDraft] = useState<string | null>(null);
+  // On mount: check for an interrupted draft from a previous session.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("aiwriter_partial_draft");
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      // Only offer recovery if draft is fresh (<24h) and substantial (>200 chars).
+      if (saved?.content && typeof saved.content === "string" && saved.content.length > 200) {
+        const ageMs = Date.now() - (saved.ts || 0);
+        if (ageMs < 24 * 60 * 60 * 1000) {
+          setInterruptedDraft(saved.content);
+        } else {
+          localStorage.removeItem("aiwriter_partial_draft");
+        }
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const {
     schemaJson, setSchemaJson,
     schemaCopied, setSchemaCopied,
@@ -601,6 +624,8 @@ export default function ArticlesPage() {
     setSchemaJson("");
     setFinishReason(null);
     setFactCheckStatus(null);
+    setInterruptedDraft(null);
+    try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -694,6 +719,14 @@ export default function ArticlesPage() {
               if (!fullContent) setStreamPhase("writing");
               fullContent += delta;
               setContent(fullContent);
+              // Persist partial draft so an interrupted stream is recoverable.
+              try {
+                localStorage.setItem("aiwriter_partial_draft", JSON.stringify({
+                  content: fullContent,
+                  keyword_id: selectedKeywordId,
+                  ts: Date.now(),
+                }));
+              } catch { /* quota — ignore */ }
             }
           } catch {
             buffer = line + "\n" + buffer;
@@ -703,6 +736,8 @@ export default function ArticlesPage() {
       }
 
       setFinishReason(lastFinishReason);
+      // Successful completion — clear the partial draft.
+      try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
 
       // Auto-fill title and meta from generated content
 
@@ -779,6 +814,20 @@ export default function ArticlesPage() {
       if (e.name === "AbortError") {
         toast.info(t("articles.genStopped"));
       } else {
+        // Stream interrupted (network drop, server timeout, etc.).
+        // If we have any partial content, offer recovery instead of silently losing it.
+        try {
+          const raw = localStorage.getItem("aiwriter_partial_draft");
+          if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved?.content && typeof saved.content === "string" && saved.content.length > 200) {
+              setInterruptedDraft(saved.content);
+              setContent(saved.content);
+              toast.warning("Соединение прервано. Черновик сохранен - можно продолжить.", { duration: 8000 });
+              return;
+            }
+          }
+        } catch { /* ignore */ }
         toast.error(e.message);
       }
     } finally {
@@ -1085,6 +1134,45 @@ export default function ArticlesPage() {
         aiwriterMode={aiwriterMode}
         onAiwriterModeChange={setAiwriterMode}
       />
+
+      {interruptedDraft && !isStreaming && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 flex items-start gap-3">
+          <div className="text-amber-400 text-xl leading-none">⚠️</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-amber-200">
+              Соединение было прервано
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Найден частично сгенерированный черновик ({Math.round(interruptedDraft.length / 1000)}к символов).
+              Продолжить работу с ним или начать заново?
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setContent(interruptedDraft);
+                setInterruptedDraft(null);
+                try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
+                toast.success("Черновик восстановлен");
+              }}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500 text-amber-950 hover:bg-amber-400"
+            >
+              Восстановить
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInterruptedDraft(null);
+                try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
+              }}
+              className="px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground border border-border"
+            >
+              Удалить
+            </button>
+          </div>
+        </div>
+      )}
 
       {keywords.length === 0 && (
         <OnboardingHint
