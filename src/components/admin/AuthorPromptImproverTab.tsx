@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Sparkles, Loader2, RotateCcw, Wand2 } from "lucide-react";
+import { Sparkles, Loader2, RotateCcw, Wand2, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 interface AuthorRow {
@@ -21,6 +21,9 @@ export function AuthorPromptImproverTab() {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkShortRunning, setBulkShortRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; currentName: string } | null>(null);
+  const [bulkSummary, setBulkSummary] = useState<Array<{ name: string; before: number; after: number; ok: boolean; error?: string }> | null>(null);
   const [preview, setPreview] = useState<{
     authorId: string; name: string; original: string; improved: string; backupPresent: boolean;
   } | null>(null);
@@ -128,6 +131,54 @@ export function AuthorPromptImproverTab() {
     qc.invalidateQueries({ queryKey: ["author-profiles"] });
   }
 
+  async function improveShortPrompts() {
+    const target = authors.filter(a => {
+      const len = (a.system_instruction || "").trim().length;
+      return len >= 10 && len < 300;
+    });
+    if (!target.length) { toast.info("Нет авторов с промптом короче 300 символов"); return; }
+    if (!confirm(`Найдено ${target.length} авторов с коротким промптом (<300 симв). Улучшить через Claude Opus 4? Оригиналы будут забэкаплены.`)) return;
+    setBulkShortRunning(true);
+    setBulkSummary(null);
+    const summary: Array<{ name: string; before: number; after: number; ok: boolean; error?: string }> = [];
+    let done = 0;
+    for (const a of target) {
+      setBulkProgress({ done, total: target.length, currentName: a.name });
+      const before = (a.system_instruction || "").length;
+      try {
+        const { data, error } = await supabase.functions.invoke("improve-author-prompt", {
+          body: { author_id: a.id },
+        });
+        if (error || data?.error) {
+          summary.push({ name: a.name, before, after: 0, ok: false, error: error?.message || data?.error });
+        } else {
+          const update: Record<string, unknown> = {
+            system_instruction: data.improved,
+            prompt_improved_at: new Date().toISOString(),
+          };
+          if (!data.backup_present) update.system_instruction_backup = data.original;
+          const { error: uErr } = await supabase.from("author_profiles").update(update).eq("id", a.id);
+          if (uErr) {
+            summary.push({ name: a.name, before, after: 0, ok: false, error: uErr.message });
+          } else {
+            summary.push({ name: a.name, before, after: (data.improved || "").length, ok: true });
+          }
+        }
+      } catch (e) {
+        summary.push({ name: a.name, before, after: 0, ok: false, error: e instanceof Error ? e.message : "error" });
+      }
+      done++;
+      setBulkProgress({ done, total: target.length, currentName: a.name });
+    }
+    setBulkShortRunning(false);
+    setBulkProgress(null);
+    setBulkSummary(summary);
+    const okN = summary.filter(s => s.ok).length;
+    toast.success(`Готово. Улучшено: ${okN} из ${target.length}`);
+    qc.invalidateQueries({ queryKey: ["admin-author-prompts"] });
+    qc.invalidateQueries({ queryKey: ["author-profiles"] });
+  }
+
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
@@ -144,17 +195,64 @@ export function AuthorPromptImproverTab() {
               Расширяет короткий промпт до подробного через Claude Opus 4. Оригинал сохраняется в backup.
             </p>
           </div>
-          <Button
-            size="sm"
-            onClick={improveAll}
-            disabled={bulkRunning || authors.length === 0}
-            className="gap-1.5"
-          >
-            {bulkRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Улучшить всех авторов
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant="default"
+              onClick={improveShortPrompts}
+              disabled={bulkShortRunning || bulkRunning || authors.length === 0}
+              className="gap-1.5"
+            >
+              {bulkShortRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              Улучшить короткие (&lt;300 симв)
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={improveAll}
+              disabled={bulkRunning || bulkShortRunning || authors.length === 0}
+              className="gap-1.5"
+            >
+              {bulkRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Улучшить всех
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
+          {bulkProgress && (
+            <div className="rounded-md border border-primary/30 bg-primary/[0.06] p-3 mb-2">
+              <div className="flex items-center justify-between text-xs mb-2">
+                <span className="font-medium text-primary">
+                  Улучшено {bulkProgress.done} из {bulkProgress.total} авторов...
+                </span>
+                <span className="text-muted-foreground truncate ml-2">{bulkProgress.currentName}</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${(bulkProgress.done / Math.max(bulkProgress.total, 1)) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {bulkSummary && (
+            <div className="rounded-md border border-border bg-muted/30 p-3 mb-2 space-y-1">
+              <div className="text-xs font-semibold mb-1">Итоги улучшения:</div>
+              {bulkSummary.map((s, i) => (
+                <div key={i} className="flex items-center justify-between text-xs gap-2">
+                  <span className="truncate flex-1">
+                    {s.ok ? "✅" : "❌"} {s.name}
+                  </span>
+                  <span className="text-muted-foreground shrink-0">
+                    {s.ok ? `${s.before} → ${s.after} симв.` : (s.error || "ошибка")}
+                  </span>
+                </div>
+              ))}
+              <Button size="sm" variant="ghost" className="mt-2 h-7 text-xs" onClick={() => setBulkSummary(null)}>
+                Скрыть
+              </Button>
+            </div>
+          )}
           {authors.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">Нет авторов</p>
           ) : (
