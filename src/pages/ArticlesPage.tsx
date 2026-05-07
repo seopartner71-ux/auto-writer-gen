@@ -693,8 +693,20 @@ export default function ArticlesPage() {
       let fullContent = "";
       let lastFinishReason: string | null = null;
 
+      // Watchdog: if no bytes from upstream for 90s, abort so the catch block
+      // can offer recovery from the partial draft instead of hanging forever.
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const armIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          try { controller.abort(new DOMException("Stream idle 90s", "TimeoutError")); } catch { /* ignore */ }
+        }, 90000);
+      };
+      armIdle();
+
       while (true) {
         const { done, value } = await reader.read();
+        armIdle();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
@@ -736,6 +748,7 @@ export default function ArticlesPage() {
       }
 
       setFinishReason(lastFinishReason);
+      if (idleTimer) clearTimeout(idleTimer);
       // Successful completion — clear the partial draft.
       try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
 
