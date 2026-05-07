@@ -656,11 +656,13 @@ export type Database = {
           is_miralinks_profile: boolean
           name: string
           niche: string | null
+          prompt_improved_at: string | null
           stealth_profile: Json | null
           stop_words: string[] | null
           style_analysis: Json | null
           style_examples: string | null
           system_instruction: string | null
+          system_instruction_backup: string | null
           system_prompt_override: string | null
           temperature: number | null
           type: string
@@ -676,11 +678,13 @@ export type Database = {
           is_miralinks_profile?: boolean
           name: string
           niche?: string | null
+          prompt_improved_at?: string | null
           stealth_profile?: Json | null
           stop_words?: string[] | null
           style_analysis?: Json | null
           style_examples?: string | null
           system_instruction?: string | null
+          system_instruction_backup?: string | null
           system_prompt_override?: string | null
           temperature?: number | null
           type?: string
@@ -696,11 +700,13 @@ export type Database = {
           is_miralinks_profile?: boolean
           name?: string
           niche?: string | null
+          prompt_improved_at?: string | null
           stealth_profile?: Json | null
           stop_words?: string[] | null
           style_analysis?: Json | null
           style_examples?: string | null
           system_instruction?: string | null
+          system_instruction_backup?: string | null
           system_prompt_override?: string | null
           temperature?: number | null
           type?: string
