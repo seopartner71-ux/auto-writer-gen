@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
+import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, ShieldCheck, Info } from "lucide-react";
 import { toast } from "sonner";
 
 type Mode = "quick" | "expert";
@@ -43,6 +43,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const [warning, setWarning] = useState<string | null>(null);
   const [bestSnapshot, setBestSnapshot] = useState<{ content: string; ai: number | null; turg: number | null } | null>(null);
   const [priority, setPriority] = useState<Priority>("auto");
+  const [showSteps, setShowSteps] = useState(false);
 
   // Initial fetch + realtime
   useEffect(() => {
@@ -319,6 +320,12 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               : `Проход ${Math.min(step, MAX_PASSES)}/${MAX_PASSES} ⏳`}
           </div>
           <Progress value={progressPct} className="h-2" />
+          {/* Always show what's happening right now */}
+          {logLines.length > 0 && (
+            <div className="text-[11px] text-muted-foreground italic">
+              {logLines[logLines.length - 1]}
+            </div>
+          )}
           {mode === "expert" && logLines.length > 0 && (
             <div className="text-[11px] space-y-0.5 mt-2 max-h-32 overflow-y-auto font-mono">
               {logLines.slice(-6).map((l, i) => (
