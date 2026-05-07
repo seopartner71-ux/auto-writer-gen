@@ -281,6 +281,40 @@ export default function NetworkMonitorPage() {
     }
   };
 
+  const sendPing = async (projectId: string, host: string) => {
+    setPingingId(projectId);
+    try {
+      const { data, error } = await supabase.functions.invoke("notify-search-engines", {
+        body: { project_id: projectId, reason: "manual" },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      const ok = (data?.results || []).filter((r: any) => r.status === "success").length;
+      toast({
+        title: lang === "ru" ? "Пинг отправлен" : "Ping sent",
+        description: `${host} - ${ok}/${(data?.results || []).length} OK`,
+      });
+      loadProjects();
+      // refresh history for this project if expanded
+      loadPingHistory(projectId, true);
+    } catch (e: any) {
+      toast({ title: lang === "ru" ? "Ошибка пинга" : "Ping failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setPingingId(null);
+    }
+  };
+
+  const loadPingHistory = async (projectId: string, force = false) => {
+    if (!force && pingHistory[projectId]) return;
+    const { data } = await supabase
+      .from("search_engine_pings")
+      .select("id, provider, status, response_code, response_message, url, created_at")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setPingHistory((prev) => ({ ...prev, [projectId]: (data as PingLogRow[]) || [] }));
+  };
+
   // Stats calculations
   const cloudflareSites = useMemo(() => projects.filter((p) => p.hosting_platform === "cloudflare" && p.domain), [projects]);
   const onlineCount = cloudflareSites.filter((p) => p.last_ping_status === "online").length;
