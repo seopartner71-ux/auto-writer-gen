@@ -34,7 +34,7 @@ import { ProImageGenerator } from "@/features/pro-image-gen/ProImageGenerator";
 import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanScorePanel";
 import { detectContentLanguage } from "@/components/article/humanScore/constants";
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
-import { SeoTipTicker } from "@/components/article/SeoTipTicker";
+import { GenerationStageProgress } from "@/components/article/GenerationStageProgress";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
@@ -1663,7 +1663,7 @@ export default function ArticlesPage() {
                   </div>
                 )}
                 {isStreaming && (
-                  <SeoTipTicker language={lang === "ru" ? "ru" : "en"} />
+                  <GenerationStageProgress phase={streamPhase} language={lang === "ru" ? "ru" : "en"} />
                 )}
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
                 {currentArticleId && content && !isStreaming && !isQuickMode && (
