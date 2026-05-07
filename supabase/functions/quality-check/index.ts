@@ -345,27 +345,47 @@ interface TurgenevResult {
 }
 async function runTurgenevCheck(plain: string, turgenevKey: string): Promise<TurgenevResult | null> {
   try {
-    const res = await fetchWithTimeout("https://turgenev.ashmanov.com/api/check", {
+    const form = new URLSearchParams();
+    form.set("api", "risk");
+    form.set("key", turgenevKey);
+    form.set("text", plain.slice(0, 50000));
+    form.set("more", "1");
+    const res = await fetchWithTimeout("https://turgenev.ashmanov.com/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: plain.slice(0, 50000), apikey: turgenevKey }),
-    }, 10000);
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    }, 15000);
     if (!res.ok) {
       console.error("[quality-check] turgenev http", res.status);
       return null;
     }
     const data: any = await res.json().catch(() => ({}));
-    const totalScore = Number(data?.total) || 0;
+    if (data?.error) {
+      console.error("[quality-check] turgenev api error:", data.error);
+      return null;
+    }
+    // Real Turgenev API returns: { risk: "22", level: "...", details: [{block,sum},...] }
+    const totalScore = Number(data?.risk);
+    if (!Number.isFinite(totalScore)) {
+      console.error("[quality-check] turgenev unexpected payload", JSON.stringify(data).slice(0, 300));
+      return null;
+    }
     const status: TurgenevResult["status"] = totalScore <= 5 ? "ok" : totalScore <= 10 ? "warning" : "fail";
+    const detailMap: Record<string, number> = {};
+    if (Array.isArray(data?.details)) {
+      for (const d of data.details) {
+        if (d?.block) detailMap[String(d.block)] = Number(d.sum) || 0;
+      }
+    }
     return {
       score: totalScore,
       status,
       details: {
-        repeats: Number(data?.repeats) || 0,
-        style: Number(data?.style) || 0,
-        spam: Number(data?.spam) || 0,
-        water: Number(data?.water) || 0,
-        readability: Number(data?.readability) || 0,
+        repeats: detailMap.frequency || 0,
+        style: detailMap.style || 0,
+        spam: detailMap.keywords || 0,
+        water: detailMap.formality || 0,
+        readability: detailMap.readability || 0,
       },
     };
   } catch (e) {
