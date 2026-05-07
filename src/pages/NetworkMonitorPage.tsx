@@ -504,6 +504,7 @@ export default function NetworkMonitorPage() {
                   <TableHead>CF&nbsp;30д</TableHead>
                   <TableHead>{lang === "ru" ? "Статьи" : "Posts"}</TableHead>
                   <TableHead>{lang === "ru" ? "Деплой" : "Deploy"}</TableHead>
+                  <TableHead>{lang === "ru" ? "Пинг" : "Ping"}</TableHead>
                   <TableHead className="text-right">{lang === "ru" ? "Действия" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
