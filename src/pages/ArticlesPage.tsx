@@ -2020,6 +2020,7 @@ export default function ArticlesPage() {
                   <Button
                     size="sm"
                     variant="outline"
+                    data-continue-generation
                     className="shrink-0 gap-1.5 border-warning/50 text-warning hover:bg-warning/10"
                     onClick={async () => {
                       setIsStreaming(true);
