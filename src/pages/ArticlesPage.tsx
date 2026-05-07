@@ -1135,6 +1135,45 @@ export default function ArticlesPage() {
         onAiwriterModeChange={setAiwriterMode}
       />
 
+      {interruptedDraft && !isStreaming && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 flex items-start gap-3">
+          <div className="text-amber-400 text-xl leading-none">⚠️</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-amber-200">
+              Соединение было прервано
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Найден частично сгенерированный черновик ({Math.round(interruptedDraft.length / 1000)}к символов).
+              Продолжить работу с ним или начать заново?
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setContent(interruptedDraft);
+                setInterruptedDraft(null);
+                try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
+                toast.success("Черновик восстановлен");
+              }}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500 text-amber-950 hover:bg-amber-400"
+            >
+              Восстановить
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInterruptedDraft(null);
+                try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
+              }}
+              className="px-3 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground border border-border"
+            >
+              Удалить
+            </button>
+          </div>
+        </div>
+      )}
+
       {keywords.length === 0 && (
         <OnboardingHint
           message={t("onboarding.hintWriter")}
