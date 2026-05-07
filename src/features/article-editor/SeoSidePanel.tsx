@@ -477,40 +477,13 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
         </div>
 
         {/* Section 5 — Improve action */}
+        {/* SEO improve button hidden - use unified "Улучшить качество текста" in right panel */}
         {totalScore >= 80 ? (
           <div className="flex items-center justify-center gap-1.5 py-2 text-emerald-400 text-[12px] font-medium border-t border-border">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Готово к публикации
           </div>
-        ) : limitReached ? (
-          <div className="text-[10px] text-muted-foreground text-center pt-2 border-t border-border leading-snug">
-            Достигнут лимит улучшений (3). Отредактируйте текст вручную.
-          </div>
-        ) : (
-          <div className="space-y-1 pt-2 border-t border-border">
-            <Button
-              size="sm"
-              className="w-full h-8 text-[11px] gap-1.5"
-              onClick={handleImprove}
-              disabled={improving || !canImprove || !articleId}
-            >
-              {improving ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  {improveStage || "Улучшаем..."}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-3 w-3" />
-                  Улучшить SEO ⚡
-                </>
-              )}
-            </Button>
-            <div className="text-[10px] text-muted-foreground text-center leading-snug">
-              Только SEO: термины и плотность ключа. Не трогает AI-детектор и Тургенев.
-            </div>
-          </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );
