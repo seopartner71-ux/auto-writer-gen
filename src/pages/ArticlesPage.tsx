@@ -1132,7 +1132,14 @@ export default function ArticlesPage() {
 
       <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
         {/* Left: Editor */}
-        <div className="space-y-4">
+        <div className="space-y-4 relative">
+          {qualityImproving && (
+            <div className="absolute inset-0 z-30 bg-background/40 backdrop-blur-[1px] cursor-not-allowed flex items-start justify-center pt-10 rounded-md">
+              <div className="rounded-md border border-border bg-card px-4 py-2 text-sm shadow-lg">
+                ⏳ Улучшаем текст... подождите
+              </div>
+            </div>
+          )}
           {/* Pro Image Cover Generator */}
           <ProImageGenerator
             title={title}
