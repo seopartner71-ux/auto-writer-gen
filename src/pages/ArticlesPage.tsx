@@ -1135,9 +1135,7 @@ export default function ArticlesPage() {
         <div className="space-y-4 relative">
           {qualityImproving && (
             <div className="absolute inset-0 z-30 bg-background/40 backdrop-blur-[1px] cursor-not-allowed flex items-start justify-center pt-10 rounded-md">
-              <div className="rounded-md border border-border bg-card px-4 py-2 text-sm shadow-lg">
-                ⏳ Улучшаем текст... подождите
-              </div>
+              <ImprovingTipsLoader />
             </div>
           )}
           {/* Pro Image Cover Generator */}
