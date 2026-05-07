@@ -696,10 +696,12 @@ export default function ArticlesPage() {
       // Watchdog: if no bytes from upstream for 90s, abort so the catch block
       // can offer recovery from the partial draft instead of hanging forever.
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      let idleAborted = false;
       const armIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
-          try { controller.abort(new DOMException("Stream idle 90s", "TimeoutError")); } catch { /* ignore */ }
+          idleAborted = true;
+          try { controller.abort(); } catch { /* ignore */ }
         }, 90000);
       };
       armIdle();
@@ -824,7 +826,7 @@ export default function ArticlesPage() {
         saveArticle.mutate();
       }, 500);
     } catch (e: any) {
-      if (e.name === "AbortError") {
+      if (e.name === "AbortError" && !idleAborted) {
         toast.info(t("articles.genStopped"));
       } else {
         // Stream interrupted (network drop, server timeout, etc.).
