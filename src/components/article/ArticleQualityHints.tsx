@@ -24,6 +24,13 @@ export function ArticleQualityHints({
 }: Props) {
   const [stealthDismissed, setStealthDismissed] = useState(false);
   const [factDismissed, setFactDismissed] = useState(false);
+  const [globalLock, setGlobalLock] = useState(false);
+
+  useEffect(() => {
+    const h = (e: Event) => setGlobalLock(!!(e as CustomEvent).detail);
+    window.addEventListener("quality-improving", h as EventListener);
+    return () => window.removeEventListener("quality-improving", h as EventListener);
+  }, []);
 
   useEffect(() => {
     setStealthDismissed(false);
@@ -77,7 +84,7 @@ export function ArticleQualityHints({
             variant="outline"
             className="h-7 text-xs border-orange-500/60 text-orange-100 hover:bg-orange-500/20"
             onClick={() => { onRunStealth(); setStealthDismissed(true); }}
-            disabled={stealthRunning}
+            disabled={stealthRunning || globalLock}
           >
             ✨ {stealthRunning ? "..." : "Да, улучшить"}
           </Button>
