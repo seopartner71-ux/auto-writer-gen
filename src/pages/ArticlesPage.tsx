@@ -630,6 +630,7 @@ export default function ArticlesPage() {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    let idleAborted = false;
     try {
       // Refresh session to ensure fresh token
       const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
@@ -696,7 +697,6 @@ export default function ArticlesPage() {
       // Watchdog: if no bytes from upstream for 90s, abort so the catch block
       // can offer recovery from the partial draft instead of hanging forever.
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
-      let idleAborted = false;
       const armIdle = () => {
         if (idleTimer) clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
