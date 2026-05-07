@@ -629,8 +629,9 @@ export default function NetworkMonitorPage() {
                       </TableRow>
                       {isExpanded && (
                         <TableRow key={`${project.id}-detail`}>
-                          <TableCell colSpan={8} className="bg-muted/20 px-8 py-4">
-                            <div>
+                          <TableCell colSpan={9} className="bg-muted/20 px-8 py-4">
+                            <div className="grid md:grid-cols-2 gap-6">
+                              <div>
                               <p className="text-sm font-medium mb-3">
                                 {lang === "ru" ? "Топ-5 страниц" : "Top 5 Pages"}
                               </p>
@@ -648,6 +649,36 @@ export default function NetworkMonitorPage() {
                                   ))}
                                 </div>
                               )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium mb-3">
+                                  {lang === "ru" ? "История пингов поисковиков" : "Search engine ping history"}
+                                </p>
+                                {(pingHistory[project.id] || []).length === 0 ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    {lang === "ru" ? "Пингов ещё не было" : "No pings yet"}
+                                  </p>
+                                ) : (
+                                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                    {(pingHistory[project.id] || []).map((p) => (
+                                      <div key={p.id} className="flex items-center justify-between text-xs gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          {p.status === "success" ? (
+                                            <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0" />
+                                          ) : p.status === "deprecated" ? (
+                                            <AlertTriangle className="h-3 w-3 text-warning shrink-0" />
+                                          ) : (
+                                            <XCircle className="h-3 w-3 text-destructive shrink-0" />
+                                          )}
+                                          <span className="font-medium uppercase">{p.provider}</span>
+                                          <span className="text-muted-foreground truncate">{p.response_message || ""}</span>
+                                        </div>
+                                        <span className="text-muted-foreground whitespace-nowrap">{new Date(p.created_at).toLocaleString(lang === "ru" ? "ru-RU" : "en-US", { dateStyle: "short", timeStyle: "short" })}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>
