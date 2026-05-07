@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2, AlertTriangle, Network } from "lucide-react";
+import { Activity, Wifi, WifiOff, Eye, Trophy, Zap, RefreshCw, ExternalLink, ChevronDown, ChevronUp, Plus, Trash2, Cloud, Loader2, AlertTriangle, Network, Send, CheckCircle2, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,18 @@ interface ProjectRow {
   last_ping_at: string | null;
   last_deploy_at: string | null;
   total_views: number;
+  last_search_ping_at?: string | null;
+  last_search_ping_status?: string | null;
+}
+
+interface PingLogRow {
+  id: string;
+  provider: string;
+  status: string;
+  response_code: number | null;
+  response_message: string | null;
+  url: string;
+  created_at: string;
 }
 
 interface AnalyticsRow {
@@ -64,13 +76,15 @@ export default function NetworkMonitorPage() {
   const [indexedCounts, setIndexedCounts] = useState<Record<string, { sent: number; total: number }>>({});
   const [ipMap, setIpMap] = useState<Record<string, string>>({}); // host -> IP
   const [resolvingIps, setResolvingIps] = useState(false);
+  const [pingingId, setPingingId] = useState<string | null>(null);
+  const [pingHistory, setPingHistory] = useState<Record<string, PingLogRow[]>>({});
 
   // Load projects
   const loadProjects = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("projects")
-      .select("id, name, domain, hosting_platform, language, last_ping_status, last_ping_at, last_deploy_at, total_views")
+      .select("id, name, domain, hosting_platform, language, last_ping_status, last_ping_at, last_deploy_at, total_views, last_search_ping_at, last_search_ping_status")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setProjects((data as any[]) || []);
