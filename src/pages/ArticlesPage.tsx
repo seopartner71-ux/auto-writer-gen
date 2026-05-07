@@ -255,6 +255,8 @@ export default function ArticlesPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamPhase, setStreamPhase] = useState<"thinking" | "writing" | null>(null);
   const [streamElapsed, setStreamElapsed] = useState(0);
+  // Recovery state — set when generation stream is interrupted mid-way.
+  const [interruptedDraft, setInterruptedDraft] = useState<string | null>(null);
   const {
     schemaJson, setSchemaJson,
     schemaCopied, setSchemaCopied,
