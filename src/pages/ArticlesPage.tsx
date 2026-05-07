@@ -1443,42 +1443,7 @@ export default function ArticlesPage() {
                       {saveArticle.isPending ? "..." : t("common.save")}
                     </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!content || !currentArticleId || checkingTurgenev}
-                      onClick={async () => {
-                        if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
-                        setCheckingTurgenev(true);
-                        try {
-                          const { data, error } = await supabase.functions.invoke("quality-check", {
-                            body: { article_id: currentArticleId, content, checks: ["turgenev"] },
-                          });
-                          if (error) throw error;
-                          const score = (data as any)?.turgenev_score;
-                          if (score == null) { toast.error("Тургенев недоступен"); return; }
-                          setTurgenevScore(score);
-                          if (score <= 5) toast.success(`Тургенев: ${score} - Безопасно`);
-                          else if (score <= 7) toast.warning(`Тургенев: ${score} - Осторожно`);
-                          else toast.error(`Тургенев: ${score} - Риск ББ`);
-                        } catch (e: any) {
-                          toast.error(e?.message || "Ошибка проверки");
-                        } finally {
-                          setCheckingTurgenev(false);
-                        }
-                      }}
-                      className={
-                        turgenevScore == null ? "" :
-                        turgenevScore <= 5 ? "border-green-500 text-green-600" :
-                        turgenevScore <= 7 ? "border-yellow-500 text-yellow-600" :
-                        "border-red-500 text-red-600"
-                      }
-                      title="Проверка Главред / Тургенев"
-                    >
-                      <Shield className="h-3 w-3 mr-1" />
-                      {checkingTurgenev ? "..." : turgenevScore != null ? `Тургенев ${turgenevScore}` : "Тургенев"}
-                    </Button>
-                    {/* Тургенев button moved to right-side Quality card */}
+                    {/* Тургенев & AI buttons moved to right-side Quality card to avoid duplication */}
 
                     <Button
                       variant="outline"
