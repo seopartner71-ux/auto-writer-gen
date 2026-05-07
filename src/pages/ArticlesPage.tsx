@@ -82,9 +82,12 @@ export default function ArticlesPage() {
   const { t, lang } = useI18n();
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [aiwriterMode, setAiwriterModeState] = useState<"quick" | "expert">(() => {
-    if (typeof window === "undefined") return "expert";
+    if (typeof window === "undefined") return "quick";
     const v = localStorage.getItem("aiwriter_mode");
-    return v === "quick" ? "quick" : "expert";
+    // Returning user with explicit choice — respect it.
+    if (v === "quick" || v === "expert") return v;
+    // New user (no saved mode) — Quick Start by default.
+    return "quick";
   });
   const setAiwriterMode = (m: "quick" | "expert") => {
     setAiwriterModeState(m);
