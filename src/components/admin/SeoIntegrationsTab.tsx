@@ -155,6 +155,36 @@ export function SeoIntegrationsTab() {
         <Save className="h-4 w-4 mr-2" />
         {saving ? "Сохранение..." : "Сохранить настройки"}
       </Button>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="h-4 w-4 text-primary" />
+            Unsplash API
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Ключ для подбора реальных фото на сайтах фабрики. Если не задан - используются стоковые фото.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Unsplash Access Key</Label>
+            <Input
+              value={unsplashKey}
+              onChange={(e) => setUnsplashKey(e.target.value)}
+              placeholder="Access Key"
+              className="text-sm font-mono max-w-md"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Получить ключ на unsplash.com/developers
+            </p>
+          </div>
+          <Button onClick={handleSaveUnsplash} disabled={savingUnsplash} size="sm">
+            <Save className="h-4 w-4 mr-2" />
+            {savingUnsplash ? "Сохранение..." : "Сохранить"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
