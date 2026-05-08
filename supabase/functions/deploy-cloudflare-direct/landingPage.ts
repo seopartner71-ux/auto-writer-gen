@@ -1017,6 +1017,81 @@ export async function ensureSiteIcon(
 
 // ----------------------------- AI Content Generation -------------------------
 
+import { fetchUnsplashPhotos, getUnsplashKey, type UnsplashPhoto } from "../_shared/unsplash.ts";
+
+/**
+ * Fills any missing landing image slots (hero/why/guarantee/about/post_*)
+ * from Unsplash. Mutates and returns the same slots map. Also returns
+ * attribution entries for the photos that were actually used.
+ *
+ * Cached in `site_image_cache` (source='unsplash') so re-deploys are stable.
+ */
+export async function ensureUnsplashImages(
+  admin: any,
+  projectId: string,
+  niche: string,
+  slots: Record<string, string>,
+): Promise<{ slots: Record<string, string>; attributions: UnsplashPhoto[] }> {
+  const wanted = ["hero", "why", "guarantee", "about", "post_1", "post_2", "post_3"];
+  const missing = wanted.filter((s) => !slots[s] || !/^https?:\/\//.test(slots[s]));
+
+  // Always try to load existing attributions from cache so the footer credit
+  // shows even on subsequent deploys (no fresh API call needed).
+  const attributions: UnsplashPhoto[] = [];
+  try {
+    const { data: cached } = await admin
+      .from("site_image_cache")
+      .select("slot, image_url, prompt, source")
+      .eq("project_id", projectId)
+      .eq("source", "unsplash");
+    for (const row of (cached || [])) {
+      if (!row?.prompt) continue;
+      try {
+        const meta = JSON.parse(String(row.prompt));
+        if (meta?.authorName && meta?.photoUrl) {
+          attributions.push({
+            url: row.image_url, thumb: row.image_url,
+            authorName: meta.authorName, authorUrl: meta.authorUrl || "https://unsplash.com",
+            photoUrl: meta.photoUrl, alt: meta.alt || "",
+          });
+        }
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+
+  if (missing.length === 0) return { slots, attributions };
+
+  const accessKey = await getUnsplashKey(admin);
+  if (!accessKey) {
+    return { slots, attributions };
+  }
+
+  const photos = await fetchUnsplashPhotos(accessKey, niche, missing.length);
+  if (photos.length === 0) return { slots, attributions };
+
+  for (let i = 0; i < missing.length && i < photos.length; i++) {
+    const slot = missing[i];
+    const p = photos[i];
+    slots[slot] = p.url;
+    attributions.push(p);
+    try {
+      await admin.from("site_image_cache").upsert({
+        project_id: projectId,
+        slot,
+        prompt: JSON.stringify({
+          authorName: p.authorName, authorUrl: p.authorUrl,
+          photoUrl: p.photoUrl, alt: p.alt,
+        }).slice(0, 1000),
+        image_url: p.url,
+        source: "unsplash",
+      }, { onConflict: "project_id,slot" });
+    } catch (e: any) {
+      console.warn("[unsplash] cache write failed:", slot, e?.message);
+    }
+  }
+  return { slots, attributions };
+}
+
 const FALLBACK_RU = (topic: string, siteName: string): LandingContent => ({
   heroTitle: `${siteName} — профессиональные решения по теме «${topic}»`,
   heroSubtitle: `Помогаем клиентам уже более 10 лет. Качество, гарантия, индивидуальный подход.`,
