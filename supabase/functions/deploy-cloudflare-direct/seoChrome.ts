@@ -85,6 +85,8 @@ export interface SiteChrome {
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
   /** Short brand tagline rendered under siteName (deterministic per project). */
   tagline?: string;
+  /** Show "Photos by Unsplash" attribution in footer (license requirement). */
+  unsplashAttribution?: boolean;
 }
 
 export interface PageMeta {
