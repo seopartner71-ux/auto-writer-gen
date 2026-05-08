@@ -798,6 +798,13 @@ serve(async (req) => {
             posts: posts.slice(0, 3).map((p) => ({ title: p.title, slug: p.slug })),
           },
         );
+        // Backfill any missing slots from Unsplash. If the Unsplash key is not
+        // configured, this is a no-op and we keep the existing fallbacks.
+        let unsplashAttribution = false;
+        {
+          const r = await ensureUnsplashImages(supabaseAdmin, projectId, topic, generatedImages);
+          unsplashAttribution = r.attributions.length > 0;
+        }
         let authorPhotos: string[] = [];
         try {
           const { data: cached } = await supabaseAdmin
