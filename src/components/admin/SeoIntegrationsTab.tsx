@@ -14,6 +14,8 @@ export function SeoIntegrationsTab() {
   const [googleVerification, setGoogleVerification] = useState("");
   const [saving, setSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
+  const [unsplashKey, setUnsplashKey] = useState("");
+  const [savingUnsplash, setSavingUnsplash] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -28,9 +30,33 @@ export function SeoIntegrationsTab() {
         setYandexVerification(data.yandex_verification || "");
           setGoogleVerification(normalizeGoogleVerification(data.google_verification || ""));
       }
+      const { data: us } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "unsplash_access_key")
+        .maybeSingle();
+      if (us?.value) setUnsplashKey(us.value);
     };
     load();
   }, []);
+
+  const handleSaveUnsplash = async () => {
+    setSavingUnsplash(true);
+    try {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert(
+          { key: "unsplash_access_key", value: unsplashKey.trim(), description: "Unsplash API Access Key for site factory photos" },
+          { onConflict: "key" },
+        );
+      if (error) throw error;
+      toast.success("Unsplash Access Key сохранен");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка сохранения");
+    } finally {
+      setSavingUnsplash(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!settingsId) return;
