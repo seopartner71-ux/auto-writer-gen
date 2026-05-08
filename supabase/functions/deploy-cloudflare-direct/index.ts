@@ -825,6 +825,7 @@ serve(async (req) => {
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           ...commonOpts,
           authors: enrichedAuthors,
+          unsplashAttribution,
         };
         const allPosts = posts.map((p: any) => ({
           title: p.title, slug: p.slug, excerpt: p.excerpt || "",
