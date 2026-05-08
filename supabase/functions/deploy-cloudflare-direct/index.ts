@@ -14,7 +14,7 @@ import { hash as blake3 } from "npm:blake3-wasm@2.1.5";
 import { renderTemplate } from "./templates.ts";
 import { ACCENT_COLORS, FONT_PAIRS, pickRandom, type TemplateType } from "./styles.ts";
 import { renderDbTemplate, type DbTemplate } from "./dbTemplate.ts";
-import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages, ensureSiteIcon } from "./landingPage.ts";
+import { generateLandingContent, renderLandingHtml, pickSkin, ensureLandingImages, ensureSiteIcon, ensureUnsplashImages } from "./landingPage.ts";
 import { headerHtml as chromeHeaderHtml, footerHtml as chromeFooterHtml, chromeStyles, build404Page, pickAuthor } from "./seoChrome.ts";
 import { renderMagazineHome, renderMagazineArticle, magazineExtraCss } from "./magazinePage.ts";
 import { renderNewsHome, renderNewsArticle, newsExtraCss } from "./newsPage.ts";
@@ -798,6 +798,13 @@ serve(async (req) => {
             posts: posts.slice(0, 3).map((p) => ({ title: p.title, slug: p.slug })),
           },
         );
+        // Backfill any missing slots from Unsplash. If the Unsplash key is not
+        // configured, this is a no-op and we keep the existing fallbacks.
+        let unsplashAttribution = false;
+        {
+          const r = await ensureUnsplashImages(supabaseAdmin, projectId, topic, generatedImages);
+          unsplashAttribution = r.attributions.length > 0;
+        }
         let authorPhotos: string[] = [];
         try {
           const { data: cached } = await supabaseAdmin
@@ -818,6 +825,7 @@ serve(async (req) => {
           accent, headingFont: fontPair[0], bodyFont: fontPair[1],
           ...commonOpts,
           authors: enrichedAuthors,
+          unsplashAttribution,
         };
         const allPosts = posts.map((p: any) => ({
           title: p.title, slug: p.slug, excerpt: p.excerpt || "",
@@ -1001,6 +1009,12 @@ serve(async (req) => {
           posts: posts.slice(0, 3).map((p) => ({ title: p.title, slug: p.slug })),
         },
       );
+      // Backfill remaining slots from Unsplash (if access key is configured).
+      let landingUnsplashAttribution = false;
+      {
+        const r = await ensureUnsplashImages(supabaseAdmin, projectId, topic, generatedImages);
+        landingUnsplashAttribution = r.attributions.length > 0;
+      }
       const landingHtml = renderLandingHtml(
         {
           siteName, topic, lang: lang as "ru" | "en",
@@ -1028,6 +1042,7 @@ serve(async (req) => {
             domain, siteName, siteAbout, topic, lang,
             accent, headingFont: fontPair[0], bodyFont: fontPair[1],
             ...commonOpts,
+            unsplashAttribution: landingUnsplashAttribution,
           };
           return {
             headerHtml: chromeHeaderHtml(chrome),

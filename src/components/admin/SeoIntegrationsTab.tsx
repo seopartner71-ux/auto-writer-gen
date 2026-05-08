@@ -14,6 +14,8 @@ export function SeoIntegrationsTab() {
   const [googleVerification, setGoogleVerification] = useState("");
   const [saving, setSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
+  const [unsplashKey, setUnsplashKey] = useState("");
+  const [savingUnsplash, setSavingUnsplash] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -28,9 +30,33 @@ export function SeoIntegrationsTab() {
         setYandexVerification(data.yandex_verification || "");
           setGoogleVerification(normalizeGoogleVerification(data.google_verification || ""));
       }
+      const { data: us } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "unsplash_access_key")
+        .maybeSingle();
+      if (us?.value) setUnsplashKey(us.value);
     };
     load();
   }, []);
+
+  const handleSaveUnsplash = async () => {
+    setSavingUnsplash(true);
+    try {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert(
+          { key: "unsplash_access_key", value: unsplashKey.trim(), description: "Unsplash API Access Key for site factory photos" },
+          { onConflict: "key" },
+        );
+      if (error) throw error;
+      toast.success("Unsplash Access Key сохранен");
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка сохранения");
+    } finally {
+      setSavingUnsplash(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!settingsId) return;
@@ -129,6 +155,36 @@ export function SeoIntegrationsTab() {
         <Save className="h-4 w-4 mr-2" />
         {saving ? "Сохранение..." : "Сохранить настройки"}
       </Button>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="h-4 w-4 text-primary" />
+            Unsplash API
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Ключ для подбора реальных фото на сайтах фабрики. Если не задан - используются стоковые фото.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Unsplash Access Key</Label>
+            <Input
+              value={unsplashKey}
+              onChange={(e) => setUnsplashKey(e.target.value)}
+              placeholder="Access Key"
+              className="text-sm font-mono max-w-md"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Получить ключ на unsplash.com/developers
+            </p>
+          </div>
+          <Button onClick={handleSaveUnsplash} disabled={savingUnsplash} size="sm">
+            <Save className="h-4 w-4 mr-2" />
+            {savingUnsplash ? "Сохранение..." : "Сохранить"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -85,6 +85,8 @@ export interface SiteChrome {
   totopPosition?: "left-bottom" | "right-bottom" | "left-top" | "right-top" | "hidden";
   /** Short brand tagline rendered under siteName (deterministic per project). */
   tagline?: string;
+  /** Show "Photos by Unsplash" attribution in footer (license requirement). */
+  unsplashAttribution?: boolean;
 }
 
 export interface PageMeta {
@@ -463,6 +465,10 @@ export function footerHtml(c: SiteChrome): string {
     ? `<a class="site-footer__partner" href="${escAttr(c.footerLinkUrl)}" rel="nofollow noopener">${escHtml(c.footerLinkText)}</a>`
     : "";
 
+  const unsplashCredit = c.unsplashAttribution
+    ? `<div class="site-footer__credit"><a href="https://unsplash.com" rel="nofollow noopener" target="_blank">Photos by Unsplash</a></div>`
+    : "";
+
   return `<footer class="site-footer">
   <div class="site-footer__inner">
     <nav class="site-footer__nav" aria-label="${isRu ? "Подвал" : "Footer"}">
@@ -475,6 +481,7 @@ export function footerHtml(c: SiteChrome): string {
       ${trustHtml}
       <div>&copy; ${c.foundingYear ? `${c.foundingYear}-${year}` : year} ${escHtml(owner)}</div>
       ${footerExtra}
+      ${unsplashCredit}
     </div>
   </div>
 </footer>
