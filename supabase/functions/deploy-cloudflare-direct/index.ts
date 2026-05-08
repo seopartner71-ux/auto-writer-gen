@@ -1009,6 +1009,12 @@ serve(async (req) => {
           posts: posts.slice(0, 3).map((p) => ({ title: p.title, slug: p.slug })),
         },
       );
+      // Backfill remaining slots from Unsplash (if access key is configured).
+      let landingUnsplashAttribution = false;
+      {
+        const r = await ensureUnsplashImages(supabaseAdmin, projectId, topic, generatedImages);
+        landingUnsplashAttribution = r.attributions.length > 0;
+      }
       const landingHtml = renderLandingHtml(
         {
           siteName, topic, lang: lang as "ru" | "en",
@@ -1036,6 +1042,7 @@ serve(async (req) => {
             domain, siteName, siteAbout, topic, lang,
             accent, headingFont: fontPair[0], bodyFont: fontPair[1],
             ...commonOpts,
+            unsplashAttribution: landingUnsplashAttribution,
           };
           return {
             headerHtml: chromeHeaderHtml(chrome),
