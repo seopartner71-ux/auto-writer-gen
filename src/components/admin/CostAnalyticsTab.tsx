@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, Calendar, TrendingUp, Layers, Download, Loader2 } from "lucide-react";
+import { DollarSign, Calendar, TrendingUp, Layers, Download, Loader2, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 const OP_LABELS: Record<string, string> = {
@@ -91,6 +91,21 @@ export function CostAnalyticsTab() {
     staleTime: 60_000,
   });
 
+  // Отдельная статистика только по генерации статей (без учёта остальных фильтров)
+  const articlesOnly = useQuery({
+    queryKey: ["cost-articles-only"],
+    queryFn: () => callAnalytics("by_type", { operation_type: "article_generation" }),
+    staleTime: 60_000,
+  });
+  const articlesStat = useMemo(() => {
+    const item = (articlesOnly.data?.items || []).find((it: any) => it.operation_type === "article_generation");
+    return {
+      total_usd: Number(item?.total_usd || 0),
+      count: Number(item?.count || 0),
+      avg_usd: Number(item?.avg_usd || 0),
+    };
+  }, [articlesOnly.data]);
+
   const rate = (summary.data?.usd_to_rub as number) || 90;
 
   const downloadCsv = async () => {
@@ -117,13 +132,21 @@ export function CostAnalyticsTab() {
   return (
     <div className="space-y-6">
       {/* KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Всего потрачено"
           icon={<DollarSign className="h-4 w-4" />}
           usd={summary.data?.total_usd || 0}
           rate={rate}
           loading={summary.isLoading}
+        />
+        <KpiCard
+          label={`Только статьи${articlesStat.count ? ` (${articlesStat.count})` : ""}`}
+          icon={<FileText className="h-4 w-4" />}
+          usd={articlesStat.total_usd}
+          rate={rate}
+          loading={articlesOnly.isLoading}
+          hint={articlesStat.count ? `Средняя: ${fmtUsd(articlesStat.avg_usd)} / статью` : undefined}
         />
         <KpiCard
           label="За этот месяц"
@@ -311,7 +334,7 @@ export function CostAnalyticsTab() {
   );
 }
 
-function KpiCard({ label, icon, usd, rate, loading }: { label: string; icon: React.ReactNode; usd: number; rate: number; loading: boolean }) {
+function KpiCard({ label, icon, usd, rate, loading, hint }: { label: string; icon: React.ReactNode; usd: number; rate: number; loading: boolean; hint?: string }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -325,6 +348,7 @@ function KpiCard({ label, icon, usd, rate, loading }: { label: string; icon: Rea
           <>
             <div className="text-2xl font-bold">{fmtUsd(usd)}</div>
             <div className="text-xs text-muted-foreground">{fmtRub(usd, rate)}</div>
+            {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
           </>
         )}
       </CardContent>
