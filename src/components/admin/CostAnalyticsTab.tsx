@@ -85,6 +85,12 @@ export function CostAnalyticsTab() {
     staleTime: 60_000,
   });
 
+  const byUser = useQuery({
+    queryKey: ["cost-by-user", filterParams],
+    queryFn: () => callAnalytics("by_user", filterParams as any),
+    staleTime: 60_000,
+  });
+
   const forecast = useQuery({
     queryKey: ["cost-forecast"],
     queryFn: () => callAnalytics("forecast"),
@@ -291,6 +297,49 @@ export function CostAnalyticsTab() {
               ))}
               {!byProject.isLoading && (byProject.data?.items || []).length === 0 && (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Данных пока нет</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* By user */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Расходы по пользователям</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Пользователь</TableHead>
+                <TableHead className="text-right">Статей</TableHead>
+                <TableHead className="text-right">Сайтов</TableHead>
+                <TableHead className="text-right">Фото</TableHead>
+                <TableHead className="text-right">Деплои</TableHead>
+                <TableHead className="text-right">Автопост</TableHead>
+                <TableHead className="text-right">Итого $</TableHead>
+                <TableHead className="text-right">≈ ₽</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(byUser.data?.items || []).map((it: any) => (
+                <TableRow key={it.user_id}>
+                  <TableCell>
+                    <div className="font-medium">{it.full_name || it.email || "(без имени)"}</div>
+                    <div className="text-xs text-muted-foreground">{it.email || it.user_id}</div>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">{it.articles}</TableCell>
+                  <TableCell className="text-right">{it.sites}</TableCell>
+                  <TableCell className="text-right">{it.photos}</TableCell>
+                  <TableCell className="text-right">{it.deploys}</TableCell>
+                  <TableCell className="text-right">{it.auto_post}</TableCell>
+                  <TableCell className="text-right font-medium">{fmtUsd(it.total_usd)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{fmtRub(it.total_usd, rate)}</TableCell>
+                </TableRow>
+              ))}
+              {!byUser.isLoading && (byUser.data?.items || []).length === 0 && (
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Данных пока нет</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
