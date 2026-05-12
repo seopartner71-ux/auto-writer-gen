@@ -658,6 +658,60 @@ function OpenRouterBudgetCard({
     staleTime: 30_000,
   });
 
+  // Articles + cost data since the earliest topup, for per-period stats
+  const earliestTopup = useMemo(() => {
+    const list = topups.data || [];
+    if (!list.length) return null;
+    return list.reduce((min, t) => (t.topped_up_at < min ? t.topped_up_at : min), list[0].topped_up_at);
+  }, [topups.data]);
+
+  const periodStats = useQuery({
+    queryKey: ["openrouter-period-stats", earliestTopup],
+    enabled: !!earliestTopup,
+    queryFn: async () => {
+      const since = earliestTopup!;
+      const [articlesRes, costRes] = await Promise.all([
+        supabase
+          .from("articles")
+          .select("id, created_at")
+          .gte("created_at", since)
+          .order("created_at", { ascending: true })
+          .limit(10000),
+        supabase
+          .from("cost_log")
+          .select("created_at, cost_usd")
+          .gte("created_at", since)
+          .order("created_at", { ascending: true })
+          .limit(50000),
+      ]);
+      if (articlesRes.error) throw articlesRes.error;
+      if (costRes.error) throw costRes.error;
+      return {
+        articles: (articlesRes.data || []) as { id: string; created_at: string }[],
+        costs: (costRes.data || []) as { created_at: string; cost_usd: number }[],
+      };
+    },
+    staleTime: 30_000,
+  });
+
+  // Map topup id -> { articles, spent } in [topup.date, nextTopup.date)
+  const perPeriod = useMemo(() => {
+    const list = (topups.data || []).slice().sort((a, b) => a.topped_up_at.localeCompare(b.topped_up_at));
+    const result: Record<string, { articles: number; spent: number; nextDate: string | null }> = {};
+    if (!list.length || !periodStats.data) return result;
+    const articles = periodStats.data.articles;
+    const costs = periodStats.data.costs;
+    for (let i = 0; i < list.length; i++) {
+      const start = list[i].topped_up_at;
+      const end = i + 1 < list.length ? list[i + 1].topped_up_at : null;
+      const inRange = (ts: string) => ts >= start && (end === null || ts < end);
+      const aCount = articles.filter((a) => inRange(a.created_at)).length;
+      const spent = costs.reduce((s, c) => (inRange(c.created_at) ? s + Number(c.cost_usd || 0) : s), 0);
+      result[list[i].id] = { articles: aCount, spent, nextDate: end };
+    }
+    return result;
+  }, [topups.data, periodStats.data]);
+
   const totalTopped = useMemo(
     () => (topups.data || []).reduce((s, t) => s + Number(t.amount_usd || 0), 0),
     [topups.data]
@@ -809,28 +863,69 @@ function OpenRouterBudgetCard({
                   <tr className="border-b text-xs text-muted-foreground">
                     <th className="text-left py-2 pr-4">Дата</th>
                     <th className="text-right py-2 px-2">Сумма</th>
+                    <th className="text-right py-2 px-2">Статей после</th>
+                    <th className="text-right py-2 px-2">Потрачено</th>
+                    <th className="text-right py-2 px-2">Ср. за статью</th>
                     <th className="text-left py-2 px-2">Комментарий</th>
                     <th className="py-2 pl-2 w-10" />
                   </tr>
                 </thead>
                 <tbody>
-                  {topups.data.map((t) => (
-                    <tr key={t.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4">{new Date(t.topped_up_at).toLocaleDateString("ru-RU")}</td>
-                      <td className="text-right py-2 px-2 font-medium">
-                        {fmtUsd(Number(t.amount_usd))}
-                        <div className="text-[11px] text-muted-foreground">{fmtRub(Number(t.amount_usd), rate)}</div>
-                      </td>
-                      <td className="py-2 px-2 text-muted-foreground">{t.note || "—"}</td>
-                      <td className="py-2 pl-2">
-                        <Button variant="ghost" size="icon" onClick={() => removeTopup(t.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {topups.data.map((t) => {
+                    const p = perPeriod[t.id];
+                    const articles = p?.articles ?? 0;
+                    const spent = p?.spent ?? 0;
+                    const avg = articles > 0 ? spent / articles : 0;
+                    const periodLabel = p?.nextDate
+                      ? `до ${new Date(p.nextDate).toLocaleDateString("ru-RU")}`
+                      : "по сегодня";
+                    const isCurrent = !p?.nextDate;
+                    return (
+                      <tr key={t.id} className="border-b last:border-0">
+                        <td className="py-2 pr-4">
+                          {new Date(t.topped_up_at).toLocaleDateString("ru-RU")}
+                          <div className="text-[11px] text-muted-foreground">{periodLabel}</div>
+                        </td>
+                        <td className="text-right py-2 px-2 font-medium">
+                          {fmtUsd(Number(t.amount_usd))}
+                          <div className="text-[11px] text-muted-foreground">{fmtRub(Number(t.amount_usd), rate)}</div>
+                        </td>
+                        <td className="text-right py-2 px-2">
+                          {periodStats.isLoading ? <Loader2 className="h-3 w-3 animate-spin inline" /> : articles}
+                        </td>
+                        <td className="text-right py-2 px-2">
+                          {fmtUsd(spent)}
+                          <div className="text-[11px] text-muted-foreground">{fmtRub(spent, rate)}</div>
+                          {isCurrent && Number(t.amount_usd) > 0 && (
+                            <div className="text-[11px] text-muted-foreground">
+                              остаток: {fmtUsd(Number(t.amount_usd) - spent)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-right py-2 px-2">
+                          {avg > 0 ? (
+                            <>
+                              {fmtUsd(avg)}
+                              <div className="text-[11px] text-muted-foreground">{fmtRub(avg, rate)}</div>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-muted-foreground">{t.note || "—"}</td>
+                        <td className="py-2 pl-2">
+                          <Button variant="ghost" size="icon" onClick={() => removeTopup(t.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+              <p className="text-xs text-muted-foreground mt-2">
+                "Статей после" - сколько статей создано в период от этого пополнения до следующего (или до сегодня). "Потрачено" и "Ср. за статью" - реальные расходы по cost_log в этом периоде.
+              </p>
             </div>
           )}
         </div>
