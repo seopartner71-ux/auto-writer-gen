@@ -12,6 +12,7 @@ import { useOnboarding } from "@/shared/hooks/useOnboarding";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { useChangelogNotifier } from "@/shared/hooks/useChangelogNotifier";
 import { useTariffUpdateNotifier } from "@/shared/hooks/useTariffUpdateNotifier";
+import { usePresenceHeartbeat } from "@/shared/hooks/usePresenceHeartbeat";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -21,6 +22,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const onboarding = useOnboarding();
   useChangelogNotifier();
   useTariffUpdateNotifier();
+  usePresenceHeartbeat();
 
   return (
     <SidebarProvider>
