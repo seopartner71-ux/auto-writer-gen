@@ -34,7 +34,7 @@ serve(async (req) => {
     const userId = payload.sub as string;
     if (!userId) return j({ error: "Unauthorized" }, 401);
 
-    const { keyword, language = "ru", existing_outline } = await req.json();
+    const { keyword, language = "ru", existing_outline, article_id } = await req.json();
     if (!keyword || typeof keyword !== "string") return j({ error: "keyword required" }, 400);
 
     // If user already has an outline (from Research step), just reuse it.
@@ -114,13 +114,20 @@ ${language === "ru" ? "- В русском НИКОГДА не использу�
     if (!h1 || h2.length < 2) return j({ error: "Failed to parse outline" }, 500);
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    let projectIdForCost: string | null = null;
+    if (article_id && typeof article_id === "string") {
+      const { data: artForCost } = await admin
+        .from("articles").select("project_id").eq("id", article_id).maybeSingle();
+      projectIdForCost = artForCost?.project_id || null;
+    }
     await logCost(admin, {
       user_id: userId,
+      project_id: projectIdForCost,
       operation_type: "article_generation",
       model: "google/gemini-2.5-flash-lite",
       tokens_input: data?.usage?.prompt_tokens || 0,
       tokens_output: data?.usage?.completion_tokens || 0,
-      metadata: { kind: "outline" },
+      metadata: { kind: "outline", article_id: article_id || null },
     });
 
     return j({ h1, h2, source: "ai" });

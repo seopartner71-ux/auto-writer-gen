@@ -104,7 +104,7 @@ export function SectionedGenerator({
     setPhase("outlining");
     try {
       const { data, error } = await supabase.functions.invoke("generate-section-outline", {
-        body: { keyword, language, existing_outline: existingOutline },
+        body: { keyword, language, existing_outline: existingOutline, article_id: articleId },
       });
       if (error) throw error;
       if (!data?.h1 || !Array.isArray(data?.h2)) throw new Error("Bad outline response");
