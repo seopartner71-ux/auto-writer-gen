@@ -620,3 +620,221 @@ function TimeseriesChart({ series }: { series: any[] }) {
     </div>
   );
 }
+
+interface Topup {
+  id: string;
+  amount_usd: number;
+  note: string | null;
+  topped_up_at: string;
+}
+
+function OpenRouterBudgetCard({
+  rate,
+  totalSpentUsd,
+  last30SpentUsd,
+  avgPerArticleUsd,
+}: {
+  rate: number;
+  totalSpentUsd: number;
+  last30SpentUsd: number;
+  avgPerArticleUsd: number;
+}) {
+  const qc = useQueryClient();
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [date, setDate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const topups = useQuery({
+    queryKey: ["openrouter-topups"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("openrouter_topups")
+        .select("*")
+        .order("topped_up_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as Topup[];
+    },
+    staleTime: 30_000,
+  });
+
+  const totalTopped = useMemo(
+    () => (topups.data || []).reduce((s, t) => s + Number(t.amount_usd || 0), 0),
+    [topups.data]
+  );
+  const remaining = totalTopped - totalSpentUsd;
+  const dailyBurn = last30SpentUsd / 30;
+  const daysLeft = dailyBurn > 0 ? remaining / dailyBurn : Infinity;
+  const articlesLeft = avgPerArticleUsd > 0 ? remaining / avgPerArticleUsd : 0;
+  const burnRatio = totalTopped > 0 ? Math.min(100, (totalSpentUsd / totalTopped) * 100) : 0;
+
+  const addTopup = async () => {
+    const amt = parseFloat(amount.replace(",", "."));
+    if (!amt || amt <= 0) {
+      toast.error("Введите сумму больше 0");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const { error } = await supabase.from("openrouter_topups").insert({
+        amount_usd: amt,
+        note: note || null,
+        topped_up_at: date ? new Date(date).toISOString() : new Date().toISOString(),
+        created_by: userRes.user?.id || null,
+      });
+      if (error) throw error;
+      toast.success("Пополнение добавлено");
+      setAmount("");
+      setNote("");
+      setDate("");
+      qc.invalidateQueries({ queryKey: ["openrouter-topups"] });
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeTopup = async (id: string) => {
+    if (!confirm("Удалить запись о пополнении?")) return;
+    const { error } = await supabase.from("openrouter_topups").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["openrouter-topups"] });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Wallet className="h-4 w-4" /> Бюджет OpenRouter
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid gap-3 md:grid-cols-5">
+          <div className="rounded-lg border p-3">
+            <div className="text-xs text-muted-foreground mb-1">Всего пополнено</div>
+            <div className="font-semibold">{fmtUsd(totalTopped)}</div>
+            <div className="text-[11px] text-muted-foreground">{fmtRub(totalTopped, rate)}</div>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="text-xs text-muted-foreground mb-1">Потрачено всего</div>
+            <div className="font-semibold">{fmtUsd(totalSpentUsd)}</div>
+            <div className="text-[11px] text-muted-foreground">{fmtRub(totalSpentUsd, rate)}</div>
+          </div>
+          <div className={`rounded-lg border p-3 ${remaining < 5 ? "bg-destructive/10" : "bg-primary/5"}`}>
+            <div className="text-xs text-muted-foreground mb-1">Остаток</div>
+            <div className="font-semibold">{fmtUsd(remaining)}</div>
+            <div className="text-[11px] text-muted-foreground">{fmtRub(remaining, rate)}</div>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="text-xs text-muted-foreground mb-1">Хватит дней</div>
+            <div className="font-semibold">
+              {Number.isFinite(daysLeft) && daysLeft > 0 ? `${Math.floor(daysLeft)} дн.` : "—"}
+            </div>
+            <div className="text-[11px] text-muted-foreground">Расход: {fmtUsd(dailyBurn)}/день</div>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="text-xs text-muted-foreground mb-1">Хватит статей</div>
+            <div className="font-semibold">
+              {avgPerArticleUsd > 0 ? `≈ ${Math.floor(articlesLeft)}` : "—"}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              Ср.: {fmtUsd(avgPerArticleUsd)} / статью
+            </div>
+          </div>
+        </div>
+
+        {/* Burn progress bar */}
+        {totalTopped > 0 && (
+          <div>
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <span>Израсходовано</span>
+              <span>{burnRatio.toFixed(1)}%</span>
+            </div>
+            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full ${burnRatio > 85 ? "bg-destructive" : burnRatio > 60 ? "bg-amber-500" : "bg-primary"}`}
+                style={{ width: `${burnRatio}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Add topup form */}
+        <div className="rounded-lg border p-3 space-y-2">
+          <div className="text-sm font-medium">Добавить пополнение</div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted-foreground">Сумма (USD)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="50"
+                className="w-[140px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted-foreground">Дата</label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-[170px]" />
+            </div>
+            <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+              <label className="text-xs text-muted-foreground">Комментарий</label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="напр. с карты Тинькофф" />
+            </div>
+            <Button onClick={addTopup} disabled={saving} size="sm">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Добавить
+            </Button>
+          </div>
+        </div>
+
+        {/* History */}
+        <div>
+          <div className="text-sm font-medium mb-2">История пополнений</div>
+          {topups.isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : !topups.data?.length ? (
+            <div className="text-sm text-muted-foreground">Пополнений ещё нет</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-xs text-muted-foreground">
+                    <th className="text-left py-2 pr-4">Дата</th>
+                    <th className="text-right py-2 px-2">Сумма</th>
+                    <th className="text-left py-2 px-2">Комментарий</th>
+                    <th className="py-2 pl-2 w-10" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {topups.data.map((t) => (
+                    <tr key={t.id} className="border-b last:border-0">
+                      <td className="py-2 pr-4">{new Date(t.topped_up_at).toLocaleDateString("ru-RU")}</td>
+                      <td className="text-right py-2 px-2 font-medium">
+                        {fmtUsd(Number(t.amount_usd))}
+                        <div className="text-[11px] text-muted-foreground">{fmtRub(Number(t.amount_usd), rate)}</div>
+                      </td>
+                      <td className="py-2 px-2 text-muted-foreground">{t.note || "—"}</td>
+                      <td className="py-2 pl-2">
+                        <Button variant="ghost" size="icon" onClick={() => removeTopup(t.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
