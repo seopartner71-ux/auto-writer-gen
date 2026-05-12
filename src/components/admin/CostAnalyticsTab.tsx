@@ -628,13 +628,9 @@ interface Topup {
 
 function OpenRouterBudgetCard({
   rate,
-  totalSpentUsd,
-  last30SpentUsd,
   avgPerArticleUsd,
 }: {
   rate: number;
-  totalSpentUsd: number;
-  last30SpentUsd: number;
   avgPerArticleUsd: number;
 }) {
   const qc = useQueryClient();
@@ -714,11 +710,25 @@ function OpenRouterBudgetCard({
     () => (topups.data || []).reduce((s, t) => s + Number(t.amount_usd || 0), 0),
     [topups.data]
   );
-  const remaining = totalTopped - totalSpentUsd;
-  const dailyBurn = last30SpentUsd / 30;
+
+  // Spent strictly since the first topup
+  const totalSpentSinceFirst = useMemo(
+    () => (periodStats.data?.costs || []).reduce((s, c) => s + Number(c.cost_usd || 0), 0),
+    [periodStats.data]
+  );
+
+  // Daily burn over the actual period since first topup (min 1 day)
+  const daysSinceFirst = useMemo(() => {
+    if (!earliestTopup) return 1;
+    const diffMs = Date.now() - new Date(earliestTopup).getTime();
+    return Math.max(1, diffMs / (1000 * 60 * 60 * 24));
+  }, [earliestTopup]);
+
+  const remaining = totalTopped - totalSpentSinceFirst;
+  const dailyBurn = totalSpentSinceFirst / daysSinceFirst;
   const daysLeft = dailyBurn > 0 ? remaining / dailyBurn : Infinity;
   const articlesLeft = avgPerArticleUsd > 0 ? remaining / avgPerArticleUsd : 0;
-  const burnRatio = totalTopped > 0 ? Math.min(100, (totalSpentUsd / totalTopped) * 100) : 0;
+  const burnRatio = totalTopped > 0 ? Math.min(100, (totalSpentSinceFirst / totalTopped) * 100) : 0;
 
   const addTopup = async () => {
     const amt = parseFloat(amount.replace(",", "."));
