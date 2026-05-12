@@ -624,6 +624,16 @@ interface Topup {
   amount_usd: number;
   note: string | null;
   topped_up_at: string;
+  created_at?: string | null;
+}
+
+function effectiveTopupAt(t: Topup): string {
+  if (!t.created_at) return t.topped_up_at;
+  const topped = new Date(t.topped_up_at);
+  const created = new Date(t.created_at);
+  const isDateOnly = topped.getUTCHours() === 0 && topped.getUTCMinutes() === 0 && topped.getUTCSeconds() === 0;
+  const sameUtcDay = topped.toISOString().slice(0, 10) === created.toISOString().slice(0, 10);
+  return isDateOnly && sameUtcDay ? t.created_at : t.topped_up_at;
 }
 
 function OpenRouterBudgetCard({
@@ -656,48 +666,39 @@ function OpenRouterBudgetCard({
   const earliestTopup = useMemo(() => {
     const list = topups.data || [];
     if (!list.length) return null;
-    return list.reduce((min, t) => (t.topped_up_at < min ? t.topped_up_at : min), list[0].topped_up_at);
+    return list.reduce((min, t) => {
+      const effective = effectiveTopupAt(t);
+      return effective < min ? effective : min;
+    }, effectiveTopupAt(list[0]));
   }, [topups.data]);
 
   const periodStats = useQuery({
     queryKey: ["openrouter-period-stats", earliestTopup],
     enabled: !!earliestTopup,
-    queryFn: async () => {
-      const since = earliestTopup!;
-      const [articlesRes, costRes] = await Promise.all([
-        supabase
-          .from("articles")
-          .select("id, created_at")
-          .gte("created_at", since)
-          .order("created_at", { ascending: true })
-          .limit(10000),
-        supabase
-          .from("cost_log")
-          .select("created_at, cost_usd")
-          .gte("created_at", since)
-          .order("created_at", { ascending: true })
-          .limit(50000),
-      ]);
-      if (articlesRes.error) throw articlesRes.error;
-      if (costRes.error) throw costRes.error;
+    queryFn: async (): Promise<{
+      articles: { id: string; created_at: string }[];
+      costs: { created_at: string; cost_usd: number }[];
+    }> => {
+      const data = await callAnalytics("openrouter_period_stats", { date_from: earliestTopup! });
       return {
-        articles: (articlesRes.data || []) as { id: string; created_at: string }[],
-        costs: (costRes.data || []) as { created_at: string; cost_usd: number }[],
+        articles: (data?.articles || []) as { id: string; created_at: string }[],
+        costs: (data?.costs || []) as { created_at: string; cost_usd: number }[],
       };
     },
-    staleTime: 30_000,
+    refetchInterval: 15_000,
+    staleTime: 0,
   });
 
   // Map topup id -> { articles, spent } in [topup.date, nextTopup.date)
   const perPeriod = useMemo(() => {
-    const list = (topups.data || []).slice().sort((a, b) => a.topped_up_at.localeCompare(b.topped_up_at));
+    const list = (topups.data || []).slice().sort((a, b) => effectiveTopupAt(a).localeCompare(effectiveTopupAt(b)));
     const result: Record<string, { articles: number; spent: number; nextDate: string | null }> = {};
     if (!list.length || !periodStats.data) return result;
     const articles = periodStats.data.articles;
     const costs = periodStats.data.costs;
     for (let i = 0; i < list.length; i++) {
-      const start = list[i].topped_up_at;
-      const end = i + 1 < list.length ? list[i + 1].topped_up_at : null;
+      const start = effectiveTopupAt(list[i]);
+      const end = i + 1 < list.length ? effectiveTopupAt(list[i + 1]) : null;
       const inRange = (ts: string) => ts >= start && (end === null || ts < end);
       const aCount = articles.filter((a) => inRange(a.created_at)).length;
       const spent = costs.reduce((s, c) => (inRange(c.created_at) ? s + Number(c.cost_usd || 0) : s), 0);
@@ -751,6 +752,7 @@ function OpenRouterBudgetCard({
       setNote("");
       setDate("");
       qc.invalidateQueries({ queryKey: ["openrouter-topups"] });
+      qc.invalidateQueries({ queryKey: ["openrouter-period-stats"] });
     } catch (e: any) {
       toast.error(e.message || "Ошибка");
     } finally {
@@ -766,6 +768,7 @@ function OpenRouterBudgetCard({
       return;
     }
     qc.invalidateQueries({ queryKey: ["openrouter-topups"] });
+    qc.invalidateQueries({ queryKey: ["openrouter-period-stats"] });
   };
 
   return (

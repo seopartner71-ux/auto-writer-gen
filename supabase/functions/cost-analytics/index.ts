@@ -106,6 +106,35 @@ serve(async (req) => {
       return q;
     };
 
+    // ---- openrouter_period_stats ----
+    // Admin-safe source for the OpenRouter budget widget. The widget must not
+    // rely on direct client reads from cost_log, otherwise RLS/cache states can
+    // make the current deposit period look unchanged after a new generation.
+    if (action === "openrouter_period_stats") {
+      if (!dateFrom) return json({ error: "date_from is required" }, 400);
+      const aiCostTypes = ["article_generation", "site_generation", "auto_post_cron"];
+      const [articlesRes, costRes] = await Promise.all([
+        admin.from("articles")
+          .select("id, created_at")
+          .gte("created_at", dateFrom)
+          .order("created_at", { ascending: true })
+          .limit(10000),
+        admin.from("cost_log")
+          .select("created_at, cost_usd, operation_type")
+          .gte("created_at", dateFrom)
+          .in("operation_type", aiCostTypes)
+          .order("created_at", { ascending: true })
+          .limit(50000),
+      ]);
+      if (articlesRes.error) return json({ error: articlesRes.error.message }, 500);
+      if (costRes.error) return json({ error: costRes.error.message }, 500);
+      return json({
+        usd_to_rub: usdToRub,
+        articles: articlesRes.data || [],
+        costs: costRes.data || [],
+      });
+    }
+
     // ---- by_type ----
     if (action === "by_type") {
       const { data, error } = await buildQuery();
