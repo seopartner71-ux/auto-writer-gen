@@ -36,7 +36,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="vault" className="w-full">
-        <TabsList className="bg-muted border border-border flex-wrap">
+        <TabsList className="bg-muted border border-border flex-wrap h-auto gap-1 p-1 justify-start">
           <TabsTrigger value="vault">API Vault</TabsTrigger>
           <TabsTrigger value="routing">Model Routing</TabsTrigger>
           <TabsTrigger value="abtest">A/B тест</TabsTrigger>
