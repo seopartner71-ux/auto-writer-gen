@@ -1565,6 +1565,33 @@ export type Database = {
         }
         Relationships: []
       }
+      openrouter_topups: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          topped_up_at: string
+        }
+        Insert: {
+          amount_usd: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          topped_up_at?: string
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          topped_up_at?: string
+        }
+        Relationships: []
+      }
       paa_questions: {
         Row: {
           answer_snippet: string | null
