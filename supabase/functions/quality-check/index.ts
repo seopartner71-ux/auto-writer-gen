@@ -703,8 +703,11 @@ Deno.serve(async (req) => {
     // Cost logging
     const totalIn = (out.score?.tokens_in || 0) + (out.ai?.tokens_in || 0);
     const totalOut = (out.score?.tokens_out || 0) + (out.ai?.tokens_out || 0);
+    const { data: artForCost } = await admin
+      .from("articles").select("project_id").eq("id", article_id).maybeSingle();
     void logCost(admin, {
       user_id: user.id,
+      project_id: artForCost?.project_id || null,
       operation_type: "article_generation" as any,
       model: "google/gemini-2.5-flash-lite",
       tokens_input: totalIn,
