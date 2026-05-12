@@ -334,7 +334,7 @@ export function CostAnalyticsTab() {
   );
 }
 
-function KpiCard({ label, icon, usd, rate, loading }: { label: string; icon: React.ReactNode; usd: number; rate: number; loading: boolean }) {
+function KpiCard({ label, icon, usd, rate, loading, hint }: { label: string; icon: React.ReactNode; usd: number; rate: number; loading: boolean; hint?: string }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -348,6 +348,7 @@ function KpiCard({ label, icon, usd, rate, loading }: { label: string; icon: Rea
           <>
             <div className="text-2xl font-bold">{fmtUsd(usd)}</div>
             <div className="text-xs text-muted-foreground">{fmtRub(usd, rate)}</div>
+            {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
           </>
         )}
       </CardContent>
