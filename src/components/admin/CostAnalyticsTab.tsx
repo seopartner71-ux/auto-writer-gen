@@ -333,6 +333,14 @@ export function CostAnalyticsTab() {
         </CardContent>
       </Card>
 
+      {/* OpenRouter budget */}
+      <OpenRouterBudgetCard
+        rate={rate}
+        totalSpentUsd={Number(summary.data?.total_usd || 0)}
+        last30SpentUsd={Number(summary.data?.month_usd || 0)}
+        avgPerArticleUsd={Number(fullArticleCost.data?.full?.avg_per_article_usd || 0)}
+      />
+
       {/* Filters + export */}
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3 p-4">
