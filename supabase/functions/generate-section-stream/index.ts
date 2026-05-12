@@ -237,8 +237,11 @@ ${extra_prompt ? `Дополнительные инструкции пользо
           }
 
           // Best-effort cost log (token counts not available from streaming response)
+          const { data: artForCost } = await admin
+            .from("articles").select("project_id").eq("id", article_id).maybeSingle();
           await logCost(admin, {
             user_id: userId,
+            project_id: artForCost?.project_id || null,
             operation_type: "article_generation",
             model: "google/gemini-2.5-flash",
             metadata: { kind: "section", section_id, article_id, section_index },
