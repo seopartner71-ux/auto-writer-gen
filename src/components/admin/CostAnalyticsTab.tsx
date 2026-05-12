@@ -220,6 +220,64 @@ export function CostAnalyticsTab() {
         </CardContent>
       </Card>
 
+      {/* Per-AI-model breakdown for article generation + refinements */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Средняя цена статьи и доработок по модели ИИ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {articlesBreakdown.isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : !articlesBreakdown.data?.by_model?.length ? (
+            <div className="text-sm text-muted-foreground">Данных пока нет</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-xs text-muted-foreground">
+                    <th className="text-left py-2 pr-4">Модель</th>
+                    <th className="text-right py-2 px-2">Статей</th>
+                    <th className="text-right py-2 px-2">Ср. за статью</th>
+                    <th className="text-right py-2 px-2">Доработок</th>
+                    <th className="text-right py-2 px-2">Ср. за доработку</th>
+                    <th className="text-right py-2 px-2">Ср. полная (статья + доработки)</th>
+                    <th className="text-right py-2 pl-2">Итого</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {articlesBreakdown.data.by_model.map((m: any) => (
+                    <tr key={m.model} className="border-b last:border-0">
+                      <td className="py-2 pr-4 font-mono text-xs">{m.model}</td>
+                      <td className="text-right py-2 px-2">{m.main_count}</td>
+                      <td className="text-right py-2 px-2">
+                        {fmtUsd(m.avg_main_usd)}
+                        <div className="text-[11px] text-muted-foreground">{fmtRub(m.avg_main_usd, rate)}</div>
+                      </td>
+                      <td className="text-right py-2 px-2">{m.refine_count}</td>
+                      <td className="text-right py-2 px-2">
+                        {fmtUsd(m.avg_refine_usd)}
+                        <div className="text-[11px] text-muted-foreground">{fmtRub(m.avg_refine_usd, rate)}</div>
+                      </td>
+                      <td className="text-right py-2 px-2">
+                        {fmtUsd(m.avg_total_per_article_usd)}
+                        <div className="text-[11px] text-muted-foreground">{fmtRub(m.avg_total_per_article_usd, rate)}</div>
+                      </td>
+                      <td className="text-right py-2 pl-2">
+                        {fmtUsd(m.total_usd)}
+                        <div className="text-[11px] text-muted-foreground">{fmtRub(m.total_usd, rate)}</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-xs text-muted-foreground mt-3">
+                Статей - основные генерации (full / посекционно). Доработок - inline-правки, проверки качества, перегенерация структуры. "Ср. полная" - сумма всех расходов на одну статью с учетом её доработок (доработки могут идти на других моделях).
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Filters + export */}
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3 p-4">
