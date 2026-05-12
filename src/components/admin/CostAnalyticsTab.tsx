@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, Calendar, TrendingUp, Layers, Download, Loader2, FileText, PenLine, Factory } from "lucide-react";
+import { DollarSign, Calendar, TrendingUp, Layers, Download, Loader2, FileText, PenLine, Factory, Wallet, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const OP_LABELS: Record<string, string> = {
