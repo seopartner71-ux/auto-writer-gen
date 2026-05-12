@@ -198,6 +198,60 @@ serve(async (req) => {
       return json({ usd_to_rub: usdToRub, items });
     }
 
+    // ---- by_user ----
+    if (action === "by_user") {
+      const { data: rows, error } = await buildQuery();
+      if (error) return json({ error: error.message }, 500);
+
+      const map = new Map<string, {
+        user_id: string;
+        articles: number;
+        sites: number;
+        photos: number;
+        deploys: number;
+        auto_post: number;
+        total_usd: number;
+      }>();
+      for (const r of rows || []) {
+        if (!r.user_id) continue;
+        const e = map.get(r.user_id) || {
+          user_id: r.user_id,
+          articles: 0,
+          sites: 0,
+          photos: 0,
+          deploys: 0,
+          auto_post: 0,
+          total_usd: 0,
+        };
+        e.total_usd += Number(r.cost_usd || 0);
+        if (r.operation_type === "article_generation") e.articles += 1;
+        else if (r.operation_type === "site_generation") e.sites += 1;
+        else if (["fal_ai_photo", "fal_ai_portrait", "fal_ai_logo"].includes(r.operation_type)) e.photos += 1;
+        else if (r.operation_type === "cloudflare_deploy") e.deploys += 1;
+        else if (r.operation_type === "auto_post_cron") e.auto_post += 1;
+        map.set(r.user_id, e);
+      }
+
+      const userIds = Array.from(map.keys());
+      let usersMeta: Record<string, { email: string | null; full_name: string | null }> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await admin.from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds);
+        for (const p of profiles || []) {
+          usersMeta[p.id] = { email: p.email, full_name: p.full_name };
+        }
+      }
+
+      const items = Array.from(map.values()).map((e) => ({
+        ...e,
+        email: usersMeta[e.user_id]?.email || null,
+        full_name: usersMeta[e.user_id]?.full_name || null,
+      })).sort((a, b) => b.articles - a.articles || b.total_usd - a.total_usd);
+
+      return json({ usd_to_rub: usdToRub, items });
+    }
+
     // ---- forecast ----
     if (action === "forecast") {
       const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
