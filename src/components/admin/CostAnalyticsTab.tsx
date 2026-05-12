@@ -739,6 +739,7 @@ function OpenRouterBudgetCard({
       setNote("");
       setDate("");
       qc.invalidateQueries({ queryKey: ["openrouter-topups"] });
+      qc.invalidateQueries({ queryKey: ["openrouter-period-stats"] });
     } catch (e: any) {
       toast.error(e.message || "Ошибка");
     } finally {
@@ -754,6 +755,7 @@ function OpenRouterBudgetCard({
       return;
     }
     qc.invalidateQueries({ queryKey: ["openrouter-topups"] });
+    qc.invalidateQueries({ queryKey: ["openrouter-period-stats"] });
   };
 
   return (
