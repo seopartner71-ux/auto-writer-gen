@@ -304,6 +304,27 @@ serve(async (req) => {
       });
     }
 
+    // ---- articles_breakdown ----
+    if (action === "articles_breakdown") {
+      const { data, error } = await admin.from("cost_log")
+        .select("project_id, cost_usd")
+        .eq("operation_type", "article_generation");
+      if (error) return json({ error: error.message }, 500);
+
+      let manualCount = 0, manualUsd = 0;
+      let factoryCount = 0, factoryUsd = 0;
+      for (const r of data || []) {
+        const usd = Number((r as any).cost_usd || 0);
+        if ((r as any).project_id) { factoryCount++; factoryUsd += usd; }
+        else { manualCount++; manualUsd += usd; }
+      }
+      return json({
+        usd_to_rub: usdToRub,
+        manual: { count: manualCount, total_usd: manualUsd, avg_usd: manualCount ? manualUsd / manualCount : 0 },
+        factory: { count: factoryCount, total_usd: factoryUsd, avg_usd: factoryCount ? factoryUsd / factoryCount : 0 },
+      });
+    }
+
     // ---- export_csv ----
     if (action === "export_csv") {
       const { data, error } = await buildQuery();
