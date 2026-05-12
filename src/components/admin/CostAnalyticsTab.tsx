@@ -109,6 +109,11 @@ export function CostAnalyticsTab() {
     queryFn: () => callAnalytics("articles_breakdown"),
     staleTime: 60_000,
   });
+  const fullArticleCost = useQuery({
+    queryKey: ["cost-full-article"],
+    queryFn: () => callAnalytics("full_article_cost"),
+    staleTime: 60_000,
+  });
   const articlesStat = useMemo(() => {
     const item = (articlesOnly.data?.items || []).find((it: any) => it.operation_type === "article_generation");
     return {
