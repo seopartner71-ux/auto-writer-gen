@@ -64,8 +64,8 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({}));
-    const { text, command, language = "ru" } = body as {
-      text?: string; command?: string; language?: string;
+    const { text, command, language = "ru", article_id } = body as {
+      text?: string; command?: string; language?: string; article_id?: string;
     };
     if (!text || typeof text !== "string") return json({ error: "text required" }, 400);
     if (text.length > 6000) return json({ error: "text too long (max 6000 chars)" }, 400);
@@ -102,13 +102,20 @@ Deno.serve(async (req) => {
     if (!rewritten) return json({ error: "empty response" }, 500);
     rewritten = applyStealthPostProcess(rewritten, lang);
 
+    let projectIdForCost: string | null = null;
+    if (article_id && typeof article_id === "string") {
+      const { data: artForCost } = await admin
+        .from("articles").select("project_id").eq("id", article_id).maybeSingle();
+      projectIdForCost = artForCost?.project_id || null;
+    }
     void logCost(admin, {
       user_id: user.id,
+      project_id: projectIdForCost,
       operation_type: "article_generation" as any,
       model: "google/gemini-2.5-flash",
       tokens_input: data?.usage?.prompt_tokens || 0,
       tokens_output: data?.usage?.completion_tokens || 0,
-      metadata: { kind: "inline_edit", command, chars_in: text.length, chars_out: rewritten.length },
+      metadata: { kind: "inline_edit", command, chars_in: text.length, chars_out: rewritten.length, article_id: article_id || null },
     });
 
     return json({ rewritten, command });
