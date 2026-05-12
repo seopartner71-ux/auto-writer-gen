@@ -109,6 +109,11 @@ export function CostAnalyticsTab() {
     queryFn: () => callAnalytics("articles_breakdown"),
     staleTime: 60_000,
   });
+  const fullArticleCost = useQuery({
+    queryKey: ["cost-full-article"],
+    queryFn: () => callAnalytics("full_article_cost"),
+    staleTime: 60_000,
+  });
   const articlesStat = useMemo(() => {
     const item = (articlesOnly.data?.items || []).find((it: any) => it.operation_type === "article_generation");
     return {
@@ -272,6 +277,56 @@ export function CostAnalyticsTab() {
               </table>
               <p className="text-xs text-muted-foreground mt-3">
                 Статей - основные генерации (full / посекционно). Доработок - inline-правки, проверки качества, перегенерация структуры. "Ср. полная" - сумма всех расходов на одну статью с учетом её доработок (доработки могут идти на других моделях).
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Полная стоимость доведения статьи до публикации */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Полная стоимость доведения статьи до публикации</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fullArticleCost.isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : !fullArticleCost.data ? (
+            <div className="text-sm text-muted-foreground">Данных пока нет</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Основная генерация</div>
+                  <div className="font-semibold">{fmtUsd(fullArticleCost.data.main?.total_usd || 0)}</div>
+                  <div className="text-[11px] text-muted-foreground">{fmtRub(fullArticleCost.data.main?.total_usd || 0, rate)}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">Запусков: {fullArticleCost.data.main?.count || 0}</div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Доработки (правки/QA)</div>
+                  <div className="font-semibold">{fmtUsd(fullArticleCost.data.refinements?.total_usd || 0)}</div>
+                  <div className="text-[11px] text-muted-foreground">{fmtRub(fullArticleCost.data.refinements?.total_usd || 0, rate)}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">Операций: {fullArticleCost.data.refinements?.count || 0}</div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-muted-foreground mb-1">Картинки FAL AI</div>
+                  <div className="font-semibold">{fmtUsd(fullArticleCost.data.photos?.total_usd || 0)}</div>
+                  <div className="text-[11px] text-muted-foreground">{fmtRub(fullArticleCost.data.photos?.total_usd || 0, rate)}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">Картинок: {fullArticleCost.data.photos?.count || 0}</div>
+                </div>
+                <div className="rounded-lg border p-3 bg-primary/5">
+                  <div className="text-xs text-muted-foreground mb-1">Итого / средняя за статью</div>
+                  <div className="font-semibold">{fmtUsd(fullArticleCost.data.full?.total_usd || 0)}</div>
+                  <div className="text-[11px] text-muted-foreground">{fmtRub(fullArticleCost.data.full?.total_usd || 0, rate)}</div>
+                  <div className="text-sm font-medium mt-2">
+                    Ср.: {fmtUsd(fullArticleCost.data.full?.avg_per_article_usd || 0)}
+                    <span className="text-[11px] text-muted-foreground ml-1">{fmtRub(fullArticleCost.data.full?.avg_per_article_usd || 0, rate)}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">База: {fullArticleCost.data.articles_count} статей в БД</div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Полная стоимость = основная генерация + все доработки (inline-правки, QA, перегенерация секций) + сгенерированные картинки. Research/парсинг конкурентов уже включены в основную генерацию (один вызов AI). Средняя считается на общее число статей в системе.
               </p>
             </div>
           )}
