@@ -658,6 +658,60 @@ function OpenRouterBudgetCard({
     staleTime: 30_000,
   });
 
+  // Articles + cost data since the earliest topup, for per-period stats
+  const earliestTopup = useMemo(() => {
+    const list = topups.data || [];
+    if (!list.length) return null;
+    return list.reduce((min, t) => (t.topped_up_at < min ? t.topped_up_at : min), list[0].topped_up_at);
+  }, [topups.data]);
+
+  const periodStats = useQuery({
+    queryKey: ["openrouter-period-stats", earliestTopup],
+    enabled: !!earliestTopup,
+    queryFn: async () => {
+      const since = earliestTopup!;
+      const [articlesRes, costRes] = await Promise.all([
+        supabase
+          .from("articles")
+          .select("id, created_at")
+          .gte("created_at", since)
+          .order("created_at", { ascending: true })
+          .limit(10000),
+        supabase
+          .from("cost_log")
+          .select("created_at, cost_usd")
+          .gte("created_at", since)
+          .order("created_at", { ascending: true })
+          .limit(50000),
+      ]);
+      if (articlesRes.error) throw articlesRes.error;
+      if (costRes.error) throw costRes.error;
+      return {
+        articles: (articlesRes.data || []) as { id: string; created_at: string }[],
+        costs: (costRes.data || []) as { created_at: string; cost_usd: number }[],
+      };
+    },
+    staleTime: 30_000,
+  });
+
+  // Map topup id -> { articles, spent } in [topup.date, nextTopup.date)
+  const perPeriod = useMemo(() => {
+    const list = (topups.data || []).slice().sort((a, b) => a.topped_up_at.localeCompare(b.topped_up_at));
+    const result: Record<string, { articles: number; spent: number; nextDate: string | null }> = {};
+    if (!list.length || !periodStats.data) return result;
+    const articles = periodStats.data.articles;
+    const costs = periodStats.data.costs;
+    for (let i = 0; i < list.length; i++) {
+      const start = list[i].topped_up_at;
+      const end = i + 1 < list.length ? list[i + 1].topped_up_at : null;
+      const inRange = (ts: string) => ts >= start && (end === null || ts < end);
+      const aCount = articles.filter((a) => inRange(a.created_at)).length;
+      const spent = costs.reduce((s, c) => (inRange(c.created_at) ? s + Number(c.cost_usd || 0) : s), 0);
+      result[list[i].id] = { articles: aCount, spent, nextDate: end };
+    }
+    return result;
+  }, [topups.data, periodStats.data]);
+
   const totalTopped = useMemo(
     () => (topups.data || []).reduce((s, t) => s + Number(t.amount_usd || 0), 0),
     [topups.data]
