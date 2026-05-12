@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, Calendar, TrendingUp, Layers, Download, Loader2, FileText } from "lucide-react";
+import { DollarSign, Calendar, TrendingUp, Layers, Download, Loader2, FileText, PenLine, Factory } from "lucide-react";
 import { toast } from "sonner";
 
 const OP_LABELS: Record<string, string> = {
@@ -103,6 +103,12 @@ export function CostAnalyticsTab() {
     queryFn: () => callAnalytics("by_type", { operation_type: "article_generation" }),
     staleTime: 60_000,
   });
+
+  const articlesBreakdown = useQuery({
+    queryKey: ["cost-articles-breakdown"],
+    queryFn: () => callAnalytics("articles_breakdown"),
+    staleTime: 60_000,
+  });
   const articlesStat = useMemo(() => {
     const item = (articlesOnly.data?.items || []).find((it: any) => it.operation_type === "article_generation");
     return {
@@ -176,6 +182,43 @@ export function CostAnalyticsTab() {
           loading={summary.isLoading}
         />
       </div>
+
+      {/* Articles breakdown: manual (AI Writer page) vs Factory */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Стоимость генерации статей: вручную против фабрики</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <PenLine className="h-4 w-4" /> Через страницу AI Writer (без проекта)
+            </div>
+            {articlesBreakdown.isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ul className="space-y-1 text-sm">
+                <li>Статей: <span className="font-medium">{articlesBreakdown.data?.manual?.count ?? 0}</span></li>
+                <li>Итого: <span className="font-medium">{fmtUsd(articlesBreakdown.data?.manual?.total_usd || 0)}</span> <span className="text-muted-foreground">{fmtRub(articlesBreakdown.data?.manual?.total_usd || 0, rate)}</span></li>
+                <li>Средняя за статью: <span className="font-medium">{fmtUsd(articlesBreakdown.data?.manual?.avg_usd || 0)}</span></li>
+              </ul>
+            )}
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <Factory className="h-4 w-4" /> Через фабрику / автопост (с проектом)
+            </div>
+            {articlesBreakdown.isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ul className="space-y-1 text-sm">
+                <li>Статей: <span className="font-medium">{articlesBreakdown.data?.factory?.count ?? 0}</span></li>
+                <li>Итого: <span className="font-medium">{fmtUsd(articlesBreakdown.data?.factory?.total_usd || 0)}</span> <span className="text-muted-foreground">{fmtRub(articlesBreakdown.data?.factory?.total_usd || 0, rate)}</span></li>
+                <li>Средняя за статью: <span className="font-medium">{fmtUsd(articlesBreakdown.data?.factory?.avg_usd || 0)}</span></li>
+              </ul>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filters + export */}
       <Card>
