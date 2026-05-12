@@ -336,8 +336,6 @@ export function CostAnalyticsTab() {
       {/* OpenRouter budget */}
       <OpenRouterBudgetCard
         rate={rate}
-        totalSpentUsd={Number(summary.data?.total_usd || 0)}
-        last30SpentUsd={Number(summary.data?.month_usd || 0)}
         avgPerArticleUsd={Number(fullArticleCost.data?.full?.avg_per_article_usd || 0)}
       />
 
@@ -630,13 +628,9 @@ interface Topup {
 
 function OpenRouterBudgetCard({
   rate,
-  totalSpentUsd,
-  last30SpentUsd,
   avgPerArticleUsd,
 }: {
   rate: number;
-  totalSpentUsd: number;
-  last30SpentUsd: number;
   avgPerArticleUsd: number;
 }) {
   const qc = useQueryClient();
@@ -716,11 +710,25 @@ function OpenRouterBudgetCard({
     () => (topups.data || []).reduce((s, t) => s + Number(t.amount_usd || 0), 0),
     [topups.data]
   );
-  const remaining = totalTopped - totalSpentUsd;
-  const dailyBurn = last30SpentUsd / 30;
+
+  // Spent strictly since the first topup
+  const totalSpentSinceFirst = useMemo(
+    () => (periodStats.data?.costs || []).reduce((s, c) => s + Number(c.cost_usd || 0), 0),
+    [periodStats.data]
+  );
+
+  // Daily burn over the actual period since first topup (min 1 day)
+  const daysSinceFirst = useMemo(() => {
+    if (!earliestTopup) return 1;
+    const diffMs = Date.now() - new Date(earliestTopup).getTime();
+    return Math.max(1, diffMs / (1000 * 60 * 60 * 24));
+  }, [earliestTopup]);
+
+  const remaining = totalTopped - totalSpentSinceFirst;
+  const dailyBurn = totalSpentSinceFirst / daysSinceFirst;
   const daysLeft = dailyBurn > 0 ? remaining / dailyBurn : Infinity;
   const articlesLeft = avgPerArticleUsd > 0 ? remaining / avgPerArticleUsd : 0;
-  const burnRatio = totalTopped > 0 ? Math.min(100, (totalSpentUsd / totalTopped) * 100) : 0;
+  const burnRatio = totalTopped > 0 ? Math.min(100, (totalSpentSinceFirst / totalTopped) * 100) : 0;
 
   const addTopup = async () => {
     const amt = parseFloat(amount.replace(",", "."));
@@ -775,9 +783,9 @@ function OpenRouterBudgetCard({
             <div className="text-[11px] text-muted-foreground">{fmtRub(totalTopped, rate)}</div>
           </div>
           <div className="rounded-lg border p-3">
-            <div className="text-xs text-muted-foreground mb-1">Потрачено всего</div>
-            <div className="font-semibold">{fmtUsd(totalSpentUsd)}</div>
-            <div className="text-[11px] text-muted-foreground">{fmtRub(totalSpentUsd, rate)}</div>
+            <div className="text-xs text-muted-foreground mb-1">Потрачено с 1-го пополнения</div>
+            <div className="font-semibold">{fmtUsd(totalSpentSinceFirst)}</div>
+            <div className="text-[11px] text-muted-foreground">{fmtRub(totalSpentSinceFirst, rate)}</div>
           </div>
           <div className={`rounded-lg border p-3 ${remaining < 5 ? "bg-destructive/10" : "bg-primary/5"}`}>
             <div className="text-xs text-muted-foreground mb-1">Остаток</div>
