@@ -22,6 +22,7 @@ interface Props {
   content: string;
   onReplace: (start: number, end: number, replacement: string) => void;
   language?: "ru" | "en";
+  articleId?: string | null;
 }
 
 const COMMANDS: { id: Command; ru: string; en: string; Icon: any }[] = [
@@ -33,7 +34,7 @@ const COMMANDS: { id: Command; ru: string; en: string; Icon: any }[] = [
   { id: "rewrite", ru: "Перепиши",   en: "Rewrite", Icon: RefreshCw },
 ];
 
-export function InlineAIToolbar({ textareaRef, content, onReplace, language = "ru" }: Props) {
+export function InlineAIToolbar({ textareaRef, content, onReplace, language = "ru", articleId }: Props) {
   const [sel, setSel] = useState<Selection | null>(null);
   const [running, setRunning] = useState<Command | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
@@ -94,7 +95,7 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
     lastCmdRef.current = cmd;
     try {
       const { data, error } = await supabase.functions.invoke("inline-edit", {
-        body: { text: sel.text, command: cmd, language },
+        body: { text: sel.text, command: cmd, language, article_id: articleId || null },
       });
       if (error) throw new Error(error.message);
       const rewritten = String(data?.rewritten || "").trim();
