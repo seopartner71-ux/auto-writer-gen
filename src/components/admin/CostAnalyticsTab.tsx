@@ -662,30 +662,18 @@ function OpenRouterBudgetCard({
   const periodStats = useQuery({
     queryKey: ["openrouter-period-stats", earliestTopup],
     enabled: !!earliestTopup,
-    queryFn: async () => {
-      const since = earliestTopup!;
-      const [articlesRes, costRes] = await Promise.all([
-        supabase
-          .from("articles")
-          .select("id, created_at")
-          .gte("created_at", since)
-          .order("created_at", { ascending: true })
-          .limit(10000),
-        supabase
-          .from("cost_log")
-          .select("created_at, cost_usd")
-          .gte("created_at", since)
-          .order("created_at", { ascending: true })
-          .limit(50000),
-      ]);
-      if (articlesRes.error) throw articlesRes.error;
-      if (costRes.error) throw costRes.error;
+    queryFn: async (): Promise<{
+      articles: { id: string; created_at: string }[];
+      costs: { created_at: string; cost_usd: number }[];
+    }> => {
+      const data = await callAnalytics("openrouter_period_stats", { date_from: earliestTopup! });
       return {
-        articles: (articlesRes.data || []) as { id: string; created_at: string }[],
-        costs: (costRes.data || []) as { created_at: string; cost_usd: number }[],
+        articles: (data?.articles || []) as { id: string; created_at: string }[],
+        costs: (data?.costs || []) as { created_at: string; cost_usd: number }[],
       };
     },
-    staleTime: 30_000,
+    refetchInterval: 15_000,
+    staleTime: 0,
   });
 
   // Map topup id -> { articles, spent } in [topup.date, nextTopup.date)
