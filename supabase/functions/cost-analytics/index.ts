@@ -359,6 +359,71 @@ serve(async (req) => {
       });
     }
 
+    // ---- full_article_cost ----
+    // Полная стоимость доведения статьи до публикации:
+    // article_generation (основная генерация + доработки) + fal_ai_* (картинки).
+    if (action === "full_article_cost") {
+      const [genRes, photoRes, articlesRes] = await Promise.all([
+        admin.from("cost_log").select("cost_usd, metadata, project_id")
+          .eq("operation_type", "article_generation"),
+        admin.from("cost_log").select("cost_usd, project_id, operation_type")
+          .in("operation_type", ["fal_ai_photo", "fal_ai_portrait", "fal_ai_logo"]),
+        admin.from("articles").select("id", { count: "exact", head: true }),
+      ]);
+
+      const genRows = genRes.data || [];
+      const photoRows = photoRes.data || [];
+
+      const REFINE_KINDS = new Set(["section", "inline_edit", "quality_check", "outline"]);
+      let mainUsd = 0, mainCount = 0;
+      let refineUsd = 0, refineCount = 0;
+      for (const r of genRows as any[]) {
+        const usd = Number(r.cost_usd || 0);
+        const kind = String((r.metadata || {}).kind || "main");
+        if (REFINE_KINDS.has(kind)) { refineUsd += usd; refineCount++; }
+        else { mainUsd += usd; mainCount++; }
+      }
+
+      const photosUsd = photoRows.reduce((a: number, r: any) => a + Number(r.cost_usd || 0), 0);
+      const photosCount = photoRows.length;
+
+      const totalUsd = mainUsd + refineUsd + photosUsd;
+      const articlesCount = articlesRes.count || mainCount || 0;
+      const avgFullPerArticle = articlesCount > 0 ? totalUsd / articlesCount : 0;
+
+      // Per-project totals
+      const byProject = new Map<string, { project_id: string; gen_usd: number; photos_usd: number; total_usd: number }>();
+      for (const r of genRows as any[]) {
+        if (!r.project_id) continue;
+        const e = byProject.get(r.project_id) || { project_id: r.project_id, gen_usd: 0, photos_usd: 0, total_usd: 0 };
+        e.gen_usd += Number(r.cost_usd || 0);
+        e.total_usd += Number(r.cost_usd || 0);
+        byProject.set(r.project_id, e);
+      }
+      for (const r of photoRows as any[]) {
+        if (!r.project_id) continue;
+        const e = byProject.get(r.project_id) || { project_id: r.project_id, gen_usd: 0, photos_usd: 0, total_usd: 0 };
+        e.photos_usd += Number(r.cost_usd || 0);
+        e.total_usd += Number(r.cost_usd || 0);
+        byProject.set(r.project_id, e);
+      }
+
+      return json({
+        usd_to_rub: usdToRub,
+        articles_count: articlesCount,
+        main: { count: mainCount, total_usd: mainUsd, avg_usd: mainCount ? mainUsd / mainCount : 0 },
+        refinements: { count: refineCount, total_usd: refineUsd, avg_usd: refineCount ? refineUsd / refineCount : 0 },
+        photos: { count: photosCount, total_usd: photosUsd, avg_usd: photosCount ? photosUsd / photosCount : 0 },
+        full: {
+          total_usd: totalUsd,
+          avg_per_article_usd: avgFullPerArticle,
+        },
+        by_project_top: Array.from(byProject.values())
+          .sort((a, b) => b.total_usd - a.total_usd)
+          .slice(0, 10),
+      });
+    }
+
     // ---- export_csv ----
     if (action === "export_csv") {
       const { data, error } = await buildQuery();
