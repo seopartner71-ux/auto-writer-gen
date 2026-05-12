@@ -307,7 +307,7 @@ serve(async (req) => {
     // ---- articles_breakdown ----
     if (action === "articles_breakdown") {
       const { data, error } = await admin.from("cost_log")
-        .select("project_id, cost_usd")
+        .select("project_id, cost_usd, model, metadata")
         .eq("operation_type", "article_generation");
       if (error) return json({ error: error.message }, 500);
 
@@ -318,10 +318,44 @@ serve(async (req) => {
         if ((r as any).project_id) { factoryCount++; factoryUsd += usd; }
         else { manualCount++; manualUsd += usd; }
       }
+
+      // Per-model breakdown: split rows into "main generation" vs "refinement"
+      // (sections, inline_edit, quality_check, outline). Average is computed
+      // per kind so the user sees true cost per article and per refinement.
+      const REFINE_KINDS = new Set(["section", "inline_edit", "quality_check", "outline"]);
+      const byModel = new Map<string, {
+        model: string;
+        main_count: number; main_usd: number;
+        refine_count: number; refine_usd: number;
+        total_usd: number;
+      }>();
+      for (const r of data || []) {
+        const model = String((r as any).model || "unknown");
+        const usd = Number((r as any).cost_usd || 0);
+        const kind = String(((r as any).metadata || {}).kind || "main");
+        const isRefine = REFINE_KINDS.has(kind);
+        const cur = byModel.get(model) || {
+          model, main_count: 0, main_usd: 0, refine_count: 0, refine_usd: 0, total_usd: 0,
+        };
+        if (isRefine) { cur.refine_count++; cur.refine_usd += usd; }
+        else { cur.main_count++; cur.main_usd += usd; }
+        cur.total_usd += usd;
+        byModel.set(model, cur);
+      }
+      const models = Array.from(byModel.values()).map((m) => ({
+        ...m,
+        avg_main_usd: m.main_count ? m.main_usd / m.main_count : 0,
+        avg_refine_usd: m.refine_count ? m.refine_usd / m.refine_count : 0,
+        avg_total_per_article_usd: m.main_count
+          ? (m.main_usd + m.refine_usd) / m.main_count
+          : 0,
+      })).sort((a, b) => b.total_usd - a.total_usd);
+
       return json({
         usd_to_rub: usdToRub,
         manual: { count: manualCount, total_usd: manualUsd, avg_usd: manualCount ? manualUsd / manualCount : 0 },
         factory: { count: factoryCount, total_usd: factoryUsd, avg_usd: factoryCount ? factoryUsd / factoryCount : 0 },
+        by_model: models,
       });
     }
 
