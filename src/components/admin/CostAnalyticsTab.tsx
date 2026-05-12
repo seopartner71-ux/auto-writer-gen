@@ -783,9 +783,9 @@ function OpenRouterBudgetCard({
             <div className="text-[11px] text-muted-foreground">{fmtRub(totalTopped, rate)}</div>
           </div>
           <div className="rounded-lg border p-3">
-            <div className="text-xs text-muted-foreground mb-1">Потрачено всего</div>
-            <div className="font-semibold">{fmtUsd(totalSpentUsd)}</div>
-            <div className="text-[11px] text-muted-foreground">{fmtRub(totalSpentUsd, rate)}</div>
+            <div className="text-xs text-muted-foreground mb-1">Потрачено с 1-го пополнения</div>
+            <div className="font-semibold">{fmtUsd(totalSpentSinceFirst)}</div>
+            <div className="text-[11px] text-muted-foreground">{fmtRub(totalSpentSinceFirst, rate)}</div>
           </div>
           <div className={`rounded-lg border p-3 ${remaining < 5 ? "bg-destructive/10" : "bg-primary/5"}`}>
             <div className="text-xs text-muted-foreground mb-1">Остаток</div>
