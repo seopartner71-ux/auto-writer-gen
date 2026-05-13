@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Hexagon, Send } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
+import systemSeoLogo from "@/assets/system-seo-tg.jpg";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -61,6 +62,28 @@ export function LandingFooter() {
                 {t("lp.footerStatus")}
               </span>
             </div>
+
+            <a
+              href="https://t.me/system_seo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-2.5 hover:border-primary/40 hover:bg-primary/[0.04] transition-all max-w-[220px]"
+            >
+              <img
+                src={systemSeoLogo}
+                alt="Системное SEO"
+                className="h-11 w-11 rounded-lg object-cover shrink-0"
+                loading="lazy"
+              />
+              <div className="flex flex-col min-w-0">
+                <span className="text-[11px] font-tech uppercase tracking-wider text-muted-foreground/60">
+                  Telegram
+                </span>
+                <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                  Системное SEO
+                </span>
+              </div>
+            </a>
           </motion.div>
 
           {/* Columns */}
