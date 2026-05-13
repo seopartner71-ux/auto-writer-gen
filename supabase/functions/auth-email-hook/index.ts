@@ -36,7 +36,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "auto-writer-gen"
+const SITE_NAME = "СЕО-Модуль"
 const SENDER_DOMAIN = "notify.seo-modul.pro"
 const ROOT_DOMAIN = "seo-modul.pro"
 const FROM_DOMAIN = "notify.seo-modul.pro" // Domain shown in From address (may be root or sender subdomain)
