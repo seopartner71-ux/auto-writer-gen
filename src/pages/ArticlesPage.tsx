@@ -372,6 +372,8 @@ export default function ArticlesPage() {
   const [enableGeo, setEnableGeo] = useState(false);
   const [geoLocation, setGeoLocation] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
+  const [sourcePageUrl, setSourcePageUrl] = useState("");
+  const [sourcePageFacts, setSourcePageFacts] = useState<any | null>(null);
   const [finishReason, setFinishReason] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
