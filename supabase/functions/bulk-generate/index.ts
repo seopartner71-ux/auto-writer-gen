@@ -10,7 +10,7 @@ import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.
 import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
 import { enforcePersonaSyntax } from "../_shared/personaEnforce.ts";
 import { enforceDataNuggets } from "../_shared/nuggetsEnforce.ts";
-import { validateContent, dataNuggetsCoverage } from "../_shared/contentValidator.ts";
+import { validateContent } from "../_shared/contentValidator.ts";
 import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 
