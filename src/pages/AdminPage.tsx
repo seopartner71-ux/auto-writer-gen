@@ -20,6 +20,7 @@ import { GitHubProjectsTab } from "@/components/admin/GitHubProjectsTab";
 import { CopilotLogsTab } from "@/components/admin/CopilotLogsTab";
 import { PbnTemplatesTab } from "@/components/admin/PbnTemplatesTab";
 import { CostAnalyticsTab } from "@/components/admin/CostAnalyticsTab";
+import { TurgenevAnalyticsTab } from "@/components/admin/TurgenevAnalyticsTab";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -56,6 +57,7 @@ export default function AdminPage() {
           <TabsTrigger value="github">GitHub</TabsTrigger>
           <TabsTrigger value="pbn">Шаблоны</TabsTrigger>
           <TabsTrigger value="costs">Расходы</TabsTrigger>
+          <TabsTrigger value="turgenev">Тургенев</TabsTrigger>
           <TabsTrigger value="copilot">Copilot Logs</TabsTrigger>
         </TabsList>
 
@@ -78,6 +80,7 @@ export default function AdminPage() {
         <TabsContent value="github" className="mt-4"><GitHubProjectsTab /></TabsContent>
         <TabsContent value="pbn" className="mt-4"><PbnTemplatesTab /></TabsContent>
         <TabsContent value="costs" className="mt-4"><CostAnalyticsTab /></TabsContent>
+        <TabsContent value="turgenev" className="mt-4"><TurgenevAnalyticsTab /></TabsContent>
         <TabsContent value="copilot" className="mt-4"><CopilotLogsTab /></TabsContent>
       </Tabs>
     </div>
