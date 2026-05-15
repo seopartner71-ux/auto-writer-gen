@@ -623,8 +623,8 @@ export default function SiteFactoryPage() {
             setArticles((prev) =>
               prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
             );
-            // Remove from generatingIds when completed
-            if (updated.status === "completed" || updated.status === "published") {
+            // Remove from generatingIds when generation stops
+            if (updated.status === "completed" || updated.status === "published" || updated.status === "failed") {
               setGeneratingIds((prev) => {
                 const next = new Set(prev);
                 next.delete(updated.id);
