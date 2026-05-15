@@ -384,6 +384,24 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       }
     } catch (_) { /* ignore */ }
 
+    // ─── Double Humanize Pass (FACTORY) ──────────────────────────────
+    // Sonnet (heavy rewrite) + Opus (micro-polish) target <5% AI detection.
+    // Best-effort: failures or integrity-guard rejections preserve previous
+    // content. Skipped for very short articles.
+    try {
+      const hum = await runDoubleHumanizePass(
+        articleContent,
+        isRussian ? "ru" : "en",
+        openRouterApiKey,
+      );
+      if (hum.passesApplied > 0) {
+        articleContent = hum.content;
+        console.log(`[bulk-generate][humanize] applied ${hum.passesApplied} pass(es) via ${hum.modelsUsed.join(", ")} for "${item.seed_keyword}"`);
+      }
+    } catch (e) {
+      console.warn(`[bulk-generate][humanize] failed for "${item.seed_keyword}":`, (e as Error)?.message);
+    }
+
     const h1Match = articleContent.match(/^#\s+(.+)$/m);
     const articleTitle = h1Match?.[1] || item.seed_keyword;
     const metaDesc = articleContent
