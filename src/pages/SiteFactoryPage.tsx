@@ -560,10 +560,22 @@ export default function SiteFactoryPage() {
       .select("id, title, content, meta_description, status, published_url, keywords, created_at")
       .eq("user_id", user.id)
       .eq("project_id", selectedProjectId)
-      .in("status", ["completed", "published", "generating"])
+      .in("status", ["completed", "published", "generating", "failed"])
       .order("created_at", { ascending: false })
       .limit(50);
-    if (data) setArticles(data);
+    if (data) {
+      const now = Date.now();
+      const stale = data.filter((a) =>
+        a.status === "generating" &&
+        !a.content &&
+        a.created_at &&
+        now - new Date(a.created_at).getTime() > 30 * 60 * 1000
+      );
+      if (stale.length) {
+        await supabase.from("articles").update({ status: "failed" }).in("id", stale.map((a) => a.id));
+      }
+      setArticles(data.map((a) => stale.some((s) => s.id === a.id) ? { ...a, status: "failed" } : a));
+    }
   }, [user, selectedProjectId]);
 
   useEffect(() => { loadArticles(); }, [loadArticles]);
