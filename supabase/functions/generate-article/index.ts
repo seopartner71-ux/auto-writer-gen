@@ -111,6 +111,55 @@ serve(async (req) => {
           budget,
         }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+
+      // Soft 80% nudge: notify user once per month when monthly cost crosses 80% of cap.
+      try {
+        const cost = Number((budget as any)?.monthly_cost ?? 0);
+        const cap = Number((budget as any)?.cost_cap ?? 0);
+        const reason = String((budget as any)?.reason ?? "");
+        if (reason !== "privileged" && cap > 0 && cost / cap >= 0.8) {
+          const monthStart = new Date();
+          monthStart.setUTCDate(1);
+          monthStart.setUTCHours(0, 0, 0, 0);
+          const { data: existing } = await supabaseAdmin
+            .from("notifications")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("title", "AI-бюджет: израсходовано 80%")
+            .gte("created_at", monthStart.toISOString())
+            .maybeSingle();
+          if (!existing) {
+            const pct = Math.round((cost / cap) * 100);
+            const msg = `Вы израсходовали ${pct}% месячного AI-бюджета ($${cost.toFixed(2)} из $${cap.toFixed(2)}). При достижении 100% генерация будет приостановлена до начала следующего месяца. Рассмотрите апгрейд тарифа, если планируете писать больше.`;
+            await supabaseAdmin.from("notifications").insert({
+              user_id: user.id,
+              title: "AI-бюджет: израсходовано 80%",
+              message: msg,
+            });
+            // Telegram alert to admin chat (best-effort, non-blocking).
+            const tgUrl = Deno.env.get("SUPABASE_URL");
+            const tgKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+            if (tgUrl && tgKey) {
+              fetch(`${tgUrl}/functions/v1/telegram-notify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${tgKey}` },
+                body: JSON.stringify({
+                  type: "budget_warning",
+                  data: {
+                    user_id: user.id,
+                    email: user.email,
+                    cost: cost.toFixed(2),
+                    cap: cap.toFixed(2),
+                    percent: pct,
+                  },
+                }),
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[generate-article] budget 80% nudge failed:", (e as Error).message);
+      }
     } catch (e) {
       console.warn("[generate-article] check_ai_budget failed (allowing):", (e as Error).message);
     }

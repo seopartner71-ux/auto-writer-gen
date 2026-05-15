@@ -548,7 +548,16 @@ async function runAutoQuality(
   // ── Auto-Humanize: ai_score < 40 (detected as AI) → silent rewrite, once ──
   // NOTE: our ai_score semantics: HIGHER = more human-like. So "AI-detected" = LOW score.
   try {
-    if (typeof aiCombined === "number" && aiCombined < 40 && orKey) {
+    // Per-user threshold (profiles.auto_humanize_threshold). 0 = disabled. Default 40.
+    let humanizeThreshold = 40;
+    try {
+      const { data: prof } = await admin
+        .from("profiles").select("auto_humanize_threshold").eq("id", userId).maybeSingle();
+      const t = (prof as any)?.auto_humanize_threshold;
+      if (typeof t === "number") humanizeThreshold = t;
+    } catch (_) { /* keep default */ }
+
+    if (humanizeThreshold > 0 && typeof aiCombined === "number" && aiCombined < humanizeThreshold && orKey) {
       const { data: artFlag2 } = await admin
         .from("articles").select("rewritten").eq("id", articleId).maybeSingle();
       if (artFlag2 && artFlag2.rewritten !== true) {

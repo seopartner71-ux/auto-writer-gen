@@ -1,5 +1,6 @@
-import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, Wallet, Sparkles } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, Wallet, Sparkles, Wand2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -33,6 +34,35 @@ export default function SettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
   const queryClient = useQueryClient();
+
+  // Auto-Humanize threshold (per-user). Stored as ai_score (higher = more human).
+  // UI shows it as "AI %" = 100 - threshold for clarity.
+  const [humanizeThreshold, setHumanizeThreshold] = useState<number>(
+    typeof (profile as any)?.auto_humanize_threshold === "number" ? (profile as any).auto_humanize_threshold : 40
+  );
+  const [isSavingHumanize, setIsSavingHumanize] = useState(false);
+  useEffect(() => {
+    if (profile && typeof (profile as any).auto_humanize_threshold === "number") {
+      setHumanizeThreshold((profile as any).auto_humanize_threshold);
+    }
+  }, [profile]);
+  const aiPercentTrigger = humanizeThreshold === 0 ? 0 : 100 - humanizeThreshold;
+  const handleSaveHumanize = async () => {
+    if (!user) return;
+    setIsSavingHumanize(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ auto_humanize_threshold: humanizeThreshold } as any)
+        .eq("id", user.id);
+      if (error) throw error;
+      toast.success(lang === "ru" ? "Настройка сохранена" : "Saved");
+    } catch (e: any) {
+      toast.error(e.message || "Error");
+    } finally {
+      setIsSavingHumanize(false);
+    }
+  };
 
   useEffect(() => {
     if (profile) {
@@ -276,6 +306,59 @@ export default function SettingsPage() {
 
         {/* Column 2: Security + Cache */}
         <div className="space-y-4">
+          <Card className="bg-card border-border overflow-hidden">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-primary" />
+                {lang === "ru" ? "Авто-очеловечивание" : "Auto-Humanize"}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {lang === "ru"
+                  ? "Если AI-вероятность статьи выше выбранного порога - она автоматически переписывается один раз."
+                  : "If AI-probability is above the threshold, the article is silently rewritten once."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 px-4 pb-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  {lang === "ru" ? "Триггер при AI >" : "Trigger when AI >"}
+                </span>
+                <span className="font-semibold tabular-nums text-foreground">
+                  {humanizeThreshold === 0
+                    ? (lang === "ru" ? "выкл" : "off")
+                    : `${aiPercentTrigger}%`}
+                </span>
+              </div>
+              <Slider
+                min={0}
+                max={80}
+                step={5}
+                value={[humanizeThreshold === 0 ? 0 : 100 - humanizeThreshold]}
+                onValueChange={(v) => {
+                  const aiPct = v[0];
+                  setHumanizeThreshold(aiPct === 0 ? 0 : 100 - aiPct);
+                }}
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>{lang === "ru" ? "Выкл" : "Off"}</span>
+                <span>50%</span>
+                <span>80%</span>
+              </div>
+              <Button
+                onClick={handleSaveHumanize}
+                disabled={isSavingHumanize}
+                size="sm"
+                variant="outline"
+                className="w-full"
+              >
+                <Save className="h-3.5 w-3.5 mr-2" />
+                {isSavingHumanize
+                  ? (lang === "ru" ? "Сохраняю..." : "Saving...")
+                  : (lang === "ru" ? "Сохранить" : "Save")}
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card className="bg-card border-border overflow-hidden">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm flex items-center gap-2">

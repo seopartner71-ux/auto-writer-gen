@@ -1819,6 +1819,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_humanize_threshold: number
           avatar_url: string | null
           created_at: string | null
           credits_amount: number
@@ -1846,6 +1847,7 @@ export type Database = {
           theme_preference: string | null
         }
         Insert: {
+          auto_humanize_threshold?: number
           avatar_url?: string | null
           created_at?: string | null
           credits_amount?: number
@@ -1873,6 +1875,7 @@ export type Database = {
           theme_preference?: string | null
         }
         Update: {
+          auto_humanize_threshold?: number
           avatar_url?: string | null
           created_at?: string | null
           credits_amount?: number
