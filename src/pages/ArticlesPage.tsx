@@ -916,6 +916,7 @@ export default function ArticlesPage() {
           lsiCoverage: lsiKeywords.length > 0 ? Math.round((lsiFoundCount / lsiKeywords.length) * 100) : 0,
         },
         status: "published",
+        serp_cluster_pipeline: true,
       } as any;
 
       if (currentArticleId) {
