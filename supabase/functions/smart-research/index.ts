@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -155,7 +156,7 @@ CRITICAL LANGUAGE RULE: ALL your output text — every topic, question, gap, key
 
 CRITICAL GEO RULE: The target region is ${geoContext}. All analysis must be relevant to this specific market/region. Consider local search behavior, local competition, and regional specifics.
 
-Return structured data via the provided tool.`;
+Return structured data via the provided tool.${SERP_CLUSTER_DISCIPLINE_ADDON}`;
 
     const userPrompt = `Keyword: "${keyword}"
 Target Region: ${geoContext}

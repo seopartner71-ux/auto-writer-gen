@@ -9,6 +9,7 @@ import {
   buildNewArticleUserPrompt,
   type StealthPromptInput,
 } from "../_shared/promptBuilder.ts";
+import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -271,7 +272,7 @@ serve(async (req) => {
       lexiconTerms,
       bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
     );
-    const systemPrompt = lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt;
+    const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt) + SERP_CLUSTER_DISCIPLINE_ADDON;
 
     // Build user prompt
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");

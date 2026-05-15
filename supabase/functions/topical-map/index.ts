@@ -5,6 +5,7 @@
 import { corsHeaders, jsonResponse, errorResponse, handlePreflight } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { withTimeout, fetchWithTimeout } from "../_shared/withTimeout.ts";
+import { SERP_CLUSTER_SYSTEM_PROMPT, buildSerpClusterUserPrompt } from "../_shared/serpClusterPrompt.ts";
 
 const SERPER_TIMEOUT_MS = 12000;
 const AI_TIMEOUT_MS = 60000;
@@ -165,29 +166,8 @@ async function clusterWithAI(topic: string, keywords: string[], lang: string): P
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableKey) throw new Error("LOVABLE_API_KEY missing");
 
-  const langName = lang === "ru" ? "русском" : "английском";
-  const system =
-    "Ты SEO-эксперт. Кластеризуй ключевые слова по поисковому интенту и теме. Верни строго валидный JSON без markdown.\n\nВАЖНО: в поле keyword должны быть ТОЛЬКО чистые поисковые запросы которые пользователь вводит в поисковик.\nЗАПРЕЩЕНО использовать:\n- Названия сайтов (Профи.ру, OZON, Авито, Wildberries, DNS и т.п.)\n- Заголовки страниц с тире и брендами\n- Слова commercial/transactional/informational в самом keyword\n- Строки длиннее 50 символов\nЕсли исходный запрос содержит название сайта или хвост через тире — очисти его до чистого поискового запроса (2-6 слов).";
-  const user = `Кластеризуй эти ключевые слова для темы "${topic}". Сгруппируй по смыслу и интенту. Названия кластеров и ключи на ${langName} языке.
-
-Ключевые слова:
-${keywords.map((k, i) => `${i + 1}. ${k}`).join("\n")}
-
-Верни JSON строго в формате (без обёрток, без markdown). Каждое keyword - короткий чистый поисковый запрос (без брендов, без тире, до 50 символов):
-{
-  "clusters": [
-    {
-      "name": "название кластера",
-      "icon": "одиночное эмодзи",
-      "intent": "informational|commercial|transactional",
-      "keywords": [
-        { "keyword": "запрос", "volume": "high|medium|low", "difficulty": "easy|medium|hard" }
-      ]
-    }
-  ],
-  "total_keywords": число,
-  "main_topic": "главная тема"
-}`;
+  const system = SERP_CLUSTER_SYSTEM_PROMPT;
+  const user = buildSerpClusterUserPrompt({ topic, keywords, language: lang });
 
   const res = await withTimeout(
     fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -212,12 +192,35 @@ ${keywords.map((k, i) => `${i + 1}. ${k}`).join("\n")}
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content || "{}";
   try {
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    return normalizeSerpClusters(parsed);
   } catch {
     const m = content.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0]);
+    if (m) return normalizeSerpClusters(JSON.parse(m[0]));
     throw new Error("AI response not valid JSON");
   }
+}
+
+// Backward compat: convert new SERP-cluster shape into the legacy { clusters: [...] }
+// format used by storage and the Topical Map UI. The main cluster goes first.
+function normalizeSerpClusters(parsed: any): any {
+  if (Array.isArray(parsed?.clusters) && !parsed?.serp_clusters) return parsed;
+  const list = Array.isArray(parsed?.serp_clusters) ? parsed.serp_clusters : [];
+  const sorted = [...list].sort((a: any, b: any) => (b?.is_main ? 1 : 0) - (a?.is_main ? 1 : 0));
+  return {
+    clusters: sorted.map((c: any) => ({
+      name: c?.is_main ? `★ ${c?.name || "Основной кластер"}` : (c?.name || "Кластер"),
+      icon: c?.icon || (c?.is_main ? "🎯" : "📄"),
+      intent: c?.intent || "informational",
+      page_type: c?.page_type || null,
+      is_main: !!c?.is_main,
+      keywords: Array.isArray(c?.keywords) ? c.keywords : [],
+    })),
+    total_keywords: parsed?.total_keywords ?? sorted.reduce((s: number, c: any) => s + (c?.keywords?.length || 0), 0),
+    main_topic: parsed?.main_topic || "",
+    main_cluster_summary: parsed?.main_cluster_summary || null,
+    other_clusters_note: parsed?.other_clusters_note || null,
+  };
 }
 
 Deno.serve(async (req) => {
