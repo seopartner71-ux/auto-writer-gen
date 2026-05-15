@@ -21,6 +21,8 @@ export interface QualityResult {
   turgenev_score: number | null;
   uniqueness_percent: number | null;
   ai_human_score: number | null;
+  cluster_fitness_score?: number | null;
+  serp_cluster_pipeline?: boolean | null;
   quality_badge: "excellent" | "good" | "needs_work" | null;
   details?: any;
   checked_at?: string | null;
@@ -133,7 +135,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
     (async () => {
       const { data } = await supabase
         .from("articles")
-        .select("turgenev_score,uniqueness_percent,ai_human_score,quality_badge,quality_details,quality_checked_at")
+        .select("turgenev_score,uniqueness_percent,ai_human_score,quality_badge,quality_details,quality_checked_at,cluster_fitness_score,serp_cluster_pipeline")
         .eq("id", articleId)
         .maybeSingle();
       if (data) {
@@ -141,6 +143,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
           turgenev_score: data.turgenev_score ?? null,
           uniqueness_percent: data.uniqueness_percent ?? null,
           ai_human_score: data.ai_human_score ?? null,
+          cluster_fitness_score: (data as any).cluster_fitness_score ?? null,
+          serp_cluster_pipeline: (data as any).serp_cluster_pipeline ?? null,
           quality_badge: (data.quality_badge as any) ?? null,
           details: data.quality_details,
           checked_at: data.quality_checked_at,
