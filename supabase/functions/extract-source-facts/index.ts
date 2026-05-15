@@ -8,26 +8,33 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
-const FACTS_PROMPT = `Ты извлекаешь ключевые факты со страницы сайта пользователя, чтобы AI-писатель использовал ИХ ВМЕСТО общих данных конкурентов.
+const FACTS_PROMPT = `Ты извлекаешь МАКСИМУМ конкретных фактов со страницы сайта пользователя, чтобы AI-писатель опирался на НИХ вместо общих данных конкурентов.
 
 Верни СТРОГО JSON со схемой:
 {
-  "title": "Заголовок страницы",
-  "service_name": "Название продукта/услуги",
+  "title": "Заголовок страницы (из h1 или title)",
+  "service_name": "Название продукта/услуги/категории",
   "usp": "Главное УТП одной фразой",
-  "key_numbers": ["5 дней", "12 человек в группе", "от 35000 руб"],
-  "features": ["краткая особенность 1", "..."],
-  "audience": "Для кого",
-  "location": "Гео/регион если есть",
-  "pricing": "Цены/формат оплаты если есть",
-  "must_mention": ["обязательно использовать в статье", "..."]
+  "key_numbers": ["5 дней", "12 человек в группе", "от 35000 руб", "гарантия 3 года"],
+  "features": ["конкретная характеристика/преимущество 1", "..."],
+  "brands": ["упомянутые бренды/производители/модели"],
+  "audience": "Для кого продукт",
+  "location": "Гео/город/регион если есть",
+  "pricing": "Цены, диапазон цен, условия оплаты",
+  "guarantees": "Гарантии, сертификаты, лицензии",
+  "delivery": "Доставка, сроки, монтаж, установка",
+  "contacts": "Телефон, режим работы, адрес если есть",
+  "must_mention": ["обязательно упомянуть в статье - 5-10 конкретных фактов"]
 }
 
 ПРАВИЛА:
+- ИЗВЛЕКАЙ МАКСИМУМ. Заполняй ВСЕ применимые поля. Пустое поле = только если факта реально нет.
+- Используй и meta-теги, и заголовки, и текст, и хлебные крошки.
+- Цифры конкретные (5 дней, не "несколько дней"; 17-22 кВт, не "разной мощности").
+- В features перечисляй технические характеристики, материалы, особенности конструкции.
+- В must_mention - самые важные факты-якори, которые отличают этот сайт от конкурентов.
 - Только факты со страницы. НЕ придумывай.
-- Если поля нет — пустая строка или пустой массив.
-- Цифры конкретные (5 дней, не "несколько дней").
-- Без воды, маркетинга, эмодзи.
+- Без воды, маркетинга, эмодзи. Без 'ё' (только 'е').
 - Только JSON, без markdown-обёрток.`;
 
 function stripHtml(html: string): string {
@@ -44,6 +51,27 @@ function stripHtml(html: string): string {
     .replace(/&quot;/g, '"')
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Pull <title>, <meta description/keywords>, og:* and h1/h2 separately - they often hold the densest facts. */
+function extractMeta(html: string): string {
+  const out: string[] = [];
+  const grab = (re: RegExp, label: string) => {
+    const m = html.match(re);
+    if (m && m[1]) out.push(`${label}: ${m[1].trim().slice(0, 300)}`);
+  };
+  grab(/<title[^>]*>([^<]+)<\/title>/i, "TITLE");
+  grab(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i, "DESCRIPTION");
+  grab(/<meta[^>]+name=["']keywords["'][^>]+content=["']([^"']+)["']/i, "KEYWORDS");
+  grab(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i, "OG_TITLE");
+  grab(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i, "OG_DESCRIPTION");
+  const h1s = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)].map((m) => stripHtml(m[1])).filter(Boolean);
+  if (h1s.length) out.push(`H1: ${h1s.slice(0, 3).join(" | ")}`);
+  const h2s = [...html.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi)].map((m) => stripHtml(m[1])).filter(Boolean);
+  if (h2s.length) out.push(`H2: ${h2s.slice(0, 12).join(" | ")}`);
+  const h3s = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) => stripHtml(m[1])).filter(Boolean);
+  if (h3s.length) out.push(`H3: ${h3s.slice(0, 15).join(" | ")}`);
+  return out.join("\n");
 }
 
 function isValidUrl(u: string): boolean {
