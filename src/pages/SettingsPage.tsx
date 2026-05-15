@@ -100,8 +100,9 @@ export default function SettingsPage() {
     },
   });
 
-  const planCostCap = currentPlan === "factory" ? 80 : currentPlan === "pro" ? 25 : 3;
-  const planOpusCap = currentPlan === "factory" ? 75 : currentPlan === "pro" ? 12 : 0;
+  const planStr = String(currentPlan);
+  const planCostCap = planStr === "factory" ? 80 : planStr === "pro" ? 25 : 3;
+  const planOpusCap = planStr === "factory" ? 75 : planStr === "pro" ? 12 : 0;
   const monthlyCost = Number(budget?.monthly_cost ?? 0);
   const opusCalls = Number(budget?.opus_calls ?? 0);
   const isPrivileged = budget?.reason === "privileged";
