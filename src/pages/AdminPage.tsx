@@ -23,6 +23,7 @@ import { CostAnalyticsTab } from "@/components/admin/CostAnalyticsTab";
 import { TurgenevAnalyticsTab } from "@/components/admin/TurgenevAnalyticsTab";
 import { SemanticInterlinkingTab } from "@/components/admin/SemanticInterlinkingTab";
 import { TodayKpiCard } from "@/components/admin/TodayKpiCard";
+import { TopSpendersCard } from "@/components/admin/TopSpendersCard";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -39,6 +40,7 @@ export default function AdminPage() {
       </div>
 
       <TodayKpiCard />
+      <TopSpendersCard />
 
       <Tabs defaultValue="vault" className="w-full">
         <TabsList className="bg-muted border border-border flex-wrap h-auto gap-1 p-1 justify-start">
