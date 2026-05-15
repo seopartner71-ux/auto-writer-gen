@@ -172,6 +172,7 @@ serve(async (req) => {
               title,
               content: fullContent,
               status: "completed",
+              serp_cluster_pipeline: true,
             }).select("id").single();
 
             await admin.from("generation_queue").update({
