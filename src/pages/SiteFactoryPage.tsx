@@ -1193,7 +1193,8 @@ export default function SiteFactoryPage() {
   };
 
   const getStatusBadge = (article: QueueArticle) => {
-    const isGenerating = generatingIds.has(article.id) || article.status === "generating";
+    const isStuckGenerating = article.status === "generating" && !article.content && article.created_at && Date.now() - new Date(article.created_at).getTime() > 30 * 60 * 1000;
+    const isGenerating = !isStuckGenerating && (generatingIds.has(article.id) || article.status === "generating");
     const isIndexed = indexedArticleIds.has(article.id);
     
     const indexIcon = article.status === "published" ? (
@@ -1227,7 +1228,7 @@ export default function SiteFactoryPage() {
     if (article.status === "failed") {
       return (
         <Badge variant="destructive" className="text-xs">
-          {lang === "ru" ? "Ошибка" : "Failed"}
+          {lang === "ru" ? "Ошибка генерации" : "Generation failed"}
         </Badge>
       );
     }
