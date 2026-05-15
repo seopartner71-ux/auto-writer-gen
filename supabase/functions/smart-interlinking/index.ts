@@ -364,7 +364,7 @@ serve(async (req) => {
     }
 
     const { data: articles } = await admin.from("articles")
-      .select("id, title, content, keywords, published_url")
+      .select("id, title, content, keywords, published_url, embedding")
       .eq("project_id", projectId)
       .in("status", ["completed", "published"])
       .not("title", "is", null);
@@ -384,6 +384,30 @@ serve(async (req) => {
       });
     }
 
+    // Step 0: kick off embedding backfill for missing rows (best-effort, blocking).
+    // Cosine similarity is the primary relevance signal; without it we fall back to keyword/topic.
+    const missingEmbedding = list.filter((a) => !a.embedding);
+    if (missingEmbedding.length > 0) {
+      try {
+        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        await fetch(`${supabaseUrlEnv}/functions/v1/generate-embedding`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+          body: JSON.stringify({ project_id: projectId, limit: Math.min(missingEmbedding.length, 100) }),
+        }).then((r) => r.ok ? r.json() : null).catch(() => null);
+        // Re-fetch embeddings for the affected rows
+        const ids = missingEmbedding.map((a) => a.id);
+        const { data: refreshed } = await admin.from("articles")
+          .select("id, embedding").in("id", ids);
+        const embMap = new Map<string, any>();
+        for (const r of refreshed || []) embMap.set(r.id, r.embedding);
+        for (const a of list) if (embMap.has(a.id)) a.embedding = embMap.get(a.id);
+      } catch (e) {
+        console.warn("[smart-interlinking] embedding backfill skipped:", (e as Error).message);
+      }
+    }
+
     // Step 1+2: analyze each article. Best-effort — failures fall back to keyword-only matching.
     const analyzed: AnalyzedArticle[] = [];
     let totalIn = 0, totalOut = 0;
@@ -392,10 +416,10 @@ serve(async (req) => {
         const r = await analyzeArticle(apiKey, a);
         totalIn += Number(r.usage?.prompt_tokens || 0);
         totalOut += Number(r.usage?.completion_tokens || 0);
-        analyzed.push({ ...a, topics: r.topics, entities: r.entities, type: r.type });
+        analyzed.push({ ...a, topics: r.topics, entities: r.entities, type: r.type, embeddingVec: parseEmbedding(a.embedding) });
       } catch (e: any) {
         console.warn("[smart-interlinking] analyze fail:", a.id, e?.message);
-        analyzed.push({ ...a, topics: [], entities: [], type: "guide" });
+        analyzed.push({ ...a, topics: [], entities: [], type: "guide", embeddingVec: parseEmbedding(a.embedding) });
       }
     }
     // Step 3: relevance matrix — for each article, pick top-2 peers.
