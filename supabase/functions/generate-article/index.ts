@@ -379,9 +379,13 @@ serve(async (req) => {
           if (facts.usp) lines.push(`УТП: ${facts.usp}`);
           if (Array.isArray(facts.key_numbers) && facts.key_numbers.length) lines.push(`Ключевые цифры: ${facts.key_numbers.join("; ")}`);
           if (Array.isArray(facts.features) && facts.features.length) lines.push(`Особенности: ${facts.features.join("; ")}`);
+          if (Array.isArray(facts.brands) && facts.brands.length) lines.push(`Бренды/модели: ${facts.brands.join("; ")}`);
           if (facts.audience) lines.push(`Аудитория: ${facts.audience}`);
           if (facts.location) lines.push(`Гео: ${facts.location}`);
           if (facts.pricing) lines.push(`Цены/формат: ${facts.pricing}`);
+          if (facts.guarantees) lines.push(`Гарантии/сертификаты: ${facts.guarantees}`);
+          if (facts.delivery) lines.push(`Доставка/монтаж: ${facts.delivery}`);
+          if (facts.contacts) lines.push(`Контакты/режим: ${facts.contacts}`);
           if (Array.isArray(facts.must_mention) && facts.must_mention.length) lines.push(`Обязательно упомянуть: ${facts.must_mention.join("; ")}`);
           if (lines.length) {
             sourcePageBlock = `\n\n=== ФАКТЫ С САЙТА ПОЛЬЗОВАТЕЛЯ (URL: ${resolvedUrl}) ===\nКРИТИЧНО: используй ИМЕННО эти конкретные факты вместо общих данных из ТОП-10 конкурентов. Если на странице "5 дней" - пиши про 5 дней, а не "от 1 до 10". Цифры, названия и УТП должны соответствовать сайту пользователя.\n\n${lines.join("\n")}\n=== КОНЕЦ ФАКТОВ С САЙТА ===`;

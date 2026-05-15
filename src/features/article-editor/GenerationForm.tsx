@@ -346,6 +346,18 @@ export function GenerationForm(props: GenerationFormProps) {
                 <div><span className="text-muted-foreground">Цифры:</span> {sourcePageFacts.key_numbers.join("; ")}</div>
               )}
               {sourcePageFacts.location && <div><span className="text-muted-foreground">Гео:</span> {sourcePageFacts.location}</div>}
+              {Array.isArray(sourcePageFacts.features) && sourcePageFacts.features.length > 0 && (
+                <div><span className="text-muted-foreground">Особенности:</span> {sourcePageFacts.features.slice(0, 6).join("; ")}</div>
+              )}
+              {Array.isArray(sourcePageFacts.brands) && sourcePageFacts.brands.length > 0 && (
+                <div><span className="text-muted-foreground">Бренды:</span> {sourcePageFacts.brands.join("; ")}</div>
+              )}
+              {sourcePageFacts.pricing && <div><span className="text-muted-foreground">Цены:</span> {sourcePageFacts.pricing}</div>}
+              {sourcePageFacts.guarantees && <div><span className="text-muted-foreground">Гарантии:</span> {sourcePageFacts.guarantees}</div>}
+              {sourcePageFacts.delivery && <div><span className="text-muted-foreground">Доставка:</span> {sourcePageFacts.delivery}</div>}
+              {Array.isArray(sourcePageFacts.must_mention) && sourcePageFacts.must_mention.length > 0 && (
+                <div className="pt-1 border-t border-emerald-500/20"><span className="text-muted-foreground">Якоря:</span> {sourcePageFacts.must_mention.slice(0, 8).join("; ")}</div>
+              )}
             </div>
           )}
           <p className="text-[10px] text-muted-foreground mt-1">
