@@ -63,6 +63,7 @@ const defaultForm = {
   region: "RU",
   auto_interlinking: true,
   ai_model: "gemini-flash" as "gemini-flash" | "claude-sonnet",
+  source_page_url: "",
 };
 
 export default function ProjectsPage() {
@@ -171,6 +172,7 @@ export default function ProjectsPage() {
             region: form.region,
             auto_interlinking: form.auto_interlinking,
             ai_model: form.ai_model,
+            source_page_url: form.source_page_url.trim() || null,
           })
           .eq("id", editingId);
         if (error) throw error;
@@ -183,6 +185,7 @@ export default function ProjectsPage() {
           region: form.region,
           auto_interlinking: form.auto_interlinking,
           ai_model: form.ai_model,
+          source_page_url: form.source_page_url.trim() || null,
         }).select("id").single();
         if (error) throw error;
         // Auto-activate new project
@@ -226,6 +229,7 @@ export default function ProjectsPage() {
       region: p.region,
       auto_interlinking: p.auto_interlinking,
       ai_model: (p.ai_model as any) || "gemini-flash",
+      source_page_url: (p as any).source_page_url || "",
     });
     setDialogOpen(true);
   };
