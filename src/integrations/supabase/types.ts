@@ -500,6 +500,7 @@ export type Database = {
           title: string | null
           translated_content_en: string | null
           translated_title_en: string | null
+          turgenev_auto_fixed: boolean
           turgenev_details: Json | null
           turgenev_score: number | null
           turgenev_status: string | null
@@ -558,6 +559,7 @@ export type Database = {
           title?: string | null
           translated_content_en?: string | null
           translated_title_en?: string | null
+          turgenev_auto_fixed?: boolean
           turgenev_details?: Json | null
           turgenev_score?: number | null
           turgenev_status?: string | null
@@ -616,6 +618,7 @@ export type Database = {
           title?: string | null
           translated_content_en?: string | null
           translated_title_en?: string | null
+          turgenev_auto_fixed?: boolean
           turgenev_details?: Json | null
           turgenev_score?: number | null
           turgenev_status?: string | null

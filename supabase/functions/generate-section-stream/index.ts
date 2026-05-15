@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 import { buildStealthSystemAddon, applyStealthPostProcess } from "../_shared/stealth.ts";
+import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,6 +140,7 @@ serve(async (req) => {
       `- Без эмодзи и без воды.`,
       `- Прямой ответ в первых 1-2 предложениях.`,
       buildStealthSystemAddon(language),
+      language === "ru" ? ANTI_TURGENEV_ADDON : "",
     ].filter(Boolean).join("\n");
 
     const userPrompt = `Статья: "${h1_title}"
