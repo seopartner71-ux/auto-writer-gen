@@ -20,6 +20,10 @@ import {
   Workflow,
   Sparkles,
   Map,
+  PenSquare,
+  BookOpen,
+  CalendarDays,
+  MoreHorizontal,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -84,11 +88,8 @@ export function AppSidebar() {
   const isFactory = plan === "pro";
 
   const networkPaths = ["/site-factory", "/network-monitor", "/domain-hunter"];
-  const publishPaths = ["/indexing", "/wordpress", "/integrations"];
-  const [networkOpen, setNetworkOpen] = useState(networkPaths.includes(location.pathname));
-  const [publishOpen, setPublishOpen] = useState(publishPaths.includes(location.pathname));
-
-  const mainItems = [
+  // 3 main groups: Создать / Опубликовать / Аналитика  + collapsed «Ещё».
+  const createItems = [
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
     { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
@@ -96,30 +97,35 @@ export function AppSidebar() {
     { title: lang === "ru" ? "Аудит статьи" : "Article Audit", url: "/article-audit", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
-    ...(isFactory ? [
-      { title: "AI Radar", url: "/radar", icon: Radar },
-    ] : []),
-    { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
+    { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
   ];
-
-  const networkItems = isFactory ? [
-    { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
-    { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
-    { title: lang === "ru" ? "Aged домены" : "Domain Hunter", url: "/domain-hunter", icon: Crosshair },
-  ] : [];
-
   const publishItems = isFactory ? [
     { title: t("nav.wordpress"), url: "/wordpress", icon: Send },
-    { title: t("nav.integrations"), url: "/integrations", icon: Send },
     { title: t("nav.indexing"), url: "/indexing", icon: Send },
+    { title: t("nav.integrations"), url: "/integrations", icon: Send },
+    { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
   ] : [];
-
-  const settingsItems = [
-    { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
+  const analyticsItems = [
+    { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
+    ...(isFactory ? [
+      { title: "AI Radar", url: "/radar", icon: Radar },
+      { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
+      { title: lang === "ru" ? "Aged домены" : "Domain Hunter", url: "/domain-hunter", icon: Crosshair },
+    ] : []),
+  ];
+  const moreItems = [
+    { title: lang === "ru" ? "Календарь" : "Calendar", url: "/calendar", icon: CalendarDays },
+    { title: lang === "ru" ? "База знаний" : "Wiki", url: "/wiki", icon: BookOpen },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
     { title: t("nav.support"), url: "/support", icon: LifeBuoy },
   ];
+  const publishPaths = publishItems.map(i => i.url);
+  const analyticsPaths = analyticsItems.map(i => i.url);
+  const morePaths = moreItems.map(i => i.url);
+  const [publishOpen, setPublishOpen] = useState(publishPaths.includes(location.pathname));
+  const [analyticsOpen, setAnalyticsOpen] = useState(analyticsPaths.includes(location.pathname));
+  const [moreOpen, setMoreOpen] = useState(morePaths.includes(location.pathname));
 
   const unseenChangelog = useUnseenChangelog();
   const APP_VERSION = "v2.4";
@@ -157,10 +163,10 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel>{t("nav.main")}</SidebarGroupLabel>
+          <SidebarGroupLabel>{lang === "ru" ? "Создать" : "Create"}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {createItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -190,52 +196,14 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isFactory && networkItems.length > 0 && (
-          <SidebarGroup>
-            <Collapsible open={networkOpen} onOpenChange={setNetworkOpen}>
-              <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
-                  <span className="flex items-center gap-1.5">
-                    <Factory className="h-3.5 w-3.5" />
-                    {!collapsed && (lang === "ru" ? "Сеть сайтов" : "Site Network")}
-                  </span>
-                  {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${networkOpen ? "" : "-rotate-90"}`} />}
-                </SidebarGroupLabel>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {networkItems.map((item) => (
-                      <SidebarMenuItem key={item.url}>
-                        <SidebarMenuButton asChild>
-                          <NavLink
-                            to={item.url}
-                            className="hover:bg-sidebar-accent/50"
-                            activeClassName="bg-sidebar-accent text-primary font-medium"
-                            onClick={handleNavClick}
-                            onMouseEnter={() => handlePrefetch(item.url)}
-                          >
-                            <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                            {!collapsed && <span>{item.title}</span>}
-                          </NavLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
-        )}
-
-        {isFactory && publishItems.length > 0 && (
+        {publishItems.length > 0 && (
           <SidebarGroup>
             <Collapsible open={publishOpen} onOpenChange={setPublishOpen}>
               <CollapsibleTrigger asChild>
                 <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
                   <span className="flex items-center gap-1.5">
                     <Send className="h-3.5 w-3.5" />
-                    {!collapsed && (lang === "ru" ? "Публикация" : "Publishing")}
+                    {!collapsed && (lang === "ru" ? "Опубликовать" : "Publish")}
                   </span>
                   {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${publishOpen ? "" : "-rotate-90"}`} />}
                 </SidebarGroupLabel>
@@ -267,27 +235,75 @@ export function AppSidebar() {
         )}
 
         <SidebarGroup>
-          <SidebarGroupLabel>{t("nav.tools")}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-primary font-medium"
-                      onClick={handleNavClick}
-                      onMouseEnter={() => handlePrefetch(item.url)}
-                    >
-                      <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
+          <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
+                <span className="flex items-center gap-1.5">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  {!collapsed && (lang === "ru" ? "Аналитика" : "Analytics")}
+                </span>
+                {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${analyticsOpen ? "" : "-rotate-90"}`} />}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {analyticsItems.map((item) => (
+                    <SidebarMenuItem key={item.url}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.url}
+                          className="hover:bg-sidebar-accent/50"
+                          activeClassName="bg-sidebar-accent text-primary font-medium"
+                          onClick={handleNavClick}
+                          onMouseEnter={() => handlePrefetch(item.url)}
+                        >
+                          <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <Collapsible open={moreOpen} onOpenChange={setMoreOpen}>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
+                <span className="flex items-center gap-1.5">
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                  {!collapsed && (lang === "ru" ? "Ещё" : "More")}
+                </span>
+                {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${moreOpen ? "" : "-rotate-90"}`} />}
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {moreItems.map((item) => (
+                    <SidebarMenuItem key={item.url}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.url}
+                          className="hover:bg-sidebar-accent/50"
+                          activeClassName="bg-sidebar-accent text-primary font-medium"
+                          onClick={handleNavClick}
+                          onMouseEnter={() => handlePrefetch(item.url)}
+                        >
+                          <item.icon className="mr-2 h-4 w-4 shrink-0" />
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </Collapsible>
         </SidebarGroup>
 
         {role === "admin" && (
