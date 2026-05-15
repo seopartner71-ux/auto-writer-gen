@@ -1535,10 +1535,6 @@ export default function ArticlesPage() {
                     </TabsTrigger>
                     {!isQuickMode && (
                       <>
-                        <TabsTrigger value="html" className="text-xs gap-1 px-2.5">
-                          <Code2 className="h-3 w-3" />
-                          HTML
-                        </TabsTrigger>
                         <TabsTrigger value="schema" className="text-xs gap-1 px-2.5">
                           <Code2 className="h-3 w-3" />
                           FAQ & Schema
@@ -1781,41 +1777,6 @@ export default function ArticlesPage() {
                       currentTitle={title}
                       onRestoreVersion={(c) => setContent(c)}
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs gap-1"
-                      onClick={async () => {
-                        if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
-                        try {
-                          const { data: row } = await supabase
-                            .from("articles")
-                            .select("share_token, is_public")
-                            .eq("id", currentArticleId)
-                            .maybeSingle();
-                          let token = row?.share_token as string | null;
-                          if (!token || !row?.is_public) {
-                            const upd: any = { is_public: true };
-                            if (!token) {
-                              token = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
-                                ? (crypto as any).randomUUID()
-                                : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-                              upd.share_token = token;
-                            }
-                            const { error } = await supabase.from("articles").update(upd).eq("id", currentArticleId);
-                            if (error) throw error;
-                          }
-                          const url = `${window.location.origin}/share/${token}`;
-                          await navigator.clipboard.writeText(url);
-                          toast.success("Ссылка скопирована: " + url, { duration: 6000 });
-                        } catch (e: any) {
-                          toast.error(e?.message || "Не удалось создать ссылку");
-                        }
-                      }}
-                    >
-                      <Send className="w-3 h-3" />
-                      Поделиться
-                    </Button>
                   </div>
                 )}
                 <TabsContent value="edit" className="mt-0">
@@ -1928,32 +1889,6 @@ export default function ArticlesPage() {
                           ))}
                         </div>
                       )}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-sm py-12 text-center">
-                      {t("articles.noContent")}
-                    </p>
-                  )}
-                </TabsContent>
-                <TabsContent value="html" className="mt-0">
-                  {content ? (
-                    <div className="relative">
-                      <div className="flex items-center gap-2 absolute top-2 right-2 z-10">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(markdownToCleanHtml(content));
-                            toast.success(t("common.copied"));
-                          }}
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          {t("common.copy")} HTML
-                        </Button>
-                      </div>
-                      <pre className="min-h-[500px] max-h-[700px] overflow-auto p-4 rounded-md bg-muted text-xs font-mono whitespace-pre-wrap break-all text-foreground">
-                        <code dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(highlightHtml(markdownToCleanHtml(content))) }} />
-                      </pre>
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm py-12 text-center">
