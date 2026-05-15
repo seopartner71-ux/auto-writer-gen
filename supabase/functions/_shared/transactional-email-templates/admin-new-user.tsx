@@ -22,9 +22,11 @@ const AdminNewUserEmail = ({
   <Html lang="ru" dir="ltr">
     <Head />
     <Preview>Новый пользователь: {email}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Новый пользователь зарегистрировался</Heading>
+    <Body style={{ backgroundColor: '#ffffff', fontFamily: 'Inter, Arial, sans-serif' }}>
+      <Container style={{ padding: '20px 25px' }}>
+        <Heading style={{ fontSize: '22px', fontWeight: 'bold', color: '#0F1117', margin: '0 0 20px' }}>
+          Новый пользователь зарегистрировался
+        </Heading>
         <Text style={text}><strong>Email:</strong> {email}</Text>
         <Text style={text}><strong>Имя:</strong> {fullName}</Text>
         <Text style={text}><strong>Тематика:</strong> {niche}</Text>
@@ -33,11 +35,15 @@ const AdminNewUserEmail = ({
         <Text style={text}><strong>IP:</strong> {ip}</Text>
         {registeredAt ? <Text style={text}><strong>Время:</strong> {registeredAt}</Text> : null}
         <Hr />
-        <Text style={footer}>Аккаунт будет активирован автоматически через 2 минуты.</Text>
+        <Text style={{ fontSize: '12px', color: '#999999', margin: '20px 0 0' }}>
+          Аккаунт будет активирован автоматически через 2 минуты.
+        </Text>
       </Container>
     </Body>
   </Html>
 )
+
+const text = { fontSize: '14px', color: '#3a3a3a', lineHeight: '1.5', margin: '0 0 10px' }
 
 export const template: TemplateEntry = {
   component: AdminNewUserEmail,
