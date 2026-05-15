@@ -6,6 +6,7 @@ import {
   buildNewArticleUserPrompt,
 } from "../_shared/promptBuilder.ts";
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
+import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.ts";
 import { validateContent, dataNuggetsCoverage, personaProfileDeviation } from "../_shared/contentValidator.ts";
 import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
