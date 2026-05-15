@@ -560,10 +560,22 @@ export default function SiteFactoryPage() {
       .select("id, title, content, meta_description, status, published_url, keywords, created_at")
       .eq("user_id", user.id)
       .eq("project_id", selectedProjectId)
-      .in("status", ["completed", "published", "generating"])
+      .in("status", ["completed", "published", "generating", "failed"])
       .order("created_at", { ascending: false })
       .limit(50);
-    if (data) setArticles(data);
+    if (data) {
+      const now = Date.now();
+      const stale = data.filter((a) =>
+        a.status === "generating" &&
+        !a.content &&
+        a.created_at &&
+        now - new Date(a.created_at).getTime() > 30 * 60 * 1000
+      );
+      if (stale.length) {
+        await supabase.from("articles").update({ status: "failed" }).in("id", stale.map((a) => a.id));
+      }
+      setArticles(data.map((a) => stale.some((s) => s.id === a.id) ? { ...a, status: "failed" } : a));
+    }
   }, [user, selectedProjectId]);
 
   useEffect(() => { loadArticles(); }, [loadArticles]);
@@ -611,8 +623,8 @@ export default function SiteFactoryPage() {
             setArticles((prev) =>
               prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
             );
-            // Remove from generatingIds when completed
-            if (updated.status === "completed" || updated.status === "published") {
+            // Remove from generatingIds when generation stops
+            if (updated.status === "completed" || updated.status === "published" || updated.status === "failed") {
               setGeneratingIds((prev) => {
                 const next = new Set(prev);
                 next.delete(updated.id);
@@ -760,7 +772,19 @@ export default function SiteFactoryPage() {
           try {
             const { data: session } = await supabase.auth.getSession();
             const token = session?.session?.access_token;
-            if (!token) return false;
+
+            const failArticle = async () => {
+              await supabase.from("articles").update({ status: "failed" }).eq("id", artRecord.id);
+              setGeneratingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(artRecord.id);
+                return next;
+              });
+            };
+            if (!token) {
+              await failArticle();
+              return false;
+            }
 
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
             const res = await fetch(
@@ -798,13 +822,7 @@ export default function SiteFactoryPage() {
               
               toast({ title: errorMsg, variant: "destructive" });
               
-              // Delete the empty article record instead of leaving as draft
-              await supabase.from("articles").delete().eq("id", artRecord.id);
-              setGeneratingIds((prev) => {
-                const next = new Set(prev);
-                next.delete(artRecord.id);
-                return next;
-              });
+              await failArticle();
               return false;
             }
 
@@ -824,6 +842,11 @@ export default function SiteFactoryPage() {
             }
 
             // 7. Update article with content
+            if (!content.trim()) {
+              await failArticle();
+              throw new Error(lang === "ru" ? "Модель вернула пустой текст" : "Model returned empty content");
+            }
+
             await supabase
               .from("articles")
               .update({
@@ -850,7 +873,7 @@ export default function SiteFactoryPage() {
               description: String(err),
               variant: "destructive" 
             });
-            await supabase.from("articles").delete().eq("id", artRecord.id);
+            await supabase.from("articles").update({ status: "failed" }).eq("id", artRecord.id);
             setGeneratingIds((prev) => {
               const next = new Set(prev);
               next.delete(artRecord.id);
@@ -1181,7 +1204,8 @@ export default function SiteFactoryPage() {
   };
 
   const getStatusBadge = (article: QueueArticle) => {
-    const isGenerating = generatingIds.has(article.id) || article.status === "generating";
+    const isStuckGenerating = article.status === "generating" && !article.content && article.created_at && Date.now() - new Date(article.created_at).getTime() > 30 * 60 * 1000;
+    const isGenerating = !isStuckGenerating && (generatingIds.has(article.id) || article.status === "generating");
     const isIndexed = indexedArticleIds.has(article.id);
     
     const indexIcon = article.status === "published" ? (
@@ -1215,7 +1239,7 @@ export default function SiteFactoryPage() {
     if (article.status === "failed") {
       return (
         <Badge variant="destructive" className="text-xs">
-          {lang === "ru" ? "Ошибка" : "Failed"}
+          {lang === "ru" ? "Ошибка генерации" : "Generation failed"}
         </Badge>
       );
     }

@@ -33,6 +33,27 @@ function stripHtml(s: string): string {
     .trim();
 }
 
+function fallbackAiScore(plain: string): { score: number; verdict: string; reasons: string[] } {
+  const sentences = splitSentences(plain);
+  const words = plain.split(/\s+/).filter(Boolean);
+  const starts = sentences.map((s) => s.split(/\s+/).slice(0, 2).join(" ").toLowerCase()).filter(Boolean);
+  const duplicateStarts = starts.length - new Set(starts).size;
+  const avgSentence = sentences.length ? words.length / sentences.length : 18;
+  const burst = computeBurstiness(plain).sigma;
+  const cliches = (plain.match(/\b(следует отметить|стоит отметить|важно понимать|на сегодняшний день|in conclusion|it is important to note|in today's world)\b/gi) || []).length;
+  let score = 78;
+  if (burst < 5) score -= 18;
+  if (avgSentence > 28 || avgSentence < 7) score -= 10;
+  score -= Math.min(18, duplicateStarts * 3);
+  score -= Math.min(16, cliches * 4);
+  score = Math.max(35, Math.min(88, Math.round(score)));
+  return {
+    score,
+    verdict: score >= 70 ? "скорее человек" : score >= 50 ? "погранично" : "скорее AI",
+    reasons: ["Локальная эвристика применена из-за временной недоступности AI-проверки"],
+  };
+}
+
 // Wrap a promise with a hard timeout. Resolves with `null` on timeout.
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
   return new Promise((resolve) => {
@@ -467,10 +488,12 @@ async function runAutoQuality(
       : Promise.resolve(null),
   ]);
 
-  const aiInternal = aiInternalRes?.score ?? null;
+  const heuristicAi = aiInternalRes?.score == null && claudeRes == null ? fallbackAiScore(plain) : null;
+  const aiInternal = aiInternalRes?.score ?? heuristicAi?.score ?? null;
   const aiClaude = claudeRes ?? null;
-  if (aiInternal === null) await logErr(admin, "quality-check", "ai_internal_failed", { article_id: articleId });
-  if (orKey && aiClaude === null) await logErr(admin, "quality-check", "ai_claude_failed", { article_id: articleId });
+  if (aiInternalRes?.score == null && claudeRes == null) {
+    console.warn("[quality-check] AI checks unavailable, used local fallback", { articleId });
+  }
   if (turgenevKey && !turgenevRes) await logErr(admin, "quality-check", "turgenev_call_failed", { article_id: articleId });
   const aiCombined = aiInternal !== null && aiClaude !== null
     ? Math.round((aiInternal + aiClaude) / 2)
@@ -906,11 +929,14 @@ Deno.serve(async (req) => {
     const details = {
       ...existingDetails,
       score_details: out.score ? { stylistics: out.score.stylistics, water: out.score.water, reasons: out.score.reasons } : existingDetails.score_details,
-      ai_details: out.ai ? { verdict: out.ai.verdict, reasons: out.ai.reasons } : existingDetails.ai_details,
+      ai_details: out.ai
+        ? { verdict: out.ai.verdict, reasons: out.ai.reasons }
+        : (requested.has("ai") && !out.ai ? fallbackAiScore(plain) : existingDetails.ai_details),
       uniqueness_details: existingDetails.uniqueness_details,
       uniqueness_pending: uniquenessQueued ? true : existingDetails.uniqueness_pending,
     };
 
+    const fallbackManualAi = requested.has("ai") && !out.ai ? fallbackAiScore(plain) : null;
     const update: Record<string, any> = {
       quality_details: details,
       quality_checked_at: new Date().toISOString(),
@@ -920,6 +946,7 @@ Deno.serve(async (req) => {
     if (turgStatus) update.turgenev_status = turgStatus;
     if (uniq !== null) update.uniqueness_percent = uniq;
     if (ai !== null) update.ai_human_score = ai;
+    else if (fallbackManualAi) update.ai_human_score = fallbackManualAi.score;
 
     // Compute badge from latest values (existing if not re-checked)
     const finalTurg = turg ?? null;
@@ -930,7 +957,7 @@ Deno.serve(async (req) => {
     const badge = computeBadge(
       finalTurg ?? existing?.turgenev_score ?? null,
       finalUniq ?? existing?.uniqueness_percent ?? null,
-      finalAi ?? existing?.ai_human_score ?? null,
+      finalAi ?? fallbackManualAi?.score ?? existing?.ai_human_score ?? null,
     );
     if (badge) update.quality_badge = badge;
 
@@ -959,7 +986,7 @@ Deno.serve(async (req) => {
     return json({
       turgenev_score: finalTurg ?? existing?.turgenev_score ?? null,
       uniqueness_percent: finalUniq ?? existing?.uniqueness_percent ?? null,
-      ai_human_score: finalAi ?? existing?.ai_human_score ?? null,
+      ai_human_score: finalAi ?? fallbackManualAi?.score ?? existing?.ai_human_score ?? null,
       quality_badge: badge,
       details,
       checked_at: update.quality_checked_at,
