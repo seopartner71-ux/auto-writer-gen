@@ -71,12 +71,28 @@ serve(async (req) => {
       : "(SERP пуст или недоступен — предложи темы по общему смыслу запроса.)";
 
     const systemPrompt = lang === "ru"
-      ? `Ты SEO-стратег. Анализируешь топ-10 Google по ключу и предлагаешь 5 РАЗНЫХ углов подачи статьи, которые могут обойти топ. Каждая тема - уникальный угол (не дубль конкурентов). Без воды. Без 'ё' (только 'е'). Без bold. Без emoji.`
-      : `You are an SEO strategist. Analyze Google top-10 for the keyword and suggest 5 DIFFERENT article angles that could outrank the top. Each topic must be a unique angle, not a copy of competitors. No fluff, no bold, no emoji.`;
+      ? `Ты SEO-стратег уровня senior. Твоя задача - найти БЕЛЫЕ ПЯТНА в топ-10 Google и предложить 5 углов подачи, которых ТАМ НЕТ.
+
+ЖЕЛЕЗНЫЕ ПРАВИЛА:
+1. ЗАПРЕЩЕНО копировать или перефразировать заголовки из топ-10. Если в топе есть "Как выбрать X" - ты НЕ предлагаешь "Как правильно выбрать X" или "Гид по выбору X".
+2. Каждый из 5 углов должен закрывать другую боль/намерение/сегмент аудитории, которые конкуренты упустили или раскрыли поверхностно.
+3. Используй разные форматы: личный опыт, разбор ошибок, чек-лист с цифрами, сравнение методов, кейс/история, анти-гайд (что НЕ делать), глубокий технический разбор, для конкретного сегмента (новички/профи/бюджет/премиум).
+4. H1 должен звучать СВЕЖО - не штамп типа "Топ-10", "Полное руководство", "Все что нужно знать". Используй конкретику: цифры, год, сегмент, результат, провокацию.
+5. Поле reason обязательно объясняет, ЧЕГО НЕТ в текущем топе и почему этот угол выиграет.
+6. Без 'ё' (только 'е'). Без bold (**). Без emoji. Без длинных тире (только дефис -).`
+      : `You are a senior SEO strategist. Your task: find BLIND SPOTS in Google top-10 and propose 5 angles MISSING from there.
+
+HARD RULES:
+1. FORBIDDEN to copy or rephrase top-10 titles. If top has "How to choose X" - you do NOT propose "How to properly choose X" or "Guide to choosing X".
+2. Each of 5 angles must address a different pain/intent/audience segment competitors missed or covered shallowly.
+3. Use different formats: personal experience, mistakes breakdown, checklist with numbers, methods comparison, case story, anti-guide (what NOT to do), deep technical, for specific segment (beginners/pros/budget/premium).
+4. H1 must sound FRESH - no clichés like "Top 10", "Complete guide", "Everything you need to know". Use specifics: numbers, year, segment, outcome, provocation.
+5. The reason field MUST explain what is MISSING in current top and why this angle wins.
+6. No bold (**). No emoji. Use hyphens only (-).`;
 
     const userPrompt = lang === "ru"
-      ? `Ключевой запрос: "${keyword.trim()}"\n\nТоп-10 Google сейчас:\n${serpBlock}\n\nПредложи 5 углов подачи. Верни через tool call.`
-      : `Keyword: "${keyword.trim()}"\n\nGoogle top-10 now:\n${serpBlock}\n\nSuggest 5 angles. Return via tool call.`;
+      ? `Ключевой запрос: "${keyword.trim()}"\n\nТоп-10 Google сейчас (это то, что НЕ надо повторять):\n${serpBlock}\n\nПроанализируй, какие углы конкуренты УПУСТИЛИ, и предложи 5 СВЕЖИХ тем. Все 5 должны быть РАЗНЫЕ между собой - разные форматы, разные сегменты аудитории, разные боли. Верни через tool call.`
+      : `Keyword: "${keyword.trim()}"\n\nGoogle top-10 now (this is what you must NOT repeat):\n${serpBlock}\n\nAnalyze which angles competitors MISSED and propose 5 FRESH topics. All 5 must DIFFER from each other - different formats, audiences, pains. Return via tool call.`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
