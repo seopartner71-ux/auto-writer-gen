@@ -94,68 +94,166 @@ HARD RULES:
       ? `Ключевой запрос: "${keyword.trim()}"\n\nТоп-10 Google сейчас (это то, что НЕ надо повторять):\n${serpBlock}\n\nПроанализируй, какие углы конкуренты УПУСТИЛИ, и предложи 5 СВЕЖИХ тем. Все 5 должны быть РАЗНЫЕ между собой - разные форматы, разные сегменты аудитории, разные боли. Верни через tool call.`
       : `Keyword: "${keyword.trim()}"\n\nGoogle top-10 now (this is what you must NOT repeat):\n${serpBlock}\n\nAnalyze which angles competitors MISSED and propose 5 FRESH topics. All 5 must DIFFER from each other - different formats, audiences, pains. Return via tool call.`;
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "suggest_topics",
-            description: "Return 5 distinct article angles for the keyword.",
-            parameters: {
-              type: "object",
-              properties: {
-                topics: {
-                  type: "array",
-                  minItems: 5,
-                  maxItems: 5,
-                  items: {
-                    type: "object",
-                    properties: {
-                      h1: { type: "string", description: "Catchy H1 with the keyword inside (60-80 chars)." },
-                      angle: { type: "string", description: "Short angle/positioning (1 sentence)." },
-                      intent: { type: "string", enum: ["informational", "commercial", "transactional", "comparison", "how-to"] },
-                      reason: { type: "string", description: "Why this angle can outrank current top (1 sentence)." },
+    // ---------- Similarity helpers ----------
+    const STOP = new Set([
+      "и","в","во","не","на","с","со","по","для","от","до","из","к","о","об","или","что","как","это","вы","мы",
+      "the","a","an","and","or","of","for","to","in","on","at","is","are","with","how","what","best","top","guide","2024","2025","2026"
+    ]);
+    const tokens = (s: string) => (s || "")
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !STOP.has(w));
+    const jaccard = (a: string, b: string): number => {
+      const A = new Set(tokens(a));
+      const B = new Set(tokens(b));
+      if (!A.size || !B.size) return 0;
+      let inter = 0;
+      for (const t of A) if (B.has(t)) inter++;
+      return inter / new Set([...A, ...B]).size;
+    };
+    const SIM_THRESHOLD = 0.55; // >55% общих значимых слов = "копия"
+
+    const validateTopics = (topics: any[]): { ok: any[]; rejected: Array<{ h1: string; reason: string }> } => {
+      const ok: any[] = [];
+      const rejected: Array<{ h1: string; reason: string }> = [];
+      const seenH1: string[] = [];
+      for (const t of topics) {
+        const h1 = String(t?.h1 || "").trim();
+        if (!h1) { rejected.push({ h1: "", reason: "empty h1" }); continue; }
+        // vs SERP titles
+        let worstSim = 0; let worstSrc = "";
+        for (const s of serpItems) {
+          const sim = jaccard(h1, s.title);
+          if (sim > worstSim) { worstSim = sim; worstSrc = s.title; }
+        }
+        if (worstSim >= SIM_THRESHOLD) {
+          rejected.push({ h1, reason: `слишком похоже (${Math.round(worstSim*100)}%) на: "${worstSrc}"` });
+          continue;
+        }
+        // vs already accepted h1 in same batch
+        let internalDup = false;
+        for (const prev of seenH1) {
+          if (jaccard(h1, prev) >= SIM_THRESHOLD) {
+            rejected.push({ h1, reason: `дубль другого варианта в этой пачке: "${prev}"` });
+            internalDup = true; break;
+          }
+        }
+        if (internalDup) continue;
+        seenH1.push(h1);
+        ok.push(t);
+      }
+      return { ok, rejected };
+    };
+
+    const callModel = async (extraUserMsg?: string) => {
+      const messages: any[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ];
+      if (extraUserMsg) messages.push({ role: "user", content: extraUserMsg });
+
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages,
+          tools: [{
+            type: "function",
+            function: {
+              name: "suggest_topics",
+              description: "Return 5 distinct article angles for the keyword.",
+              parameters: {
+                type: "object",
+                properties: {
+                  topics: {
+                    type: "array", minItems: 5, maxItems: 5,
+                    items: {
+                      type: "object",
+                      properties: {
+                        h1: { type: "string", description: "Catchy H1 with the keyword inside (60-80 chars)." },
+                        angle: { type: "string", description: "Short angle/positioning (1 sentence)." },
+                        intent: { type: "string", enum: ["informational","commercial","transactional","comparison","how-to"] },
+                        reason: { type: "string", description: "Why this angle can outrank current top (1 sentence)." },
+                      },
+                      required: ["h1","angle","intent","reason"],
+                      additionalProperties: false,
                     },
-                    required: ["h1", "angle", "intent", "reason"],
-                    additionalProperties: false,
                   },
                 },
+                required: ["topics"],
+                additionalProperties: false,
               },
-              required: ["topics"],
-              additionalProperties: false,
             },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "suggest_topics" } },
-      }),
-    });
+          }],
+          tool_choice: { type: "function", function: { name: "suggest_topics" } },
+        }),
+      });
+      return r;
+    };
 
-    if (aiResp.status === 429) return errorResponse("Слишком много запросов, попробуйте позже", 429);
-    if (aiResp.status === 402) return errorResponse("Закончились кредиты Lovable AI", 402);
-    if (!aiResp.ok) {
-      const t = await aiResp.text();
-      console.error("AI gateway error", aiResp.status, t);
-      return errorResponse("AI gateway error", 500);
+    // ---------- Retry loop (up to 3 attempts) ----------
+    const accepted: any[] = [];
+    let lastRejected: Array<{ h1: string; reason: string }> = [];
+    let attempts = 0;
+    const MAX_ATTEMPTS = 3;
+
+    while (accepted.length < 5 && attempts < MAX_ATTEMPTS) {
+      attempts++;
+      let extraMsg: string | undefined;
+      if (attempts > 1) {
+        const need = 5 - accepted.length;
+        const rejList = lastRejected.slice(0, 8).map((r, i) => `${i + 1}. "${r.h1}" - ${r.reason}`).join("\n");
+        const acceptedList = accepted.map((t, i) => `${i + 1}. "${t.h1}"`).join("\n") || "(пока ничего)";
+        extraMsg = lang === "ru"
+          ? `Предыдущая попытка ${attempts - 1}: ОТКЛОНЕНО за копирование/похожесть на топ или дубль:\n${rejList}\n\nУже принято (НЕ повторяй и не похожи на них):\n${acceptedList}\n\nПредложи ${need} НОВЫХ тем с РАДИКАЛЬНО другими формулировками. Меняй структуру H1 целиком: другая первая часть, другой формат, другой сегмент. Верни ровно 5 тем (включая ${need} новых + при желании переработай ${5 - need} принятых, если они есть).`
+          : `Previous attempt ${attempts - 1}: REJECTED for copying/being too close to top or duplicates:\n${rejList}\n\nAlready accepted (do NOT repeat or look similar):\n${acceptedList}\n\nPropose ${need} NEW topics with RADICALLY different wording. Change H1 structure entirely. Return exactly 5 topics.`;
+      }
+
+      const aiResp = await callModel(extraMsg);
+      if (aiResp.status === 429) return errorResponse("Слишком много запросов, попробуйте позже", 429);
+      if (aiResp.status === 402) return errorResponse("Закончились кредиты Lovable AI", 402);
+      if (!aiResp.ok) {
+        const t = await aiResp.text();
+        console.error(`AI gateway error attempt=${attempts}:`, aiResp.status, t);
+        if (attempts >= MAX_ATTEMPTS) return errorResponse("AI gateway error", 500);
+        continue;
+      }
+      const aiJson = await aiResp.json();
+      const argsRaw = aiJson?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+      if (!argsRaw) { lastRejected = [{ h1: "", reason: "no tool call" }]; continue; }
+      let parsed: any;
+      try { parsed = JSON.parse(argsRaw); } catch { lastRejected = [{ h1: "", reason: "bad json" }]; continue; }
+      const candidates = Array.isArray(parsed?.topics) ? parsed.topics : [];
+
+      // validate against SERP + already accepted
+      const combined = [...accepted, ...candidates];
+      const { ok, rejected } = validateTopics(combined);
+      lastRejected = rejected;
+
+      // keep first 5 unique survivors
+      accepted.length = 0;
+      for (const t of ok) {
+        accepted.push(t);
+        if (accepted.length >= 5) break;
+      }
+      console.log(`attempt=${attempts} accepted=${accepted.length}/5 rejected=${rejected.length}`);
+      if (accepted.length >= 5) break;
     }
 
-    const aiJson = await aiResp.json();
-    const toolCall = aiJson?.choices?.[0]?.message?.tool_calls?.[0];
-    const argsRaw = toolCall?.function?.arguments;
-    if (!argsRaw) return errorResponse("No suggestions returned", 500);
+    if (accepted.length === 0) {
+      return errorResponse("Не удалось подобрать уникальные темы после нескольких попыток. Попробуйте другой ключ.", 422);
+    }
 
-    let parsed: any;
-    try { parsed = JSON.parse(argsRaw); } catch { return errorResponse("Bad AI output", 500); }
-    const topics = Array.isArray(parsed?.topics) ? parsed.topics.slice(0, 5) : [];
-    if (topics.length === 0) return errorResponse("Empty topics list", 500);
-
-    return jsonResponse({ topics, serp_used: serpItems.length });
+    return jsonResponse({
+      topics: accepted.slice(0, 5),
+      serp_used: serpItems.length,
+      attempts,
+      partial: accepted.length < 5,
+      rejected_examples: lastRejected.slice(0, 3),
+    });
   } catch (e) {
     console.error("suggest-article-topics error:", e);
     return errorResponse(e instanceof Error ? e.message : "Unknown error", 500);
