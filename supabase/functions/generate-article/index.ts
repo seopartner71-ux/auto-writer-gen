@@ -11,6 +11,7 @@ import {
 } from "../_shared/promptBuilder.ts";
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
+import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -175,7 +176,20 @@ serve(async (req) => {
         console.log("[generate-article] Using author:", author.name, "| type:", author.type, "| has system_instruction:", !!author.system_instruction);
       }
     } else {
-      console.log("[generate-article] No author selected, using default style");
+      // Auto-select Persona by user's onboarding_niche so syntax_preset is
+      // applied without manual UI selection. Skipped silently on humanize
+      // passes (we want to preserve whatever style the original draft had).
+      if (!isHumanizePolish) {
+        const auto = await resolveAutoAuthorByNiche(supabaseAdmin, user.id);
+        if (auto) {
+          authorData = auto;
+          console.log("[generate-article] Auto-selected persona by niche:", auto.name);
+        } else {
+          console.log("[generate-article] No author selected, using default style");
+        }
+      } else {
+        console.log("[generate-article] No author selected (humanize pass) — keeping default");
+      }
     }
 
     // Fast-model override for low-quality publishing targets (Telegraph / Miralinks / GoGetLinks).
