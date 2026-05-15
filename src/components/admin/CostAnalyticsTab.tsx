@@ -679,7 +679,9 @@ function OpenRouterBudgetCard({
       articles: { id: string; created_at: string }[];
       costs: { created_at: string; cost_usd: number }[];
     }> => {
-      const data = await callAnalytics("openrouter_period_stats", { date_from: earliestTopup! });
+      // Normalize to ...Z so the `+` from `+00:00` does not get URL-decoded as space.
+      const dateFromZ = new Date(earliestTopup!).toISOString();
+      const data = await callAnalytics("openrouter_period_stats", { date_from: dateFromZ });
       return {
         articles: (data?.articles || []) as { id: string; created_at: string }[],
         costs: (data?.costs || []) as { created_at: string; cost_usd: number }[],
