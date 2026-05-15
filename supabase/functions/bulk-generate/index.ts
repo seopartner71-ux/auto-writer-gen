@@ -371,19 +371,31 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       }
     } catch (_) { /* ignore */ }
 
-    // ─── Persona enforcement (soft) ──────────────────────────────────
+    // ─── Persona enforcement (auto-rewrite) ──────────────────────────
     // Compare measured syntax stats against the expected syntax_profile.
-    // Logs deviation; high deviation (>0.5) is a candidate for re-roll on
-    // future iteration.
+    // If deviation > 30%, ask Sonnet for a single rhythm-rewrite pass.
+    // Falls back to original content if integrity guard fails or if the
+    // rewrite did not actually reduce deviation by ≥20%.
     try {
       const expectedProfile = (job as any)?.author_profile?.style_analysis?.syntax_profile;
       if (expectedProfile) {
-        const dev = personaProfileDeviation(articleContent, expectedProfile);
-        if (dev.deviation > 0.5) {
-          console.warn(`[bulk-generate][persona] high deviation ${dev.deviation.toFixed(2)} (expected=${expectedProfile}, avgLen=${dev.measured.avgSentLen.toFixed(1)}) for "${item.seed_keyword}"`);
+        const enforced = await enforcePersonaSyntax(
+          articleContent,
+          expectedProfile,
+          isRussian ? "ru" : "en",
+          openRouterApiKey,
+          0.3,
+        );
+        if (enforced.applied) {
+          articleContent = enforced.content;
+          console.log(`[bulk-generate][persona] rewrote syntax: ${(enforced.beforeDeviation * 100).toFixed(0)}% -> ${(enforced.afterDeviation * 100).toFixed(0)}% (profile=${expectedProfile}) for "${item.seed_keyword}"`);
+        } else if (enforced.beforeDeviation > 0.3) {
+          console.warn(`[bulk-generate][persona] high deviation ${(enforced.beforeDeviation * 100).toFixed(0)}% (profile=${expectedProfile}) for "${item.seed_keyword}" - rewrite skipped/rejected`);
         }
       }
-    } catch (_) { /* ignore */ }
+    } catch (e) {
+      console.warn(`[bulk-generate][persona] enforcement failed for "${item.seed_keyword}":`, (e as Error)?.message);
+    }
 
     // ─── Double Humanize Pass (FACTORY) ──────────────────────────────
     // Sonnet (heavy rewrite) + Opus (micro-polish) target <5% AI detection.
