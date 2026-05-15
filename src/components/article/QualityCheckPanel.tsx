@@ -21,6 +21,8 @@ export interface QualityResult {
   turgenev_score: number | null;
   uniqueness_percent: number | null;
   ai_human_score: number | null;
+  cluster_fitness_score?: number | null;
+  serp_cluster_pipeline?: boolean | null;
   quality_badge: "excellent" | "good" | "needs_work" | null;
   details?: any;
   checked_at?: string | null;
@@ -133,7 +135,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
     (async () => {
       const { data } = await supabase
         .from("articles")
-        .select("turgenev_score,uniqueness_percent,ai_human_score,quality_badge,quality_details,quality_checked_at")
+        .select("turgenev_score,uniqueness_percent,ai_human_score,quality_badge,quality_details,quality_checked_at,cluster_fitness_score,serp_cluster_pipeline")
         .eq("id", articleId)
         .maybeSingle();
       if (data) {
@@ -141,6 +143,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
           turgenev_score: data.turgenev_score ?? null,
           uniqueness_percent: data.uniqueness_percent ?? null,
           ai_human_score: data.ai_human_score ?? null,
+          cluster_fitness_score: (data as any).cluster_fitness_score ?? null,
+          serp_cluster_pipeline: (data as any).serp_cluster_pipeline ?? null,
           quality_badge: (data.quality_badge as any) ?? null,
           details: data.quality_details,
           checked_at: data.quality_checked_at,
@@ -414,6 +418,24 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
             suffix={result.ai_human_score !== null ? "человек" : undefined}
             status={sAi}
             progress={aiProgress}
+          />
+          <MetricRow
+            icon={Target}
+            title={`SERP-кластер ${result.serp_cluster_pipeline ? "· новый пайплайн" : "· старый пайплайн"}`}
+            hint={
+              result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined
+                ? `Абзацев в основном кластере: ${(result.details as any)?.cluster_fitness_details?.in_cluster ?? "?"} из ${(result.details as any)?.cluster_fitness_details?.total_paragraphs ?? "?"}`
+                : "% абзацев, попадающих в основной SERP-кластер ключа"
+            }
+            value={result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined ? `${result.cluster_fitness_score}%` : "-"}
+            suffix={result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined ? "в кластере" : undefined}
+            status={
+              result.cluster_fitness_score === null || result.cluster_fitness_score === undefined ? "none"
+                : result.cluster_fitness_score >= 70 ? "ok"
+                : result.cluster_fitness_score >= 30 ? "warn"
+                : "bad"
+            }
+            progress={Math.max(0, Math.min(100, result.cluster_fitness_score ?? 0))}
           />
         </div>
 

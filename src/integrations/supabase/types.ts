@@ -464,6 +464,8 @@ export type Database = {
           blogger_post_url: string | null
           burstiness_score: number | null
           burstiness_status: string | null
+          cluster_fitness_details: Json | null
+          cluster_fitness_score: number | null
           cluster_id: string | null
           content: string | null
           created_at: string | null
@@ -489,6 +491,7 @@ export type Database = {
           scheduled_at: string | null
           seo_improve_count: number
           seo_score: Json | null
+          serp_cluster_pipeline: boolean | null
           share_token: string | null
           status: string | null
           suggested_outline: Json | null
@@ -519,6 +522,8 @@ export type Database = {
           blogger_post_url?: string | null
           burstiness_score?: number | null
           burstiness_status?: string | null
+          cluster_fitness_details?: Json | null
+          cluster_fitness_score?: number | null
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
@@ -544,6 +549,7 @@ export type Database = {
           scheduled_at?: string | null
           seo_improve_count?: number
           seo_score?: Json | null
+          serp_cluster_pipeline?: boolean | null
           share_token?: string | null
           status?: string | null
           suggested_outline?: Json | null
@@ -574,6 +580,8 @@ export type Database = {
           blogger_post_url?: string | null
           burstiness_score?: number | null
           burstiness_status?: string | null
+          cluster_fitness_details?: Json | null
+          cluster_fitness_score?: number | null
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
@@ -599,6 +607,7 @@ export type Database = {
           scheduled_at?: string | null
           seo_improve_count?: number
           seo_score?: Json | null
+          serp_cluster_pipeline?: boolean | null
           share_token?: string | null
           status?: string | null
           suggested_outline?: Json | null
