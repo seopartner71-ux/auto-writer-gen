@@ -930,11 +930,14 @@ Deno.serve(async (req) => {
     const details = {
       ...existingDetails,
       score_details: out.score ? { stylistics: out.score.stylistics, water: out.score.water, reasons: out.score.reasons } : existingDetails.score_details,
-      ai_details: out.ai ? { verdict: out.ai.verdict, reasons: out.ai.reasons } : existingDetails.ai_details,
+      ai_details: out.ai
+        ? { verdict: out.ai.verdict, reasons: out.ai.reasons }
+        : (requested.has("ai") && !out.ai ? fallbackAiScore(plain) : existingDetails.ai_details),
       uniqueness_details: existingDetails.uniqueness_details,
       uniqueness_pending: uniquenessQueued ? true : existingDetails.uniqueness_pending,
     };
 
+    const fallbackManualAi = requested.has("ai") && !out.ai ? fallbackAiScore(plain) : null;
     const update: Record<string, any> = {
       quality_details: details,
       quality_checked_at: new Date().toISOString(),
@@ -944,6 +947,7 @@ Deno.serve(async (req) => {
     if (turgStatus) update.turgenev_status = turgStatus;
     if (uniq !== null) update.uniqueness_percent = uniq;
     if (ai !== null) update.ai_human_score = ai;
+    else if (fallbackManualAi) update.ai_human_score = fallbackManualAi.score;
 
     // Compute badge from latest values (existing if not re-checked)
     const finalTurg = turg ?? null;
@@ -954,7 +958,7 @@ Deno.serve(async (req) => {
     const badge = computeBadge(
       finalTurg ?? existing?.turgenev_score ?? null,
       finalUniq ?? existing?.uniqueness_percent ?? null,
-      finalAi ?? existing?.ai_human_score ?? null,
+      finalAi ?? fallbackManualAi?.score ?? existing?.ai_human_score ?? null,
     );
     if (badge) update.quality_badge = badge;
 
