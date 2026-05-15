@@ -12,7 +12,7 @@ interface Heading {
 function parseHeadings(content: string): Heading[] {
   if (!content) return [];
   const out: Heading[] = [];
-  const re = /^(#{2,3})\s+(.+)$/gm;
+  const re = /^(#{2,3})\s*(.+)$/gm;
   let m: RegExpExecArray | null;
   while ((m = re.exec(content)) !== null) {
     out.push({
@@ -21,6 +21,15 @@ function parseHeadings(content: string): Heading[] {
       index: m.index,
     });
   }
+  const htmlRe = /<h([23])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
+  while ((m = htmlRe.exec(content)) !== null) {
+    out.push({
+      level: m[1] === "2" ? 2 : 3,
+      text: m[2].replace(/<[^>]*>/g, "").trim(),
+      index: m.index,
+    });
+  }
+  out.sort((a, b) => a.index - b.index);
   return out;
 }
 
