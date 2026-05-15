@@ -290,6 +290,7 @@ export default function IntegrationsPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Ghost settings */}
       <Card className="bg-card border-border overflow-hidden">
