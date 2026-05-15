@@ -358,19 +358,30 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       console.log(`[bulk-generate][fact-check] auto-fixed ${fc.issues.length} issues for "${item.seed_keyword}"`);
     }
 
-    // ─── Data Nuggets coverage ───────────────────────────────────────
-    // Soft check: if model dropped most of the supplied facts/numbers, log it.
-    // We don't regenerate here (cost), but the metric surfaces in logs and
-    // future post-gen QA can act on it.
+    // ─── Data Nuggets enforcement ────────────────────────────────────
+    // If <50% of supplied facts/numbers ended up in the text, run a
+    // targeted insert-pass on Sonnet that organically weaves the missing
+    // nuggets into the existing paragraphs (cheaper than full regen).
     try {
       const nuggetsList = (analysis as any)?.data_nuggets || [];
       if (Array.isArray(nuggetsList) && nuggetsList.length > 0) {
-        const cov = dataNuggetsCoverage(articleContent, nuggetsList);
-        if (cov.ratio < 0.5) {
-          console.warn(`[bulk-generate][nuggets] low coverage ${(cov.ratio * 100).toFixed(0)}% (${cov.matched}/${cov.total}) for "${item.seed_keyword}"`);
+        const ne = await enforceDataNuggets(
+          articleContent,
+          nuggetsList,
+          isRussian ? "ru" : "en",
+          openRouterApiKey,
+          0.5,
+        );
+        if (ne.applied) {
+          articleContent = ne.content;
+          console.log(`[bulk-generate][nuggets] coverage ${(ne.beforeRatio * 100).toFixed(0)}% -> ${(ne.afterRatio * 100).toFixed(0)}% (inserted ${ne.missingCount}) for "${item.seed_keyword}"`);
+        } else if (ne.beforeRatio < 0.5) {
+          console.warn(`[bulk-generate][nuggets] low coverage ${(ne.beforeRatio * 100).toFixed(0)}% for "${item.seed_keyword}" - insert pass skipped/rejected`);
         }
       }
-    } catch (_) { /* ignore */ }
+    } catch (e) {
+      console.warn(`[bulk-generate][nuggets] enforcement failed for "${item.seed_keyword}":`, (e as Error)?.message);
+    }
 
     // ─── Persona enforcement (auto-rewrite) ──────────────────────────
     // Compare measured syntax stats against the expected syntax_profile.
