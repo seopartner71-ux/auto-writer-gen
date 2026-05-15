@@ -35,6 +35,7 @@ import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanS
 import { detectContentLanguage } from "@/components/article/humanScore/constants";
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
 import { GenerationStageProgress } from "@/components/article/GenerationStageProgress";
+import { LiveTurgenevBadge } from "@/features/article-editor/LiveTurgenevBadge";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
