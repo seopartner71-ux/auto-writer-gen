@@ -8,6 +8,7 @@ import {
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.ts";
 import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
+import { enforcePersonaSyntax } from "../_shared/personaEnforce.ts";
 import { validateContent, dataNuggetsCoverage, personaProfileDeviation } from "../_shared/contentValidator.ts";
 import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
