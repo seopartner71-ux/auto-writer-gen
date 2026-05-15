@@ -986,7 +986,7 @@ Deno.serve(async (req) => {
     return json({
       turgenev_score: finalTurg ?? existing?.turgenev_score ?? null,
       uniqueness_percent: finalUniq ?? existing?.uniqueness_percent ?? null,
-      ai_human_score: finalAi ?? existing?.ai_human_score ?? null,
+      ai_human_score: finalAi ?? fallbackManualAi?.score ?? existing?.ai_human_score ?? null,
       quality_badge: badge,
       details,
       checked_at: update.quality_checked_at,
