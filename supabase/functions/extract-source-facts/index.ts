@@ -148,8 +148,12 @@ Deno.serve(async (req) => {
       return errorResponse(`Ошибка загрузки: ${e?.message || "timeout"}`, 400);
     } finally { clearTimeout(t); }
 
-    const text = stripHtml(html).slice(0, 12000);
-    if (text.length < 100) return errorResponse("Слишком мало текста на странице", 400);
+    const meta = extractMeta(html);
+    const body = stripHtml(html).slice(0, 20000);
+    if (body.length < 100 && meta.length < 50) {
+      return errorResponse("Слишком мало текста на странице", 400);
+    }
+    const text = `${meta}\n\n=== ОСНОВНОЙ ТЕКСТ ===\n${body}`;
 
     // AI extraction via Lovable AI Gateway (cheap, fast model)
     const aiKey = Deno.env.get("LOVABLE_API_KEY");
