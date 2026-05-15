@@ -24,6 +24,7 @@ import {
   BookOpen,
   CalendarDays,
   MoreHorizontal,
+  Bot,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -148,6 +149,7 @@ export function AppSidebar() {
 
   const adminItems = [
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
+    { title: "Qwen Writer", url: "/qwen-writer", icon: Bot },
   ];
 
   const limits = PLAN_LIMITS[plan as "free" | "basic" | "pro"];

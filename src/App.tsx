@@ -91,6 +91,7 @@ const ChangelogPage = lazyWithRetry(() => import("@/pages/ChangelogPage"));
 const TopicalMapPage = lazyWithRetry(() => import("@/pages/TopicalMapPage"));
 const ArticleAuditPage = lazyWithRetry(() => import("@/pages/ArticleAuditPage"));
 const WelcomePage = lazyWithRetry(() => import("@/pages/WelcomePage"));
+const QwenWriterPage = lazyWithRetry(() => import("@/pages/QwenWriterPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -188,6 +189,7 @@ const App = () => (
 
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/qwen-writer" element={<QwenWriterPage />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
