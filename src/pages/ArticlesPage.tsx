@@ -1752,6 +1752,11 @@ export default function ArticlesPage() {
                 {isStreaming && (
                   <GenerationStageProgress phase={streamPhase} language={lang === "ru" ? "ru" : "en"} />
                 )}
+                {isStreaming && content && (
+                  <div className="mt-2">
+                    <LiveTurgenevBadge content={content} language={lang} visible={isStreaming} />
+                  </div>
+                )}
                 {/* Live passive analyzer (free SEO + AI checks, debounced 3s) */}
                 {currentArticleId && content && !isStreaming && !isQuickMode && (
                   <div className="flex justify-end items-center gap-2 mb-2">
