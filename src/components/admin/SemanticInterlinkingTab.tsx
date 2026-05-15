@@ -127,9 +127,9 @@ export function SemanticInterlinkingTab() {
           </div>
 
           <div className="text-xs text-muted-foreground border-t border-border pt-3">
-            <strong>Источник эмбеддингов:</strong> сначала пробуется Lovable AI Gateway,
-            затем OpenAI direct (если задан OPENAI_API_KEY). Если оба недоступны - функция
-            тихо возвращает skipped и интерлинкер откатывается на keyword-матчинг.
+            <strong>Источник эмбеддингов:</strong> OpenRouter (тот же ключ, что и для генерации статей),
+            модель openai/text-embedding-3-small. Стоимость - около $0.02 за 1000 статей.
+            При недоступности функция тихо возвращает skipped и интерлинкер откатывается на keyword-матчинг.
           </div>
         </CardContent>
       </Card>
