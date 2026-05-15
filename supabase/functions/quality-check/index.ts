@@ -440,8 +440,11 @@ async function runAutoQuality(
   let turgenevKey: string | null = null;
   const isRu = String(art?.language || "ru").toLowerCase() === "ru";
   if (isRu) {
+    // NOTE: api_keys uses `is_valid`, not `is_active`. The previous filter on
+    // `is_active` silently returned null for every RU article, which is why
+    // turgenev_score stayed NULL even when a key was configured.
     const { data: tk } = await admin.from("api_keys")
-      .select("api_key").eq("provider", "turgenev").eq("is_active", true).maybeSingle();
+      .select("api_key").eq("provider", "turgenev").eq("is_valid", true).maybeSingle();
     if (tk?.api_key) turgenevKey = tk.api_key as string;
     if (!turgenevKey) {
       await logErr(admin, "quality-check", "turgenev_key_missing", { article_id: articleId });
