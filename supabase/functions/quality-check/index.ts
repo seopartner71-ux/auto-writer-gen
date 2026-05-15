@@ -527,7 +527,6 @@ async function runAutoQuality(
   const updatePatch: Record<string, any> = {
     ai_score_internal: aiInternal,
     ai_score_claude: aiClaude,
-    ai_score_source: heuristicAi ? "local_fallback" : "model",
     ai_score: aiCombined,
     ai_human_score: aiCombined,
     burstiness_score: burst.sigma,
