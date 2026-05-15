@@ -132,6 +132,9 @@ export default function IntegrationsPage() {
   };
 
   const bloggerConfigured = !!blogger?.default_blog_id;
+  // Hide unused Blogger integration from UI; preserve code/edge functions for any
+  // existing connections. Show only if the current user already has a connection.
+  const SHOW_BLOGGER = bloggerConfigured || !!blogger;
 
   const platforms = [
     {
