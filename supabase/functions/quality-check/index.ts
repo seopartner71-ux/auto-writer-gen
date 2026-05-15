@@ -488,10 +488,12 @@ async function runAutoQuality(
       : Promise.resolve(null),
   ]);
 
-  const aiInternal = aiInternalRes?.score ?? null;
+  const heuristicAi = aiInternalRes?.score == null && claudeRes == null ? fallbackAiScore(plain) : null;
+  const aiInternal = aiInternalRes?.score ?? heuristicAi?.score ?? null;
   const aiClaude = claudeRes ?? null;
-  if (aiInternal === null) await logErr(admin, "quality-check", "ai_internal_failed", { article_id: articleId });
-  if (orKey && aiClaude === null) await logErr(admin, "quality-check", "ai_claude_failed", { article_id: articleId });
+  if (aiInternalRes?.score == null && claudeRes == null) {
+    console.warn("[quality-check] AI checks unavailable, used local fallback", { articleId });
+  }
   if (turgenevKey && !turgenevRes) await logErr(admin, "quality-check", "turgenev_call_failed", { article_id: articleId });
   const aiCombined = aiInternal !== null && aiClaude !== null
     ? Math.round((aiInternal + aiClaude) / 2)
@@ -525,6 +527,7 @@ async function runAutoQuality(
   const updatePatch: Record<string, any> = {
     ai_score_internal: aiInternal,
     ai_score_claude: aiClaude,
+    ai_score_source: heuristicAi ? "local_fallback" : "model",
     ai_score: aiCombined,
     ai_human_score: aiCombined,
     burstiness_score: burst.sigma,
