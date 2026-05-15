@@ -1956,6 +1956,7 @@ export type Database = {
           site_name: string | null
           site_privacy: string | null
           site_terms: string | null
+          source_page_url: string | null
           syndication_enabled: boolean
           syndication_platforms: string[]
           team_members: Json | null
@@ -2023,6 +2024,7 @@ export type Database = {
           site_name?: string | null
           site_privacy?: string | null
           site_terms?: string | null
+          source_page_url?: string | null
           syndication_enabled?: boolean
           syndication_platforms?: string[]
           team_members?: Json | null
@@ -2090,6 +2092,7 @@ export type Database = {
           site_name?: string | null
           site_privacy?: string | null
           site_terms?: string | null
+          source_page_url?: string | null
           syndication_enabled?: boolean
           syndication_platforms?: string[]
           team_members?: Json | null
@@ -2734,6 +2737,39 @@ export type Database = {
           metrica_id?: string | null
           updated_at?: string | null
           yandex_verification?: string | null
+        }
+        Relationships: []
+      }
+      source_page_cache: {
+        Row: {
+          created_at: string
+          expires_at: string
+          facts: Json | null
+          id: string
+          raw_text: string | null
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          facts?: Json | null
+          id?: string
+          raw_text?: string | null
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          facts?: Json | null
+          id?: string
+          raw_text?: string | null
+          updated_at?: string
+          url?: string
+          user_id?: string
         }
         Relationships: []
       }
