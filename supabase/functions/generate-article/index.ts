@@ -101,6 +101,20 @@ serve(async (req) => {
       });
     }
 
+    // Hard monthly $-cap per plan (admins/staff bypass via SQL function).
+    try {
+      const { data: budget } = await supabaseAdmin.rpc("check_ai_budget", { _user_id: user.id, _model: null });
+      if (budget && budget.allowed === false) {
+        console.warn("[generate-article] budget block:", budget);
+        return new Response(JSON.stringify({
+          error: "Месячный лимит расходов AI исчерпан. Лимит обновится в начале месяца или повысьте тариф.",
+          budget,
+        }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } catch (e) {
+      console.warn("[generate-article] check_ai_budget failed (allowing):", (e as Error).message);
+    }
+
     // Get model assignment
     // Humanize / Auto-fix loop sends optimize_instructions starting with the marker
     // "ЗАДАЧА: Исправь ТОЛЬКО указанную проблему" + the humanize text. Route those

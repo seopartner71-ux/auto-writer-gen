@@ -3295,6 +3295,10 @@ export type Database = {
         Returns: undefined
       }
       auto_activate_users: { Args: never; Returns: undefined }
+      check_ai_budget: {
+        Args: { _model?: string; _user_id: string }
+        Returns: Json
+      }
       check_credits: { Args: { p_user_id: string }; Returns: number }
       check_rate_limit: {
         Args: {

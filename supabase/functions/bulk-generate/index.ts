@@ -418,10 +418,14 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
         articleContent,
         isRussian ? "ru" : "en",
         openRouterApiKey,
+        { admin, userId },
       );
       if (hum.passesApplied > 0) {
         articleContent = hum.content;
         console.log(`[bulk-generate][humanize] applied ${hum.passesApplied} pass(es) via ${hum.modelsUsed.join(", ")} for "${item.seed_keyword}"`);
+      }
+      if (hum.opusSkipped) {
+        console.warn(`[bulk-generate][humanize] Opus skipped for user ${userId}: ${hum.opusSkipReason}`);
       }
     } catch (e) {
       console.warn(`[bulk-generate][humanize] failed for "${item.seed_keyword}":`, (e as Error)?.message);
