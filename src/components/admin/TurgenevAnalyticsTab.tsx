@@ -18,7 +18,8 @@ type ArticleRow = {
   turgenev_auto_fixed: boolean | null;
   language: string | null;
   created_at: string;
-  profiles?: { email: string | null; plan: string | null } | null;
+  email: string | null;
+  plan: string | null;
 };
 
 const SCORE_BUCKETS: Array<{ label: string; min: number; max: number }> = [
@@ -41,15 +42,28 @@ export function TurgenevAnalyticsTab() {
     queryKey: ["turgenev-analytics"],
     queryFn: async () => {
       // Admin RLS allows reading all articles + profiles.
-      const { data: rows, error } = await supabase
+      const { data: arts, error: e1 } = await supabase
         .from("articles")
-        .select("id,user_id,turgenev_score,turgenev_auto_fixed,language,created_at,profiles:user_id(email,plan)")
+        .select("id,user_id,turgenev_score,turgenev_auto_fixed,language,created_at")
         .not("turgenev_score", "is", null)
         .eq("language", "ru")
         .order("created_at", { ascending: false })
         .limit(2000);
-      if (error) throw error;
-      return (rows as unknown as ArticleRow[]) ?? [];
+      if (e1) throw e1;
+      const userIds = Array.from(new Set((arts ?? []).map((a) => a.user_id)));
+      let profMap = new Map<string, { email: string | null; plan: string | null }>();
+      if (userIds.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id,email,plan")
+          .in("id", userIds);
+        profMap = new Map((profs ?? []).map((p) => [p.id, { email: p.email, plan: p.plan }]));
+      }
+      return (arts ?? []).map((a) => ({
+        ...a,
+        email: profMap.get(a.user_id)?.email ?? null,
+        plan: profMap.get(a.user_id)?.plan ?? null,
+      })) as ArticleRow[];
     },
     refetchInterval: 60_000,
   });
@@ -58,8 +72,8 @@ export function TurgenevAnalyticsTab() {
     if (!data) return [];
     const emailQ = emailFilter.trim().toLowerCase();
     return data.filter((r) => {
-      if (emailQ && !(r.profiles?.email || "").toLowerCase().includes(emailQ)) return false;
-      if (planFilter !== "all" && (r.profiles?.plan || "basic") !== planFilter) return false;
+      if (emailQ && !(r.email || "").toLowerCase().includes(emailQ)) return false;
+      if (planFilter !== "all" && (r.plan || "basic") !== planFilter) return false;
       return true;
     });
   }, [data, emailFilter, planFilter]);
