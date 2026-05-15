@@ -7,6 +7,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 
+async function logErr(admin: any, context: string, message: string, metadata?: Record<string, unknown>) {
+  try {
+    await admin.from("error_logs").insert({ context, message: String(message).slice(0, 500), metadata: metadata ?? {} });
+  } catch (_) { /* never throw from logger */ }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
