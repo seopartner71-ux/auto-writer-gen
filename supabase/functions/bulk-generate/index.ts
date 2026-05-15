@@ -350,6 +350,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       meta_description: metaDesc,
       status: "published",
       quality_status: "checking",
+      serp_cluster_pipeline: true,
     }).select("id").single();
 
     // Auto quality check (background, no credit)
