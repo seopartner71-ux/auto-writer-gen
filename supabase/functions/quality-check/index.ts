@@ -438,10 +438,17 @@ async function runAutoQuality(
     if (tk?.api_key) turgenevKey = tk.api_key as string;
   }
 
-  const [aiInternalRes, claudeRes, turgenevRes] = await Promise.all([
+  const [aiInternalRes, claudeRes, turgenevRes, clusterFitRes] = await Promise.all([
     withTimeout(runAiScore(plain, apiKey), 30000, "ai-internal"),
     orKey ? withTimeout(runClaudeAiScore(plain, orKey), 30000, "ai-claude") : Promise.resolve(null),
     turgenevKey ? withTimeout(runTurgenevCheck(plain, turgenevKey), 12000, "turgenev") : Promise.resolve(null),
+    primaryKeyword
+      ? withTimeout(
+          runClusterFitness(content, primaryKeyword, art?.keyword_id || null, admin, apiKey),
+          25000,
+          "cluster-fit",
+        ).catch((e) => { console.warn("[cluster-fit] failed", e); return null; })
+      : Promise.resolve(null),
   ]);
 
   const aiInternal = aiInternalRes?.score ?? null;
@@ -493,7 +500,97 @@ async function runAutoQuality(
     updatePatch.turgenev_status = turgStatus;
     updatePatch.turgenev_details = (turgenevRes as TurgenevResult).details;
   }
+  if (clusterFitRes && typeof (clusterFitRes as any).score === "number") {
+    updatePatch.cluster_fitness_score = (clusterFitRes as any).score;
+    updatePatch.cluster_fitness_details = (clusterFitRes as any).details ?? null;
+  }
   await admin.from("articles").update(updatePatch).eq("id", articleId);
+}
+
+// ── Cluster Fitness ──────────────────────────────────────────────
+// Splits article into paragraphs and asks the AI which ones stay within
+// the main SERP cluster of the seed keyword. Returns 0..100 score plus
+// per-paragraph breakdown for debugging.
+async function runClusterFitness(
+  htmlContent: string,
+  primaryKeyword: string,
+  keywordId: string | null,
+  admin: any,
+  apiKey: string,
+): Promise<{ score: number; details: any } | null> {
+  const plain = stripHtml(htmlContent);
+  if (plain.length < 200) return null;
+
+  // Split into paragraphs, take up to 40 (cap tokens).
+  const paragraphs = plain
+    .split(/\n{2,}|(?<=[.!?])\s{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 40)
+    .slice(0, 40);
+  if (paragraphs.length < 3) return null;
+
+  // Pull intent + must-cover topics from research data if available.
+  let intent = "";
+  let mustCover: string[] = [];
+  if (keywordId) {
+    const { data: kw } = await admin
+      .from("keywords")
+      .select("intent,must_cover_topics,lsi_keywords")
+      .eq("id", keywordId)
+      .maybeSingle();
+    intent = String(kw?.intent || "");
+    if (Array.isArray(kw?.must_cover_topics)) mustCover = kw.must_cover_topics.slice(0, 12);
+  }
+
+  const system = `Ты SEO-аналитик. Тебе даны абзацы статьи. Оцени для каждого абзаца, остаётся ли он внутри ОСНОВНОГО SERP-кластера ключа "${primaryKeyword}" (тот же интент, та же сущность, без ухода в смежные подинтенты вроде "скачать/приложение/регистрация/отзывы как отдельный URL"). Верни JSON.`;
+  const user = `Основной ключ: "${primaryKeyword}"
+Интент: ${intent || "не указан"}
+Темы которые должны быть закрыты основным кластером:
+${mustCover.length ? mustCover.map((t, i) => `${i + 1}. ${t}`).join("\n") : "(нет данных)"}
+
+Абзацы статьи:
+${paragraphs.map((p, i) => `[${i + 1}] ${p.slice(0, 400)}`).join("\n\n")}
+
+Верни строго JSON:
+{
+  "in_cluster": [номера абзацев которые остаются в основном SERP-кластере],
+  "off_cluster": [{"i": номер, "reason": "коротко чем именно уходит из кластера"}]
+}`;
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-lite",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  const raw = data?.choices?.[0]?.message?.content || "{}";
+  let parsed: any;
+  try { parsed = JSON.parse(raw); } catch { return null; }
+
+  const inCluster = Array.isArray(parsed?.in_cluster) ? parsed.in_cluster.length : 0;
+  const offList = Array.isArray(parsed?.off_cluster) ? parsed.off_cluster : [];
+  const total = paragraphs.length;
+  const score = Math.max(0, Math.min(100, Math.round((inCluster / total) * 100)));
+
+  return {
+    score,
+    details: {
+      total_paragraphs: total,
+      in_cluster: inCluster,
+      off_cluster_count: offList.length,
+      off_cluster: offList.slice(0, 10),
+      keyword: primaryKeyword,
+      checked_at: new Date().toISOString(),
+    },
+  };
 }
 
 Deno.serve(async (req) => {
