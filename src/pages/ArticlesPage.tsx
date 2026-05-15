@@ -840,6 +840,21 @@ export default function ArticlesPage() {
         setFactCheckStatus("verified");
       }
 
+      // ── Polish pass: чинит английский мусор, оборванные предложения,
+      // сломанные H2/H3 и дописывает оборванный JSON-LD. Best-effort —
+      // если функция не отвечает или возвращает skipped, оставляем оригинал.
+      try {
+        const { data: polishData } = await supabase.functions.invoke("polish-article", {
+          body: { content: fullContent },
+        });
+        if (polishData?.polished && typeof polishData.content === "string" && polishData.content.length > 200) {
+          fullContent = polishData.content;
+          setContent(fullContent);
+        }
+      } catch (err) {
+        console.warn("[polish-article] failed:", err);
+      }
+
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
 
