@@ -6,6 +6,7 @@ import {
   buildNewArticleUserPrompt,
 } from "../_shared/promptBuilder.ts";
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
+import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.ts";
 import { validateContent, dataNuggetsCoverage, personaProfileDeviation } from "../_shared/contentValidator.ts";
 import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
@@ -289,9 +290,17 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       interlinkingContext: payload.interlinkingContext || null,
     });
     const lexiconBlock = buildRareLexiconAddon(lsiKeywords, isRussian ? "ru" : "en");
+    const serpEntityBlock = buildSerpEntityDisciplineAddon(
+      (competitors || []).map((c: any, i: number) => ({
+        position: i + 1,
+        deep_analysis: c.deep_analysis || null,
+      })),
+      isRussian ? "ru" : "en",
+    );
     const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
       + SERP_CLUSTER_DISCIPLINE_ADDON
-      + (isRussian ? ANTI_TURGENEV_ADDON : "");
+      + (isRussian ? ANTI_TURGENEV_ADDON : "")
+      + serpEntityBlock;
 
     const userPrompt = buildNewArticleUserPrompt(
       { seed_keyword: item.seed_keyword, intent: analysis.intent, difficulty: analysis.recommended_word_count ? 50 : 30, questions: analysis.questions || [] },
