@@ -1302,6 +1302,10 @@ export default function ArticlesPage() {
         onGeoLocationChange={setGeoLocation}
         customInstructions={customInstructions}
         onCustomInstructionsChange={setCustomInstructions}
+        sourcePageUrl={sourcePageUrl}
+        onSourcePageUrlChange={setSourcePageUrl}
+        sourcePageFacts={sourcePageFacts}
+        onSourcePageFactsChange={setSourcePageFacts}
         isStreaming={isStreaming}
         onGenerate={handleGenerate}
         onStop={handleStop}
