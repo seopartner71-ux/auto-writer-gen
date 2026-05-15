@@ -259,6 +259,26 @@ ${content}`;
           console.warn("[improve-article] rewrite rejected:", integrity.reason);
         }
       }
+
+      // 1b) Severe AI-detected (ai_score < 40) → run a second Opus micro-pass
+      // for "AI fingerprints" removal. Best-effort with HTML integrity guard.
+      if (aiScore < 40 && orKey) {
+        const sysOpus = "Ты редактор-человек. Делаешь микро-проход по HTML: убираешь монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
+        const usrOpus = `Микро-проход: убери оставшиеся "ИИ-подписи" — монотонность синтаксиса, одинаковые зачины абзацев, лексические всплески. Цель: AI-детектор <30%. НЕ трогай факты, цифры, ссылки, теги (<h2>,<h3>,<p>,<ul>,<table>,<a>).
+
+HTML:
+${content}`;
+        const polished = await callOpenRouter("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 12000);
+        if (polished && polished.length > 200) {
+          const cand2 = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          const integrity2 = htmlIntegrityOk(content, cand2);
+          if (integrity2.ok) {
+            content = cand2;
+          } else {
+            console.warn("[improve-article] opus pass rejected:", integrity2.reason);
+          }
+        }
+      }
     }
 
     // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times
