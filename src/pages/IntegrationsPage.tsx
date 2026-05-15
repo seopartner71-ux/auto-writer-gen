@@ -146,7 +146,7 @@ export default function IntegrationsPage() {
       docUrl: "https://telegra.ph",
       docLabel: "telegra.ph",
     },
-    {
+    ...(SHOW_BLOGGER ? [{
       name: "Blogger",
       badge: bloggerConfigured ? "success" as const : "outline" as const,
       status: bloggerConfigured ? t("integrations.bloggerConfigured") : t("integrations.bloggerNotConfigured"),
@@ -154,7 +154,7 @@ export default function IntegrationsPage() {
       configured: bloggerConfigured,
       docUrl: "https://www.blogger.com",
       docLabel: "blogger.com",
-    },
+    }] : []),
     {
       name: "Ghost",
       badge: ghostUrl && ghostApiKey ? "success" as const : "outline" as const,
@@ -230,6 +230,7 @@ export default function IntegrationsPage() {
       </div>
 
       {/* Blogger settings */}
+      {SHOW_BLOGGER && (
       <Card className="bg-card border-border overflow-hidden">
         {blogger && <div className="h-0.5 bg-primary/60" />}
         <CardHeader className="pb-4">
