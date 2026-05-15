@@ -290,7 +290,11 @@ serve(async (req) => {
     );
     const articleLang = (bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en")).toLowerCase();
     const antiTurgBlock = articleLang === "ru" ? ANTI_TURGENEV_ADDON : "";
-    const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt) + SERP_CLUSTER_DISCIPLINE_ADDON + antiTurgBlock;
+    const serpEntityBlock = buildSerpEntityDisciplineAddon(serpResults || [], articleLang);
+    const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
+      + SERP_CLUSTER_DISCIPLINE_ADDON
+      + antiTurgBlock
+      + serpEntityBlock;
 
     // Build user prompt
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
