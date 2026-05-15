@@ -13,6 +13,7 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SuggestTopicsDialog } from "./SuggestTopicsDialog";
 
 interface ProjectArticleForLinks {
   id: string;
@@ -188,6 +189,24 @@ export function GenerationForm(props: GenerationFormProps) {
               ))}
             </SelectContent>
           </Select>
+          {!quickMode && (
+            <SuggestTopicsDialog
+              keyword={(keywords.find((k: any) => k.id === selectedKeywordId)?.seed_keyword) || null}
+              language={lang}
+              geo={enableGeo ? geoLocation : undefined}
+              disabled={isStreaming}
+              onPick={(topic) => {
+                const prefix = lang === "ru" ? "Угол подачи" : "Angle";
+                const h1Label = lang === "ru" ? "Заголовок H1" : "H1";
+                const block = `${prefix}: ${topic.angle}\n${h1Label}: ${topic.h1}\nIntent: ${topic.intent}`;
+                const next = customInstructions?.trim()
+                  ? `${customInstructions.trim()}\n\n${block}`
+                  : block;
+                onCustomInstructionsChange(next);
+                toast.success(lang === "ru" ? "Тема добавлена в инструкции" : "Topic added to instructions");
+              }}
+            />
+          )}
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">&nbsp;</Label>
