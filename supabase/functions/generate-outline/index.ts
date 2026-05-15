@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,7 +72,7 @@ serve(async (req) => {
     // Detect language from keyword
     const lang = keyword.intent ? "the same language as the keyword" : "English";
 
-    const systemPrompt = `You are an expert SEO content strategist. Create an optimal article outline (H1, H2, H3 headings) based on SERP analysis data. The outline must be written in the same language as the keyword "${keyword.seed_keyword}". Return structured data via the provided tool.`;
+    const systemPrompt = `You are an expert SEO content strategist. Create an optimal article outline (H1, H2, H3 headings) based on SERP analysis data. The outline must be written in the same language as the keyword "${keyword.seed_keyword}". Return structured data via the provided tool.${SERP_CLUSTER_DISCIPLINE_ADDON}`;
 
     const userPrompt = `Keyword: "${keyword.seed_keyword}"
 Intent: ${keyword.intent || "unknown"}
