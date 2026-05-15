@@ -434,6 +434,18 @@ export default function ProjectsPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>URL вашей страницы (для извлечения фактов)</Label>
+              <Input
+                value={form.source_page_url}
+                onChange={(e) => setForm({ ...form, source_page_url: e.target.value })}
+                placeholder="https://yoursite.com/services/hiking-5-days"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Если указано, AI будет использовать факты с этой страницы (УТП, цифры, услуги) во всех статьях проекта. Можно переопределить в редакторе статьи.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>{t("projects.language")}</Label>
