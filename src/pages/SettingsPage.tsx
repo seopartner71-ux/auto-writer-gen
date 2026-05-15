@@ -1,4 +1,4 @@
-import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages } from "lucide-react";
+import { Settings, Sun, Moon, ImageIcon, Save, Lock, User, Palette, Languages, Wallet, Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -84,6 +84,29 @@ export default function SettingsPage() {
 
   const proImageMax = limits.maxProImages;
   const proImagePercent = proImageMax > 0 ? Math.round((proImageCount / proImageMax) * 100) : 0;
+
+  // AI budget (monthly $ spent + Opus calls). Driven by check_ai_budget RPC.
+  const { data: budget } = useQuery({
+    queryKey: ["ai-budget", user?.id],
+    enabled: !!user?.id,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("check_ai_budget", {
+        _user_id: user!.id,
+        _model: null as any,
+      });
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  const planCostCap = currentPlan === "factory" ? 80 : currentPlan === "pro" ? 25 : 3;
+  const planOpusCap = currentPlan === "factory" ? 75 : currentPlan === "pro" ? 12 : 0;
+  const monthlyCost = Number(budget?.monthly_cost ?? 0);
+  const opusCalls = Number(budget?.opus_calls ?? 0);
+  const isPrivileged = budget?.reason === "privileged";
+  const costPercent = planCostCap > 0 ? Math.min(100, Math.round((monthlyCost / planCostCap) * 100)) : 0;
+  const opusPercent = planOpusCap > 0 ? Math.min(100, Math.round((opusCalls / planOpusCap) * 100)) : 0;
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -188,6 +211,64 @@ export default function SettingsPage() {
                   <span className="text-foreground font-medium text-xs">{planLimit ?? 5} {t("settings.perMonth")}</span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Budget — monthly spend + Opus quota */}
+          <Card className="bg-card border-border overflow-hidden">
+            <CardHeader className="pb-3 pt-4 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" />
+                {lang === "ru" ? "AI-бюджет месяца" : "Monthly AI budget"}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {isPrivileged
+                  ? (lang === "ru" ? "Без лимитов (admin/staff)" : "Unlimited (admin/staff)")
+                  : (lang === "ru" ? "Защита от перерасхода API" : "API spend guardrails")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 px-4 pb-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {lang === "ru" ? "Потрачено" : "Spent"}
+                  </span>
+                  <span className="font-medium tabular-nums">
+                    ${monthlyCost.toFixed(2)}{!isPrivileged && ` / $${planCostCap}`}
+                  </span>
+                </div>
+                {!isPrivileged && (
+                  <Progress
+                    value={costPercent}
+                    className={`h-1.5 ${costPercent >= 90 ? "[&>div]:bg-red-500" : costPercent >= 70 ? "[&>div]:bg-yellow-500" : ""}`}
+                  />
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Opus
+                  </span>
+                  <span className="font-medium tabular-nums">
+                    {planOpusCap > 0
+                      ? `${opusCalls} / ${planOpusCap}`
+                      : (lang === "ru" ? "недоступен на этом плане" : "not on this plan")}
+                  </span>
+                </div>
+                {planOpusCap > 0 && !isPrivileged && (
+                  <Progress
+                    value={opusPercent}
+                    className={`h-1.5 ${opusPercent >= 90 ? "[&>div]:bg-red-500" : opusPercent >= 70 ? "[&>div]:bg-yellow-500" : ""}`}
+                  />
+                )}
+              </div>
+              {!isPrivileged && (costPercent >= 90 || opusPercent >= 90) && (
+                <p className="text-[11px] text-red-500">
+                  {lang === "ru"
+                    ? "Лимит почти исчерпан. Дальнейшие запросы могут быть ограничены."
+                    : "Quota almost exhausted. Further requests may be throttled."}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
