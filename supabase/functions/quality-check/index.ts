@@ -434,6 +434,7 @@ async function runAutoQuality(
   }
 
   const orKey = Deno.env.get("OPENROUTER_API_KEY");
+  const textRuKeyAuto = Deno.env.get("TEXTRU_API_KEY");
 
   // Resolve Turgenev key from admin api_keys vault (only RU articles)
   let turgenevKey: string | null = null;
@@ -442,6 +443,12 @@ async function runAutoQuality(
     const { data: tk } = await admin.from("api_keys")
       .select("api_key").eq("provider", "turgenev").eq("is_active", true).maybeSingle();
     if (tk?.api_key) turgenevKey = tk.api_key as string;
+    if (!turgenevKey) {
+      await logErr(admin, "quality-check", "turgenev_key_missing", { article_id: articleId });
+    }
+  }
+  if (isRu && !textRuKeyAuto) {
+    await logErr(admin, "quality-check", "textru_key_missing", { article_id: articleId });
   }
 
   const [aiInternalRes, claudeRes, turgenevRes, clusterFitRes] = await Promise.all([
@@ -459,6 +466,9 @@ async function runAutoQuality(
 
   const aiInternal = aiInternalRes?.score ?? null;
   const aiClaude = claudeRes ?? null;
+  if (aiInternal === null) await logErr(admin, "quality-check", "ai_internal_failed", { article_id: articleId });
+  if (orKey && aiClaude === null) await logErr(admin, "quality-check", "ai_claude_failed", { article_id: articleId });
+  if (turgenevKey && !turgenevRes) await logErr(admin, "quality-check", "turgenev_call_failed", { article_id: articleId });
   const aiCombined = aiInternal !== null && aiClaude !== null
     ? Math.round((aiInternal + aiClaude) / 2)
     : (aiInternal ?? aiClaude ?? null);
@@ -511,6 +521,65 @@ async function runAutoQuality(
     updatePatch.cluster_fitness_details = (clusterFitRes as any).details ?? null;
   }
   await admin.from("articles").update(updatePatch).eq("id", articleId);
+
+  // ── Auto text.ru uniqueness in background (RU only, if key configured) ──
+  if (isRu && textRuKeyAuto) {
+    const uniqTask = (async () => {
+      try {
+        const r = await withTimeout(runTextRuUniqueness(plain, textRuKeyAuto!), 120000, "textru-auto");
+        const ok = r && (r as any).ok === true;
+        if (ok) {
+          await admin.from("articles").update({
+            uniqueness_percent: (r as any).uniqueness,
+            uniqueness_checked_at: new Date().toISOString(),
+          }).eq("id", articleId);
+        } else {
+          await logErr(admin, "quality-check", "textru_auto_failed", {
+            article_id: articleId, error: (r as any)?.error, code: (r as any)?.code,
+          });
+        }
+      } catch (e) {
+        await logErr(admin, "quality-check", "textru_auto_exception", { article_id: articleId, error: String(e) });
+      }
+    })();
+    try { (globalThis as any).EdgeRuntime?.waitUntil?.(uniqTask); } catch (_) { void uniqTask; }
+  }
+
+  // ── Auto-Humanize: ai_score < 40 (detected as AI) → silent rewrite, once ──
+  // NOTE: our ai_score semantics: HIGHER = more human-like. So "AI-detected" = LOW score.
+  try {
+    if (typeof aiCombined === "number" && aiCombined < 40 && orKey) {
+      const { data: artFlag2 } = await admin
+        .from("articles").select("rewritten").eq("id", articleId).maybeSingle();
+      if (artFlag2 && artFlag2.rewritten !== true) {
+        await admin.from("articles").update({ rewritten: true }).eq("id", articleId);
+        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const humanizeTask = (async () => {
+          try {
+            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${serviceKey2}`,
+              },
+              body: JSON.stringify({
+                article_id: articleId,
+                fix_type: "humanize",
+                user_id: userId,
+                source: "auto_humanize",
+              }),
+            });
+          } catch (e) {
+            await logErr(admin, "quality-check", "auto_humanize_dispatch_failed", { article_id: articleId, error: String(e) });
+          }
+        })();
+        try { (globalThis as any).EdgeRuntime?.waitUntil?.(humanizeTask); } catch (_) { void humanizeTask; }
+      }
+    }
+  } catch (e) {
+    await logErr(admin, "quality-check", "auto_humanize_gate_error", { article_id: articleId, error: String(e) });
+  }
 
   // ── Anti-Turgenev Auto-Fix ────────────────────────────────────────
   // Если реальный балл Turgenev API >= 8 (высокий риск Баден-Баден) и автофикс
