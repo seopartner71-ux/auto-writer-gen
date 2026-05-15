@@ -6,6 +6,7 @@ import {
   buildNewArticleUserPrompt,
 } from "../_shared/promptBuilder.ts";
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
+import { validateContent, dataNuggetsCoverage, personaProfileDeviation } from "../_shared/contentValidator.ts";
 import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 
@@ -333,7 +334,45 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
 
     const articleData = await articleResp.json();
     const rawContent = articleData.choices?.[0]?.message?.content || "";
-    const articleContent = applyStealthPostProcess(rawContent, isRussian ? "ru" : "en");
+    let articleContent = applyStealthPostProcess(rawContent, isRussian ? "ru" : "en");
+
+    // ─── Auto Fact-Check Guard (FACTORY pipeline) ────────────────────
+    // Apply server-side regex validator: strips fake experts, pseudo-stats,
+    // fake organizations. Mirrors the client-side fact-check that runs in
+    // ArticlesPage so bulk-generated articles get the same protection.
+    const fc = validateContent(articleContent);
+    if (fc.issues.length) {
+      articleContent = fc.fixedContent;
+      console.log(`[bulk-generate][fact-check] auto-fixed ${fc.issues.length} issues for "${item.seed_keyword}"`);
+    }
+
+    // ─── Data Nuggets coverage ───────────────────────────────────────
+    // Soft check: if model dropped most of the supplied facts/numbers, log it.
+    // We don't regenerate here (cost), but the metric surfaces in logs and
+    // future post-gen QA can act on it.
+    try {
+      const nuggetsList = (analysis as any)?.data_nuggets || [];
+      if (Array.isArray(nuggetsList) && nuggetsList.length > 0) {
+        const cov = dataNuggetsCoverage(articleContent, nuggetsList);
+        if (cov.ratio < 0.5) {
+          console.warn(`[bulk-generate][nuggets] low coverage ${(cov.ratio * 100).toFixed(0)}% (${cov.matched}/${cov.total}) for "${item.seed_keyword}"`);
+        }
+      }
+    } catch (_) { /* ignore */ }
+
+    // ─── Persona enforcement (soft) ──────────────────────────────────
+    // Compare measured syntax stats against the expected syntax_profile.
+    // Logs deviation; high deviation (>0.5) is a candidate for re-roll on
+    // future iteration.
+    try {
+      const expectedProfile = (job as any)?.author_profile?.style_analysis?.syntax_profile;
+      if (expectedProfile) {
+        const dev = personaProfileDeviation(articleContent, expectedProfile);
+        if (dev.deviation > 0.5) {
+          console.warn(`[bulk-generate][persona] high deviation ${dev.deviation.toFixed(2)} (expected=${expectedProfile}, avgLen=${dev.measured.avgSentLen.toFixed(1)}) for "${item.seed_keyword}"`);
+        }
+      }
+    } catch (_) { /* ignore */ }
 
     const h1Match = articleContent.match(/^#\s+(.+)$/m);
     const articleTitle = h1Match?.[1] || item.seed_keyword;
