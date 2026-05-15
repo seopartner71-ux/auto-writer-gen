@@ -45,7 +45,7 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId } = body;
+    const { keyword_id, author_profile_id, outline, lsi_keywords, competitor_tables, competitor_lists, deep_analysis_context, optimize_instructions, existing_content, miralinks_links, gogetlinks_links, expert_insights, include_expert_quote, include_comparison_table, anchor_links, seo_keywords, geo_location, custom_instructions, language: bodyLanguage, project_id: rawProjectId, source_page_url: rawSourceUrl } = body;
     const project_id = (rawProjectId && rawProjectId !== "none") ? rawProjectId : null;
     console.log("[generate-article] author_profile_id received:", author_profile_id, "| language override:", bodyLanguage || "none", "| project_id:", project_id || "none");
     if (!keyword_id || typeof keyword_id !== "string") throw new Error("keyword_id is required");
@@ -354,10 +354,52 @@ serve(async (req) => {
     const articleLang = (bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en")).toLowerCase();
     const antiTurgBlock = articleLang === "ru" ? ANTI_TURGENEV_ADDON : "";
     const serpEntityBlock = buildSerpEntityDisciplineAddon(serpResults || [], articleLang);
+    // Source-page facts: pull cached facts for the user's own page so the writer
+    // uses concrete details from THEIR site (e.g. "5-day hike") instead of generic
+    // competitor numbers. Falls back to project.source_page_url if not provided.
+    let sourcePageBlock = "";
+    try {
+      let resolvedUrl: string | null = (typeof rawSourceUrl === "string" && rawSourceUrl.trim()) ? rawSourceUrl.trim() : null;
+      if (!resolvedUrl && project_id) {
+        const { data: proj } = await supabaseAdmin.from("projects").select("source_page_url").eq("id", project_id).maybeSingle();
+        if (proj?.source_page_url) resolvedUrl = proj.source_page_url;
+      }
+      if (resolvedUrl) {
+        const { data: cached } = await supabaseAdmin
+          .from("source_page_cache")
+          .select("facts")
+          .eq("user_id", user.id)
+          .eq("url", resolvedUrl)
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle();
+        const facts = cached?.facts;
+        if (facts && typeof facts === "object") {
+          const lines: string[] = [];
+          if (facts.service_name) lines.push(`Услуга/продукт: ${facts.service_name}`);
+          if (facts.usp) lines.push(`УТП: ${facts.usp}`);
+          if (Array.isArray(facts.key_numbers) && facts.key_numbers.length) lines.push(`Ключевые цифры: ${facts.key_numbers.join("; ")}`);
+          if (Array.isArray(facts.features) && facts.features.length) lines.push(`Особенности: ${facts.features.join("; ")}`);
+          if (facts.audience) lines.push(`Аудитория: ${facts.audience}`);
+          if (facts.location) lines.push(`Гео: ${facts.location}`);
+          if (facts.pricing) lines.push(`Цены/формат: ${facts.pricing}`);
+          if (Array.isArray(facts.must_mention) && facts.must_mention.length) lines.push(`Обязательно упомянуть: ${facts.must_mention.join("; ")}`);
+          if (lines.length) {
+            sourcePageBlock = `\n\n=== ФАКТЫ С САЙТА ПОЛЬЗОВАТЕЛЯ (URL: ${resolvedUrl}) ===\nКРИТИЧНО: используй ИМЕННО эти конкретные факты вместо общих данных из ТОП-10 конкурентов. Если на странице "5 дней" - пиши про 5 дней, а не "от 1 до 10". Цифры, названия и УТП должны соответствовать сайту пользователя.\n\n${lines.join("\n")}\n=== КОНЕЦ ФАКТОВ С САЙТА ===`;
+            console.log("[generate-article] injected source page facts from", resolvedUrl);
+          }
+        } else {
+          console.log("[generate-article] source_page_url provided but no cached facts:", resolvedUrl);
+        }
+      }
+    } catch (e) {
+      console.warn("[generate-article] source page facts inject failed:", (e as Error).message);
+    }
+
     const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
       + SERP_CLUSTER_DISCIPLINE_ADDON
       + antiTurgBlock
-      + serpEntityBlock;
+      + serpEntityBlock
+      + sourcePageBlock;
 
     // Build user prompt
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
