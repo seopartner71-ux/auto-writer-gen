@@ -469,7 +469,9 @@ export type Database = {
           cluster_id: string | null
           content: string | null
           created_at: string | null
+          embedding: string | null
           featured_image_url: string | null
+          generation_model: string | null
           geo: string | null
           id: string
           is_public: boolean | null
@@ -528,7 +530,9 @@ export type Database = {
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
+          embedding?: string | null
           featured_image_url?: string | null
+          generation_model?: string | null
           geo?: string | null
           id?: string
           is_public?: boolean | null
@@ -587,7 +591,9 @@ export type Database = {
           cluster_id?: string | null
           content?: string | null
           created_at?: string | null
+          embedding?: string | null
           featured_image_url?: string | null
+          generation_model?: string | null
           geo?: string | null
           id?: string
           is_public?: boolean | null
@@ -3352,6 +3358,20 @@ export type Database = {
       increment_project_views: {
         Args: { p_project_id: string }
         Returns: undefined
+      }
+      match_project_articles: {
+        Args: {
+          p_exclude_id: string
+          p_match_count?: number
+          p_project_id: string
+          p_query_embedding: string
+        }
+        Returns: {
+          id: string
+          published_url: string
+          similarity: number
+          title: string
+        }[]
       }
       move_to_dlq: {
         Args: {
