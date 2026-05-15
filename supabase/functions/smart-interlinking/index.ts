@@ -112,12 +112,14 @@ interface ArticleRow {
   content: string | null;
   keywords: string[] | null;
   published_url: string | null;
+  embedding?: number[] | string | null;
 }
 
 interface AnalyzedArticle extends ArticleRow {
   topics: string[];
   entities: string[];
   type: string;
+  embeddingVec?: number[] | null;
 }
 
 function stripHtml(html: string): string {
@@ -156,11 +158,44 @@ async function analyzeArticle(apiKey: string, art: ArticleRow): Promise<{ topics
   return { topics, entities, type, usage: data?.usage || {} };
 }
 
-function relevanceScore(a: AnalyzedArticle, b: AnalyzedArticle): { score: number; sharedTopic?: string; sharedEntity?: string } {
+function cosineSim(a: number[], b: number[]): number {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  const d = Math.sqrt(na) * Math.sqrt(nb);
+  return d === 0 ? 0 : dot / d;
+}
+
+function parseEmbedding(raw: any): number[] | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw as number[];
+  if (typeof raw === "string") {
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function relevanceScore(a: AnalyzedArticle, b: AnalyzedArticle): { score: number; sharedTopic?: string; sharedEntity?: string; semantic?: number } {
   if (a.id === b.id) return { score: 0 };
   const aKw = new Set((a.keywords || []).map((k) => k.toLowerCase()));
   const bKw = new Set((b.keywords || []).map((k) => k.toLowerCase()));
   let score = 0;
+  // Semantic similarity (weight 10) — primary signal when both have embeddings.
+  let semantic = 0;
+  if (a.embeddingVec && b.embeddingVec) {
+    semantic = cosineSim(a.embeddingVec, b.embeddingVec);
+    // Map cosine 0..1 to weighted score; ignore noise below 0.55.
+    if (semantic >= 0.55) score += (semantic - 0.5) * 20; // 0.55→1, 0.8→6, 1.0→10
+  }
   // Shared keywords (weight 3)
   for (const k of aKw) if (bKw.has(k)) score += 3;
   // Shared topics (weight 2)
@@ -181,7 +216,7 @@ function relevanceScore(a: AnalyzedArticle, b: AnalyzedArticle): { score: number
   }
   // Same type bonus
   if (a.type && a.type === b.type) score += 0.5;
-  return { score, sharedTopic, sharedEntity };
+  return { score, sharedTopic, sharedEntity, semantic };
 }
 
 // Find a contextual phrase inside `text` that mentions one of the given terms.
@@ -329,7 +364,7 @@ serve(async (req) => {
     }
 
     const { data: articles } = await admin.from("articles")
-      .select("id, title, content, keywords, published_url")
+      .select("id, title, content, keywords, published_url, embedding")
       .eq("project_id", projectId)
       .in("status", ["completed", "published"])
       .not("title", "is", null);
@@ -349,6 +384,30 @@ serve(async (req) => {
       });
     }
 
+    // Step 0: kick off embedding backfill for missing rows (best-effort, blocking).
+    // Cosine similarity is the primary relevance signal; without it we fall back to keyword/topic.
+    const missingEmbedding = list.filter((a) => !a.embedding);
+    if (missingEmbedding.length > 0) {
+      try {
+        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        await fetch(`${supabaseUrlEnv}/functions/v1/generate-embedding`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+          body: JSON.stringify({ project_id: projectId, limit: Math.min(missingEmbedding.length, 100) }),
+        }).then((r) => r.ok ? r.json() : null).catch(() => null);
+        // Re-fetch embeddings for the affected rows
+        const ids = missingEmbedding.map((a) => a.id);
+        const { data: refreshed } = await admin.from("articles")
+          .select("id, embedding").in("id", ids);
+        const embMap = new Map<string, any>();
+        for (const r of refreshed || []) embMap.set(r.id, r.embedding);
+        for (const a of list) if (embMap.has(a.id)) a.embedding = embMap.get(a.id);
+      } catch (e) {
+        console.warn("[smart-interlinking] embedding backfill skipped:", (e as Error).message);
+      }
+    }
+
     // Step 1+2: analyze each article. Best-effort — failures fall back to keyword-only matching.
     const analyzed: AnalyzedArticle[] = [];
     let totalIn = 0, totalOut = 0;
@@ -357,10 +416,10 @@ serve(async (req) => {
         const r = await analyzeArticle(apiKey, a);
         totalIn += Number(r.usage?.prompt_tokens || 0);
         totalOut += Number(r.usage?.completion_tokens || 0);
-        analyzed.push({ ...a, topics: r.topics, entities: r.entities, type: r.type });
+        analyzed.push({ ...a, topics: r.topics, entities: r.entities, type: r.type, embeddingVec: parseEmbedding(a.embedding) });
       } catch (e: any) {
         console.warn("[smart-interlinking] analyze fail:", a.id, e?.message);
-        analyzed.push({ ...a, topics: [], entities: [], type: "guide" });
+        analyzed.push({ ...a, topics: [], entities: [], type: "guide", embeddingVec: parseEmbedding(a.embedding) });
       }
     }
     // Step 3: relevance matrix — for each article, pick top-2 peers.

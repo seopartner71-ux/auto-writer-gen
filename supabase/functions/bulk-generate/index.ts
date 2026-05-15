@@ -354,6 +354,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       status: "published",
       quality_status: "checking",
       serp_cluster_pipeline: true,
+      generation_model: model || null,
     }).select("id").single();
 
     // Auto quality check (background, no credit)
@@ -369,6 +370,15 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
             "Authorization": `Bearer ${serviceKey}`,
           },
           body: JSON.stringify({ article_id: articleRecord.id, content: articleContent, mode: "auto" }),
+        }).catch(() => {});
+        // fire-and-forget embedding for semantic interlinking
+        void fetch(`${supabaseUrl}/functions/v1/generate-embedding`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ article_id: articleRecord.id }),
         }).catch(() => {});
       } catch (_) { /* ignore */ }
     }

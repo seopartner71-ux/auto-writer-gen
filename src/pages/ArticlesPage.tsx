@@ -975,6 +975,13 @@ export default function ArticlesPage() {
             }).catch(() => { /* silent */ });
           }
         }, 500);
+        // Fire-and-forget semantic embedding (used by Smart Interlinking).
+        // Skips silently if no embedding provider key is configured.
+        setTimeout(() => {
+          supabase.functions.invoke("generate-embedding", {
+            body: { article_id: result.id },
+          }).catch(() => { /* silent */ });
+        }, 1500);
       }
     },
     onError: (e) => toast.error(e.message),
