@@ -7,6 +7,7 @@ import {
 } from "../_shared/promptBuilder.ts";
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
+import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -468,6 +469,11 @@ async function processBulkChunk(params: {
   }
 
   const authorProfile = await fetchAuthorProfile(admin, job.author_profile_id || null);
+  const effectiveAuthor = authorProfile
+    || (await resolveAutoAuthorByNiche(admin, userId));
+  if (!authorProfile && effectiveAuthor) {
+    console.log("[bulk-generate] Auto-selected persona by niche for job", bulkJobId, "->", effectiveAuthor.name);
+  }
   const writerModel = writerAssignment?.model_key || "google/gemini-2.5-pro";
   const researchModel = researchAssignment?.model_key || "google/gemini-2.5-flash";
   const serperApiKey = serperKeys?.[0]?.api_key || null;
@@ -487,7 +493,7 @@ async function processBulkChunk(params: {
       serperApiKey,
       writerModel,
       researchModel,
-      authorProfile,
+      authorProfile: effectiveAuthor,
       bulkJobId,
       completedCount,
     });
