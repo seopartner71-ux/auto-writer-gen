@@ -22,6 +22,7 @@ import { PbnTemplatesTab } from "@/components/admin/PbnTemplatesTab";
 import { CostAnalyticsTab } from "@/components/admin/CostAnalyticsTab";
 import { TurgenevAnalyticsTab } from "@/components/admin/TurgenevAnalyticsTab";
 import { SemanticInterlinkingTab } from "@/components/admin/SemanticInterlinkingTab";
+import { TodayKpiCard } from "@/components/admin/TodayKpiCard";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -36,6 +37,8 @@ export default function AdminPage() {
           <p className="text-sm text-muted-foreground">{t("admin.subtitle")}</p>
         </div>
       </div>
+
+      <TodayKpiCard />
 
       <Tabs defaultValue="vault" className="w-full">
         <TabsList className="bg-muted border border-border flex-wrap h-auto gap-1 p-1 justify-start">
