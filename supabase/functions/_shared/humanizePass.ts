@@ -110,16 +110,24 @@ export interface DoubleHumanizeResult {
   content: string;
   passesApplied: number;
   modelsUsed: string[];
+  opusSkipped?: boolean;
+  opusSkipReason?: string;
 }
 
 /**
  * Run double humanize pass (Sonnet + Opus). Best-effort: if a pass fails or
  * the integrity guard rejects it, the previous content is kept.
  */
+/**
+ * Optional budget gate. If `admin` (service-role client) and `userId` are
+ * provided, the Opus pass is gated by `public.check_ai_budget` so we never
+ * blow past per-plan caps. Admins/staff bypass automatically inside the SQL.
+ */
 export async function runDoubleHumanizePass(
   content: string,
   language: "ru" | "en",
   openRouterKey: string | null | undefined,
+  opts?: { admin?: any; userId?: string | null },
 ): Promise<DoubleHumanizeResult> {
   if (!openRouterKey || !content || content.length < 300) {
     return { content, passesApplied: 0, modelsUsed: [] };
@@ -128,6 +136,8 @@ export async function runDoubleHumanizePass(
   const modelsUsed: string[] = [];
   let current = content;
   let passes = 0;
+  let opusSkipped = false;
+  let opusSkipReason: string | undefined;
 
   // Pass 1: Sonnet (deeper rewrite)
   const out1 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS1_USER(language, current));
@@ -142,8 +152,24 @@ export async function runDoubleHumanizePass(
     }
   }
 
-  // Pass 2: Opus (micro-polish)
-  const out2 = await callOpenRouter(openRouterKey, OPUS_MODEL, system, PASS2_USER(language, current));
+  // Pass 2: Opus (micro-polish) — gated by per-user budget when admin client provided.
+  let opusAllowed = true;
+  if (opts?.admin && opts?.userId) {
+    try {
+      const { data } = await opts.admin.rpc("check_ai_budget", { _user_id: opts.userId, _model: OPUS_MODEL });
+      if (data && data.allowed === false) {
+        opusAllowed = false;
+        opusSkipped = true;
+        opusSkipReason = String(data.reason || "blocked");
+        console.warn("[humanize] Opus skipped:", data);
+      }
+    } catch (e) {
+      console.warn("[humanize] check_ai_budget failed, allowing Opus:", (e as Error).message);
+    }
+  }
+  const out2 = opusAllowed
+    ? await callOpenRouter(openRouterKey, OPUS_MODEL, system, PASS2_USER(language, current))
+    : null;
   if (out2) {
     const cand2 = applyStealthPostProcess(stripCodeFences(out2), language);
     if (integrityOk(current, cand2)) {
@@ -155,5 +181,5 @@ export async function runDoubleHumanizePass(
     }
   }
 
-  return { content: current, passesApplied: passes, modelsUsed };
+  return { content: current, passesApplied: passes, modelsUsed, opusSkipped, opusSkipReason };
 }
