@@ -5,6 +5,7 @@ import {
   generateStealthPrompt,
   buildNewArticleUserPrompt,
 } from "../_shared/promptBuilder.ts";
+import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -285,7 +286,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       interlinkingContext: payload.interlinkingContext || null,
     });
     const lexiconBlock = buildRareLexiconAddon(lsiKeywords, isRussian ? "ru" : "en");
-    const systemPrompt = lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt;
+    const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt) + SERP_CLUSTER_DISCIPLINE_ADDON;
 
     const userPrompt = buildNewArticleUserPrompt(
       { seed_keyword: item.seed_keyword, intent: analysis.intent, difficulty: analysis.recommended_word_count ? 50 : 30, questions: analysis.questions || [] },
