@@ -704,6 +704,7 @@ export default function ArticlesPage() {
           geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
           custom_instructions: customInstructions.trim() || null,
           project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
+          source_page_url: sourcePageUrl.trim() || null,
         }),
         signal: controller.signal,
       });
