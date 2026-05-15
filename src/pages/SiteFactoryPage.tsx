@@ -772,7 +772,6 @@ export default function SiteFactoryPage() {
           try {
             const { data: session } = await supabase.auth.getSession();
             const token = session?.session?.access_token;
-            if (!token) return false;
 
             const failArticle = async () => {
               await supabase.from("articles").update({ status: "failed" }).eq("id", artRecord.id);
@@ -782,6 +781,10 @@ export default function SiteFactoryPage() {
                 return next;
               });
             };
+            if (!token) {
+              await failArticle();
+              return false;
+            }
 
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
             const res = await fetch(
