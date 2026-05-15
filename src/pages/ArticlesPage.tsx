@@ -372,6 +372,8 @@ export default function ArticlesPage() {
   const [enableGeo, setEnableGeo] = useState(false);
   const [geoLocation, setGeoLocation] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
+  const [sourcePageUrl, setSourcePageUrl] = useState("");
+  const [sourcePageFacts, setSourcePageFacts] = useState<any | null>(null);
   const [finishReason, setFinishReason] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -702,6 +704,7 @@ export default function ArticlesPage() {
           geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
           custom_instructions: customInstructions.trim() || null,
           project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
+          source_page_url: sourcePageUrl.trim() || null,
         }),
         signal: controller.signal,
       });
@@ -1300,6 +1303,10 @@ export default function ArticlesPage() {
         onGeoLocationChange={setGeoLocation}
         customInstructions={customInstructions}
         onCustomInstructionsChange={setCustomInstructions}
+        sourcePageUrl={sourcePageUrl}
+        onSourcePageUrlChange={setSourcePageUrl}
+        sourcePageFacts={sourcePageFacts}
+        onSourcePageFactsChange={setSourcePageFacts}
         isStreaming={isStreaming}
         onGenerate={handleGenerate}
         onStop={handleStop}

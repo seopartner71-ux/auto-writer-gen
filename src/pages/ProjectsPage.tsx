@@ -63,6 +63,7 @@ const defaultForm = {
   region: "RU",
   auto_interlinking: true,
   ai_model: "gemini-flash" as "gemini-flash" | "claude-sonnet",
+  source_page_url: "",
 };
 
 export default function ProjectsPage() {
@@ -171,6 +172,7 @@ export default function ProjectsPage() {
             region: form.region,
             auto_interlinking: form.auto_interlinking,
             ai_model: form.ai_model,
+            source_page_url: form.source_page_url.trim() || null,
           })
           .eq("id", editingId);
         if (error) throw error;
@@ -183,6 +185,7 @@ export default function ProjectsPage() {
           region: form.region,
           auto_interlinking: form.auto_interlinking,
           ai_model: form.ai_model,
+          source_page_url: form.source_page_url.trim() || null,
         }).select("id").single();
         if (error) throw error;
         // Auto-activate new project
@@ -226,6 +229,7 @@ export default function ProjectsPage() {
       region: p.region,
       auto_interlinking: p.auto_interlinking,
       ai_model: (p.ai_model as any) || "gemini-flash",
+      source_page_url: (p as any).source_page_url || "",
     });
     setDialogOpen(true);
   };
@@ -428,6 +432,18 @@ export default function ProjectsPage() {
                 onChange={(e) => setForm({ ...form, domain: e.target.value })}
                 placeholder="example.com"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>URL вашей страницы (для извлечения фактов)</Label>
+              <Input
+                value={form.source_page_url}
+                onChange={(e) => setForm({ ...form, source_page_url: e.target.value })}
+                placeholder="https://yoursite.com/services/hiking-5-days"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Если указано, AI будет использовать факты с этой страницы (УТП, цифры, услуги) во всех статьях проекта. Можно переопределить в редакторе статьи.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

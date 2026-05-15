@@ -6,10 +6,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Wand2, Quote, Table2, Search, MapPin, MessageSquarePlus,
-  Link2, FileText, ExternalLink, ChevronDown, ChevronUp,
+  Link2, FileText, ExternalLink, ChevronDown, ChevronUp, Globe, CheckCircle2, Loader2,
 } from "lucide-react";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ProjectArticleForLinks {
   id: string;
@@ -48,6 +51,12 @@ interface GenerationFormProps {
   customInstructions: string;
   onCustomInstructionsChange: (v: string) => void;
 
+  // Source page (user's own URL — facts injected into prompt)
+  sourcePageUrl: string;
+  onSourcePageUrlChange: (v: string) => void;
+  sourcePageFacts: any | null;
+  onSourcePageFactsChange: (f: any | null) => void;
+
   // Generation actions
   isStreaming: boolean;
   onGenerate: () => void;
@@ -76,9 +85,30 @@ export function GenerationForm(props: GenerationFormProps) {
     enableGeo, onGeoChange,
     geoLocation, onGeoLocationChange,
     customInstructions, onCustomInstructionsChange,
+    sourcePageUrl, onSourcePageUrlChange,
+    sourcePageFacts, onSourcePageFactsChange,
     isStreaming, onGenerate, onStop, onOpenSectioned,
     quickMode,
   } = props;
+
+  const [loadingFacts, setLoadingFacts] = useState(false);
+
+  const loadFacts = async () => {
+    const url = sourcePageUrl.trim();
+    if (!url) { toast.error(lang === "ru" ? "Укажите URL страницы" : "Enter page URL"); return; }
+    if (!/^https?:\/\//i.test(url)) { toast.error(lang === "ru" ? "URL должен начинаться с http:// или https://" : "URL must start with http(s)://"); return; }
+    setLoadingFacts(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-source-facts", { body: { url, force: true } });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      onSourcePageFactsChange(data?.facts || null);
+      toast.success(lang === "ru" ? "Факты со страницы загружены" : "Page facts loaded");
+    } catch (e: any) {
+      toast.error(e?.message || (lang === "ru" ? "Не удалось загрузить факты" : "Failed to load facts"));
+      onSourcePageFactsChange(null);
+    } finally { setLoadingFacts(false); }
+  };
 
   const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
     authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
@@ -289,6 +319,40 @@ export function GenerationForm(props: GenerationFormProps) {
             className="min-h-[72px] text-sm bg-muted/30 resize-y"
             rows={3}
           />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <Globe className="h-3 w-3" />
+            {lang === "ru" ? "URL вашей страницы (статья будет использовать факты с неё)" : "Your page URL (article will use facts from it)"}
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              value={sourcePageUrl}
+              onChange={(e) => { onSourcePageUrlChange(e.target.value); if (sourcePageFacts) onSourcePageFactsChange(null); }}
+              placeholder="https://yoursite.com/page"
+              className="h-8 text-sm bg-muted/30 flex-1"
+            />
+            <Button type="button" size="sm" variant="outline" disabled={loadingFacts || !sourcePageUrl.trim()} onClick={loadFacts} className="h-8 gap-1.5 shrink-0">
+              {loadingFacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : sourcePageFacts ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Globe className="h-3.5 w-3.5" />}
+              {sourcePageFacts ? (lang === "ru" ? "Обновить" : "Refresh") : (lang === "ru" ? "Загрузить факты" : "Load facts")}
+            </Button>
+          </div>
+          {sourcePageFacts && (
+            <div className="mt-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-[11px] space-y-0.5 text-foreground/80">
+              {sourcePageFacts.service_name && <div><span className="text-muted-foreground">Услуга:</span> {sourcePageFacts.service_name}</div>}
+              {sourcePageFacts.usp && <div><span className="text-muted-foreground">УТП:</span> {sourcePageFacts.usp}</div>}
+              {Array.isArray(sourcePageFacts.key_numbers) && sourcePageFacts.key_numbers.length > 0 && (
+                <div><span className="text-muted-foreground">Цифры:</span> {sourcePageFacts.key_numbers.join("; ")}</div>
+              )}
+              {sourcePageFacts.location && <div><span className="text-muted-foreground">Гео:</span> {sourcePageFacts.location}</div>}
+            </div>
+          )}
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {lang === "ru"
+              ? "AI извлечёт ключевые факты (УТП, цифры, услуги) и будет писать статью именно под них, а не под общие данные конкурентов."
+              : "AI extracts key facts (USP, numbers, services) and writes around them instead of generic competitor data."}
+          </p>
         </div>
       </div>
       )}
