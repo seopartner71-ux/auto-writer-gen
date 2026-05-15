@@ -10,6 +10,7 @@ import {
   type StealthPromptInput,
 } from "../_shared/promptBuilder.ts";
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
+import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -272,7 +273,9 @@ serve(async (req) => {
       lexiconTerms,
       bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
     );
-    const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt) + SERP_CLUSTER_DISCIPLINE_ADDON;
+    const articleLang = (bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en")).toLowerCase();
+    const antiTurgBlock = articleLang === "ru" ? ANTI_TURGENEV_ADDON : "";
+    const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt) + SERP_CLUSTER_DISCIPLINE_ADDON + antiTurgBlock;
 
     // Build user prompt
     const lsiStr = (lsi_keywords || keyword.lsi_keywords || []).join(", ");
