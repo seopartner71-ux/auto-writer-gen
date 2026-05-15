@@ -33,6 +33,27 @@ function stripHtml(s: string): string {
     .trim();
 }
 
+function fallbackAiScore(plain: string): { score: number; verdict: string; reasons: string[] } {
+  const sentences = splitSentences(plain);
+  const words = plain.split(/\s+/).filter(Boolean);
+  const starts = sentences.map((s) => s.split(/\s+/).slice(0, 2).join(" ").toLowerCase()).filter(Boolean);
+  const duplicateStarts = starts.length - new Set(starts).size;
+  const avgSentence = sentences.length ? words.length / sentences.length : 18;
+  const burst = computeBurstiness(plain).sigma;
+  const cliches = (plain.match(/\b(следует отметить|стоит отметить|важно понимать|на сегодняшний день|in conclusion|it is important to note|in today's world)\b/gi) || []).length;
+  let score = 78;
+  if (burst < 5) score -= 18;
+  if (avgSentence > 28 || avgSentence < 7) score -= 10;
+  score -= Math.min(18, duplicateStarts * 3);
+  score -= Math.min(16, cliches * 4);
+  score = Math.max(35, Math.min(88, Math.round(score)));
+  return {
+    score,
+    verdict: score >= 70 ? "скорее человек" : score >= 50 ? "погранично" : "скорее AI",
+    reasons: ["Локальная эвристика применена из-за временной недоступности AI-проверки"],
+  };
+}
+
 // Wrap a promise with a hard timeout. Resolves with `null` on timeout.
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
   return new Promise((resolve) => {
