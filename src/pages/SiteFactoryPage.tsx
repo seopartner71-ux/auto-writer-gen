@@ -774,6 +774,15 @@ export default function SiteFactoryPage() {
             const token = session?.session?.access_token;
             if (!token) return false;
 
+            const failArticle = async () => {
+              await supabase.from("articles").update({ status: "failed" }).eq("id", artRecord.id);
+              setGeneratingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(artRecord.id);
+                return next;
+              });
+            };
+
             const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
             const res = await fetch(
               `https://${projectId}.supabase.co/functions/v1/generate-article`,
@@ -810,13 +819,7 @@ export default function SiteFactoryPage() {
               
               toast({ title: errorMsg, variant: "destructive" });
               
-              // Delete the empty article record instead of leaving as draft
-              await supabase.from("articles").delete().eq("id", artRecord.id);
-              setGeneratingIds((prev) => {
-                const next = new Set(prev);
-                next.delete(artRecord.id);
-                return next;
-              });
+              await failArticle();
               return false;
             }
 
@@ -836,6 +839,11 @@ export default function SiteFactoryPage() {
             }
 
             // 7. Update article with content
+            if (!content.trim()) {
+              await failArticle();
+              throw new Error(lang === "ru" ? "Модель вернула пустой текст" : "Model returned empty content");
+            }
+
             await supabase
               .from("articles")
               .update({
@@ -862,7 +870,7 @@ export default function SiteFactoryPage() {
               description: String(err),
               variant: "destructive" 
             });
-            await supabase.from("articles").delete().eq("id", artRecord.id);
+            await supabase.from("articles").update({ status: "failed" }).eq("id", artRecord.id);
             setGeneratingIds((prev) => {
               const next = new Set(prev);
               next.delete(artRecord.id);
