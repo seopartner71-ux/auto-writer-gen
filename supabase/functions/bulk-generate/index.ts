@@ -8,7 +8,9 @@ import {
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.ts";
 import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
-import { validateContent, dataNuggetsCoverage, personaProfileDeviation } from "../_shared/contentValidator.ts";
+import { enforcePersonaSyntax } from "../_shared/personaEnforce.ts";
+import { enforceDataNuggets } from "../_shared/nuggetsEnforce.ts";
+import { validateContent } from "../_shared/contentValidator.ts";
 import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 
@@ -356,33 +358,56 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       console.log(`[bulk-generate][fact-check] auto-fixed ${fc.issues.length} issues for "${item.seed_keyword}"`);
     }
 
-    // ─── Data Nuggets coverage ───────────────────────────────────────
-    // Soft check: if model dropped most of the supplied facts/numbers, log it.
-    // We don't regenerate here (cost), but the metric surfaces in logs and
-    // future post-gen QA can act on it.
+    // ─── Data Nuggets enforcement ────────────────────────────────────
+    // If <50% of supplied facts/numbers ended up in the text, run a
+    // targeted insert-pass on Sonnet that organically weaves the missing
+    // nuggets into the existing paragraphs (cheaper than full regen).
     try {
       const nuggetsList = (analysis as any)?.data_nuggets || [];
       if (Array.isArray(nuggetsList) && nuggetsList.length > 0) {
-        const cov = dataNuggetsCoverage(articleContent, nuggetsList);
-        if (cov.ratio < 0.5) {
-          console.warn(`[bulk-generate][nuggets] low coverage ${(cov.ratio * 100).toFixed(0)}% (${cov.matched}/${cov.total}) for "${item.seed_keyword}"`);
+        const ne = await enforceDataNuggets(
+          articleContent,
+          nuggetsList,
+          isRussian ? "ru" : "en",
+          openRouterApiKey,
+          0.5,
+        );
+        if (ne.applied) {
+          articleContent = ne.content;
+          console.log(`[bulk-generate][nuggets] coverage ${(ne.beforeRatio * 100).toFixed(0)}% -> ${(ne.afterRatio * 100).toFixed(0)}% (inserted ${ne.missingCount}) for "${item.seed_keyword}"`);
+        } else if (ne.beforeRatio < 0.5) {
+          console.warn(`[bulk-generate][nuggets] low coverage ${(ne.beforeRatio * 100).toFixed(0)}% for "${item.seed_keyword}" - insert pass skipped/rejected`);
         }
       }
-    } catch (_) { /* ignore */ }
+    } catch (e) {
+      console.warn(`[bulk-generate][nuggets] enforcement failed for "${item.seed_keyword}":`, (e as Error)?.message);
+    }
 
-    // ─── Persona enforcement (soft) ──────────────────────────────────
+    // ─── Persona enforcement (auto-rewrite) ──────────────────────────
     // Compare measured syntax stats against the expected syntax_profile.
-    // Logs deviation; high deviation (>0.5) is a candidate for re-roll on
-    // future iteration.
+    // If deviation > 30%, ask Sonnet for a single rhythm-rewrite pass.
+    // Falls back to original content if integrity guard fails or if the
+    // rewrite did not actually reduce deviation by ≥20%.
     try {
       const expectedProfile = (job as any)?.author_profile?.style_analysis?.syntax_profile;
       if (expectedProfile) {
-        const dev = personaProfileDeviation(articleContent, expectedProfile);
-        if (dev.deviation > 0.5) {
-          console.warn(`[bulk-generate][persona] high deviation ${dev.deviation.toFixed(2)} (expected=${expectedProfile}, avgLen=${dev.measured.avgSentLen.toFixed(1)}) for "${item.seed_keyword}"`);
+        const enforced = await enforcePersonaSyntax(
+          articleContent,
+          expectedProfile,
+          isRussian ? "ru" : "en",
+          openRouterApiKey,
+          0.3,
+        );
+        if (enforced.applied) {
+          articleContent = enforced.content;
+          console.log(`[bulk-generate][persona] rewrote syntax: ${(enforced.beforeDeviation * 100).toFixed(0)}% -> ${(enforced.afterDeviation * 100).toFixed(0)}% (profile=${expectedProfile}) for "${item.seed_keyword}"`);
+        } else if (enforced.beforeDeviation > 0.3) {
+          console.warn(`[bulk-generate][persona] high deviation ${(enforced.beforeDeviation * 100).toFixed(0)}% (profile=${expectedProfile}) for "${item.seed_keyword}" - rewrite skipped/rejected`);
         }
       }
-    } catch (_) { /* ignore */ }
+    } catch (e) {
+      console.warn(`[bulk-generate][persona] enforcement failed for "${item.seed_keyword}":`, (e as Error)?.message);
+    }
 
     // ─── Double Humanize Pass (FACTORY) ──────────────────────────────
     // Sonnet (heavy rewrite) + Opus (micro-polish) target <5% AI detection.
