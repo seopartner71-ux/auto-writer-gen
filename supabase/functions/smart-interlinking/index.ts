@@ -112,12 +112,14 @@ interface ArticleRow {
   content: string | null;
   keywords: string[] | null;
   published_url: string | null;
+  embedding?: number[] | string | null;
 }
 
 interface AnalyzedArticle extends ArticleRow {
   topics: string[];
   entities: string[];
   type: string;
+  embeddingVec?: number[] | null;
 }
 
 function stripHtml(html: string): string {
@@ -156,11 +158,44 @@ async function analyzeArticle(apiKey: string, art: ArticleRow): Promise<{ topics
   return { topics, entities, type, usage: data?.usage || {} };
 }
 
-function relevanceScore(a: AnalyzedArticle, b: AnalyzedArticle): { score: number; sharedTopic?: string; sharedEntity?: string } {
+function cosineSim(a: number[], b: number[]): number {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  const d = Math.sqrt(na) * Math.sqrt(nb);
+  return d === 0 ? 0 : dot / d;
+}
+
+function parseEmbedding(raw: any): number[] | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw as number[];
+  if (typeof raw === "string") {
+    try {
+      const v = JSON.parse(raw);
+      return Array.isArray(v) ? v : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function relevanceScore(a: AnalyzedArticle, b: AnalyzedArticle): { score: number; sharedTopic?: string; sharedEntity?: string; semantic?: number } {
   if (a.id === b.id) return { score: 0 };
   const aKw = new Set((a.keywords || []).map((k) => k.toLowerCase()));
   const bKw = new Set((b.keywords || []).map((k) => k.toLowerCase()));
   let score = 0;
+  // Semantic similarity (weight 10) — primary signal when both have embeddings.
+  let semantic = 0;
+  if (a.embeddingVec && b.embeddingVec) {
+    semantic = cosineSim(a.embeddingVec, b.embeddingVec);
+    // Map cosine 0..1 to weighted score; ignore noise below 0.55.
+    if (semantic >= 0.55) score += (semantic - 0.5) * 20; // 0.55→1, 0.8→6, 1.0→10
+  }
   // Shared keywords (weight 3)
   for (const k of aKw) if (bKw.has(k)) score += 3;
   // Shared topics (weight 2)
@@ -181,7 +216,7 @@ function relevanceScore(a: AnalyzedArticle, b: AnalyzedArticle): { score: number
   }
   // Same type bonus
   if (a.type && a.type === b.type) score += 0.5;
-  return { score, sharedTopic, sharedEntity };
+  return { score, sharedTopic, sharedEntity, semantic };
 }
 
 // Find a contextual phrase inside `text` that mentions one of the given terms.
