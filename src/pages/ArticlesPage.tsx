@@ -203,6 +203,36 @@ export default function ArticlesPage() {
     }
   }, [authorProfiles]);
 
+  // Auto-select preset Persona by user's onboarding_niche so the matching
+  // syntax_preset is applied without manual selection. Runs once when the
+  // author list loads and the user has not picked anything yet.
+  const [autoPersonaTried, setAutoPersonaTried] = useState(false);
+  useEffect(() => {
+    if (autoPersonaTried) return;
+    if (selectedAuthorId) return;
+    if (!authorProfiles.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("onboarding_niche")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (cancelled) return;
+        const { findPresetAuthorByNiche } = await import("@/shared/lib/personaAutoSelect");
+        const match = findPresetAuthorByNiche(authorProfiles as any[], profile?.onboarding_niche);
+        if (match?.id && !cancelled) {
+          setSelectedAuthorId(match.id);
+        }
+      } catch (_) { /* noop */ }
+      finally { if (!cancelled) setAutoPersonaTried(true); }
+    })();
+    return () => { cancelled = true; };
+  }, [authorProfiles, selectedAuthorId, autoPersonaTried]);
+
   // Load article for editing from ?edit= query param
   useEffect(() => {
     const editId = searchParams.get("edit");
