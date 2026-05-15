@@ -419,6 +419,24 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
             status={sAi}
             progress={aiProgress}
           />
+          <MetricRow
+            icon={Target}
+            title={`SERP-кластер ${result.serp_cluster_pipeline ? "· новый пайплайн" : "· старый пайплайн"}`}
+            hint={
+              result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined
+                ? `Абзацев в основном кластере: ${(result.details as any)?.cluster_fitness_details?.in_cluster ?? "?"} из ${(result.details as any)?.cluster_fitness_details?.total_paragraphs ?? "?"}`
+                : "% абзацев, попадающих в основной SERP-кластер ключа"
+            }
+            value={result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined ? `${result.cluster_fitness_score}%` : "-"}
+            suffix={result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined ? "в кластере" : undefined}
+            status={
+              result.cluster_fitness_score === null || result.cluster_fitness_score === undefined ? "none"
+                : result.cluster_fitness_score >= 70 ? "ok"
+                : result.cluster_fitness_score >= 30 ? "warn"
+                : "bad"
+            }
+            progress={Math.max(0, Math.min(100, result.cluster_fitness_score ?? 0))}
+          />
         </div>
 
         {/* Actions */}
