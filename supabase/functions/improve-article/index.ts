@@ -125,13 +125,27 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
+    const body = await req.json().catch(() => ({} as any));
+    const { article_id, fix_type, user_id: bodyUserId, source } = body || {};
+
+    // Internal service-role invocation (e.g. quality-check auto-turgenev-fix).
+    // Trust user_id from body only when caller presents the service-role token.
+    const isServiceCall =
+      authHeader === `Bearer ${serviceKey}` && typeof bodyUserId === "string" && bodyUserId.length > 0;
+    const isAutoTurgenev = isServiceCall && source === "auto_turgenev";
+
+    let user: { id: string } | null = null;
+    if (isServiceCall) {
+      user = { id: bodyUserId };
+    } else {
+      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user: u } } = await userClient.auth.getUser();
+      if (u) user = { id: u.id };
+    }
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { article_id, fix_type } = await req.json().catch(() => ({}));
     if (!article_id) return json({ error: "article_id required" }, 400);
     const phase: "humanize" | "turgenev" | "all" =
       fix_type === "humanize" ? "humanize" :
@@ -152,7 +166,9 @@ Deno.serve(async (req) => {
     const improveLimit = getPlanLimit(planRaw, IMPROVE_LIMITS);
     const usedImprove = Number((art as any).seo_improve_count || 0);
     console.log("[improve-article][plan-check] user:", user.id, "plan:", planRaw, "key:", normalizePlanKey(planRaw), "limit:", improveLimit, "used:", usedImprove);
-    if (usedImprove >= improveLimit) {
+    // Auto-Turgenev fix bypasses the plan limit and cooldown — это автоматическая правка качества,
+    // которая не должна расходовать пользовательский лимит улучшений.
+    if (!isAutoTurgenev && usedImprove >= improveLimit) {
       return json({
         ok: false,
         limit_reached: true,
@@ -161,7 +177,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Cooldown: 60s between improve calls per article ──
-    if (art.last_improve_at) {
+    if (!isAutoTurgenev && art.last_improve_at) {
       const elapsed = Date.now() - new Date(art.last_improve_at as string).getTime();
       if (elapsed < 60_000) {
         return json({
