@@ -659,6 +659,12 @@ async function runAutoQuality(
             uniqueness_checked_at: new Date().toISOString(),
           }).eq("id", articleId);
         } else {
+          const fallbackUniq = localUniquenessFallback(plain);
+          await admin.from("articles").update({
+            uniqueness_percent: fallbackUniq.score,
+            uniqueness_checked_at: new Date().toISOString(),
+            quality_details: { uniqueness_details: fallbackUniq.details, uniqueness_error: (r as any)?.error || "Text.ru не вернул результат" },
+          }).eq("id", articleId);
           await logErr(admin, "quality-check", "textru_auto_failed", {
             article_id: articleId, error: (r as any)?.error, code: (r as any)?.code,
           });
@@ -720,7 +726,7 @@ async function runAutoQuality(
   // ещё не запускался для этой статьи - тихо вызываем improve-article
   // с fix_type="turgenev". Только для русского, и только один раз.
   try {
-    const turgScore = (turgenevRes as TurgenevResult | null)?.score ?? null;
+    const turgScore = turgenevFinal?.score ?? null;
     if (
       isRu &&
       typeof turgScore === "number" &&
