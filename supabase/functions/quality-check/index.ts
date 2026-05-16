@@ -421,6 +421,92 @@ async function runTurgenevCheck(plain: string, turgenevKey: string): Promise<Tur
   }
 }
 
+const RU_STOPWORDS = new Set([
+  "и", "в", "во", "не", "на", "что", "с", "по", "а", "но", "как", "к", "из", "за", "для", "от", "до", "или", "о", "у",
+  "это", "же", "ли", "бы", "то", "так", "там", "тут", "вот", "еще", "уже", "при", "без", "под", "над", "об", "со",
+]);
+const TURG_WATER = [
+  "в принципе", "в целом", "как известно", "следует отметить", "на сегодняшний день", "в современном мире", "в наше время",
+  "можно сказать", "стоит отметить", "как правило", "в связи с этим", "таким образом", "в данной статье", "по сути",
+];
+const TURG_STYLE = [
+  "очень", "просто", "именно", "действительно", "достаточно", "весьма", "крайне", "максимально", "является",
+  "данный", "эффективный", "качественный", "профессиональный", "современный", "уникальный",
+];
+const TURG_CLICHES = [
+  "ключ к успеху", "залог успеха", "играет важную роль", "не секрет что", "открывает новые возможности", "представляет собой",
+];
+
+function metricTokens(text: string): string[] {
+  return (text.toLowerCase().replace(/ё/g, "е").match(/[a-zа-я0-9]+/gi) || []) as string[];
+}
+function phraseCount(text: string, phrases: string[]): number {
+  const lower = text.toLowerCase().replace(/ё/g, "е");
+  return phrases.reduce((sum, phrase) => {
+    const safe = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return sum + (lower.match(new RegExp(`\\b${safe}\\b`, "g")) || []).length;
+  }, 0);
+}
+function localTurgenevFallback(plain: string): TurgenevResult {
+  const tokens = metricTokens(plain);
+  const wordCount = Math.max(1, tokens.length);
+  const per1k = (n: number) => (n / wordCount) * 1000;
+  const waterCount = phraseCount(plain, TURG_WATER);
+  const styleCount = phraseCount(plain, TURG_STYLE) + phraseCount(plain, TURG_CLICHES) * 2;
+  const freq = new Map<string, number>();
+  for (const token of tokens) {
+    if (token.length < 4 || RU_STOPWORDS.has(token)) continue;
+    freq.set(token, (freq.get(token) || 0) + 1);
+  }
+  const topCount = Math.max(0, ...Array.from(freq.values()));
+  const repeatRatio = topCount / wordCount;
+  const sentences = splitSentences(plain);
+  const avgSentLen = sentences.length ? wordCount / sentences.length : wordCount;
+  const longWordRatio = tokens.filter((t) => t.length >= 12).length / wordCount;
+  const water = per1k(waterCount) < 1.5 ? 0 : per1k(waterCount) < 3 ? 1 : 2;
+  const style = per1k(styleCount) < 4 ? 0 : per1k(styleCount) < 8 ? 1 : 2;
+  const repeats = repeatRatio < 0.025 ? 0 : repeatRatio < 0.045 ? 1 : 2;
+  const spam = repeatRatio * 100 < 2.5 ? 0 : repeatRatio * 100 < 4 ? 1 : 2;
+  const readability = Math.min(2, (avgSentLen > 22 ? 1 : 0) + (avgSentLen > 32 ? 1 : 0) + (longWordRatio > 0.22 ? 1 : 0));
+  const score = water + style + repeats + spam + readability;
+  return {
+    score,
+    status: score <= 3 ? "ok" : score <= 6 ? "warning" : "fail",
+    details: { repeats, style, spam, water, readability },
+  };
+}
+
+function localUniquenessFallback(plain: string): { score: number; details: Record<string, unknown> } {
+  const normalized = plain.toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9.!?\s]/gi, " ").replace(/\s+/g, " ").trim();
+  const tokens = metricTokens(normalized).filter((t) => t.length > 3 && !RU_STOPWORDS.has(t));
+  const sentences = splitSentences(normalized).map((s) => s.trim()).filter((s) => s.length > 20);
+  const uniqueRatio = tokens.length ? new Set(tokens).size / tokens.length : 0.7;
+  const duplicateSentences = sentences.length - new Set(sentences).size;
+  const duplicateSentenceRatio = sentences.length ? duplicateSentences / sentences.length : 0;
+  const freq = new Map<string, number>();
+  for (const token of tokens) freq.set(token, (freq.get(token) || 0) + 1);
+  const topDensity = tokens.length ? Math.max(0, ...Array.from(freq.values())) / tokens.length : 0;
+  const cliches = phraseCount(normalized, [...TURG_WATER, ...TURG_CLICHES]);
+  let score = 88;
+  if (uniqueRatio < 0.42) score -= 10;
+  if (uniqueRatio < 0.34) score -= 10;
+  score -= Math.min(12, Math.round(topDensity * 180));
+  score -= Math.min(10, Math.round(duplicateSentenceRatio * 60));
+  score -= Math.min(8, cliches * 2);
+  score = Math.max(62, Math.min(92, Math.round(score)));
+  return {
+    score,
+    details: {
+      source: "local_fallback_before_textru",
+      note: "Оценка не заменяет Text.ru, а закрывает NULL до внешней проверки",
+      unique_ratio: Math.round(uniqueRatio * 1000) / 1000,
+      top_term_density: Math.round(topDensity * 1000) / 1000,
+      duplicate_sentence_ratio: Math.round(duplicateSentenceRatio * 1000) / 1000,
+      cliches,
+    },
+  };
+}
+
 async function runAutoQuality(
   admin: any, articleId: string, userId: string, content: string, apiKey: string,
 ) {
