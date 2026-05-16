@@ -254,7 +254,7 @@ export function GenerationForm(props: GenerationFormProps) {
               title="Генерировать по разделам со стримингом и регенерацией каждого H2"
             >
               <Wand2 className="h-3.5 w-3.5" />
-              По разделам (beta)
+              По разделам
             </Button>
           )}
         </div>
