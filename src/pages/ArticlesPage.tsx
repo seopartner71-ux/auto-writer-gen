@@ -667,27 +667,41 @@ export default function ArticlesPage() {
 
     setCurrentArticleId(null); // Reset so auto-save creates a NEW article & deducts credit
 
-    // Pre-flight credit cost guard — confirm if cost > 20 credits
+    // Pre-flight credit cost guard — show premium confirm dialog if cost > 20 credits
     if (!isAdmin && selectedModel) {
       try {
-        const { data: costData } = await supabase.rpc("calculate_generation_cost", {
-          p_model_key: selectedModel,
-          p_length: 5000,
-          p_stealth: false,
-          p_images: 0,
-          p_deep_research: false,
-          p_fact_check: false,
-        });
+        const [{ data: costData }, { data: profileRow }] = await Promise.all([
+          supabase.rpc("calculate_generation_cost", {
+            p_model_key: selectedModel,
+            p_length: 5000,
+            p_stealth: false,
+            p_images: 0,
+            p_deep_research: false,
+            p_fact_check: false,
+          }),
+          user
+            ? supabase.from("profiles").select("credits_amount").eq("id", user.id).maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
         const estimated = (costData as any)?.credits ?? 0;
+        const balance = Number((profileRow as any)?.credits_amount ?? 0);
         if (estimated > 20) {
-          const ok = window.confirm(
-            `Эта статья ориентировочно спишет ${estimated} кредитов (модель ${selectedModel}). Продолжить?`,
-          );
-          if (!ok) return;
+          pendingGenerateRef.current = () => runGenerate();
+          setConfirmData({
+            credits: estimated,
+            balance,
+            modelName: selectedModel.split("/").pop(),
+          });
+          return;
         }
       } catch (_) { /* ignore — RPC failure shouldn't block */ }
     }
 
+    await runGenerate();
+  }, [/* deps filled below in runGenerate wrapper */ selectedKeywordId, selectedAuthorId, authorProfiles, miralinksLinks, gogetlinksLinks, limits, isAdmin, selectedModel, user, t]);
+
+  // Actual stream execution, split out so it can run after user confirmation
+  const runGenerate = useCallback(async () => {
     setIsStreaming(true);
     setStreamPhase("thinking");
     setContent("");
