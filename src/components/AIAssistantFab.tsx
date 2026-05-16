@@ -17,7 +17,7 @@ const QUICK = [
   "Как сделать bulk генерацию?",
   "Как улучшить AI Score?",
 ];
-const HIDDEN_ROUTES = ["/", "/login", "/register", "/forgot-password", "/reset-password"];
+const HIDDEN_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 export function AIAssistantFab() {
   const { pathname } = useLocation();
