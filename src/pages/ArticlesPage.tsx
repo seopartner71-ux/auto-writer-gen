@@ -2659,6 +2659,20 @@ export default function ArticlesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmGenerateDialog
+        open={!!confirmData}
+        onOpenChange={(o) => { if (!o) { setConfirmData(null); pendingGenerateRef.current = null; } }}
+        credits={confirmData?.credits ?? 0}
+        balance={confirmData?.balance ?? 0}
+        modelName={confirmData?.modelName}
+        onConfirm={() => {
+          const fn = pendingGenerateRef.current;
+          pendingGenerateRef.current = null;
+          setConfirmData(null);
+          if (fn) void fn();
+        }}
+      />
     </div>
     </ArticleEditorProvider>
   );
