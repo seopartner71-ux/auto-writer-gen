@@ -131,22 +131,6 @@ export function AppSidebar() {
   const unseenChangelog = useUnseenChangelog();
   const APP_VERSION = "v2.4";
 
-  const [aiwriterMode, setAiwriterMode] = useState<"quick" | "expert" | "bulk" | null>(() => {
-    if (typeof window === "undefined") return null;
-    const v = localStorage.getItem("aiwriter_mode");
-    return v === "quick" ? "quick" : v === "expert" ? "expert" : null;
-  });
-  useEffect(() => {
-    const handler = (e: any) => {
-      const d = e?.detail;
-      if (d === "bulk") setAiwriterMode("bulk");
-      else if (d === "quick") setAiwriterMode("quick");
-      else setAiwriterMode("expert");
-    };
-    window.addEventListener("aiwriter-mode-changed", handler);
-    return () => window.removeEventListener("aiwriter-mode-changed", handler);
-  }, []);
-
   const adminItems = [
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
   ];
