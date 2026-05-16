@@ -107,6 +107,22 @@ export function SectionHero() {
               className="mt-8 text-sm font-tech text-emerald-400/80 tracking-widest">
               {t("lp.heroMetric")}
             </motion.p>
+
+            {/* Реальные показатели качества — на основе блока «Доказательства качества» ниже */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7, duration: 0.7 }}
+              className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-xl mx-auto lg:mx-0">
+              {[
+                { v: "1.90%", l: lang === "ru" ? "AI на text.ru" : "AI on text.ru", c: "text-emerald-400" },
+                { v: "0", l: lang === "ru" ? "риск Тургенева" : "Turgenev risk", c: "text-emerald-400" },
+                { v: "9.4", l: lang === "ru" ? "Главред / 10" : "Glvrd / 10", c: "text-sky-400" },
+                { v: "≤ 1 мин", l: lang === "ru" ? "до 1-й статьи" : "to 1st article", c: "text-primary" },
+              ].map((s, i) => (
+                <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md px-3 py-2 text-center lg:text-left">
+                  <div className={`text-lg font-bold ${s.c}`} style={{ letterSpacing: "-0.03em" }}>{s.v}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-tech">{s.l}</div>
+                </div>
+              ))}
+            </motion.div>
           </div>
 
           {/* Right — Stealth Guard */}
