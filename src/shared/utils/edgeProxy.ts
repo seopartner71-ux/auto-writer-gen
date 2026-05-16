@@ -1,10 +1,10 @@
 /**
-import { logger } from "@/shared/utils/logger";
  * Edge Function proxy interceptor.
  * Patches global fetch so that requests to Supabase Edge Functions
  * are routed through the PHP proxy on seo-modul.pro,
  * avoiding geo-blocks in Russia.
  */
+import { logger } from "@/shared/utils/logger";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, "");
 const PROXY_BASE = "/api/proxy.php";
