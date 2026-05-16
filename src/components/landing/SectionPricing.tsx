@@ -5,12 +5,14 @@ import { Check, X, Star, Zap, Crown, Sparkles, Shield, Atom } from "lucide-react
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubscriptionPlansRealtime } from "@/shared/hooks/useSubscriptionPlansRealtime";
 
 export function SectionPricing() {
   const navigate = useNavigate();
   const { t, lang } = useI18n();
   const isEn = lang === "en";
   const [yearly, setYearly] = useState(false);
+  useSubscriptionPlansRealtime();
 
   const { data: dbPlans } = useQuery({
     queryKey: ["subscription-plans-landing"],
