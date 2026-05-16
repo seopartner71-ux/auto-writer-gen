@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { TrendingUp, MapPin, Link2, Clock, CheckCircle2, Quote, ArrowRight, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import gscScreenshot from "@/assets/case-pbn-gsc.jpg";
+import gscScreenshot from "@/assets/case-pbn-gsc.webp";
 
 export function SectionRealCase() {
   const metrics = [

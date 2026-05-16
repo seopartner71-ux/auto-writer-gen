@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Hexagon, Send } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
-import systemSeoLogo from "@/assets/system-seo-tg.jpg";
+import systemSeoLogo from "@/assets/system-seo-tg.webp";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },

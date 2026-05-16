@@ -2,10 +2,10 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { ShieldCheck, Sparkles, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import turgenev from "@/assets/proof/turgenev.jpg";
-import textru from "@/assets/proof/textru.jpg";
-import glvrd94 from "@/assets/proof/glvrd-94.jpg";
-import glvrd81 from "@/assets/proof/glvrd-81.jpg";
+import turgenev from "@/assets/proof/turgenev.webp";
+import textru from "@/assets/proof/textru.webp";
+import glvrd94 from "@/assets/proof/glvrd-94.webp";
+import glvrd81 from "@/assets/proof/glvrd-81.webp";
 
 type Proof = {
   src: string;
