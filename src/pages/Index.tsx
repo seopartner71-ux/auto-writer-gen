@@ -82,18 +82,6 @@ export default function Index() {
         { "@type": "Offer", name: "Pro", price: "1990", priceCurrency: "RUB", description: isEn ? "30 articles/month" : "30 статей/месяц" },
         { "@type": "Offer", name: "Business", price: "4990", priceCurrency: "RUB", description: isEn ? "100 articles/month" : "100 статей/месяц" },
       ],
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "4.9",
-        bestRating: "5",
-        ratingCount: "312",
-        reviewCount: "12",
-      },
-      review: [
-        { "@type": "Review", author: { "@type": "Person", name: isEn ? "Alex M." : "Алексей М." }, reviewRating: { "@type": "Rating", ratingValue: "5" }, reviewBody: isEn ? "Factory + Persona Engine gave us scale without losing quality." : "Factory + Persona Engine дал масштаб без потери качества." },
-        { "@type": "Review", author: { "@type": "Person", name: isEn ? "Irina S." : "Ирина С." }, reviewRating: { "@type": "Rating", ratingValue: "5" }, reviewBody: isEn ? "Stealth Engine is magic. 1.57% AI detection." : "Stealth Engine — это магия. 1.57% AI detection на выходе." },
-        { "@type": "Review", author: { "@type": "Person", name: isEn ? "Sergey L." : "Сергей Л." }, reviewRating: { "@type": "Rating", ratingValue: "5" }, reviewBody: isEn ? "100 articles in a week via Factory." : "100 статей за неделю через Factory." },
-      ],
     };
 
     const faqItems = isEn
