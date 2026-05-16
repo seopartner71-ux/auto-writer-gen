@@ -275,7 +275,57 @@ export function SectionedGenerator({
       .order("section_index", { ascending: true });
     const list = (data || []) as SectionRow[];
     const md = `# ${h1}\n\n` + list.filter(s => s.status === "done").map(s => s.content.trim()).join("\n\n");
-    onComplete?.(md, h1);
+
+    // Persist assembled content + title so downstream funcs (humanize, quality-check) see it.
+    try {
+      await supabase
+        .from("articles")
+        .update({ content: md, title: h1 || undefined, status: "completed" })
+        .eq("id", articleId);
+    } catch { /* non-fatal */ }
+
+    // Only run heavy passes when generation actually completed (not on stop / partial).
+    const allDone = list.length > 0 && list.every(s => s.status === "done");
+    let finalMd = md;
+
+    if (allDone) {
+      // 1) Humanize pass (budget-gated, conditional-skip inside the function)
+      try {
+        const tHum = toast.loading("Humanize: причесываем текст...");
+        const { data: humRes, error: humErr } = await supabase.functions.invoke("humanize-article", {
+          body: { article_id: articleId },
+        });
+        toast.dismiss(tHum);
+        if (humErr) {
+          toast.warning(`Humanize пропущен: ${humErr.message || "ошибка"}`);
+        } else if (humRes?.applied) {
+          toast.success(`Humanize применен (${humRes.passes || 2} прохода)`);
+        } else if (humRes?.reason) {
+          toast(`Humanize пропущен: ${humRes.reason}`);
+        }
+        // Refresh content from DB
+        const { data: fresh } = await supabase
+          .from("articles").select("content").eq("id", articleId).maybeSingle();
+        if (fresh?.content) finalMd = fresh.content;
+      } catch (e: any) {
+        toast.warning(`Humanize ошибка: ${e?.message || e}`);
+      }
+
+      // 2) Quality check (writes turgenev_score / uniqueness_percent + errors[])
+      try {
+        const tq = toast.loading("Проверяем метрики качества...");
+        const { error: qErr } = await supabase.functions.invoke("quality-check", {
+          body: { article_id: articleId },
+        });
+        toast.dismiss(tq);
+        if (qErr) toast.warning(`Quality-check: ${qErr.message || "ошибка"}`);
+        else toast.success("Метрики обновлены");
+      } catch (e: any) {
+        toast.warning(`Quality-check ошибка: ${e?.message || e}`);
+      }
+    }
+
+    onComplete?.(finalMd, h1);
   }
 
   async function regenerateOne(s: SectionRow, extraPrompt = "") {
