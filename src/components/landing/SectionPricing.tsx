@@ -66,7 +66,7 @@ export function SectionPricing() {
       popular: false,
       showShield: false,
       features: getFeatures("free", [
-        { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
+        { text: isEn ? `${fmtCredits("free", 150)} articles per month` : `${fmtCredits("free", 150)} статей в месяц`, included: true },
         { text: isEn ? "AI + Turgenev quality check" : "AI + Тургенев проверка качества", included: true },
         { text: isEn ? "3 SEO improvements per article" : "3 SEO-улучшения на статью", included: true },
         { text: isEn ? "All author profiles (15+ styles)" : "Все авторские профили (15+ стилей)", included: true },

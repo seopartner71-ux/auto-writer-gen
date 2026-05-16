@@ -94,11 +94,8 @@ export function AppSidebar() {
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
     { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
-    { title: lang === "ru" ? "Карта тем" : "Topical Map", url: "/topical-map", icon: Map },
-    { title: lang === "ru" ? "Аудит статьи" : "Article Audit", url: "/article-audit", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
-    { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
   ];
   const publishItems = isFactory ? [
     { title: t("nav.wordpress"), url: "/wordpress", icon: Send },
@@ -115,6 +112,9 @@ export function AppSidebar() {
     ] : []),
   ];
   const moreItems = [
+    { title: lang === "ru" ? "Карта тем" : "Topical Map", url: "/topical-map", icon: Map },
+    { title: lang === "ru" ? "Аудит статьи" : "Article Audit", url: "/article-audit", icon: Search },
+    { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
     { title: lang === "ru" ? "Календарь" : "Calendar", url: "/calendar", icon: CalendarDays },
     { title: lang === "ru" ? "База знаний" : "Wiki", url: "/wiki", icon: BookOpen },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
