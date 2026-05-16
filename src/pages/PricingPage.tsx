@@ -9,11 +9,13 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSubscriptionPlansRealtime } from "@/shared/hooks/useSubscriptionPlansRealtime";
 
 export default function PricingPage() {
   const { profile, user, session } = useAuth();
   const { t, lang } = useI18n();
   const queryClient = useQueryClient();
+  useSubscriptionPlansRealtime();
   const currentPlan = profile?.plan ?? "free";
   const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
