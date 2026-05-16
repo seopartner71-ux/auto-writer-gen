@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2, Shield, Atom } from "lucide-react";
+import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2, Shield, Atom, Sparkle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ export default function PricingPage() {
   const isEn = lang === "en";
   const currentCredits = profile?.credits_amount ?? 0;
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [yearly, setYearly] = useState(false);
 
   const { data: paymentSettings } = useQuery({
     queryKey: ["app-settings", "payments-all"],
@@ -30,6 +31,9 @@ export default function PricingPage() {
         .in("key", [
           "prodamus_nano_link", "prodamus_basic_link", "prodamus_pro_link",
           "polar_nano_product_id", "polar_basic_product_id", "polar_pro_product_id",
+          "prodamus_nano_annual_link", "prodamus_basic_annual_link", "prodamus_pro_annual_link",
+          "polar_nano_annual_product_id", "polar_basic_annual_product_id", "polar_pro_annual_product_id",
+          "annual_discount_percent",
         ]);
       if (error) throw error;
       const map: Record<string, string> = {};
@@ -56,14 +60,14 @@ export default function PricingPage() {
 
   const getDbPlan = (id: string) => dbPlans?.find((p) => p.id === id);
 
+  const discountPct = Math.max(0, Math.min(50, Number(paymentSettings?.annual_discount_percent ?? 20)));
+  const yearlyMultiplier = (100 - discountPct) / 100;
+
   const fmtPrice = (id: string, fallbackRub: number, fallbackUsd: number) => {
     const db = getDbPlan(id);
-    if (isEn) {
-      const usd = db?.price_usd ?? fallbackUsd;
-      return `$${usd}`;
-    }
-    const rub = db?.price_rub ?? fallbackRub;
-    return `${rub.toLocaleString("ru-RU")} ₽`;
+    const base = isEn ? (db?.price_usd ?? fallbackUsd) : (db?.price_rub ?? fallbackRub);
+    const val = yearly ? Math.round(base * yearlyMultiplier) : base;
+    return isEn ? `$${val}` : `${val.toLocaleString("ru-RU")} ₽`;
   };
 
   const fmtCredits = (id: string, fallback: number) => getDbPlan(id)?.monthly_article_limit ?? fallback;
@@ -84,17 +88,17 @@ export default function PricingPage() {
   const fmtCreditsBadge = (n: number) =>
     isEn ? `${n} credits / mo` : `${n} кредитов / мес`;
 
-  // Map plan IDs to Prodamus links and Polar product IDs
-  const prodamusLinks: Record<string, string | null> = {
-    free: paymentSettings?.prodamus_nano_link ?? null,
-    basic: paymentSettings?.prodamus_basic_link ?? null,
-    pro: paymentSettings?.prodamus_pro_link ?? null,
+  // Map plan IDs to Prodamus links and Polar product IDs (monthly + annual)
+  const prodamusLinks: Record<string, { monthly: string | null; annual: string | null }> = {
+    free:  { monthly: paymentSettings?.prodamus_nano_link  || null, annual: paymentSettings?.prodamus_nano_annual_link  || null },
+    basic: { monthly: paymentSettings?.prodamus_basic_link || null, annual: paymentSettings?.prodamus_basic_annual_link || null },
+    pro:   { monthly: paymentSettings?.prodamus_pro_link   || null, annual: paymentSettings?.prodamus_pro_annual_link   || null },
   };
 
-  const polarProductIds: Record<string, string | null> = {
-    free: paymentSettings?.polar_nano_product_id || null,
-    basic: paymentSettings?.polar_basic_product_id || null,
-    pro: paymentSettings?.polar_pro_product_id || null,
+  const polarProductIds: Record<string, { monthly: string | null; annual: string | null }> = {
+    free:  { monthly: paymentSettings?.polar_nano_product_id  || null, annual: paymentSettings?.polar_nano_annual_product_id  || null },
+    basic: { monthly: paymentSettings?.polar_basic_product_id || null, annual: paymentSettings?.polar_basic_annual_product_id || null },
+    pro:   { monthly: paymentSettings?.polar_pro_product_id   || null, annual: paymentSettings?.polar_pro_annual_product_id   || null },
   };
 
   const plans = [
@@ -167,10 +171,14 @@ export default function PricingPage() {
 
     if (isEn) {
       // --- POLAR CHECKOUT (USD) ---
-      const productId = polarProductIds[planId];
+      const ids = polarProductIds[planId];
+      const productId = yearly ? (ids?.annual || ids?.monthly) : ids?.monthly;
       if (!productId) {
         toast.error("Payment not configured yet. Please contact the administrator.");
         return;
+      }
+      if (yearly && !ids?.annual) {
+        toast.message("Annual plan not yet configured — proceeding with monthly checkout.");
       }
       setLoadingPlan(planId);
       try {
@@ -192,15 +200,19 @@ export default function PricingPage() {
       }
     } else {
       // --- PRODAMUS CHECKOUT (RUB) ---
-      const link = prodamusLinks[planId];
+      const links = prodamusLinks[planId];
+      const link = yearly ? (links?.annual || links?.monthly) : links?.monthly;
       if (!link) {
         toast.error("Оплата ещё не настроена. Обратитесь к администратору.");
         return;
       }
+      if (yearly && !links?.annual) {
+        toast.message("Годовой план ещё не настроен — оформляем месячную подписку.");
+      }
       const url = new URL(link);
       if (user.email) url.searchParams.set("customer_email", user.email);
       url.searchParams.set("customer_extra", user.id);
-      url.searchParams.set("order_id", `plan_${planId}`);
+      url.searchParams.set("order_id", `plan_${planId}${yearly ? "_annual" : ""}`);
       url.searchParams.set("do", window.location.origin + "/payment-success");
       window.open(url.toString(), "_blank");
     }
@@ -239,6 +251,32 @@ export default function PricingPage() {
         <Badge variant="secondary" className="text-xs">
           {isEn ? "💳 Payments via Polar (USD)" : "💳 Оплата через Prodamus (₽)"}
         </Badge>
+      </div>
+
+      {/* Billing period toggle */}
+      <div className="flex items-center justify-center gap-3">
+        <span className={`text-sm ${!yearly ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+          {isEn ? "Monthly" : "Месяц"}
+        </span>
+        <button
+          onClick={() => setYearly(v => !v)}
+          className={`relative w-12 h-6 rounded-full transition-colors ${yearly ? "bg-primary" : "bg-muted"}`}
+          aria-label="Toggle annual billing"
+        >
+          <span
+            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+            style={{ transform: yearly ? "translateX(24px)" : "translateX(0)" }}
+          />
+        </button>
+        <span className={`text-sm ${yearly ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+          {isEn ? "Annual" : "Год"}
+        </span>
+        {yearly && (
+          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 text-[10px] font-semibold">
+            <Sparkle className="h-3 w-3 mr-1" />
+            -{discountPct}%
+          </Badge>
+        )}
       </div>
 
       {/* Plans grid */}

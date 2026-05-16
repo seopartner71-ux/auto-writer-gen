@@ -36,6 +36,7 @@ export function LandingFooter() {
         { label: lang === "ru" ? "Политика конфиденциальности" : "Privacy Policy", action: () => navigate("/privacy") },
         { label: lang === "ru" ? "Пользовательское соглашение" : "Terms of Service", action: () => navigate("/terms") },
         { label: lang === "ru" ? "Политика Cookie" : "Cookie Policy", action: () => navigate("/cookies") },
+        { label: lang === "ru" ? "Согласие на обработку ПДн" : "Personal Data Consent", action: () => navigate("/consent") },
       ],
     },
   ];
