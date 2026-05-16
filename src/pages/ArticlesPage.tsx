@@ -187,6 +187,13 @@ export default function ArticlesPage() {
   // State
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
+  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
+  const [userPlan, setUserPlan] = useState<string>("free");
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("plan").eq("id", user.id).maybeSingle()
+      .then(({ data }) => setUserPlan((data as any)?.plan || "free"));
+  }, [user]);
   const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
   const sanitizeContent = useCallback((text: string) => text.replace(/[—–]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
   const [content, setContentRaw] = useState("");
@@ -651,6 +658,28 @@ export default function ArticlesPage() {
     }
 
     setCurrentArticleId(null); // Reset so auto-save creates a NEW article & deducts credit
+
+    // Pre-flight credit cost guard — confirm if cost > 20 credits
+    if (!isAdmin && selectedModel) {
+      try {
+        const { data: costData } = await supabase.rpc("calculate_generation_cost", {
+          p_model_key: selectedModel,
+          p_length: 5000,
+          p_stealth: false,
+          p_images: 0,
+          p_deep_research: false,
+          p_fact_check: false,
+        });
+        const estimated = (costData as any)?.credits ?? 0;
+        if (estimated > 20) {
+          const ok = window.confirm(
+            `Эта статья ориентировочно спишет ${estimated} кредитов (модель ${selectedModel}). Продолжить?`,
+          );
+          if (!ok) return;
+        }
+      } catch (_) { /* ignore — RPC failure shouldn't block */ }
+    }
+
     setIsStreaming(true);
     setStreamPhase("thinking");
     setContent("");
@@ -979,7 +1008,7 @@ export default function ArticlesPage() {
         // Deduct credit for new article (skip for admins)
         if (!isAdmin) {
           // V2: dynamic cost based on model + length
-          const modelKey = (payload as any)?.generation_model || "anthropic/claude-sonnet-4";
+          const modelKey = (payload as any)?.generation_model || selectedModel || "google/gemini-2.5-flash";
           const articleLength = (content || "").length;
           const { data: costData } = await supabase.rpc("calculate_generation_cost", {
             p_model_key: modelKey,
@@ -1330,6 +1359,9 @@ export default function ArticlesPage() {
         onSourcePageUrlChange={setSourcePageUrl}
         sourcePageFacts={sourcePageFacts}
         onSourcePageFactsChange={setSourcePageFacts}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
+        userPlan={userPlan}
         isStreaming={isStreaming}
         onGenerate={handleGenerate}
         onStop={handleStop}

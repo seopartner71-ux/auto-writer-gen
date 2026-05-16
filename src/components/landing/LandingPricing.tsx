@@ -62,12 +62,12 @@ export function LandingPricing() {
       icon: Sparkles,
       price: fmtPrice("free", 15, "990"),
       period: `/ ${t("lp.priceMonth")}`,
-      credits: fmtCredits("free", 5),
+      credits: fmtCredits("free", 150),
       popular: false,
       modelLabel: isEn ? "Generation: Claude Sonnet" : "Генерация: Claude Sonnet",
       modelPremium: false,
       features: getFeatures("free", [
-        { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
+        { text: isEn ? "150 credits per month (~30 articles)" : "150 кредитов в месяц (~30 статей)", included: true },
         { text: isEn ? "AI + Turgenev quality check" : "AI + Тургенев проверка качества", included: true },
         { text: isEn ? "3 SEO improvements per article" : "3 SEO-улучшения на статью", included: true },
         { text: isEn ? "All author profiles (15+)" : "Все авторские профили (15+)", included: true },
@@ -82,13 +82,13 @@ export function LandingPricing() {
       icon: Zap,
       price: fmtPrice("basic", 65, "5900"),
       period: `/ ${t("lp.priceMonth")}`,
-      credits: fmtCredits("basic", 40),
+      credits: fmtCredits("basic", 450),
       popular: true,
       exclusive: "AI Radar & GEO",
       modelLabel: isEn ? "Generation: Claude Opus 4" : "Генерация: Claude Opus 4",
       modelPremium: true,
       features: getFeatures("basic", [
-        { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
+        { text: isEn ? "450 credits per month (~90 articles)" : "450 кредитов в месяц (~90 статей)", included: true },
         { text: isEn ? "Everything in NANO" : "Всё из NANO", included: true },
         { text: isEn ? "Unlimited SEO improvements" : "Безлимит SEO-улучшений", included: true },
         { text: isEn ? "Bulk up to 10 articles" : "Bulk генерация до 10 статей", included: true },
@@ -103,12 +103,12 @@ export function LandingPricing() {
       icon: Crown,
       price: fmtPrice("pro", 220, "19900"),
       period: `/ ${t("lp.priceMonth")}`,
-      credits: fmtCredits("pro", 150),
+      credits: fmtCredits("pro", 1300),
       popular: false,
       modelLabel: isEn ? "Generation: Claude Opus 4" : "Генерация: Claude Opus 4",
       modelPremium: true,
       features: getFeatures("pro", [
-        { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
+        { text: isEn ? "1300 credits per month (~260 articles)" : "1300 кредитов в месяц (~260 статей)", included: true },
         { text: isEn ? "Everything in PRO" : "Всё из PRO", included: true },
         { text: isEn ? "Unlimited bulk (100+ articles)" : "Bulk без лимита (100+ статей)", included: true },
         { text: isEn ? "2 users per account" : "2 пользователя в аккаунте", included: true },
@@ -209,7 +209,7 @@ export function LandingPricing() {
 
                 <div className="flex flex-wrap items-center gap-2 mb-6">
                   <span className="text-[11px] font-tech text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                    {plan.credits} {t("pricing.articlesPerMonth") || (isEn ? "articles / mo" : "статей / мес")}
+                    {plan.credits} {isEn ? "credits / mo" : "кредитов / мес"}
                   </span>
                   {plan.modelLabel && (
                     <span
