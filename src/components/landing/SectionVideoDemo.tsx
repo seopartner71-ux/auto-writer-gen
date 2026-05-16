@@ -215,6 +215,7 @@ export function SectionVideoDemo() {
   return (
     <section
       ref={containerRef}
+      id="video-demo"
       className="relative py-20 md:py-28 px-4 overflow-hidden"
       aria-labelledby="video-demo-title"
     >
