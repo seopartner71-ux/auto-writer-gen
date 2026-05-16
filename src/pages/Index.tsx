@@ -20,6 +20,7 @@ const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStea
 const SectionComparison = lazy(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
 const SectionPricing = lazy(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
 const SectionFinalCta = lazy(() => import("@/components/landing/SectionFinalCta").then(m => ({ default: m.SectionFinalCta })));
+const SectionQualityProof = lazy(() => import("@/components/landing/SectionQualityProof").then(m => ({ default: m.SectionQualityProof })));
 
 export default function Index() {
   const { lang } = useI18n();
@@ -134,6 +135,7 @@ export default function Index() {
           <LandingSandbox />
           <SectionVideoDemo />
           <SectionRealCase />
+          <SectionQualityProof />
           <SectionResearch />
           <SectionPersona />
           <SectionGeo />
