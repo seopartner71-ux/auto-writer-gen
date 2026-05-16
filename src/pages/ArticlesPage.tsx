@@ -658,6 +658,28 @@ export default function ArticlesPage() {
     }
 
     setCurrentArticleId(null); // Reset so auto-save creates a NEW article & deducts credit
+
+    // Pre-flight credit cost guard — confirm if cost > 20 credits
+    if (!isAdmin && selectedModel) {
+      try {
+        const { data: costData } = await supabase.rpc("calculate_generation_cost", {
+          p_model_key: selectedModel,
+          p_length: 5000,
+          p_stealth: false,
+          p_images: 0,
+          p_deep_research: false,
+          p_fact_check: false,
+        });
+        const estimated = (costData as any)?.credits ?? 0;
+        if (estimated > 20) {
+          const ok = window.confirm(
+            `Эта статья ориентировочно спишет ${estimated} кредитов (модель ${selectedModel}). Продолжить?`,
+          );
+          if (!ok) return;
+        }
+      } catch (_) { /* ignore — RPC failure shouldn't block */ }
+    }
+
     setIsStreaming(true);
     setStreamPhase("thinking");
     setContent("");
