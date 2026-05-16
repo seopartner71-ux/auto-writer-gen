@@ -108,7 +108,7 @@ function TestimonialCard({ position, item, handleMove, cardSize }: CardProps) {
               ? "border-primary/30"
               : "border-white/[0.06]"
           )}>
-            <img src={item.img} alt={item.author} className="w-full h-full object-cover" loading="lazy" />
+            <img src={item.img} alt={item.author} className="w-full h-full object-cover" loading="lazy" decoding="async" />
           </div>
           <div className="min-w-0">
             <div className={cn(

@@ -113,7 +113,7 @@ export function SectionQualityProof() {
                   <img
                     src={p.src}
                     alt={`${p.service} - ${p.metric}`}
-                    loading="lazy"
+                    loading="lazy" decoding="async"
                     className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />

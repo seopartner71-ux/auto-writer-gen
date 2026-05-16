@@ -74,7 +74,7 @@ export function LandingFooter() {
                 src={systemSeoLogo}
                 alt="Системное SEO"
                 className="h-11 w-11 rounded-lg object-cover shrink-0"
-                loading="lazy"
+                loading="lazy" decoding="async"
               />
               <div className="flex flex-col min-w-0">
                 <span className="text-[11px] font-tech uppercase tracking-wider text-muted-foreground/60">
