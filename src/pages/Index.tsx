@@ -25,6 +25,7 @@ const SectionWhatsNew = lazy(() => import("@/components/landing/SectionWhatsNew"
 const SectionComparison = lazy(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
 const SectionTestimonials = lazy(() => import("@/components/landing/SectionTestimonials").then(m => ({ default: m.SectionTestimonials })));
 const SectionPricing = lazy(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
+const SectionFinalCta = lazy(() => import("@/components/landing/SectionFinalCta").then(m => ({ default: m.SectionFinalCta })));
 
 export default function Index() {
   const { lang } = useI18n();
@@ -163,6 +164,7 @@ export default function Index() {
           <SectionTestimonials />
           <SectionRealResults />
           <SectionPricing />
+          <SectionFinalCta />
         </Suspense>
         <SectionFaq />
         <LandingFooter />
