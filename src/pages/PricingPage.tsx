@@ -275,7 +275,7 @@ export default function PricingPage() {
               </CardHeader>
               <CardContent className="flex-1 flex flex-col">
                 <ul className="space-y-2.5 flex-1 mb-6">
-                  {plan.features.map((feature, i) => (
+                  {plan.features.filter(f => !/кредит|credit/i.test(f.text)).map((feature, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm">
                       {feature.included ? <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" /> : <X className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5" />}
                       <span className={feature.included ? "text-foreground" : "text-muted-foreground/50"}>{feature.text}</span>
