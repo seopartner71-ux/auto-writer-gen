@@ -56,6 +56,7 @@ import { ArticleQualityHints } from "@/components/article/ArticleQualityHints";
 import { TransferDialog } from "@/features/article-transfer/TransferDialog";
 import { HeaderModeSwitcher } from "@/features/article-editor/HeaderModeSwitcher";
 import { GenerationForm } from "@/features/article-editor/GenerationForm";
+import { ConfirmGenerateDialog } from "@/components/ConfirmGenerateDialog";
 import { ArticleEditorProvider } from "@/features/article-editor/ArticleEditorContext";
 import { useFixIssue } from "@/features/article-quality/useFixIssue";
 import { useBenchmarkOptimize } from "@/features/article-quality/useBenchmarkOptimize";
