@@ -79,14 +79,8 @@ export default function PricingPage() {
     return fallback;
   };
 
-  const pluralArticles = (n: number) => {
-    if (isEn) return `${n} articles / mo`;
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod10 === 1 && mod100 !== 11) return `${n} статья / мес`;
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} статьи / мес`;
-    return `${n} статей / мес`;
-  };
+  const fmtCreditsBadge = (n: number) =>
+    isEn ? `${n} credits / mo` : `${n} кредитов / мес`;
 
   // Map plan IDs to Prodamus links and Polar product IDs
   const prodamusLinks: Record<string, string | null> = {
@@ -110,10 +104,10 @@ export default function PricingPage() {
       icon: Atom,
       description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
       badge: null,
-      credits: fmtCredits("free", 5),
+      credits: fmtCredits("free", 150),
       showShield: false,
       features: getFeatures("free", [
-        { text: isEn ? "5 articles per month" : "5 статей в месяц", included: true },
+        { text: isEn ? "150 credits / mo (~30 articles)" : "150 кредитов / мес (~30 статей)", included: true },
         { text: isEn ? "AI + Turgenev quality check" : "AI + Тургенев проверка качества", included: true },
         { text: isEn ? "3 SEO improvements per article" : "3 SEO-улучшения на статью", included: true },
         { text: isEn ? "All author profiles (15+ styles)" : "Все авторские профили (15+ стилей)", included: true },
@@ -129,10 +123,10 @@ export default function PricingPage() {
       icon: Zap,
       description: fmtDesc("basic", "Идеальный баланс для SEO-профи", "Perfect balance for SEO pros"),
       badge: t("pricing.popular"),
-      credits: fmtCredits("basic", 40),
+      credits: fmtCredits("basic", 450),
       showShield: true,
       features: getFeatures("basic", [
-        { text: isEn ? "40 articles per month" : "40 статей в месяц", included: true },
+        { text: isEn ? "450 credits / mo (~90 articles)" : "450 кредитов / мес (~90 статей)", included: true },
         { text: isEn ? "Everything in NANO" : "Всё из NANO", included: true },
         { text: isEn ? "Unlimited SEO improvements" : "Безлимит SEO-улучшений", included: true },
         { text: isEn ? "Bulk up to 10 articles" : "Bulk генерация до 10 статей", included: true },
@@ -148,10 +142,10 @@ export default function PricingPage() {
       icon: Crown,
       description: fmtDesc("pro", "Контентный завод для агентств", "Content factory for agencies"),
       badge: t("pricing.maximum"),
-      credits: fmtCredits("pro", 150),
+      credits: fmtCredits("pro", 1300),
       showShield: true,
       features: getFeatures("pro", [
-        { text: isEn ? "150 articles per month" : "150 статей в месяц", included: true },
+        { text: isEn ? "1300 credits / mo (~260 articles)" : "1300 кредитов / мес (~260 статей)", included: true },
         { text: isEn ? "Everything in PRO" : "Всё из PRO", included: true },
         { text: isEn ? "Unlimited bulk (100+ articles)" : "Bulk без лимита (100+ статей)", included: true },
         { text: isEn ? "2 users per account" : "2 пользователя в аккаунте", included: true },
@@ -269,7 +263,7 @@ export default function PricingPage() {
                 </div>
                 <div className="pt-2">
                   <Badge variant="secondary" className="text-sm font-semibold px-3 py-1">
-                    {pluralArticles(plan.credits)}
+                    {fmtCreditsBadge(plan.credits)}
                   </Badge>
                 </div>
                 {plan.showShield && (
@@ -327,7 +321,8 @@ export default function PricingPage() {
               </tr>
             </thead>
             <tbody className="[&_tr]:border-t [&_tr]:border-border [&_td]:p-3 [&_td:not(:first-child)]:text-center">
-              <tr><td>{isEn ? "Articles per month" : "Статей в месяц"}</td><td>5</td><td>40</td><td>150</td></tr>
+              <tr><td>{isEn ? "Credits per month" : "Кредитов в месяц"}</td><td>150</td><td>450</td><td>1300</td></tr>
+              <tr><td>{isEn ? "Approx. articles" : "Примерно статей"}</td><td>~30</td><td>~90</td><td>~260</td></tr>
               <tr><td>{isEn ? "SEO improvements" : "SEO улучшений"}</td><td>3</td><td>∞</td><td>∞</td></tr>
               <tr><td>{isEn ? "Bulk generation" : "Bulk генерация"}</td><td>—</td><td>{isEn ? "up to 10" : "до 10"}</td><td>{isEn ? "unlimited" : "без лимита"}</td></tr>
               <tr><td>{isEn ? "WordPress publishing" : "WordPress публикация"}</td><td>—</td><td>✓</td><td>✓</td></tr>
