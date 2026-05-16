@@ -1,4 +1,5 @@
 /**
+import { logger } from "@/shared/utils/logger";
  * Edge Function proxy interceptor.
  * Patches global fetch so that requests to Supabase Edge Functions
  * are routed through the PHP proxy on seo-modul.pro,
@@ -78,7 +79,7 @@ async function checkProxyHealth(): Promise<boolean> {
   } catch {
     proxyHealthy = false;
   }
-  console.info("[EdgeProxy] Health check:", proxyHealthy ? "OK" : "FAILED — will use direct requests");
+  logger.info("[EdgeProxy] Health check:", proxyHealthy ? "OK" : "FAILED — will use direct requests");
   return proxyHealthy;
 }
 
@@ -94,7 +95,7 @@ function patchedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Res
     const upstreamPath = url.slice(SUPABASE_URL.length);
     const proxyUrl = `${PROXY_BASE}?path=${encodeURIComponent(upstreamPath)}`;
 
-    console.info("[EdgeProxy] Proxying:", upstreamPath.slice(0, 80));
+    logger.info("[EdgeProxy] Proxying:", upstreamPath.slice(0, 80));
 
     return nativeFetch(proxyUrl, toProxyRequestInit(input, init)).then((res) => {
       // Detect HTML error pages (proxy misconfigured / 404)
@@ -121,10 +122,10 @@ export function installEdgeProxy(): void {
   if (!isPreviewHost(hostname)) {
     window.fetch = patchedFetch as typeof window.fetch;
     (globalThis as typeof window).fetch = patchedFetch as typeof fetch;
-    console.info("[EdgeProxy] Installed on", hostname, "— proxying backend requests through", PROXY_BASE);
+    logger.info("[EdgeProxy] Installed on", hostname, "— proxying backend requests through", PROXY_BASE);
     // Fire-and-forget health check to pre-warm proxy status
     void checkProxyHealth();
   } else {
-    console.info("[EdgeProxy] Skipped — preview host:", hostname);
+    logger.info("[EdgeProxy] Skipped — preview host:", hostname);
   }
 }
