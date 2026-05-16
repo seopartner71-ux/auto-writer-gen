@@ -187,6 +187,7 @@ export default function ArticlesPage() {
   // State
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
+  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
   const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
   const sanitizeContent = useCallback((text: string) => text.replace(/[—–]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
   const [content, setContentRaw] = useState("");
