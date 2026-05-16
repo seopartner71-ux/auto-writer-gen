@@ -1,0 +1,256 @@
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Plus, RefreshCw, Trash2, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { toast } from "sonner";
+import { LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip } from "recharts";
+
+interface Tracked {
+  id: string;
+  keyword: string;
+  target_domain: string;
+  engine: "google" | "yandex";
+  region: string;
+  city: string | null;
+  last_checked_at: string | null;
+  last_position: number | null;
+  last_url: string | null;
+}
+
+interface HistoryPoint {
+  tracked_keyword_id: string;
+  position: number | null;
+  checked_at: string;
+}
+
+function posColor(pos: number | null): string {
+  if (pos == null) return "text-muted-foreground";
+  if (pos <= 3) return "text-emerald-500";
+  if (pos <= 10) return "text-yellow-500";
+  if (pos <= 30) return "text-orange-500";
+  return "text-rose-500";
+}
+
+export default function RankTrackerPage() {
+  const { user } = useAuth();
+  const { lang } = useI18n();
+  const isRu = lang === "ru";
+  const qc = useQueryClient();
+
+  const [kw, setKw] = useState("");
+  const [domain, setDomain] = useState("");
+  const [engine, setEngine] = useState<"google" | "yandex">("google");
+  const [region, setRegion] = useState("ru");
+  const [city, setCity] = useState("");
+
+  const { data: tracked = [], isLoading } = useQuery({
+    queryKey: ["tracked-keywords", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tracked_keywords")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Tracked[];
+    },
+  });
+
+  const { data: history = [] } = useQuery({
+    queryKey: ["rank-history", user?.id],
+    enabled: !!user && tracked.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rank_history")
+        .select("tracked_keyword_id,position,checked_at")
+        .eq("user_id", user!.id)
+        .order("checked_at", { ascending: true })
+        .limit(2000);
+      if (error) throw error;
+      return (data ?? []) as HistoryPoint[];
+    },
+  });
+
+  const addMut = useMutation({
+    mutationFn: async () => {
+      if (!kw.trim() || !domain.trim()) throw new Error(isRu ? "Заполните ключ и домен" : "Fill keyword and domain");
+      const { error } = await supabase.from("tracked_keywords").insert({
+        user_id: user!.id,
+        keyword: kw.trim(),
+        target_domain: domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, ""),
+        engine,
+        region: region.trim().toLowerCase() || "ru",
+        city: city.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setKw(""); setCity("");
+      toast.success(isRu ? "Ключ добавлен" : "Keyword added");
+      qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const delMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tracked_keywords").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
+      qc.invalidateQueries({ queryKey: ["rank-history"] });
+    },
+  });
+
+  const refreshMut = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("rank-tracker-run", { body: {} });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (d: { processed?: number; missing?: { serper: boolean; yandex: boolean } }) => {
+      toast.success(isRu ? `Проверено: ${d.processed ?? 0}` : `Checked: ${d.processed ?? 0}`);
+      if (d.missing?.serper) toast.warning(isRu ? "Не настроен Serper ключ - Google недоступен" : "Serper key missing - Google disabled");
+      if (d.missing?.yandex) toast.warning(isRu ? "Не настроены Yandex XML ключи" : "Yandex XML credentials missing");
+      qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
+      qc.invalidateQueries({ queryKey: ["rank-history"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const historyByKw = history.reduce<Record<string, HistoryPoint[]>>((acc, p) => {
+    (acc[p.tracked_keyword_id] ||= []).push(p);
+    return acc;
+  }, {});
+
+  const trendFor = (id: string): { delta: number | null } => {
+    const arr = historyByKw[id] ?? [];
+    if (arr.length < 2) return { delta: null };
+    const last = arr[arr.length - 1].position;
+    const prev = arr[arr.length - 2].position;
+    if (last == null || prev == null) return { delta: null };
+    return { delta: prev - last };
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{isRu ? "Трекер позиций" : "Rank Tracker"}</h1>
+          <p className="text-sm text-muted-foreground">{isRu ? "Ежедневный мониторинг позиций в Google и Яндекс" : "Daily Google and Yandex position monitoring"}</p>
+        </div>
+        <Button onClick={() => refreshMut.mutate()} disabled={refreshMut.isPending || tracked.length === 0}>
+          {refreshMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          {isRu ? "Проверить сейчас" : "Check now"}
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{isRu ? "Добавить ключ" : "Add keyword"}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-6">
+            <Input className="md:col-span-2" placeholder={isRu ? "Ключевой запрос" : "Keyword"} value={kw} onChange={e => setKw(e.target.value)} />
+            <Input className="md:col-span-2" placeholder="example.com" value={domain} onChange={e => setDomain(e.target.value)} />
+            <Select value={engine} onValueChange={(v) => setEngine(v as "google" | "yandex")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="google">Google</SelectItem>
+                <SelectItem value="yandex">Yandex</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input placeholder={engine === "yandex" ? "lr (213)" : "ru"} value={region} onChange={e => setRegion(e.target.value)} />
+            <Input className="md:col-span-5" placeholder={isRu ? "Город (опционально, только Google)" : "City (optional, Google only)"} value={city} onChange={e => setCity(e.target.value)} />
+            <Button onClick={() => addMut.mutate()} disabled={addMut.isPending}>
+              {addMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-2" />{isRu ? "Добавить" : "Add"}</>}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">{isRu ? "Отслеживаемые ключи" : "Tracked keywords"}</CardTitle></CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : tracked.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{isRu ? "Пока нет отслеживаемых ключей" : "No tracked keywords yet"}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground border-b border-border">
+                  <tr className="[&_th]:p-2 [&_th]:text-left">
+                    <th>{isRu ? "Запрос" : "Keyword"}</th>
+                    <th>{isRu ? "Домен" : "Domain"}</th>
+                    <th>{isRu ? "Поисковик" : "Engine"}</th>
+                    <th>{isRu ? "Позиция" : "Position"}</th>
+                    <th>{isRu ? "Тренд" : "Trend"}</th>
+                    <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
+                    <th>{isRu ? "Проверено" : "Checked"}</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
+                  {tracked.map((row) => {
+                    const trend = trendFor(row.id);
+                    const sparkData = (historyByKw[row.id] ?? []).slice(-30).map(p => ({
+                      d: new Date(p.checked_at).toLocaleDateString("ru", { day: "2-digit", month: "2-digit" }),
+                      pos: p.position ?? 101,
+                    }));
+                    return (
+                      <tr key={row.id}>
+                        <td className="font-medium">{row.keyword}</td>
+                        <td className="text-muted-foreground">{row.target_domain}</td>
+                        <td><Badge variant="outline" className="uppercase text-[10px]">{row.engine}</Badge></td>
+                        <td className={`font-bold ${posColor(row.last_position)}`}>
+                          {row.last_position == null ? "—" : `#${row.last_position}`}
+                        </td>
+                        <td>
+                          {trend.delta == null ? <Minus className="h-4 w-4 text-muted-foreground" />
+                            : trend.delta > 0 ? <span className="text-emerald-500 flex items-center gap-1 text-xs"><TrendingUp className="h-3 w-3" />+{trend.delta}</span>
+                            : trend.delta < 0 ? <span className="text-rose-500 flex items-center gap-1 text-xs"><TrendingDown className="h-3 w-3" />{trend.delta}</span>
+                            : <Minus className="h-4 w-4 text-muted-foreground" />}
+                        </td>
+                        <td className="w-32 h-10">
+                          {sparkData.length > 1 ? (
+                            <ResponsiveContainer width="100%" height={36}>
+                              <LineChart data={sparkData}>
+                                <YAxis reversed domain={[1, 100]} hide />
+                                <XAxis dataKey="d" hide />
+                                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} formatter={(v: number) => v === 101 ? "—" : `#${v}`} />
+                                <Line type="monotone" dataKey="pos" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                        </td>
+                        <td className="text-xs text-muted-foreground">
+                          {row.last_checked_at ? new Date(row.last_checked_at).toLocaleDateString("ru") : "—"}
+                        </td>
+                        <td>
+                          <Button size="icon" variant="ghost" onClick={() => delMut.mutate(row.id)}>
+                            <Trash2 className="h-4 w-4 text-rose-500" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
