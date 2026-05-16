@@ -92,6 +92,7 @@ const ChangelogPage = lazyWithRetry(() => import("@/pages/ChangelogPage"));
 const TopicalMapPage = lazyWithRetry(() => import("@/pages/TopicalMapPage"));
 const ArticleAuditPage = lazyWithRetry(() => import("@/pages/ArticleAuditPage"));
 const WelcomePage = lazyWithRetry(() => import("@/pages/WelcomePage"));
+const RankTrackerPage = lazyWithRetry(() => import("@/pages/RankTrackerPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -169,6 +170,7 @@ const App = () => (
                   <Route path="/article-audit" element={<ArticleAuditPage />} />
                   <Route path="/plan-builder" element={<PlanBuilderPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
+                  <Route path="/rank-tracker" element={<RankTrackerPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/author-profiles" element={<AuthorProfilesPage />} />
