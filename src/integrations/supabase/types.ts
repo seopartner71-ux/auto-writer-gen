@@ -482,6 +482,7 @@ export type Database = {
           featured_image_url: string | null
           generation_model: string | null
           geo: string | null
+          humanize_meta: Json | null
           id: string
           is_public: boolean | null
           keyword_density: number | null
@@ -492,6 +493,7 @@ export type Database = {
           last_improve_at: string | null
           lsi_keywords: Json | null
           meta_description: string | null
+          pipeline_stages: Json | null
           project_id: string | null
           published_url: string | null
           quality_badge: string | null
@@ -543,6 +545,7 @@ export type Database = {
           featured_image_url?: string | null
           generation_model?: string | null
           geo?: string | null
+          humanize_meta?: Json | null
           id?: string
           is_public?: boolean | null
           keyword_density?: number | null
@@ -553,6 +556,7 @@ export type Database = {
           last_improve_at?: string | null
           lsi_keywords?: Json | null
           meta_description?: string | null
+          pipeline_stages?: Json | null
           project_id?: string | null
           published_url?: string | null
           quality_badge?: string | null
@@ -604,6 +608,7 @@ export type Database = {
           featured_image_url?: string | null
           generation_model?: string | null
           geo?: string | null
+          humanize_meta?: Json | null
           id?: string
           is_public?: boolean | null
           keyword_density?: number | null
@@ -614,6 +619,7 @@ export type Database = {
           last_improve_at?: string | null
           lsi_keywords?: Json | null
           meta_description?: string | null
+          pipeline_stages?: Json | null
           project_id?: string | null
           published_url?: string | null
           quality_badge?: string | null

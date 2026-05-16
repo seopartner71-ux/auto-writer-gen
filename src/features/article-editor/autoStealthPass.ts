@@ -44,6 +44,23 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
   });
 
   try {
+    // Step 0 — unconditional double-humanize (Sonnet + Opus, server-side, budget-gated).
+    // This is the primary "quality first" pass for every freshly generated article.
+    // Conditional skips inside humanize-article: already rewritten, too short, already great.
+    try {
+      toast.loading(t("Гуманизируем текст (двойной проход)...", "Humanizing text (double pass)..."), {
+        id: toastId,
+        duration: TOTAL_BUDGET_MS,
+      });
+      const { data: hz, error: hzErr } = await supabase.functions.invoke("humanize-article", {
+        body: { article_id: articleId },
+      });
+      if (hzErr) console.warn("[stealth] humanize-article failed:", hzErr);
+      else console.log("[stealth] humanize-article:", hz);
+    } catch (e) {
+      console.warn("[stealth] humanize-article threw:", (e as any)?.message ?? e);
+    }
+
     // Step 1 — initial quality-check (independent: failure must not break the chain)
     let qc: any = null;
     try {
