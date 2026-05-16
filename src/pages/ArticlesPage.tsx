@@ -1331,6 +1331,9 @@ export default function ArticlesPage() {
         onSourcePageUrlChange={setSourcePageUrl}
         sourcePageFacts={sourcePageFacts}
         onSourcePageFactsChange={setSourcePageFacts}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
+        userPlan={(profile as any)?.plan || "free"}
         isStreaming={isStreaming}
         onGenerate={handleGenerate}
         onStop={handleStop}
