@@ -978,9 +978,32 @@ export default function ArticlesPage() {
       } else {
         // Deduct credit for new article (skip for admins)
         if (!isAdmin) {
-          const { data: deducted } = await supabase.rpc("deduct_credit", { p_user_id: userId });
-          if (!deducted) {
-            throw new Error(lang === "ru" ? "Недостаточно кредитов для сохранения" : "Not enough credits to save");
+          // V2: dynamic cost based on model + length
+          const modelKey = (payload as any)?.generation_model || "anthropic/claude-sonnet-4";
+          const articleLength = (content || "").length;
+          const { data: costData } = await supabase.rpc("calculate_generation_cost", {
+            p_model_key: modelKey,
+            p_length: articleLength,
+            p_stealth: false,
+            p_images: 0,
+            p_deep_research: false,
+            p_fact_check: false,
+          });
+          const amount = (costData as any)?.credits ?? 1;
+          const { data: result } = await supabase.rpc("deduct_credits_v2", {
+            p_user_id: userId,
+            p_amount: amount,
+            p_reason: "article_save",
+            p_model_key: modelKey,
+            p_article_id: null,
+            p_metadata: { length: articleLength },
+          });
+          if (!(result as any)?.ok) {
+            const reason = (result as any)?.reason;
+            if (reason === "plan_required") {
+              throw new Error(lang === "ru" ? "Эта модель доступна на тарифе PRO" : "This model requires PRO plan");
+            }
+            throw new Error(lang === "ru" ? `Недостаточно кредитов (нужно ${amount})` : `Not enough credits (need ${amount})`);
           }
         }
         const { data, error } = await supabase
