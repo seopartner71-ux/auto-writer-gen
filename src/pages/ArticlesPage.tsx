@@ -1022,8 +1022,8 @@ export default function ArticlesPage() {
         queryClient.invalidateQueries({ queryKey: ["profile"] });
         toast.success(
           lang === "ru"
-            ? "✅ Статья сохранена, 1 кредит списан"
-            : "✅ Article saved, 1 credit deducted",
+            ? "Статья сохранена, баланс обновлён"
+            : "Article saved, balance updated",
           {
             description: lang === "ru"
               ? "Статья автоматически сохранена после генерации. Баланс обновлён."
