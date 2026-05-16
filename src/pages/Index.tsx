@@ -15,6 +15,7 @@ const LandingSandbox = lazy(() => import("@/components/landing/LandingSandbox").
 const SectionRealResults = lazy(() => import("@/components/landing/SectionRealResults").then(m => ({ default: m.SectionRealResults })));
 const SectionVideoDemo = lazy(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
 const SectionRealCase = lazy(() => import("@/components/landing/SectionRealCase").then(m => ({ default: m.SectionRealCase })));
+const SectionQualityProof = lazy(() => import("@/components/landing/SectionQualityProof").then(m => ({ default: m.SectionQualityProof })));
 const SectionPersona = lazy(() => import("@/components/landing/SectionPersona").then(m => ({ default: m.SectionPersona })));
 const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
 const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
@@ -150,6 +151,7 @@ export default function Index() {
           <LandingSandbox />
           <SectionVideoDemo />
           <SectionRealCase />
+          <SectionQualityProof />
           <SectionResearch />
           <SectionPersona />
           <SectionGeo />
