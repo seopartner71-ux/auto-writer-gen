@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/shared/utils/logger";
 import { toast } from "sonner";
 
 const HUMANIZE_THRESHOLD = 70;
@@ -37,7 +38,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
   // Clear any stale flag from a previous session before re-setting it.
   try { sessionStorage.removeItem(`stealth_running_${articleId}`); } catch { /* noop */ }
   try { sessionStorage.setItem(`stealth_running_${articleId}`, "true"); } catch { /* noop */ }
-  console.log("[stealth] START", articleId);
+  logger.debug("[stealth] START", articleId);
   toast.loading(t("Проверяем качество текста...", "Checking text quality..."), {
     id: toastId,
     duration: TOTAL_BUDGET_MS,
@@ -56,7 +57,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         body: { article_id: articleId },
       });
       if (hzErr) console.warn("[stealth] humanize-article failed:", hzErr);
-      else console.log("[stealth] humanize-article:", hz);
+      else logger.debug("[stealth] humanize-article:", hz);
     } catch (e) {
       console.warn("[stealth] humanize-article threw:", (e as any)?.message ?? e);
     }
@@ -65,7 +66,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     let qc: any = null;
     try {
       qc = await invokeQualityCheck(articleId);
-      console.log("[stealth] quality-check done:", qc?.ai_score, "turgenev:", qc?.turgenev_status);
+      logger.debug("[stealth] quality-check done:", qc?.ai_score, "turgenev:", qc?.turgenev_status);
     } catch (e) {
       console.warn("[stealth] quality-check failed:", (e as any)?.message ?? e);
     }
@@ -104,7 +105,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
           console.warn(`[stealth] quality-check after pass ${passCount} failed:`, (e as any)?.message ?? e);
         }
         currentAiScore = numberOr(qc?.ai_score, currentAiScore);
-        console.log(`[stealth] humanize pass ${passCount} done, ai_score:`, currentAiScore);
+        logger.debug(`[stealth] humanize pass ${passCount} done, ai_score:`, currentAiScore);
       } catch (e) {
         console.warn(`[stealth] humanize pass ${passCount} threw:`, (e as any)?.message ?? e);
         break;
@@ -126,7 +127,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         });
         if (error) console.warn("[stealth] turgenev fix failed", error);
         else await waitForQualityIdle(articleId);
-        console.log("[stealth] turgenev check done");
+        logger.debug("[stealth] turgenev check done");
       } catch (e) {
         console.warn("[stealth] turgenev step threw:", (e as any)?.message ?? e);
       }
@@ -154,13 +155,13 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     }
 
     toast.success(buildSummary(final, lang), { id: toastId, duration: 6000 });
-    console.log("[stealth] END", articleId, "final ai_score:", final?.ai_score);
+    logger.debug("[stealth] END", articleId, "final ai_score:", final?.ai_score);
   } catch (e) {
     console.warn("[stealth] ERROR", e);
     toast.dismiss(toastId);
   } finally {
     setStealthFlag(articleId, false);
-    console.log("[stealth] flag cleared", articleId);
+    logger.debug("[stealth] flag cleared", articleId);
   }
 }
 

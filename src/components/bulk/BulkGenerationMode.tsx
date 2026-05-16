@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { logger } from "@/shared/utils/logger";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
@@ -133,7 +134,7 @@ export function BulkGenerationMode() {
         if (!autoResumeInFlightRef.current) {
           const hasQueued = jobItems.some(i => i.status === "queued");
           if (hasQueued) {
-            console.log("[BulkGen] Auto-resuming stalled job", activeJob.id);
+            logger.debug("[BulkGen] Auto-resuming stalled job", activeJob.id);
             autoResumeInFlightRef.current = true;
             supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: activeJob.id } })
               .then(() => { autoResumeInFlightRef.current = false; })
