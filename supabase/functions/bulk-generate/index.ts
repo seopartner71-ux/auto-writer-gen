@@ -449,6 +449,8 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       content: articleContent,
       meta_description: metaDesc,
       status: "published",
+      language: lang,
+      geo,
       quality_status: "checking",
       serp_cluster_pipeline: true,
       generation_model: model || null,
