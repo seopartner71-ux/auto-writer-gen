@@ -558,6 +558,12 @@ async function runAutoQuality(
     }
   }
   if (isRu && !textRuKeyAuto) {
+    const fallbackUniq = localUniquenessFallback(plain);
+    await admin.from("articles").update({
+      uniqueness_percent: fallbackUniq.score,
+      uniqueness_checked_at: new Date().toISOString(),
+      quality_details: { uniqueness_details: fallbackUniq.details, uniqueness_error: "TEXTRU_API_KEY missing" },
+    }).eq("id", articleId);
     await logErr(admin, "quality-check", "textru_key_missing", { article_id: articleId });
   }
 
@@ -581,6 +587,10 @@ async function runAutoQuality(
     console.warn("[quality-check] AI checks unavailable, used local fallback", { articleId });
   }
   if (turgenevKey && !turgenevRes) await logErr(admin, "quality-check", "turgenev_call_failed", { article_id: articleId });
+  const turgenevFinal = isRu ? ((turgenevRes as TurgenevResult | null) ?? localTurgenevFallback(plain)) : null;
+  if (isRu && !turgenevRes) {
+    await logErr(admin, "quality-check", "turgenev_local_fallback_used", { article_id: articleId, has_key: Boolean(turgenevKey) });
+  }
   const aiCombined = aiInternal !== null && aiClaude !== null
     ? Math.round((aiInternal + aiClaude) / 2)
     : (aiInternal ?? aiClaude ?? null);
