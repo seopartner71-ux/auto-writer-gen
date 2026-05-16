@@ -92,7 +92,6 @@ export function AppSidebar() {
   // 3 main groups: Создать / Опубликовать / Аналитика  + collapsed «Ещё».
   const createItems = [
     { title: t("nav.dashboard"), url: "/dashboard", icon: LayoutDashboard },
-    { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
@@ -112,6 +111,7 @@ export function AppSidebar() {
     ] : []),
   ];
   const moreItems = [
+    { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
     { title: lang === "ru" ? "Карта тем" : "Topical Map", url: "/topical-map", icon: Map },
     { title: lang === "ru" ? "Аудит статьи" : "Article Audit", url: "/article-audit", icon: Search },
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
