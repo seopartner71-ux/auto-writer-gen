@@ -640,6 +640,19 @@ async function runAutoQuality(
     quality_badge: badge,
     quality_checked_at: new Date().toISOString(),
   };
+  // Explicit error trail: surfaces in admin UI when metrics fall back / fail.
+  const qErrors: string[] = [];
+  if (aiInternalRes?.score == null && claudeRes == null) qErrors.push("ai_score:local_heuristic_fallback");
+  if (isRu && turgenevKey && !turgenevRes) qErrors.push("turgenev:api_failed_used_local_fallback");
+  if (isRu && !turgenevKey) qErrors.push("turgenev:key_missing_used_local_fallback");
+  if (qErrors.length) {
+    const { data: prevDet } = await admin.from("articles").select("quality_details").eq("id", articleId).maybeSingle();
+    updatePatch.quality_details = {
+      ...((prevDet?.quality_details as any) || {}),
+      errors: qErrors,
+      errors_at: new Date().toISOString(),
+    };
+  }
   if (turgenevFinal) {
     updatePatch.turgenev_score = turgenevFinal.score;
     updatePatch.turgenev_status = turgStatus;
