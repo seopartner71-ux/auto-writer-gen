@@ -986,7 +986,7 @@ export default function ArticlesPage() {
         // Deduct credit for new article (skip for admins)
         if (!isAdmin) {
           // V2: dynamic cost based on model + length
-          const modelKey = (payload as any)?.generation_model || "anthropic/claude-sonnet-4";
+          const modelKey = (payload as any)?.generation_model || selectedModel || "google/gemini-2.5-flash";
           const articleLength = (content || "").length;
           const { data: costData } = await supabase.rpc("calculate_generation_cost", {
             p_model_key: modelKey,
