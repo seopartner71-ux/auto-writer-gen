@@ -559,10 +559,11 @@ async function runAutoQuality(
   }
   if (isRu && !textRuKeyAuto) {
     const fallbackUniq = localUniquenessFallback(plain);
+    const { data: currentDetails } = await admin.from("articles").select("quality_details").eq("id", articleId).maybeSingle();
     await admin.from("articles").update({
       uniqueness_percent: fallbackUniq.score,
       uniqueness_checked_at: new Date().toISOString(),
-      quality_details: { uniqueness_details: fallbackUniq.details, uniqueness_error: "TEXTRU_API_KEY missing" },
+      quality_details: { ...((currentDetails?.quality_details as any) || {}), uniqueness_details: fallbackUniq.details, uniqueness_error: "TEXTRU_API_KEY missing" },
     }).eq("id", articleId);
     await logErr(admin, "quality-check", "textru_key_missing", { article_id: articleId });
   }
@@ -660,10 +661,11 @@ async function runAutoQuality(
           }).eq("id", articleId);
         } else {
           const fallbackUniq = localUniquenessFallback(plain);
+          const { data: currentDetails } = await admin.from("articles").select("quality_details").eq("id", articleId).maybeSingle();
           await admin.from("articles").update({
             uniqueness_percent: fallbackUniq.score,
             uniqueness_checked_at: new Date().toISOString(),
-            quality_details: { uniqueness_details: fallbackUniq.details, uniqueness_error: (r as any)?.error || "Text.ru не вернул результат" },
+            quality_details: { ...((currentDetails?.quality_details as any) || {}), uniqueness_details: fallbackUniq.details, uniqueness_error: (r as any)?.error || "Text.ru не вернул результат" },
           }).eq("id", articleId);
           await logErr(admin, "quality-check", "textru_auto_failed", {
             article_id: articleId, error: (r as any)?.error, code: (r as any)?.code,
