@@ -14,15 +14,10 @@ const SectionResearch = lazy(() => import("@/components/landing/SectionResearch"
 const LandingSandbox = lazy(() => import("@/components/landing/LandingSandbox").then(m => ({ default: m.LandingSandbox })));
 const SectionVideoDemo = lazy(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
 const SectionRealCase = lazy(() => import("@/components/landing/SectionRealCase").then(m => ({ default: m.SectionRealCase })));
-const SectionQualityProof = lazy(() => import("@/components/landing/SectionQualityProof").then(m => ({ default: m.SectionQualityProof })));
 const SectionPersona = lazy(() => import("@/components/landing/SectionPersona").then(m => ({ default: m.SectionPersona })));
 const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
 const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
-const SectionDeepDive = lazy(() => import("@/components/landing/SectionDeepDive").then(m => ({ default: m.SectionDeepDive })));
-const SectionContentFlow = lazy(() => import("@/components/landing/SectionContentFlow").then(m => ({ default: m.SectionContentFlow })));
-const SectionWhatsNew = lazy(() => import("@/components/landing/SectionWhatsNew").then(m => ({ default: m.SectionWhatsNew })));
 const SectionComparison = lazy(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
-const SectionTestimonials = lazy(() => import("@/components/landing/SectionTestimonials").then(m => ({ default: m.SectionTestimonials })));
 const SectionPricing = lazy(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
 const SectionFinalCta = lazy(() => import("@/components/landing/SectionFinalCta").then(m => ({ default: m.SectionFinalCta })));
 
@@ -139,16 +134,11 @@ export default function Index() {
           <LandingSandbox />
           <SectionVideoDemo />
           <SectionRealCase />
-          <SectionQualityProof />
           <SectionResearch />
           <SectionPersona />
           <SectionGeo />
           <SectionStealthEngine />
-          <SectionDeepDive />
-          <SectionWhatsNew />
-          <SectionContentFlow />
           <SectionComparison />
-          <SectionTestimonials />
           <SectionPricing />
           <SectionFinalCta />
         </Suspense>
