@@ -255,6 +255,7 @@ export default function KeywordsPage() {
               </Select>
           </div>
           )}
+        </div>
       </div>
 
       {/* Loading State */}
