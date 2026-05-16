@@ -164,6 +164,11 @@ serve(async (req) => {
           if (fullContent.trim()) {
             const h1Match = fullContent.match(/^#\s+(.+)$/m);
             const title = h1Match?.[1] || (payload.seed_keyword as string) || "Без названия";
+            const rawLang = String((payload as any).language || (payload as any).keyword?.language || "").toLowerCase();
+            const language = rawLang === "en" || rawLang === "ru"
+              ? rawLang
+              : (/[а-яё]/i.test(`${payload.seed_keyword || ""} ${fullContent.slice(0, 500)}`) ? "ru" : "en");
+            const geo = language === "ru" ? "ru" : "us";
             
             const { data: article } = await admin.from("articles").insert({
               user_id: item.user_id,
@@ -172,8 +177,22 @@ serve(async (req) => {
               title,
               content: fullContent,
               status: "completed",
+              language,
+              geo,
+              quality_status: "checking",
               serp_cluster_pipeline: true,
             }).select("id").single();
+
+            if (article?.id && fullContent.length > 200) {
+              void fetch(`${supabaseUrl}/functions/v1/quality-check`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${serviceKey}`,
+                },
+                body: JSON.stringify({ article_id: article.id, content: fullContent, mode: "auto" }),
+              }).catch(() => {});
+            }
 
             await admin.from("generation_queue").update({
               status: "completed",
