@@ -205,7 +205,7 @@ export function SectionPricing() {
                   )}
 
                   <ul className="space-y-2.5 mb-8">
-                    {plan.features.map((f, fi) => (
+                    {plan.features.filter(f => !/кредит|credit/i.test(f.text)).map((f, fi) => (
                       <li key={fi} className="flex items-start gap-2.5 text-[13px]">
                         {f.included ? <Check className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" /> : <X className="h-4 w-4 text-muted-foreground/30 mt-0.5 shrink-0" />}
                         <span className={f.included ? "text-foreground/80" : "text-muted-foreground/40"}>{f.text}</span>
