@@ -209,7 +209,7 @@ export function LandingPricing() {
 
                 <div className="flex flex-wrap items-center gap-2 mb-6">
                   <span className="text-[11px] font-tech text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                    {plan.credits} {t("pricing.articlesPerMonth") || (isEn ? "articles / mo" : "статей / мес")}
+                    {plan.credits} {isEn ? "credits / mo" : "кредитов / мес"}
                   </span>
                   {plan.modelLabel && (
                     <span
