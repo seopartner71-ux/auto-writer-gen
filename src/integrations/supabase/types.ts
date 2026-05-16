@@ -2832,7 +2832,9 @@ export type Database = {
           monthly_article_limit: number
           name: string
           price_rub: number | null
+          price_rub_annual: number | null
           price_usd: number | null
+          price_usd_annual: number | null
         }
         Insert: {
           can_export_html?: boolean | null
@@ -2847,7 +2849,9 @@ export type Database = {
           monthly_article_limit: number
           name: string
           price_rub?: number | null
+          price_rub_annual?: number | null
           price_usd?: number | null
+          price_usd_annual?: number | null
         }
         Update: {
           can_export_html?: boolean | null
@@ -2862,7 +2866,9 @@ export type Database = {
           monthly_article_limit?: number
           name?: string
           price_rub?: number | null
+          price_rub_annual?: number | null
           price_usd?: number | null
+          price_usd_annual?: number | null
         }
         Relationships: []
       }
