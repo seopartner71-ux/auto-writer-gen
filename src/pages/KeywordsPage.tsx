@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Loader2, Globe, MapPin } from "lucide-react";
+import { Search, Loader2, Globe, MapPin, Settings2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { ResearchResults } from "@/components/research/ResearchResults";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -114,6 +114,7 @@ export default function KeywordsPage() {
   const [geoMode, setGeoMode] = useState<"country" | "city">("country");
   const [city, setCity] = useState("");
   const [language, setLanguage] = useState("ru");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [results, setResults] = useState<ResearchData | null>(null);
 
   const currentCities = useMemo(() => {
