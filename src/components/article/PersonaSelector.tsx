@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { pickPresetNameByNiche } from "@/shared/lib/personaAutoSelect";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldAlert, Heart, Cpu, Flame, GraduationCap, User, HeartPulse, Link2, Sun, Newspaper,
@@ -52,6 +53,8 @@ interface PersonaSelectorProps {
   selectedId: string;
   onSelect: (id: string) => void;
   quickMode?: boolean;
+  /** Текст текущего ключа/запроса — для авто-подбора Persona по тематике. */
+  keywordText?: string | null;
 }
 
 const SYNTAX_PRESETS: { key: string; label: string }[] = [
@@ -63,7 +66,7 @@ const SYNTAX_PRESETS: { key: string; label: string }[] = [
   { key: "academic", label: "Академик" },
 ];
 
-export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: PersonaSelectorProps) {
+export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keywordText }: PersonaSelectorProps) {
   const { t } = useI18n();
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -75,9 +78,23 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
 
   const presets = authors.filter(a => a.type === "preset");
   const customs = authors.filter(a => a.type !== "preset");
-  const isRecommended = (a: AuthorProfile) => (a.description || "").trim().startsWith("⭐");
-  const recommended = presets.filter(isRecommended);
-  const otherPresets = presets.filter(a => !isRecommended(a));
+  // Авто-рекомендация по запросу: подбираем пресет именем из NICHE_RULES.
+  const recommendedByQueryName = pickPresetNameByNiche(keywordText || "");
+  const recommendedByQuery = recommendedByQueryName
+    ? presets.find(a => a.name === recommendedByQueryName) || null
+    : null;
+  const isStarred = (a: AuthorProfile) => (a.description || "").trim().startsWith("⭐");
+  const starred = presets.filter(a => isStarred(a) && a.id !== recommendedByQuery?.id);
+  const otherPresets = presets.filter(a => !isStarred(a) && a.id !== recommendedByQuery?.id);
+
+  // Авто-выбор рекомендованного автора при появлении ключа, если пользователь
+  // ещё ничего не выбрал (или стоит «без стиля»).
+  useEffect(() => {
+    if (!recommendedByQuery) return;
+    if (selectedId && selectedId !== "none") return;
+    onSelect(recommendedByQuery.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recommendedByQuery?.id]);
 
   const handleAnalyzeSample = useCallback(async () => {
     if (!sampleText || sampleText.length < 100) {
@@ -167,10 +184,18 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">{t("ps.noStyle")}</SelectItem>
-            {recommended.length > 0 && (
+            {recommendedByQuery && (
+              <>
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 По теме запроса</div>
+                <SelectItem key={recommendedByQuery.id} value={recommendedByQuery.id}>
+                  {recommendedByQuery.name}
+                </SelectItem>
+              </>
+            )}
+            {starred.length > 0 && (
               <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-400/90">⭐ Рекомендуемые</div>
             )}
-            {recommended.map(a => (
+            {starred.map(a => (
               <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
             ))}
             {otherPresets.length > 0 && (
@@ -196,7 +221,27 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
       <Label className="text-xs text-muted-foreground">{t("ps.authorStyle")}</Label>
 
       <TooltipProvider delayDuration={300}>
-        {recommended.length > 0 && (
+        {recommendedByQuery && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 По теме запроса</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
+              <PersonaChip
+                key={recommendedByQuery.id}
+                name={recommendedByQuery.name}
+                description={recommendedByQuery.description || ""}
+                icon={recommendedByQuery.avatar_icon || "User"}
+                isActive={selectedId === recommendedByQuery.id}
+                onClick={() => onSelect(recommendedByQuery.id)}
+                temperature={recommendedByQuery.temperature}
+              />
+            </div>
+          </>
+        )}
+        {starred.length > 0 && (
           <>
             <div className="flex items-center gap-2">
               <span className="h-px flex-1 bg-border" />
@@ -204,7 +249,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
               <span className="h-px flex-1 bg-border" />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
-              {recommended.map(a => (
+              {starred.map(a => (
                 <PersonaChip
                   key={a.id}
                   name={a.name}
@@ -216,13 +261,13 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode }: Pe
                 />
               ))}
             </div>
-            <div className="flex items-center gap-2 pt-1">
-              <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Все авторы</span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
           </>
         )}
+        <div className="flex items-center gap-2 pt-1">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Все авторы</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
           <PersonaChip
             name={t("ps.noStyle")}
