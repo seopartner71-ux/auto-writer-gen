@@ -332,13 +332,21 @@ serve(async (req) => {
         status: "completed",
         language: lang,
         geo: langMeta.geo,
+        quality_status: "checking",
         featured_image_url: heroUrl,
       }).select("id").maybeSingle();
       if (insErr) {
         console.error("[seed-starter-articles] insert err:", insErr.message);
         continue;
       }
-      if (inserted?.id) created.push(inserted.id);
+      if (inserted?.id) {
+        created.push(inserted.id);
+        void fetch(`${supabaseUrl}/functions/v1/quality-check`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${service}` },
+          body: JSON.stringify({ article_id: inserted.id, content: art.content, mode: "auto" }),
+        }).catch(() => {});
+      }
     }
 
     // Best-effort smart interlinking pass after seeding (non-blocking).
