@@ -73,7 +73,7 @@ export function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Re
     "paragraph-starts": "Change paragraph beginnings so each starts with a different word/construction. Use inversions, questions, facts.",
     "burstiness": "Alternate sentence lengths: at least 30% should be very short (3-7 words), and 20% long complex constructions (25-40 words). Use dashes, colons, and parenthetical asides.",
     "rhetorical": "Add 3-4 rhetorical questions in the body (NOT in FAQ). Use them as transitions between ideas.",
-    "humanize-all": `Rewrite this text to sound like a real human expert. You are an elite human editor targeting 0% AI detection on Originality.ai.${personaBlock}
+    "humanize-all": `Rewrite this text to sound like a real human expert. You are an elite human editor producing natural human-like writing that consistently passes Originality.ai checks.${personaBlock}
 
 WRITING STYLE RULES:
 - Use contractions ALWAYS: it's, don't, you'll, can't, won't, I've, we've, they're, isn't, wasn't, wouldn't, shouldn't. NEVER write "it is", "do not", "you will" in full form.

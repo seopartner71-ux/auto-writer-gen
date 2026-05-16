@@ -1107,7 +1107,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.stealthEngineH2": { ru: "невидимая сила", en: "invisible force" },
   "lp.stealthEngineBody": { ru: "Наш движок анализирует синтаксическую симметрию и предсказуемость токенов. Мы искусственно повышаем Perplexity и Burstiness, имитируя стиль живого эксперта. Результат - 0% вероятности AI в любом детекторе.", en: "Our engine analyzes syntactic symmetry and token predictability. We artificially increase Perplexity and Burstiness, mimicking a live expert's style. Result - 0% AI probability in any detector." },
   "lp.stealthBullet1": { ru: "Human Score 95+ гарантировано после гуманизации", en: "Human Score 95+ guaranteed after humanization" },
-  "lp.stealthBullet2": { ru: "Обходит Originality.ai, GPTZero, Copyleaks, Turnitin", en: "Bypasses Originality.ai, GPTZero, Copyleaks, Turnitin" },
+  "lp.stealthBullet2": { ru: "Проходит проверку Originality.ai, GPTZero, Copyleaks, Turnitin", en: "Passes Originality.ai, GPTZero, Copyleaks, Turnitin checks" },
   "lp.stealthBullet3": { ru: "Humanize за 1 клик - без потери смысла и SEO-структуры", en: "Humanize in 1 click - no loss of meaning or SEO structure" },
 
   "deep2.factoryH1": { ru: "Контентный отдел", en: "Content department" },

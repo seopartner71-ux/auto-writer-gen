@@ -5,7 +5,7 @@ import { useI18n } from "@/shared/hooks/useI18n";
 
 const faqData = {
   ru: [
-    { q: "Как работает обход AI-детекторов?", a: "Наша технология Stealth Prompt увеличивает вариативность (Burstiness) и сложность (Perplexity) текста, делая его неотличимым от человеческого для таких сервисов, как Originality.ai и GPTZero." },
+    { q: "Как тексты проходят проверку AI-детекторов?", a: "Наша технология Stealth Prompt увеличивает вариативность (Burstiness) и сложность (Perplexity) текста - благодаря этому материалы стабильно проходят проверку в Originality.ai, GPTZero и Copyleaks." },
     { q: "Что включено в Smart Research?", a: "Это полный анализ ТОП-10 выдачи: извлечение LSI-ключей, вопросов PAA (People Also Ask), структуры заголовков конкурентов и выявление пробелов в контенте (Content Gap)." },
     { q: "Есть ли прямая публикация в WordPress?", a: "Да. Вы можете подключить свой сайт через App Password и публиковать статьи с готовыми SEO-метатегами (Yoast/RankMath) одним кликом или по расписанию." },
     { q: "Могу ли я обучить AI своему стилю?", a: "Да, модуль Persona Engine анализирует ваши образцы текста, выявляет синтаксические паттерны и лексику, чтобы имитировать ваш уникальный авторский голос во всех статьях." },
@@ -13,7 +13,7 @@ const faqData = {
     { q: "Сколько статей я получу за 1 кредит?", a: "1 кредит = 1 полноценная экспертная статья с анализом конкурентов, LSI-ключами и оптимизацией. Мы не считаем токены или слова, только готовый результат." },
   ],
   en: [
-    { q: "How does the AI detector bypass work?", a: "Our Stealth Prompt technology increases text burstiness and perplexity, making it indistinguishable from human writing for services like Originality.ai and GPTZero." },
+    { q: "How do texts pass AI detector checks?", a: "Our Stealth Prompt technology increases text burstiness and perplexity, so articles consistently pass checks on Originality.ai, GPTZero and Copyleaks." },
     { q: "What is included in Smart Research?", a: "It's a complete Top-10 SERP analysis: LSI keyword extraction, PAA (People Also Ask) questions, competitor heading structures, and content gap identification." },
     { q: "Is there direct WordPress publishing?", a: "Yes. You can connect your site via App Password and publish articles with ready-made SEO meta-tags (Yoast/RankMath) in one click or on a schedule." },
     { q: "Can I train the AI on my style?", a: "Yes, the Persona Engine module analyzes your text samples, identifying syntactic patterns and vocabulary to mimic your unique authorial voice in all articles." },
