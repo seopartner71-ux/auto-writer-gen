@@ -163,11 +163,7 @@ export function AppSidebar() {
                       onMouseEnter={() => handlePrefetch(item.url)}
                     >
                       <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                      {!collapsed && (
-                        <span className="flex-1 flex items-center justify-between gap-2">
-                          <span className="text-sm">{item.title}</span>
-                        </span>
-                      )}
+                      {!collapsed && <span className="text-sm">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
