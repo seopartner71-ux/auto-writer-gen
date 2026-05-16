@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Hexagon, Send } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
-import systemSeoLogo from "@/assets/system-seo-tg.jpg";
+import systemSeoLogo from "@/assets/system-seo-tg.webp";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -74,7 +74,7 @@ export function LandingFooter() {
                 src={systemSeoLogo}
                 alt="Системное SEO"
                 className="h-11 w-11 rounded-lg object-cover shrink-0"
-                loading="lazy"
+                loading="lazy" decoding="async"
               />
               <div className="flex flex-col min-w-0">
                 <span className="text-[11px] font-tech uppercase tracking-wider text-muted-foreground/60">

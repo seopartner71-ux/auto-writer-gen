@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { TrendingUp, MapPin, Link2, Clock, CheckCircle2, Quote, ArrowRight, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import gscScreenshot from "@/assets/case-pbn-gsc.jpg";
+import gscScreenshot from "@/assets/case-pbn-gsc.webp";
 
 export function SectionRealCase() {
   const metrics = [
@@ -113,7 +113,7 @@ export function SectionRealCase() {
                 <img
                   src={gscScreenshot}
                   alt="График показов в Google Search Console: рост с 0 до 150 показов в день за 3 месяца"
-                  loading="lazy"
+                  loading="lazy" decoding="async"
                   className="w-full h-auto block"
                 />
               </div>

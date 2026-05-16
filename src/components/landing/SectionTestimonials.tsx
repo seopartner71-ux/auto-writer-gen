@@ -4,18 +4,18 @@ import { ChevronLeft, ChevronRight, Flame, Quote } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-import avatar01 from "@/assets/avatars/avatar-01.jpg";
-import avatar02 from "@/assets/avatars/avatar-02.jpg";
-import avatar03 from "@/assets/avatars/avatar-03.jpg";
-import avatar04 from "@/assets/avatars/avatar-04.jpg";
-import avatar05 from "@/assets/avatars/avatar-05.jpg";
-import avatar06 from "@/assets/avatars/avatar-06.jpg";
-import avatar07 from "@/assets/avatars/avatar-07.jpg";
-import avatar08 from "@/assets/avatars/avatar-08.jpg";
-import avatar09 from "@/assets/avatars/avatar-09.jpg";
-import avatar10 from "@/assets/avatars/avatar-10.jpg";
-import avatar11 from "@/assets/avatars/avatar-11.jpg";
-import avatar12 from "@/assets/avatars/avatar-12.jpg";
+import avatar01 from "@/assets/avatars/avatar-01.webp";
+import avatar02 from "@/assets/avatars/avatar-02.webp";
+import avatar03 from "@/assets/avatars/avatar-03.webp";
+import avatar04 from "@/assets/avatars/avatar-04.webp";
+import avatar05 from "@/assets/avatars/avatar-05.webp";
+import avatar06 from "@/assets/avatars/avatar-06.webp";
+import avatar07 from "@/assets/avatars/avatar-07.webp";
+import avatar08 from "@/assets/avatars/avatar-08.webp";
+import avatar09 from "@/assets/avatars/avatar-09.webp";
+import avatar10 from "@/assets/avatars/avatar-10.webp";
+import avatar11 from "@/assets/avatars/avatar-11.webp";
+import avatar12 from "@/assets/avatars/avatar-12.webp";
 
 const testimonials = {
   ru: [
@@ -108,7 +108,7 @@ function TestimonialCard({ position, item, handleMove, cardSize }: CardProps) {
               ? "border-primary/30"
               : "border-white/[0.06]"
           )}>
-            <img src={item.img} alt={item.author} className="w-full h-full object-cover" loading="lazy" />
+            <img src={item.img} alt={item.author} className="w-full h-full object-cover" loading="lazy" decoding="async" />
           </div>
           <div className="min-w-0">
             <div className={cn(
