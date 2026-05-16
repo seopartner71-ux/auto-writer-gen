@@ -512,9 +512,15 @@ async function runAutoQuality(
 ) {
   const plain = stripHtml(content);
   if (plain.length < 200) {
+    const shortUniq = localUniquenessFallback(plain);
     await admin.from("articles").update({
       quality_status: "too_short",
       quality_badge: "needs_work",
+      turgenev_score: 0,
+      turgenev_status: "ok",
+      turgenev_details: { source: "too_short", repeats: 0, style: 0, spam: 0, water: 0, readability: 0 },
+      uniqueness_percent: shortUniq.score,
+      uniqueness_checked_at: new Date().toISOString(),
       quality_checked_at: new Date().toISOString(),
     }).eq("id", articleId);
     return;
