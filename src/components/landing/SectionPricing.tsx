@@ -49,14 +49,8 @@ export function SectionPricing() {
     return fallback;
   };
 
-  const pluralArticles = (n: number) => {
-    if (isEn) return `${n} articles / mo`;
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod10 === 1 && mod100 !== 11) return `${n} статья / мес`;
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} статьи / мес`;
-    return `${n} статей / мес`;
-  };
+  const fmtCreditsBadge = (n: number) =>
+    isEn ? `${n} credits / mo` : `${n} кредитов / мес`;
 
   const plans = [
     {
@@ -199,7 +193,7 @@ export function SectionPricing() {
                   </div>
                   <div className="mb-4">
                     <span className="text-xs font-tech text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                      {pluralArticles(plan.credits)}
+                      {fmtCreditsBadge(plan.credits)}
                     </span>
                   </div>
 
