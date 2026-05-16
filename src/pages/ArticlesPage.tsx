@@ -188,6 +188,12 @@ export default function ArticlesPage() {
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
+  const [userPlan, setUserPlan] = useState<string>("free");
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("plan").eq("id", user.id).maybeSingle()
+      .then(({ data }) => setUserPlan((data as any)?.plan || "free"));
+  }, [user]);
   const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
   const sanitizeContent = useCallback((text: string) => text.replace(/[—–]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
   const [content, setContentRaw] = useState("");
@@ -1333,7 +1339,7 @@ export default function ArticlesPage() {
         onSourcePageFactsChange={setSourcePageFacts}
         selectedModel={selectedModel}
         onModelChange={setSelectedModel}
-        userPlan={(profile as any)?.plan || "free"}
+        userPlan={userPlan}
         isStreaming={isStreaming}
         onGenerate={handleGenerate}
         onStop={handleStop}
