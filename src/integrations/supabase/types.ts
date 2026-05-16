@@ -44,25 +44,34 @@ export type Database = {
       ai_models: {
         Row: {
           created_at: string | null
+          credit_cost: number
+          description: string | null
           display_name: string | null
           id: string
           is_active: boolean | null
+          min_plan: string
           model_key: string
           tier: string | null
         }
         Insert: {
           created_at?: string | null
+          credit_cost?: number
+          description?: string | null
           display_name?: string | null
           id?: string
           is_active?: boolean | null
+          min_plan?: string
           model_key: string
           tier?: string | null
         }
         Update: {
           created_at?: string | null
+          credit_cost?: number
+          description?: string | null
           display_name?: string | null
           id?: string
           is_active?: boolean | null
+          min_plan?: string
           model_key?: string
           tier?: string | null
         }
@@ -1177,6 +1186,42 @@ export type Database = {
           tokens_input?: number
           tokens_output?: number
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          amount: number
+          article_id: string | null
+          balance_after: number
+          created_at: string
+          id: string
+          metadata: Json
+          model_key: string | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          article_id?: string | null
+          balance_after: number
+          created_at?: string
+          id?: string
+          metadata?: Json
+          model_key?: string | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          article_id?: string | null
+          balance_after?: number
+          created_at?: string
+          id?: string
+          metadata?: Json
+          model_key?: string | null
+          reason?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -3334,6 +3379,17 @@ export type Database = {
         Returns: undefined
       }
       auto_activate_users: { Args: never; Returns: undefined }
+      calculate_generation_cost: {
+        Args: {
+          p_deep_research?: boolean
+          p_fact_check?: boolean
+          p_images?: number
+          p_length?: number
+          p_model_key: string
+          p_stealth?: boolean
+        }
+        Returns: Json
+      }
       check_ai_budget: {
         Args: { _model?: string; _user_id: string }
         Returns: Json
@@ -3378,6 +3434,17 @@ export type Database = {
       cleanup_rate_limits: { Args: never; Returns: undefined }
       decrypt_sensitive: { Args: { ciphertext: string }; Returns: string }
       deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
+      deduct_credits_v2: {
+        Args: {
+          p_amount: number
+          p_article_id?: string
+          p_metadata?: Json
+          p_model_key?: string
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -3432,6 +3499,16 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      refund_credits: {
+        Args: {
+          p_amount: number
+          p_article_id?: string
+          p_metadata?: Json
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {
