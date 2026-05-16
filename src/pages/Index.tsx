@@ -149,7 +149,6 @@ export default function Index() {
           <SectionContentFlow />
           <SectionComparison />
           <SectionTestimonials />
-          <SectionRealResults />
           <SectionPricing />
           <SectionFinalCta />
         </Suspense>
