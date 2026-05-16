@@ -177,9 +177,9 @@ export function SectionHero() {
                     </motion.div>
                   )}
 
-                  {/* Bypassing notice */}
+                  {/* Compatibility notice */}
                   <p className="mt-4 text-[8px] font-tech text-muted-foreground/40 tracking-wider text-center">
-                    Bypassing Originality.ai & GPTZero
+                    Тексты проходят проверку Originality, GPTZero, Copyleaks
                   </p>
                 </div>
               </div>
