@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Sparkles, Shield } from "lucide-react";
+import { ArrowRight, Sparkles, Shield, PlayCircle } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function SectionHero() {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [aiPercent, setAiPercent] = useState(98);
   const [phase, setPhase] = useState<"dropping" | "done">("dropping");
 
@@ -75,6 +75,32 @@ export function SectionHero() {
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </span>
               </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById("video-demo");
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="group inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-7 py-5 text-base font-tech font-medium text-white/90 backdrop-blur-md transition-all duration-300 hover:bg-white/[0.07] hover:border-white/25"
+              >
+                <PlayCircle className="h-5 w-5 text-primary" />
+                {lang === "ru" ? "Смотреть демо · 90 сек" : "Watch demo · 90 sec"}
+              </button>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.7 }}
+              className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 justify-center lg:justify-start text-[12px] text-muted-foreground/70 font-tech">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                {lang === "ru" ? "Без привязки карты" : "No credit card"}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                {lang === "ru" ? "5 кредитов сразу" : "5 credits on signup"}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                {lang === "ru" ? "Отмена в 1 клик" : "Cancel in 1 click"}
+              </span>
             </motion.div>
 
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }}
