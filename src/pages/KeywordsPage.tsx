@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Loader2, Globe, MapPin } from "lucide-react";
+import { Search, Loader2, Globe, MapPin, Settings2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { ResearchResults } from "@/components/research/ResearchResults";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -114,6 +114,7 @@ export default function KeywordsPage() {
   const [geoMode, setGeoMode] = useState<"country" | "city">("country");
   const [city, setCity] = useState("");
   const [language, setLanguage] = useState("ru");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [results, setResults] = useState<ResearchData | null>(null);
 
   const currentCities = useMemo(() => {
@@ -186,48 +187,6 @@ export default function KeywordsPage() {
             />
           </div>
           <div className="flex items-end gap-3 flex-wrap">
-            <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto self-center">
-              <TabsList className="h-8 p-0.5">
-                <TabsTrigger value="country" className="text-xs px-2.5 h-7 gap-1">
-                  <Globe className="h-3 w-3" /> {t("geo.country")}
-                </TabsTrigger>
-                <TabsTrigger value="city" className="text-xs px-2.5 h-7 gap-1">
-                  <MapPin className="h-3 w-3" /> {t("geo.city")}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Select value={geo} onValueChange={(v) => { setGeo(v); setCity(""); }}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GEO_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {geoMode === "city" && (
-              <Select value={city} onValueChange={setCity}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder={t("geo.selectCity")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {currentCities.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LANG_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Button
               disabled={keyword.trim().length < 2 || research.isPending}
               onClick={() => research.mutate()}
@@ -239,7 +198,63 @@ export default function KeywordsPage() {
               )}
               {research.isPending ? t("keywords.analyzing") : t("keywords.research")}
             </Button>
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1.5 rounded-md hover:bg-white/5"
+              aria-expanded={advancedOpen}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              Расширенные настройки
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
+            </button>
           </div>
+          {advancedOpen && (
+            <div className="flex items-end gap-3 flex-wrap pt-2 border-t border-border/50 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto self-center">
+                <TabsList className="h-8 p-0.5">
+                  <TabsTrigger value="country" className="text-xs px-2.5 h-7 gap-1">
+                    <Globe className="h-3 w-3" /> {t("geo.country")}
+                  </TabsTrigger>
+                  <TabsTrigger value="city" className="text-xs px-2.5 h-7 gap-1">
+                    <MapPin className="h-3 w-3" /> {t("geo.city")}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Select value={geo} onValueChange={(v) => { setGeo(v); setCity(""); }}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GEO_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {geoMode === "city" && (
+                <Select value={city} onValueChange={setCity}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder={t("geo.selectCity")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentCities.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANG_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+          </div>
+          )}
         </div>
       </div>
 
