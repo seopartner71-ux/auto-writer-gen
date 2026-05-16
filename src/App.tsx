@@ -86,6 +86,7 @@ const QuickStartPage = lazyWithRetry(() => import("@/pages/QuickStartPage"));
 const PrivacyPage = lazyWithRetry(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazyWithRetry(() => import("@/pages/TermsPage"));
 const CookiesPage = lazyWithRetry(() => import("@/pages/CookiesPage"));
+const ConsentPage = lazyWithRetry(() => import("@/pages/ConsentPage"));
 const PaymentSuccessPage = lazyWithRetry(() => import("@/pages/PaymentSuccessPage"));
 const ChangelogPage = lazyWithRetry(() => import("@/pages/ChangelogPage"));
 const TopicalMapPage = lazyWithRetry(() => import("@/pages/TopicalMapPage"));
@@ -156,6 +157,7 @@ const App = () => (
                 <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><PrivacyPage /></Suspense>} />
                 <Route path="/terms" element={<Suspense fallback={<PageLoader />}><TermsPage /></Suspense>} />
                 <Route path="/cookies" element={<Suspense fallback={<PageLoader />}><CookiesPage /></Suspense>} />
+                <Route path="/consent" element={<Suspense fallback={<PageLoader />}><ConsentPage /></Suspense>} />
                 <Route path="/payment-success" element={<Suspense fallback={<PageLoader />}><PaymentSuccessPage /></Suspense>} />
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>
