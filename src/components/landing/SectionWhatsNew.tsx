@@ -78,7 +78,7 @@ export function SectionWhatsNew() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {features.map((f, i) => {
             const Icon = f.icon;
             return (
@@ -88,7 +88,7 @@ export function SectionWhatsNew() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.07, duration: 0.6 }}
-                className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-6 hover:scale-[1.01] transition-all duration-500"
+                className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-4 hover:scale-[1.01] transition-all duration-500"
                 style={{ ["--hover-color" as string]: f.color }}
               >
                 <div
@@ -97,13 +97,13 @@ export function SectionWhatsNew() {
                 />
                 <div className="relative z-10">
                   <div
-                    className="inline-flex items-center justify-center w-10 h-10 rounded-xl mb-4"
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-xl mb-3"
                     style={{ background: `${f.color}1a` }}
                   >
-                    <Icon className="h-5 w-5" style={{ color: f.color }} />
+                    <Icon className="h-4 w-4" style={{ color: f.color }} />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+                  <h3 className="text-[15px] font-semibold mb-1.5 leading-tight">{f.title}</h3>
+                  <p className="text-[12px] text-muted-foreground leading-relaxed">{f.desc}</p>
                 </div>
               </motion.div>
             );

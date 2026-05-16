@@ -267,6 +267,7 @@ export function GenerationForm(props: GenerationFormProps) {
           selectedId={selectedAuthorId}
           onSelect={onAuthorChange}
           quickMode={quickMode}
+          keywordText={keywords.find((k: any) => k.id === selectedKeywordId)?.seed_keyword || ""}
         />
       </div>
 
