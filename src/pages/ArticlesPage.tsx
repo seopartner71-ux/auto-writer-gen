@@ -190,6 +190,13 @@ export default function ArticlesPage() {
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
   const [userPlan, setUserPlan] = useState<string>("free");
+  // Confirm-generate dialog state (for high-cost models)
+  const [confirmData, setConfirmData] = useState<{
+    credits: number;
+    balance: number;
+    modelName?: string;
+  } | null>(null);
+  const pendingGenerateRef = useRef<null | (() => Promise<void> | void)>(null);
   useEffect(() => {
     if (!user) return;
     supabase.from("profiles").select("plan").eq("id", user.id).maybeSingle()
