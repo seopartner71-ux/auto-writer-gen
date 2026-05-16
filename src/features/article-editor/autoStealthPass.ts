@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { logger } from "@/shared/utils/logger";
+import { logger, errMessage } from "@/shared/utils/logger";
 import { toast } from "sonner";
 
 const HUMANIZE_THRESHOLD = 70;
@@ -8,6 +8,17 @@ const MAX_PASSES = 2;
 const TOTAL_BUDGET_MS = 90_000;
 const POLL_INTERVAL_MS = 2_500;
 const MAX_POLL_MS = 30_000;
+
+/** Shape of the quality-check row returned from articles after auto checks. */
+export interface QualityCheckResult {
+  content?: string | null;
+  ai_score?: number | null;
+  turgenev_status?: string | null;
+  turgenev_score?: number | null;
+  uniqueness_percent?: number | null;
+  uniqueness_score?: number | null;
+  quality_status?: string | null;
+}
 
 export function isStealthRunning(articleId: string): boolean {
   try {
@@ -59,16 +70,16 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       if (hzErr) console.warn("[stealth] humanize-article failed:", hzErr);
       else logger.debug("[stealth] humanize-article:", hz);
     } catch (e) {
-      console.warn("[stealth] humanize-article threw:", (e as any)?.message ?? e);
+      console.warn("[stealth] humanize-article threw:", errMessage(e));
     }
 
     // Step 1 — initial quality-check (independent: failure must not break the chain)
-    let qc: any = null;
+    let qc: QualityCheckResult | null = null;
     try {
       qc = await invokeQualityCheck(articleId);
       logger.debug("[stealth] quality-check done:", qc?.ai_score, "turgenev:", qc?.turgenev_status);
     } catch (e) {
-      console.warn("[stealth] quality-check failed:", (e as any)?.message ?? e);
+      console.warn("[stealth] quality-check failed:", errMessage(e));
     }
     // Fallback: if quality-check failed, treat ai_score as 0 so humanize still runs.
     let currentAiScore = numberOr(qc?.ai_score, 0);
@@ -102,12 +113,12 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         try {
           qc = await invokeQualityCheck(articleId);
         } catch (e) {
-          console.warn(`[stealth] quality-check after pass ${passCount} failed:`, (e as any)?.message ?? e);
+          console.warn(`[stealth] quality-check after pass ${passCount} failed:`, errMessage(e));
         }
         currentAiScore = numberOr(qc?.ai_score, currentAiScore);
         logger.debug(`[stealth] humanize pass ${passCount} done, ai_score:`, currentAiScore);
       } catch (e) {
-        console.warn(`[stealth] humanize pass ${passCount} threw:`, (e as any)?.message ?? e);
+        console.warn(`[stealth] humanize pass ${passCount} threw:`, errMessage(e));
         break;
       }
     }
@@ -129,17 +140,17 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         else await waitForQualityIdle(articleId);
         logger.debug("[stealth] turgenev check done");
       } catch (e) {
-        console.warn("[stealth] turgenev step threw:", (e as any)?.message ?? e);
+        console.warn("[stealth] turgenev step threw:", errMessage(e));
       }
     }
 
     // Step 4 — final quality-check for the summary toast (best-effort)
-    let final: any = qc;
+    let final: QualityCheckResult | null = qc;
     if (turgRisky || passCount > 0) {
       try {
         final = await invokeQualityCheck(articleId);
       } catch (e) {
-        console.warn("[stealth] final quality-check failed:", (e as any)?.message ?? e);
+        console.warn("[stealth] final quality-check failed:", errMessage(e));
       }
     }
 
@@ -165,7 +176,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
   }
 }
 
-async function invokeQualityCheck(articleId: string): Promise<any | null> {
+async function invokeQualityCheck(articleId: string): Promise<QualityCheckResult | null> {
   // Load fresh content + scores from DB. quality-check requires `content`
   // in the request body; without it the function returns 400 and the whole
   // chain silently no-ops. We also use mode:"auto" so no credits are spent
@@ -177,10 +188,10 @@ async function invokeQualityCheck(articleId: string): Promise<any | null> {
       .select("content, ai_score, turgenev_status, turgenev_score, uniqueness_percent")
       .eq("id", articleId)
       .maybeSingle();
-    const content = (row as any)?.content as string | undefined;
+    const content = (row as QualityCheckResult | null)?.content ?? undefined;
     if (!content || content.length < 50) {
       console.warn("[stealth] no content for quality-check");
-      return row ?? null;
+      return (row as QualityCheckResult | null) ?? null;
     }
 
     // Fire auto quality-check (background on the server side).
@@ -189,7 +200,7 @@ async function invokeQualityCheck(articleId: string): Promise<any | null> {
         body: { article_id: articleId, content, mode: "auto" },
       });
     } catch (e) {
-      console.warn("[stealth] quality-check invoke failed:", (e as any)?.message ?? e);
+      console.warn("[stealth] quality-check invoke failed:", errMessage(e));
     }
 
     // Wait for server to finish (quality_status flips off "checking").
@@ -201,9 +212,9 @@ async function invokeQualityCheck(articleId: string): Promise<any | null> {
       .select("ai_score, turgenev_status, turgenev_score, uniqueness_percent")
       .eq("id", articleId)
       .maybeSingle();
-    return updated ?? row ?? null;
+    return (updated as QualityCheckResult | null) ?? (row as QualityCheckResult | null) ?? null;
   } catch (e) {
-    console.warn("[stealth] invokeQualityCheck threw:", (e as any)?.message ?? e);
+    console.warn("[stealth] invokeQualityCheck threw:", errMessage(e));
     return null;
   }
 }
@@ -216,7 +227,7 @@ async function waitForQualityIdle(articleId: string): Promise<void> {
       .select("quality_status")
       .eq("id", articleId)
       .maybeSingle();
-    if ((data as any)?.quality_status !== "checking") return;
+    if ((data as { quality_status?: string | null } | null)?.quality_status !== "checking") return;
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
 }
@@ -225,7 +236,7 @@ function numberOr(v: unknown, fallback: number): number {
   return typeof v === "number" && !Number.isNaN(v) ? v : fallback;
 }
 
-function buildSummary(final: any | null, lang: "ru" | "en"): string {
+function buildSummary(final: QualityCheckResult | null, lang: "ru" | "en"): string {
   const t = (ru: string, en: string) => (lang === "ru" ? ru : en);
   if (!final) return t("Готово. Текст готов к публикации.", "Done. Text is ready to publish.");
 
