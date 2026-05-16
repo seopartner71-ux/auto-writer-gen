@@ -164,7 +164,7 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel>{lang === "ru" ? "Создать" : "Create"}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sm font-normal">{lang === "ru" ? "Создать" : "Create"}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {createItems.map((item) => (
@@ -181,12 +181,7 @@ export function AppSidebar() {
                       <item.icon className="mr-2 h-4 w-4 shrink-0" />
                       {!collapsed && (
                         <span className="flex-1 flex items-center justify-between gap-2">
-                          <span>{item.title}</span>
-                          {item.url === "/articles" && aiwriterMode && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium uppercase">
-                              {aiwriterMode === "bulk" ? "Factory" : aiwriterMode === "quick" ? "Старт" : "Эксперт"}
-                            </span>
-                          )}
+                          <span className="text-sm">{item.title}</span>
                         </span>
                       )}
                     </NavLink>
@@ -201,12 +196,12 @@ export function AppSidebar() {
           <SidebarGroup>
             <Collapsible open={publishOpen} onOpenChange={setPublishOpen}>
               <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
-                  <span className="flex items-center gap-1.5">
-                    <Send className="h-3.5 w-3.5" />
+                <SidebarGroupLabel className="text-sm font-normal cursor-pointer flex items-center justify-between hover:text-primary">
+                  <span className="flex items-center gap-2">
+                    <Send className="h-4 w-4" />
                     {!collapsed && (lang === "ru" ? "Опубликовать" : "Publish")}
                   </span>
-                  {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${publishOpen ? "" : "-rotate-90"}`} />}
+                  {!collapsed && <ChevronDown className={`h-4 w-4 transition-transform ${publishOpen ? "" : "-rotate-90"}`} />}
                 </SidebarGroupLabel>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -223,7 +218,7 @@ export function AppSidebar() {
                             onMouseEnter={() => handlePrefetch(item.url)}
                           >
                             <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                            {!collapsed && <span>{item.title}</span>}
+                            {!collapsed && <span className="text-sm">{item.title}</span>}
                           </NavLink>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -238,12 +233,12 @@ export function AppSidebar() {
         <SidebarGroup>
           <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
-                <span className="flex items-center gap-1.5">
-                  <BarChart3 className="h-3.5 w-3.5" />
+              <SidebarGroupLabel className="text-sm font-normal cursor-pointer flex items-center justify-between hover:text-primary">
+                <span className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
                   {!collapsed && (lang === "ru" ? "Аналитика" : "Analytics")}
                 </span>
-                {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${analyticsOpen ? "" : "-rotate-90"}`} />}
+                {!collapsed && <ChevronDown className={`h-4 w-4 transition-transform ${analyticsOpen ? "" : "-rotate-90"}`} />}
               </SidebarGroupLabel>
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -260,7 +255,7 @@ export function AppSidebar() {
                           onMouseEnter={() => handlePrefetch(item.url)}
                         >
                           <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                          {!collapsed && <span>{item.title}</span>}
+                          {!collapsed && <span className="text-sm">{item.title}</span>}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -274,12 +269,12 @@ export function AppSidebar() {
         <SidebarGroup>
           <Collapsible open={moreOpen} onOpenChange={setMoreOpen}>
             <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="cursor-pointer flex items-center justify-between hover:text-primary">
-                <span className="flex items-center gap-1.5">
-                  <MoreHorizontal className="h-3.5 w-3.5" />
+              <SidebarGroupLabel className="text-sm font-normal cursor-pointer flex items-center justify-between hover:text-primary">
+                <span className="flex items-center gap-2">
+                  <MoreHorizontal className="h-4 w-4" />
                   {!collapsed && (lang === "ru" ? "Ещё" : "More")}
                 </span>
-                {!collapsed && <ChevronDown className={`h-3.5 w-3.5 transition-transform ${moreOpen ? "" : "-rotate-90"}`} />}
+                {!collapsed && <ChevronDown className={`h-4 w-4 transition-transform ${moreOpen ? "" : "-rotate-90"}`} />}
               </SidebarGroupLabel>
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -296,7 +291,7 @@ export function AppSidebar() {
                           onMouseEnter={() => handlePrefetch(item.url)}
                         >
                           <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                          {!collapsed && <span>{item.title}</span>}
+                          {!collapsed && <span className="text-sm">{item.title}</span>}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -309,7 +304,7 @@ export function AppSidebar() {
 
         {role === "admin" && (
           <SidebarGroup>
-            <SidebarGroupLabel>{t("nav.administration")}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sm font-normal">{t("nav.administration")}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminItems.map((item) => (
@@ -323,7 +318,7 @@ export function AppSidebar() {
                         onMouseEnter={() => handlePrefetch(item.url)}
                       >
                         <item.icon className="mr-2 h-4 w-4 shrink-0" />
-                        {!collapsed && <span>{item.title}</span>}
+                        {!collapsed && <span className="text-sm">{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -352,7 +347,7 @@ export function AppSidebar() {
                     </span>
                     {!collapsed && (
                       <span className="flex-1 flex items-center justify-between">
-                        <span>{lang === "ru" ? "Обновления" : "Changelog"}</span>
+                        <span className="text-sm">{lang === "ru" ? "Обновления" : "Changelog"}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">{APP_VERSION}</span>
                       </span>
                     )}
