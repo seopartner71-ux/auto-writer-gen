@@ -315,7 +315,7 @@ export function SectionedGenerator({
       try {
         const tq = toast.loading("Проверяем метрики качества...");
         const { error: qErr } = await supabase.functions.invoke("quality-check", {
-          body: { article_id: articleId },
+          body: { article_id: articleId, content: finalMd },
         });
         toast.dismiss(tq);
         if (qErr) toast.warning(`Quality-check: ${qErr.message || "ошибка"}`);
