@@ -12,7 +12,6 @@ import { useEffect } from "react";
 // Below-fold sections — lazy loaded
 const SectionResearch = lazy(() => import("@/components/landing/SectionResearch").then(m => ({ default: m.SectionResearch })));
 const LandingSandbox = lazy(() => import("@/components/landing/LandingSandbox").then(m => ({ default: m.LandingSandbox })));
-const SectionRealResults = lazy(() => import("@/components/landing/SectionRealResults").then(m => ({ default: m.SectionRealResults })));
 const SectionVideoDemo = lazy(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
 const SectionRealCase = lazy(() => import("@/components/landing/SectionRealCase").then(m => ({ default: m.SectionRealCase })));
 const SectionQualityProof = lazy(() => import("@/components/landing/SectionQualityProof").then(m => ({ default: m.SectionQualityProof })));
