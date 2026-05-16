@@ -38,7 +38,7 @@ function findPosition(items: Array<{ link?: string; url?: string }>, target: str
   return { pos: null, url: null };
 }
 
-async function checkGoogle(serperKey: string, kw: string, region: string, city: string | null): Promise<{ pos: number | null; url: string | null; top10: unknown[] }> {
+async function checkGoogle(serperKey: string, kw: string, region: string, city: string | null): Promise<{ top10: Array<{ link: string }> }> {
   const body: Record<string, unknown> = {
     q: kw,
     gl: region.toLowerCase() || "ru",
@@ -53,8 +53,8 @@ async function checkGoogle(serperKey: string, kw: string, region: string, city: 
   });
   if (!res.ok) throw new Error(`Serper Google ${res.status}`);
   const data = await res.json();
-  const organic = Array.isArray(data.organic) ? data.organic.slice(0, 10) : [];
-  return { pos: null, url: null, top10: organic, ...{} } as never;
+  const organic = Array.isArray(data.organic) ? data.organic.slice(0, 10).map((r: { link?: string }) => ({ link: r.link || "" })) : [];
+  return { top10: organic };
 }
 
 async function checkYandex(user: string, key: string, kw: string, region: string): Promise<{ top10: Array<{ link: string }> }> {
@@ -84,7 +84,7 @@ async function processRow(admin: ReturnType<typeof createClient>, row: TrackedRo
       if (!keys.serper) throw new Error("Serper key missing");
       const g = await checkGoogle(keys.serper, row.keyword, row.region, row.city);
       top10 = g.top10;
-      const found = findPosition(top10 as Array<{ link?: string }>, row.target_domain);
+      const found = findPosition(g.top10, row.target_domain);
       pos = found.pos; url = found.url;
     } else {
       if (!keys.yandexUser || !keys.yandexKey) throw new Error("Yandex XML credentials missing");
