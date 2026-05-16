@@ -606,12 +606,12 @@ async function runAutoQuality(
     if (aiCombined < 50) aiStatus = "fail";
     else if (aiCombined < 70) aiStatus = "warning";
   }
-  const turgStatus: "ok" | "warning" | "fail" = (turgenevRes as TurgenevResult | null)?.status ?? "ok";
+  const turgStatus: "ok" | "warning" | "fail" = turgenevFinal?.status ?? "ok";
   const all = [
     aiStatus,
     burst.status,
     dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail"),
-    turgenevRes ? turgStatus : "ok",
+    turgenevFinal ? turgStatus : "ok",
   ];
   let quality: "ok" | "warning" | "fail" = "ok";
   if (all.includes("fail")) quality = "fail";
@@ -633,10 +633,13 @@ async function runAutoQuality(
     quality_badge: badge,
     quality_checked_at: new Date().toISOString(),
   };
-  if (turgenevRes) {
-    updatePatch.turgenev_score = (turgenevRes as TurgenevResult).score;
+  if (turgenevFinal) {
+    updatePatch.turgenev_score = turgenevFinal.score;
     updatePatch.turgenev_status = turgStatus;
-    updatePatch.turgenev_details = (turgenevRes as TurgenevResult).details;
+    updatePatch.turgenev_details = {
+      ...turgenevFinal.details,
+      source: turgenevRes ? "turgenev_api" : "local_fallback",
+    };
   }
   if (clusterFitRes && typeof (clusterFitRes as any).score === "number") {
     updatePatch.cluster_fitness_score = (clusterFitRes as any).score;
