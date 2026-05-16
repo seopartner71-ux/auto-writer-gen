@@ -4,6 +4,7 @@ import {
   ListTree,
   FileText,
   BarChart3,
+  LineChart as LineChartIcon,
   UserPen,
   Settings,
   ShieldCheck,
@@ -68,6 +69,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/site-factory": () => import("@/pages/SiteFactoryPage"),
   "/network-monitor": () => import("@/pages/NetworkMonitorPage"),
   "/domain-hunter": () => import("@/pages/DomainHunterPage"),
+  "/rank-tracker": () => import("@/pages/RankTrackerPage"),
 };
 
 export function AppSidebar() {
@@ -104,6 +106,7 @@ export function AppSidebar() {
   ] : [];
   const analyticsItems = [
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
+    { title: lang === "ru" ? "Трекер позиций" : "Rank Tracker", url: "/rank-tracker", icon: LineChartIcon },
     ...(isFactory ? [
       { title: "AI Radar", url: "/radar", icon: Radar },
       { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },

@@ -2439,6 +2439,47 @@ export type Database = {
           },
         ]
       }
+      rank_history: {
+        Row: {
+          checked_at: string
+          engine: string
+          id: number
+          position: number | null
+          raw_top10: Json | null
+          tracked_keyword_id: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string
+          engine: string
+          id?: number
+          position?: number | null
+          raw_top10?: Json | null
+          tracked_keyword_id: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          checked_at?: string
+          engine?: string
+          id?: number
+          position?: number | null
+          raw_top10?: Json | null
+          tracked_keyword_id?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_history_tracked_keyword_id_fkey"
+            columns: ["tracked_keyword_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_limits: {
         Row: {
           action: string
@@ -3120,6 +3161,57 @@ export type Database = {
           language?: string
           topic?: string
           total_keywords?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tracked_keywords: {
+        Row: {
+          city: string | null
+          created_at: string
+          engine: string
+          id: string
+          is_active: boolean
+          keyword: string
+          last_checked_at: string | null
+          last_position: number | null
+          last_url: string | null
+          project_id: string | null
+          region: string
+          target_domain: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          engine?: string
+          id?: string
+          is_active?: boolean
+          keyword: string
+          last_checked_at?: string | null
+          last_position?: number | null
+          last_url?: string | null
+          project_id?: string | null
+          region?: string
+          target_domain: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          engine?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          last_checked_at?: string | null
+          last_position?: number | null
+          last_url?: string | null
+          project_id?: string | null
+          region?: string
+          target_domain?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
