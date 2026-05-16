@@ -169,6 +169,16 @@ export default function RegisterPage() {
           <CardDescription>{t("auth.registerTitle")}</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2.5 text-[12px] leading-relaxed text-emerald-300/90">
+            <div className="font-tech font-semibold mb-0.5">
+              {lang === "ru" ? "Доступ открывается автоматически за 1 минуту" : "Access opens automatically within 1 minute"}
+            </div>
+            <div className="text-emerald-300/70 text-[11px]">
+              {lang === "ru"
+                ? "Без ручной модерации. 2 кредита на счет сразу после активации - хватит проверить Smart Research и сгенерировать статью."
+                : "No manual moderation. 2 credits land on your account right after activation - enough to test Smart Research and generate one article."}
+            </div>
+          </div>
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">{t("auth.name")}</Label>
