@@ -139,16 +139,11 @@ export default function Index() {
           <LandingSandbox />
           <SectionVideoDemo />
           <SectionRealCase />
-          <SectionQualityProof />
           <SectionResearch />
           <SectionPersona />
           <SectionGeo />
           <SectionStealthEngine />
-          <SectionDeepDive />
-          <SectionWhatsNew />
-          <SectionContentFlow />
           <SectionComparison />
-          <SectionTestimonials />
           <SectionPricing />
           <SectionFinalCta />
         </Suspense>
