@@ -188,7 +188,16 @@ export default function ArticlesPage() {
   // State
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
-  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    if (typeof window === "undefined") return "google/gemini-2.5-flash";
+    return localStorage.getItem("writer_model") || "google/gemini-2.5-flash";
+  });
+  useEffect(() => {
+    if (selectedModel) {
+      localStorage.setItem("writer_model", selectedModel);
+      window.dispatchEvent(new CustomEvent("writer-model-changed", { detail: selectedModel }));
+    }
+  }, [selectedModel]);
   const [userPlan, setUserPlan] = useState<string>("free");
   // Confirm-generate dialog state (for high-cost models)
   const [confirmData, setConfirmData] = useState<{
