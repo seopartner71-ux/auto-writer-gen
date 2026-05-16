@@ -286,12 +286,30 @@ export default function QuickStartPage() {
       setResultArticleId(articleId);
       setProgress(88);
 
+      // ── 3.5 Humanize pass (double Sonnet+Opus, budget-gated) ─────────
+      if (articleId && full.replace(/<[^>]+>/g, "").length > 400) {
+        try {
+          await supabase.functions.invoke("humanize-article", {
+            body: { article_id: articleId },
+          });
+        } catch {
+          // non-fatal — quality-check will still run
+        }
+      }
+
       // ── 4. Quality check (free checks only) ────────────────
       setStage("quality");
       if (articleId && full.replace(/<[^>]+>/g, "").length > 200) {
         try {
+          // Re-load potentially humanized content
+          const { data: freshRow } = await supabase
+            .from("articles")
+            .select("content")
+            .eq("id", articleId)
+            .maybeSingle();
+          const checkContent = (freshRow?.content as string | undefined) || full;
           const { data: qData } = await supabase.functions.invoke("quality-check", {
-            body: { article_id: articleId, content: full, checks: ["score", "ai"] },
+            body: { article_id: articleId, content: checkContent, checks: ["score", "ai"] },
           });
           if (qData && !qData.error) {
             setScores({
