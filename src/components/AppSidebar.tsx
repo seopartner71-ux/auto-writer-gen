@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useCallback, useEffect, useState } from "react";
+import { PlanModelCard } from "@/components/sidebar/PlanModelCard";
 
 // Prefetch route chunks on hover
 const routePrefetchMap: Record<string, () => void> = {
@@ -365,18 +366,7 @@ export function AppSidebar() {
 
       {!collapsed && (
         <SidebarFooter>
-          <div className="px-4 py-3 border-t border-sidebar-border space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{t("nav.plan")}</span>
-              <span className="font-medium text-primary uppercase">{plan}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{t("sidebar.credits")}</span>
-              <span className={`font-bold ${(profile?.credits_amount ?? 0) > 0 ? "text-success" : "text-destructive"}`}>
-                {profile?.credits_amount ?? 0} {t("sidebar.articles")}
-              </span>
-            </div>
-          </div>
+          <PlanModelCard />
         </SidebarFooter>
       )}
     </Sidebar>
