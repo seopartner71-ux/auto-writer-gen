@@ -95,7 +95,7 @@ export function SectionHero() {
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                {lang === "ru" ? "5 кредитов сразу" : "5 credits on signup"}
+                {lang === "ru" ? "2 кредита сразу" : "2 credits on signup"}
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-1 h-1 rounded-full bg-emerald-400" />

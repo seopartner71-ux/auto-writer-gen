@@ -16,7 +16,7 @@ export function SectionFinalCta() {
     },
     {
       icon: Zap,
-      title: isRu ? "5 кредитов сразу" : "5 free credits",
+      title: isRu ? "2 кредита сразу" : "2 free credits",
       desc: isRu ? "Хватит проверить Smart Research и сгенерировать статью" : "Enough to try Smart Research and one full article",
     },
     {
@@ -85,7 +85,7 @@ export function SectionFinalCta() {
               >
                 <span className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] opacity-20 blur-2xl animate-[pulse_2.5s_ease-in-out_infinite]" />
                 <span className="relative flex items-center gap-2">
-                  {isRu ? "Забрать 5 кредитов" : "Claim 5 free credits"}
+                  {isRu ? "Забрать 2 кредита" : "Claim 2 free credits"}
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </span>
               </button>
