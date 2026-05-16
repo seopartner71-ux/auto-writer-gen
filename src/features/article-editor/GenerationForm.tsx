@@ -9,6 +9,7 @@ import {
   Link2, FileText, ExternalLink, ChevronDown, ChevronUp, Globe, CheckCircle2, Loader2,
 } from "lucide-react";
 import { PersonaSelector } from "@/components/article/PersonaSelector";
+import { ModelSelector } from "@/components/ModelSelector";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +59,11 @@ interface GenerationFormProps {
   sourcePageFacts: any | null;
   onSourcePageFactsChange: (f: any | null) => void;
 
+  // Model selection (credit-based pricing)
+  selectedModel?: string;
+  onModelChange?: (modelKey: string) => void;
+  userPlan?: string;
+
   // Generation actions
   isStreaming: boolean;
   onGenerate: () => void;
@@ -88,6 +94,7 @@ export function GenerationForm(props: GenerationFormProps) {
     customInstructions, onCustomInstructionsChange,
     sourcePageUrl, onSourcePageUrlChange,
     sourcePageFacts, onSourcePageFactsChange,
+    selectedModel, onModelChange, userPlan,
     isStreaming, onGenerate, onStop, onOpenSectioned,
     quickMode,
   } = props;
@@ -116,6 +123,18 @@ export function GenerationForm(props: GenerationFormProps) {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
+      {/* AI Model selector with live credit cost */}
+      {onModelChange && (
+        <div className="mb-3 pb-3 border-b border-border">
+          <ModelSelector
+            value={selectedModel || ""}
+            onChange={onModelChange}
+            userPlan={userPlan}
+            label={lang === "ru" ? "Модель ИИ и стоимость" : "AI model & cost"}
+          />
+        </div>
+      )}
+
       {/* Project selector (FACTORY only) */}
       {projects.length > 0 && (
         <div className="mb-3 pb-3 border-b border-border">
