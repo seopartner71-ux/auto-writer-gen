@@ -1721,6 +1721,24 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_email_log: {
+        Row: {
+          day: number
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          day: number
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          day?: number
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       openrouter_topups: {
         Row: {
           amount_usd: number
