@@ -186,12 +186,13 @@ ${rules}`;
 
           // Final flush
           if (saveTimer != null) { clearTimeout(saveTimer); saveTimer = null; }
-          const cleaned = acc
+          let cleaned = acc
             .replace(/\*\*/g, "")
             .replace(/__/g, "")
-            .replace(/[—–]/g, "-")
-            .replace(language === "ru" ? /ё/g : /$.^/g, "е")
-            .replace(language === "ru" ? /Ё/g : /$.^/g, "Е");
+            .replace(/[—–]/g, "-");
+          if (language === "ru") {
+            cleaned = cleaned.replace(/ё/g, "е").replace(/Ё/g, "Е");
+          }
 
           await admin
             .from("article_sections")
