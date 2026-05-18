@@ -345,9 +345,10 @@ export default function RankTrackerPage() {
               onChange={e => setKw(e.target.value)}
             />
             <Input className="md:col-span-2" placeholder="example.com" value={domain} onChange={e => setDomain(e.target.value)} />
-            <Select value={engine} onValueChange={(v) => setEngine(v as "google" | "yandex")}>
+            <Select value={engine} onValueChange={(v) => setEngine(v as "google" | "yandex" | "both")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="both">{isRu ? "Google + Yandex" : "Google + Yandex"}</SelectItem>
                 <SelectItem value="google">Google</SelectItem>
                 <SelectItem value="yandex">Yandex</SelectItem>
               </SelectContent>
