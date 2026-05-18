@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableKey = Deno.env.get("OPENROUTER_API_KEY");
     const admin = createClient(supabaseUrl, serviceKey);
 
     const authHeader = req.headers.get("Authorization");
@@ -200,7 +200,7 @@ ${inputJson}`;
       catch (e) { console.error("[improve-seo] OR exception", e); }
     }
     if (!improvedRaw && lovableKey) {
-      try { improvedRaw = await callModel("https://ai.gateway.lovable.dev/v1/chat/completions", lovableKey, false); }
+      try { improvedRaw = await callModel("https://openrouter.ai/api/v1/chat/completions", lovableKey, false); }
       catch (e) { console.error("[improve-seo] gateway exception", e); }
     }
     if (!improvedRaw) {

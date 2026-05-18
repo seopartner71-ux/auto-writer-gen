@@ -28,8 +28,8 @@ function json(data: unknown, status = 200) {
 Deno.serve(async (req) => {
   const pre = handlePreflight(req); if (pre) return pre;
   try {
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
+    const apiKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (!apiKey) return json({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
     const body = await req.json().catch(() => ({} as any));
     const content: string = body?.content || "";
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, content, skipped: true, reason: "too_long" });
     }
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({

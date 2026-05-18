@@ -109,7 +109,7 @@ function runHeuristics(text: string, lang: "ru" | "en"): Heuristics {
 }
 
 async function llmSecondOpinion(text: string, lang: "ru" | "en"): Promise<number | null> {
-  const KEY = Deno.env.get("LOVABLE_API_KEY");
+  const KEY = Deno.env.get("OPENROUTER_API_KEY");
   if (!KEY) return null;
 
   // Sample first 1500 chars to keep cost low.
@@ -119,7 +119,7 @@ async function llmSecondOpinion(text: string, lang: "ru" | "en"): Promise<number
     : "You are an AI-text detector. Score the text 0..100, 0=clearly human, 100=clearly AI. Reply with ONLY the number.";
 
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({

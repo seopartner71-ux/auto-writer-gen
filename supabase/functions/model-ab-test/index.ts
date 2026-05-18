@@ -63,7 +63,7 @@ async function scoreAI(plain: string, lovableKey: string): Promise<{ score: numb
   const sys = "Ты эксперт по детекции AI-текстов. Анализируешь perplexity, burstiness, повторы, предсказуемость. Выводи только результат через инструмент.";
   const user = `Оцени текст 0-100 насколько он написан человеком. 100 = точно человек, 0 = точно AI.\n\nТекст:\n${sample}`;
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}` },
       body: JSON.stringify({
@@ -107,9 +107,9 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!orKey) return json({ error: "OPENROUTER_API_KEY not configured" }, 500);
-    if (!lovableKey) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
+    if (!lovableKey) return json({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
     const auth = req.headers.get("Authorization");
     if (!auth) return json({ error: "Unauthorized" }, 401);

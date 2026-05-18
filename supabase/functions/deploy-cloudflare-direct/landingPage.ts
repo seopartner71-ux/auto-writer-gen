@@ -8,7 +8,7 @@
 // uploaded by seed-starter-articles), Picsum by seed for the rest.
 // ============================================================================
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") || "";
+const LOVABLE_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 
 import { widgetsCss as sfWidgetsCss, widgetsHtml as sfWidgetsHtml } from "./siteWidgets.ts";
 import { pickPhrase } from "./phrasePools.ts";
@@ -1364,7 +1364,7 @@ FORMAT: Natural English, no corporate jargon. Realistic prices, phone, address. 
   try {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 30_000);
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       signal: ac.signal,

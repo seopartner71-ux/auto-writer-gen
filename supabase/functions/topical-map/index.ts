@@ -163,14 +163,14 @@ function normalizeForMatch(s: string): string {
 }
 
 async function clusterWithAI(topic: string, keywords: string[], lang: string): Promise<any> {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableKey) throw new Error("LOVABLE_API_KEY missing");
+  const lovableKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!lovableKey) throw new Error("OPENROUTER_API_KEY missing");
 
   const system = SERP_CLUSTER_SYSTEM_PROMPT;
   const user = buildSerpClusterUserPrompt({ topic, keywords, language: lang });
 
   const res = await withTimeout(
-    fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}` },
       body: JSON.stringify({

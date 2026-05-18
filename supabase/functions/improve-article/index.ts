@@ -99,7 +99,7 @@ async function callOpenRouter(model: string, system: string, user: string, key: 
 
 async function callGateway(model: string, system: string, user: string, key: string): Promise<string | null> {
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
       body: JSON.stringify({
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const lovableKey = Deno.env.get("OPENROUTER_API_KEY");
     const orKey = Deno.env.get("OPENROUTER_API_KEY");
     const admin = createClient(supabaseUrl, serviceKey);
 

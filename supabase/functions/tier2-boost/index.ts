@@ -122,7 +122,7 @@ SOURCE TITLE: ${sourceTitle}
 SOURCE INTRO: ${sourceIntro}`;
 
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -297,13 +297,13 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    const apiKey = Deno.env.get("OPENROUTER_API_KEY");
     const admin = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json().catch(() => ({}));
     const { article_id, count = 1 } = body as { article_id?: string; count?: number };
     if (!article_id) return json({ error: "article_id required" }, 400);
-    if (!apiKey) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
+    if (!apiKey) return json({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
     // Auth: either user JWT or internal call from cron (x-internal-user-id)
     let userId: string | null = null;

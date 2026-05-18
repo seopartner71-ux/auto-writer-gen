@@ -15,8 +15,8 @@ const RATE_LIMIT_PER_HOUR = 3;
 serve(withErrorHandler("sandbox-demo", async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableKey) throw new HttpError("LOVABLE_API_KEY missing", 500);
+  const lovableKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!lovableKey) throw new HttpError("OPENROUTER_API_KEY missing", 500);
 
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
@@ -82,7 +82,7 @@ serve(withErrorHandler("sandbox-demo", async (req) => {
 }
 ВАЖНО: Не используй букву 'ё' (только 'е'). Не используй жирный текст и markdown. Возвращай ТОЛЬКО валидный JSON.`;
 
-  const aiResp = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const aiResp = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     timeoutMs: TIMEOUTS.ai,
     headers: {

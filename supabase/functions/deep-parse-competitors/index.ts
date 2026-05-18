@@ -546,7 +546,7 @@ serve(async (req) => {
     let entityAnalysis: { entities: any[]; must_use_phrases: any[] } = { entities: [], must_use_phrases: [] };
     
     try {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      const LOVABLE_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
       const { data: assignment } = await supabaseAdmin
         .from("task_model_assignments")
         .select("model_key")
@@ -566,7 +566,7 @@ serve(async (req) => {
         .join("\n\n");
 
       const aiUrl = useGateway
-        ? "https://ai.gateway.lovable.dev/v1/chat/completions"
+        ? "https://openrouter.ai/api/v1/chat/completions"
         : "https://openrouter.ai/api/v1/chat/completions";
       const aiAuthKey = useGateway ? LOVABLE_API_KEY : OPENROUTER_API_KEY;
 
