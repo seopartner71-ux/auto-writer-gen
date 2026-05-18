@@ -3576,6 +3576,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_openrouter_global_health: { Args: never; Returns: Json }
       get_project_github_config: {
         Args: { p_project_id: string }
         Returns: Json
