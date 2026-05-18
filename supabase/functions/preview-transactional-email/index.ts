@@ -11,8 +11,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
-  if (!apiKey) {
+  const internalKey = Deno.env.get('INTERNAL_API_KEY')
+  const legacyKey = Deno.env.get('LOVABLE_API_KEY')
+  if (!internalKey && !legacyKey) {
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       {
@@ -22,10 +23,11 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Verify the caller is authorized with LOVABLE_API_KEY
+  // Verify the caller is authorized with INTERNAL_API_KEY (preferred) or
+  // LOVABLE_API_KEY (legacy, kept for backwards compatibility).
   const authHeader = req.headers.get('Authorization')
   const token = authHeader?.replace(/^Bearer\s+/i, '')
-  if (token !== apiKey) {
+  if (token !== internalKey && token !== legacyKey) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

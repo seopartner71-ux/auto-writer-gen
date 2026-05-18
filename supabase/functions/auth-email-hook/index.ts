@@ -91,10 +91,14 @@ async function handlePreview(req: Request): Promise<Response> {
     return new Response(null, { headers: previewCorsHeaders })
   }
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  // Accept INTERNAL_API_KEY (preferred) or LOVABLE_API_KEY (legacy) as the
+  // shared secret. We are migrating non-AI auth off the AI gateway key.
+  const internalKey = Deno.env.get('INTERNAL_API_KEY')
+  const legacyKey = Deno.env.get('LOVABLE_API_KEY')
   const authHeader = req.headers.get('Authorization')
-
-  if (!apiKey || authHeader !== `Bearer ${apiKey}`) {
+  const valid = (internalKey && authHeader === `Bearer ${internalKey}`)
+    || (legacyKey && authHeader === `Bearer ${legacyKey}`)
+  if (!valid) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...previewCorsHeaders, 'Content-Type': 'application/json' },
@@ -132,10 +136,10 @@ async function handlePreview(req: Request): Promise<Response> {
 
 // Webhook handler - verifies signature and sends email
 async function handleWebhook(req: Request): Promise<Response> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  const apiKey = Deno.env.get('INTERNAL_API_KEY') || Deno.env.get('LOVABLE_API_KEY')
 
   if (!apiKey) {
-    console.error('LOVABLE_API_KEY not configured')
+    console.error('Neither INTERNAL_API_KEY nor LOVABLE_API_KEY configured')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

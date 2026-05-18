@@ -741,9 +741,34 @@ async function runAutoQuality(
             uniqueness_checked_at: new Date().toISOString(),
             quality_details: { ...((currentDetails?.quality_details as any) || {}), uniqueness_details: fallbackUniq.details, uniqueness_error: (r as any)?.error || "Text.ru не вернул результат" },
           }).eq("id", articleId);
-          await logErr(admin, "quality-check", "textru_auto_failed", {
-            article_id: articleId, error: (r as any)?.error, code: (r as any)?.code,
-          });
+          const errCode = (r as any)?.code;
+          const errText = (r as any)?.error || "";
+          // code 142 = баланс кончился (config issue, не баг). Помечаем ключ
+          // невалидным, чтобы не дёргать API впустую, и шумим в error_logs
+          // максимум раз в 24 часа.
+          if (errCode === 142 || /закончились символы|balance/i.test(errText)) {
+            try {
+              await admin.from("api_keys")
+                .update({ is_valid: false, last_error: errText.slice(0, 200) })
+                .eq("provider", "textru");
+            } catch (_) { /* column last_error may not exist; ignore */ }
+            const { data: recent } = await admin
+              .from("error_logs")
+              .select("id")
+              .eq("context", "quality-check")
+              .eq("message", "textru_balance_exhausted")
+              .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+              .limit(1);
+            if (!recent || recent.length === 0) {
+              await logErr(admin, "quality-check", "textru_balance_exhausted", {
+                article_id: articleId, error: errText, code: errCode,
+              });
+            }
+          } else {
+            await logErr(admin, "quality-check", "textru_auto_failed", {
+              article_id: articleId, error: errText, code: errCode,
+            });
+          }
         }
       } catch (e) {
         await logErr(admin, "quality-check", "textru_auto_exception", { article_id: articleId, error: String(e) });
