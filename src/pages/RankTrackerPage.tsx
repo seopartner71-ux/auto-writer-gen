@@ -167,7 +167,11 @@ export default function RankTrackerPage() {
       const { error } = await supabase.from("tracked_keywords").insert({
         user_id: user!.id,
         keyword: kw.trim(),
-        target_domain: domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, ""),
+        target_domain: domain.trim().toLowerCase()
+          .replace(/^https?:\/\//, "")
+          .replace(/^www\./, "")
+          .replace(/\/.*$/, "")
+          .replace(/[?#].*$/, ""),
         engine,
         region: region.trim().toLowerCase() || "ru",
         city: city.trim() || null,
