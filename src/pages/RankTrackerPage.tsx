@@ -445,11 +445,30 @@ export default function RankTrackerPage() {
       )}
 
       <Card>
-        <CardHeader><CardTitle className="text-base">{isRu ? "Отслеживаемые ключи" : "Tracked keywords"}</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle className="text-base">{isRu ? "Отслеживаемые ключи" : "Tracked keywords"}</CardTitle>
+            {projects.length > 0 && (
+              <div className="min-w-[240px]">
+                <Select value={filterProjectId || "__all__"} onValueChange={(v) => setFilterProjectId(v === "__all__" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">{isRu ? "Все проекты" : "All projects"}</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-          ) : tracked.length === 0 ? (
+          ) : filteredTracked.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">{isRu ? "Пока нет отслеживаемых ключей" : "No tracked keywords yet"}</p>
           ) : (
             <div className="overflow-x-auto">
@@ -460,6 +479,7 @@ export default function RankTrackerPage() {
                     <th>{isRu ? "Домен" : "Domain"}</th>
                     <th>{isRu ? "Поисковик" : "Engine"}</th>
                     <th>{isRu ? "Позиция" : "Position"}</th>
+                    <th>{isRu ? "Страница в ТОП" : "Ranking page"}</th>
                     <th>{isRu ? "Тренд" : "Trend"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
                     <th>{isRu ? "Проверено" : "Checked"}</th>
@@ -467,7 +487,7 @@ export default function RankTrackerPage() {
                   </tr>
                 </thead>
                 <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
-                  {tracked.map((row) => {
+                  {filteredTracked.map((row) => {
                     const trend = trendFor(row.id);
                     const sparkData = (historyByKw[row.id] ?? []).slice(-30).map(p => ({
                       d: new Date(p.checked_at).toLocaleDateString("ru", { day: "2-digit", month: "2-digit" }),
@@ -480,6 +500,15 @@ export default function RankTrackerPage() {
                         <td><Badge variant="outline" className="uppercase text-[10px]">{row.engine}</Badge></td>
                         <td className={`font-bold ${posColor(row.last_position)}`}>
                           {row.last_position == null ? "—" : `#${row.last_position}`}
+                        </td>
+                        <td className="max-w-[240px]">
+                          {row.last_url ? (
+                            <a href={row.last_url} target="_blank" rel="noopener noreferrer"
+                               className="text-xs text-primary hover:underline truncate block"
+                               title={row.last_url}>
+                              {row.last_url.replace(/^https?:\/\//, "").slice(0, 50)}
+                            </a>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </td>
                         <td>
                           {trend.delta == null ? <Minus className="h-4 w-4 text-muted-foreground" />
