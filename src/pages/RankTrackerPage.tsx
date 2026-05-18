@@ -94,6 +94,7 @@ export default function RankTrackerPage() {
   const [region, setRegion] = useState("ru");
   const [city, setCity] = useState("");
   const [viewUserId, setViewUserId] = useState<string>("");
+  const [domainFilter, setDomainFilter] = useState<string>("all");
 
   const effectiveUserId = isAdmin && viewUserId ? viewUserId : user?.id ?? "";
   const isImpersonating = isAdmin && !!viewUserId && viewUserId !== user?.id;
@@ -380,6 +381,23 @@ export default function RankTrackerPage() {
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <CardTitle className="text-base">{isRu ? "Отслеживаемые ключи" : "Tracked keywords"}</CardTitle>
+            {(() => {
+              const domains = Array.from(new Set(groupedTracked.map(g => g.target_domain))).sort();
+              if (domains.length === 0) return null;
+              return (
+                <Select value={domainFilter} onValueChange={setDomainFilter}>
+                  <SelectTrigger className="w-[240px] h-9">
+                    <SelectValue placeholder={isRu ? "Все домены" : "All domains"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{isRu ? "Все домены" : "All domains"} ({domains.length})</SelectItem>
+                    {domains.map(d => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            })()}
           </div>
         </CardHeader>
         <CardContent>
@@ -404,7 +422,7 @@ export default function RankTrackerPage() {
                   </tr>
                 </thead>
                 <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
-                  {groupedTracked.map((group) => {
+                  {groupedTracked.filter(g => domainFilter === "all" || g.target_domain === domainFilter).map((group) => {
                     const google = group.byEngine.google;
                     const yandex = group.byEngine.yandex;
                     const latestRow = [...group.rows].sort((a, b) => {
