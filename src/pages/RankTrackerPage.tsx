@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, RefreshCw, Trash2, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip } from "recharts";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Tracked {
   id: string;
@@ -23,6 +24,7 @@ interface Tracked {
   last_position: number | null;
   last_url: string | null;
   article_id?: string | null;
+  project_id?: string | null;
 }
 
 interface HistoryPoint {
@@ -82,6 +84,8 @@ export default function RankTrackerPage() {
   const [city, setCity] = useState("");
   const [articleId, setArticleId] = useState<string>("");
   const [viewUserId, setViewUserId] = useState<string>("");
+  const [projectId, setProjectId] = useState<string>("");
+  const [filterProjectId, setFilterProjectId] = useState<string>("");
 
   const effectiveUserId = isAdmin && viewUserId ? viewUserId : user?.id ?? "";
   const isImpersonating = isAdmin && !!viewUserId && viewUserId !== user?.id;
@@ -97,6 +101,20 @@ export default function RankTrackerPage() {
         .limit(2000);
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; email: string | null; full_name: string | null }>;
+    },
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["rank-tracker-projects", effectiveUserId],
+    enabled: !!effectiveUserId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id,name,domain,custom_domain")
+        .eq("user_id", effectiveUserId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string; domain: string | null; custom_domain: string | null }>;
     },
   });
 
@@ -163,25 +181,30 @@ export default function RankTrackerPage() {
 
   const addMut = useMutation({
     mutationFn: async () => {
-      if (!kw.trim() || !domain.trim()) throw new Error(isRu ? "Заполните ключ и домен" : "Fill keyword and domain");
-      const { error } = await supabase.from("tracked_keywords").insert({
+      const cleanDomain = domain.trim().toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .replace(/\/.*$/, "")
+        .replace(/[?#].*$/, "");
+      const keywords = kw.split("\n").map(s => s.trim()).filter(Boolean);
+      if (keywords.length === 0 || !cleanDomain) throw new Error(isRu ? "Заполните ключи и домен" : "Fill keywords and domain");
+      const rows = keywords.map(k => ({
         user_id: user!.id,
-        keyword: kw.trim(),
-        target_domain: domain.trim().toLowerCase()
-          .replace(/^https?:\/\//, "")
-          .replace(/^www\./, "")
-          .replace(/\/.*$/, "")
-          .replace(/[?#].*$/, ""),
+        keyword: k,
+        target_domain: cleanDomain,
         engine,
         region: region.trim().toLowerCase() || "ru",
         city: city.trim() || null,
         article_id: articleId || null,
-      });
+        project_id: projectId || null,
+      }));
+      const { error } = await supabase.from("tracked_keywords").insert(rows);
       if (error) throw error;
+      return keywords.length;
     },
-    onSuccess: () => {
+    onSuccess: (count: number) => {
       setKw(""); setCity(""); setArticleId("");
-      toast.success(isRu ? "Ключ добавлен" : "Keyword added");
+      toast.success(isRu ? `Добавлено ключей: ${count}` : `Added keywords: ${count}`);
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
       qc.invalidateQueries({ queryKey: ["serp-outcomes"] });
     },
@@ -216,6 +239,10 @@ export default function RankTrackerPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const filteredTracked = filterProjectId
+    ? tracked.filter(t => t.project_id === filterProjectId)
+    : tracked;
 
   const historyByKw = history.reduce<Record<string, HistoryPoint[]>>((acc, p) => {
     (acc[p.tracked_keyword_id] ||= []).push(p);
