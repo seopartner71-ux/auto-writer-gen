@@ -232,6 +232,37 @@ export default function RankTrackerPage() {
 
   const filteredTracked = tracked;
 
+  const groupedTracked = useMemo<TrackedGroup[]>(() => {
+    const map = new Map<string, TrackedGroup>();
+
+    filteredTracked.forEach((item) => {
+      const key = [
+        item.keyword.trim().toLowerCase(),
+        item.target_domain.trim().toLowerCase(),
+        item.region.trim().toLowerCase(),
+        item.city?.trim().toLowerCase() ?? "",
+      ].join("::");
+      const group = map.get(key) ?? {
+        key,
+        keyword: item.keyword,
+        target_domain: item.target_domain,
+        region: item.region,
+        city: item.city,
+        rows: [],
+        byEngine: {},
+      };
+
+      group.rows.push(item);
+      const current = group.byEngine[item.engine];
+      const currentDate = current?.last_checked_at ?? current?.created_at ?? "";
+      const itemDate = item.last_checked_at ?? item.created_at ?? "";
+      if (!current || itemDate >= currentDate) group.byEngine[item.engine] = item;
+      map.set(key, group);
+    });
+
+    return Array.from(map.values());
+  }, [filteredTracked]);
+
   const historyByKw = history.reduce<Record<string, HistoryPoint[]>>((acc, p) => {
     (acc[p.tracked_keyword_id] ||= []).push(p);
     return acc;
@@ -244,6 +275,24 @@ export default function RankTrackerPage() {
     const prev = arr[arr.length - 2].position;
     if (last == null || prev == null) return { delta: null };
     return { delta: prev - last };
+  };
+
+  const renderTrend = (id?: string) => {
+    if (!id) return <Minus className="h-4 w-4 text-muted-foreground" />;
+    const trend = trendFor(id);
+    return trend.delta == null ? <Minus className="h-4 w-4 text-muted-foreground" />
+      : trend.delta > 0 ? <span className="text-emerald-500 flex items-center gap-1 text-xs"><TrendingUp className="h-3 w-3" />+{trend.delta}</span>
+      : trend.delta < 0 ? <span className="text-rose-500 flex items-center gap-1 text-xs"><TrendingDown className="h-3 w-3" />{trend.delta}</span>
+      : <Minus className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const renderPosition = (row?: Tracked) => {
+    if (!row) return <span className="text-xs text-muted-foreground">—</span>;
+    return (
+      <span className={`font-bold ${posColor(row.last_position)}`}>
+        {row.last_position == null ? (row.last_checked_at ? ">30" : "—") : `#${row.last_position}`}
+      </span>
+    );
   };
 
   return (
