@@ -93,6 +93,9 @@ async function callScoringWithFallback(opts: {
     { model: "google/gemini-2.5-flash", mode: "tools" },
     { model: "google/gemini-2.5-flash", mode: "json" },
     { model: "openai/gpt-5-nano", mode: "json" },
+    // Last-resort: cheap Llama on OpenRouter, JSON mode. Keeps ai_score from
+    // becoming NULL when whole Gemini/GPT cascade is down or out of budget.
+    { model: "meta-llama/llama-3.3-70b-instruct", mode: "json" },
   ];
 
   for (let i = 0; i < attempts.length; i++) {
