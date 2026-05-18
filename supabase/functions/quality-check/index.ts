@@ -76,6 +76,88 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
   }
 }
 
+// Fallback chain for AI scoring calls.
+// Если первичная модель отдаёт 402/429/5xx (нет средств/лимит) — пробуем альтернативу.
+// Если tool-calling недоступен — пробуем JSON-mode и парсим content.
+async function callScoringWithFallback(opts: {
+  apiKey: string;
+  sys: string;
+  user: string;
+  toolName: string;
+  toolSchema: Record<string, unknown>;
+  label: string;
+}): Promise<{ data: any; args: string | null }> {
+  const { apiKey, sys, user, toolName, toolSchema, label } = opts;
+  const attempts: Array<{ model: string; mode: "tools" | "json" }> = [
+    { model: "google/gemini-2.5-flash-lite", mode: "tools" },
+    { model: "google/gemini-2.5-flash", mode: "tools" },
+    { model: "google/gemini-2.5-flash", mode: "json" },
+    { model: "openai/gpt-5-nano", mode: "json" },
+  ];
+
+  for (let i = 0; i < attempts.length; i++) {
+    const { model, mode } = attempts[i];
+    const body: any = {
+      model,
+      messages: [
+        { role: "system", content: sys },
+        {
+          role: "user",
+          content: mode === "json"
+            ? `${user}\n\nВерни СТРОГО валидный JSON по схеме: ${JSON.stringify(toolSchema)}. Без markdown, без комментариев.`
+            : user,
+        },
+      ],
+    };
+    if (mode === "tools") {
+      body.tools = [{ type: "function", function: { name: toolName, parameters: toolSchema } }];
+      body.tool_choice = { type: "function", function: { name: toolName } };
+    } else {
+      body.response_format = { type: "json_object" };
+    }
+
+    let res: Response;
+    try {
+      res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+      }, 30000);
+    } catch (e) {
+      console.error(`[quality-check] ${label} attempt ${i} (${model}/${mode}) network error`, e);
+      continue;
+    }
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      const fallbackable = res.status === 402 || res.status === 429 || res.status >= 500 || res.status === 404;
+      console.error(`[quality-check] ${label} attempt ${i} (${model}/${mode}) HTTP ${res.status} ${txt.slice(0, 200)}`);
+      if (!fallbackable) return { data: null, args: null };
+      continue;
+    }
+
+    const data = await res.json().catch(() => null);
+    if (!data) continue;
+
+    let args: string | null = null;
+    if (mode === "tools") {
+      args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments ?? null;
+    } else {
+      const content = data?.choices?.[0]?.message?.content;
+      if (typeof content === "string") {
+        const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        args = cleaned;
+      }
+    }
+    if (args) {
+      if (i > 0) console.log(`[quality-check] ${label} succeeded via fallback ${i} (${model}/${mode})`);
+      return { data, args };
+    }
+  }
+
+  return { data: null, args: null };
+}
+
 // ---- 1. SEO-Module Score (Turgenev-like) ----
 async function runSeoModuleScore(plain: string, apiKey: string): Promise<{
   score: number; stylistics: number; water: number; reasons: string[];
@@ -92,39 +174,25 @@ async function runSeoModuleScore(plain: string, apiKey: string): Promise<{
 Текст:
 ${sample}`;
 
-  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
-      messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-      tools: [{
-        type: "function",
-        function: {
-          name: "report_score",
-          description: "Report Turgenev-like score",
-          parameters: {
-            type: "object",
-            properties: {
-              overall_score: { type: "number" },
-              stylistics: { type: "number" },
-              water: { type: "number" },
-              reasons: { type: "array", items: { type: "string" } },
-            },
-            required: ["overall_score", "stylistics", "water", "reasons"],
-            additionalProperties: false,
-          },
-        },
-      }],
-      tool_choice: { type: "function", function: { name: "report_score" } },
-    }),
-  }, 30000);
-  if (!res.ok) {
-    console.error("[quality-check] seo-score AI error", res.status);
-    return null;
-  }
-  const data = await res.json();
-  const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  const toolSchema = {
+    type: "object",
+    properties: {
+      overall_score: { type: "number" },
+      stylistics: { type: "number" },
+      water: { type: "number" },
+      reasons: { type: "array", items: { type: "string" } },
+    },
+    required: ["overall_score", "stylistics", "water", "reasons"],
+    additionalProperties: false,
+  };
+  const { data, args } = await callScoringWithFallback({
+    apiKey,
+    sys,
+    user,
+    toolName: "report_score",
+    toolSchema,
+    label: "seo-score",
+  });
   if (!args) return null;
   try {
     const p = JSON.parse(args);
@@ -159,37 +227,24 @@ async function runAiScore(plain: string, apiKey: string): Promise<{
 Текст:
 ${sample}`;
 
-  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
-      messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-      tools: [{
-        type: "function",
-        function: {
-          name: "report_ai_score",
-          parameters: {
-            type: "object",
-            properties: {
-              score: { type: "number" },
-              verdict: { type: "string" },
-              reasons: { type: "array", items: { type: "string" } },
-            },
-            required: ["score", "verdict", "reasons"],
-            additionalProperties: false,
-          },
-        },
-      }],
-      tool_choice: { type: "function", function: { name: "report_ai_score" } },
-    }),
-  }, 30000);
-  if (!res.ok) {
-    console.error("[quality-check] ai-score error", res.status);
-    return null;
-  }
-  const data = await res.json();
-  const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  const toolSchema = {
+    type: "object",
+    properties: {
+      score: { type: "number" },
+      verdict: { type: "string" },
+      reasons: { type: "array", items: { type: "string" } },
+    },
+    required: ["score", "verdict", "reasons"],
+    additionalProperties: false,
+  };
+  const { data, args } = await callScoringWithFallback({
+    apiKey,
+    sys,
+    user,
+    toolName: "report_ai_score",
+    toolSchema,
+    label: "ai-score",
+  });
   if (!args) return null;
   try {
     const p = JSON.parse(args);
