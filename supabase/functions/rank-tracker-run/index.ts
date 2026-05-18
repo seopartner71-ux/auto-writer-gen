@@ -57,25 +57,55 @@ async function checkGoogle(serperKey: string, kw: string, region: string, city: 
   return { top10: organic };
 }
 
-async function checkYandex(user: string, key: string, kw: string, region: string): Promise<{ top10: Array<{ link: string }> }> {
-  // Yandex XML API. region: lr code (213 = Moscow). Default to RU/Moscow if non-numeric provided.
-  const lr = /^\d+$/.test(region) ? region : "213";
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<request>
-  <query>${kw.replace(/[<>&]/g, "")}</query>
-  <page>0</page>
-  <groupings><groupby attr="d" mode="deep" groups-on-page="10" docs-in-group="1"/></groupings>
-</request>`;
-  const url = `https://yandex.ru/search/xml?user=${encodeURIComponent(user)}&key=${encodeURIComponent(key)}&lr=${lr}&l10n=ru&sortby=rlv&filter=none`;
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/xml" }, body: xml });
-  if (!res.ok) throw new Error(`Yandex XML ${res.status}`);
-  const text = await res.text();
-  // Extract <url>...</url> entries in document order.
-  const urls = [...text.matchAll(/<url>([^<]+)<\/url>/g)].map(m => ({ link: m[1] })).slice(0, 10);
+async function checkYandex(apiKey: string, folderId: string, kw: string, region: string): Promise<{ top10: Array<{ link: string }> }> {
+  // New Yandex Cloud Search API (synchronous). Returns base64-encoded XML in `rawData`.
+  // Docs: https://yandex.cloud/ru/docs/search-api/operations/web-search
+  const body = {
+    query: {
+      searchType: "SEARCH_TYPE_RU",
+      queryText: kw,
+      familyMode: "FAMILY_MODE_NONE",
+      page: "0",
+      fixTypoMode: "FIX_TYPO_MODE_ON",
+    },
+    sortSpec: { sortMode: "SORT_MODE_BY_RELEVANCE" },
+    groupSpec: {
+      groupMode: "GROUP_MODE_DEEP",
+      groupsOnPage: "10",
+      docsInGroup: "1",
+    },
+    region: /^\d+$/.test(region) ? region : "213",
+    l10N: "LOCALIZATION_RU",
+    folderId,
+    responseFormat: "FORMAT_XML",
+  };
+  const res = await fetch("https://searchapi.api.cloud.yandex.net/v2/web/search", {
+    method: "POST",
+    headers: {
+      Authorization: `Api-Key ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const txt = await res.text();
+  if (!res.ok) throw new Error(`Yandex Cloud Search ${res.status}: ${txt.slice(0, 300)}`);
+  let raw = "";
+  try {
+    const json = JSON.parse(txt);
+    if (json.rawData) {
+      // base64 -> XML
+      try { raw = atob(json.rawData); } catch { raw = json.rawData; }
+    } else {
+      raw = txt;
+    }
+  } catch {
+    raw = txt;
+  }
+  const urls = [...raw.matchAll(/<url>([^<]+)<\/url>/g)].map(m => ({ link: m[1] })).slice(0, 10);
   return { top10: urls };
 }
 
-async function processRow(admin: ReturnType<typeof createClient>, row: TrackedRow, keys: { serper?: string; yandexUser?: string; yandexKey?: string }) {
+async function processRow(admin: ReturnType<typeof createClient>, row: TrackedRow, keys: { serper?: string; yandexApiKey?: string; yandexFolderId?: string }) {
   let pos: number | null = null;
   let url: string | null = null;
   let top10: unknown[] = [];
@@ -87,8 +117,8 @@ async function processRow(admin: ReturnType<typeof createClient>, row: TrackedRo
       const found = findPosition(g.top10, row.target_domain);
       pos = found.pos; url = found.url;
     } else {
-      if (!keys.yandexUser || !keys.yandexKey) throw new Error("Yandex XML credentials missing");
-      const y = await checkYandex(keys.yandexUser, keys.yandexKey, row.keyword, row.region);
+      if (!keys.yandexApiKey || !keys.yandexFolderId) throw new Error("Yandex Cloud credentials missing");
+      const y = await checkYandex(keys.yandexApiKey, keys.yandexFolderId, row.keyword, row.region);
       top10 = y.top10;
       const found = findPosition(y.top10, row.target_domain);
       pos = found.pos; url = found.url;
@@ -119,17 +149,17 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     // Resolve serper + yandex creds
-    const { data: keyRows } = await admin.from("api_keys").select("provider, api_key, is_valid").in("provider", ["serper", "yandex_xml_user", "yandex_xml_key"]);
-    const keys: { serper?: string; yandexUser?: string; yandexKey?: string } = {};
+    const { data: keyRows } = await admin.from("api_keys").select("provider, api_key, is_valid").in("provider", ["serper", "yandex_cloud_api_key", "yandex_folder_id"]);
+    const keys: { serper?: string; yandexApiKey?: string; yandexFolderId?: string } = {};
     for (const r of keyRows ?? []) {
       if (r.provider === "serper" && r.is_valid !== false) keys.serper = r.api_key;
-      if (r.provider === "yandex_xml_user") keys.yandexUser = r.api_key;
-      if (r.provider === "yandex_xml_key") keys.yandexKey = r.api_key;
+      if (r.provider === "yandex_cloud_api_key") keys.yandexApiKey = r.api_key;
+      if (r.provider === "yandex_folder_id") keys.yandexFolderId = r.api_key;
     }
     // Fallback env vars
     keys.serper = keys.serper || Deno.env.get("SERPER_API_KEY") || undefined;
-    keys.yandexUser = keys.yandexUser || Deno.env.get("YANDEX_XML_USER") || undefined;
-    keys.yandexKey = keys.yandexKey || Deno.env.get("YANDEX_XML_KEY") || undefined;
+    keys.yandexApiKey = keys.yandexApiKey || Deno.env.get("YANDEX_CLOUD_API_KEY") || undefined;
+    keys.yandexFolderId = keys.yandexFolderId || Deno.env.get("YANDEX_FOLDER_ID") || undefined;
 
     let body: { user_id?: string; cron?: boolean } = {};
     try { body = await req.json(); } catch { /* empty body OK */ }
@@ -162,7 +192,7 @@ Deno.serve(async (req) => {
       processed++;
     }
 
-    return new Response(JSON.stringify({ ok: true, processed, missing: { serper: !keys.serper, yandex: !keys.yandexUser || !keys.yandexKey } }), {
+    return new Response(JSON.stringify({ ok: true, processed, missing: { serper: !keys.serper, yandex: !keys.yandexApiKey || !keys.yandexFolderId } }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
