@@ -17,6 +17,8 @@ const PROVIDERS = [
   { key: "serper", label: "Serper.dev", placeholder: "your-serper-key", hasBalance: false },
   { key: "fal_ai", label: "Fal.ai", placeholder: "your-fal-ai-key", hasBalance: true },
   { key: "turgenev", label: "Тургенев (Ашманов)", placeholder: "ключ из ЛК turgenev.ashmanov.com", hasBalance: false },
+  { key: "yandex_xml_user", label: "Yandex XML — Логин", placeholder: "логин Яндекс (xml.yandex.ru)", hasBalance: false },
+  { key: "yandex_xml_key", label: "Yandex XML — Ключ", placeholder: "ключ из xml.yandex.ru", hasBalance: false },
 ];
 
 interface ApiKey {
