@@ -216,7 +216,9 @@ export default function RankTrackerPage() {
 
   const refreshMut = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("rank-tracker-run", { body: {} });
+      const payload: { target_domain?: string } = {};
+      if (domainFilter !== "all") payload.target_domain = domainFilter;
+      const { data, error } = await supabase.functions.invoke("rank-tracker-run", { body: payload });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
