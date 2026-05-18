@@ -69,7 +69,8 @@ function daysBetween(from: string, to: string | null): number | null {
 }
 
 export default function RankTrackerPage() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdmin = role === "admin";
   const { lang } = useI18n();
   const isRu = lang === "ru";
   const qc = useQueryClient();
@@ -80,15 +81,33 @@ export default function RankTrackerPage() {
   const [region, setRegion] = useState("ru");
   const [city, setCity] = useState("");
   const [articleId, setArticleId] = useState<string>("");
+  const [viewUserId, setViewUserId] = useState<string>("");
+
+  const effectiveUserId = isAdmin && viewUserId ? viewUserId : user?.id ?? "";
+  const isImpersonating = isAdmin && !!viewUserId && viewUserId !== user?.id;
+
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ["rank-tracker-all-users"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,email,full_name")
+        .order("email", { ascending: true })
+        .limit(2000);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; email: string | null; full_name: string | null }>;
+    },
+  });
 
   const { data: tracked = [], isLoading } = useQuery({
-    queryKey: ["tracked-keywords", user?.id],
-    enabled: !!user,
+    queryKey: ["tracked-keywords", effectiveUserId],
+    enabled: !!effectiveUserId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracked_keywords")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("user_id", effectiveUserId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Tracked[];
@@ -96,13 +115,13 @@ export default function RankTrackerPage() {
   });
 
   const { data: history = [] } = useQuery({
-    queryKey: ["rank-history", user?.id],
-    enabled: !!user && tracked.length > 0,
+    queryKey: ["rank-history", effectiveUserId],
+    enabled: !!effectiveUserId && tracked.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("rank_history")
         .select("tracked_keyword_id,position,checked_at")
-        .eq("user_id", user!.id)
+        .eq("user_id", effectiveUserId)
         .order("checked_at", { ascending: true })
         .limit(2000);
       if (error) throw error;
@@ -112,13 +131,13 @@ export default function RankTrackerPage() {
 
   // Published articles to attach a tracked keyword to.
   const { data: articles = [] } = useQuery({
-    queryKey: ["rank-tracker-articles", user?.id],
-    enabled: !!user,
+    queryKey: ["rank-tracker-articles", effectiveUserId],
+    enabled: !!effectiveUserId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("articles")
         .select("id,title,published_url,telegraph_url,blogger_post_url,created_at")
-        .eq("user_id", user!.id)
+        .eq("user_id", effectiveUserId)
         .or("published_url.not.is.null,telegraph_url.not.is.null,blogger_post_url.not.is.null")
         .order("created_at", { ascending: false })
         .limit(200);
@@ -129,13 +148,13 @@ export default function RankTrackerPage() {
 
   // Per-article SERP outcomes view.
   const { data: outcomes = [] } = useQuery({
-    queryKey: ["serp-outcomes", user?.id],
-    enabled: !!user,
+    queryKey: ["serp-outcomes", effectiveUserId],
+    enabled: !!effectiveUserId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("article_serp_outcomes" as never)
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("user_id", effectiveUserId)
         .order("article_created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as SerpOutcome[];
@@ -215,11 +234,44 @@ export default function RankTrackerPage() {
           <h1 className="text-2xl font-bold">{isRu ? "Трекер позиций" : "Rank Tracker"}</h1>
           <p className="text-sm text-muted-foreground">{isRu ? "Ежедневный мониторинг позиций в Google и Яндекс" : "Daily Google and Yandex position monitoring"}</p>
         </div>
-        <Button onClick={() => refreshMut.mutate()} disabled={refreshMut.isPending || tracked.length === 0}>
+        <Button onClick={() => refreshMut.mutate()} disabled={refreshMut.isPending || tracked.length === 0 || isImpersonating}>
           {refreshMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
           {isRu ? "Проверить сейчас" : "Check now"}
         </Button>
       </div>
+
+      {isAdmin && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-semibold uppercase tracking-wide text-primary">Admin</span>
+              <span className="text-sm text-muted-foreground">
+                {isRu ? "Просмотр трекера от имени пользователя:" : "View rank tracker as user:"}
+              </span>
+              <div className="min-w-[280px] flex-1 max-w-md">
+                <Select value={viewUserId || "__self__"} onValueChange={(v) => setViewUserId(v === "__self__" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__self__">{isRu ? "Я (мои данные)" : "Me (my data)"}</SelectItem>
+                    {allUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.email || u.full_name || u.id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {isImpersonating && (
+                <Badge variant="outline" className="border-yellow-500/50 text-yellow-500">
+                  {isRu ? "Режим просмотра (read-only)" : "View-only mode"}
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
