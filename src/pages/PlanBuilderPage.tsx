@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import {
   Wand2, GripVertical, Plus, Trash2, ChevronRight, Loader2,
   Target, Lightbulb, HelpCircle, Hash, ListTree, ArrowRight,
-  ExternalLink, BarChart3, FileText
+  ExternalLink, BarChart3, FileText, RefreshCw
 } from "lucide-react";
 import { ExpertInsightsBlock, type ExpertInsight } from "@/components/plan/ExpertInsightsBlock";
 import { CompetitorBenchmark } from "@/components/plan/CompetitorBenchmark";
@@ -28,14 +28,28 @@ export default function PlanBuilderPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
 
-  const { data: keywords = [] } = useQuery({
+  const { data: keywords = [], refetch: refetchKeywords, isFetching: isFetchingKeywords } = useQuery({
     queryKey: ["keywords-with-analysis"],
     queryFn: async () => {
       const { data, error } = await supabase.from("keywords").select("*").not("intent", "is", null).order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
+
+  // Realtime: subscribe to new/updated keywords so the dropdown updates без перезагрузки
+  useEffect(() => {
+    const channel = supabase
+      .channel("plan-builder-keywords")
+      .on("postgres_changes", { event: "*", schema: "public", table: "keywords" }, () => {
+        refetchKeywords();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [refetchKeywords]);
 
   const [selectedKeywordId, setSelectedKeywordId] = useState<string>("");
   const [insights, setInsights] = useState<InsightItem[]>([]);
@@ -164,6 +178,9 @@ export default function PlanBuilderPage() {
               </SelectContent>
             </Select>
           </div>
+          <Button variant="outline" size="icon" onClick={() => refetchKeywords()} disabled={isFetchingKeywords} title="Обновить список">
+            <RefreshCw className={`h-4 w-4 ${isFetchingKeywords ? "animate-spin" : ""}`} />
+          </Button>
           <Button onClick={() => autopilot.mutate()} disabled={!selectedKeywordId || autopilot.isPending} className="gap-2">
             {autopilot.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             AI Autopilot
