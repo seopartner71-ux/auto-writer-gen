@@ -93,7 +93,13 @@ async function callScoringWithFallback(opts: {
     { model: "google/gemini-2.5-flash", mode: "tools" },
     { model: "google/gemini-2.5-flash", mode: "json" },
     { model: "openai/gpt-5-nano", mode: "json" },
+    // Last-resort: cheap Llama on OpenRouter, JSON mode. Keeps ai_score from
+    // becoming NULL when whole Gemini/GPT cascade is down or out of budget.
+    { model: "meta-llama/llama-3.3-70b-instruct", mode: "json" },
   ];
+
+  let got402 = false;
+  let lastErr = "";
 
   for (let i = 0; i < attempts.length; i++) {
     const { model, mode } = attempts[i];
@@ -132,6 +138,8 @@ async function callScoringWithFallback(opts: {
       const txt = await res.text().catch(() => "");
       const fallbackable = res.status === 402 || res.status === 429 || res.status >= 500 || res.status === 404;
       console.error(`[quality-check] ${label} attempt ${i} (${model}/${mode}) HTTP ${res.status} ${txt.slice(0, 200)}`);
+      if (res.status === 402) got402 = true;
+      lastErr = `HTTP ${res.status}: ${txt.slice(0, 120)}`;
       if (!fallbackable) return { data: null, args: null };
       continue;
     }
@@ -155,7 +163,39 @@ async function callScoringWithFallback(opts: {
     }
   }
 
+  // Whole cascade exhausted. If we saw at least one 402 (insufficient credit)
+  // or all attempts failed, fire a one-shot TG alert (rate-limited via cache
+  // table) so the operator can top up OpenRouter before quality silently rots.
+  fireOpenRouterAlert(label, got402, lastErr).catch(() => {});
   return { data: null, args: null };
+}
+
+// Best-effort TG alert. Rate-limited to once per hour per label via
+// error_logs table (we re-use existing dedup mechanism).
+async function fireOpenRouterAlert(label: string, was402: boolean, lastErr: string) {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceKey) return;
+    const admin = createClient(supabaseUrl, serviceKey);
+    const dedupKey = `openrouter_cascade_failed:${label}:${was402 ? "402" : "other"}`;
+    const { data: recent } = await admin
+      .from("error_logs")
+      .select("id")
+      .eq("context", dedupKey)
+      .gt("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .limit(1);
+    if (recent && recent.length > 0) return;
+    await admin.from("error_logs").insert({ context: dedupKey, message: lastErr.slice(0, 400) });
+    await fetch(`${supabaseUrl}/functions/v1/telegram-notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+      body: JSON.stringify({
+        type: "openrouter_cascade_failed",
+        data: { label, status_402: was402, last_error: lastErr, at: new Date().toISOString() },
+      }),
+    }).catch(() => {});
+  } catch (_) { /* never throw */ }
 }
 
 // ---- 1. SEO-Module Score (Turgenev-like) ----

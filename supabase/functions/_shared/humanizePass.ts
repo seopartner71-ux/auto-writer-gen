@@ -14,6 +14,9 @@ import { applyStealthPostProcess } from "./stealth.ts";
 
 const SONNET_MODEL = "anthropic/claude-sonnet-4";
 const OPUS_MODEL = "anthropic/claude-opus-4";
+// Last-resort fallback: cheap and almost free on OpenRouter, keeps the
+// humanize pipeline alive when both Anthropic models fail (402/429/timeout).
+const LLAMA_FALLBACK_MODEL = "meta-llama/llama-3.3-70b-instruct";
 
 const SYSTEM_RU = `Ты редактор-человек. Переписываешь текст так, чтобы он перестал быть похожим на ИИ.
 СТРОГО соблюдай:
@@ -197,6 +200,17 @@ export async function runDoubleHumanizePass(
     opusSkipReason = "opus_failed_fallback_sonnet";
     pass2Model = SONNET_MODEL;
     out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), sonnetTimeout);
+  }
+
+  // 3rd-tier fallback: if Sonnet also failed (e.g. account 402, region
+  // throttling), fall back to Llama 3.3 70B so the article still gets a
+  // micro-polish instead of skipping pass2 entirely.
+  if (!out2) {
+    console.warn("[humanize] Sonnet also failed, falling back to Llama 3.3 70B for pass2");
+    opusSkipped = true;
+    opusSkipReason = (opusSkipReason ? opusSkipReason + "+" : "") + "sonnet_failed_fallback_llama";
+    pass2Model = LLAMA_FALLBACK_MODEL;
+    out2 = await callOpenRouter(openRouterKey, LLAMA_FALLBACK_MODEL, system, PASS2_USER(language, current), 90_000);
   }
 
   if (out2) {
