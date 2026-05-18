@@ -310,7 +310,32 @@ export default function RankTrackerPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-6">
-            <Input className="md:col-span-2" placeholder={isRu ? "Ключевой запрос" : "Keyword"} value={kw} onChange={e => setKw(e.target.value)} />
+            <div className="md:col-span-6">
+              <Select value={projectId || "__none__"} onValueChange={(v) => {
+                if (v === "__none__") { setProjectId(""); return; }
+                setProjectId(v);
+                const p = projects.find(x => x.id === v);
+                if (p) setDomain(p.custom_domain || p.domain || "");
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isRu ? "Проект (сайт) — опционально" : "Project (site) — optional"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{isRu ? "Без проекта" : "No project"}</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} {p.custom_domain || p.domain ? `— ${p.custom_domain || p.domain}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Textarea
+              className="md:col-span-4 min-h-[90px]"
+              placeholder={isRu ? "Ключевые запросы (по одному на строку)" : "Keywords (one per line)"}
+              value={kw}
+              onChange={e => setKw(e.target.value)}
+            />
             <Input className="md:col-span-2" placeholder="example.com" value={domain} onChange={e => setDomain(e.target.value)} />
             <Select value={engine} onValueChange={(v) => setEngine(v as "google" | "yandex")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
