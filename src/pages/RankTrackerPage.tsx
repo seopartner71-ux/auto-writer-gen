@@ -79,6 +79,7 @@ export default function RankTrackerPage() {
   const [engine, setEngine] = useState<"google" | "yandex">("google");
   const [region, setRegion] = useState("ru");
   const [city, setCity] = useState("");
+  const [articleId, setArticleId] = useState<string>("");
 
   const { data: tracked = [], isLoading } = useQuery({
     queryKey: ["tracked-keywords", user?.id],
@@ -109,6 +110,38 @@ export default function RankTrackerPage() {
     },
   });
 
+  // Published articles to attach a tracked keyword to.
+  const { data: articles = [] } = useQuery({
+    queryKey: ["rank-tracker-articles", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("articles")
+        .select("id,title,published_url,telegraph_url,blogger_post_url,created_at")
+        .eq("user_id", user!.id)
+        .or("published_url.not.is.null,telegraph_url.not.is.null,blogger_post_url.not.is.null")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as ArticleOption[];
+    },
+  });
+
+  // Per-article SERP outcomes view.
+  const { data: outcomes = [] } = useQuery({
+    queryKey: ["serp-outcomes", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("article_serp_outcomes" as never)
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("article_created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as SerpOutcome[];
+    },
+  });
+
   const addMut = useMutation({
     mutationFn: async () => {
       if (!kw.trim() || !domain.trim()) throw new Error(isRu ? "Заполните ключ и домен" : "Fill keyword and domain");
@@ -119,13 +152,15 @@ export default function RankTrackerPage() {
         engine,
         region: region.trim().toLowerCase() || "ru",
         city: city.trim() || null,
+        article_id: articleId || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setKw(""); setCity("");
+      setKw(""); setCity(""); setArticleId("");
       toast.success(isRu ? "Ключ добавлен" : "Keyword added");
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
+      qc.invalidateQueries({ queryKey: ["serp-outcomes"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -138,6 +173,7 @@ export default function RankTrackerPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
       qc.invalidateQueries({ queryKey: ["rank-history"] });
+      qc.invalidateQueries({ queryKey: ["serp-outcomes"] });
     },
   });
 
