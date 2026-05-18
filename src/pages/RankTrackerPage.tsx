@@ -241,6 +241,26 @@ export default function RankTrackerPage() {
             <Button onClick={() => addMut.mutate()} disabled={addMut.isPending}>
               {addMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-2" />{isRu ? "Добавить" : "Add"}</>}
             </Button>
+            <div className="md:col-span-6">
+              <Select value={articleId || "__none__"} onValueChange={(v) => setArticleId(v === "__none__" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isRu ? "Привязать к статье (опционально)" : "Attach to article (optional)"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{isRu ? "Без привязки" : "Not attached"}</SelectItem>
+                  {articles.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {(a.title || "—").slice(0, 80)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isRu
+                  ? "Привязка покажет реальный SEO-итог: дни до ТОП-10/ТОП-3 после публикации."
+                  : "Attaching reveals real SEO outcome: days-to-TOP-10/TOP-3 after publish."}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
