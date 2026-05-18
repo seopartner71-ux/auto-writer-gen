@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "export_csv") {
-      const rows = await fetchAllCostRows(admin, filters);
+      const rows = await fetchAllCostRows(admin, filters, "created_at, operation_type, model, cost_usd, project_id, user_id, tokens_input, tokens_output");
       const header = "created_at,operation_type,model,cost_usd,project_id,user_id,tokens_input,tokens_output\n";
       const body = rows.map((r: any) => [
         r.created_at, r.operation_type, r.model || "", Number(r.cost_usd || 0).toFixed(6),
