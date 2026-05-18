@@ -46,8 +46,8 @@ serve(async (req) => {
       return j({ error: "article_id, section_id, h2_title required" }, 400);
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return j({ error: "LOVABLE_API_KEY not configured" }, 500);
+    const LOVABLE_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!LOVABLE_API_KEY) return j({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -105,7 +105,7 @@ H1: "${h1_title}"
 ${persona_prompt ? `\nПерсона автора:\n${persona_prompt}\n` : ""}
 ${rules}`;
 
-    const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,

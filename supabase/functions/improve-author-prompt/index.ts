@@ -66,10 +66,10 @@ Deno.serve(async (req) => {
     const original = (author.system_instruction || "").trim();
     if (!original) return jsonResponse({ error: "Author has no system_instruction to improve" }, 400);
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return jsonResponse({ error: "LOVABLE_API_KEY not configured" }, 500);
+    const apiKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (!apiKey) return jsonResponse({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
-    const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({

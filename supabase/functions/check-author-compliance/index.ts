@@ -148,11 +148,11 @@ serve(async (req) => {
       .maybeSingle();
     const model = assignment?.model_key || "google/gemini-2.5-flash";
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const aiUrl = OPENROUTER_API_KEY
       ? "https://openrouter.ai/api/v1/chat/completions"
-      : "https://ai.gateway.lovable.dev/v1/chat/completions";
+      : "https://openrouter.ai/api/v1/chat/completions";
     const aiKey = OPENROUTER_API_KEY || LOVABLE_API_KEY;
     if (!aiKey) throw new Error("AI key not configured");
 

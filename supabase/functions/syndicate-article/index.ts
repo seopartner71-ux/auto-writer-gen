@@ -83,9 +83,9 @@ async function translateToEnglish(
     return { title: article.translated_title_en, content: article.translated_content_en };
   }
 
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  const apiKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!apiKey) {
-    console.error("[syndicate] LOVABLE_API_KEY missing");
+    console.error("[syndicate] OPENROUTER_API_KEY missing");
     return null;
   }
 
@@ -98,7 +98,7 @@ async function translateToEnglish(
   const prompt = `Translate the article from ${srcName} to English. Preserve markdown structure, headings, lists, links and meaning. Return only the translated text, no explanations.\n\nTITLE:\n${article.title || ""}\n\nCONTENT:\n${sourceContent}`;
 
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({

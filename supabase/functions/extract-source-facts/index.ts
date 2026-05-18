@@ -156,10 +156,10 @@ Deno.serve(async (req) => {
     const text = `${meta}\n\n=== ОСНОВНОЙ ТЕКСТ ===\n${pageText}`;
 
     // AI extraction via Lovable AI Gateway (cheap, fast model)
-    const aiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!aiKey) return errorResponse("LOVABLE_API_KEY not configured", 500);
+    const aiKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (!aiKey) return errorResponse("OPENROUTER_API_KEY not configured", 500);
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${aiKey}` },
       body: JSON.stringify({

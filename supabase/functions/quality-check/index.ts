@@ -92,7 +92,7 @@ async function runSeoModuleScore(plain: string, apiKey: string): Promise<{
 Текст:
 ${sample}`;
 
-  const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
@@ -159,7 +159,7 @@ async function runAiScore(plain: string, apiKey: string): Promise<{
 Текст:
 ${sample}`;
 
-  const res = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
@@ -845,7 +845,7 @@ ${paragraphs.map((p, i) => `[${i + 1}] ${p.slice(0, 400)}`).join("\n\n")}
   "off_cluster": [{"i": номер, "reason": "коротко чем именно уходит из кластера"}]
 }`;
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -886,13 +886,13 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    const apiKey = Deno.env.get("OPENROUTER_API_KEY");
     const textRuKey = Deno.env.get("TEXTRU_API_KEY");
     const admin = createClient(supabaseUrl, serviceKey);
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
-    if (!apiKey) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
+    if (!apiKey) return json({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
     const body = await req.json().catch(() => ({}));
     const { article_id, content, checks, mode } = body as {
