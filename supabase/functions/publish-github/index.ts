@@ -342,11 +342,11 @@ async function prepareArticle(
       }
     } else {
       // Lovable AI or fallback
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      const lovableKey = Deno.env.get("OPENROUTER_API_KEY");
       if (lovableKey) {
         const generateLovableImage = async (prompt: string): Promise<string | null> => {
           try {
-            const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
               method: "POST",
               headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
               body: JSON.stringify({
