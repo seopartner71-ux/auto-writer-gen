@@ -1062,7 +1062,9 @@ export async function ensureUnsplashImages(
   if (missing.length === 0) return { slots, attributions };
 
   const accessKey = await getUnsplashKey(admin);
-  if (!accessKey) {
+  const hasPexels = !!(Deno.env.get("PEXELS_API_KEY") || "").trim();
+  // Need at least one source; if neither Pexels nor Unsplash is configured, bail.
+  if (!accessKey && !hasPexels) {
     return { slots, attributions };
   }
 
