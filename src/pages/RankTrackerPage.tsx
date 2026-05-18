@@ -265,6 +265,77 @@ export default function RankTrackerPage() {
         </CardContent>
       </Card>
 
+      {outcomes.length > 0 && (
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              {isRu ? "Результаты статей в SERP" : "Article SERP outcomes"}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {isRu
+                ? "Реальный ROI: за сколько дней статья вышла в ТОП-10 и ТОП-3 после публикации."
+                : "Real ROI: days from publish to TOP-10 and TOP-3."}
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground border-b border-border">
+                  <tr className="[&_th]:p-2 [&_th]:text-left">
+                    <th>{isRu ? "Статья" : "Article"}</th>
+                    <th>{isRu ? "Ключи" : "Keys"}</th>
+                    <th>{isRu ? "Лучшая" : "Best"}</th>
+                    <th>{isRu ? "Сейчас" : "Latest"}</th>
+                    <th>{isRu ? "До ТОП-10" : "To TOP-10"}</th>
+                    <th>{isRu ? "До ТОП-3" : "To TOP-3"}</th>
+                    <th>{isRu ? "Возраст" : "Age"}</th>
+                  </tr>
+                </thead>
+                <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
+                  {outcomes.map((o) => {
+                    const ageDays = daysBetween(o.article_created_at, new Date().toISOString());
+                    const top10Days = daysBetween(o.article_created_at, o.first_top10_at);
+                    const top3Days = daysBetween(o.article_created_at, o.first_top3_at);
+                    return (
+                      <tr key={o.article_id}>
+                        <td className="max-w-[280px]">
+                          {o.public_url ? (
+                            <a href={o.public_url} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate block">
+                              {o.title || o.public_url}
+                            </a>
+                          ) : (
+                            <span className="font-medium">{o.title || "—"}</span>
+                          )}
+                        </td>
+                        <td className="text-muted-foreground">{o.tracked_keywords_count}</td>
+                        <td className={`font-bold ${posColor(o.best_position == null ? null : Number(o.best_position))}`}>
+                          {o.best_position == null ? "—" : `#${o.best_position}`}
+                        </td>
+                        <td className={`font-bold ${posColor(o.latest_position == null ? null : Number(o.latest_position))}`}>
+                          {o.latest_position == null ? "—" : `#${o.latest_position}`}
+                        </td>
+                        <td>
+                          {top10Days == null
+                            ? <span className="text-xs text-muted-foreground">{isRu ? "не достигнут" : "not reached"}</span>
+                            : <Badge variant="outline" className="border-yellow-500/50 text-yellow-500">{top10Days} {isRu ? "дн" : "d"}</Badge>}
+                        </td>
+                        <td>
+                          {top3Days == null
+                            ? <span className="text-xs text-muted-foreground">{isRu ? "не достигнут" : "not reached"}</span>
+                            : <Badge variant="outline" className="border-emerald-500/50 text-emerald-500">{top3Days} {isRu ? "дн" : "d"}</Badge>}
+                        </td>
+                        <td className="text-xs text-muted-foreground">{ageDays ?? "—"} {isRu ? "дн" : "d"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle className="text-base">{isRu ? "Отслеживаемые ключи" : "Tracked keywords"}</CardTitle></CardHeader>
         <CardContent>
