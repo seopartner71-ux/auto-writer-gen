@@ -122,14 +122,14 @@ async function processRow(admin: ReturnType<typeof createClient>, row: TrackedRo
     if (row.engine === "google") {
       if (!keys.serper) throw new Error("Serper key missing");
       const g = await checkGoogle(keys.serper, row.keyword, row.region, row.city);
-      top10 = g.top10;
-      const found = findPosition(g.top10, row.target_domain);
+      top10 = g.results;
+      const found = findPosition(g.results, row.target_domain);
       pos = found.pos; url = found.url;
     } else {
       if (!keys.yandexApiKey || !keys.yandexFolderId) throw new Error("Yandex Cloud credentials missing");
       const y = await checkYandex(keys.yandexApiKey, keys.yandexFolderId, row.keyword, row.region);
-      top10 = y.top10;
-      const found = findPosition(y.top10, row.target_domain);
+      top10 = y.results;
+      const found = findPosition(y.results, row.target_domain);
       pos = found.pos; url = found.url;
     }
   } catch (e) {
