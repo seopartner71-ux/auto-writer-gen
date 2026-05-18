@@ -22,6 +22,7 @@ interface Tracked {
   last_checked_at: string | null;
   last_position: number | null;
   last_url: string | null;
+  article_id?: string | null;
 }
 
 interface HistoryPoint {
@@ -30,12 +31,41 @@ interface HistoryPoint {
   checked_at: string;
 }
 
+interface ArticleOption {
+  id: string;
+  title: string | null;
+  published_url: string | null;
+  telegraph_url: string | null;
+  blogger_post_url: string | null;
+  created_at: string;
+}
+
+interface SerpOutcome {
+  article_id: string;
+  title: string | null;
+  public_url: string | null;
+  article_created_at: string;
+  tracked_keywords_count: number;
+  best_position: number | null;
+  latest_position: number | null;
+  last_checked_at: string | null;
+  first_top10_at: string | null;
+  first_top3_at: string | null;
+}
+
 function posColor(pos: number | null): string {
   if (pos == null) return "text-muted-foreground";
   if (pos <= 3) return "text-emerald-500";
   if (pos <= 10) return "text-yellow-500";
   if (pos <= 30) return "text-orange-500";
   return "text-rose-500";
+}
+
+function daysBetween(from: string, to: string | null): number | null {
+  if (!to) return null;
+  const ms = new Date(to).getTime() - new Date(from).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return Math.max(1, Math.round(ms / 86400000));
 }
 
 export default function RankTrackerPage() {
