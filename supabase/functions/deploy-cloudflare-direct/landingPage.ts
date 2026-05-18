@@ -1017,7 +1017,7 @@ export async function ensureSiteIcon(
 
 // ----------------------------- AI Content Generation -------------------------
 
-import { fetchUnsplashPhotos, getUnsplashKey, type UnsplashPhoto } from "../_shared/unsplash.ts";
+import { fetchUnsplashPhotos, getUnsplashKey, nicheToUnsplashQuery, type UnsplashPhoto } from "../_shared/unsplash.ts";
 
 /**
  * Fills any missing landing image slots (hero/why/guarantee/about/post_*)
@@ -1031,13 +1031,26 @@ export async function ensureUnsplashImages(
   projectId: string,
   niche: string,
   slots: Record<string, string>,
+  postTitles: string[] = [],
 ): Promise<{ slots: Record<string, string>; attributions: UnsplashPhoto[] }> {
   const wanted = ["hero", "why", "guarantee", "about", "post_1", "post_2", "post_3"];
-  const missing = wanted.filter((s) => !slots[s] || !/^https?:\/\//.test(slots[s]));
 
-  // Always try to load existing attributions from cache so the footer credit
-  // shows even on subsequent deploys (no fresh API call needed).
+  // Build the topical query per slot. Post slots must match the article topic,
+  // NOT the generic site niche — otherwise blog cards show unrelated photos.
+  const queryForSlot = (slot: string): string => {
+    const m = slot.match(/^post_(\d+)$/);
+    if (m) {
+      const idx = parseInt(m[1], 10) - 1;
+      const title = String(postTitles[idx] || "").trim();
+      if (title) return nicheToUnsplashQuery(title);
+    }
+    return nicheToUnsplashQuery(niche);
+  };
+
+  // Load cached attributions and detect stale post_* entries whose cached
+  // query no longer matches the current post title.
   const attributions: UnsplashPhoto[] = [];
+  const stale = new Set<string>();
   try {
     const { data: cached } = await admin
       .from("site_image_cache")
@@ -1046,49 +1059,72 @@ export async function ensureUnsplashImages(
       .eq("source", "unsplash");
     for (const row of (cached || [])) {
       if (!row?.prompt) continue;
-      try {
-        const meta = JSON.parse(String(row.prompt));
-        if (meta?.authorName && meta?.photoUrl) {
-          attributions.push({
-            url: row.image_url, thumb: row.image_url,
-            authorName: meta.authorName, authorUrl: meta.authorUrl || "https://unsplash.com",
-            photoUrl: meta.photoUrl, alt: meta.alt || "",
-          });
-        }
-      } catch { /* ignore */ }
+      let meta: any = null;
+      try { meta = JSON.parse(String(row.prompt)); } catch { /* ignore */ }
+      if (!meta) continue;
+      const expectedQuery = queryForSlot(String(row.slot));
+      const cachedQuery = String(meta.query || "");
+      // If we have a stored query and it differs from the current expected one,
+      // mark the slot as stale so we refetch a topical photo.
+      if (cachedQuery && cachedQuery !== expectedQuery) {
+        stale.add(String(row.slot));
+        continue;
+      }
+      if (meta?.authorName && meta?.photoUrl) {
+        attributions.push({
+          url: row.image_url, thumb: row.image_url,
+          authorName: meta.authorName, authorUrl: meta.authorUrl || "https://unsplash.com",
+          photoUrl: meta.photoUrl, alt: meta.alt || "",
+        });
+      }
     }
   } catch { /* ignore */ }
+
+  const missing = wanted.filter(
+    (s) => stale.has(s) || !slots[s] || !/^https?:\/\//.test(slots[s]),
+  );
 
   if (missing.length === 0) return { slots, attributions };
 
   const accessKey = await getUnsplashKey(admin);
   const hasPexels = !!(Deno.env.get("PEXELS_API_KEY") || "").trim();
-  // Need at least one source; if neither Pexels nor Unsplash is configured, bail.
   if (!accessKey && !hasPexels) {
     return { slots, attributions };
   }
 
-  const photos = await fetchUnsplashPhotos(accessKey, niche, missing.length);
-  if (photos.length === 0) return { slots, attributions };
+  // Group missing slots by query so we make one API call per topic and pick
+  // distinct photos for each slot in that group.
+  const byQuery = new Map<string, string[]>();
+  for (const slot of missing) {
+    const q = queryForSlot(slot);
+    const arr = byQuery.get(q) || [];
+    arr.push(slot);
+    byQuery.set(q, arr);
+  }
 
-  for (let i = 0; i < missing.length && i < photos.length; i++) {
-    const slot = missing[i];
-    const p = photos[i];
-    slots[slot] = p.url;
-    attributions.push(p);
-    try {
-      await admin.from("site_image_cache").upsert({
-        project_id: projectId,
-        slot,
-        prompt: JSON.stringify({
-          authorName: p.authorName, authorUrl: p.authorUrl,
-          photoUrl: p.photoUrl, alt: p.alt,
-        }).slice(0, 1000),
-        image_url: p.url,
-        source: "unsplash",
-      }, { onConflict: "project_id,slot" });
-    } catch (e: any) {
-      console.warn("[unsplash] cache write failed:", slot, e?.message);
+  for (const [q, slotList] of byQuery.entries()) {
+    const photos = await fetchUnsplashPhotos(accessKey, q, slotList.length);
+    if (photos.length === 0) continue;
+    for (let i = 0; i < slotList.length && i < photos.length; i++) {
+      const slot = slotList[i];
+      const p = photos[i];
+      slots[slot] = p.url;
+      attributions.push(p);
+      try {
+        await admin.from("site_image_cache").upsert({
+          project_id: projectId,
+          slot,
+          prompt: JSON.stringify({
+            query: q,
+            authorName: p.authorName, authorUrl: p.authorUrl,
+            photoUrl: p.photoUrl, alt: p.alt,
+          }).slice(0, 1000),
+          image_url: p.url,
+          source: "unsplash",
+        }, { onConflict: "project_id,slot" });
+      } catch (e: any) {
+        console.warn("[unsplash] cache write failed:", slot, e?.message);
+      }
     }
   }
   return { slots, attributions };

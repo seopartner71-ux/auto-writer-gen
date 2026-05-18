@@ -802,7 +802,10 @@ serve(async (req) => {
         // configured, this is a no-op and we keep the existing fallbacks.
         let unsplashAttribution = false;
         {
-          const r = await ensureUnsplashImages(supabaseAdmin, projectId, topic, generatedImages);
+          const r = await ensureUnsplashImages(
+            supabaseAdmin, projectId, topic, generatedImages,
+            posts.slice(0, 3).map((p: any) => String(p.title || "")),
+          );
           unsplashAttribution = r.attributions.length > 0;
         }
         let authorPhotos: string[] = [];
@@ -1012,7 +1015,10 @@ serve(async (req) => {
       // Backfill remaining slots from Unsplash (if access key is configured).
       let landingUnsplashAttribution = false;
       {
-        const r = await ensureUnsplashImages(supabaseAdmin, projectId, topic, generatedImages);
+        const r = await ensureUnsplashImages(
+          supabaseAdmin, projectId, topic, generatedImages,
+          posts.slice(0, 3).map((p: any) => String(p.title || "")),
+        );
         landingUnsplashAttribution = r.attributions.length > 0;
       }
       const landingHtml = renderLandingHtml(
