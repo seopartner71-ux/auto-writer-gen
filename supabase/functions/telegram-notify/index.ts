@@ -74,6 +74,14 @@ serve(async (req) => {
         `📦 Тариф: ${plan}\n` +
         `💵 Сумма: ${sum} ₽\n` +
         `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
+    } else if (type === 'openrouter_cascade_failed') {
+      const { label, status_402, last_error } = data;
+      text = `🚨 <b>OpenRouter cascade failed</b>\n\n` +
+        `📍 Этап: <code>${label || '-'}</code>\n` +
+        `💳 Был 402 (нет средств): ${status_402 ? 'да' : 'нет'}\n` +
+        `⚠️ Последняя ошибка: <code>${String(last_error || '-').slice(0, 200)}</code>\n` +
+        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}\n\n` +
+        `Проверь баланс OpenRouter и Lovable AI Gateway.`;
     } else {
       text = `ℹ️ ${type}: ${JSON.stringify(data)}`;
     }
