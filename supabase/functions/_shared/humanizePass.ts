@@ -72,13 +72,16 @@ async function callOpenRouter(
       signal: ctrl.signal,
     });
     if (!r.ok) {
-      console.warn(`[humanize] ${model} HTTP ${r.status}`);
+      const errBody = await r.text().catch(() => "");
+      console.warn(`[humanize] ${model} HTTP ${r.status}: ${errBody.slice(0, 200)}`);
       return null;
     }
     const j = await r.json();
     return (j?.choices?.[0]?.message?.content as string | undefined) ?? null;
   } catch (e) {
-    console.warn(`[humanize] ${model} threw:`, (e as Error)?.message);
+    const msg = (e as Error)?.message || String(e);
+    const isAbort = (e as Error)?.name === "AbortError" || /abort/i.test(msg);
+    console.warn(`[humanize] ${model} threw${isAbort ? " (timeout)" : ""}:`, msg);
     return null;
   } finally {
     clearTimeout(t);
@@ -139,8 +142,13 @@ export async function runDoubleHumanizePass(
   let opusSkipped = false;
   let opusSkipReason: string | undefined;
 
+  // Adaptive timeouts based on content length. Opus is much slower per token.
+  const len = content.length;
+  const sonnetTimeout = len > 12_000 ? 180_000 : len > 6_000 ? 120_000 : 90_000;
+  const opusTimeout = len > 12_000 ? 240_000 : len > 6_000 ? 180_000 : 120_000;
+
   // Pass 1: Sonnet (deeper rewrite)
-  const out1 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS1_USER(language, current));
+  const out1 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS1_USER(language, current), sonnetTimeout);
   if (out1) {
     const cand1 = applyStealthPostProcess(stripCodeFences(out1), language);
     if (integrityOk(current, cand1)) {
@@ -154,9 +162,18 @@ export async function runDoubleHumanizePass(
 
   // Pass 2: Opus (micro-polish) — gated by per-user budget when admin client provided.
   let opusAllowed = true;
+  // For very long texts (>15k chars) Opus is unreliable: skip and use Sonnet
+  // as the micro-polish model instead.
+  const useSonnetForPass2 = len > 15_000;
+  if (useSonnetForPass2) {
+    opusSkipReason = "too_long_for_opus";
+  }
   if (opts?.admin && opts?.userId) {
     try {
-      const { data } = await opts.admin.rpc("check_ai_budget", { _user_id: opts.userId, _model: OPUS_MODEL });
+      const { data } = await opts.admin.rpc("check_ai_budget", {
+        _user_id: opts.userId,
+        _model: useSonnetForPass2 ? SONNET_MODEL : OPUS_MODEL,
+      });
       if (data && data.allowed === false) {
         opusAllowed = false;
         opusSkipped = true;
@@ -167,15 +184,27 @@ export async function runDoubleHumanizePass(
       console.warn("[humanize] check_ai_budget failed, allowing Opus:", (e as Error).message);
     }
   }
-  const out2 = opusAllowed
-    ? await callOpenRouter(openRouterKey, OPUS_MODEL, system, PASS2_USER(language, current))
+  let pass2Model = useSonnetForPass2 ? SONNET_MODEL : OPUS_MODEL;
+  let out2 = opusAllowed
+    ? await callOpenRouter(openRouterKey, pass2Model, system, PASS2_USER(language, current), useSonnetForPass2 ? sonnetTimeout : opusTimeout)
     : null;
+
+  // Fallback: if Opus failed (timeout/HTTP error), retry pass2 with Sonnet
+  // so we still get a polish pass instead of degrading silently.
+  if (opusAllowed && !out2 && !useSonnetForPass2) {
+    console.warn("[humanize] Opus failed, falling back to Sonnet for pass2");
+    opusSkipped = true;
+    opusSkipReason = "opus_failed_fallback_sonnet";
+    pass2Model = SONNET_MODEL;
+    out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), sonnetTimeout);
+  }
+
   if (out2) {
     const cand2 = applyStealthPostProcess(stripCodeFences(out2), language);
     if (integrityOk(current, cand2)) {
       current = cand2;
       passes++;
-      modelsUsed.push(OPUS_MODEL);
+      modelsUsed.push(pass2Model);
     } else {
       console.warn("[humanize] pass2 rejected by integrity guard");
     }
