@@ -290,7 +290,7 @@ export default function RankTrackerPage() {
             </Select>
             <Input placeholder={engine === "yandex" ? "lr (213)" : "ru"} value={region} onChange={e => setRegion(e.target.value)} />
             <Input className="md:col-span-5" placeholder={isRu ? "Город (опционально, только Google)" : "City (optional, Google only)"} value={city} onChange={e => setCity(e.target.value)} />
-            <Button onClick={() => addMut.mutate()} disabled={addMut.isPending}>
+            <Button onClick={() => addMut.mutate()} disabled={addMut.isPending || isImpersonating}>
               {addMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-2" />{isRu ? "Добавить" : "Add"}</>}
             </Button>
             <div className="md:col-span-6">
