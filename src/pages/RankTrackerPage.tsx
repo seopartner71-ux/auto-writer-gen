@@ -385,7 +385,7 @@ export default function RankTrackerPage() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-          ) : filteredTracked.length === 0 ? (
+          ) : groupedTracked.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">{isRu ? "Пока нет отслеживаемых ключей" : "No tracked keywords yet"}</p>
           ) : (
             <div className="overflow-x-auto">
@@ -394,44 +394,51 @@ export default function RankTrackerPage() {
                   <tr className="[&_th]:p-2 [&_th]:text-left">
                     <th>{isRu ? "Запрос" : "Keyword"}</th>
                     <th>{isRu ? "Домен" : "Domain"}</th>
-                    <th>{isRu ? "Поисковик" : "Engine"}</th>
-                    <th>{isRu ? "Позиция" : "Position"}</th>
+                    <th>Google</th>
+                    <th>Yandex</th>
                     <th>{isRu ? "Страница в ТОП" : "Ranking page"}</th>
-                    <th>{isRu ? "Тренд" : "Trend"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
                     <th>{isRu ? "Проверено" : "Checked"}</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
-                  {filteredTracked.map((row) => {
-                    const trend = trendFor(row.id);
-                    const sparkData = (historyByKw[row.id] ?? []).slice(-30).map(p => ({
+                  {groupedTracked.map((group) => {
+                    const google = group.byEngine.google;
+                    const yandex = group.byEngine.yandex;
+                    const latestRow = [...group.rows].sort((a, b) => {
+                      const aTime = new Date(a.last_checked_at ?? a.created_at ?? 0).getTime();
+                      const bTime = new Date(b.last_checked_at ?? b.created_at ?? 0).getTime();
+                      return bTime - aTime;
+                    })[0];
+                    const sparkData = group.rows.flatMap(row => (historyByKw[row.id] ?? []).slice(-30).map(p => ({
                       d: new Date(p.checked_at).toLocaleDateString("ru", { day: "2-digit", month: "2-digit" }),
-                      pos: p.position ?? 31,
-                    }));
+                      [row.engine]: p.position ?? 31,
+                    })));
                     return (
-                      <tr key={row.id}>
-                        <td className="font-medium">{row.keyword}</td>
-                        <td className="text-muted-foreground">{row.target_domain}</td>
-                        <td><Badge variant="outline" className="uppercase text-[10px]">{row.engine}</Badge></td>
-                        <td className={`font-bold ${posColor(row.last_position)}`}>
-                          {row.last_position == null ? (row.last_checked_at ? (isRu ? ">30" : ">30") : "—") : `#${row.last_position}`}
-                        </td>
-                        <td className="max-w-[240px]">
-                          {row.last_url ? (
-                            <a href={row.last_url} target="_blank" rel="noopener noreferrer"
-                               className="text-xs text-primary hover:underline truncate block"
-                               title={row.last_url}>
-                              {row.last_url.replace(/^https?:\/\//, "").slice(0, 50)}
-                            </a>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                      <tr key={group.key}>
+                        <td className="font-medium">{group.keyword}</td>
+                        <td className="text-muted-foreground">{group.target_domain}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            {renderPosition(google)}
+                            {renderTrend(google?.id)}
+                          </div>
                         </td>
                         <td>
-                          {trend.delta == null ? <Minus className="h-4 w-4 text-muted-foreground" />
-                            : trend.delta > 0 ? <span className="text-emerald-500 flex items-center gap-1 text-xs"><TrendingUp className="h-3 w-3" />+{trend.delta}</span>
-                            : trend.delta < 0 ? <span className="text-rose-500 flex items-center gap-1 text-xs"><TrendingDown className="h-3 w-3" />{trend.delta}</span>
-                            : <Minus className="h-4 w-4 text-muted-foreground" />}
+                          <div className="flex items-center gap-2">
+                            {renderPosition(yandex)}
+                            {renderTrend(yandex?.id)}
+                          </div>
+                        </td>
+                        <td className="max-w-[240px]">
+                          {latestRow?.last_url ? (
+                            <a href={latestRow.last_url} target="_blank" rel="noopener noreferrer"
+                               className="text-xs text-primary hover:underline truncate block"
+                               title={latestRow.last_url}>
+                              {latestRow.last_url.replace(/^https?:\/\//, "").slice(0, 50)}
+                            </a>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </td>
                         <td className="w-32 h-10">
                           {sparkData.length > 1 ? (
@@ -440,16 +447,17 @@ export default function RankTrackerPage() {
                                 <YAxis reversed domain={[1, 31]} hide />
                                 <XAxis dataKey="d" hide />
                                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} formatter={(v: number) => v === 31 ? ">30" : `#${v}`} />
-                                <Line type="monotone" dataKey="pos" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} />
+                                <Line type="monotone" dataKey="google" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} connectNulls />
+                                <Line type="monotone" dataKey="yandex" stroke="hsl(var(--destructive))" strokeWidth={1.5} dot={false} connectNulls />
                               </LineChart>
                             </ResponsiveContainer>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
                         </td>
                         <td className="text-xs text-muted-foreground">
-                          {row.last_checked_at ? new Date(row.last_checked_at).toLocaleDateString("ru") : "—"}
+                          {latestRow?.last_checked_at ? new Date(latestRow.last_checked_at).toLocaleDateString("ru") : "—"}
                         </td>
                         <td>
-                          <Button size="icon" variant="ghost" onClick={() => delMut.mutate(row.id)} disabled={isImpersonating}>
+                          <Button size="icon" variant="ghost" onClick={() => delMut.mutate(group.rows.map(row => row.id))} disabled={isImpersonating}>
                             <Trash2 className="h-4 w-4 text-rose-500" />
                           </Button>
                         </td>
