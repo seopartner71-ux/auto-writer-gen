@@ -216,7 +216,9 @@ export default function RankTrackerPage() {
 
   const refreshMut = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("rank-tracker-run", { body: {} });
+      const payload: { target_domain?: string } = {};
+      if (domainFilter !== "all") payload.target_domain = domainFilter;
+      const { data, error } = await supabase.functions.invoke("rank-tracker-run", { body: payload });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
@@ -305,7 +307,9 @@ export default function RankTrackerPage() {
         </div>
         <Button onClick={() => refreshMut.mutate()} disabled={refreshMut.isPending || tracked.length === 0 || isImpersonating}>
           {refreshMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          {isRu ? "Проверить сейчас" : "Check now"}
+          {domainFilter !== "all"
+            ? (isRu ? `Проверить: ${domainFilter}` : `Check: ${domainFilter}`)
+            : (isRu ? "Проверить все домены" : "Check all domains")}
         </Button>
       </div>
 

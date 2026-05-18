@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
     keys.yandexApiKey = keys.yandexApiKey || Deno.env.get("YANDEX_CLOUD_API_KEY") || undefined;
     keys.yandexFolderId = keys.yandexFolderId || Deno.env.get("YANDEX_FOLDER_ID") || undefined;
 
-    let body: { user_id?: string; cron?: boolean } = {};
+    let body: { user_id?: string; cron?: boolean; target_domain?: string } = {};
     try { body = await req.json(); } catch { /* empty body OK */ }
 
     let targetUserId: string | null = body.user_id ?? null;
@@ -192,6 +192,10 @@ Deno.serve(async (req) => {
 
     let query = admin.from("tracked_keywords").select("id,user_id,keyword,target_domain,engine,region,city").eq("is_active", true);
     if (targetUserId) query = query.eq("user_id", targetUserId);
+    if (body.target_domain) {
+      const normDomain = body.target_domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim();
+      query = query.eq("target_domain", normDomain);
+    }
     const { data: rows, error: rowsErr } = await query.limit(500);
     if (rowsErr) throw rowsErr;
 
