@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -25,6 +25,17 @@ interface Tracked {
   last_url: string | null;
   article_id?: string | null;
   project_id?: string | null;
+  created_at?: string | null;
+}
+
+interface TrackedGroup {
+  key: string;
+  keyword: string;
+  target_domain: string;
+  region: string;
+  city: string | null;
+  rows: Tracked[];
+  byEngine: Partial<Record<"google" | "yandex", Tracked>>;
 }
 
 interface HistoryPoint {
@@ -137,20 +148,44 @@ export default function RankTrackerPage() {
         .replace(/^www\./, "")
         .replace(/\/.*$/, "")
         .replace(/[?#].*$/, "");
-      const keywords = kw.split("\n").map(s => s.trim()).filter(Boolean);
+      const keywordMap = new Map<string, string>();
+      kw.split("\n").map(s => s.trim()).filter(Boolean).forEach((item) => {
+        const key = item.toLowerCase();
+        if (!keywordMap.has(key)) keywordMap.set(key, item);
+      });
+      const keywords = Array.from(keywordMap.values());
       if (keywords.length === 0 || !cleanDomain) throw new Error(isRu ? "Заполните ключи и домен" : "Fill keywords and domain");
       const engines: Array<"google" | "yandex"> = engine === "both" ? ["google", "yandex"] : [engine];
+      const cleanRegion = region.trim().toLowerCase() || "ru";
+      const cleanCity = city.trim() || null;
       const rows = keywords.flatMap(k => engines.map(eng => ({
         user_id: user!.id,
         keyword: k,
         target_domain: cleanDomain,
         engine: eng,
-        region: region.trim().toLowerCase() || "ru",
-        city: city.trim() || null,
+        region: cleanRegion,
+        city: cleanCity,
       })));
+
+      let existingQuery = supabase
+        .from("tracked_keywords")
+        .select("keyword,engine")
+        .eq("user_id", user!.id)
+        .eq("target_domain", cleanDomain)
+        .eq("region", cleanRegion)
+        .in("engine", engines);
+
+      existingQuery = cleanCity ? existingQuery.eq("city", cleanCity) : existingQuery.is("city", null);
+      const { data: existing, error: existingError } = await existingQuery;
+      if (existingError) throw existingError;
+
+      const existingKeys = new Set((existing ?? []).map((item) => `${String(item.keyword).trim().toLowerCase()}::${item.engine}`));
+      const rowsToInsert = rows.filter((item) => !existingKeys.has(`${item.keyword.trim().toLowerCase()}::${item.engine}`));
+      if (rowsToInsert.length === 0) return { inserted: 0, skipped: rows.length };
+
       const { data, error } = await supabase
         .from("tracked_keywords")
-        .upsert(rows, { onConflict: "user_id,keyword,target_domain,engine,region,city", ignoreDuplicates: true })
+        .upsert(rowsToInsert, { onConflict: "user_id,keyword,target_domain,engine,region,city", ignoreDuplicates: true })
         .select("id");
       if (error) throw error;
       const inserted = data?.length ?? 0;
@@ -168,8 +203,8 @@ export default function RankTrackerPage() {
   });
 
   const delMut = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("tracked_keywords").delete().eq("id", id);
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("tracked_keywords").delete().in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -197,6 +232,37 @@ export default function RankTrackerPage() {
 
   const filteredTracked = tracked;
 
+  const groupedTracked = useMemo<TrackedGroup[]>(() => {
+    const map = new Map<string, TrackedGroup>();
+
+    filteredTracked.forEach((item) => {
+      const key = [
+        item.keyword.trim().toLowerCase(),
+        item.target_domain.trim().toLowerCase(),
+        item.region.trim().toLowerCase(),
+        item.city?.trim().toLowerCase() ?? "",
+      ].join("::");
+      const group = map.get(key) ?? {
+        key,
+        keyword: item.keyword,
+        target_domain: item.target_domain,
+        region: item.region,
+        city: item.city,
+        rows: [],
+        byEngine: {},
+      };
+
+      group.rows.push(item);
+      const current = group.byEngine[item.engine];
+      const currentDate = current?.last_checked_at ?? current?.created_at ?? "";
+      const itemDate = item.last_checked_at ?? item.created_at ?? "";
+      if (!current || itemDate >= currentDate) group.byEngine[item.engine] = item;
+      map.set(key, group);
+    });
+
+    return Array.from(map.values());
+  }, [filteredTracked]);
+
   const historyByKw = history.reduce<Record<string, HistoryPoint[]>>((acc, p) => {
     (acc[p.tracked_keyword_id] ||= []).push(p);
     return acc;
@@ -209,6 +275,24 @@ export default function RankTrackerPage() {
     const prev = arr[arr.length - 2].position;
     if (last == null || prev == null) return { delta: null };
     return { delta: prev - last };
+  };
+
+  const renderTrend = (id?: string) => {
+    if (!id) return <Minus className="h-4 w-4 text-muted-foreground" />;
+    const trend = trendFor(id);
+    return trend.delta == null ? <Minus className="h-4 w-4 text-muted-foreground" />
+      : trend.delta > 0 ? <span className="text-emerald-500 flex items-center gap-1 text-xs"><TrendingUp className="h-3 w-3" />+{trend.delta}</span>
+      : trend.delta < 0 ? <span className="text-rose-500 flex items-center gap-1 text-xs"><TrendingDown className="h-3 w-3" />{trend.delta}</span>
+      : <Minus className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const renderPosition = (row?: Tracked) => {
+    if (!row) return <span className="text-xs text-muted-foreground">—</span>;
+    return (
+      <span className={`font-bold ${posColor(row.last_position)}`}>
+        {row.last_position == null ? (row.last_checked_at ? ">30" : "—") : `#${row.last_position}`}
+      </span>
+    );
   };
 
   return (
@@ -301,7 +385,7 @@ export default function RankTrackerPage() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-          ) : filteredTracked.length === 0 ? (
+          ) : groupedTracked.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">{isRu ? "Пока нет отслеживаемых ключей" : "No tracked keywords yet"}</p>
           ) : (
             <div className="overflow-x-auto">
@@ -310,44 +394,51 @@ export default function RankTrackerPage() {
                   <tr className="[&_th]:p-2 [&_th]:text-left">
                     <th>{isRu ? "Запрос" : "Keyword"}</th>
                     <th>{isRu ? "Домен" : "Domain"}</th>
-                    <th>{isRu ? "Поисковик" : "Engine"}</th>
-                    <th>{isRu ? "Позиция" : "Position"}</th>
+                    <th>Google</th>
+                    <th>Yandex</th>
                     <th>{isRu ? "Страница в ТОП" : "Ranking page"}</th>
-                    <th>{isRu ? "Тренд" : "Trend"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
                     <th>{isRu ? "Проверено" : "Checked"}</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
-                  {filteredTracked.map((row) => {
-                    const trend = trendFor(row.id);
-                    const sparkData = (historyByKw[row.id] ?? []).slice(-30).map(p => ({
+                  {groupedTracked.map((group) => {
+                    const google = group.byEngine.google;
+                    const yandex = group.byEngine.yandex;
+                    const latestRow = [...group.rows].sort((a, b) => {
+                      const aTime = new Date(a.last_checked_at ?? a.created_at ?? 0).getTime();
+                      const bTime = new Date(b.last_checked_at ?? b.created_at ?? 0).getTime();
+                      return bTime - aTime;
+                    })[0];
+                    const sparkData = group.rows.flatMap(row => (historyByKw[row.id] ?? []).slice(-30).map(p => ({
                       d: new Date(p.checked_at).toLocaleDateString("ru", { day: "2-digit", month: "2-digit" }),
-                      pos: p.position ?? 31,
-                    }));
+                      [row.engine]: p.position ?? 31,
+                    })));
                     return (
-                      <tr key={row.id}>
-                        <td className="font-medium">{row.keyword}</td>
-                        <td className="text-muted-foreground">{row.target_domain}</td>
-                        <td><Badge variant="outline" className="uppercase text-[10px]">{row.engine}</Badge></td>
-                        <td className={`font-bold ${posColor(row.last_position)}`}>
-                          {row.last_position == null ? (row.last_checked_at ? (isRu ? ">30" : ">30") : "—") : `#${row.last_position}`}
-                        </td>
-                        <td className="max-w-[240px]">
-                          {row.last_url ? (
-                            <a href={row.last_url} target="_blank" rel="noopener noreferrer"
-                               className="text-xs text-primary hover:underline truncate block"
-                               title={row.last_url}>
-                              {row.last_url.replace(/^https?:\/\//, "").slice(0, 50)}
-                            </a>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                      <tr key={group.key}>
+                        <td className="font-medium">{group.keyword}</td>
+                        <td className="text-muted-foreground">{group.target_domain}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            {renderPosition(google)}
+                            {renderTrend(google?.id)}
+                          </div>
                         </td>
                         <td>
-                          {trend.delta == null ? <Minus className="h-4 w-4 text-muted-foreground" />
-                            : trend.delta > 0 ? <span className="text-emerald-500 flex items-center gap-1 text-xs"><TrendingUp className="h-3 w-3" />+{trend.delta}</span>
-                            : trend.delta < 0 ? <span className="text-rose-500 flex items-center gap-1 text-xs"><TrendingDown className="h-3 w-3" />{trend.delta}</span>
-                            : <Minus className="h-4 w-4 text-muted-foreground" />}
+                          <div className="flex items-center gap-2">
+                            {renderPosition(yandex)}
+                            {renderTrend(yandex?.id)}
+                          </div>
+                        </td>
+                        <td className="max-w-[240px]">
+                          {latestRow?.last_url ? (
+                            <a href={latestRow.last_url} target="_blank" rel="noopener noreferrer"
+                               className="text-xs text-primary hover:underline truncate block"
+                               title={latestRow.last_url}>
+                              {latestRow.last_url.replace(/^https?:\/\//, "").slice(0, 50)}
+                            </a>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </td>
                         <td className="w-32 h-10">
                           {sparkData.length > 1 ? (
@@ -356,16 +447,17 @@ export default function RankTrackerPage() {
                                 <YAxis reversed domain={[1, 31]} hide />
                                 <XAxis dataKey="d" hide />
                                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} formatter={(v: number) => v === 31 ? ">30" : `#${v}`} />
-                                <Line type="monotone" dataKey="pos" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} />
+                                <Line type="monotone" dataKey="google" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} connectNulls />
+                                <Line type="monotone" dataKey="yandex" stroke="hsl(var(--destructive))" strokeWidth={1.5} dot={false} connectNulls />
                               </LineChart>
                             </ResponsiveContainer>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
                         </td>
                         <td className="text-xs text-muted-foreground">
-                          {row.last_checked_at ? new Date(row.last_checked_at).toLocaleDateString("ru") : "—"}
+                          {latestRow?.last_checked_at ? new Date(latestRow.last_checked_at).toLocaleDateString("ru") : "—"}
                         </td>
                         <td>
-                          <Button size="icon" variant="ghost" onClick={() => delMut.mutate(row.id)} disabled={isImpersonating}>
+                          <Button size="icon" variant="ghost" onClick={() => delMut.mutate(group.rows.map(row => row.id))} disabled={isImpersonating}>
                             <Trash2 className="h-4 w-4 text-rose-500" />
                           </Button>
                         </td>
