@@ -34,7 +34,7 @@ function findPosition(items: Array<{ link?: string; url?: string; position?: num
   for (let i = 0; i < items.length; i++) {
     const link = items[i].link || items[i].url || "";
     if (normalizeDomain(link).endsWith(t) || normalizeDomain(link) === t) {
-      return { pos: Number.isFinite(items[i].position) ? items[i].position! : i + 1, url: link };
+      return { pos: typeof items[i].position === "number" && Number.isFinite(items[i].position) ? items[i].position : i + 1, url: link };
     }
   }
   return { pos: null, url: null };
@@ -58,7 +58,7 @@ async function checkGoogle(serperKey: string, kw: string, region: string, city: 
   const organic = Array.isArray(data.organic)
     ? data.organic.slice(0, SEARCH_DEPTH).map((r: { link?: string; position?: number }, index: number) => ({
       link: r.link || "",
-      position: Number.isFinite(r.position) ? Number(r.position) : index + 1,
+      position: typeof r.position === "number" && Number.isFinite(r.position) ? r.position : index + 1,
     }))
     : [];
   return { results: organic };
