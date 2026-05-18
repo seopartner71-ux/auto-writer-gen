@@ -346,7 +346,8 @@ Deno.serve(async (req) => {
     const lang = String((project as any).language || "ru").toLowerCase().slice(0, 2);
     const intro = firstParagraphs(article.content || "", 2);
     const keywords: string[] = Array.isArray(article.keywords) ? article.keywords : [];
-    const platforms: ("telegraph" | "blogger")[] = ["telegraph", "blogger"];
+    // Blogger disabled — Telegra.ph only.
+    const platforms: ("telegraph")[] = ["telegraph"];
 
     const total = Math.max(1, Math.min(3, Number(count) || 1));
     const results: Array<Record<string, any>> = [];
