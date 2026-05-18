@@ -465,9 +465,15 @@ export function footerHtml(c: SiteChrome): string {
     ? `<a class="site-footer__partner" href="${escAttr(c.footerLinkUrl)}" rel="nofollow noopener">${escHtml(c.footerLinkText)}</a>`
     : "";
 
-  const unsplashCredit = c.unsplashAttribution
-    ? `<div class="site-footer__credit"><a href="https://unsplash.com" rel="nofollow noopener" target="_blank">Photos by Unsplash</a></div>`
-    : "";
+  // License-friendly credit. Prefer Pexels when PEXELS_API_KEY is configured
+  // (that's the source the factory will actually have used), otherwise Unsplash.
+  let unsplashCredit = "";
+  if (c.unsplashAttribution) {
+    const usingPexels = !!(Deno.env.get("PEXELS_API_KEY") || "").trim();
+    unsplashCredit = usingPexels
+      ? `<div class="site-footer__credit"><a href="https://www.pexels.com" rel="nofollow noopener" target="_blank">Photos by Pexels</a></div>`
+      : `<div class="site-footer__credit"><a href="https://unsplash.com" rel="nofollow noopener" target="_blank">Photos by Unsplash</a></div>`;
+  }
 
   return `<footer class="site-footer">
   <div class="site-footer__inner">
