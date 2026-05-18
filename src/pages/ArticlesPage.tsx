@@ -83,6 +83,12 @@ export default function ArticlesPage() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
   const { t, lang } = useI18n();
+  // Editor defaults to light theme for long writing sessions (better readability).
+  // Respects explicit user choice — toggling via header marks it explicit forever.
+  const { applyRouteDefault } = useTheme();
+  useEffect(() => {
+    applyRouteDefault("light");
+  }, [applyRouteDefault]);
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [aiwriterMode, setAiwriterModeState] = useState<"quick" | "expert">(() => {
     if (typeof window === "undefined") return "quick";
