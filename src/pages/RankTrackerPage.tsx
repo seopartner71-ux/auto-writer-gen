@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -25,6 +25,17 @@ interface Tracked {
   last_url: string | null;
   article_id?: string | null;
   project_id?: string | null;
+  created_at?: string | null;
+}
+
+interface TrackedGroup {
+  key: string;
+  keyword: string;
+  target_domain: string;
+  region: string;
+  city: string | null;
+  rows: Tracked[];
+  byEngine: Partial<Record<"google" | "yandex", Tracked>>;
 }
 
 interface HistoryPoint {
@@ -137,20 +148,44 @@ export default function RankTrackerPage() {
         .replace(/^www\./, "")
         .replace(/\/.*$/, "")
         .replace(/[?#].*$/, "");
-      const keywords = kw.split("\n").map(s => s.trim()).filter(Boolean);
+      const keywordMap = new Map<string, string>();
+      kw.split("\n").map(s => s.trim()).filter(Boolean).forEach((item) => {
+        const key = item.toLowerCase();
+        if (!keywordMap.has(key)) keywordMap.set(key, item);
+      });
+      const keywords = Array.from(keywordMap.values());
       if (keywords.length === 0 || !cleanDomain) throw new Error(isRu ? "Заполните ключи и домен" : "Fill keywords and domain");
       const engines: Array<"google" | "yandex"> = engine === "both" ? ["google", "yandex"] : [engine];
+      const cleanRegion = region.trim().toLowerCase() || "ru";
+      const cleanCity = city.trim() || null;
       const rows = keywords.flatMap(k => engines.map(eng => ({
         user_id: user!.id,
         keyword: k,
         target_domain: cleanDomain,
         engine: eng,
-        region: region.trim().toLowerCase() || "ru",
-        city: city.trim() || null,
+        region: cleanRegion,
+        city: cleanCity,
       })));
+
+      let existingQuery = supabase
+        .from("tracked_keywords")
+        .select("keyword,engine")
+        .eq("user_id", user!.id)
+        .eq("target_domain", cleanDomain)
+        .eq("region", cleanRegion)
+        .in("engine", engines);
+
+      existingQuery = cleanCity ? existingQuery.eq("city", cleanCity) : existingQuery.is("city", null);
+      const { data: existing, error: existingError } = await existingQuery;
+      if (existingError) throw existingError;
+
+      const existingKeys = new Set((existing ?? []).map((item) => `${String(item.keyword).trim().toLowerCase()}::${item.engine}`));
+      const rowsToInsert = rows.filter((item) => !existingKeys.has(`${item.keyword.trim().toLowerCase()}::${item.engine}`));
+      if (rowsToInsert.length === 0) return { inserted: 0, skipped: rows.length };
+
       const { data, error } = await supabase
         .from("tracked_keywords")
-        .upsert(rows, { onConflict: "user_id,keyword,target_domain,engine,region,city", ignoreDuplicates: true })
+        .upsert(rowsToInsert, { onConflict: "user_id,keyword,target_domain,engine,region,city", ignoreDuplicates: true })
         .select("id");
       if (error) throw error;
       const inserted = data?.length ?? 0;
@@ -168,8 +203,8 @@ export default function RankTrackerPage() {
   });
 
   const delMut = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("tracked_keywords").delete().eq("id", id);
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from("tracked_keywords").delete().in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
