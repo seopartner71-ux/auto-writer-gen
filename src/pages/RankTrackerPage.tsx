@@ -263,33 +263,18 @@ export default function RankTrackerPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-6">
-            <div className="md:col-span-6">
-              <Select value={projectId || "__none__"} onValueChange={(v) => {
-                if (v === "__none__") { setProjectId(""); return; }
-                setProjectId(v);
-                const p = projects.find(x => x.id === v);
-                if (p) setDomain(p.custom_domain || p.domain || "");
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isRu ? "Проект (сайт) — опционально" : "Project (site) — optional"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">{isRu ? "Без проекта" : "No project"}</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.custom_domain || p.domain ? `— ${p.custom_domain || p.domain}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Input
+              className="md:col-span-6"
+              placeholder={isRu ? "Домен сайта (example.com)" : "Site domain (example.com)"}
+              value={domain}
+              onChange={e => setDomain(e.target.value)}
+            />
             <Textarea
-              className="md:col-span-4 min-h-[90px]"
-              placeholder={isRu ? "Ключевые запросы (по одному на строку)" : "Keywords (one per line)"}
+              className="md:col-span-6 min-h-[110px]"
+              placeholder={isRu ? "Ключевые запросы (по одному на строку) - будут привязаны к домену выше" : "Keywords (one per line) - will be attached to the domain above"}
               value={kw}
               onChange={e => setKw(e.target.value)}
             />
-            <Input className="md:col-span-2" placeholder="example.com" value={domain} onChange={e => setDomain(e.target.value)} />
             <Select value={engine} onValueChange={(v) => setEngine(v as "google" | "yandex" | "both")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -299,124 +284,18 @@ export default function RankTrackerPage() {
               </SelectContent>
             </Select>
             <Input placeholder={engine === "yandex" ? "lr (213)" : "ru"} value={region} onChange={e => setRegion(e.target.value)} />
-            <Input className="md:col-span-5" placeholder={isRu ? "Город (опционально, только Google)" : "City (optional, Google only)"} value={city} onChange={e => setCity(e.target.value)} />
-            <Button onClick={() => addMut.mutate()} disabled={addMut.isPending || isImpersonating}>
+            <Input className="md:col-span-2" placeholder={isRu ? "Город (опц., Google)" : "City (opt., Google)"} value={city} onChange={e => setCity(e.target.value)} />
+            <Button className="md:col-span-1" onClick={() => addMut.mutate()} disabled={addMut.isPending || isImpersonating}>
               {addMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-2" />{isRu ? "Добавить" : "Add"}</>}
             </Button>
-            <div className="md:col-span-6">
-              <Select value={articleId || "__none__"} onValueChange={(v) => setArticleId(v === "__none__" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isRu ? "Привязать к статье (опционально)" : "Attach to article (optional)"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">{isRu ? "Без привязки" : "Not attached"}</SelectItem>
-                  {articles.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {(a.title || "—").slice(0, 80)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                {isRu
-                  ? "Привязка покажет реальный SEO-итог: дни до ТОП-10/ТОП-3 после публикации."
-                  : "Attaching reveals real SEO outcome: days-to-TOP-10/TOP-3 after publish."}
-              </p>
-            </div>
           </div>
         </CardContent>
       </Card>
-
-      {outcomes.length > 0 && (
-        <Card className="border-primary/30">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              {isRu ? "Результаты статей в SERP" : "Article SERP outcomes"}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {isRu
-                ? "Реальный ROI: за сколько дней статья вышла в ТОП-10 и ТОП-3 после публикации."
-                : "Real ROI: days from publish to TOP-10 and TOP-3."}
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground border-b border-border">
-                  <tr className="[&_th]:p-2 [&_th]:text-left">
-                    <th>{isRu ? "Статья" : "Article"}</th>
-                    <th>{isRu ? "Ключи" : "Keys"}</th>
-                    <th>{isRu ? "Лучшая" : "Best"}</th>
-                    <th>{isRu ? "Сейчас" : "Latest"}</th>
-                    <th>{isRu ? "До ТОП-10" : "To TOP-10"}</th>
-                    <th>{isRu ? "До ТОП-3" : "To TOP-3"}</th>
-                    <th>{isRu ? "Возраст" : "Age"}</th>
-                  </tr>
-                </thead>
-                <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
-                  {outcomes.map((o) => {
-                    const ageDays = daysBetween(o.article_created_at, new Date().toISOString());
-                    const top10Days = daysBetween(o.article_created_at, o.first_top10_at);
-                    const top3Days = daysBetween(o.article_created_at, o.first_top3_at);
-                    return (
-                      <tr key={o.article_id}>
-                        <td className="max-w-[280px]">
-                          {o.public_url ? (
-                            <a href={o.public_url} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline truncate block">
-                              {o.title || o.public_url}
-                            </a>
-                          ) : (
-                            <span className="font-medium">{o.title || "—"}</span>
-                          )}
-                        </td>
-                        <td className="text-muted-foreground">{o.tracked_keywords_count}</td>
-                        <td className={`font-bold ${posColor(o.best_position == null ? null : Number(o.best_position))}`}>
-                          {o.best_position == null ? "—" : `#${o.best_position}`}
-                        </td>
-                        <td className={`font-bold ${posColor(o.latest_position == null ? null : Number(o.latest_position))}`}>
-                          {o.latest_position == null ? "—" : `#${o.latest_position}`}
-                        </td>
-                        <td>
-                          {top10Days == null
-                            ? <span className="text-xs text-muted-foreground">{isRu ? "не достигнут" : "not reached"}</span>
-                            : <Badge variant="outline" className="border-yellow-500/50 text-yellow-500">{top10Days} {isRu ? "дн" : "d"}</Badge>}
-                        </td>
-                        <td>
-                          {top3Days == null
-                            ? <span className="text-xs text-muted-foreground">{isRu ? "не достигнут" : "not reached"}</span>
-                            : <Badge variant="outline" className="border-emerald-500/50 text-emerald-500">{top3Days} {isRu ? "дн" : "d"}</Badge>}
-                        </td>
-                        <td className="text-xs text-muted-foreground">{ageDays ?? "—"} {isRu ? "дн" : "d"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <CardTitle className="text-base">{isRu ? "Отслеживаемые ключи" : "Tracked keywords"}</CardTitle>
-            {projects.length > 0 && (
-              <div className="min-w-[240px]">
-                <Select value={filterProjectId || "__all__"} onValueChange={(v) => setFilterProjectId(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">{isRu ? "Все проекты" : "All projects"}</SelectItem>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
         </CardHeader>
         <CardContent>
