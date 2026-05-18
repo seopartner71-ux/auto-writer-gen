@@ -82,10 +82,7 @@ export default function RankTrackerPage() {
   const [engine, setEngine] = useState<"google" | "yandex" | "both">("both");
   const [region, setRegion] = useState("ru");
   const [city, setCity] = useState("");
-  const [articleId, setArticleId] = useState<string>("");
   const [viewUserId, setViewUserId] = useState<string>("");
-  const [projectId, setProjectId] = useState<string>("");
-  const [filterProjectId, setFilterProjectId] = useState<string>("");
 
   const effectiveUserId = isAdmin && viewUserId ? viewUserId : user?.id ?? "";
   const isImpersonating = isAdmin && !!viewUserId && viewUserId !== user?.id;
@@ -101,20 +98,6 @@ export default function RankTrackerPage() {
         .limit(2000);
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; email: string | null; full_name: string | null }>;
-    },
-  });
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ["rank-tracker-projects", effectiveUserId],
-    enabled: !!effectiveUserId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("id,name,domain,custom_domain")
-        .eq("user_id", effectiveUserId)
-        .order("name", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Array<{ id: string; name: string; domain: string | null; custom_domain: string | null }>;
     },
   });
 
@@ -147,38 +130,6 @@ export default function RankTrackerPage() {
     },
   });
 
-  // Published articles to attach a tracked keyword to.
-  const { data: articles = [] } = useQuery({
-    queryKey: ["rank-tracker-articles", effectiveUserId],
-    enabled: !!effectiveUserId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("articles")
-        .select("id,title,published_url,telegraph_url,blogger_post_url,created_at")
-        .eq("user_id", effectiveUserId)
-        .or("published_url.not.is.null,telegraph_url.not.is.null,blogger_post_url.not.is.null")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return (data ?? []) as ArticleOption[];
-    },
-  });
-
-  // Per-article SERP outcomes view.
-  const { data: outcomes = [] } = useQuery({
-    queryKey: ["serp-outcomes", effectiveUserId],
-    enabled: !!effectiveUserId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("article_serp_outcomes" as never)
-        .select("*")
-        .eq("user_id", effectiveUserId)
-        .order("article_created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as SerpOutcome[];
-    },
-  });
-
   const addMut = useMutation({
     mutationFn: async () => {
       const cleanDomain = domain.trim().toLowerCase()
@@ -196,8 +147,6 @@ export default function RankTrackerPage() {
         engine: eng,
         region: region.trim().toLowerCase() || "ru",
         city: city.trim() || null,
-        article_id: articleId || null,
-        project_id: projectId || null,
       })));
       const { data, error } = await supabase
         .from("tracked_keywords")
@@ -208,13 +157,12 @@ export default function RankTrackerPage() {
       return { inserted, skipped: rows.length - inserted };
     },
     onSuccess: ({ inserted, skipped }: { inserted: number; skipped: number }) => {
-      setKw(""); setCity(""); setArticleId("");
+      setKw(""); setCity("");
       const msg = isRu
         ? `Добавлено: ${inserted}${skipped > 0 ? `, пропущено дублей: ${skipped}` : ""}`
         : `Added: ${inserted}${skipped > 0 ? `, duplicates skipped: ${skipped}` : ""}`;
       toast.success(msg);
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
-      qc.invalidateQueries({ queryKey: ["serp-outcomes"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -227,7 +175,6 @@ export default function RankTrackerPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
       qc.invalidateQueries({ queryKey: ["rank-history"] });
-      qc.invalidateQueries({ queryKey: ["serp-outcomes"] });
     },
   });
 
@@ -248,9 +195,7 @@ export default function RankTrackerPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const filteredTracked = filterProjectId
-    ? tracked.filter(t => t.project_id === filterProjectId)
-    : tracked;
+  const filteredTracked = tracked;
 
   const historyByKw = history.reduce<Record<string, HistoryPoint[]>>((acc, p) => {
     (acc[p.tracked_keyword_id] ||= []).push(p);
