@@ -398,6 +398,7 @@ export default function RankTrackerPage() {
                     <th>Yandex</th>
                     <th>{isRu ? "Страница в ТОП" : "Ranking page"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
+                    <th>{isRu ? "Дата размещения" : "Placed on"}</th>
                     <th>{isRu ? "Проверено" : "Checked"}</th>
                     <th></th>
                   </tr>
@@ -411,6 +412,10 @@ export default function RankTrackerPage() {
                       const bTime = new Date(b.last_checked_at ?? b.created_at ?? 0).getTime();
                       return bTime - aTime;
                     })[0];
+                    const placedAt = group.rows
+                      .map(r => r.created_at)
+                      .filter(Boolean)
+                      .sort()[0];
                     const sparkData = group.rows.flatMap(row => (historyByKw[row.id] ?? []).slice(-30).map(p => ({
                       d: new Date(p.checked_at).toLocaleDateString("ru", { day: "2-digit", month: "2-digit" }),
                       [row.engine]: p.position ?? 31,
@@ -452,6 +457,9 @@ export default function RankTrackerPage() {
                               </LineChart>
                             </ResponsiveContainer>
                           ) : <span className="text-xs text-muted-foreground">—</span>}
+                        </td>
+                        <td className="text-xs text-muted-foreground">
+                          {placedAt ? new Date(placedAt).toLocaleDateString("ru") : "—"}
                         </td>
                         <td className="text-xs text-muted-foreground">
                           {latestRow?.last_checked_at ? new Date(latestRow.last_checked_at).toLocaleDateString("ru") : "—"}
