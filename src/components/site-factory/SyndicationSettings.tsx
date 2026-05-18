@@ -12,12 +12,11 @@ interface Props {
   lang: "ru" | "en";
 }
 
-type Platform = "blogger" | "telegraph";
+type Platform = "telegraph";
 
-const ALL_PLATFORMS: Platform[] = ["blogger", "telegraph"];
+const ALL_PLATFORMS: Platform[] = ["telegraph"];
 
 const LABELS: Record<Platform, string> = {
-  blogger: "Blogger",
   telegraph: "Telegra.ph",
 };
 
@@ -109,8 +108,8 @@ export function SyndicationSettings({ projectId, lang }: Props) {
 
         <p className="text-[11px] text-muted-foreground pt-1 border-t border-border">
           {lang === "ru"
-            ? "Blogger: используется ваше OAuth-подключение. Telegra.ph: публикуется без регистрации."
-            : "Blogger: uses your own OAuth connection. Telegra.ph: anonymous publishing."}
+            ? "Telegra.ph: публикуется анонимно, без регистрации."
+            : "Telegra.ph: anonymous publishing, no signup required."}
         </p>
 
         <div className="pt-3 mt-1 border-t border-border space-y-2">
@@ -118,7 +117,7 @@ export function SyndicationSettings({ projectId, lang }: Props) {
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
               <Label className="text-sm">
-                {lang === "ru" ? "Tier-2 буст (Telegraph + Blogger)" : "Tier-2 boost (Telegraph + Blogger)"}
+                {lang === "ru" ? "Tier-2 буст (Telegraph)" : "Tier-2 boost (Telegraph)"}
               </Label>
             </div>
             <Switch
@@ -129,8 +128,8 @@ export function SyndicationSettings({ projectId, lang }: Props) {
           </div>
           <p className="text-[11px] text-muted-foreground">
             {lang === "ru"
-              ? "Через 5 минут после автопубликации создаётся короткий тизер (150-220 слов) на Telegra.ph и Blogger со ссылкой на оригинал. Имитация естественного link velocity."
-              : "Five minutes after each auto-publish, a short teaser (150-220 words) is posted to Telegra.ph and Blogger linking back to the original. Mimics natural link velocity."}
+              ? "Через 5 минут после автопубликации создается короткий тизер (150-220 слов) на Telegra.ph со ссылкой на оригинал. Имитация естественного link velocity."
+              : "Five minutes after each auto-publish, a short teaser (150-220 words) is posted to Telegra.ph linking back to the original. Mimics natural link velocity."}
           </p>
           <div className="text-[11px] text-muted-foreground">
             {lang === "ru" ? "Tier-2 ссылок создано: " : "Tier-2 backlinks built: "}
