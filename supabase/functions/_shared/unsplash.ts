@@ -89,8 +89,23 @@ export async function fetchUnsplashPhotos(
   niche: string,
   count: number,
 ): Promise<UnsplashPhoto[]> {
-  if (!accessKey || count <= 0) return [];
+  if (count <= 0) return [];
   const query = nicheToUnsplashQuery(niche);
+
+  // Prefer Pexels if its API key is configured (env secret).
+  const pexelsKey = (Deno.env.get("PEXELS_API_KEY") || "").trim();
+  if (pexelsKey) {
+    const pexels = await fetchPexelsPhotos(pexelsKey, query, count);
+    if (pexels.length > 0) return pexels;
+    // Try a broader fallback query if first attempt yielded nothing.
+    const broader = query.split(/\s+/)[0] || "business";
+    if (broader && broader !== query) {
+      const retry = await fetchPexelsPhotos(pexelsKey, broader, count);
+      if (retry.length > 0) return retry;
+    }
+  }
+
+  if (!accessKey) return [];
   try {
     const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=30&orientation=landscape&content_filter=high&client_id=${encodeURIComponent(accessKey)}`;
     const res = await fetch(url, { headers: { "Accept-Version": "v1" } });
@@ -118,6 +133,53 @@ export async function fetchUnsplashPhotos(
     return photos.slice(0, count);
   } catch (e: any) {
     console.warn("[unsplash] fetch error:", e?.message);
+    return [];
+  }
+}
+
+/**
+ * Fetches up to `count` photos from Pexels for the given English query.
+ * Returned shape matches UnsplashPhoto so callers don't have to branch.
+ * Author/photo URLs point to pexels.com (license requires attribution).
+ */
+export async function fetchPexelsPhotos(
+  apiKey: string,
+  query: string,
+  count: number,
+): Promise<UnsplashPhoto[]> {
+  if (!apiKey || count <= 0 || !query) return [];
+  try {
+    const perPage = Math.min(80, Math.max(5, count * 3));
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}&orientation=landscape`;
+    const res = await fetch(url, { headers: { Authorization: apiKey } });
+    if (!res.ok) {
+      console.warn("[pexels] HTTP", res.status, await res.text().catch(() => ""));
+      return [];
+    }
+    const json = await res.json();
+    const items: any[] = Array.isArray(json?.photos) ? json.photos : [];
+    if (items.length === 0) {
+      console.warn("[pexels] no photos for query:", query);
+      return [];
+    }
+    const photos: UnsplashPhoto[] = items
+      .filter((p) => p?.src?.large || p?.src?.large2x || p?.src?.original)
+      .map((p) => ({
+        url: String(p.src.large2x || p.src.large || p.src.original),
+        thumb: String(p.src.medium || p.src.small || p.src.large || ""),
+        authorName: String(p.photographer || "Pexels"),
+        authorUrl: String(p.photographer_url || "https://www.pexels.com"),
+        photoUrl: String(p.url || "https://www.pexels.com"),
+        alt: String(p.alt || query),
+      }));
+    // Shuffle and take `count`.
+    for (let i = photos.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [photos[i], photos[j]] = [photos[j], photos[i]];
+    }
+    return photos.slice(0, count);
+  } catch (e: any) {
+    console.warn("[pexels] fetch error:", e?.message);
     return [];
   }
 }
