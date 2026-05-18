@@ -447,7 +447,7 @@ export default function RankTrackerPage() {
                           {row.last_checked_at ? new Date(row.last_checked_at).toLocaleDateString("ru") : "—"}
                         </td>
                         <td>
-                          <Button size="icon" variant="ghost" onClick={() => delMut.mutate(row.id)}>
+                          <Button size="icon" variant="ghost" onClick={() => delMut.mutate(row.id)} disabled={isImpersonating}>
                             <Trash2 className="h-4 w-4 text-rose-500" />
                           </Button>
                         </td>
