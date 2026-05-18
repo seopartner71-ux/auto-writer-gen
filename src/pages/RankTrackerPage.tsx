@@ -198,13 +198,20 @@ export default function RankTrackerPage() {
         article_id: articleId || null,
         project_id: projectId || null,
       }));
-      const { error } = await supabase.from("tracked_keywords").insert(rows);
+      const { data, error } = await supabase
+        .from("tracked_keywords")
+        .upsert(rows, { onConflict: "user_id,keyword,target_domain,engine,region,city", ignoreDuplicates: true })
+        .select("id");
       if (error) throw error;
-      return keywords.length;
+      const inserted = data?.length ?? 0;
+      return { inserted, skipped: keywords.length - inserted };
     },
-    onSuccess: (count: number) => {
+    onSuccess: ({ inserted, skipped }: { inserted: number; skipped: number }) => {
       setKw(""); setCity(""); setArticleId("");
-      toast.success(isRu ? `Добавлено ключей: ${count}` : `Added keywords: ${count}`);
+      const msg = isRu
+        ? `Добавлено: ${inserted}${skipped > 0 ? `, пропущено дублей: ${skipped}` : ""}`
+        : `Added: ${inserted}${skipped > 0 ? `, duplicates skipped: ${skipped}` : ""}`;
+      toast.success(msg);
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
       qc.invalidateQueries({ queryKey: ["serp-outcomes"] });
     },
