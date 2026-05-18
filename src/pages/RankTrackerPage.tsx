@@ -79,7 +79,7 @@ export default function RankTrackerPage() {
 
   const [kw, setKw] = useState("");
   const [domain, setDomain] = useState("");
-  const [engine, setEngine] = useState<"google" | "yandex">("google");
+  const [engine, setEngine] = useState<"google" | "yandex" | "both">("both");
   const [region, setRegion] = useState("ru");
   const [city, setCity] = useState("");
   const [articleId, setArticleId] = useState<string>("");
@@ -188,23 +188,24 @@ export default function RankTrackerPage() {
         .replace(/[?#].*$/, "");
       const keywords = kw.split("\n").map(s => s.trim()).filter(Boolean);
       if (keywords.length === 0 || !cleanDomain) throw new Error(isRu ? "Заполните ключи и домен" : "Fill keywords and domain");
-      const rows = keywords.map(k => ({
+      const engines: Array<"google" | "yandex"> = engine === "both" ? ["google", "yandex"] : [engine];
+      const rows = keywords.flatMap(k => engines.map(eng => ({
         user_id: user!.id,
         keyword: k,
         target_domain: cleanDomain,
-        engine,
+        engine: eng,
         region: region.trim().toLowerCase() || "ru",
         city: city.trim() || null,
         article_id: articleId || null,
         project_id: projectId || null,
-      }));
+      })));
       const { data, error } = await supabase
         .from("tracked_keywords")
         .upsert(rows, { onConflict: "user_id,keyword,target_domain,engine,region,city", ignoreDuplicates: true })
         .select("id");
       if (error) throw error;
       const inserted = data?.length ?? 0;
-      return { inserted, skipped: keywords.length - inserted };
+      return { inserted, skipped: rows.length - inserted };
     },
     onSuccess: ({ inserted, skipped }: { inserted: number; skipped: number }) => {
       setKw(""); setCity(""); setArticleId("");
