@@ -422,7 +422,7 @@ export default function RankTrackerPage() {
                   </tr>
                 </thead>
                 <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
-                  {groupedTracked.map((group) => {
+                  {groupedTracked.filter(g => domainFilter === "all" || g.target_domain === domainFilter).map((group) => {
                     const google = group.byEngine.google;
                     const yandex = group.byEngine.yandex;
                     const latestRow = [...group.rows].sort((a, b) => {
