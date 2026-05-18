@@ -241,7 +241,7 @@ export default function RankTrackerPage() {
     onSuccess: (d: { processed?: number; missing?: { serper: boolean; yandex: boolean } }) => {
       toast.success(isRu ? `Проверено: ${d.processed ?? 0}` : `Checked: ${d.processed ?? 0}`);
       if (d.missing?.serper) toast.warning(isRu ? "Не настроен Serper ключ - Google недоступен" : "Serper key missing - Google disabled");
-      if (d.missing?.yandex) toast.warning(isRu ? "Не настроены Yandex XML ключи" : "Yandex XML credentials missing");
+      if (d.missing?.yandex) toast.warning(isRu ? "Не настроены Yandex Cloud ключи" : "Yandex Cloud credentials missing");
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
       qc.invalidateQueries({ queryKey: ["rank-history"] });
     },
@@ -271,7 +271,7 @@ export default function RankTrackerPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">{isRu ? "Трекер позиций" : "Rank Tracker"}</h1>
-          <p className="text-sm text-muted-foreground">{isRu ? "Ежедневный мониторинг позиций в Google и Яндекс" : "Daily Google and Yandex position monitoring"}</p>
+          <p className="text-sm text-muted-foreground">{isRu ? "Ежедневный мониторинг позиций в Google и Яндекс до ТОП-30" : "Daily Google and Yandex position monitoring up to TOP-30"}</p>
         </div>
         <Button onClick={() => refreshMut.mutate()} disabled={refreshMut.isPending || tracked.length === 0 || isImpersonating}>
           {refreshMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
@@ -500,7 +500,7 @@ export default function RankTrackerPage() {
                     const trend = trendFor(row.id);
                     const sparkData = (historyByKw[row.id] ?? []).slice(-30).map(p => ({
                       d: new Date(p.checked_at).toLocaleDateString("ru", { day: "2-digit", month: "2-digit" }),
-                      pos: p.position ?? 101,
+                      pos: p.position ?? 31,
                     }));
                     return (
                       <tr key={row.id}>
@@ -508,7 +508,7 @@ export default function RankTrackerPage() {
                         <td className="text-muted-foreground">{row.target_domain}</td>
                         <td><Badge variant="outline" className="uppercase text-[10px]">{row.engine}</Badge></td>
                         <td className={`font-bold ${posColor(row.last_position)}`}>
-                          {row.last_position == null ? "—" : `#${row.last_position}`}
+                          {row.last_position == null ? (row.last_checked_at ? (isRu ? ">30" : ">30") : "—") : `#${row.last_position}`}
                         </td>
                         <td className="max-w-[240px]">
                           {row.last_url ? (
@@ -529,9 +529,9 @@ export default function RankTrackerPage() {
                           {sparkData.length > 1 ? (
                             <ResponsiveContainer width="100%" height={36}>
                               <LineChart data={sparkData}>
-                                <YAxis reversed domain={[1, 100]} hide />
+                                <YAxis reversed domain={[1, 31]} hide />
                                 <XAxis dataKey="d" hide />
-                                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} formatter={(v: number) => v === 101 ? "—" : `#${v}`} />
+                                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 11 }} formatter={(v: number) => v === 31 ? ">30" : `#${v}`} />
                                 <Line type="monotone" dataKey="pos" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} />
                               </LineChart>
                             </ResponsiveContainer>

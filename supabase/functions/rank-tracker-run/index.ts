@@ -27,23 +27,25 @@ function normalizeDomain(d: string): string {
   return d.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim();
 }
 
-function findPosition(items: Array<{ link?: string; url?: string }>, target: string): { pos: number | null; url: string | null } {
+const SEARCH_DEPTH = 30;
+
+function findPosition(items: Array<{ link?: string; url?: string; position?: number }>, target: string): { pos: number | null; url: string | null } {
   const t = normalizeDomain(target);
   for (let i = 0; i < items.length; i++) {
     const link = items[i].link || items[i].url || "";
     if (normalizeDomain(link).endsWith(t) || normalizeDomain(link) === t) {
-      return { pos: i + 1, url: link };
+      return { pos: typeof items[i].position === "number" && Number.isFinite(items[i].position) ? items[i].position : i + 1, url: link };
     }
   }
   return { pos: null, url: null };
 }
 
-async function checkGoogle(serperKey: string, kw: string, region: string, city: string | null): Promise<{ top10: Array<{ link: string }> }> {
+async function checkGoogle(serperKey: string, kw: string, region: string, city: string | null): Promise<{ results: Array<{ link: string; position: number }> }> {
   const body: Record<string, unknown> = {
     q: kw,
     gl: region.toLowerCase() || "ru",
     hl: region.toLowerCase() || "ru",
-    num: 20,
+    num: SEARCH_DEPTH,
   };
   if (city) body.location = city;
   const res = await fetch("https://google.serper.dev/search", {
@@ -53,11 +55,16 @@ async function checkGoogle(serperKey: string, kw: string, region: string, city: 
   });
   if (!res.ok) throw new Error(`Serper Google ${res.status}`);
   const data = await res.json();
-  const organic = Array.isArray(data.organic) ? data.organic.slice(0, 10).map((r: { link?: string }) => ({ link: r.link || "" })) : [];
-  return { top10: organic };
+  const organic = Array.isArray(data.organic)
+    ? data.organic.slice(0, SEARCH_DEPTH).map((r: { link?: string; position?: number }, index: number) => ({
+      link: r.link || "",
+      position: typeof r.position === "number" && Number.isFinite(r.position) ? r.position : index + 1,
+    }))
+    : [];
+  return { results: organic };
 }
 
-async function checkYandex(apiKey: string, folderId: string, kw: string, region: string): Promise<{ top10: Array<{ link: string }> }> {
+async function checkYandex(apiKey: string, folderId: string, kw: string, region: string): Promise<{ results: Array<{ link: string; position: number }> }> {
   // New Yandex Cloud Search API (synchronous). Returns base64-encoded XML in `rawData`.
   // Docs: https://yandex.cloud/ru/docs/search-api/operations/web-search
   const body = {
@@ -71,8 +78,8 @@ async function checkYandex(apiKey: string, folderId: string, kw: string, region:
     sortSpec: { sortMode: "SORT_MODE_BY_RELEVANCE" },
     groupSpec: {
       groupMode: "GROUP_MODE_DEEP",
-      groupsOnPage: "10",
-      docsInGroup: "1",
+      groupsOnPage: SEARCH_DEPTH,
+      docsInGroup: 1,
     },
     region: /^\d+$/.test(region) ? region : "213",
     l10N: "LOCALIZATION_RU",
@@ -101,8 +108,10 @@ async function checkYandex(apiKey: string, folderId: string, kw: string, region:
   } catch {
     raw = txt;
   }
-  const urls = [...raw.matchAll(/<url>([^<]+)<\/url>/g)].map(m => ({ link: m[1] })).slice(0, 10);
-  return { top10: urls };
+  const urls = [...raw.matchAll(/<url>([^<]+)<\/url>/g)]
+    .map((m, index) => ({ link: m[1], position: index + 1 }))
+    .slice(0, SEARCH_DEPTH);
+  return { results: urls };
 }
 
 async function processRow(admin: ReturnType<typeof createClient>, row: TrackedRow, keys: { serper?: string; yandexApiKey?: string; yandexFolderId?: string }) {
@@ -113,14 +122,14 @@ async function processRow(admin: ReturnType<typeof createClient>, row: TrackedRo
     if (row.engine === "google") {
       if (!keys.serper) throw new Error("Serper key missing");
       const g = await checkGoogle(keys.serper, row.keyword, row.region, row.city);
-      top10 = g.top10;
-      const found = findPosition(g.top10, row.target_domain);
+      top10 = g.results;
+      const found = findPosition(g.results, row.target_domain);
       pos = found.pos; url = found.url;
     } else {
       if (!keys.yandexApiKey || !keys.yandexFolderId) throw new Error("Yandex Cloud credentials missing");
       const y = await checkYandex(keys.yandexApiKey, keys.yandexFolderId, row.keyword, row.region);
-      top10 = y.top10;
-      const found = findPosition(y.top10, row.target_domain);
+      top10 = y.results;
+      const found = findPosition(y.results, row.target_domain);
       pos = found.pos; url = found.url;
     }
   } catch (e) {
