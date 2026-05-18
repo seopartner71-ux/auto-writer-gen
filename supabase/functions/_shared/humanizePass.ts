@@ -202,6 +202,17 @@ export async function runDoubleHumanizePass(
     out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), sonnetTimeout);
   }
 
+  // 3rd-tier fallback: if Sonnet also failed (e.g. account 402, region
+  // throttling), fall back to Llama 3.3 70B so the article still gets a
+  // micro-polish instead of skipping pass2 entirely.
+  if (!out2) {
+    console.warn("[humanize] Sonnet also failed, falling back to Llama 3.3 70B for pass2");
+    opusSkipped = true;
+    opusSkipReason = (opusSkipReason ? opusSkipReason + "+" : "") + "sonnet_failed_fallback_llama";
+    pass2Model = LLAMA_FALLBACK_MODEL;
+    out2 = await callOpenRouter(openRouterKey, LLAMA_FALLBACK_MODEL, system, PASS2_USER(language, current), 90_000);
+  }
+
   if (out2) {
     const cand2 = applyStealthPostProcess(stripCodeFences(out2), language);
     if (integrityOk(current, cand2)) {
