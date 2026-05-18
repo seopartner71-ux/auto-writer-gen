@@ -14,6 +14,9 @@ import { applyStealthPostProcess } from "./stealth.ts";
 
 const SONNET_MODEL = "anthropic/claude-sonnet-4";
 const OPUS_MODEL = "anthropic/claude-opus-4";
+// Last-resort fallback: cheap and almost free on OpenRouter, keeps the
+// humanize pipeline alive when both Anthropic models fail (402/429/timeout).
+const LLAMA_FALLBACK_MODEL = "meta-llama/llama-3.3-70b-instruct";
 
 const SYSTEM_RU = `Ты редактор-человек. Переписываешь текст так, чтобы он перестал быть похожим на ИИ.
 СТРОГО соблюдай:
