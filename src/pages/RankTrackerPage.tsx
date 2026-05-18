@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, RefreshCw, Trash2, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { LineChart, Line, ResponsiveContainer, YAxis, XAxis, Tooltip } from "recharts";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Tracked {
   id: string;
@@ -23,6 +24,7 @@ interface Tracked {
   last_position: number | null;
   last_url: string | null;
   article_id?: string | null;
+  project_id?: string | null;
 }
 
 interface HistoryPoint {
@@ -82,6 +84,8 @@ export default function RankTrackerPage() {
   const [city, setCity] = useState("");
   const [articleId, setArticleId] = useState<string>("");
   const [viewUserId, setViewUserId] = useState<string>("");
+  const [projectId, setProjectId] = useState<string>("");
+  const [filterProjectId, setFilterProjectId] = useState<string>("");
 
   const effectiveUserId = isAdmin && viewUserId ? viewUserId : user?.id ?? "";
   const isImpersonating = isAdmin && !!viewUserId && viewUserId !== user?.id;
@@ -97,6 +101,20 @@ export default function RankTrackerPage() {
         .limit(2000);
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; email: string | null; full_name: string | null }>;
+    },
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["rank-tracker-projects", effectiveUserId],
+    enabled: !!effectiveUserId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id,name,domain,custom_domain")
+        .eq("user_id", effectiveUserId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string; domain: string | null; custom_domain: string | null }>;
     },
   });
 
@@ -163,25 +181,30 @@ export default function RankTrackerPage() {
 
   const addMut = useMutation({
     mutationFn: async () => {
-      if (!kw.trim() || !domain.trim()) throw new Error(isRu ? "Заполните ключ и домен" : "Fill keyword and domain");
-      const { error } = await supabase.from("tracked_keywords").insert({
+      const cleanDomain = domain.trim().toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .replace(/\/.*$/, "")
+        .replace(/[?#].*$/, "");
+      const keywords = kw.split("\n").map(s => s.trim()).filter(Boolean);
+      if (keywords.length === 0 || !cleanDomain) throw new Error(isRu ? "Заполните ключи и домен" : "Fill keywords and domain");
+      const rows = keywords.map(k => ({
         user_id: user!.id,
-        keyword: kw.trim(),
-        target_domain: domain.trim().toLowerCase()
-          .replace(/^https?:\/\//, "")
-          .replace(/^www\./, "")
-          .replace(/\/.*$/, "")
-          .replace(/[?#].*$/, ""),
+        keyword: k,
+        target_domain: cleanDomain,
         engine,
         region: region.trim().toLowerCase() || "ru",
         city: city.trim() || null,
         article_id: articleId || null,
-      });
+        project_id: projectId || null,
+      }));
+      const { error } = await supabase.from("tracked_keywords").insert(rows);
       if (error) throw error;
+      return keywords.length;
     },
-    onSuccess: () => {
+    onSuccess: (count: number) => {
       setKw(""); setCity(""); setArticleId("");
-      toast.success(isRu ? "Ключ добавлен" : "Keyword added");
+      toast.success(isRu ? `Добавлено ключей: ${count}` : `Added keywords: ${count}`);
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
       qc.invalidateQueries({ queryKey: ["serp-outcomes"] });
     },
@@ -216,6 +239,10 @@ export default function RankTrackerPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const filteredTracked = filterProjectId
+    ? tracked.filter(t => t.project_id === filterProjectId)
+    : tracked;
 
   const historyByKw = history.reduce<Record<string, HistoryPoint[]>>((acc, p) => {
     (acc[p.tracked_keyword_id] ||= []).push(p);
@@ -283,7 +310,32 @@ export default function RankTrackerPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-6">
-            <Input className="md:col-span-2" placeholder={isRu ? "Ключевой запрос" : "Keyword"} value={kw} onChange={e => setKw(e.target.value)} />
+            <div className="md:col-span-6">
+              <Select value={projectId || "__none__"} onValueChange={(v) => {
+                if (v === "__none__") { setProjectId(""); return; }
+                setProjectId(v);
+                const p = projects.find(x => x.id === v);
+                if (p) setDomain(p.custom_domain || p.domain || "");
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isRu ? "Проект (сайт) — опционально" : "Project (site) — optional"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{isRu ? "Без проекта" : "No project"}</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} {p.custom_domain || p.domain ? `— ${p.custom_domain || p.domain}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Textarea
+              className="md:col-span-4 min-h-[90px]"
+              placeholder={isRu ? "Ключевые запросы (по одному на строку)" : "Keywords (one per line)"}
+              value={kw}
+              onChange={e => setKw(e.target.value)}
+            />
             <Input className="md:col-span-2" placeholder="example.com" value={domain} onChange={e => setDomain(e.target.value)} />
             <Select value={engine} onValueChange={(v) => setEngine(v as "google" | "yandex")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -393,11 +445,30 @@ export default function RankTrackerPage() {
       )}
 
       <Card>
-        <CardHeader><CardTitle className="text-base">{isRu ? "Отслеживаемые ключи" : "Tracked keywords"}</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle className="text-base">{isRu ? "Отслеживаемые ключи" : "Tracked keywords"}</CardTitle>
+            {projects.length > 0 && (
+              <div className="min-w-[240px]">
+                <Select value={filterProjectId || "__all__"} onValueChange={(v) => setFilterProjectId(v === "__all__" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">{isRu ? "Все проекты" : "All projects"}</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-          ) : tracked.length === 0 ? (
+          ) : filteredTracked.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">{isRu ? "Пока нет отслеживаемых ключей" : "No tracked keywords yet"}</p>
           ) : (
             <div className="overflow-x-auto">
@@ -408,6 +479,7 @@ export default function RankTrackerPage() {
                     <th>{isRu ? "Домен" : "Domain"}</th>
                     <th>{isRu ? "Поисковик" : "Engine"}</th>
                     <th>{isRu ? "Позиция" : "Position"}</th>
+                    <th>{isRu ? "Страница в ТОП" : "Ranking page"}</th>
                     <th>{isRu ? "Тренд" : "Trend"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
                     <th>{isRu ? "Проверено" : "Checked"}</th>
@@ -415,7 +487,7 @@ export default function RankTrackerPage() {
                   </tr>
                 </thead>
                 <tbody className="[&_td]:p-2 [&_tr]:border-b [&_tr]:border-border/40">
-                  {tracked.map((row) => {
+                  {filteredTracked.map((row) => {
                     const trend = trendFor(row.id);
                     const sparkData = (historyByKw[row.id] ?? []).slice(-30).map(p => ({
                       d: new Date(p.checked_at).toLocaleDateString("ru", { day: "2-digit", month: "2-digit" }),
@@ -428,6 +500,15 @@ export default function RankTrackerPage() {
                         <td><Badge variant="outline" className="uppercase text-[10px]">{row.engine}</Badge></td>
                         <td className={`font-bold ${posColor(row.last_position)}`}>
                           {row.last_position == null ? "—" : `#${row.last_position}`}
+                        </td>
+                        <td className="max-w-[240px]">
+                          {row.last_url ? (
+                            <a href={row.last_url} target="_blank" rel="noopener noreferrer"
+                               className="text-xs text-primary hover:underline truncate block"
+                               title={row.last_url}>
+                              {row.last_url.replace(/^https?:\/\//, "").slice(0, 50)}
+                            </a>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
                         </td>
                         <td>
                           {trend.delta == null ? <Minus className="h-4 w-4 text-muted-foreground" />
