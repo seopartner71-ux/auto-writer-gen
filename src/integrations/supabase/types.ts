@@ -275,6 +275,13 @@ export type Database = {
             foreignKeyName: "article_metrics_article_id_fkey"
             columns: ["article_id"]
             isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "article_metrics_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
@@ -395,6 +402,13 @@ export type Database = {
             foreignKeyName: "article_telegraph_tokens_article_id_fkey"
             columns: ["article_id"]
             isOneToOne: true
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "article_telegraph_tokens_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: true
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
@@ -442,6 +456,13 @@ export type Database = {
           word_count?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "article_versions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
           {
             foreignKeyName: "article_versions_article_id_fkey"
             columns: ["article_id"]
@@ -910,6 +931,13 @@ export type Database = {
             foreignKeyName: "bulk_job_items_article_id_fkey"
             columns: ["article_id"]
             isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "bulk_job_items_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
@@ -1078,6 +1106,13 @@ export type Database = {
           word_count?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "competitors_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
           {
             foreignKeyName: "competitors_article_id_fkey"
             columns: ["article_id"]
@@ -1539,6 +1574,13 @@ export type Database = {
             foreignKeyName: "generation_queue_article_id_fkey"
             columns: ["article_id"]
             isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "generation_queue_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
@@ -1597,6 +1639,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "indexing_logs_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
           {
             foreignKeyName: "indexing_logs_article_id_fkey"
             columns: ["article_id"]
@@ -1789,6 +1838,13 @@ export type Database = {
           question?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "paa_questions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
           {
             foreignKeyName: "paa_questions_article_id_fkey"
             columns: ["article_id"]
@@ -2585,6 +2641,13 @@ export type Database = {
             foreignKeyName: "scheduled_generations_article_id_fkey"
             columns: ["article_id"]
             isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "scheduled_generations_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
@@ -3134,6 +3197,13 @@ export type Database = {
             foreignKeyName: "tier2_backlinks_article_id_fkey"
             columns: ["article_id"]
             isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "tier2_backlinks_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
@@ -3191,6 +3261,7 @@ export type Database = {
       }
       tracked_keywords: {
         Row: {
+          article_id: string | null
           city: string | null
           created_at: string
           engine: string
@@ -3207,6 +3278,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          article_id?: string | null
           city?: string | null
           created_at?: string
           engine?: string
@@ -3223,6 +3295,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          article_id?: string | null
           city?: string | null
           created_at?: string
           engine?: string
@@ -3238,7 +3311,29 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tracked_keywords_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "tracked_keywords_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_keywords_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       usage_logs: {
         Row: {
@@ -3411,6 +3506,13 @@ export type Database = {
             foreignKeyName: "wp_scheduled_posts_article_id_fkey"
             columns: ["article_id"]
             isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "wp_scheduled_posts_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
@@ -3432,6 +3534,22 @@ export type Database = {
       }
     }
     Views: {
+      article_serp_outcomes: {
+        Row: {
+          article_created_at: string | null
+          article_id: string | null
+          best_position: number | null
+          first_top10_at: string | null
+          first_top3_at: string | null
+          last_checked_at: string | null
+          latest_position: number | null
+          public_url: string | null
+          title: string | null
+          tracked_keywords_count: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       public_articles: {
         Row: {
           author_profile_id: string | null
