@@ -2026,7 +2026,7 @@ export default function SiteFactoryPage() {
             )}
 
             {/* Custom Domain */}
-            {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && (
+            {selectedProjectId && (selectedProject?.domain || (isGitHubConfigured && repoStatus === "ready")) && (
               <div className="rounded-lg border border-border p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-primary" />
