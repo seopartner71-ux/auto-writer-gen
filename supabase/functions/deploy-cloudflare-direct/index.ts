@@ -589,6 +589,7 @@ serve(async (req) => {
           }
           if (!photo) return;
           p.featuredImageUrl = photo.url;
+          p.featuredImageAlt = photo.alt || "";
           try {
             await supabaseAdmin.from("site_image_cache").upsert({
               project_id: projectId,
