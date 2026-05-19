@@ -26,6 +26,7 @@ import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
+import { aiTranslateToPhotoQuery, fetchPexelsPhotos, fetchUnsplashPhotos, getUnsplashKey } from "../_shared/unsplash.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
