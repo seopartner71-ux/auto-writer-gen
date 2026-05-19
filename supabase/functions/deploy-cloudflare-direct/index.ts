@@ -580,25 +580,36 @@ serve(async (req) => {
           try { q = String(JSON.parse(String(row.prompt || "{}"))?.query || ""); } catch { /* ignore */ }
           if (row.image_url) cacheMap.set(String(row.slot), { url: String(row.image_url), query: q });
         }
+        // Track URLs already assigned in this deploy so different posts get
+        // distinct images whenever the pool is large enough.
+        const usedUrls = new Set<string>();
+        for (const v of cacheMap.values()) if (v?.url) usedUrls.add(v.url);
 
-        await Promise.all(posts.map(async (p: any) => {
+        // Process posts sequentially to preserve cross-post dedup.
+        for (const p of posts as any[]) {
           if (p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl)) {
             // keep user cover, but still fetch extras for inline if needed
           }
           const slot = `post_cover_${p.slug}`;
           const query = await aiTranslateToPhotoQuery(`${topic} ${p.title || ""}`.slice(0, 180));
-          // Fetch a pool of imageCount photos for cover + inline use.
-          let photos = pexelsKey ? await fetchPexelsPhotos(pexelsKey, query, imageCount) : [];
-          if (photos.length < imageCount && unsplashKey) {
-            const extra = await fetchUnsplashPhotos(unsplashKey, query, imageCount - photos.length);
-            photos = [...photos, ...extra];
+          // Fetch a larger pool so we can skip already-used photos.
+          const poolSize = Math.max(imageCount * 4, 12);
+          let pool = pexelsKey ? await fetchPexelsPhotos(pexelsKey, query, poolSize) : [];
+          if (pool.length < poolSize && unsplashKey) {
+            const extra = await fetchUnsplashPhotos(unsplashKey, query, poolSize - pool.length);
+            pool = [...pool, ...extra];
           }
-          if (photos.length === 0) return;
+          if (pool.length === 0) continue;
+          // Prefer unused photos; fall back to the full pool if we exhausted it.
+          const fresh = pool.filter((ph) => !usedUrls.has(ph.url));
+          const photos = (fresh.length >= imageCount ? fresh : [...fresh, ...pool.filter((ph) => usedUrls.has(ph.url))]).slice(0, imageCount);
           const cover = photos[0];
+          for (const ph of photos) usedUrls.add(ph.url);
           const cachedRow = cacheMap.get(slot);
           if (!p.featuredImageUrl || !/^https?:\/\//.test(p.featuredImageUrl)) {
             if (cachedRow && cachedRow.query === query) {
               p.featuredImageUrl = cachedRow.url;
+              usedUrls.add(cachedRow.url);
             } else {
               p.featuredImageUrl = cover.url;
               p.featuredImageAlt = cover.alt || "";
@@ -623,7 +634,7 @@ serve(async (req) => {
           } catch (e: any) {
             console.warn("[post-cover] cache write failed:", slot, e?.message);
           }
-        }));
+        }
       } else {
         console.warn("[post-cover] no PEXELS_API_KEY and no unsplash key — using picsum fallback");
       }
