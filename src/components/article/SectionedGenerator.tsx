@@ -323,6 +323,32 @@ export function SectionedGenerator({
       } catch (e: any) {
         toast.warning(`Quality-check ошибка: ${e?.message || e}`);
       }
+
+      // 3) Auto-redeploy the project's site (if it has ever been deployed) so
+      //    sitemap.xml + index page pick up the new article. Fire-and-forget.
+      try {
+        const { data: art } = await supabase
+          .from("articles").select("project_id").eq("id", articleId).maybeSingle();
+        const projectId = (art as any)?.project_id as string | undefined;
+        if (projectId) {
+          const { data: proj } = await supabase
+            .from("projects")
+            .select("last_deploy_at")
+            .eq("id", projectId)
+            .maybeSingle();
+          if ((proj as any)?.last_deploy_at) {
+            supabase.functions
+              .invoke("deploy-cloudflare-direct", { body: { projectId } })
+              .then(({ error }) => {
+                if (error) console.warn("[auto-redeploy] failed:", error.message);
+                else toast.success("Карта сайта обновлена");
+              })
+              .catch((e) => console.warn("[auto-redeploy] error:", e));
+          }
+        }
+      } catch (e: any) {
+        console.warn("[auto-redeploy] skipped:", e?.message);
+      }
     }
 
     onComplete?.(finalMd, h1);
