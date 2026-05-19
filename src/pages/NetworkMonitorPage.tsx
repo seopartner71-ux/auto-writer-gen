@@ -117,13 +117,17 @@ export default function NetworkMonitorPage() {
     if (!user) return;
     const { data } = await supabase
       .from("articles")
-      .select("project_id, created_at")
+      .select("project_id, created_at, status, content")
       .eq("user_id", user.id)
       .not("project_id", "is", null)
+      .in("status", ["completed", "published"])
+      .not("content", "is", null)
       .order("created_at", { ascending: false })
       .limit(5000);
     const map: Record<string, { total: number; lastAt: string | null }> = {};
     (data || []).forEach((a: any) => {
+      // Match deploy-cloudflare-direct's filter: completed/published with non-empty content.
+      if (!a.content || String(a.content).trim().length === 0) return;
       const k = a.project_id;
       if (!map[k]) map[k] = { total: 0, lastAt: a.created_at };
       map[k].total++;
