@@ -151,6 +151,78 @@ export interface UnsplashPhoto {
   alt: string;
 }
 
+function decodeUrlEntities(raw: string): string {
+  return String(raw || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&#38;/g, "&")
+    .replace(/&quot;/g, '"')
+    .trim();
+}
+
+/** Stable visual identity for stock photos, independent of size/query params. */
+export function normalizeImageKey(rawUrl: string, sourcePageUrl = ""): string {
+  const source = decodeUrlEntities(sourcePageUrl || rawUrl);
+  if (!source) return "";
+  try {
+    const u = new URL(source);
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    let path = u.pathname.toLowerCase().replace(/\/+$/g, "");
+
+    const pexelsId = path.match(/\/(?:photo|photos)\/(?:[a-z0-9-]+-)?(\d+)(?:\/|$)/i);
+    if (host.endsWith("pexels.com") && pexelsId) return `pexels:${pexelsId[1]}`;
+
+    const unsplashId = path.match(/\/(photo-[a-z0-9_-]+)/i);
+    if ((host.endsWith("unsplash.com") || host.endsWith("images.unsplash.com")) && unsplashId) {
+      return `unsplash:${unsplashId[1].replace(/^photo-/, "")}`;
+    }
+
+    path = path
+      .replace(/[-_](thumb|small|medium|large|large2x|original|regular|raw|full|\d{2,5}x\d{2,5}|w\d{2,5}|h\d{2,5})(?=\.\w+$|$)/g, "")
+      .replace(/\.(jpg|jpeg|png|webp|avif)$/i, "");
+    return `${host}${path}`;
+  } catch {
+    return source.toLowerCase().split("?")[0].split("#")[0];
+  }
+}
+
+export function hashKey(input: string): string {
+  let h = 5381;
+  for (let i = 0; i < input.length; i++) h = ((h << 5) + h + input.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+const REMOTE_IMAGE_HASH_CACHE = new Map<string, Promise<string | null>>();
+
+export async function hashImageContent(rawUrl: string): Promise<string | null> {
+  const url = decodeUrlEntities(rawUrl);
+  if (!/^https?:\/\//i.test(url)) return null;
+  const cacheKey = url.split("#")[0];
+  if (REMOTE_IMAGE_HASH_CACHE.has(cacheKey)) return REMOTE_IMAGE_HASH_CACHE.get(cacheKey)!;
+
+  const promise = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": "SEO-Module image dedupe", "Accept": "image/*" },
+      });
+      if (!res.ok) return null;
+      const type = res.headers.get("content-type") || "";
+      if (type && !type.toLowerCase().startsWith("image/")) return null;
+      const buf = await res.arrayBuffer();
+      const digest = await crypto.subtle.digest("SHA-256", buf);
+      return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+  REMOTE_IMAGE_HASH_CACHE.set(cacheKey, promise);
+  return promise;
+}
+
 /**
  * Fetches up to `count` randomized photos from Unsplash for the given niche.
  * Returns [] if the key is missing or the API fails — caller must fallback.
