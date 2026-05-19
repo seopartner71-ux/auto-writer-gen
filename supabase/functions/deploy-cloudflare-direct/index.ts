@@ -614,6 +614,34 @@ serve(async (req) => {
       console.warn("[post-cover] enrichment failed:", e?.message);
     }
 
+    // Inject one topical photo into each article body (after the first <h2>,
+    // or after the first paragraph as fallback). Uses featuredImageUrl so the
+    // inline image always matches the article topic.
+    try {
+      for (const p of posts as any[]) {
+        const img = p.featuredImageUrl;
+        if (!img || !p.contentHtml) continue;
+        if (/<img[^>]+src=/i.test(p.contentHtml)) continue; // already has an image
+        const altRaw = String(p.title || "").replace(/"/g, "&quot;");
+        const figure = `\n<figure class="article-inline-image" style="margin:1.5rem 0;text-align:center"><img src="${img}" alt="${altRaw}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:12px" /></figure>\n`;
+        const h2Match = p.contentHtml.match(/<\/h2>/i);
+        if (h2Match && typeof h2Match.index === "number") {
+          const idx = h2Match.index + h2Match[0].length;
+          p.contentHtml = p.contentHtml.slice(0, idx) + figure + p.contentHtml.slice(idx);
+          continue;
+        }
+        const pMatch = p.contentHtml.match(/<\/p>/i);
+        if (pMatch && typeof pMatch.index === "number") {
+          const idx = pMatch.index + pMatch[0].length;
+          p.contentHtml = p.contentHtml.slice(0, idx) + figure + p.contentHtml.slice(idx);
+          continue;
+        }
+        p.contentHtml = figure + p.contentHtml;
+      }
+    } catch (e: any) {
+      console.warn("[post-inline-image] failed:", e?.message);
+    }
+
     // Cloudflare credentials
     const { data: apiKeys, error: keysErr } = await supabaseAdmin
       .from("api_keys")
