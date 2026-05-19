@@ -171,10 +171,20 @@ export default function SiteFactoryPage() {
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPublishing, setBatchPublishing] = useState(false);
-  const [injectionLinks, setInjectionLinks] = useState<{ url: string; anchor: string }[]>([]);
+  type InjectionLink = {
+    url: string;
+    anchor: string;
+    /** Which pages to inject into. Default "post" (backwards-compat). */
+    target?: "post" | "home" | "all" | string;
+    /** Where on the page to inject. Default "auto" (paragraph for posts, footer otherwise). */
+    placement?: "auto" | "header" | "footer" | "before-content" | "after-content";
+  };
+  const [injectionLinks, setInjectionLinks] = useState<InjectionLink[]>([]);
   const [indexedArticleIds, setIndexedArticleIds] = useState<Set<string>>(new Set());
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkAnchor, setNewLinkAnchor] = useState("");
+  const [newLinkTarget, setNewLinkTarget] = useState<string>("post");
+  const [newLinkPlacement, setNewLinkPlacement] = useState<string>("auto");
   const [deployingVerification, setDeployingVerification] = useState(false);
   const [vercelStatus, setVercelStatus] = useState<"idle" | "checking" | "linked" | "not_linked" | "creating" | "error">("idle");
   const [vercelError, setVercelError] = useState<string>("");
@@ -2178,6 +2188,14 @@ export default function SiteFactoryPage() {
                     <span className="text-xs truncate flex-1" title={link.url}>
                       <span className="font-medium text-primary">{link.anchor}</span>
                       <span className="text-muted-foreground"> → {link.url}</span>
+                      <span className="ml-2 inline-flex gap-1">
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                          {link.target || "post"}
+                        </Badge>
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                          {link.placement || "auto"}
+                        </Badge>
+                      </span>
                     </span>
                     <Button
                       size="icon"
@@ -2195,12 +2213,12 @@ export default function SiteFactoryPage() {
                     </Button>
                   </div>
                 ))}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Input
                     value={newLinkUrl}
                     onChange={(e) => setNewLinkUrl(e.target.value)}
                     placeholder="https://example.com/page"
-                    className="flex-1 h-8 text-xs"
+                    className="flex-1 min-w-[180px] h-8 text-xs"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && newLinkUrl.trim() && newLinkAnchor.trim()) {
                         e.preventDefault();
@@ -2212,7 +2230,7 @@ export default function SiteFactoryPage() {
                     value={newLinkAnchor}
                     onChange={(e) => setNewLinkAnchor(e.target.value)}
                     placeholder={lang === "ru" ? "Анкор (текст ссылки)" : "Anchor (link text)"}
-                    className="w-40 h-8 text-xs"
+                    className="w-36 h-8 text-xs"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && newLinkUrl.trim() && newLinkAnchor.trim()) {
                         e.preventDefault();
@@ -2220,6 +2238,39 @@ export default function SiteFactoryPage() {
                       }
                     }}
                   />
+                  <Input
+                    value={newLinkTarget === "post" || newLinkTarget === "home" || newLinkTarget === "all" ? "" : newLinkTarget}
+                    onChange={(e) => setNewLinkTarget(e.target.value || "post")}
+                    placeholder={lang === "ru" ? "или /promo.html" : "or /promo.html"}
+                    className="w-32 h-8 text-xs"
+                    title={lang === "ru" ? "Путь конкретной страницы (необязательно)" : "Specific page path (optional)"}
+                  />
+                  <Select value={["post","home","all"].includes(newLinkTarget) ? newLinkTarget : "custom"} onValueChange={(v) => {
+                    if (v === "custom") setNewLinkTarget("/");
+                    else setNewLinkTarget(v);
+                  }}>
+                    <SelectTrigger className="w-28 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="post">{lang === "ru" ? "Статьи" : "Posts"}</SelectItem>
+                      <SelectItem value="home">{lang === "ru" ? "Главная" : "Home"}</SelectItem>
+                      <SelectItem value="all">{lang === "ru" ? "Все стр." : "All pages"}</SelectItem>
+                      <SelectItem value="custom">{lang === "ru" ? "Свой путь" : "Custom path"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={newLinkPlacement} onValueChange={setNewLinkPlacement}>
+                    <SelectTrigger className="w-32 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">{lang === "ru" ? "Авто" : "Auto"}</SelectItem>
+                      <SelectItem value="header">{lang === "ru" ? "Шапка" : "Header"}</SelectItem>
+                      <SelectItem value="before-content">{lang === "ru" ? "Перед контентом" : "Before content"}</SelectItem>
+                      <SelectItem value="after-content">{lang === "ru" ? "После контента" : "After content"}</SelectItem>
+                      <SelectItem value="footer">{lang === "ru" ? "Подвал" : "Footer"}</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     id="inj-add-btn-inline"
                     size="sm"
@@ -2227,10 +2278,17 @@ export default function SiteFactoryPage() {
                     className="h-8"
                     disabled={!newLinkUrl.trim() || !newLinkAnchor.trim()}
                     onClick={async () => {
-                      const updated = [...injectionLinks, { url: newLinkUrl.trim(), anchor: newLinkAnchor.trim() }];
+                      const updated: InjectionLink[] = [...injectionLinks, {
+                        url: newLinkUrl.trim(),
+                        anchor: newLinkAnchor.trim(),
+                        target: newLinkTarget.trim() || "post",
+                        placement: (newLinkPlacement as InjectionLink["placement"]) || "auto",
+                      }];
                       setInjectionLinks(updated);
                       setNewLinkUrl("");
                       setNewLinkAnchor("");
+                      setNewLinkTarget("post");
+                      setNewLinkPlacement("auto");
                       if (selectedProjectId) {
                         await supabase.from("projects").update({ injection_links: updated }).eq("id", selectedProjectId);
                         toast({ title: lang === "ru" ? "Ссылка добавлена" : "Link added" });

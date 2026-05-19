@@ -810,7 +810,16 @@ serve(async (req) => {
       termsHtml:      (project as any).site_terms || undefined,
       footerLinkUrl:  (project as any).footer_link?.url || undefined,
       footerLinkText: (project as any).footer_link?.text || undefined,
-      injectionLinks: (project as any).injection_links || undefined,
+      // Only links whose target is "post" (or omitted) AND placement is "auto"
+      // (or omitted) flow into the per-article inline injector. The remaining
+      // links are processed by the global post-build pass below.
+      injectionLinks: Array.isArray((project as any).injection_links)
+        ? ((project as any).injection_links as any[]).filter((l: any) => {
+            const t = String(l?.target || "post").toLowerCase();
+            const p = String(l?.placement || "auto").toLowerCase();
+            return t === "post" && p === "auto";
+          })
+        : undefined,
       legalAddress:   (project as any).legal_address || undefined,
       workHours:      (project as any).work_hours || undefined,
       juridicalInn:   (project as any).juridical_inn || undefined,
@@ -1249,6 +1258,127 @@ serve(async (req) => {
       console.log("[deploy-cloudflare-direct] wp-emulation applied; total files:", Object.keys(files).length);
     } catch (e) {
       console.warn("[deploy-cloudflare-direct] wp-emulation skipped:", (e as Error).message);
+    }
+
+    // ---- Extended Link Injection -------------------------------------------
+    // Inject user-configured links into ANY page of the deployed site based on
+    // per-link `target` (which pages) and `placement` (where on the page).
+    // Links with target="post" + placement="auto" were already handled inline
+    // by the per-article injector above — they are skipped here.
+    try {
+      const rawLinks = Array.isArray((project as any).injection_links)
+        ? ((project as any).injection_links as any[])
+        : [];
+      const extLinks = rawLinks
+        .map((l) => ({
+          url: String(l?.url || "").trim(),
+          anchor: String(l?.anchor || "").trim(),
+          target: String(l?.target || "post").toLowerCase(),
+          placement: String(l?.placement || "auto").toLowerCase(),
+        }))
+        .filter((l) => l.url && l.anchor && !(l.target === "post" && l.placement === "auto"));
+
+      if (extLinks.length > 0) {
+        const escHtmlAttr = (s: string) =>
+          s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const escHtmlText = (s: string) =>
+          s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+        function pageMatches(pathKey: string, target: string): boolean {
+          // pathKey is like "index.html", "posts/foo.html", "promo.html".
+          if (!pathKey.endsWith(".html")) return false;
+          if (pathKey === "404.html") return false;
+          if (target === "all") return true;
+          if (target === "post") return pathKey.startsWith("posts/");
+          if (target === "home") return pathKey === "index.html" || pathKey === "blog/index.html";
+          // Treat anything else as an explicit path. Accept "/promo.html",
+          // "promo.html", "/promo", "promo" — all map to the same file.
+          const norm = target.replace(/^\/+/, "");
+          const candidates = [norm, `${norm}.html`, `${norm}/index.html`];
+          return candidates.includes(pathKey);
+        }
+
+        function buildLinkHtml(link: { url: string; anchor: string }): string {
+          return `<a href="${escHtmlAttr(link.url)}" rel="nofollow noopener" target="_blank">${escHtmlText(link.anchor)}</a>`;
+        }
+
+        function insertAt(html: string, placement: string, snippet: string): string {
+          const block = `\n<p class="ext-injected-link" style="margin:1rem 0">${snippet}</p>\n`;
+          switch (placement) {
+            case "header": {
+              const m = html.match(/<\/h1>/i);
+              if (m && typeof m.index === "number") {
+                const idx = m.index + m[0].length;
+                return html.slice(0, idx) + block + html.slice(idx);
+              }
+              const main = html.match(/<main[^>]*>/i);
+              if (main && typeof main.index === "number") {
+                const idx = main.index + main[0].length;
+                return html.slice(0, idx) + block + html.slice(idx);
+              }
+              const body = html.match(/<body[^>]*>/i);
+              if (body && typeof body.index === "number") {
+                const idx = body.index + body[0].length;
+                return html.slice(0, idx) + block + html.slice(idx);
+              }
+              return block + html;
+            }
+            case "before-content": {
+              const m = html.match(/<(?:article|main|section)\b[^>]*>/i);
+              if (m && typeof m.index === "number") {
+                return html.slice(0, m.index) + block + html.slice(m.index);
+              }
+              return insertAt(html, "header", snippet);
+            }
+            case "after-content": {
+              const m = html.match(/<\/(?:article|main)>/i);
+              if (m && typeof m.index === "number") {
+                const idx = m.index + m[0].length;
+                return html.slice(0, idx) + block + html.slice(idx);
+              }
+              return insertAt(html, "footer", snippet);
+            }
+            case "footer": {
+              const m = html.match(/<\/footer>/i);
+              if (m && typeof m.index === "number") {
+                return html.slice(0, m.index) + block + html.slice(m.index);
+              }
+              const body = html.match(/<\/body>/i);
+              if (body && typeof body.index === "number") {
+                return html.slice(0, body.index) + block + html.slice(body.index);
+              }
+              return html + block;
+            }
+            case "auto":
+            default: {
+              // For non-post pages, "auto" defaults to footer placement.
+              return insertAt(html, "footer", snippet);
+            }
+          }
+        }
+
+        let touched = 0;
+        for (const [pathKey, content] of Object.entries(files)) {
+          if (!pathKey.endsWith(".html")) continue;
+          let html = String(content);
+          let changed = false;
+          for (const link of extLinks) {
+            if (!pageMatches(pathKey, link.target)) continue;
+            // Avoid duplicates: skip if this exact URL already linked on the page.
+            const dup = new RegExp(`<a[^>]+href=["']${link.url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']`, "i");
+            if (dup.test(html)) continue;
+            html = insertAt(html, link.placement, buildLinkHtml(link));
+            changed = true;
+          }
+          if (changed) {
+            files[pathKey] = html;
+            touched++;
+          }
+        }
+        console.log("[ext-links] injected on", touched, "page(s) from", extLinks.length, "rule(s)");
+      }
+    } catch (e: any) {
+      console.warn("[ext-links] skipped:", e?.message);
     }
 
     // ---- Heading hygiene QA (Stage 3) ---------------------------------------
