@@ -810,7 +810,16 @@ serve(async (req) => {
       termsHtml:      (project as any).site_terms || undefined,
       footerLinkUrl:  (project as any).footer_link?.url || undefined,
       footerLinkText: (project as any).footer_link?.text || undefined,
-      injectionLinks: (project as any).injection_links || undefined,
+      // Only links whose target is "post" (or omitted) AND placement is "auto"
+      // (or omitted) flow into the per-article inline injector. The remaining
+      // links are processed by the global post-build pass below.
+      injectionLinks: Array.isArray((project as any).injection_links)
+        ? ((project as any).injection_links as any[]).filter((l: any) => {
+            const t = String(l?.target || "post").toLowerCase();
+            const p = String(l?.placement || "auto").toLowerCase();
+            return t === "post" && p === "auto";
+          })
+        : undefined,
       legalAddress:   (project as any).legal_address || undefined,
       workHours:      (project as any).work_hours || undefined,
       juridicalInn:   (project as any).juridical_inn || undefined,
