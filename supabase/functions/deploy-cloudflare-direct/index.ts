@@ -603,8 +603,10 @@ serve(async (req) => {
           }
           const slot = `post_cover_${p.slug}`;
           const query = await aiTranslateToPhotoQuery(`${topic} ${p.title || ""}`.slice(0, 180));
+          // Fetch one cover plus the requested number of inline images.
+          const wantedPhotoCount = imageCount + 1;
           // Fetch a larger pool so we can skip already-used photos.
-          const poolSize = Math.max(imageCount * 4, 12);
+          const poolSize = Math.max(wantedPhotoCount * 4, 12);
           let pool = pexelsKey ? await fetchPexelsPhotos(pexelsKey, query, poolSize) : [];
           if (pool.length < poolSize && unsplashKey) {
             const extra = await fetchUnsplashPhotos(unsplashKey, query, poolSize - pool.length);
@@ -627,7 +629,7 @@ serve(async (req) => {
           const fresh = [] as typeof pool;
           const reused = [] as typeof pool;
           for (const ph of dedupedPool) (await isUsed(ph) ? reused : fresh).push(ph);
-          const photos = (fresh.length >= imageCount ? fresh : [...fresh, ...reused]).slice(0, imageCount);
+          const photos = (fresh.length >= wantedPhotoCount ? fresh : [...fresh, ...reused]).slice(0, wantedPhotoCount);
           const cover = photos[0];
           for (const ph of photos) await markUsed(ph);
           const cachedRow = cacheMap.get(slot);
@@ -700,9 +702,9 @@ serve(async (req) => {
             : "";
           return `\n<figure class="article-inline-image" style="margin:1.5rem 0;text-align:center"><img src="${escAttr(imgUrl)}" alt="${escAttr(altText)}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:12px" />${captionHtml}</figure>\n`;
         };
-        // Build list of images to inject, capped at imageCount. Do not inject
-        // the featured image here: article templates already render it as a
-        // hero/cover, so adding it again caused the visible duplicate image.
+        // Build inline images, capped at imageCount. Do not inject the featured
+        // image here: article templates already render it as a hero/cover, so
+        // adding it again caused the visible duplicate image.
         const inlineImgs: { url: string; alt: string }[] = [];
         for (const ex of (p.extraPhotos || [])) {
           if (inlineImgs.length >= imageCount) break;
