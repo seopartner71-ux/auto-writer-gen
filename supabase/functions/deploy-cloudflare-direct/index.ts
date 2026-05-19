@@ -354,6 +354,9 @@ serve(async (req) => {
     const body = await req.json();
     console.log("[deploy-cloudflare-direct] body:", JSON.stringify(body));
     const projectId: string = body.project_id;
+    const generateImages: boolean = body.generate_images !== false; // default true
+    const imageCount: number = Math.max(1, Math.min(10, Number(body.image_count) || 1));
+    console.log("[deploy-cloudflare-direct] image opts:", { generateImages, imageCount });
     if (!projectId) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -559,7 +562,9 @@ serve(async (req) => {
     try {
       const pexelsKey = (Deno.env.get("PEXELS_API_KEY") || "").trim();
       const unsplashKey = await getUnsplashKey(supabaseAdmin);
-      if (pexelsKey || unsplashKey) {
+      if (!generateImages) {
+        console.log("[post-cover] skipped — generate_images=false");
+      } else if (pexelsKey || unsplashKey) {
         // Load existing cached covers for this project's posts.
         const slotKeys = posts.map((p: any) => `post_cover_${p.slug}`);
         const { data: cached } = await supabaseAdmin
@@ -575,33 +580,42 @@ serve(async (req) => {
         }
 
         await Promise.all(posts.map(async (p: any) => {
-          if (p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl)) return;
+          if (p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl)) {
+            // keep user cover, but still fetch extras for inline if needed
+          }
           const slot = `post_cover_${p.slug}`;
           const query = await aiTranslateToPhotoQuery(p.title || "");
+          // Fetch a pool of imageCount photos for cover + inline use.
+          let photos = pexelsKey ? await fetchPexelsPhotos(pexelsKey, query, imageCount) : [];
+          if (photos.length < imageCount && unsplashKey) {
+            const extra = await fetchUnsplashPhotos(unsplashKey, query, imageCount - photos.length);
+            photos = [...photos, ...extra];
+          }
+          if (photos.length === 0) return;
+          const cover = photos[0];
           const cachedRow = cacheMap.get(slot);
-          if (cachedRow && cachedRow.query === query) {
-            p.featuredImageUrl = cachedRow.url;
-            return;
+          if (!p.featuredImageUrl || !/^https?:\/\//.test(p.featuredImageUrl)) {
+            if (cachedRow && cachedRow.query === query) {
+              p.featuredImageUrl = cachedRow.url;
+            } else {
+              p.featuredImageUrl = cover.url;
+              p.featuredImageAlt = cover.alt || "";
+            }
           }
-          let photo = pexelsKey ? (await fetchPexelsPhotos(pexelsKey, query, 1))[0] : undefined;
-          if (!photo && unsplashKey) {
-            photo = (await fetchUnsplashPhotos(unsplashKey, query, 1))[0];
-          }
-          if (!photo) return;
-          p.featuredImageUrl = photo.url;
-          p.featuredImageAlt = photo.alt || "";
+          // Extras for inline injection (beyond the cover).
+          p.extraPhotos = photos.slice(1).map((ph) => ({ url: ph.url, alt: ph.alt || "" }));
           try {
             await supabaseAdmin.from("site_image_cache").upsert({
               project_id: projectId,
               slot,
               prompt: JSON.stringify({
                 query,
-                authorName: photo.authorName,
-                authorUrl: photo.authorUrl,
-                photoUrl: photo.photoUrl,
-                alt: photo.alt,
+                authorName: cover.authorName,
+                authorUrl: cover.authorUrl,
+                photoUrl: cover.photoUrl,
+                alt: cover.alt,
               }).slice(0, 1000),
-              image_url: photo.url,
+              image_url: cover.url,
               source: "pexels",
             }, { onConflict: "project_id,slot" });
           } catch (e: any) {
@@ -615,10 +629,13 @@ serve(async (req) => {
       console.warn("[post-cover] enrichment failed:", e?.message);
     }
 
-    // Inject one topical photo into each article body (after the first <h2>,
-    // or after the first paragraph as fallback). Uses featuredImageUrl so the
-    // inline image always matches the article topic.
+    // Inject up to imageCount topical photos into each article body (cover
+    // after first <h2>, extras spread across subsequent <h2> sections). Uses
+    // featuredImageUrl + extraPhotos collected above.
     try {
+     if (!generateImages) {
+       console.log("[post-inline-image] skipped — generate_images=false");
+     } else {
       const escAttr = (s: string) =>
         String(s || "")
           .replace(/&/g, "&amp;")
@@ -631,41 +648,58 @@ serve(async (req) => {
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
       for (const p of posts as any[]) {
-        const img = p.featuredImageUrl;
-        if (!img || !p.contentHtml) continue;
+        if (!p.contentHtml) continue;
         if (/<img[^>]+src=/i.test(p.contentHtml)) continue; // already has an image
-        // Build alt: prefer article title (most topical), fall back to photo's
-        // own alt from Pexels/Unsplash, then a generic Russian label.
         const titleClean = String(p.title || "").trim();
         const photoAlt = String(p.featuredImageAlt || "").trim();
-        const altText =
-          titleClean ||
-          photoAlt ||
-          "Иллюстрация к статье";
-        // Caption: short, derived from the article title. Skip if title is
-        // empty or already appears verbatim inside the article body.
-        const captionRaw = titleClean.length > 0 ? titleClean : "";
-        const bodyText = String(p.contentHtml || "").replace(/<[^>]+>/g, " ");
-        const captionDuplicated = captionRaw &&
-          bodyText.toLowerCase().includes(captionRaw.toLowerCase());
-        const captionHtml = captionRaw && !captionDuplicated
-          ? `<figcaption style="margin-top:.5rem;font-size:.875rem;color:#6b7280;font-style:italic">${escText(captionRaw)}</figcaption>`
-          : "";
-        const figure = `\n<figure class="article-inline-image" style="margin:1.5rem 0;text-align:center"><img src="${escAttr(img)}" alt="${escAttr(altText)}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:12px" />${captionHtml}</figure>\n`;
-        const h2Match = p.contentHtml.match(/<\/h2>/i);
-        if (h2Match && typeof h2Match.index === "number") {
-          const idx = h2Match.index + h2Match[0].length;
-          p.contentHtml = p.contentHtml.slice(0, idx) + figure + p.contentHtml.slice(idx);
+        const buildFigure = (imgUrl: string, altOverride?: string, withCaption = true) => {
+          const altText = altOverride || titleClean || photoAlt || "Иллюстрация к статье";
+          const captionRaw = withCaption && titleClean.length > 0 ? titleClean : "";
+          const bodyText = String(p.contentHtml || "").replace(/<[^>]+>/g, " ");
+          const captionDup = captionRaw && bodyText.toLowerCase().includes(captionRaw.toLowerCase());
+          const captionHtml = captionRaw && !captionDup
+            ? `<figcaption style="margin-top:.5rem;font-size:.875rem;color:#6b7280;font-style:italic">${escText(captionRaw)}</figcaption>`
+            : "";
+          return `\n<figure class="article-inline-image" style="margin:1.5rem 0;text-align:center"><img src="${escAttr(imgUrl)}" alt="${escAttr(altText)}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:12px" />${captionHtml}</figure>\n`;
+        };
+        // Build list of images to inject (cover + extras), capped at imageCount.
+        const inlineImgs: { url: string; alt: string }[] = [];
+        if (p.featuredImageUrl) inlineImgs.push({ url: p.featuredImageUrl, alt: photoAlt });
+        for (const ex of (p.extraPhotos || [])) {
+          if (inlineImgs.length >= imageCount) break;
+          inlineImgs.push(ex);
+        }
+        if (inlineImgs.length === 0) continue;
+        // Find all </h2> insertion points.
+        const h2Idxs: number[] = [];
+        const h2Re = /<\/h2>/gi;
+        let m: RegExpExecArray | null;
+        while ((m = h2Re.exec(p.contentHtml)) !== null) h2Idxs.push(m.index + m[0].length);
+        // If no h2's, fall back to first </p>.
+        if (h2Idxs.length === 0) {
+          const pm = p.contentHtml.match(/<\/p>/i);
+          if (pm && typeof pm.index === "number") h2Idxs.push(pm.index + pm[0].length);
+        }
+        // If still nothing, prepend everything.
+        if (h2Idxs.length === 0) {
+          p.contentHtml = inlineImgs.map((im, i) => buildFigure(im.url, im.alt, i === 0)).join("") + p.contentHtml;
           continue;
         }
-        const pMatch = p.contentHtml.match(/<\/p>/i);
-        if (pMatch && typeof pMatch.index === "number") {
-          const idx = pMatch.index + pMatch[0].length;
-          p.contentHtml = p.contentHtml.slice(0, idx) + figure + p.contentHtml.slice(idx);
-          continue;
+        // Distribute images across available h2 points, skipping the first
+        // figure caption duplicate for subsequent ones.
+        const slots = inlineImgs.slice(0, Math.min(inlineImgs.length, h2Idxs.length));
+        // Insert from end to keep earlier indices valid.
+        const insertions: { idx: number; html: string }[] = [];
+        for (let i = 0; i < slots.length; i++) {
+          const h2Idx = h2Idxs[Math.floor((i * h2Idxs.length) / slots.length)];
+          insertions.push({ idx: h2Idx, html: buildFigure(slots[i].url, slots[i].alt, i === 0) });
         }
-        p.contentHtml = figure + p.contentHtml;
+        insertions.sort((a, b) => b.idx - a.idx);
+        for (const ins of insertions) {
+          p.contentHtml = p.contentHtml.slice(0, ins.idx) + ins.html + p.contentHtml.slice(ins.idx);
+        }
       }
+     }
     } catch (e: any) {
       console.warn("[post-inline-image] failed:", e?.message);
     }
