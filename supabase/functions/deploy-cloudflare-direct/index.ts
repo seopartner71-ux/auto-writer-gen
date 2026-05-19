@@ -594,8 +594,6 @@ serve(async (req) => {
           const contentHash = await hashImageContent(String(ph?.url || ""));
           return contentHash ? usedHashes.has(`content:${contentHash}`) : false;
         };
-        for (const v of cacheMap.values()) if (v?.url) await markUsed({ url: v.url });
-
         // Process posts sequentially to preserve cross-post dedup.
         for (const p of posts as any[]) {
           if (p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl)) {
