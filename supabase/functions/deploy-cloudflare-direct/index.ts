@@ -551,6 +551,69 @@ serve(async (req) => {
     });
     console.log("[deploy-cloudflare-direct] posts prepared:", posts.length);
 
+    // Ensure each post has a topical cover photo. If the article already has a
+    // user-set featured_image_url, keep it. Otherwise translate the title to
+    // an English visual query and pull a matching photo from Pexels (fallback
+    // Unsplash). Results are cached in `site_image_cache` per post slug so
+    // re-deploys are stable.
+    try {
+      const pexelsKey = (Deno.env.get("PEXELS_API_KEY") || "").trim();
+      const unsplashKey = await getUnsplashKey(supabaseAdmin);
+      if (pexelsKey || unsplashKey) {
+        // Load existing cached covers for this project's posts.
+        const slotKeys = posts.map((p: any) => `post_cover_${p.slug}`);
+        const { data: cached } = await supabaseAdmin
+          .from("site_image_cache")
+          .select("slot, image_url, prompt")
+          .eq("project_id", projectId)
+          .in("slot", slotKeys);
+        const cacheMap = new Map<string, { url: string; query: string }>();
+        for (const row of (cached || [])) {
+          let q = "";
+          try { q = String(JSON.parse(String(row.prompt || "{}"))?.query || ""); } catch { /* ignore */ }
+          if (row.image_url) cacheMap.set(String(row.slot), { url: String(row.image_url), query: q });
+        }
+
+        await Promise.all(posts.map(async (p: any) => {
+          if (p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl)) return;
+          const slot = `post_cover_${p.slug}`;
+          const query = await aiTranslateToPhotoQuery(p.title || "");
+          const cachedRow = cacheMap.get(slot);
+          if (cachedRow && cachedRow.query === query) {
+            p.featuredImageUrl = cachedRow.url;
+            return;
+          }
+          let photo = pexelsKey ? (await fetchPexelsPhotos(pexelsKey, query, 1))[0] : undefined;
+          if (!photo && unsplashKey) {
+            photo = (await fetchUnsplashPhotos(unsplashKey, query, 1))[0];
+          }
+          if (!photo) return;
+          p.featuredImageUrl = photo.url;
+          try {
+            await supabaseAdmin.from("site_image_cache").upsert({
+              project_id: projectId,
+              slot,
+              prompt: JSON.stringify({
+                query,
+                authorName: photo.authorName,
+                authorUrl: photo.authorUrl,
+                photoUrl: photo.photoUrl,
+                alt: photo.alt,
+              }).slice(0, 1000),
+              image_url: photo.url,
+              source: "pexels",
+            }, { onConflict: "project_id,slot" });
+          } catch (e: any) {
+            console.warn("[post-cover] cache write failed:", slot, e?.message);
+          }
+        }));
+      } else {
+        console.warn("[post-cover] no PEXELS_API_KEY and no unsplash key — using picsum fallback");
+      }
+    } catch (e: any) {
+      console.warn("[post-cover] enrichment failed:", e?.message);
+    }
+
     // Cloudflare credentials
     const { data: apiKeys, error: keysErr } = await supabaseAdmin
       .from("api_keys")
