@@ -933,7 +933,11 @@ export default function SiteFactoryPage() {
     try {
       const fnName = isDirectUploadProject ? "deploy-cloudflare-direct" : "deploy-cloudflare";
       const { data: cfData, error: cfErr } = await supabase.functions.invoke(fnName, {
-        body: { project_id: selectedProjectId },
+        body: {
+          project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
+        },
       });
       if (cfErr) throw cfErr;
 
