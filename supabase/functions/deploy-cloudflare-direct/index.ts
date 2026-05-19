@@ -472,6 +472,8 @@ serve(async (req) => {
     const siteName: string = stripHtml(rawSiteName).slice(0, 120) || "Сайт";
     const siteAbout: string = stripHtml(rawSiteAbout).slice(0, 600) || `Блог про ${topic}`;
     console.log("[deploy-cloudflare-direct] siteName:", siteName, "topic:", topic);
+    const sitePhotoQuery = await aiTranslateToPhotoQuery(`${topic} ${siteAbout}`.slice(0, 180));
+    console.log("[deploy-cloudflare-direct] sitePhotoQuery:", sitePhotoQuery);
 
     // Fetch real articles for this project (completed or published, with content)
     const { data: articles, error: articlesErr } = await supabase
@@ -584,7 +586,7 @@ serve(async (req) => {
             // keep user cover, but still fetch extras for inline if needed
           }
           const slot = `post_cover_${p.slug}`;
-          const query = await aiTranslateToPhotoQuery(p.title || "");
+          const query = await aiTranslateToPhotoQuery(`${topic} ${p.title || ""}`.slice(0, 180));
           // Fetch a pool of imageCount photos for cover + inline use.
           let photos = pexelsKey ? await fetchPexelsPhotos(pexelsKey, query, imageCount) : [];
           if (photos.length < imageCount && unsplashKey) {
