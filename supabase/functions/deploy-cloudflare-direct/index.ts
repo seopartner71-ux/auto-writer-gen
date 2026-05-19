@@ -698,14 +698,23 @@ serve(async (req) => {
           p.contentHtml = inlineImgs.map((im, i) => buildFigure(im.url, im.alt, i === 0)).join("") + p.contentHtml;
           continue;
         }
-        // Distribute images across available h2 points, skipping the first
-        // figure caption duplicate for subsequent ones.
+        // Distribute images across available h2 points. For a single image
+        // we place it in the MIDDLE of the article (middle </h2>). For more
+        // than one, we centre them around the middle so they don't pile up
+        // at the top.
         const slots = inlineImgs.slice(0, Math.min(inlineImgs.length, h2Idxs.length));
-        // Insert from end to keep earlier indices valid.
         const insertions: { idx: number; html: string }[] = [];
-        for (let i = 0; i < slots.length; i++) {
-          const h2Idx = h2Idxs[Math.floor((i * h2Idxs.length) / slots.length)];
-          insertions.push({ idx: h2Idx, html: buildFigure(slots[i].url, slots[i].alt, i === 0) });
+        if (slots.length === 1) {
+          const mid = Math.floor(h2Idxs.length / 2);
+          insertions.push({ idx: h2Idxs[mid], html: buildFigure(slots[0].url, slots[0].alt, true) });
+        } else {
+          // Spread evenly across the middle 80% of the article.
+          const startFrac = 0.1, endFrac = 0.9;
+          for (let i = 0; i < slots.length; i++) {
+            const frac = startFrac + ((endFrac - startFrac) * (i + 0.5)) / slots.length;
+            const h2Idx = h2Idxs[Math.min(h2Idxs.length - 1, Math.floor(frac * h2Idxs.length))];
+            insertions.push({ idx: h2Idx, html: buildFigure(slots[i].url, slots[i].alt, i === 0) });
+          }
         }
         insertions.sort((a, b) => b.idx - a.idx);
         for (const ins of insertions) {
