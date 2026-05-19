@@ -600,6 +600,7 @@ serve(async (req) => {
         for (const p of posts as any[]) {
           if (p.featuredImageUrl && /^https?:\/\//.test(p.featuredImageUrl)) {
             // keep user cover, but still fetch extras for inline if needed
+            await markUsed({ url: p.featuredImageUrl });
           }
           const slot = `post_cover_${p.slug}`;
           const query = await aiTranslateToPhotoQuery(`${topic} ${p.title || ""}`.slice(0, 180));
@@ -669,9 +670,8 @@ serve(async (req) => {
       console.warn("[post-cover] enrichment failed:", e?.message);
     }
 
-    // Inject up to imageCount topical photos into each article body (cover
-    // after first <h2>, extras spread across subsequent <h2> sections). Uses
-    // featuredImageUrl + extraPhotos collected above.
+    // Inject up to imageCount topical inline photos into each article body.
+    // Cover image is rendered by the article template and must not be duplicated.
     try {
      if (!generateImages) {
        console.log("[post-inline-image] skipped — generate_images=false");
