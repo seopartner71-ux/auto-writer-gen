@@ -171,10 +171,20 @@ export default function SiteFactoryPage() {
   const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchPublishing, setBatchPublishing] = useState(false);
-  const [injectionLinks, setInjectionLinks] = useState<{ url: string; anchor: string }[]>([]);
+  type InjectionLink = {
+    url: string;
+    anchor: string;
+    /** Which pages to inject into. Default "post" (backwards-compat). */
+    target?: "post" | "home" | "all" | string;
+    /** Where on the page to inject. Default "auto" (paragraph for posts, footer otherwise). */
+    placement?: "auto" | "header" | "footer" | "before-content" | "after-content";
+  };
+  const [injectionLinks, setInjectionLinks] = useState<InjectionLink[]>([]);
   const [indexedArticleIds, setIndexedArticleIds] = useState<Set<string>>(new Set());
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkAnchor, setNewLinkAnchor] = useState("");
+  const [newLinkTarget, setNewLinkTarget] = useState<string>("post");
+  const [newLinkPlacement, setNewLinkPlacement] = useState<string>("auto");
   const [deployingVerification, setDeployingVerification] = useState(false);
   const [vercelStatus, setVercelStatus] = useState<"idle" | "checking" | "linked" | "not_linked" | "creating" | "error">("idle");
   const [vercelError, setVercelError] = useState<string>("");
