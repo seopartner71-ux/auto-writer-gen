@@ -700,9 +700,10 @@ serve(async (req) => {
             : "";
           return `\n<figure class="article-inline-image" style="margin:1.5rem 0;text-align:center"><img src="${escAttr(imgUrl)}" alt="${escAttr(altText)}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:12px" />${captionHtml}</figure>\n`;
         };
-        // Build list of images to inject (cover + extras), capped at imageCount.
+        // Build list of images to inject, capped at imageCount. Do not inject
+        // the featured image here: article templates already render it as a
+        // hero/cover, so adding it again caused the visible duplicate image.
         const inlineImgs: { url: string; alt: string }[] = [];
-        if (p.featuredImageUrl) inlineImgs.push({ url: p.featuredImageUrl, alt: photoAlt });
         for (const ex of (p.extraPhotos || [])) {
           if (inlineImgs.length >= imageCount) break;
           inlineImgs.push(ex);
