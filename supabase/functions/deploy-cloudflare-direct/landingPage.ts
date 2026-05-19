@@ -844,11 +844,6 @@ export async function ensureLandingImages(
     console.warn("[landingPage.images] cache read failed:", e?.message);
   }
 
-  if (!falKey) {
-    console.log("[landingPage.images] no FAL key, skipping generation, will fallback to Unsplash");
-    return out;
-  }
-
   // Prompts must be English/ASCII. For Russian niches the caller passes a
   // translated photoQuery; otherwise Flux falls back to generic "business".
   const niche = asciiOnly(input.photoQuery || input.niche || "business", 80) || "business";
@@ -863,6 +858,11 @@ export async function ensureLandingImages(
         if (row?.source === "fal" && /\bbusiness\b/.test(prompt) && !prompt.includes(expectedCacheKey)) delete out[slot];
       } catch { /* keep cache on read errors */ }
     }
+  }
+
+  if (!falKey) {
+    console.log("[landingPage.images] no FAL key, skipping generation, will fallback to Unsplash");
+    return out;
   }
   const region = asciiOnly(input.region || "", 60);
   const audience = asciiOnly(input.audience || "", 80);
