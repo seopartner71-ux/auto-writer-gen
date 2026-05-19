@@ -6,6 +6,16 @@
 const NICHE_TRANSLATIONS: Record<string, string> = {
   // Russian niche → English Unsplash query
   "цветы": "flowers bouquet",
+  "цветок": "flowers bouquet",
+  "букет": "flower bouquet",
+  "розы": "roses garden",
+  "роза": "roses garden",
+  "кустовые розы": "rose bush garden",
+  "пионы": "peonies flowers",
+  "тюльпаны": "tulips flowers",
+  "сад": "garden plants",
+  "огород": "vegetable garden",
+  "растения": "plants greenery",
   "минитрактор": "mini tractor farm",
   "минитрактора": "mini tractor farm",
   "трактор": "tractor farm",
@@ -55,6 +65,67 @@ export function nicheToUnsplashQuery(raw: string): string {
   if (!isCyrillic(niche)) return niche.slice(0, 80);
   // Last resort: strip cyrillic, fallback to "business"
   return "business";
+}
+
+// In-memory cache for AI translations within a single function invocation.
+const AI_QUERY_CACHE = new Map<string, string>();
+
+/**
+ * Uses Lovable AI (Gemini Flash Lite via OpenRouter) to extract 2-3 English
+ * keywords suitable for a Pexels/Unsplash photo query from a Russian title or
+ * niche string. Falls back to the dictionary mapping on any failure.
+ */
+export async function aiTranslateToPhotoQuery(raw: string): Promise<string> {
+  const input = String(raw || "").trim();
+  if (!input) return "business";
+  // If it's already English / no cyrillic, just clean and return.
+  if (!isCyrillic(input)) {
+    const dict = nicheToUnsplashQuery(input);
+    return dict;
+  }
+  const cacheKey = input.toLowerCase().slice(0, 200);
+  if (AI_QUERY_CACHE.has(cacheKey)) return AI_QUERY_CACHE.get(cacheKey)!;
+
+  const apiKey = (Deno.env.get("OPENROUTER_API_KEY") || "").trim();
+  if (!apiKey) return nicheToUnsplashQuery(input);
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You convert a Russian topic/title into a SHORT English photo search query (2-4 concrete visual keywords). Output ONLY the keywords separated by spaces. No quotes, no punctuation, no explanation. Focus on the visible subject (object, place, activity), not abstract words.",
+          },
+          { role: "user", content: input.slice(0, 200) },
+        ],
+        temperature: 0.2,
+        max_tokens: 24,
+      }),
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      console.warn("[photo-query] AI HTTP", res.status);
+      return nicheToUnsplashQuery(input);
+    }
+    const data = await res.json();
+    let q = String(data?.choices?.[0]?.message?.content || "").trim();
+    q = q.replace(/["'`.,!?:;()]+/g, " ").replace(/\s{2,}/g, " ").trim().toLowerCase();
+    if (!q || isCyrillic(q)) return nicheToUnsplashQuery(input);
+    q = q.split(/\s+/).slice(0, 5).join(" ").slice(0, 80);
+    AI_QUERY_CACHE.set(cacheKey, q);
+    return q;
+  } catch (e: any) {
+    console.warn("[photo-query] AI error:", e?.message);
+    return nicheToUnsplashQuery(input);
+  }
 }
 
 export async function getUnsplashKey(admin: any): Promise<string | null> {

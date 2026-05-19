@@ -1017,7 +1017,7 @@ export async function ensureSiteIcon(
 
 // ----------------------------- AI Content Generation -------------------------
 
-import { fetchUnsplashPhotos, getUnsplashKey, nicheToUnsplashQuery, type UnsplashPhoto } from "../_shared/unsplash.ts";
+import { fetchUnsplashPhotos, getUnsplashKey, nicheToUnsplashQuery, aiTranslateToPhotoQuery, type UnsplashPhoto } from "../_shared/unsplash.ts";
 
 /**
  * Fills any missing landing image slots (hero/why/guarantee/about/post_*)
@@ -1037,14 +1037,16 @@ export async function ensureUnsplashImages(
 
   // Build the topical query per slot. Post slots must match the article topic,
   // NOT the generic site niche — otherwise blog cards show unrelated photos.
-  const queryForSlot = (slot: string): string => {
+  // Use AI translation for Russian inputs so arbitrary titles map to real
+  // visual keywords instead of falling back to "business".
+  const queryForSlot = async (slot: string): Promise<string> => {
     const m = slot.match(/^post_(\d+)$/);
     if (m) {
       const idx = parseInt(m[1], 10) - 1;
       const title = String(postTitles[idx] || "").trim();
-      if (title) return nicheToUnsplashQuery(title);
+      if (title) return await aiTranslateToPhotoQuery(title);
     }
-    return nicheToUnsplashQuery(niche);
+    return await aiTranslateToPhotoQuery(niche);
   };
 
   // Load cached attributions and detect stale post_* entries whose cached
@@ -1062,7 +1064,7 @@ export async function ensureUnsplashImages(
       let meta: any = null;
       try { meta = JSON.parse(String(row.prompt)); } catch { /* ignore */ }
       if (!meta) continue;
-      const expectedQuery = queryForSlot(String(row.slot));
+      const expectedQuery = await queryForSlot(String(row.slot));
       const cachedQuery = String(meta.query || "");
       // If we have a stored query and it differs from the current expected one,
       // mark the slot as stale so we refetch a topical photo.
@@ -1096,7 +1098,7 @@ export async function ensureUnsplashImages(
   // distinct photos for each slot in that group.
   const byQuery = new Map<string, string[]>();
   for (const slot of missing) {
-    const q = queryForSlot(slot);
+    const q = await queryForSlot(slot);
     const arr = byQuery.get(q) || [];
     arr.push(slot);
     byQuery.set(q, arr);
