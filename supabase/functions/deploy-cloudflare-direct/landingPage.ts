@@ -755,6 +755,8 @@ export function pickSkin(key: string): number {
 /** Slots we generate via FAL.ai (with team_1..3 added dynamically). */
 export interface ImageGenInput {
   niche: string;
+  /** English visual keywords already resolved from the original niche. */
+  photoQuery?: string;
   region?: string;
   audience?: string;
   team: { name: string; role: string; bio: string }[];
@@ -842,14 +844,26 @@ export async function ensureLandingImages(
     console.warn("[landingPage.images] cache read failed:", e?.message);
   }
 
+  // Prompts must be English/ASCII. For Russian niches the caller passes a
+  // translated photoQuery; otherwise Flux falls back to generic "business".
+  const niche = asciiOnly(input.photoQuery || input.niche || "business", 80) || "business";
+  const originalNiche = String(input.niche || "").trim().toLowerCase();
+  const expectedCacheKey = asciiOnly(input.photoQuery || input.niche || "business", 80).toLowerCase();
+  for (const [slot, url] of Object.entries({ ...out })) {
+    const isPrimary = /^(hero|why|guarantee|about|post_\d+)$/.test(slot);
+    if (isPrimary && originalNiche && /[\u0400-\u04FF]/.test(originalNiche) && expectedCacheKey && expectedCacheKey !== "business") {
+      try {
+        const { data: row } = await admin.from("site_image_cache").select("prompt, source").eq("project_id", projectId).eq("slot", slot).maybeSingle();
+        const prompt = String(row?.prompt || "").toLowerCase();
+        if (row?.source === "fal" && /\bbusiness\b/.test(prompt) && !prompt.includes(expectedCacheKey)) delete out[slot];
+      } catch { /* keep cache on read errors */ }
+    }
+  }
+
   if (!falKey) {
     console.log("[landingPage.images] no FAL key, skipping generation, will fallback to Unsplash");
     return out;
   }
-
-  // Sanitize: prompts must be ASCII only — Flux bakes Cyrillic letters as
-  // garbled glyphs directly into the photo otherwise.
-  const niche = asciiOnly(input.niche || "business", 80) || "business";
   const region = asciiOnly(input.region || "", 60);
   const audience = asciiOnly(input.audience || "", 80);
   const ctxLine = [niche, region && `in ${region}`, audience && `for ${audience}`]

@@ -472,6 +472,8 @@ serve(async (req) => {
     const siteName: string = stripHtml(rawSiteName).slice(0, 120) || "Сайт";
     const siteAbout: string = stripHtml(rawSiteAbout).slice(0, 600) || `Блог про ${topic}`;
     console.log("[deploy-cloudflare-direct] siteName:", siteName, "topic:", topic);
+    const sitePhotoQuery = await aiTranslateToPhotoQuery(`${topic} ${siteAbout}`.slice(0, 180));
+    console.log("[deploy-cloudflare-direct] sitePhotoQuery:", sitePhotoQuery);
 
     // Fetch real articles for this project (completed or published, with content)
     const { data: articles, error: articlesErr } = await supabase
@@ -584,7 +586,7 @@ serve(async (req) => {
             // keep user cover, but still fetch extras for inline if needed
           }
           const slot = `post_cover_${p.slug}`;
-          const query = await aiTranslateToPhotoQuery(p.title || "");
+          const query = await aiTranslateToPhotoQuery(`${topic} ${p.title || ""}`.slice(0, 180));
           // Fetch a pool of imageCount photos for cover + inline use.
           let photos = pexelsKey ? await fetchPexelsPhotos(pexelsKey, query, imageCount) : [];
           if (photos.length < imageCount && unsplashKey) {
@@ -955,6 +957,7 @@ serve(async (req) => {
           supabaseAdmin, projectId, falKey,
           {
             niche: topic,
+            photoQuery: sitePhotoQuery,
             region: String(body.region || (project as any).region || ""),
             audience: String(body.audience || ""),
             team: tplContent.team || [],
@@ -966,7 +969,7 @@ serve(async (req) => {
         let unsplashAttribution = false;
         {
           const r = await ensureUnsplashImages(
-            supabaseAdmin, projectId, topic, generatedImages,
+            supabaseAdmin, projectId, sitePhotoQuery || topic, generatedImages,
             posts.slice(0, 3).map((p: any) => String(p.title || "")),
           );
           unsplashAttribution = r.attributions.length > 0;
@@ -1169,6 +1172,7 @@ serve(async (req) => {
         falKey,
         {
           niche: topic,
+          photoQuery: sitePhotoQuery,
           region: String(body.region || (project as any).region || ""),
           audience: String(body.audience || ""),
           team: landingContent.team || [],
@@ -1179,7 +1183,7 @@ serve(async (req) => {
       let landingUnsplashAttribution = false;
       {
         const r = await ensureUnsplashImages(
-          supabaseAdmin, projectId, topic, generatedImages,
+          supabaseAdmin, projectId, sitePhotoQuery || topic, generatedImages,
           posts.slice(0, 3).map((p: any) => String(p.title || "")),
         );
         landingUnsplashAttribution = r.attributions.length > 0;
