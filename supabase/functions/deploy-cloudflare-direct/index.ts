@@ -354,6 +354,9 @@ serve(async (req) => {
     const body = await req.json();
     console.log("[deploy-cloudflare-direct] body:", JSON.stringify(body));
     const projectId: string = body.project_id;
+    const generateImages: boolean = body.generate_images !== false; // default true
+    const imageCount: number = Math.max(1, Math.min(10, Number(body.image_count) || 1));
+    console.log("[deploy-cloudflare-direct] image opts:", { generateImages, imageCount });
     if (!projectId) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
