@@ -589,6 +589,7 @@ serve(async (req) => {
           }
           if (!photo) return;
           p.featuredImageUrl = photo.url;
+          p.featuredImageAlt = photo.alt || "";
           try {
             await supabaseAdmin.from("site_image_cache").upsert({
               project_id: projectId,
@@ -618,12 +619,39 @@ serve(async (req) => {
     // or after the first paragraph as fallback). Uses featuredImageUrl so the
     // inline image always matches the article topic.
     try {
+      const escAttr = (s: string) =>
+        String(s || "")
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      const escText = (s: string) =>
+        String(s || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
       for (const p of posts as any[]) {
         const img = p.featuredImageUrl;
         if (!img || !p.contentHtml) continue;
         if (/<img[^>]+src=/i.test(p.contentHtml)) continue; // already has an image
-        const altRaw = String(p.title || "").replace(/"/g, "&quot;");
-        const figure = `\n<figure class="article-inline-image" style="margin:1.5rem 0;text-align:center"><img src="${img}" alt="${altRaw}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:12px" /></figure>\n`;
+        // Build alt: prefer article title (most topical), fall back to photo's
+        // own alt from Pexels/Unsplash, then a generic Russian label.
+        const titleClean = String(p.title || "").trim();
+        const photoAlt = String(p.featuredImageAlt || "").trim();
+        const altText =
+          titleClean ||
+          photoAlt ||
+          "Иллюстрация к статье";
+        // Caption: short, derived from the article title. Skip if title is
+        // empty or already appears verbatim inside the article body.
+        const captionRaw = titleClean.length > 0 ? titleClean : "";
+        const bodyText = String(p.contentHtml || "").replace(/<[^>]+>/g, " ");
+        const captionDuplicated = captionRaw &&
+          bodyText.toLowerCase().includes(captionRaw.toLowerCase());
+        const captionHtml = captionRaw && !captionDuplicated
+          ? `<figcaption style="margin-top:.5rem;font-size:.875rem;color:#6b7280;font-style:italic">${escText(captionRaw)}</figcaption>`
+          : "";
+        const figure = `\n<figure class="article-inline-image" style="margin:1.5rem 0;text-align:center"><img src="${escAttr(img)}" alt="${escAttr(altText)}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:12px" />${captionHtml}</figure>\n`;
         const h2Match = p.contentHtml.match(/<\/h2>/i);
         if (h2Match && typeof h2Match.index === "number") {
           const idx = h2Match.index + h2Match[0].length;
