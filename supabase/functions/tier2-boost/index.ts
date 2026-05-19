@@ -140,10 +140,13 @@ SOURCE INTRO: ${sourceIntro}`;
     }
     const data = await res.json();
     const raw = data?.choices?.[0]?.message?.content || "";
-    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const parsed = typeof raw === "string" ? safeParseTeaser(raw) : raw;
     const title = String(parsed?.title || "").trim();
     const intro = String(parsed?.body || "").trim();
-    if (!title || !intro) return null;
+    if (!title || !intro) {
+      console.error("[tier2] parse empty. raw head:", String(raw).slice(0, 300));
+      return null;
+    }
     return {
       title,
       intro,
@@ -156,6 +159,39 @@ SOURCE INTRO: ${sourceIntro}`;
     console.error("[tier2] generate failed", e?.message);
     return null;
   }
+}
+
+// Tolerant JSON parser: strips code fences, extracts the first {...} block,
+// fixes common LLM mistakes (smart quotes, unescaped newlines/quotes in body),
+// and as a last resort regex-extracts title/body fields.
+function safeParseTeaser(raw: string): { title?: string; body?: string } | null {
+  let s = String(raw || "").trim();
+  // Strip ```json ... ``` fences.
+  s = s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  // Extract first {...} block.
+  const start = s.indexOf("{");
+  const end = s.lastIndexOf("}");
+  if (start >= 0 && end > start) s = s.slice(start, end + 1);
+  // Normalize smart quotes.
+  s = s.replace(/[\u201C\u201D\u201E\u201F]/g, '"').replace(/[\u2018\u2019\u201A\u201B]/g, "'");
+  // First try as-is.
+  try { return JSON.parse(s); } catch { /* fall through */ }
+  // Try escaping bare newlines inside string values.
+  try {
+    const fixed = s.replace(/("(?:[^"\\]|\\.)*")|\n|\r/g, (m, str) => str ? str : "\\n");
+    return JSON.parse(fixed);
+  } catch { /* fall through */ }
+  // Last resort: regex-extract title and body.
+  const titleMatch = s.match(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  const bodyMatch = s.match(/"body"\s*:\s*"([\s\S]*?)"\s*[},]/);
+  if (titleMatch || bodyMatch) {
+    const unesc = (x: string) => x.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    return {
+      title: titleMatch ? unesc(titleMatch[1]) : "",
+      body: bodyMatch ? unesc(bodyMatch[1]) : "",
+    };
+  }
+  return null;
 }
 
 function buildTeaserMarkdown(intro: string, anchor: string, url: string, lang: string): string {
