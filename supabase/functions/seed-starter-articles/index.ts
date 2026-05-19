@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 import { getSiteLangMeta, normalizeSiteLang, type SiteLanguageCode } from "../_shared/siteLanguages.ts";
+import { aiTranslateToPhotoQuery } from "../_shared/unsplash.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,8 +33,9 @@ async function generateHeroImage(falKey: string, topic: string, title: string, o
     // image prompt — Flux will try to render them as garbled letters baked
     // into the picture. We use only the topic as a generic English hint and
     // explicitly forbid any text/letters/captions in the output.
-    const safeTopic = String(topic || "business").replace(/[^\x20-\x7E]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "business";
-    const prompt = `Professional editorial photograph related to ${safeTopic}. Realistic business style, natural lighting, shallow depth of field, magazine quality, 16:9 composition. ABSOLUTELY NO TEXT, no letters, no words, no captions, no signs, no logos, no watermarks, no typography, no writing of any kind anywhere in the image.`;
+    const visualQuery = await aiTranslateToPhotoQuery(`${topic} ${title}`.slice(0, 180));
+    const safeTopic = String(visualQuery || topic || "business").replace(/[^\x20-\x7E]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "business";
+    const prompt = `Professional editorial photograph directly showing ${safeTopic}. Realistic, natural lighting, shallow depth of field, magazine quality, 16:9 composition. ABSOLUTELY NO TEXT, no letters, no words, no captions, no signs, no logos, no watermarks, no typography, no writing of any kind anywhere in the image.`;
     const res = await fetch("https://fal.run/fal-ai/flux/schnell", {
       method: "POST",
       headers: { Authorization: `Key ${falKey}`, "Content-Type": "application/json" },
