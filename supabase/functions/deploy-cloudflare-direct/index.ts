@@ -455,12 +455,31 @@ serve(async (req) => {
         .replace(/&quot;/gi, '"')
         .replace(/\s+/g, " ")
         .trim();
-    // Topic must be a SHORT niche keyword, not a long welcome paragraph from site_about.
-    // Prefer explicit body.topic > project.name > first short sentence of site_about.
+    // Topic must be a SHORT niche keyword, not a brand/domain and not a long
+    // welcome paragraph. Prefer explicit body.topic > site_about > article
+    // titles; project.name is only a last resort because it is often the brand.
     const firstClause = (s: string) => stripHtml(s).split(/[.!?\n«»]/)[0]?.trim() || "";
+    const articleTopicSeed = (await supabaseAdmin
+      .from("articles")
+      .select("title, keywords")
+      .eq("project_id", projectId)
+      .eq("user_id", user.id)
+      .in("status", ["completed", "published"])
+      .order("created_at", { ascending: false })
+      .limit(3)
+    ).data || [];
+    const firstArticleKeywords = articleTopicSeed
+      .flatMap((a: any) => Array.isArray(a?.keywords) ? a.keywords : [])
+      .map((k: any) => String(k || "").trim())
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(" ");
+    const firstArticleTitles = articleTopicSeed.map((a: any) => String(a?.title || "").trim()).filter(Boolean).join(" ");
     const rawTopic = body.topic
-      || project.name
       || firstClause(project.site_about || "")
+      || firstArticleKeywords
+      || firstArticleTitles
+      || project.name
       || "блог";
     const rawSiteName = body.site_name || project.site_name || project.name || "Сайт";
     const rawSiteAbout = body.site_about || project.site_about || `Блог про ${rawTopic}`;
@@ -472,7 +491,7 @@ serve(async (req) => {
     const siteName: string = stripHtml(rawSiteName).slice(0, 120) || "Сайт";
     const siteAbout: string = stripHtml(rawSiteAbout).slice(0, 600) || `Блог про ${topic}`;
     console.log("[deploy-cloudflare-direct] siteName:", siteName, "topic:", topic);
-    const sitePhotoQuery = await aiTranslateToPhotoQuery(`${topic} ${siteAbout}`.slice(0, 180));
+    const sitePhotoQuery = await aiTranslateToPhotoQuery(`${topic} ${firstArticleKeywords} ${firstArticleTitles}`.slice(0, 220));
     console.log("[deploy-cloudflare-direct] sitePhotoQuery:", sitePhotoQuery);
 
     // Fetch real articles for this project (completed or published, with content)
