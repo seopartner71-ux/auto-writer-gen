@@ -161,6 +161,7 @@ export default function SiteFactoryPage() {
   const [customDomain, setCustomDomain] = useState("");
   const [showDnsHelper, setShowDnsHelper] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
+  const [nsServers, setNsServers] = useState<string[]>([]);
   const [editingArticle, setEditingArticle] = useState<QueueArticle | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
@@ -2067,12 +2068,28 @@ export default function SiteFactoryPage() {
                       setSavingDomain(true);
                       try {
                         const domain = customDomain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
-                        await supabase.from("projects").update({ custom_domain: domain || null }).eq("id", selectedProjectId);
+                        setNsServers([]);
+                        const { data, error } = await supabase.functions.invoke("cloudflare-bind-domain", {
+                          body: { project_id: selectedProjectId, domain },
+                        });
+                        if (error || (data as any)?.error) {
+                          // Fallback: still save the domain locally so user keeps the value
+                          await supabase.from("projects").update({ custom_domain: domain || null }).eq("id", selectedProjectId);
+                          throw new Error((data as any)?.error || error?.message || "Bind failed");
+                        }
                         setCustomDomain(domain);
-                        // Reload projects
+                        const ns: string[] = (data as any)?.name_servers || [];
+                        setNsServers(ns);
                         const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
                         if (updated) setProjects(updated as ProjectRow[]);
-                        toast({ title: lang === "ru" ? "Домен сохранен" : "Domain saved" });
+                        toast({
+                          title: lang === "ru" ? "Домен привязан" : "Domain bound",
+                          description: ns.length
+                            ? (lang === "ru"
+                                ? `Пропишите NS у регистратора: ${ns.join(", ")}`
+                                : `Set NS at your registrar: ${ns.join(", ")}`)
+                            : undefined,
+                        });
                         setShowDnsHelper(true);
                       } catch (err: any) {
                         toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
@@ -2089,6 +2106,34 @@ export default function SiteFactoryPage() {
                   const dns = DNS_CONFIGS[hostingPlatform] || DNS_CONFIGS.vercel;
                   return (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3 text-sm">
+                    {nsServers.length > 0 && (
+                      <div className="rounded-md border border-green-500/30 bg-green-500/10 p-3 space-y-2">
+                        <p className="font-medium text-green-400">
+                          {lang === "ru"
+                            ? "Домен привязан! Пропишите NS-серверы у регистратора:"
+                            : "Domain bound! Set these NS at your registrar:"}
+                        </p>
+                        <ul className="space-y-1">
+                          {nsServers.map((ns, i) => (
+                            <li key={ns} className="flex items-center gap-2 font-mono text-xs">
+                              <span className="text-muted-foreground">NS{i + 1}:</span>
+                              <span className="text-primary">{ns}</span>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(ns); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }}
+                                className="text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-[11px] text-muted-foreground">
+                          {lang === "ru"
+                            ? "Сайт заработает через 30 минут - 24 часа после смены NS."
+                            : "Site will be live in 30 min - 24h after NS propagation."}
+                        </p>
+                      </div>
+                    )}
                     <p className="font-medium text-primary">
                       {lang === "ru"
                         ? `DNS-записи для ${platformLabel}:`
