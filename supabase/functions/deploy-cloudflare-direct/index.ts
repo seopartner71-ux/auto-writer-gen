@@ -1439,6 +1439,50 @@ serve(async (req) => {
       console.warn("[ext-links] skipped:", e?.message);
     }
 
+    // ---- Cookie consent banner (GDPR/152-ФЗ friendly) -----------------------
+    // Injected on EVERY generated .html page right before </body>. Pure HTML +
+    // inline CSS + tiny vanilla JS, no external requests. Consent is stored
+    // in localStorage so the banner disappears after the user accepts.
+    try {
+      const cookieTexts = lang === "ru"
+        ? {
+            msg: "Мы используем файлы cookie для корректной работы сайта и анализа посещаемости. Продолжая использовать сайт, вы соглашаетесь с обработкой cookie.",
+            accept: "Принять",
+            decline: "Отклонить",
+          }
+        : {
+            msg: "We use cookies to make the site work properly and to analyse traffic. By continuing to use this site, you agree to our use of cookies.",
+            accept: "Accept",
+            decline: "Decline",
+          };
+      const cookieHtml = `
+<div id="cookie-consent" role="dialog" aria-live="polite" aria-label="${lang === "ru" ? "Уведомление о cookie" : "Cookie notice"}" style="position:fixed;left:16px;right:16px;bottom:16px;max-width:880px;margin:0 auto;background:rgba(15,23,42,0.96);color:#f8fafc;padding:14px 18px;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.35);font:14px/1.5 system-ui,-apple-system,sans-serif;z-index:2147483646;display:none;backdrop-filter:blur(8px)">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between">
+    <span style="flex:1 1 280px;min-width:240px">${cookieTexts.msg}</span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" id="cookie-decline" style="background:transparent;color:#cbd5e1;border:1px solid rgba(203,213,225,.4);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">${cookieTexts.decline}</button>
+      <button type="button" id="cookie-accept" style="background:${accent};color:#fff;border:0;padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px">${cookieTexts.accept}</button>
+    </div>
+  </div>
+</div>
+<script>(function(){try{var k='cc_consent_v1';if(localStorage.getItem(k))return;var el=document.getElementById('cookie-consent');if(!el)return;el.style.display='block';function set(v){try{localStorage.setItem(k,v);}catch(e){}el.style.display='none';}document.getElementById('cookie-accept').addEventListener('click',function(){set('accept');});document.getElementById('cookie-decline').addEventListener('click',function(){set('decline');});}catch(e){}})();</script>`;
+      let ccTouched = 0;
+      for (const [pathKey, content] of Object.entries(files)) {
+        if (!pathKey.endsWith(".html")) continue;
+        const html = String(content);
+        if (html.includes('id="cookie-consent"')) continue;
+        if (/<\/body>/i.test(html)) {
+          files[pathKey] = html.replace(/<\/body>/i, `${cookieHtml}\n</body>`);
+        } else {
+          files[pathKey] = html + cookieHtml;
+        }
+        ccTouched++;
+      }
+      console.log("[cookie-banner] injected on", ccTouched, "page(s)");
+    } catch (e: any) {
+      console.warn("[cookie-banner] skipped:", e?.message);
+    }
+
     // ---- Heading hygiene QA (Stage 3) ---------------------------------------
     // Catch SEO-damaging structural mistakes in templates BEFORE the bundle is
     // shipped to Cloudflare Pages: missing/multiple <h1>, broken h1->h3 jumps,
