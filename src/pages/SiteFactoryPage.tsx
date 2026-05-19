@@ -2068,12 +2068,28 @@ export default function SiteFactoryPage() {
                       setSavingDomain(true);
                       try {
                         const domain = customDomain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
-                        await supabase.from("projects").update({ custom_domain: domain || null }).eq("id", selectedProjectId);
+                        setNsServers([]);
+                        const { data, error } = await supabase.functions.invoke("cloudflare-bind-domain", {
+                          body: { project_id: selectedProjectId, domain },
+                        });
+                        if (error || (data as any)?.error) {
+                          // Fallback: still save the domain locally so user keeps the value
+                          await supabase.from("projects").update({ custom_domain: domain || null }).eq("id", selectedProjectId);
+                          throw new Error((data as any)?.error || error?.message || "Bind failed");
+                        }
                         setCustomDomain(domain);
-                        // Reload projects
+                        const ns: string[] = (data as any)?.name_servers || [];
+                        setNsServers(ns);
                         const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
                         if (updated) setProjects(updated as ProjectRow[]);
-                        toast({ title: lang === "ru" ? "Домен сохранен" : "Domain saved" });
+                        toast({
+                          title: lang === "ru" ? "Домен привязан" : "Domain bound",
+                          description: ns.length
+                            ? (lang === "ru"
+                                ? `Пропишите NS у регистратора: ${ns.join(", ")}`
+                                : `Set NS at your registrar: ${ns.join(", ")}`)
+                            : undefined,
+                        });
                         setShowDnsHelper(true);
                       } catch (err: any) {
                         toast({ title: lang === "ru" ? "Ошибка" : "Error", description: err?.message, variant: "destructive" });
