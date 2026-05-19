@@ -26,7 +26,7 @@ import { applyAntiFingerprint } from "./antiFingerprint.ts";
 import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
-import { aiTranslateToPhotoQuery, fetchPexelsPhotos, fetchUnsplashPhotos, getUnsplashKey } from "../_shared/unsplash.ts";
+import { aiTranslateToPhotoQuery, fetchPexelsPhotos, fetchUnsplashPhotos, getUnsplashKey, hashImageContent, hashKey, normalizeImageKey } from "../_shared/unsplash.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -580,47 +580,21 @@ serve(async (req) => {
           try { q = String(JSON.parse(String(row.prompt || "{}"))?.query || ""); } catch { /* ignore */ }
           if (row.image_url) cacheMap.set(String(row.slot), { url: String(row.image_url), query: q });
         }
-        // Track image identity already assigned in this deploy so different
-        // posts get visually distinct photos even when the URLs differ by
-        // size/query params (Pexels/Unsplash often serve the same photo at
-        // multiple resolutions, e.g. ?w=1260 vs ?w=640).
-        const normalizeImageKey = (raw: string): string => {
-          const s = String(raw || "").trim();
-          if (!s) return "";
-          try {
-            const u = new URL(s);
-            const host = u.hostname.toLowerCase().replace(/^www\./, "");
-            let path = u.pathname.toLowerCase();
-            // Pexels: /photos/<id>/pexels-photo-<id>.jpeg — collapse to /photos/<id>
-            const pexelsId = path.match(/\/photos\/(\d+)/);
-            if (host.endsWith("pexels.com") && pexelsId) path = `/photos/${pexelsId[1]}`;
-            // Unsplash: /photo-<id>?... — collapse to /photo-<id>
-            const unsplashId = path.match(/\/(photo-[a-z0-9-]+)/);
-            if (host.endsWith("unsplash.com") && unsplashId) path = `/${unsplashId[1]}`;
-            // Strip common size/format suffixes from filename.
-            path = path.replace(/[-_](thumb|small|medium|large|large2x|original|\d{2,5}x\d{2,5}|w\d{2,5}|h\d{2,5})(?=\.\w+$|$)/g, "");
-            return `${host}${path}`;
-          } catch {
-            // Fallback: lowercase + drop query/fragment.
-            return s.toLowerCase().split("?")[0].split("#")[0];
-          }
-        };
-        // djb2 hash for compact comparison/logging.
-        const hashKey = (s: string): string => {
-          let h = 5381;
-          for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-          return (h >>> 0).toString(36);
-        };
         const usedHashes = new Set<string>();
-        const markUsed = (url: string) => {
-          const k = normalizeImageKey(url);
+        const identityFor = (ph: { url?: string; photoUrl?: string }) => normalizeImageKey(String(ph?.url || ""), String(ph?.photoUrl || ""));
+        const markUsed = async (ph: { url?: string; photoUrl?: string }) => {
+          const k = identityFor(ph);
           if (k) usedHashes.add(hashKey(k));
+          const contentHash = await hashImageContent(String(ph?.url || ""));
+          if (contentHash) usedHashes.add(`content:${contentHash}`);
         };
-        const isUsed = (url: string) => {
-          const k = normalizeImageKey(url);
-          return k ? usedHashes.has(hashKey(k)) : false;
+        const isUsed = async (ph: { url?: string; photoUrl?: string }) => {
+          const k = identityFor(ph);
+          if (k && usedHashes.has(hashKey(k))) return true;
+          const contentHash = await hashImageContent(String(ph?.url || ""));
+          return contentHash ? usedHashes.has(`content:${contentHash}`) : false;
         };
-        for (const v of cacheMap.values()) if (v?.url) markUsed(v.url);
+        for (const v of cacheMap.values()) if (v?.url) await markUsed({ url: v.url });
 
         // Process posts sequentially to preserve cross-post dedup.
         for (const p of posts as any[]) {
@@ -641,21 +615,26 @@ serve(async (req) => {
           // Dedup pool itself first (same photo can appear from Pexels+Unsplash
           // or as different sizes within a single provider response).
           const seenInPool = new Set<string>();
-          const dedupedPool = pool.filter((ph) => {
-            const k = hashKey(normalizeImageKey(ph.url));
-            if (!k || seenInPool.has(k)) return false;
-            seenInPool.add(k);
-            return true;
-          });
-          const fresh = dedupedPool.filter((ph) => !isUsed(ph.url));
-          const photos = (fresh.length >= imageCount ? fresh : [...fresh, ...dedupedPool.filter((ph) => isUsed(ph.url))]).slice(0, imageCount);
+          const dedupedPool = [] as typeof pool;
+          for (const ph of pool) {
+            const semanticHash = hashKey(identityFor(ph));
+            const contentHash = await hashImageContent(ph.url);
+            const keys = [semanticHash, contentHash ? `content:${contentHash}` : ""].filter(Boolean);
+            if (keys.length === 0 || keys.some((k) => seenInPool.has(k))) continue;
+            keys.forEach((k) => seenInPool.add(k));
+            dedupedPool.push(ph);
+          }
+          const fresh = [] as typeof pool;
+          const reused = [] as typeof pool;
+          for (const ph of dedupedPool) (await isUsed(ph) ? reused : fresh).push(ph);
+          const photos = (fresh.length >= imageCount ? fresh : [...fresh, ...reused]).slice(0, imageCount);
           const cover = photos[0];
-          for (const ph of photos) markUsed(ph.url);
+          for (const ph of photos) await markUsed(ph);
           const cachedRow = cacheMap.get(slot);
           if (!p.featuredImageUrl || !/^https?:\/\//.test(p.featuredImageUrl)) {
-            if (cachedRow && cachedRow.query === query) {
+            if (cachedRow && cachedRow.query === query && !(await isUsed({ url: cachedRow.url }))) {
               p.featuredImageUrl = cachedRow.url;
-              markUsed(cachedRow.url);
+              await markUsed({ url: cachedRow.url });
             } else {
               p.featuredImageUrl = cover.url;
               p.featuredImageAlt = cover.alt || "";
