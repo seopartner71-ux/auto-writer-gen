@@ -957,6 +957,7 @@ serve(async (req) => {
           supabaseAdmin, projectId, falKey,
           {
             niche: topic,
+            photoQuery: sitePhotoQuery,
             region: String(body.region || (project as any).region || ""),
             audience: String(body.audience || ""),
             team: tplContent.team || [],
@@ -968,7 +969,7 @@ serve(async (req) => {
         let unsplashAttribution = false;
         {
           const r = await ensureUnsplashImages(
-            supabaseAdmin, projectId, topic, generatedImages,
+            supabaseAdmin, projectId, sitePhotoQuery || topic, generatedImages,
             posts.slice(0, 3).map((p: any) => String(p.title || "")),
           );
           unsplashAttribution = r.attributions.length > 0;
@@ -1171,6 +1172,7 @@ serve(async (req) => {
         falKey,
         {
           niche: topic,
+          photoQuery: sitePhotoQuery,
           region: String(body.region || (project as any).region || ""),
           audience: String(body.audience || ""),
           team: landingContent.team || [],
@@ -1181,7 +1183,7 @@ serve(async (req) => {
       let landingUnsplashAttribution = false;
       {
         const r = await ensureUnsplashImages(
-          supabaseAdmin, projectId, topic, generatedImages,
+          supabaseAdmin, projectId, sitePhotoQuery || topic, generatedImages,
           posts.slice(0, 3).map((p: any) => String(p.title || "")),
         );
         landingUnsplashAttribution = r.attributions.length > 0;
