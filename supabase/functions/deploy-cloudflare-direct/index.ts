@@ -1579,6 +1579,19 @@ serve(async (req) => {
       }
       files[`${inKey}.txt`] = inKey;
     }
+    // Short-circuit for build_only callers (e.g. deploy-github-pages).
+    if (buildOnly) {
+      console.log("[deploy-cloudflare-direct] build_only: returning", Object.keys(files).length, "files");
+      return new Response(JSON.stringify({
+        success: true,
+        build_only: true,
+        files,
+        domain,
+        site_name: siteName,
+        topic,
+        template: templateKey,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const manifest: Record<string, string> = {};
     const fileByHash: Record<string, { path: string; content: string }> = {};
     for (const [path, content] of Object.entries(files)) {
