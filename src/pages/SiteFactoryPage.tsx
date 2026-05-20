@@ -1659,6 +1659,54 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
+            {/* GitHub Pages one-click deploy */}
+            {selectedProjectId && hostingPlatform === "github_pages" && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {cfDeploying ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Github className="h-4 w-4 text-primary shrink-0" />}
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {cfDeploying
+                        ? (lang === "ru" ? "Деплой на GitHub Pages..." : "Deploying to GitHub Pages...")
+                        : (lang === "ru" ? "GitHub Pages готов к деплою" : "GitHub Pages ready to deploy")}
+                    </span>
+                    {selectedProject?.domain && (
+                      <a
+                        href={selectedProject.domain.startsWith("http") ? selectedProject.domain : `https://${selectedProject.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:text-primary"
+                      >
+                        <ExternalLink className="h-3 w-3" /> {selectedProject.domain.replace(/^https?:\/\//, "")}
+                      </a>
+                    )}
+                    {!selectedProject?.has_github_token && (
+                      <span className="text-xs text-amber-400 mt-0.5">
+                        {lang === "ru"
+                          ? "Нужен GitHub Personal Access Token (Settings → GitHub, права: repo)"
+                          : "GitHub Personal Access Token required (Settings → GitHub, scope: repo)"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={triggerGitHubPages}
+                  disabled={cfDeploying || !selectedProject?.has_github_token}
+                  className="shrink-0"
+                >
+                  {cfDeploying ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {lang === "ru" ? "Деплой..." : "Deploying..."}</>
+                  ) : selectedProject?.domain ? (
+                    <><Zap className="h-3 w-3 mr-1" /> {lang === "ru" ? "Обновить" : "Redeploy"}</>
+                  ) : (
+                    <><Rocket className="h-3 w-3 mr-1" /> {lang === "ru" ? "Задеплоить" : "Deploy"}</>
+                  )}
+                </Button>
+              </div>
+            )}
+
             {/* Netlify placeholder */}
             {selectedProjectId && isGitHubConfigured && repoStatus === "ready" && hostingPlatform === "netlify" && (
               <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-400 flex items-center gap-2">
