@@ -986,6 +986,57 @@ export default function SiteFactoryPage() {
     }
   };
 
+  // Deploy the same static site bundle to GitHub Pages (new repo per project).
+  const triggerGitHubPages = async () => {
+    if (hostingPlatform !== "github_pages" || !selectedProjectId) return;
+    setCfDeploying(true);
+    addDeployLog("publishing", lang === "ru" ? "Запуск деплоя на GitHub Pages..." : "Triggering GitHub Pages deploy...");
+    try {
+      const { data, error } = await supabase.functions.invoke("deploy-github-pages", {
+        body: {
+          project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
+        },
+      });
+      if (error) throw error;
+      if (data?.error === "github_token_missing") {
+        addDeployLog("error", `GitHub Pages: ${data.message}`);
+        toast({
+          title: lang === "ru" ? "Нужен GitHub токен" : "GitHub token required",
+          description: data.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (data?.error) {
+        addDeployLog("error", `GitHub Pages: ${data.message || data.error}`);
+        toast({ title: "GitHub Pages Error", description: data.message || data.error, variant: "destructive" });
+        return;
+      }
+      if (data?.url && selectedProjectId) {
+        const newDomain = `${data.url.replace(/^https?:\/\//, "").replace(/\/+$/, "")}/blog`;
+        await supabase.from("projects").update({ domain: newDomain }).eq("id", selectedProjectId);
+        setProjects((prev) => prev.map((p) => p.id === selectedProjectId ? { ...p, domain: newDomain, github_repo: data.repo || p.github_repo } : p));
+      }
+      const msg = data?.message || (lang === "ru" ? "Деплой запущен" : "Deploy triggered");
+      addDeployLog("success", `GitHub Pages: ${msg}`);
+      toast({ title: "GitHub Pages", description: msg });
+    } catch (err: any) {
+      addDeployLog("error", `GitHub Pages: ${err?.message || String(err)}`);
+      toast({ title: "GitHub Pages Error", description: err?.message || String(err), variant: "destructive" });
+    } finally {
+      setCfDeploying(false);
+    }
+  };
+
+  // Unified entrypoint — dispatches by selected hosting platform. All places
+  // that previously called triggerCloudflare should call this instead.
+  const triggerStaticDeploy = async () => {
+    if (hostingPlatform === "github_pages") return triggerGitHubPages();
+    return triggerCloudflare();
+  };
+
   const handlePublish = async (article: QueueArticle) => {
     if (!selectedProjectId || !article.content) return;
     setPublishing(article.id);
