@@ -1034,7 +1034,7 @@ export default function SiteFactoryPage() {
   // that previously called triggerCloudflare should call this instead.
   const triggerStaticDeploy = async () => {
     if (hostingPlatform === "github_pages") return triggerGitHubPages();
-    return triggerStaticDeploy();
+    return triggerCloudflare();
   };
 
   const handlePublish = async (article: QueueArticle) => {
