@@ -913,7 +913,7 @@ export default function SiteFactoryPage() {
                 ? "Все статьи готовы — автоматический деплой на Cloudflare Pages..."
                 : "All articles ready — auto-deploying to Cloudflare Pages...",
             );
-            triggerCloudflare();
+            triggerStaticDeploy();
           }
         });
       }
@@ -1034,7 +1034,7 @@ export default function SiteFactoryPage() {
   // that previously called triggerCloudflare should call this instead.
   const triggerStaticDeploy = async () => {
     if (hostingPlatform === "github_pages") return triggerGitHubPages();
-    return triggerCloudflare();
+    return triggerStaticDeploy();
   };
 
   const handlePublish = async (article: QueueArticle) => {
@@ -1057,7 +1057,7 @@ export default function SiteFactoryPage() {
           title: lang === "ru" ? "Статья опубликована!" : "Article published!",
           description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
         });
-        await triggerCloudflare();
+        await triggerStaticDeploy();
         return;
       }
       const { data, error } = await supabase.functions.invoke("publish-github", {
@@ -1090,7 +1090,7 @@ export default function SiteFactoryPage() {
         )
       );
       // Trigger Cloudflare deploy if applicable
-      await triggerCloudflare();
+      await triggerStaticDeploy();
     } catch (err: any) {
       addDeployLog("error", err?.message || String(err));
       toast({
@@ -1180,7 +1180,7 @@ export default function SiteFactoryPage() {
           title: lang === "ru" ? `Опубликовано ${ids.length} статей` : `Published ${ids.length} articles`,
           description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
         });
-        await triggerCloudflare();
+        await triggerStaticDeploy();
         return;
       }
       const { data, error } = await supabase.functions.invoke("publish-github", {
@@ -1213,7 +1213,7 @@ export default function SiteFactoryPage() {
       );
       setSelectedIds(new Set());
       // Trigger Cloudflare deploy if applicable
-      await triggerCloudflare();
+      await triggerStaticDeploy();
     } catch (err: any) {
       addDeployLog("error", err?.message || String(err));
       toast({
