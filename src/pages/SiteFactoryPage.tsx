@@ -913,7 +913,7 @@ export default function SiteFactoryPage() {
                 ? "Все статьи готовы — автоматический деплой на Cloudflare Pages..."
                 : "All articles ready — auto-deploying to Cloudflare Pages...",
             );
-            triggerCloudflare();
+            triggerStaticDeploy();
           }
         });
       }
@@ -986,6 +986,57 @@ export default function SiteFactoryPage() {
     }
   };
 
+  // Deploy the same static site bundle to GitHub Pages (new repo per project).
+  const triggerGitHubPages = async () => {
+    if (hostingPlatform !== "github_pages" || !selectedProjectId) return;
+    setCfDeploying(true);
+    addDeployLog("publishing", lang === "ru" ? "Запуск деплоя на GitHub Pages..." : "Triggering GitHub Pages deploy...");
+    try {
+      const { data, error } = await supabase.functions.invoke("deploy-github-pages", {
+        body: {
+          project_id: selectedProjectId,
+          generate_images: generateImages,
+          image_count: imageCount,
+        },
+      });
+      if (error) throw error;
+      if (data?.error === "github_token_missing") {
+        addDeployLog("error", `GitHub Pages: ${data.message}`);
+        toast({
+          title: lang === "ru" ? "Нужен GitHub токен" : "GitHub token required",
+          description: data.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (data?.error) {
+        addDeployLog("error", `GitHub Pages: ${data.message || data.error}`);
+        toast({ title: "GitHub Pages Error", description: data.message || data.error, variant: "destructive" });
+        return;
+      }
+      if (data?.url && selectedProjectId) {
+        const newDomain = `${data.url.replace(/^https?:\/\//, "").replace(/\/+$/, "")}/blog`;
+        await supabase.from("projects").update({ domain: newDomain }).eq("id", selectedProjectId);
+        setProjects((prev) => prev.map((p) => p.id === selectedProjectId ? { ...p, domain: newDomain, github_repo: data.repo || p.github_repo } : p));
+      }
+      const msg = data?.message || (lang === "ru" ? "Деплой запущен" : "Deploy triggered");
+      addDeployLog("success", `GitHub Pages: ${msg}`);
+      toast({ title: "GitHub Pages", description: msg });
+    } catch (err: any) {
+      addDeployLog("error", `GitHub Pages: ${err?.message || String(err)}`);
+      toast({ title: "GitHub Pages Error", description: err?.message || String(err), variant: "destructive" });
+    } finally {
+      setCfDeploying(false);
+    }
+  };
+
+  // Unified entrypoint — dispatches by selected hosting platform. All places
+  // that previously called triggerCloudflare should call this instead.
+  const triggerStaticDeploy = async () => {
+    if (hostingPlatform === "github_pages") return triggerGitHubPages();
+    return triggerCloudflare();
+  };
+
   const handlePublish = async (article: QueueArticle) => {
     if (!selectedProjectId || !article.content) return;
     setPublishing(article.id);
@@ -1006,7 +1057,7 @@ export default function SiteFactoryPage() {
           title: lang === "ru" ? "Статья опубликована!" : "Article published!",
           description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
         });
-        await triggerCloudflare();
+        await triggerStaticDeploy();
         return;
       }
       const { data, error } = await supabase.functions.invoke("publish-github", {
@@ -1039,7 +1090,7 @@ export default function SiteFactoryPage() {
         )
       );
       // Trigger Cloudflare deploy if applicable
-      await triggerCloudflare();
+      await triggerStaticDeploy();
     } catch (err: any) {
       addDeployLog("error", err?.message || String(err));
       toast({
@@ -1129,7 +1180,7 @@ export default function SiteFactoryPage() {
           title: lang === "ru" ? `Опубликовано ${ids.length} статей` : `Published ${ids.length} articles`,
           description: lang === "ru" ? "Запускаю деплой на Cloudflare Pages..." : "Deploying to Cloudflare Pages...",
         });
-        await triggerCloudflare();
+        await triggerStaticDeploy();
         return;
       }
       const { data, error } = await supabase.functions.invoke("publish-github", {
@@ -1162,7 +1213,7 @@ export default function SiteFactoryPage() {
       );
       setSelectedIds(new Set());
       // Trigger Cloudflare deploy if applicable
-      await triggerCloudflare();
+      await triggerStaticDeploy();
     } catch (err: any) {
       addDeployLog("error", err?.message || String(err));
       toast({
@@ -1595,6 +1646,54 @@ export default function SiteFactoryPage() {
                   variant="outline"
                   onClick={triggerCloudflare}
                   disabled={cfDeploying}
+                  className="shrink-0"
+                >
+                  {cfDeploying ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {lang === "ru" ? "Деплой..." : "Deploying..."}</>
+                  ) : selectedProject?.domain ? (
+                    <><Zap className="h-3 w-3 mr-1" /> {lang === "ru" ? "Обновить" : "Redeploy"}</>
+                  ) : (
+                    <><Rocket className="h-3 w-3 mr-1" /> {lang === "ru" ? "Задеплоить" : "Deploy"}</>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* GitHub Pages one-click deploy */}
+            {selectedProjectId && hostingPlatform === "github_pages" && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {cfDeploying ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Github className="h-4 w-4 text-primary shrink-0" />}
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {cfDeploying
+                        ? (lang === "ru" ? "Деплой на GitHub Pages..." : "Deploying to GitHub Pages...")
+                        : (lang === "ru" ? "GitHub Pages готов к деплою" : "GitHub Pages ready to deploy")}
+                    </span>
+                    {selectedProject?.domain && (
+                      <a
+                        href={selectedProject.domain.startsWith("http") ? selectedProject.domain : `https://${selectedProject.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground inline-flex items-center gap-1 hover:text-primary"
+                      >
+                        <ExternalLink className="h-3 w-3" /> {selectedProject.domain.replace(/^https?:\/\//, "")}
+                      </a>
+                    )}
+                    {!selectedProject?.has_github_token && (
+                      <span className="text-xs text-amber-400 mt-0.5">
+                        {lang === "ru"
+                          ? "Нужен GitHub Personal Access Token (Settings → GitHub, права: repo)"
+                          : "GitHub Personal Access Token required (Settings → GitHub, scope: repo)"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={triggerGitHubPages}
+                  disabled={cfDeploying || !selectedProject?.has_github_token}
                   className="shrink-0"
                 >
                   {cfDeploying ? (
