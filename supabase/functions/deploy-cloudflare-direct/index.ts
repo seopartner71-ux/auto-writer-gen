@@ -356,7 +356,15 @@ serve(async (req) => {
     const projectId: string = body.project_id;
     const generateImages: boolean = body.generate_images !== false; // default true
     const imageCount: number = Math.max(1, Math.min(10, Number(body.image_count) || 1));
-    console.log("[deploy-cloudflare-direct] image opts:", { generateImages, imageCount });
+    // build_only mode: render the site files and short-circuit BEFORE any
+    // Cloudflare API calls. Used by deploy-github-pages (and possibly other
+    // hosting backends) to reuse the same site renderer without deploying
+    // to Cloudflare.
+    const buildOnly: boolean = body.build_only === true;
+    const domainOverride: string | undefined = typeof body.domain_override === "string" && body.domain_override.trim()
+      ? body.domain_override.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "")
+      : undefined;
+    console.log("[deploy-cloudflare-direct] image opts:", { generateImages, imageCount, buildOnly, domainOverride });
     if (!projectId) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
