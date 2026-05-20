@@ -789,80 +789,75 @@ serve(async (req) => {
       console.warn("[post-inline-image] failed:", e?.message);
     }
 
-    // Cloudflare credentials
-    const { data: apiKeys, error: keysErr } = await supabaseAdmin
-      .from("api_keys")
-      .select("provider, api_key")
-      .in("provider", ["cloudflare_account_id", "cloudflare_api_token"]);
-    console.log("[deploy-cloudflare-direct] api_keys rows:", apiKeys?.length ?? 0, "err:", keysErr?.message || "none");
-    const keyMap = Object.fromEntries((apiKeys || []).map((k: any) => [k.provider, k.api_key]));
-    const accountId = keyMap["cloudflare_account_id"];
-    const apiToken = keyMap["cloudflare_api_token"];
-    console.log("[deploy-cloudflare-direct] account_id:", accountId ? "set" : "missing",
-                "api_token:", apiToken ? "set" : "missing");
-    if (!accountId || !apiToken) {
-      return new Response(JSON.stringify({
-        error: "Cloudflare credentials not configured. Add cloudflare_account_id and cloudflare_api_token in Admin.",
-      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const cfHeadersJson = {
-      Authorization: `Bearer ${apiToken}`,
-      "Content-Type": "application/json",
-    };
-    const cfBaseUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`;
-
-    // 1. Create or reuse Direct Upload project (no source = direct upload mode)
-    const baseName = sanitizeProjectName(siteName);
-    const idShort = projectId.replace(/-/g, "");
-    const candidates = [baseName, `${baseName}-${idShort.slice(0, 6)}`, `${baseName}-${idShort.slice(0, 12)}`];
-    console.log("[deploy-cloudflare-direct] candidates:", candidates);
+    // Cloudflare credentials + project create — only when NOT in build_only mode.
+    let accountId = "";
+    let apiToken = "";
+    let cfHeadersJson: Record<string, string> = {};
+    let cfBaseUrl = "";
     let cfProjectName = "";
-    let lastErr = "";
+    let pagesDevUrl = "";
+    let domain = "";
 
-    // First check if a project already exists (resolved domain)
-    const existingHost = (project.domain || "").replace(/^https?:\/\//, "").split("/")[0];
-    const existingMatch = existingHost.match(/^([a-z0-9-]+)\.pages\.dev$/i);
-    if (existingMatch) {
-      const checkRes = await fetch(`${cfBaseUrl}/${existingMatch[1]}`, { headers: cfHeadersJson });
-      console.log("[deploy-cloudflare-direct] reuse check:", existingMatch[1], "->", checkRes.status);
-      if (checkRes.ok) cfProjectName = existingMatch[1];
-    }
+    if (!buildOnly) {
+      const { data: apiKeys, error: keysErr } = await supabaseAdmin
+        .from("api_keys")
+        .select("provider, api_key")
+        .in("provider", ["cloudflare_account_id", "cloudflare_api_token"]);
+      console.log("[deploy-cloudflare-direct] api_keys rows:", apiKeys?.length ?? 0, "err:", keysErr?.message || "none");
+      const keyMap = Object.fromEntries((apiKeys || []).map((k: any) => [k.provider, k.api_key]));
+      accountId = keyMap["cloudflare_account_id"];
+      apiToken = keyMap["cloudflare_api_token"];
+      if (!accountId || !apiToken) {
+        return new Response(JSON.stringify({
+          error: "Cloudflare credentials not configured. Add cloudflare_account_id and cloudflare_api_token in Admin.",
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      cfHeadersJson = { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" };
+      cfBaseUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`;
 
-    if (!cfProjectName) {
-      for (const candidate of candidates) {
-        console.log(`[direct] creating project ${candidate}`);
-        const createRes = await fetch(cfBaseUrl, {
-          method: "POST",
-          headers: cfHeadersJson,
-          body: JSON.stringify({
-            name: candidate,
-            production_branch: "main",
-          }),
-        });
-        const parsed = await tryParseJson(createRes);
-        console.log("[deploy-cloudflare-direct] create", candidate, "status:", parsed.status, "ok:", parsed.ok);
-        if (parsed.ok) { cfProjectName = candidate; break; }
-        const msg = cfErr(parsed.data, parsed.text, parsed.status);
-        lastErr = msg;
-        console.log("[deploy-cloudflare-direct] create err:", msg);
-        const isConflict = parsed.status === 409 || /already (exists|been taken)/i.test(msg);
-        if (!isConflict) {
-          return new Response(JSON.stringify({ error: `Cloudflare create failed: ${msg}` }), {
-            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const baseName = sanitizeProjectName(siteName);
+      const idShort = projectId.replace(/-/g, "");
+      const candidates = [baseName, `${baseName}-${idShort.slice(0, 6)}`, `${baseName}-${idShort.slice(0, 12)}`];
+      let lastErr = "";
+      const existingHost = (project.domain || "").replace(/^https?:\/\//, "").split("/")[0];
+      const existingMatch = existingHost.match(/^([a-z0-9-]+)\.pages\.dev$/i);
+      if (existingMatch) {
+        const checkRes = await fetch(`${cfBaseUrl}/${existingMatch[1]}`, { headers: cfHeadersJson });
+        if (checkRes.ok) cfProjectName = existingMatch[1];
+      }
+      if (!cfProjectName) {
+        for (const candidate of candidates) {
+          const createRes = await fetch(cfBaseUrl, {
+            method: "POST",
+            headers: cfHeadersJson,
+            body: JSON.stringify({ name: candidate, production_branch: "main" }),
+          });
+          const parsed = await tryParseJson(createRes);
+          if (parsed.ok) { cfProjectName = candidate; break; }
+          const msg = cfErr(parsed.data, parsed.text, parsed.status);
+          lastErr = msg;
+          const isConflict = parsed.status === 409 || /already (exists|been taken)/i.test(msg);
+          if (!isConflict) {
+            return new Response(JSON.stringify({ error: `Cloudflare create failed: ${msg}` }), {
+              status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        if (!cfProjectName) {
+          return new Response(JSON.stringify({ error: "name_conflict", message: lastErr, tried: candidates }), {
+            status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
       }
-      if (!cfProjectName) {
-        return new Response(JSON.stringify({ error: "name_conflict", message: lastErr, tried: candidates }), {
-          status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      pagesDevUrl = `https://${cfProjectName}.pages.dev`;
+      domain = `${cfProjectName}.pages.dev`;
+    } else {
+      // build_only: domain comes from caller (e.g. GitHub Pages function).
+      domain = domainOverride || (project.domain || "").replace(/^https?:\/\//, "").replace(/\/+$/, "") || "example.com";
+      pagesDevUrl = `https://${domain}`;
+      cfProjectName = sanitizeProjectName(siteName);
+      console.log("[deploy-cloudflare-direct] build_only domain:", domain);
     }
-    console.log("[deploy-cloudflare-direct] cfProjectName:", cfProjectName);
-
-    const pagesDevUrl = `https://${cfProjectName}.pages.dev`;
-    const domain = `${cfProjectName}.pages.dev`;
 
     // 2. Render files (DB template takes priority)
     const trackerBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1/track-visit`;
