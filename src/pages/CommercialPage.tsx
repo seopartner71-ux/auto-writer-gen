@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft } from "lucide-react";
+import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PAGE_TYPES, TONES, BLOCKS, type PageType, type BlockDef } from "@/features/commercial/constants";
 
@@ -20,6 +20,24 @@ interface BlockState extends BlockDef {
   content?: string;
   status: "pending" | "generating" | "done" | "error";
   wordCount?: number;
+  customInstruction?: string;
+  customTitle?: string;
+  source?: "default" | "ai";
+}
+interface StructureAnalysis {
+  intent: string;
+  entities: string[];
+  expectations: string[];
+  internal_links: string[];
+  seo_notes: string;
+  recommended_blocks: Array<{
+    type: string;
+    title: string;
+    h_level: number;
+    desc: string;
+    words: number;
+    elements: string[];
+  }>;
 }
 
 const STEP_LABELS = ["Тип", "Бриф", "Структура", "Генерация"];
@@ -57,6 +75,8 @@ export default function CommercialPage() {
   const [aiBusy, setAiBusy] = useState<string | null>(null);
   const [aiResults, setAiResults] = useState<{ kind: "utp" | "benefits"; items: string[] } | null>(null);
   const [savedArticleId, setSavedArticleId] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<StructureAnalysis | null>(null);
 
   const selectedType = PAGE_TYPES.find((t) => t.id === pageType);
   const tones = pageType ? TONES[pageType] : [];
@@ -119,6 +139,8 @@ export default function CommercialPage() {
           page_type: pageType,
           brief,
           target_words: b.words,
+          custom_instruction: b.customInstruction,
+          custom_title: b.customTitle,
         },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
