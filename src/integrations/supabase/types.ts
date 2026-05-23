@@ -218,6 +218,73 @@ export type Database = {
         }
         Relationships: []
       }
+      article_images: {
+        Row: {
+          article_id: string | null
+          aspect_ratio: string | null
+          created_at: string
+          id: string
+          mode: string | null
+          model: string | null
+          prompt: string | null
+          public_url: string
+          storage_path: string
+          style: string | null
+          user_id: string
+          visual_prompt: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          aspect_ratio?: string | null
+          created_at?: string
+          id?: string
+          mode?: string | null
+          model?: string | null
+          prompt?: string | null
+          public_url: string
+          storage_path: string
+          style?: string | null
+          user_id: string
+          visual_prompt?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          aspect_ratio?: string | null
+          created_at?: string
+          id?: string
+          mode?: string | null
+          model?: string | null
+          prompt?: string | null
+          public_url?: string
+          storage_path?: string
+          style?: string | null
+          user_id?: string
+          visual_prompt?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_images_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "article_images_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "article_images_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       article_metrics: {
         Row: {
           article_id: string
