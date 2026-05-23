@@ -197,11 +197,20 @@ Deno.serve(withErrorHandler("generate-image", async (req) => {
     const suffix = STYLE_SUFFIX[style] || "";
     const imageSize = ASPECT_MAP[aspectRatio] || "landscape_16_9";
 
+    // Hard ban on any text/letters/captions/watermarks on the image
+    const NO_TEXT_SUFFIX =
+      ", absolutely no text, no letters, no words, no captions, no typography, " +
+      "no watermarks, no logos, no signs, no labels, no UI overlays, " +
+      "no signatures, no numbers, clean image without any writing";
+    const NO_TEXT_NEGATIVE =
+      "text, letters, words, captions, typography, watermark, logo, signature, " +
+      "labels, signs, numbers, writing, subtitles, ui, lorem ipsum";
+
     // Generate concurrently
     const results = await Promise.all(
       prompts.map(async (prompt, idx) => {
-        const finalPrompt = prompt + suffix;
-        const falUrl = await falGenerate(model, finalPrompt, imageSize);
+        const finalPrompt = prompt + suffix + NO_TEXT_SUFFIX;
+        const falUrl = await falGenerate(model, finalPrompt, imageSize, NO_TEXT_NEGATIVE);
         const { path, publicUrl } = await uploadToBucket(admin, userId, falUrl, idx);
         return { idx, prompt, finalPrompt, path, publicUrl, label: labels[idx] };
       }),
