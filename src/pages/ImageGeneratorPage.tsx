@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "sonner";
 import {
   Image as ImageIcon, Wand2, Loader2, Download, Copy, RefreshCw, Lock,
-  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers,
+  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit,
 } from "lucide-react";
 
 type Mode = "prompt" | "h2" | "cover";
@@ -56,6 +56,10 @@ export default function ImageGeneratorPage() {
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [images, setImages] = useState<GenImage[]>([]);
+  const [inserting, setInserting] = useState(false);
+
+  // In H2 mode, effective count = selected H2 count (one image per heading)
+  const effectiveCount = mode === "h2" ? Math.max(selectedH2.length, 1) : count;
 
   // Articles list for h2 mode
   const { data: articles = [] } = useQuery({
@@ -127,7 +131,7 @@ export default function ImageGeneratorPage() {
         mode: customPrompt ? "prompt" : mode,
         aspect_ratio: aspectRatio,
         style,
-        count: overrideCount ?? count,
+        count: overrideCount ?? effectiveCount,
         model,
         article_id: articleId || null,
       };
@@ -177,6 +181,62 @@ export default function ImageGeneratorPage() {
   };
 
   const handleCopyUrl = async (url: string) => {
+    await navigator.clipboard.writeText(url);
+    toast.success("URL скопирован");
+  };
+
+  // Insert generated H2 images into the article content right before matching H2 headings.
+  const handleInsertIntoArticle = async () => {
+    if (!articleId || images.length === 0) return;
+    setInserting(true);
+    try {
+      const { data: art, error: fetchErr } = await supabase
+        .from("articles")
+        .select("content")
+        .eq("id", articleId)
+        .maybeSingle();
+      if (fetchErr || !art) throw fetchErr || new Error("Статья не найдена");
+
+      let content = String(art.content || "");
+      let inserted = 0;
+
+      for (const img of images) {
+        const heading = (img.label || "").trim();
+        if (!heading) continue;
+        const imgTag = `<img src="${img.url}" alt="${heading.replace(/"/g, "&quot;")}" loading="lazy" />\n\n`;
+        const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const mdRe = new RegExp(`(^|\\n)(##\\s+${escaped}\\s*\\n)`, "i");
+        const htmlRe = new RegExp(`(<h2[^>]*>\\s*${escaped}\\s*</h2>)`, "i");
+
+        if (mdRe.test(content)) {
+          content = content.replace(mdRe, (_m, p1, p2) => `${p1}${imgTag}${p2}`);
+          inserted++;
+        } else if (htmlRe.test(content)) {
+          content = content.replace(htmlRe, (m) => `${imgTag}${m}`);
+          inserted++;
+        }
+      }
+
+      if (inserted === 0) {
+        toast.error("Не нашёл H2-заголовков в статье");
+        return;
+      }
+
+      const { error: upErr } = await supabase
+        .from("articles")
+        .update({ content })
+        .eq("id", articleId);
+      if (upErr) throw upErr;
+
+      toast.success(`Вставлено ${inserted} изображени${inserted === 1 ? "е" : "й"} в статью`);
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось обновить статью");
+    } finally {
+      setInserting(false);
+    }
+  };
+
+  const handleCopyUrlNoop = async (url: string) => {
     await navigator.clipboard.writeText(url);
     toast.success("URL скопирован");
   };
