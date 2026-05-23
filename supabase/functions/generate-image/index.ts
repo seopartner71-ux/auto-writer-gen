@@ -55,6 +55,52 @@ async function openrouterPrompt(system: string, user: string): Promise<string> {
   }
 }
 
+// PROMPT ENHANCER — rewrites any short/vague user input into a production-quality FAL prompt.
+async function enhancePrompt(rawPrompt: string, style: string, mood?: string): Promise<string> {
+  if (!OPENROUTER_KEY) return rawPrompt;
+  const system = `You are an expert image prompt engineer for the Flux image generation model.
+Your job: take any short or vague user description and rewrite it into a detailed, high-quality image generation prompt in English.
+
+Rules:
+- Output ONLY the final prompt. No explanations, no comments, no quotes.
+- Always specify: subject, environment/background, lighting, camera style, mood, quality tags.
+- Style context: ${style}${mood ? `. Mood: ${mood}` : ""}.
+- Never include: text overlays, watermarks, logos, AI-art aesthetics, cartoon style (unless requested).
+- End every prompt with: photorealistic, sharp focus, 4K, professional photography.
+- Maximum 120 words.
+
+Examples of good output:
+"A focused female entrepreneur reviewing analytics on a laptop in a modern co-working space, warm natural window light, shallow depth of field, confident professional atmosphere, photorealistic, sharp focus, 4K, professional photography."
+
+"Close-up of hands typing on a keyboard with blurred dual monitors showing graphs in background, cool office lighting, corporate productivity mood, photorealistic, sharp focus, 4K, professional photography."`;
+  try {
+    const r = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Module Prompt Enhancer",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        max_tokens: 250,
+        temperature: 0.6,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: rawPrompt.slice(0, 800) },
+        ],
+      }),
+    }, 20_000);
+    if (!r.ok) return rawPrompt;
+    const d = await r.json();
+    const out = String(d?.choices?.[0]?.message?.content || "").trim().replace(/^"|"$/g, "");
+    return out || rawPrompt;
+  } catch {
+    return rawPrompt;
+  }
+}
+
 async function falGenerate(model: "schnell" | "flux-pro", prompt: string, imageSize: string, negativePrompt?: string): Promise<string> {
   const endpoint = model === "flux-pro" ? "https://fal.run/fal-ai/flux-pro" : "https://fal.run/fal-ai/flux/schnell";
   const payload: Record<string, unknown> = {
@@ -209,13 +255,19 @@ Deno.serve(withErrorHandler("generate-image", async (req) => {
       "text, letters, words, captions, typography, watermark, logo, signature, " +
       "labels, signs, numbers, writing, subtitles, ui, lorem ipsum";
 
+    // PROMPT ENHANCER — applies to ALL modes before FAL call
+    const moodForEnh = mode === "cover" ? String(body?.mood || "").trim() : undefined;
+    const enhancedPrompts = await Promise.all(
+      prompts.map((p) => enhancePrompt(p, style, moodForEnh)),
+    );
+
     // Generate concurrently
     const results = await Promise.all(
-      prompts.map(async (prompt, idx) => {
-        const finalPrompt = prompt + suffix + NO_TEXT_SUFFIX;
+      enhancedPrompts.map(async (enhanced, idx) => {
+        const finalPrompt = enhanced + suffix + NO_TEXT_SUFFIX;
         const falUrl = await falGenerate(model, finalPrompt, imageSize, NO_TEXT_NEGATIVE);
         const { path, publicUrl } = await uploadToBucket(admin, userId, falUrl, idx);
-        return { idx, prompt, finalPrompt, path, publicUrl, label: labels[idx] };
+        return { idx, rawPrompt: prompts[idx], enhanced, finalPrompt, path, publicUrl, label: labels[idx] };
       }),
     );
 
@@ -240,6 +292,8 @@ Deno.serve(withErrorHandler("generate-image", async (req) => {
         storage_path: r.path,
         label: r.label,
         prompt: r.finalPrompt,
+        enhanced_prompt: r.enhanced,
+        raw_prompt: r.rawPrompt,
         index: r.idx,
       })),
     });
