@@ -691,6 +691,45 @@ export default function ImageGeneratorPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Prompt reveal dialog — shows the enhanced prompt actually sent to FAL */}
+      <Dialog open={!!promptView} onOpenChange={(o) => !o && setPromptView(null)}>
+        <DialogContent className="max-w-2xl">
+          <div className="space-y-4">
+            <div>
+              <div className="text-sm font-medium mb-1">Промпт, отправленный в FAL</div>
+              <div className="text-xs text-muted-foreground">
+                Автоматически улучшен AI для максимального качества изображения.
+              </div>
+            </div>
+            {promptView?.raw && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Ваш ввод</Label>
+                <Textarea readOnly value={promptView.raw} rows={2} className="mt-1.5 font-mono text-xs resize-none" />
+              </div>
+            )}
+            <div>
+              <Label className="text-xs text-muted-foreground">Улучшенный промпт</Label>
+              <Textarea readOnly value={promptView?.enhanced || ""} rows={8} className="mt-1.5 font-mono text-xs" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (promptView?.enhanced) {
+                    navigator.clipboard.writeText(promptView.enhanced);
+                    toast.success("Промпт скопирован");
+                  }
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" />Копировать промпт
+              </Button>
+              <Button size="sm" onClick={() => setPromptView(null)}>Закрыть</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
