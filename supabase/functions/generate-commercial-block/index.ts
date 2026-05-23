@@ -37,6 +37,10 @@ interface ReqBody {
   brief: Brief;
   target_words: number;
   model?: string;
+  /** Optional AI-recommended block: free-form instruction overrides the static one. */
+  custom_instruction?: string;
+  /** Optional title hint for the AI-recommended block (used inside the instruction). */
+  custom_title?: string;
 }
 
 // Per-block instruction snippets keyed by `${page_type}:${block_type}`.
@@ -112,7 +116,11 @@ function countWords(text: string): number {
 function buildPrompt(body: ReqBody): { system: string; user: string } {
   const { page_type, block_type, brief, target_words } = body;
   const key = `${page_type}:${block_type}`;
-  const instruction = BLOCK_INSTRUCTIONS[key] ?? "Сгенерируй блок коммерческой страницы. Чистый HTML.";
+  let instruction = BLOCK_INSTRUCTIONS[key] ?? "Сгенерируй блок коммерческой страницы. Чистый HTML.";
+  if (body.custom_instruction && body.custom_instruction.trim()) {
+    const title = body.custom_title?.trim();
+    instruction = `${title ? `Заголовок блока: "${title}". Используй его как H2.\n` : ""}${body.custom_instruction.trim()}\nФормат: чистый HTML с тегами h2/h3/p/ul/ol/li/strong/table.`;
+  }
 
   const briefLines: string[] = [];
   if (brief.niche) briefLines.push(`Ниша: ${brief.niche}`);
