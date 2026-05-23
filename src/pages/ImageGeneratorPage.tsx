@@ -13,10 +13,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   Image as ImageIcon, Wand2, Loader2, Download, Copy, RefreshCw, Lock,
-  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit,
+  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit, X, Maximize2,
 } from "lucide-react";
 
 type Mode = "prompt" | "h2" | "cover";
@@ -57,6 +62,9 @@ export default function ImageGeneratorPage() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [images, setImages] = useState<GenImage[]>([]);
   const [inserting, setInserting] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; label?: string; prompt?: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
 
   // In H2 mode, effective count = selected H2 count (one image per heading)
   const effectiveCount = mode === "h2" ? Math.max(selectedH2.length, 1) : count;
@@ -183,6 +191,35 @@ export default function ImageGeneratorPage() {
   const handleCopyUrl = async (url: string) => {
     await navigator.clipboard.writeText(url);
     toast.success("URL скопирован");
+  };
+
+  const handleDeleteHistoryItem = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const { error } = await supabase.from("article_images").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Удалено из истории");
+      qc.invalidateQueries({ queryKey: ["images-history"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось удалить");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleClearAllHistory = async () => {
+    if (!profile?.id) return;
+    setClearingAll(true);
+    try {
+      const { error } = await supabase.from("article_images").delete().eq("user_id", profile.id);
+      if (error) throw error;
+      toast.success("История очищена");
+      qc.invalidateQueries({ queryKey: ["images-history"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось очистить историю");
+    } finally {
+      setClearingAll(false);
+    }
   };
 
   // Insert generated H2 images into the article content right before matching H2 headings.
