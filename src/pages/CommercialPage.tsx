@@ -299,11 +299,34 @@ export default function CommercialPage() {
     const b = blocks[idx];
     setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "generating" } : x)));
     try {
+      // Anti-dup: collect H1/H2 already produced by earlier blocks (and parser),
+      // so the model doesn't repeat the same headings across blocks of one page.
+      const headingRe = /<h[12][^>]*>([\s\S]*?)<\/h[12]>/gi;
+      const generatedHeadings: string[] = [];
+      const generatedSummaries: string[] = [];
+      blocks.forEach((bx, i) => {
+        if (i === idx || !bx.content) return;
+        let m: RegExpExecArray | null;
+        const re = new RegExp(headingRe.source, headingRe.flags);
+        while ((m = re.exec(bx.content)) !== null) {
+          const txt = m[1].replace(/<[^>]+>/g, "").trim();
+          if (txt) generatedHeadings.push(txt);
+        }
+        generatedSummaries.push(bx.title);
+      });
+      const parsedH2 = Array.isArray((brief as any).existing_h2) ? (brief as any).existing_h2 : [];
+      const parsedBlocks = Array.isArray((brief as any).existing_blocks) ? (brief as any).existing_blocks : [];
+      const mergedBrief = {
+        ...brief,
+        existing_h2: Array.from(new Set([...parsedH2, ...generatedHeadings])),
+        existing_blocks: Array.from(new Set([...parsedBlocks, ...generatedSummaries])),
+      };
+
       const { data, error } = await supabase.functions.invoke("generate-commercial-block", {
         body: {
           block_type: b.type,
           page_type: pageType,
-          brief,
+          brief: mergedBrief,
           target_words: b.words,
           custom_instruction: b.customInstruction,
           custom_title: b.customTitle,
