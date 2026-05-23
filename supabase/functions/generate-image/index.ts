@@ -55,17 +55,20 @@ async function openrouterPrompt(system: string, user: string): Promise<string> {
   }
 }
 
-async function falGenerate(model: "schnell" | "flux-pro", prompt: string, imageSize: string): Promise<string> {
+async function falGenerate(model: "schnell" | "flux-pro", prompt: string, imageSize: string, negativePrompt?: string): Promise<string> {
   const endpoint = model === "flux-pro" ? "https://fal.run/fal-ai/flux-pro" : "https://fal.run/fal-ai/flux/schnell";
+  const payload: Record<string, unknown> = {
+    prompt,
+    image_size: imageSize,
+    num_images: 1,
+    enable_safety_checker: true,
+  };
+  // flux-pro supports negative_prompt; schnell ignores unknown fields safely.
+  if (negativePrompt) payload.negative_prompt = negativePrompt;
   const r = await fetchWithTimeout(endpoint, {
     method: "POST",
     headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt,
-      image_size: imageSize,
-      num_images: 1,
-      enable_safety_checker: true,
-    }),
+    body: JSON.stringify(payload),
   }, 60_000);
   if (!r.ok) {
     const t = await r.text().catch(() => "");
