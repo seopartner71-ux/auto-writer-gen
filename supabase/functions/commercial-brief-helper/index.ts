@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "https://seo-modul.pro",
-          "X-Title": "СЕО-Модуль Brief Helper",
+          "X-Title": "SEO-Module Brief Helper",
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-lite",
