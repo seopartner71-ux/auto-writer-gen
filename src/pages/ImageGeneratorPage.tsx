@@ -494,6 +494,14 @@ export default function ImageGeneratorPage() {
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">{images.length} изображени{images.length === 1 ? "е" : "й"}</div>
               <div className="flex gap-2">
+                {mode === "h2" && articleId && (
+                  <Button size="sm" variant="default" onClick={handleInsertIntoArticle} disabled={inserting}>
+                    {inserting
+                      ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      : <FileEdit className="h-3.5 w-3.5 mr-1.5" />}
+                    Вставить в статью
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" onClick={handleDownloadAll}>
                   <Download className="h-3.5 w-3.5 mr-1.5" />Скачать все
                 </Button>
