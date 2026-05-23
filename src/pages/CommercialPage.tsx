@@ -57,7 +57,7 @@ export default function CommercialPage() {
       if (!brief.niche || !brief.keyword) return toast.error("Заполни нишу и ключевой запрос");
       initBlocks(pageType!);
     }
-    setStep((s) => Math.min(4, (s + 1) as Step));
+    setStep((s) => Math.min(4, s + 1) as Step);
   };
 
   const selectType = (t: PageType) => {
@@ -494,7 +494,7 @@ export default function CommercialPage() {
 
       {/* Nav buttons */}
       <div className="flex justify-between pt-2">
-        <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, (s - 1) as Step))} disabled={step === 1 || genIdx >= 0}>
+        <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1) as Step)} disabled={step === 1 || genIdx >= 0}>
           <ChevronLeft className="h-4 w-4 mr-1" /> Назад
         </Button>
         {step < 3 && <Button onClick={goNext}>Далее <ChevronRight className="h-4 w-4 ml-1" /></Button>}
