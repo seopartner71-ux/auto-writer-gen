@@ -8,7 +8,7 @@
 //   default           → single cover image
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
 import { logCost } from "../_shared/costLogger.ts";
 
 const FAL_KEY = (Deno.env.get("FAL_AI_API_KEY") || "").trim();
@@ -111,6 +111,8 @@ Deno.serve(async (req) => {
 
   const auth = await verifyAuth(req);
   if (auth instanceof Response) return auth;
+  const forbidden = await requireAdminOrStaff(auth);
+  if (forbidden) return forbidden;
   const { userId } = auth;
 
   let body: any = {};
