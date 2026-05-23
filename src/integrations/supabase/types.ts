@@ -1138,6 +1138,36 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_brief_templates: {
+        Row: {
+          brief: Json
+          created_at: string
+          id: string
+          name: string
+          page_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brief?: Json
+          created_at?: string
+          id?: string
+          name: string
+          page_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brief?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          page_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       competitors: {
         Row: {
           article_id: string
