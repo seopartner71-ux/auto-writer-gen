@@ -217,7 +217,13 @@ export default function CommercialPage() {
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
       const res = data as { content: string; word_count: number };
-      setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "done", content: res.content, wordCount: res.word_count } : x)));
+      setBlocks((arr) =>
+        arr.map((x, i) =>
+          i === idx
+            ? { ...x, status: "done", content: res.content, wordCount: res.word_count, regenCount: (x.regenCount || 0) + (x.content ? 1 : 0) }
+            : x,
+        ),
+      );
       return true;
     } catch (e: any) {
       toast.error(`Блок "${b.title}": ${e?.message || "ошибка"}`);
@@ -225,6 +231,71 @@ export default function CommercialPage() {
       return false;
     }
   };
+
+  // Click "Перегенерировать". 1-я бесплатная (regenCount=0 после генерации), дальше — подтверждение списания.
+  const handleRegenClick = (idx: number) => {
+    const b = blocks[idx];
+    if ((b.regenCount || 0) >= 1) {
+      setRegenConfirmIdx(idx);
+    } else {
+      generateBlock(idx);
+    }
+  };
+
+  // Brief templates -------------------------------------------------------
+  const loadTemplates = async () => {
+    if (!profile?.id) return;
+    const { data } = await supabase
+      .from("commercial_brief_templates")
+      .select("id, name, page_type, brief")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false });
+    setTemplates((data as any) || []);
+  };
+
+  const applyTemplate = (id: string) => {
+    const t = templates.find((x) => x.id === id);
+    if (!t) return;
+    setSelectedTemplateId(id);
+    if (t.page_type !== pageType) {
+      setPageType(t.page_type as PageType);
+    }
+    setBrief({ ...t.brief, tone: t.brief?.tone || TONES[t.page_type as PageType][0] });
+    toast.success(`Загружен шаблон "${t.name}"`);
+  };
+
+  const saveTemplate = async () => {
+    if (!profile?.id || !pageType) return;
+    const name = window.prompt("Название шаблона:", brief.keyword || "Без названия");
+    if (!name || !name.trim()) return;
+    setSavingTemplate(true);
+    const { error } = await supabase.from("commercial_brief_templates").insert({
+      user_id: profile.id,
+      name: name.trim(),
+      page_type: pageType,
+      brief,
+    });
+    setSavingTemplate(false);
+    if (error) return toast.error(error.message);
+    toast.success("Шаблон сохранен");
+    await loadTemplates();
+  };
+
+  const deleteTemplate = async () => {
+    if (!selectedTemplateId) return;
+    if (!window.confirm("Удалить шаблон?")) return;
+    await supabase.from("commercial_brief_templates").delete().eq("id", selectedTemplateId);
+    setSelectedTemplateId("");
+    toast.success("Шаблон удален");
+    await loadTemplates();
+  };
+
+  // Load templates once when user enters Step 2.
+  // Using useState + a one-shot effect-like guard via useMemo on (step, profile?.id).
+  useMemo(() => {
+    if (step === 2 && profile?.id && templates.length === 0) loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, profile?.id]);
 
   const startGeneration = async () => {
     setStep(4);
