@@ -100,6 +100,7 @@ export function AppSidebar() {
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     { title: lang === "ru" ? "Изображения" : "Images", url: "/images", icon: ImageIcon },
+    { title: lang === "ru" ? "Коммерческие страницы" : "Commercial Pages", url: "/commercial", icon: Store },
   ];
   const publishItems = isFactory ? [
     { title: t("nav.wordpress"), url: "/wordpress", icon: Send },
