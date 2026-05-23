@@ -830,6 +830,43 @@ export default function CommercialPage() {
           </Button>
         )}
       </div>
+
+      {/* Preview dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Превью страницы</DialogTitle>
+            <DialogDescription>
+              Так страница будет выглядеть после сохранения как статьи.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: fullHtml }} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Regen confirm dialog */}
+      <Dialog open={regenConfirmIdx !== null} onOpenChange={(o) => !o && setRegenConfirmIdx(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Перегенерация блока</DialogTitle>
+            <DialogDescription>
+              Первая перегенерация была бесплатной. Каждая следующая списывает 1 кредит. Продолжить?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setRegenConfirmIdx(null)}>Отмена</Button>
+            <Button
+              onClick={() => {
+                const i = regenConfirmIdx;
+                setRegenConfirmIdx(null);
+                if (i !== null) generateBlock(i);
+              }}
+            >
+              Списать 1 кредит и перегенерировать
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
