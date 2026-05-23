@@ -236,11 +236,6 @@ export default function ImageGeneratorPage() {
     }
   };
 
-  const handleCopyUrlNoop = async (url: string) => {
-    await navigator.clipboard.writeText(url);
-    toast.success("URL скопирован");
-  };
-
   return (
     <div className="space-y-6 p-4 md:p-6">
       {/* Topbar */}
