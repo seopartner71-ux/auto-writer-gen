@@ -9,9 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus } from "lucide-react";
+import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus, Eye, ImageIcon, BookmarkPlus, FolderOpen, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PAGE_TYPES, TONES, BLOCKS, type PageType, type BlockDef } from "@/features/commercial/constants";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -23,6 +25,7 @@ interface BlockState extends BlockDef {
   customInstruction?: string;
   customTitle?: string;
   source?: "default" | "ai";
+  regenCount?: number;
 }
 interface StructureAnalysis {
   intent: string;
@@ -77,6 +80,11 @@ export default function CommercialPage() {
   const [savedArticleId, setSavedArticleId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<StructureAnalysis | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [templates, setTemplates] = useState<Array<{ id: string; name: string; page_type: string; brief: any }>>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [regenConfirmIdx, setRegenConfirmIdx] = useState<number | null>(null);
 
   const selectedType = PAGE_TYPES.find((t) => t.id === pageType);
   const tones = pageType ? TONES[pageType] : [];
