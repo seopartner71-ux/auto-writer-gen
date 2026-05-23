@@ -95,6 +95,12 @@ export default function CommercialPage() {
     blocks?: number; h2?: number;
   } | null>(null);
 
+  // History of previously created commercial pages (from articles table).
+  const [history, setHistory] = useState<Array<{ id: string; title: string; page_type: string | null; updated_at: string }>>([]);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  const draftKey = profile?.id ? `commercial_draft_v1:${profile.id}` : null;
+
   const selectedType = PAGE_TYPES.find((t) => t.id === pageType);
   const tones = pageType ? TONES[pageType] : [];
 
