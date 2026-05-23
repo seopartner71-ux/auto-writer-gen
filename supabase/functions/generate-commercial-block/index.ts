@@ -5,6 +5,7 @@
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
 import { withTimeout } from "../_shared/withTimeout.ts";
+import { applyStealthPostProcess, buildStealthSystemAddon } from "../_shared/stealth.ts";
 
 type PageType = "service" | "category" | "product" | "local";
 
@@ -157,17 +158,67 @@ function buildPrompt(body: ReqBody): { system: string; user: string } {
 - Ключ органично, не переспамливай.
 - НЕ используй букву "е с двумя точками" - только обычную "е".
 - НЕ используй markdown жирный (**). Используй <strong> только если предусмотрено инструкцией блока.
-- Не добавляй выдуманные контакты, адреса, цены, отзывы, имена сотрудников.
-- Если в брифе нет данных - пиши общими формулировками или опусти пункт.
+
+ANTI-FAKE GUARD (zero tolerance):
+- ЗАПРЕЩЕНО выдумывать: имена экспертов/сотрудников ("Иван Петров, директор"), названия компаний-партнеров, конкретные адреса, телефоны, e-mail, проценты ("по данным 87%"), годы исследований, цитаты, кейсы клиентов, отзывы.
+- Если факта нет в брифе - используй обезличенные формулировки: "практика показывает", "по нашему опыту", "в большинстве случаев".
+- Не ссылайся на несуществующие исследования, рейтинги, награды.
+
 - Целевой объём: примерно ${target_words} слов (допуск ±20%).
 - Формат вывода: ЧИСТЫЙ HTML без обёрток в тройных бэктиках. Только теги h1/h2/h3/p/ul/ol/li/strong/em/table/thead/tbody/tr/th/td.
 - Никаких пояснений ДО или ПОСЛЕ HTML. Только разметка.
 
 Инструкция для этого блока:
-${instruction}`;
+${instruction}
+
+${buildStealthSystemAddon("ru")}`;
 
   const user = `Бриф:\n${briefLines.join("\n") || "(данных нет)"}\n\nСгенерируй блок.`;
   return { system, user };
+}
+
+/**
+ * Anti-fake post-processor. Detects and neutralizes the most common hallucinated
+ * patterns in commercial copy. Runs only when the brief didn't authorize them.
+ */
+function applyAntiFakeGuard(html: string, brief: Brief): { content: string; flagged: string[] } {
+  const flagged: string[] = [];
+  let out = html;
+
+  // Fake phone numbers (any 7+ digit cluster not present in brief)
+  const briefBlob = JSON.stringify(brief).toLowerCase();
+  out = out.replace(/(\+?7|8)[\s\-(]*\d{3}[\s\-)]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}/g, (m) => {
+    if (briefBlob.includes(m.replace(/\D/g, "").slice(-10))) return m;
+    flagged.push(`phone:${m}`);
+    return "по телефону на сайте";
+  });
+
+  // Fake emails
+  out = out.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (m) => {
+    if (briefBlob.includes(m.toLowerCase())) return m;
+    flagged.push(`email:${m}`);
+    return "по e-mail на сайте";
+  });
+
+  // Fabricated stats: "по данным NN%", "согласно исследованию ... NN%"
+  out = out.replace(/(по данным|согласно (?:исследованию|опросу|статистике)[^.]{0,40})\s*[^.<]{0,80}?\d{1,3}\s?%/gi, (m) => {
+    flagged.push(`fake_stat:${m.slice(0, 60)}`);
+    return "практика показывает";
+  });
+
+  // Fabricated expert citation: "Имя Фамилия, эксперт/директор/руководитель/CEO"
+  out = out.replace(/[А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+,\s*(эксперт|директор|руководитель|основатель|CEO|CTO|маркетолог|консультант)[^.<]{0,80}/g, (m) => {
+    flagged.push(`fake_expert:${m.slice(0, 60)}`);
+    return "эксперты отрасли отмечают";
+  });
+
+  // Fake years of research: "в 2019 году исследование", "опрос 2021 года"
+  out = out.replace(/(исследование|опрос|отчет|рейтинг)\s+(?:от\s+)?\d{4}\s*(?:года|г\.)/gi, (m) => {
+    flagged.push(`fake_year:${m}`);
+    return "по наблюдениям из практики";
+  });
+
+  return { content: out, flagged };
 }
 
 async function getUserPlan(userId: string): Promise<string> {
@@ -285,12 +336,19 @@ Deno.serve(async (req) => {
     }
 
     content = content.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
-    content = content.replace(/ё/g, "е").replace(/Ё/g, "Е");
+
+    // Stealth post-process: char sanitize + burstiness pass.
+    content = applyStealthPostProcess(content, "ru");
+
+    // Anti-fake guard: neutralize hallucinated phones/emails/stats/experts.
+    const guard = applyAntiFakeGuard(content, body.brief);
+    content = guard.content;
 
     return jsonResponse({
       content,
       word_count: countWords(content),
       block_type: body.block_type,
+      anti_fake_flags: guard.flagged,
     });
   } catch (e) {
     return errorResponse(`Server error: ${e instanceof Error ? e.message : "unknown"}`, 500);
