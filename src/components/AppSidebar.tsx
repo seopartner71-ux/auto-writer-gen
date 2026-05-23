@@ -25,6 +25,7 @@ import {
   BookOpen,
   CalendarDays,
   Image as ImageIcon,
+  Store,
   MoreHorizontal,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
