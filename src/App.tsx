@@ -172,8 +172,8 @@ const App = () => (
                   <Route path="/article-audit" element={<ArticleAuditPage />} />
                   <Route path="/plan-builder" element={<PlanBuilderPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
-                  <Route path="/images" element={<ImageGeneratorPage />} />
-                  <Route path="/commercial" element={<CommercialPage />} />
+                  <Route path="/images" element={<ProtectedRoute allowedRoles={["admin","staff"]}><ImageGeneratorPage /></ProtectedRoute>} />
+                  <Route path="/commercial" element={<ProtectedRoute allowedRoles={["admin","staff"]}><CommercialPage /></ProtectedRoute>} />
                   <Route path="/rank-tracker" element={<RankTrackerPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />

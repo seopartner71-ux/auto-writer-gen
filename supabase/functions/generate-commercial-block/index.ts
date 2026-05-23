@@ -3,7 +3,7 @@
 // Refunds the credit on upstream failure.
 
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
 import { withTimeout } from "../_shared/withTimeout.ts";
 
 type PageType = "service" | "category" | "product" | "local";
@@ -183,6 +183,8 @@ Deno.serve(async (req) => {
   try {
     const auth = await verifyAuth(req);
     if (auth instanceof Response) return auth;
+    const forbidden = await requireAdminOrStaff(auth);
+    if (forbidden) return forbidden;
     const userId = auth.userId;
 
     let body: ReqBody;

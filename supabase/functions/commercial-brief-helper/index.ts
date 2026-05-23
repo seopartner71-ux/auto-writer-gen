@@ -2,7 +2,7 @@
 // Free of charge (no credit deduction). Rate-limited via check_rate_limit.
 
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
 import { withTimeout } from "../_shared/withTimeout.ts";
 
 interface ReqBody {
@@ -32,6 +32,8 @@ Deno.serve(async (req) => {
   try {
     const auth = await verifyAuth(req);
     if (auth instanceof Response) return auth;
+    const forbidden = await requireAdminOrStaff(auth);
+    if (forbidden) return forbidden;
     const userId = auth.userId;
 
     let body: ReqBody;

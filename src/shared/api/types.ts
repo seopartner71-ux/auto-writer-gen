@@ -1,4 +1,4 @@
-export type AppRole = "admin" | "user";
+export type AppRole = "admin" | "staff" | "user";
 export type Plan = "free" | "basic" | "pro";
 export type ArticleStatus = "draft" | "review" | "published" | "research" | "outline" | "generating" | "completed";
 export type SearchIntent = "informational" | "transactional" | "navigational";

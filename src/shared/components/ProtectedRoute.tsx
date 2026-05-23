@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 interface Props {
   children: React.ReactNode;
   requiredRole?: AppRole;
+  allowedRoles?: AppRole[];
 }
 
-export function ProtectedRoute({ children, requiredRole }: Props) {
+export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) {
   const { session, role, profile, loading } = useAuth();
 
   if (loading) {
@@ -74,6 +75,10 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
   }
 
   if (requiredRole && role !== requiredRole) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (allowedRoles && allowedRoles.length > 0 && (!role || !allowedRoles.includes(role))) {
     return <Navigate to="/dashboard" replace />;
   }
 
