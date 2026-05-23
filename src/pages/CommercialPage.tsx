@@ -1061,14 +1061,37 @@ export default function CommercialPage() {
                         {b.wordCount && <span className="text-xs text-muted-foreground">{b.wordCount} сл.</span>}
                       </div>
                       {b.status !== "generating" && genIdx < 0 && (
-                        <Button size="sm" variant="ghost" onClick={() => handleRegenClick(idx)}>
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          {(b.regenCount || 0) >= 1 ? "Перегенерировать (1 кр.)" : "Перегенерировать"}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {b.content && (
+                            <>
+                              <Button size="sm" variant="ghost" onClick={() => toggleBlockEdit(idx)} title={b.editing ? "Закрыть" : "Редактировать"}>
+                                {b.editing ? <X className="h-3 w-3 mr-1" /> : <Pencil className="h-3 w-3 mr-1" />}
+                                {b.editing ? "Готово" : "Править"}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => generateBlockImage(idx)} disabled={b.imageBusy} title="Сгенерировать фото для блока">
+                                {b.imageBusy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ImageIcon className="h-3 w-3 mr-1" />}
+                                Фото
+                              </Button>
+                            </>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => handleRegenClick(idx)}>
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            {(b.regenCount || 0) >= 1 ? "Перегенерировать (1 кр.)" : "Перегенерировать"}
+                          </Button>
+                        </div>
                       )}
                     </div>
                     {b.content ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: b.content }} />
+                      b.editing ? (
+                        <Textarea
+                          value={b.content}
+                          onChange={(e) => updateBlockContent(idx, e.target.value)}
+                          rows={Math.min(24, Math.max(8, Math.ceil(b.content.length / 80)))}
+                          className="font-mono text-xs"
+                        />
+                      ) : (
+                        <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: b.content }} />
+                      )
                     ) : b.status === "pending" ? (
                       <p className="text-sm text-muted-foreground">Ожидание...</p>
                     ) : null}
