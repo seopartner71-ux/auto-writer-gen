@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +28,37 @@ export function SupportManagementTab() {
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+
+  const { data: feedbackEnabled } = useQuery({
+    queryKey: ["app-settings", "quick_feedback_enabled"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "quick_feedback_enabled")
+        .maybeSingle();
+      return (data?.value ?? "true") === "true";
+    },
+  });
+
+  const toggleFeedback = async (next: boolean) => {
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert(
+        {
+          key: "quick_feedback_enabled",
+          value: next ? "true" : "false",
+          description: "Показывать плашку быстрой обратной связи вверху страниц",
+        },
+        { onConflict: "key" },
+      );
+    if (error) {
+      toast.error("Не удалось сохранить: " + error.message);
+      return;
+    }
+    toast.success(next ? "Плашка включена" : "Плашка выключена");
+    queryClient.invalidateQueries({ queryKey: ["app-settings", "quick_feedback_enabled"] });
+  };
 
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ["admin-support-tickets"],
@@ -121,6 +153,21 @@ export function SupportManagementTab() {
 
   return (
     <div className="space-y-3">
+      <Card>
+        <CardContent className="p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium">Плашка быстрой связи</div>
+            <div className="text-xs text-muted-foreground">
+              Верхняя плашка с кнопкой "Сообщить" для всех пользователей. Создает тикет с тегом БАГ / ОШИБКА / ИДЕЯ.
+            </div>
+          </div>
+          <Switch
+            checked={!!feedbackEnabled}
+            onCheckedChange={toggleFeedback}
+          />
+        </CardContent>
+      </Card>
+
       {tickets.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">Нет обращений</p>
       ) : (
