@@ -414,6 +414,33 @@ export default function CommercialPage() {
       {step === 2 && pageType && (
         <Card>
           <CardContent className="p-6 space-y-4">
+            {/* Templates bar */}
+            <div className="flex items-end gap-2 flex-wrap pb-3 border-b">
+              <div className="flex-1 min-w-[200px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Шаблоны брифов</Label>
+                <Select value={selectedTemplateId} onValueChange={applyTemplate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={templates.length ? "Загрузить шаблон…" : "Шаблонов пока нет"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name} · {PAGE_TYPES.find((p) => p.id === t.page_type)?.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="outline" size="sm" onClick={saveTemplate} disabled={savingTemplate || !brief.keyword}>
+                <BookmarkPlus className="h-3.5 w-3.5 mr-1" /> Сохранить как шаблон
+              </Button>
+              {selectedTemplateId && (
+                <Button variant="ghost" size="sm" onClick={deleteTemplate}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Удалить
+                </Button>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Ниша / тематика *</Label>
