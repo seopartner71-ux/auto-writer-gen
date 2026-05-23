@@ -13,10 +13,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   Image as ImageIcon, Wand2, Loader2, Download, Copy, RefreshCw, Lock,
-  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit,
+  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit, X, Maximize2,
 } from "lucide-react";
 
 type Mode = "prompt" | "h2" | "cover";
@@ -57,6 +62,9 @@ export default function ImageGeneratorPage() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [images, setImages] = useState<GenImage[]>([]);
   const [inserting, setInserting] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; label?: string; prompt?: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
 
   // In H2 mode, effective count = selected H2 count (one image per heading)
   const effectiveCount = mode === "h2" ? Math.max(selectedH2.length, 1) : count;
@@ -183,6 +191,35 @@ export default function ImageGeneratorPage() {
   const handleCopyUrl = async (url: string) => {
     await navigator.clipboard.writeText(url);
     toast.success("URL скопирован");
+  };
+
+  const handleDeleteHistoryItem = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const { error } = await supabase.from("article_images").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Удалено из истории");
+      qc.invalidateQueries({ queryKey: ["images-history"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось удалить");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleClearAllHistory = async () => {
+    if (!profile?.id) return;
+    setClearingAll(true);
+    try {
+      const { error } = await supabase.from("article_images").delete().eq("user_id", profile.id);
+      if (error) throw error;
+      toast.success("История очищена");
+      qc.invalidateQueries({ queryKey: ["images-history"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось очистить историю");
+    } finally {
+      setClearingAll(false);
+    }
   };
 
   // Insert generated H2 images into the article content right before matching H2 headings.
@@ -525,10 +562,19 @@ export default function ImageGeneratorPage() {
                 <div key={i} className="group relative rounded-lg overflow-hidden border bg-card aspect-video">
                   {img?.url ? (
                     <>
-                      <img src={img.url} alt={img.label || "generated"} className="w-full h-full object-cover" loading="lazy" />
+                      <img
+                        src={img.url}
+                        alt={img.label || "generated"}
+                        className="w-full h-full object-cover cursor-zoom-in"
+                        loading="lazy"
+                        onClick={() => setPreview({ url: img.url, label: img.label, prompt: img.prompt })}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 gap-2">
                         <div className="text-xs text-white truncate">{img.label}</div>
                         <div className="flex gap-1.5">
+                          <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setPreview({ url: img.url, label: img.label, prompt: img.prompt })}>
+                            <Maximize2 className="h-3 w-3" />
+                          </Button>
                           <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={() => handleDownload(img.url, img.label || `image_${i + 1}`)}>
                             <Download className="h-3 w-3 mr-1" />Скачать
                           </Button>
@@ -558,11 +604,49 @@ export default function ImageGeneratorPage() {
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2">
+                <div className="flex justify-end mb-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={clearingAll}>
+                        {clearingAll ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+                        Очистить историю
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Очистить всю историю?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Все сгенерированные изображения будут удалены из истории. Это действие нельзя отменить.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleClearAllHistory}>Удалить</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
                 <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                   {history.map((h: any) => (
-                    <a key={h.id} href={h.public_url} target="_blank" rel="noopener" className="block aspect-square rounded-md overflow-hidden border hover:border-primary/40 transition">
-                      <img src={h.public_url} alt={h.prompt || ""} className="w-full h-full object-cover" loading="lazy" />
-                    </a>
+                    <div key={h.id} className="group relative aspect-square rounded-md overflow-hidden border hover:border-primary/40 transition">
+                      <img
+                        src={h.public_url}
+                        alt={h.prompt || ""}
+                        className="w-full h-full object-cover cursor-zoom-in"
+                        loading="lazy"
+                        onClick={() => setPreview({ url: h.public_url, prompt: h.prompt })}
+                      />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteHistoryItem(h.id); }}
+                        disabled={deletingId === h.id}
+                        className="absolute top-1 right-1 h-6 w-6 rounded-md bg-background/80 backdrop-blur-sm border flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
+                        title="Удалить"
+                      >
+                        {deletingId === h.id
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <Trash2 className="h-3 w-3" />}
+                      </button>
+                    </div>
                   ))}
                 </div>
               </CollapsibleContent>
@@ -570,6 +654,37 @@ export default function ImageGeneratorPage() {
           )}
         </div>
       </div>
+
+      {/* Preview lightbox */}
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="max-w-5xl p-0 overflow-hidden bg-background/95 backdrop-blur">
+          {preview && (
+            <div className="relative">
+              <img src={preview.url} alt={preview.label || preview.prompt || ""} className="w-full h-auto max-h-[85vh] object-contain" />
+              <button
+                onClick={() => setPreview(null)}
+                className="absolute top-3 right-3 h-8 w-8 rounded-md bg-background/80 backdrop-blur-sm border flex items-center justify-center hover:bg-background"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex items-end justify-between gap-3">
+                <div className="text-xs text-white/90 line-clamp-2">
+                  {preview.label && <div className="font-medium">{preview.label}</div>}
+                  {preview.prompt && <div className="text-white/60">{preview.prompt}</div>}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" variant="secondary" onClick={() => handleCopyUrl(preview.url)}>
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />URL
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => handleDownload(preview.url, preview.label || "image")}>
+                    <Download className="h-3.5 w-3.5 mr-1.5" />Скачать
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
