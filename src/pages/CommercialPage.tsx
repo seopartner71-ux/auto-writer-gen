@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -290,9 +290,8 @@ export default function CommercialPage() {
     await loadTemplates();
   };
 
-  // Load templates once when user enters Step 2.
-  // Using useState + a one-shot effect-like guard via useMemo on (step, profile?.id).
-  useMemo(() => {
+  // Load templates when user reaches Step 2.
+  useEffect(() => {
     if (step === 2 && profile?.id && templates.length === 0) loadTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, profile?.id]);
