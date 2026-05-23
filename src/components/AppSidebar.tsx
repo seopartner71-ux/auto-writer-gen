@@ -24,6 +24,7 @@ import {
   PenSquare,
   BookOpen,
   CalendarDays,
+  Image as ImageIcon,
   MoreHorizontal,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -97,6 +98,7 @@ export function AppSidebar() {
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
+    { title: lang === "ru" ? "Изображения" : "Images", url: "/images", icon: ImageIcon },
   ];
   const publishItems = isFactory ? [
     { title: t("nav.wordpress"), url: "/wordpress", icon: Send },

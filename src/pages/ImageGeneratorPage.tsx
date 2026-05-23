@@ -1,0 +1,501 @@
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
+import {
+  Image as ImageIcon, Wand2, Loader2, Download, Copy, RefreshCw, Lock,
+  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers,
+} from "lucide-react";
+
+type Mode = "prompt" | "h2" | "cover";
+
+interface GenImage {
+  url: string;
+  storage_path: string;
+  label: string;
+  prompt: string;
+  index: number;
+}
+
+const ASPECT_RATIOS = ["16:9", "4:3", "1:1", "9:16", "3:2"];
+const STYLES = ["Реалистичный бизнес", "Редакционный", "Инфографика", "Flat-иллюстрация"];
+const COUNTS = [1, 2, 4, 6];
+const MOODS = ["Деловое", "Динамичное", "Минимализм"];
+
+export default function ImageGeneratorPage() {
+  const { profile } = useAuth();
+  const qc = useQueryClient();
+  const plan = (profile?.plan || "basic") as string;
+  const isPro = plan === "pro" || plan === "factory";
+
+  const [mode, setMode] = useState<Mode>("prompt");
+  const [prompt, setPrompt] = useState("");
+  const [articleId, setArticleId] = useState<string>("");
+  const [selectedH2, setSelectedH2] = useState<string[]>([]);
+  const [topic, setTopic] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [mood, setMood] = useState(MOODS[0]);
+
+  const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [style, setStyle] = useState(STYLES[0]);
+  const [count, setCount] = useState(1);
+  const [model, setModel] = useState<"schnell" | "flux-pro">("schnell");
+
+  const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [images, setImages] = useState<GenImage[]>([]);
+
+  // Articles list for h2 mode
+  const { data: articles = [] } = useQuery({
+    queryKey: ["images-articles", profile?.id],
+    enabled: !!profile?.id && mode === "h2",
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("articles")
+        .select("id, title, content")
+        .eq("user_id", profile!.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      return data || [];
+    },
+  });
+
+  // Session history
+  const { data: history = [] } = useQuery({
+    queryKey: ["images-history", profile?.id],
+    enabled: !!profile?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("article_images")
+        .select("id, public_url, prompt, created_at, mode")
+        .eq("user_id", profile!.id)
+        .order("created_at", { ascending: false })
+        .limit(24);
+      return data || [];
+    },
+  });
+
+  const selectedArticle = useMemo(
+    () => articles.find((a: any) => a.id === articleId),
+    [articles, articleId],
+  );
+
+  const h2List = useMemo(() => {
+    if (!selectedArticle?.content) return [] as string[];
+    const lines = String(selectedArticle.content).split("\n");
+    const out: string[] = [];
+    for (const ln of lines) {
+      const m = ln.match(/^##\s+(.+?)\s*$/);
+      if (m) out.push(m[1].trim());
+      const mh = ln.match(/^<h2[^>]*>(.+?)<\/h2>/i);
+      if (mh) out.push(mh[1].replace(/<[^>]+>/g, "").trim());
+    }
+    return Array.from(new Set(out));
+  }, [selectedArticle]);
+
+  useEffect(() => { setSelectedH2([]); }, [articleId]);
+
+  const toggleH2 = (h: string) => {
+    setSelectedH2((prev) => prev.includes(h) ? prev.filter((x) => x !== h) : [...prev, h]);
+  };
+
+  const canGenerate = () => {
+    if (generating) return false;
+    if (mode === "prompt") return prompt.trim().length > 3;
+    if (mode === "h2") return selectedH2.length > 0;
+    if (mode === "cover") return topic.trim().length > 1;
+    return false;
+  };
+
+  const callGenerate = async (overrideCount?: number, slotIndex?: number, customPrompt?: string) => {
+    setGenerating(true);
+    setProgress({ done: 0, total: overrideCount ?? count });
+    try {
+      const payload: any = {
+        mode: customPrompt ? "prompt" : mode,
+        aspect_ratio: aspectRatio,
+        style,
+        count: overrideCount ?? count,
+        model,
+        article_id: articleId || null,
+      };
+      if (customPrompt) payload.prompt = customPrompt;
+      else if (mode === "prompt") payload.prompt = prompt;
+      else if (mode === "h2") { payload.h2_headings = selectedH2; payload.article_id = articleId; }
+      else if (mode === "cover") { payload.topic = topic; payload.keyword = keyword; payload.mood = mood; }
+
+      const { data, error } = await supabase.functions.invoke("generate-image", { body: payload });
+      if (error) throw error;
+      if (!data?.images) throw new Error("Нет изображений в ответе");
+
+      if (slotIndex !== undefined) {
+        setImages((prev) => prev.map((img, i) => i === slotIndex ? { ...data.images[0], index: i } : img));
+      } else {
+        setImages(data.images);
+      }
+      toast.success("Изображение готово ✓");
+      qc.invalidateQueries({ queryKey: ["images-history"] });
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Ошибка генерации - кредиты возвращены");
+    } finally {
+      setGenerating(false);
+      setProgress(null);
+    }
+  };
+
+  const handleDownload = async (url: string, name: string) => {
+    try {
+      const r = await fetch(url);
+      const blob = await r.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${name.replace(/[^a-z0-9-]+/gi, "_").slice(0, 40)}.jpg`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch {
+      toast.error("Не удалось скачать");
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    for (let i = 0; i < images.length; i++) {
+      await handleDownload(images[i].url, images[i].label || `image_${i + 1}`);
+    }
+  };
+
+  const handleCopyUrl = async (url: string) => {
+    await navigator.clipboard.writeText(url);
+    toast.success("URL скопирован");
+  };
+
+  return (
+    <div className="space-y-6 p-4 md:p-6">
+      {/* Topbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <ImageIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold">Генератор изображений</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="outline" className="gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                FAL Flux
+              </Badge>
+              <span className="text-xs text-muted-foreground">{plan.toUpperCase()}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="font-medium">{profile?.credits_amount ?? 0}</span>
+          <span className="text-muted-foreground">кредитов</span>
+        </div>
+      </div>
+
+      {/* Mode cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {[
+          { id: "prompt" as Mode, icon: MessageSquare, title: "По запросу", desc: "Свободное описание" },
+          { id: "h2" as Mode, icon: FileText, title: "По H2-заголовкам", desc: "Из вашей статьи" },
+          { id: "cover" as Mode, icon: Layers, title: "Обложка статьи", desc: "Тема + ключ + настроение" },
+        ].map((m) => {
+          const active = mode === m.id;
+          return (
+            <button
+              key={m.id}
+              onClick={() => setMode(m.id)}
+              className={`text-left rounded-xl border p-4 transition-all ${
+                active
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  : "border-border bg-card hover:border-primary/40"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                  <m.icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="font-medium">{m.title}</div>
+                  <div className="text-xs text-muted-foreground">{m.desc}</div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: settings */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Параметры</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {mode === "prompt" && (
+                <div>
+                  <Label className="text-xs">Описание</Label>
+                  <Textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Реалистичное фото, деловая атмосфера, 4K, без AI-арта, без текста на изображении..."
+                    rows={5}
+                    className="mt-1.5"
+                  />
+                </div>
+              )}
+
+              {mode === "h2" && (
+                <>
+                  <div>
+                    <Label className="text-xs">Статья</Label>
+                    <Select value={articleId} onValueChange={setArticleId}>
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Выберите статью" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {articles.map((a: any) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.title || "Без названия"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {h2List.length > 0 && (
+                    <div>
+                      <Label className="text-xs">H2-заголовки ({selectedH2.length} выбрано)</Label>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5 max-h-48 overflow-y-auto scrollbar-hide">
+                        {h2List.map((h) => {
+                          const sel = selectedH2.includes(h);
+                          return (
+                            <button
+                              key={h}
+                              onClick={() => toggleH2(h)}
+                              className={`text-xs px-2.5 py-1 rounded-full border transition ${
+                                sel
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-card border-border hover:border-primary/40"
+                              }`}
+                            >
+                              {h.slice(0, 50)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {articleId && h2List.length === 0 && (
+                    <div className="text-xs text-muted-foreground">В статье не найдены H2-заголовки.</div>
+                  )}
+                </>
+              )}
+
+              {mode === "cover" && (
+                <>
+                  <div>
+                    <Label className="text-xs">Тема статьи</Label>
+                    <Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="SEO для интернет-магазина" className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Главное ключевое слово</Label>
+                    <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="продвижение сайта" className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Настроение</Label>
+                    <Tabs value={mood} onValueChange={setMood} className="mt-1.5">
+                      <TabsList className="grid grid-cols-3 w-full">
+                        {MOODS.map((m) => <TabsTrigger key={m} value={m} className="text-xs">{m}</TabsTrigger>)}
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                </>
+              )}
+
+              <div className="border-t pt-4 space-y-4">
+                <div>
+                  <Label className="text-xs">Соотношение сторон</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {ASPECT_RATIOS.map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setAspectRatio(r)}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition ${
+                          aspectRatio === r ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:border-primary/40"
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Стиль</Label>
+                  <Select value={style} onValueChange={setStyle}>
+                    <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STYLES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Количество фото</Label>
+                  <Select value={String(count)} onValueChange={(v) => setCount(Number(v))}>
+                    <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COUNTS.map((c) => <SelectItem key={c} value={String(c)}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Модель</Label>
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => setModel("schnell")}
+                      className={`text-xs px-3 py-2 rounded-lg border transition ${
+                        model === "schnell" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:border-primary/40"
+                      }`}
+                    >
+                      Schnell
+                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => {
+                            if (!isPro) { toast.error("Flux Pro доступен на тарифе PRO и выше"); return; }
+                            setModel("flux-pro");
+                          }}
+                          className={`text-xs px-3 py-2 rounded-lg border transition flex items-center justify-center gap-1.5 ${
+                            model === "flux-pro" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:border-primary/40"
+                          } ${!isPro ? "opacity-60" : ""}`}
+                        >
+                          {!isPro && <Lock className="h-3 w-3" />}
+                          Flux Pro
+                        </button>
+                      </TooltipTrigger>
+                      {!isPro && <TooltipContent>Доступно на PRO и выше</TooltipContent>}
+                    </Tooltip>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={!canGenerate()}
+                onClick={() => callGenerate()}
+              >
+                {generating ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Генерация...</>
+                ) : (
+                  <><Wand2 className="mr-2 h-4 w-4" />Сгенерировать</>
+                )}
+              </Button>
+              <div className="text-center text-xs text-muted-foreground">
+                Стоимость: {count} кредит{count === 1 ? "" : count < 5 ? "а" : "ов"}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: gallery */}
+        <div className="lg:col-span-2 space-y-4">
+          {generating && progress && (
+            <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              Генерация изображения {progress.done + 1} / {progress.total}...
+            </div>
+          )}
+
+          {images.length > 0 && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">{images.length} изображени{images.length === 1 ? "е" : "й"}</div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleDownloadAll}>
+                  <Download className="h-3.5 w-3.5 mr-1.5" />Скачать все
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setImages([])}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />Очистить
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {images.length === 0 && !generating ? (
+            <Card className="border-dashed">
+              <CardContent className="py-16 flex flex-col items-center text-center gap-3 text-muted-foreground">
+                <ImageIcon className="h-12 w-12 opacity-40" />
+                <div className="text-sm">Изображения появятся здесь</div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {(generating && images.length === 0 ? Array.from({ length: count }) : images).map((img: any, i: number) => (
+                <div key={i} className="group relative rounded-lg overflow-hidden border bg-card aspect-video">
+                  {img?.url ? (
+                    <>
+                      <img src={img.url} alt={img.label || "generated"} className="w-full h-full object-cover" loading="lazy" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 gap-2">
+                        <div className="text-xs text-white truncate">{img.label}</div>
+                        <div className="flex gap-1.5">
+                          <Button size="sm" variant="secondary" className="h-7 text-xs flex-1" onClick={() => handleDownload(img.url, img.label || `image_${i + 1}`)}>
+                            <Download className="h-3 w-3 mr-1" />Скачать
+                          </Button>
+                          <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => handleCopyUrl(img.url)}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => callGenerate(1, i, img.prompt)} disabled={generating}>
+                            <RefreshCw className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <Skeleton className="w-full h-full" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {history.length > 0 && (
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between">
+                  <span className="text-sm">История сессии ({history.length})</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                  {history.map((h: any) => (
+                    <a key={h.id} href={h.public_url} target="_blank" rel="noopener" className="block aspect-square rounded-md overflow-hidden border hover:border-primary/40 transition">
+                      <img src={h.public_url} alt={h.prompt || ""} className="w-full h-full object-cover" loading="lazy" />
+                    </a>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
