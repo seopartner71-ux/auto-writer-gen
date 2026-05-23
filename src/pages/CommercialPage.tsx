@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus, Eye, ImageIcon, BookmarkPlus, FolderOpen, Trash2, Link as LinkIcon, Globe } from "lucide-react";
+import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus, Eye, ImageIcon, BookmarkPlus, FolderOpen, Trash2, Link as LinkIcon, Globe, Pencil, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PAGE_TYPES, TONES, BLOCKS, type PageType, type BlockDef } from "@/features/commercial/constants";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -26,6 +26,8 @@ interface BlockState extends BlockDef {
   customTitle?: string;
   source?: "default" | "ai";
   regenCount?: number;
+  editing?: boolean;
+  imageBusy?: boolean;
 }
 interface StructureAnalysis {
   intent: string;
@@ -297,11 +299,34 @@ export default function CommercialPage() {
     const b = blocks[idx];
     setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "generating" } : x)));
     try {
+      // Anti-dup: collect H1/H2 already produced by earlier blocks (and parser),
+      // so the model doesn't repeat the same headings across blocks of one page.
+      const headingRe = /<h[12][^>]*>([\s\S]*?)<\/h[12]>/gi;
+      const generatedHeadings: string[] = [];
+      const generatedSummaries: string[] = [];
+      blocks.forEach((bx, i) => {
+        if (i === idx || !bx.content) return;
+        let m: RegExpExecArray | null;
+        const re = new RegExp(headingRe.source, headingRe.flags);
+        while ((m = re.exec(bx.content)) !== null) {
+          const txt = m[1].replace(/<[^>]+>/g, "").trim();
+          if (txt) generatedHeadings.push(txt);
+        }
+        generatedSummaries.push(bx.title);
+      });
+      const parsedH2 = Array.isArray((brief as any).existing_h2) ? (brief as any).existing_h2 : [];
+      const parsedBlocks = Array.isArray((brief as any).existing_blocks) ? (brief as any).existing_blocks : [];
+      const mergedBrief = {
+        ...brief,
+        existing_h2: Array.from(new Set([...parsedH2, ...generatedHeadings])),
+        existing_blocks: Array.from(new Set([...parsedBlocks, ...generatedSummaries])),
+      };
+
       const { data, error } = await supabase.functions.invoke("generate-commercial-block", {
         body: {
           block_type: b.type,
           page_type: pageType,
-          brief,
+          brief: mergedBrief,
           target_words: b.words,
           custom_instruction: b.customInstruction,
           custom_title: b.customTitle,
@@ -331,6 +356,49 @@ export default function CommercialPage() {
       setRegenConfirmIdx(idx);
     } else {
       generateBlock(idx);
+    }
+  };
+
+  // Inline block editing helpers
+  const toggleBlockEdit = (idx: number) => {
+    setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, editing: !x.editing } : x)));
+  };
+  const updateBlockContent = (idx: number, content: string) => {
+    const wc = content.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+    setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, content, wordCount: wc } : x)));
+  };
+
+  // Per-block image generation: calls generate-image and prepends an <img> into the block.
+  const generateBlockImage = async (idx: number) => {
+    const b = blocks[idx];
+    if (!b.content) return toast.error("Сначала сгенерируйте текст блока");
+    setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, imageBusy: true } : x)));
+    try {
+      const topic = `${b.title} ${brief.keyword || brief.niche || ""}`.trim();
+      const { data, error } = await supabase.functions.invoke("generate-image", {
+        body: {
+          mode: "cover",
+          topic,
+          keyword: brief.keyword || "",
+          aspect_ratio: "16:9",
+          style: "Реалистичный бизнес",
+          count: 1,
+          model: "schnell",
+        },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error));
+      const res = data as { images?: Array<{ url: string; label?: string }> };
+      const url = res?.images?.[0]?.url;
+      if (!url) throw new Error("Изображение не получено");
+      const alt = (b.title || "").replace(/"/g, "&quot;");
+      const imgTag = `<img src="${url}" alt="${alt}" loading="lazy" style="width:100%;height:auto;border-radius:8px;margin:0 0 1rem 0;" />\n`;
+      setBlocks((arr) =>
+        arr.map((x, i) => (i === idx ? { ...x, content: imgTag + (x.content || ""), imageBusy: false } : x)),
+      );
+      toast.success("Фото добавлено в блок");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось сгенерировать фото");
+      setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, imageBusy: false } : x)));
     }
   };
 
@@ -993,14 +1061,37 @@ export default function CommercialPage() {
                         {b.wordCount && <span className="text-xs text-muted-foreground">{b.wordCount} сл.</span>}
                       </div>
                       {b.status !== "generating" && genIdx < 0 && (
-                        <Button size="sm" variant="ghost" onClick={() => handleRegenClick(idx)}>
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          {(b.regenCount || 0) >= 1 ? "Перегенерировать (1 кр.)" : "Перегенерировать"}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {b.content && (
+                            <>
+                              <Button size="sm" variant="ghost" onClick={() => toggleBlockEdit(idx)} title={b.editing ? "Закрыть" : "Редактировать"}>
+                                {b.editing ? <X className="h-3 w-3 mr-1" /> : <Pencil className="h-3 w-3 mr-1" />}
+                                {b.editing ? "Готово" : "Править"}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => generateBlockImage(idx)} disabled={b.imageBusy} title="Сгенерировать фото для блока">
+                                {b.imageBusy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ImageIcon className="h-3 w-3 mr-1" />}
+                                Фото
+                              </Button>
+                            </>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => handleRegenClick(idx)}>
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            {(b.regenCount || 0) >= 1 ? "Перегенерировать (1 кр.)" : "Перегенерировать"}
+                          </Button>
+                        </div>
                       )}
                     </div>
                     {b.content ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: b.content }} />
+                      b.editing ? (
+                        <Textarea
+                          value={b.content}
+                          onChange={(e) => updateBlockContent(idx, e.target.value)}
+                          rows={Math.min(24, Math.max(8, Math.ceil(b.content.length / 80)))}
+                          className="font-mono text-xs"
+                        />
+                      ) : (
+                        <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: b.content }} />
+                      )
                     ) : b.status === "pending" ? (
                       <p className="text-sm text-muted-foreground">Ожидание...</p>
                     ) : null}
