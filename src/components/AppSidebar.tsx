@@ -91,6 +91,7 @@ export function AppSidebar() {
 
   const plan = profile?.plan ?? "free";
   const isFactory = plan === "pro";
+  const isStaffOrAdmin = role === "admin" || role === "staff";
 
   const networkPaths = ["/site-factory", "/network-monitor", "/domain-hunter"];
   // 3 main groups: Создать / Опубликовать / Аналитика  + collapsed «Ещё».
@@ -99,8 +100,10 @@ export function AppSidebar() {
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
-    { title: lang === "ru" ? "Изображения" : "Images", url: "/images", icon: ImageIcon },
-    { title: lang === "ru" ? "Коммерческие страницы" : "Commercial Pages", url: "/commercial", icon: Store },
+    ...(isStaffOrAdmin ? [
+      { title: lang === "ru" ? "Изображения" : "Images", url: "/images", icon: ImageIcon },
+      { title: lang === "ru" ? "Коммерческие страницы" : "Commercial Pages", url: "/commercial", icon: Store },
+    ] : []),
   ];
   const publishItems = isFactory ? [
     { title: t("nav.wordpress"), url: "/wordpress", icon: Send },
