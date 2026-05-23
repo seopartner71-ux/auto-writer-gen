@@ -619,6 +619,19 @@ export default function CommercialPage() {
                 )}
               </div>
             )}
+
+            <div className="space-y-1.5 pt-2 border-t">
+              <Label>Стоп-слова / запреты <span className="text-xs text-muted-foreground font-normal">(опц.)</span></Label>
+              <Textarea
+                rows={2}
+                placeholder="конкурент X, не упоминать доставку в регионы, без слова дешево"
+                value={brief.stop_words || ""}
+                onChange={(e) => setBrief({ ...brief, stop_words: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Через запятую: бренды, темы, формулировки, которые модель не должна использовать.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
