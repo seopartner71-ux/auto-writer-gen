@@ -104,11 +104,9 @@ function buildTable(rows: string[][]): Table {
             : undefined,
           children: [
             new Paragraph({
-              children: parseInlineRuns(stripImageMarkdown(text)).map((r) =>
-                r instanceof TextRun && rIdx === 0
-                  ? new TextRun({ text: (r as any).options?.text ?? "", bold: true })
-                  : r,
-              ),
+              children: rIdx === 0
+                ? [new TextRun({ text: stripImageMarkdown(text), bold: true })]
+                : parseInlineRuns(stripImageMarkdown(text)),
             }),
           ],
         });
