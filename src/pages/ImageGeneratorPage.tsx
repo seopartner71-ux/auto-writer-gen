@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,7 @@ const MOODS = ["Деловое", "Динамичное", "Минимализм"]
 export default function ImageGeneratorPage() {
   const { profile } = useAuth();
   const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const plan = (profile?.plan || "basic") as string;
   const isPro = plan === "pro" || plan === "factory";
 
@@ -59,6 +61,20 @@ export default function ImageGeneratorPage() {
   const [style, setStyle] = useState(STYLES[0]);
   const [count, setCount] = useState(1);
   const [model, setModel] = useState<"schnell" | "flux-pro">("schnell");
+
+  // Prefill from query string (e.g. coming from /commercial: ?mode=cover&keyword=...)
+  useEffect(() => {
+    const qMode = searchParams.get("mode");
+    const qPrompt = searchParams.get("prompt");
+    const qKeyword = searchParams.get("keyword");
+    const qTopic = searchParams.get("topic");
+    if (qMode === "prompt" || qMode === "h2" || qMode === "cover") setMode(qMode);
+    if (qPrompt) setPrompt(qPrompt);
+    if (qKeyword) setKeyword(qKeyword);
+    if (qTopic) setTopic(qTopic);
+    if (qMode || qPrompt || qKeyword || qTopic) setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);

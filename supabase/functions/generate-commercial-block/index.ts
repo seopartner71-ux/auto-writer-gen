@@ -28,6 +28,7 @@ interface Brief {
   audience?: string;
   services?: string;
   hours?: string;
+  stop_words?: string;
   [k: string]: unknown;
 }
 
@@ -142,6 +143,9 @@ function buildPrompt(body: ReqBody): { system: string; user: string } {
   if (typeof brief.items_count === "number") briefLines.push(`Товаров в категории: ${brief.items_count}`);
   if (typeof brief.has_prices === "boolean") briefLines.push(`Цены на сайте: ${brief.has_prices ? "да" : "нет"}`);
   if (typeof brief.has_guarantees === "boolean") briefLines.push(`Гарантии: ${brief.has_guarantees ? "да" : "нет"}`);
+  if (brief.stop_words && String(brief.stop_words).trim()) {
+    briefLines.push(`СТОП-СЛОВА И ЗАПРЕТЫ (не упоминать ни в каком виде): ${brief.stop_words}`);
+  }
 
   const system = `Ты профессиональный SEO-копирайтер и маркетолог. Пишешь коммерческий текст для сайта на русском языке.
 Тип страницы: ${page_type}. Тип блока: ${block_type}.

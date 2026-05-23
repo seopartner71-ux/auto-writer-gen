@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,9 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus } from "lucide-react";
+import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus, Eye, ImageIcon, BookmarkPlus, FolderOpen, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PAGE_TYPES, TONES, BLOCKS, type PageType, type BlockDef } from "@/features/commercial/constants";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -23,6 +25,7 @@ interface BlockState extends BlockDef {
   customInstruction?: string;
   customTitle?: string;
   source?: "default" | "ai";
+  regenCount?: number;
 }
 interface StructureAnalysis {
   intent: string;
@@ -77,6 +80,11 @@ export default function CommercialPage() {
   const [savedArticleId, setSavedArticleId] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<StructureAnalysis | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [templates, setTemplates] = useState<Array<{ id: string; name: string; page_type: string; brief: any }>>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [regenConfirmIdx, setRegenConfirmIdx] = useState<number | null>(null);
 
   const selectedType = PAGE_TYPES.find((t) => t.id === pageType);
   const tones = pageType ? TONES[pageType] : [];
@@ -209,7 +217,13 @@ export default function CommercialPage() {
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
       const res = data as { content: string; word_count: number };
-      setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "done", content: res.content, wordCount: res.word_count } : x)));
+      setBlocks((arr) =>
+        arr.map((x, i) =>
+          i === idx
+            ? { ...x, status: "done", content: res.content, wordCount: res.word_count, regenCount: (x.regenCount || 0) + (x.content ? 1 : 0) }
+            : x,
+        ),
+      );
       return true;
     } catch (e: any) {
       toast.error(`Блок "${b.title}": ${e?.message || "ошибка"}`);
@@ -217,6 +231,70 @@ export default function CommercialPage() {
       return false;
     }
   };
+
+  // Click "Перегенерировать". 1-я бесплатная (regenCount=0 после генерации), дальше — подтверждение списания.
+  const handleRegenClick = (idx: number) => {
+    const b = blocks[idx];
+    if ((b.regenCount || 0) >= 1) {
+      setRegenConfirmIdx(idx);
+    } else {
+      generateBlock(idx);
+    }
+  };
+
+  // Brief templates -------------------------------------------------------
+  const loadTemplates = async () => {
+    if (!profile?.id) return;
+    const { data } = await supabase
+      .from("commercial_brief_templates")
+      .select("id, name, page_type, brief")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false });
+    setTemplates((data as any) || []);
+  };
+
+  const applyTemplate = (id: string) => {
+    const t = templates.find((x) => x.id === id);
+    if (!t) return;
+    setSelectedTemplateId(id);
+    if (t.page_type !== pageType) {
+      setPageType(t.page_type as PageType);
+    }
+    setBrief({ ...t.brief, tone: t.brief?.tone || TONES[t.page_type as PageType][0] });
+    toast.success(`Загружен шаблон "${t.name}"`);
+  };
+
+  const saveTemplate = async () => {
+    if (!profile?.id || !pageType) return;
+    const name = window.prompt("Название шаблона:", brief.keyword || "Без названия");
+    if (!name || !name.trim()) return;
+    setSavingTemplate(true);
+    const { error } = await supabase.from("commercial_brief_templates").insert({
+      user_id: profile.id,
+      name: name.trim(),
+      page_type: pageType,
+      brief,
+    });
+    setSavingTemplate(false);
+    if (error) return toast.error(error.message);
+    toast.success("Шаблон сохранен");
+    await loadTemplates();
+  };
+
+  const deleteTemplate = async () => {
+    if (!selectedTemplateId) return;
+    if (!window.confirm("Удалить шаблон?")) return;
+    await supabase.from("commercial_brief_templates").delete().eq("id", selectedTemplateId);
+    setSelectedTemplateId("");
+    toast.success("Шаблон удален");
+    await loadTemplates();
+  };
+
+  // Load templates when user reaches Step 2.
+  useEffect(() => {
+    if (step === 2 && profile?.id && templates.length === 0) loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, profile?.id]);
 
   const startGeneration = async () => {
     setStep(4);
@@ -335,6 +413,33 @@ export default function CommercialPage() {
       {step === 2 && pageType && (
         <Card>
           <CardContent className="p-6 space-y-4">
+            {/* Templates bar */}
+            <div className="flex items-end gap-2 flex-wrap pb-3 border-b">
+              <div className="flex-1 min-w-[200px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Шаблоны брифов</Label>
+                <Select value={selectedTemplateId} onValueChange={applyTemplate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={templates.length ? "Загрузить шаблон…" : "Шаблонов пока нет"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name} · {PAGE_TYPES.find((p) => p.id === t.page_type)?.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="outline" size="sm" onClick={saveTemplate} disabled={savingTemplate || !brief.keyword}>
+                <BookmarkPlus className="h-3.5 w-3.5 mr-1" /> Сохранить как шаблон
+              </Button>
+              {selectedTemplateId && (
+                <Button variant="ghost" size="sm" onClick={deleteTemplate}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Удалить
+                </Button>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Ниша / тематика *</Label>
@@ -513,6 +618,19 @@ export default function CommercialPage() {
                 )}
               </div>
             )}
+
+            <div className="space-y-1.5 pt-2 border-t">
+              <Label>Стоп-слова / запреты <span className="text-xs text-muted-foreground font-normal">(опц.)</span></Label>
+              <Textarea
+                rows={2}
+                placeholder="конкурент X, не упоминать доставку в регионы, без слова дешево"
+                value={brief.stop_words || ""}
+                onChange={(e) => setBrief({ ...brief, stop_words: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Через запятую: бренды, темы, формулировки, которые модель не должна использовать.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -641,8 +759,9 @@ export default function CommercialPage() {
                         {b.wordCount && <span className="text-xs text-muted-foreground">{b.wordCount} сл.</span>}
                       </div>
                       {b.status !== "generating" && genIdx < 0 && (
-                        <Button size="sm" variant="ghost" onClick={() => generateBlock(idx)}>
-                          <RefreshCw className="h-3 w-3 mr-1" /> Перегенерировать
+                        <Button size="sm" variant="ghost" onClick={() => handleRegenClick(idx)}>
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          {(b.regenCount || 0) >= 1 ? "Перегенерировать (1 кр.)" : "Перегенерировать"}
                         </Button>
                       )}
                     </div>
@@ -668,6 +787,9 @@ export default function CommercialPage() {
                 </div>
               </CardContent>
             </Card>
+            <Button variant="outline" className="w-full" disabled={!fullHtml} onClick={() => setShowPreview(true)}>
+              <Eye className="h-4 w-4 mr-2" /> Превью всей страницы
+            </Button>
             <Button className="w-full" disabled={genIdx >= 0 || !fullHtml || !!savedArticleId} onClick={saveAsArticle}>
               <Save className="h-4 w-4 mr-2" /> Сохранить как статью
             </Button>
@@ -676,6 +798,21 @@ export default function CommercialPage() {
                 Открыть в редакторе
               </Button>
             )}
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!brief.keyword}
+              onClick={() => {
+                const params = new URLSearchParams({
+                  mode: "cover",
+                  keyword: brief.keyword || "",
+                  topic: brief.product_name || brief.niche || brief.keyword || "",
+                });
+                navigate(`/images?${params.toString()}`);
+              }}
+            >
+              <ImageIcon className="h-4 w-4 mr-2" /> Сгенерировать обложку
+            </Button>
           </div>
         </div>
       )}
@@ -692,6 +829,43 @@ export default function CommercialPage() {
           </Button>
         )}
       </div>
+
+      {/* Preview dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Превью страницы</DialogTitle>
+            <DialogDescription>
+              Так страница будет выглядеть после сохранения как статьи.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: fullHtml }} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Regen confirm dialog */}
+      <Dialog open={regenConfirmIdx !== null} onOpenChange={(o) => !o && setRegenConfirmIdx(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Перегенерация блока</DialogTitle>
+            <DialogDescription>
+              Первая перегенерация была бесплатной. Каждая следующая списывает 1 кредит. Продолжить?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setRegenConfirmIdx(null)}>Отмена</Button>
+            <Button
+              onClick={() => {
+                const i = regenConfirmIdx;
+                setRegenConfirmIdx(null);
+                if (i !== null) generateBlock(i);
+              }}
+            >
+              Списать 1 кредит и перегенерировать
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
