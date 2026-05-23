@@ -511,7 +511,7 @@ export default function CommercialPage() {
               <Save className="h-4 w-4 mr-2" /> Сохранить как статью
             </Button>
             {savedArticleId && (
-              <Button variant="outline" className="w-full" onClick={() => navigate(`/articles/${savedArticleId}`)}>
+              <Button variant="outline" className="w-full" onClick={() => navigate(`/articles?edit=${savedArticleId}`)}>
                 Открыть в редакторе
               </Button>
             )}
