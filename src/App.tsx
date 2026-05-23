@@ -94,6 +94,7 @@ const ArticleAuditPage = lazyWithRetry(() => import("@/pages/ArticleAuditPage"))
 const WelcomePage = lazyWithRetry(() => import("@/pages/WelcomePage"));
 const RankTrackerPage = lazyWithRetry(() => import("@/pages/RankTrackerPage"));
 const ImageGeneratorPage = lazyWithRetry(() => import("@/pages/ImageGeneratorPage"));
+const CommercialPage = lazyWithRetry(() => import("@/pages/CommercialPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -172,6 +173,7 @@ const App = () => (
                   <Route path="/plan-builder" element={<PlanBuilderPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
                   <Route path="/images" element={<ImageGeneratorPage />} />
+                  <Route path="/commercial" element={<CommercialPage />} />
                   <Route path="/rank-tracker" element={<RankTrackerPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
