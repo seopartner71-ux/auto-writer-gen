@@ -388,6 +388,78 @@ export default function CommercialPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, profile?.id]);
 
+  // Restore draft from localStorage on mount.
+  useEffect(() => {
+    if (!draftKey || draftRestored) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.pageType) setPageType(d.pageType);
+        if (d.brief) setBrief(d.brief);
+        if (Array.isArray(d.blocks)) setBlocks(d.blocks);
+        if (d.step) setStep(d.step);
+        if (d.parseSummary) setParseSummary(d.parseSummary);
+        if (Array.isArray(d.parsedFields)) setParsedFields(new Set(d.parsedFields));
+        if (d.savedArticleId) setSavedArticleId(d.savedArticleId);
+        toast.info("Черновик восстановлен");
+      }
+    } catch {}
+    setDraftRestored(true);
+  }, [draftKey, draftRestored]);
+
+  // Autosave draft on changes (debounced).
+  useEffect(() => {
+    if (!draftKey || !draftRestored) return;
+    const hasAny = pageType || blocks.length || Object.keys(brief || {}).some((k) => brief[k]);
+    const t = setTimeout(() => {
+      try {
+        if (!hasAny) {
+          localStorage.removeItem(draftKey);
+          return;
+        }
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            pageType, brief, blocks, step, parseSummary,
+            parsedFields: Array.from(parsedFields),
+            savedArticleId,
+            ts: Date.now(),
+          }),
+        );
+      } catch {}
+    }, 600);
+    return () => clearTimeout(t);
+  }, [draftKey, draftRestored, pageType, brief, blocks, step, parseSummary, parsedFields, savedArticleId]);
+
+  // Load history of created commercial pages.
+  const loadHistory = async () => {
+    if (!profile?.id) return;
+    const { data } = await supabase
+      .from("articles")
+      .select("id, title, page_type, updated_at")
+      .eq("user_id", profile.id)
+      .not("page_type", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(20);
+    setHistory((data as any) || []);
+  };
+  useEffect(() => { loadHistory(); }, [profile?.id]);
+
+  const resetDraft = () => {
+    if (!confirm("Сбросить текущий черновик?")) return;
+    if (draftKey) localStorage.removeItem(draftKey);
+    setPageType(null);
+    setBrief({ tone: "" });
+    setBlocks([]);
+    setStep(1);
+    setParseSummary(null);
+    setParsedFields(new Set());
+    setSavedArticleId(null);
+    setAnalysis(null);
+    toast.success("Черновик сброшен");
+  };
+
   const startGeneration = async () => {
     setStep(4);
     const indices = blocks.map((b, i) => (b.enabled ? i : -1)).filter((i) => i >= 0);
