@@ -412,12 +412,23 @@ export default function ImageGeneratorPage() {
 
                 <div>
                   <Label className="text-xs">Количество фото</Label>
-                  <Select value={String(count)} onValueChange={(v) => setCount(Number(v))}>
+                  <Select
+                    value={String(effectiveCount)}
+                    onValueChange={(v) => setCount(Number(v))}
+                    disabled={mode === "h2"}
+                  >
                     <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {COUNTS.map((c) => <SelectItem key={c} value={String(c)}>{c}</SelectItem>)}
+                      {(mode === "h2" ? [effectiveCount] : COUNTS).map((c) => (
+                        <SelectItem key={c} value={String(c)}>{c}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {mode === "h2" && (
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      Авто: 1 фото на каждый выбранный H2
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -464,7 +475,7 @@ export default function ImageGeneratorPage() {
                 )}
               </Button>
               <div className="text-center text-xs text-muted-foreground">
-                Стоимость: {count} кредит{count === 1 ? "" : count < 5 ? "а" : "ов"}
+                Стоимость: {effectiveCount} кредит{effectiveCount === 1 ? "" : effectiveCount < 5 ? "а" : "ов"}
               </div>
             </CardContent>
           </Card>
