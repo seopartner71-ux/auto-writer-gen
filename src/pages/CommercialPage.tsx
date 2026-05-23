@@ -519,9 +519,82 @@ export default function CommercialPage() {
 
       {/* Step 3 */}
       {step === 3 && (
-        <Card>
-          <CardContent className="p-6 space-y-3">
-            {blocks.map((b, i) => {
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">SEO-стратег: анализ структуры под запрос</span>
+                </div>
+                <Button size="sm" variant="outline" onClick={runStructureAnalysis} disabled={analyzing}>
+                  {analyzing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  {analysis ? "Перезапустить анализ" : "Запустить анализ"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Реверс-инжиниринг интента: ИИ моделирует, как поиск интерпретирует запрос, и предлагает блоки.
+              </p>
+
+              {analysis && (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-3 text-sm">
+                  {analysis.intent && (
+                    <div><span className="text-muted-foreground">Интент:</span> {analysis.intent}</div>
+                  )}
+                  {analysis.entities?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-muted-foreground text-xs">Сущности:</span>
+                      {analysis.entities.map((e, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{e}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  {analysis.expectations?.length > 0 && (
+                    <div>
+                      <div className="text-muted-foreground text-xs mb-1">Ожидания ИИ от контента:</div>
+                      <ul className="text-xs space-y-0.5 list-disc list-inside">
+                        {analysis.expectations.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {analysis.recommended_blocks?.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground text-xs">Рекомендуемые блоки:</span>
+                        <Button size="sm" variant="ghost" onClick={replaceWithAiBlocks} className="h-7 text-xs">
+                          Заменить все
+                        </Button>
+                      </div>
+                      <div className="grid gap-1.5">
+                        {analysis.recommended_blocks.map((rb, i) => {
+                          const exists = blocks.some((b) => b.type === rb.type);
+                          return (
+                            <div key={i} className="flex items-center justify-between rounded border bg-background p-2">
+                              <div className="min-w-0 pr-2">
+                                <div className="text-xs font-medium truncate">H{rb.h_level} · {rb.title}</div>
+                                <div className="text-xs text-muted-foreground truncate">{rb.desc} · ~{rb.words} сл.</div>
+                              </div>
+                              <Button size="sm" variant="outline" disabled={exists} onClick={() => addAiBlock(rb)} className="h-7 text-xs shrink-0">
+                                <Plus className="h-3 w-3 mr-1" />
+                                {exists ? "Добавлен" : "Добавить"}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {analysis.seo_notes && (
+                    <div className="text-xs italic text-muted-foreground">{analysis.seo_notes}</div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6 space-y-3">
+              {blocks.map((b, i) => {
               const locked = b.proOnly && !isPro;
               return (
                 <div key={b.type} className={`flex items-center justify-between rounded-md border p-3 ${locked ? "opacity-50" : ""}`}>
@@ -529,6 +602,7 @@ export default function CommercialPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{b.title}</span>
                       {locked && <Badge variant="outline" className="text-xs">PRO</Badge>}
+                      {b.source === "ai" && <Badge variant="secondary" className="text-xs">AI</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground">{b.desc} · ~{b.words} слов</p>
                   </div>
@@ -539,13 +613,14 @@ export default function CommercialPage() {
                   />
                 </div>
               );
-            })}
-            <div className="flex items-center justify-between pt-3 border-t">
-              <div className="text-sm text-muted-foreground">Итого: ~{totalWords} слов</div>
-              <div className="text-sm">Стоимость: <span className="font-medium text-primary">{cost} кредитов</span></div>
-            </div>
-          </CardContent>
-        </Card>
+              })}
+              <div className="flex items-center justify-between pt-3 border-t">
+                <div className="text-sm text-muted-foreground">Итого: ~{totalWords} слов</div>
+                <div className="text-sm">Стоимость: <span className="font-medium text-primary">{cost} кредитов</span></div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Step 4 */}
