@@ -67,6 +67,7 @@ export default function ImageGeneratorPage() {
   const [preview, setPreview] = useState<{ url: string; label?: string; prompt?: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [clearingAll, setClearingAll] = useState(false);
+  const [promptView, setPromptView] = useState<{ raw?: string; enhanced?: string } | null>(null);
 
   // In H2 mode, effective count = selected H2 count (one image per heading)
   const effectiveCount = mode === "h2" ? Math.max(selectedH2.length, 1) : count;
