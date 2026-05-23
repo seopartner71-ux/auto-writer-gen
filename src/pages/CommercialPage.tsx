@@ -512,7 +512,39 @@ export default function CommercialPage() {
           <h1 className="text-2xl font-semibold">Коммерческие страницы</h1>
           {selectedType && <Badge variant="secondary" className="mt-2">{selectedType.title}</Badge>}
         </div>
+        <Button variant="outline" size="sm" onClick={resetDraft}>
+          Новый черновик
+        </Button>
       </div>
+
+      {history.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm">История коммерческих страниц</CardTitle>
+          </CardHeader>
+          <CardContent className="py-2">
+            <div className="flex flex-col divide-y divide-border/40">
+              {history.slice(0, 8).map((h) => (
+                <div key={h.id} className="flex items-center justify-between py-2 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm truncate">{h.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {h.page_type} · {new Date(h.updated_at).toLocaleString("ru-RU")}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => window.open(`/articles?edit=${h.id}`, "_blank", "noopener,noreferrer")}
+                  >
+                    Открыть
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Step indicator */}
       <div className="flex items-center gap-2">
