@@ -514,6 +514,26 @@ export default function CommercialPage() {
   };
   useEffect(() => { loadHistory(); }, [profile?.id]);
 
+  const deleteHistoryItem = async (id: string) => {
+    if (!confirm("Удалить эту страницу из истории? Запись будет удалена безвозвратно.")) return;
+    const { error } = await supabase.from("articles").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    setHistory((prev) => prev.filter((h) => h.id !== id));
+    if (savedArticleId === id) setSavedArticleId(null);
+    toast.success("Запись удалена");
+  };
+
+  const clearAllHistory = async () => {
+    if (!profile?.id || history.length === 0) return;
+    if (!confirm(`Очистить всю историю коммерческих страниц (${history.length} шт.)? Это действие нельзя отменить.`)) return;
+    const ids = history.map((h) => h.id);
+    const { error } = await supabase.from("articles").delete().in("id", ids);
+    if (error) return toast.error(error.message);
+    setHistory([]);
+    setSavedArticleId(null);
+    toast.success("История очищена");
+  };
+
   const resetDraft = () => {
     if (!confirm("Сбросить текущий черновик?")) return;
     if (draftKey) localStorage.removeItem(draftKey);
@@ -587,8 +607,17 @@ export default function CommercialPage() {
 
       {history.length > 0 && (
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm">История коммерческих страниц</CardTitle>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={clearAllHistory}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Очистить историю
+            </Button>
           </CardHeader>
           <CardContent className="py-2">
             <div className="flex flex-col divide-y divide-border/40">
@@ -600,13 +629,24 @@ export default function CommercialPage() {
                       {h.page_type} · {new Date(h.updated_at).toLocaleString("ru-RU")}
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => window.open(`/articles?edit=${h.id}`, "_blank", "noopener,noreferrer")}
-                  >
-                    Открыть
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => window.open(`/articles?edit=${h.id}`, "_blank", "noopener,noreferrer")}
+                    >
+                      Открыть
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      title="Удалить запись"
+                      onClick={() => deleteHistoryItem(h.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
