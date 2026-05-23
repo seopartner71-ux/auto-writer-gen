@@ -584,6 +584,9 @@ export default function ImageGeneratorPage() {
                           <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => handleCopyUrl(img.url)}>
                             <Copy className="h-3 w-3" />
                           </Button>
+                          <Button size="sm" variant="secondary" className="h-7 text-xs" title="Промпт" onClick={() => setPromptView({ raw: img.raw_prompt, enhanced: img.enhanced_prompt || img.prompt })}>
+                            <FileCode className="h-3 w-3" />
+                          </Button>
                           <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => callGenerate(1, i, img.prompt)} disabled={generating}>
                             <RefreshCw className="h-3 w-3" />
                           </Button>
