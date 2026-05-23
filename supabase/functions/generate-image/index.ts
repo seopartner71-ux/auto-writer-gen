@@ -138,9 +138,29 @@ async function uploadToBucket(admin: any, userId: string, sourceUrl: string, idx
   const resp = await fetch(sourceUrl);
   if (!resp.ok) throw new Error(`Failed to fetch FAL image: ${resp.status}`);
   const buf = new Uint8Array(await resp.arrayBuffer());
-  const path = `${userId}/${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}.jpg`;
-  const { error } = await admin.storage.from(BUCKET).upload(path, buf, {
-    contentType: "image/jpeg",
+
+  // Convert JPEG -> WebP (smaller files, same visual quality).
+  // Fallback: if conversion fails for any reason, keep original JPEG.
+  let bytes: Uint8Array = buf;
+  let ext = "jpg";
+  let contentType = "image/jpeg";
+  try {
+    const [{ default: decodeJpeg }, { default: encodeWebp }] = await Promise.all([
+      import("npm:@jsquash/jpeg@1.5.0/decode.js"),
+      import("npm:@jsquash/webp@1.4.0/encode.js"),
+    ]);
+    const imageData = await decodeJpeg(buf);
+    const webp = await encodeWebp(imageData, { quality: 85 });
+    bytes = new Uint8Array(webp);
+    ext = "webp";
+    contentType = "image/webp";
+  } catch (e) {
+    console.warn("[generate-image] WebP conversion failed, falling back to JPEG:", (e as Error)?.message);
+  }
+
+  const path = `${userId}/${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
+  const { error } = await admin.storage.from(BUCKET).upload(path, bytes, {
+    contentType,
     upsert: false,
   });
   if (error) throw new Error(`Upload failed: ${error.message}`);
