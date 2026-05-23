@@ -317,5 +317,5 @@ export async function markdownToDocxBlob(
 }
 
 export function safeFilename(name: string, ext = "docx"): string {
-  return `${(name || "article").replace(/[^a-zA-Zа-яА-ЯеЕ0-9_-]+/g, "_").slice(0, 80)}.${ext}`;
+  return `${(name || "article").replace(/[^a-zA-Zа-яА-Я0-9_-]+/g, "_").slice(0, 80)}.${ext}`;
 }
