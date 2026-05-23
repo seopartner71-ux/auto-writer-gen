@@ -540,7 +540,35 @@ ${customInstructions}
   const showTable = includeComparisonTable !== false && !authorForbidsTables;
   const showQuote = includeExpertQuote !== false;
 
-  let systemPrompt = `### ROLE & MISSION
+  const _now = new Date();
+  const _currentYear = _now.getUTCFullYear();
+  const _prevYear = _currentYear - 1;
+  const _nextYear = _currentYear + 1;
+  const _monthRu = ["январе","феврале","марте","апреле","мае","июне","июле","августе","сентябре","октябре","ноябре","декабре"][_now.getUTCMonth()];
+  const _monthEn = _now.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+  const temporalBlock = isRussian
+    ? `### ВРЕМЕННОЙ КОНТЕКСТ (ОБЯЗАТЕЛЬНО СОБЛЮДАТЬ)
+СЕЙЧАС: ${_monthRu} ${_currentYear} года. Текущий год — ${_currentYear}.
+- При любом упоминании года по умолчанию используй "${_currentYear}".
+- Запрещено писать "в ${_prevYear} году" как про настоящее. ${_prevYear} — это ПРОШЛЫЙ год.
+- Фразы "сейчас", "в этом году", "на сегодня", "актуально на данный момент" = ${_currentYear}.
+- "Недавно" / "в последнее время" = вторая половина ${_prevYear} - ${_currentYear}.
+- ${_nextYear} год можно упоминать только как ближайший прогноз / план / тренд.
+- Не выдумывай статистику конкретно за ${_currentYear}, если её нет в данных конкурентов — используй обтекаемое "по итогам последних лет", "в последние сезоны", "практика показывает".
+- Цены, законы, ставки, регуляции, версии ПО — всегда подавай как актуальные на ${_currentYear}.`
+    : `### TEMPORAL CONTEXT (MUST FOLLOW)
+NOW: ${_monthEn} ${_currentYear}. Current year is ${_currentYear}.
+- Whenever you mention a year by default, use "${_currentYear}".
+- Do NOT write about "${_prevYear}" as if it were the present. ${_prevYear} is the PREVIOUS year.
+- Phrases like "currently", "this year", "as of today", "right now" = ${_currentYear}.
+- "Recently" / "lately" = second half of ${_prevYear} through ${_currentYear}.
+- ${_nextYear} may only be referenced as a forecast / plan / upcoming trend.
+- Do not fabricate ${_currentYear}-specific statistics if absent from competitor data — use hedged wording like "in recent seasons", "over the past few years", "practice shows".
+- Prices, laws, rates, regulations, software versions — present them as current for ${_currentYear}.`;
+
+  let systemPrompt = `${temporalBlock}
+
+### ROLE & MISSION
 Ты - элитный SEO-инженер и контент-стратег. Твоя цель: создавать экспертный контент, который НЕВОЗМОЖНО отличить от написанного человеком (0% AI Score), и который захватывает выдачу Google SGE и нейросетей (GEO).${authorProfile ? " Пиши КАК автор, описанный в Блоке А — каждое предложение должно звучать как его/её текст. Инструкции автора имеют НАИВЫСШИЙ приоритет." : ""}
 
 ### PERSONA ADAPTATION (Mandatory)
