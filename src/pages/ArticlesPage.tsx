@@ -1604,6 +1604,24 @@ export default function ArticlesPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={!content}
+                      onClick={async () => {
+                        try {
+                          const blob = await markdownToDocxBlob(content, title, metaDescription);
+                          saveAs(blob, safeFilename(title, "docx"));
+                          toast.success("Файл .docx скачан");
+                        } catch (e) {
+                          console.error("[docx export]", e);
+                          toast.error("Ошибка экспорта в .docx");
+                        }
+                      }}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      DOCX
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => saveArticle.mutate()}
                       disabled={!content || saveArticle.isPending}
                     >
