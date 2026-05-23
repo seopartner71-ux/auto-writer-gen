@@ -24,6 +24,25 @@ interface BlockState extends BlockDef {
 
 const STEP_LABELS = ["Тип", "Бриф", "Структура", "Генерация"];
 
+const getFunctionErrorMessage = async (error: unknown, fallback = "Ошибка генерации") => {
+  const context = (error as { context?: Response })?.context;
+  if (context) {
+    try {
+      const payload = await context.clone().json();
+      if (typeof payload?.error === "string") return payload.error;
+      if (typeof payload?.message === "string") return payload.message;
+    } catch {
+      try {
+        const text = await context.clone().text();
+        if (text) return text;
+      } catch {
+        // ignore and use the generic message below
+      }
+    }
+  }
+  return error instanceof Error ? error.message : fallback;
+};
+
 export default function CommercialPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -77,7 +96,7 @@ export default function CommercialPage() {
       const { data, error } = await supabase.functions.invoke("commercial-brief-helper", {
         body: { kind, niche: brief.niche, page_type: pageType, city: brief.city },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error));
       setAiResults({ kind, items: (data as any).items || [] });
     } catch (e: any) {
       toast.error(e?.message || "Ошибка генерации");
@@ -102,24 +121,32 @@ export default function CommercialPage() {
           target_words: b.words,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error));
       const res = data as { content: string; word_count: number };
       setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "done", content: res.content, wordCount: res.word_count } : x)));
+      return true;
     } catch (e: any) {
       toast.error(`Блок "${b.title}": ${e?.message || "ошибка"}`);
       setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "error" } : x)));
+      return false;
     }
   };
 
   const startGeneration = async () => {
     setStep(4);
     const indices = blocks.map((b, i) => (b.enabled ? i : -1)).filter((i) => i >= 0);
+    let failed = 0;
     for (const i of indices) {
       setGenIdx(i);
-      await generateBlock(i);
+      const ok = await generateBlock(i);
+      if (!ok) failed += 1;
     }
     setGenIdx(-1);
-    toast.success("Генерация завершена");
+    if (failed) {
+      toast.error(`Генерация завершена с ошибками: ${failed}`);
+    } else {
+      toast.success("Генерация завершена");
+    }
   };
 
   const fullHtml = useMemo(
