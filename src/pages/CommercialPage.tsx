@@ -129,6 +129,70 @@ export default function CommercialPage() {
   const totalWords = enabledBlocks.reduce((s, b) => s + b.words, 0);
   const cost = enabledBlocks.length;
 
+  const runStructureAnalysis = async () => {
+    if (!pageType || !brief.keyword) return toast.error("Заполни ключевой запрос");
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("commercial-structure-analyzer", {
+        body: {
+          page_type: pageType,
+          niche: brief.niche,
+          keyword: brief.keyword,
+          city: brief.city,
+          audience: brief.audience,
+          utp: brief.utp,
+          benefits: brief.benefits,
+        },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error));
+      setAnalysis(data as StructureAnalysis);
+      toast.success("Анализ готов. Можно добавить блоки.");
+    } catch (e: any) {
+      toast.error(e?.message || "Ошибка анализа");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const addAiBlock = (rb: StructureAnalysis["recommended_blocks"][number]) => {
+    if (blocks.some((b) => b.type === rb.type)) {
+      toast.info("Этот блок уже есть в структуре");
+      return;
+    }
+    setBlocks((arr) => [
+      ...arr,
+      {
+        type: rb.type,
+        title: rb.title,
+        desc: rb.desc,
+        words: rb.words,
+        enabled: true,
+        status: "pending",
+        customInstruction: `${rb.desc}${rb.elements?.length ? `\nРекомендуемые элементы: ${rb.elements.join(", ")}.` : ""}`,
+        customTitle: rb.title,
+        source: "ai",
+      },
+    ]);
+  };
+
+  const replaceWithAiBlocks = () => {
+    if (!analysis?.recommended_blocks?.length) return;
+    setBlocks(
+      analysis.recommended_blocks.map<BlockState>((rb) => ({
+        type: rb.type,
+        title: rb.title,
+        desc: rb.desc,
+        words: rb.words,
+        enabled: true,
+        status: "pending",
+        customInstruction: `${rb.desc}${rb.elements?.length ? `\nРекомендуемые элементы: ${rb.elements.join(", ")}.` : ""}`,
+        customTitle: rb.title,
+        source: "ai",
+      })),
+    );
+    toast.success("Структура заменена на AI-рекомендации");
+  };
+
   const generateBlock = async (idx: number) => {
     const b = blocks[idx];
     setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "generating" } : x)));
