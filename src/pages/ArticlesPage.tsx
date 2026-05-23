@@ -73,6 +73,8 @@ import {
   markdownToCleanHtml,
   markdownToFullHtml,
 } from "@/pages/articles/utils";
+import { markdownToDocxBlob, safeFilename } from "@/pages/articles/markdownToDocx";
+import { saveAs } from "file-saver";
 
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
@@ -1598,6 +1600,24 @@ export default function ArticlesPage() {
                     >
                       <FileText className="h-3 w-3 mr-1" />
                       Google Docs
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!content}
+                      onClick={async () => {
+                        try {
+                          const blob = await markdownToDocxBlob(content, title, metaDescription);
+                          saveAs(blob, safeFilename(title, "docx"));
+                          toast.success("Файл .docx скачан");
+                        } catch (e) {
+                          console.error("[docx export]", e);
+                          toast.error("Ошибка экспорта в .docx");
+                        }
+                      }}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      DOCX
                     </Button>
                     <Button
                       variant="outline"
