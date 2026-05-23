@@ -502,6 +502,7 @@ export default function CommercialPage() {
     if (error) return toast.error(error.message);
     setSavedArticleId(data.id);
     toast.success("Сохранено в Статьи");
+    loadHistory();
   };
 
   return (
