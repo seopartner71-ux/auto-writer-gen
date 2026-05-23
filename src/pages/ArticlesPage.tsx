@@ -73,6 +73,8 @@ import {
   markdownToCleanHtml,
   markdownToFullHtml,
 } from "@/pages/articles/utils";
+import { markdownToDocxBlob, safeFilename } from "@/pages/articles/markdownToDocx";
+import { saveAs } from "file-saver";
 
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
