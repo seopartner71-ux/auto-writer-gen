@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -94,6 +94,12 @@ export default function CommercialPage() {
     company?: string | null; city?: string | null; phone?: string | null;
     blocks?: number; h2?: number;
   } | null>(null);
+
+  // History of previously created commercial pages (from articles table).
+  const [history, setHistory] = useState<Array<{ id: string; title: string; page_type: string | null; updated_at: string }>>([]);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  const draftKey = profile?.id ? `commercial_draft_v1:${profile.id}` : null;
 
   const selectedType = PAGE_TYPES.find((t) => t.id === pageType);
   const tones = pageType ? TONES[pageType] : [];
@@ -382,6 +388,78 @@ export default function CommercialPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, profile?.id]);
 
+  // Restore draft from localStorage on mount.
+  useEffect(() => {
+    if (!draftKey || draftRestored) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.pageType) setPageType(d.pageType);
+        if (d.brief) setBrief(d.brief);
+        if (Array.isArray(d.blocks)) setBlocks(d.blocks);
+        if (d.step) setStep(d.step);
+        if (d.parseSummary) setParseSummary(d.parseSummary);
+        if (Array.isArray(d.parsedFields)) setParsedFields(new Set(d.parsedFields));
+        if (d.savedArticleId) setSavedArticleId(d.savedArticleId);
+        toast.info("Черновик восстановлен");
+      }
+    } catch {}
+    setDraftRestored(true);
+  }, [draftKey, draftRestored]);
+
+  // Autosave draft on changes (debounced).
+  useEffect(() => {
+    if (!draftKey || !draftRestored) return;
+    const hasAny = pageType || blocks.length || Object.keys(brief || {}).some((k) => brief[k]);
+    const t = setTimeout(() => {
+      try {
+        if (!hasAny) {
+          localStorage.removeItem(draftKey);
+          return;
+        }
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            pageType, brief, blocks, step, parseSummary,
+            parsedFields: Array.from(parsedFields),
+            savedArticleId,
+            ts: Date.now(),
+          }),
+        );
+      } catch {}
+    }, 600);
+    return () => clearTimeout(t);
+  }, [draftKey, draftRestored, pageType, brief, blocks, step, parseSummary, parsedFields, savedArticleId]);
+
+  // Load history of created commercial pages.
+  const loadHistory = async () => {
+    if (!profile?.id) return;
+    const { data } = await supabase
+      .from("articles")
+      .select("id, title, page_type, updated_at")
+      .eq("user_id", profile.id)
+      .not("page_type", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(20);
+    setHistory((data as any) || []);
+  };
+  useEffect(() => { loadHistory(); }, [profile?.id]);
+
+  const resetDraft = () => {
+    if (!confirm("Сбросить текущий черновик?")) return;
+    if (draftKey) localStorage.removeItem(draftKey);
+    setPageType(null);
+    setBrief({ tone: "" });
+    setBlocks([]);
+    setStep(1);
+    setParseSummary(null);
+    setParsedFields(new Set());
+    setSavedArticleId(null);
+    setAnalysis(null);
+    toast.success("Черновик сброшен");
+  };
+
   const startGeneration = async () => {
     setStep(4);
     const indices = blocks.map((b, i) => (b.enabled ? i : -1)).filter((i) => i >= 0);
@@ -424,6 +502,7 @@ export default function CommercialPage() {
     if (error) return toast.error(error.message);
     setSavedArticleId(data.id);
     toast.success("Сохранено в Статьи");
+    loadHistory();
   };
 
   return (
@@ -433,7 +512,39 @@ export default function CommercialPage() {
           <h1 className="text-2xl font-semibold">Коммерческие страницы</h1>
           {selectedType && <Badge variant="secondary" className="mt-2">{selectedType.title}</Badge>}
         </div>
+        <Button variant="outline" size="sm" onClick={resetDraft}>
+          Новый черновик
+        </Button>
       </div>
+
+      {history.length > 0 && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm">История коммерческих страниц</CardTitle>
+          </CardHeader>
+          <CardContent className="py-2">
+            <div className="flex flex-col divide-y divide-border/40">
+              {history.slice(0, 8).map((h) => (
+                <div key={h.id} className="flex items-center justify-between py-2 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm truncate">{h.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {h.page_type} · {new Date(h.updated_at).toLocaleString("ru-RU")}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => window.open(`/articles?edit=${h.id}`, "_blank", "noopener,noreferrer")}
+                  >
+                    Открыть
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Step indicator */}
       <div className="flex items-center gap-2">
