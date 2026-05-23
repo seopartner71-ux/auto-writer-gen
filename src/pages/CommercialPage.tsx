@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus, Eye, ImageIcon, BookmarkPlus, FolderOpen, Trash2 } from "lucide-react";
+import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus, Eye, ImageIcon, BookmarkPlus, FolderOpen, Trash2, Link as LinkIcon, Globe } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PAGE_TYPES, TONES, BLOCKS, type PageType, type BlockDef } from "@/features/commercial/constants";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -86,8 +86,94 @@ export default function CommercialPage() {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [regenConfirmIdx, setRegenConfirmIdx] = useState<number | null>(null);
 
+  // URL Parser state
+  const [parseUrl, setParseUrl] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [parsedFields, setParsedFields] = useState<Set<string>>(new Set());
+  const [parseSummary, setParseSummary] = useState<{
+    company?: string | null; city?: string | null; phone?: string | null;
+    blocks?: number; h2?: number;
+  } | null>(null);
+
   const selectedType = PAGE_TYPES.find((t) => t.id === pageType);
   const tones = pageType ? TONES[pageType] : [];
+
+  const markParsed = (keys: string[]) => {
+    setParsedFields((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => next.add(k));
+      return next;
+    });
+  };
+
+  const FromSiteBadge = ({ field }: { field: string }) =>
+    parsedFields.has(field) ? (
+      <Badge variant="secondary" className="ml-2 h-4 px-1.5 text-[10px] bg-accent text-accent-foreground">
+        Из сайта
+      </Badge>
+    ) : null;
+
+  const parsePageUrl = async () => {
+    const url = parseUrl.trim();
+    if (!url) return toast.error("Введите URL");
+    if (!/^https?:\/\//i.test(url)) return toast.error("URL должен начинаться с http:// или https://");
+    setParsing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("parse-commercial-url", {
+        body: { url, page_type: pageType },
+      });
+      if (error) {
+        const msg = await getFunctionErrorMessage(error, "Не удалось проанализировать URL");
+        if (/недоступен|fetch/i.test(msg)) toast.warning("Сайт недоступен - заполните бриф вручную");
+        else if (/JavaScript|js_only/i.test(msg)) toast.warning("Страница требует JavaScript - данные извлечь не удалось");
+        else if (/распознать|unparseable/i.test(msg)) toast.warning("Не удалось распознать структуру страницы");
+        else toast.warning(msg);
+        return;
+      }
+      const p: any = data;
+      const updates: Record<string, any> = {};
+      const markedKeys: string[] = [];
+      if (p.niche) { updates.niche = p.niche; markedKeys.push("niche"); }
+      if (p.keyword) { updates.keyword = p.keyword; markedKeys.push("keyword"); }
+      if (p.city) { updates.city = p.city; markedKeys.push("city"); }
+      if (p.company_name) {
+        if (pageType === "category") { updates.shop_name = p.company_name; markedKeys.push("shop_name"); }
+        else { updates.company = p.company_name; markedKeys.push("company"); }
+      }
+      if (p.utp) { updates.utp = p.utp; markedKeys.push("utp"); }
+      if (Array.isArray(p.benefits) && p.benefits.length) { updates.benefits = p.benefits; markedKeys.push("benefits"); }
+      if (Array.isArray(p.services) && p.services.length) {
+        updates.services = p.services.join("\n");
+        updates.parsed_services = p.services;
+        markedKeys.push("services");
+      }
+      if (p.work_hours) { updates.hours = p.work_hours; updates.parsed_work_hours = p.work_hours; markedKeys.push("hours"); }
+      if (p.prices) { updates.has_prices = true; updates.parsed_prices = p.prices; markedKeys.push("has_prices"); }
+      if (p.guarantees) { updates.has_guarantees = true; updates.parsed_guarantees = p.guarantees; markedKeys.push("has_guarantees"); }
+      if (p.tone && tones.includes(p.tone)) { updates.tone = p.tone; markedKeys.push("tone"); }
+      // Hidden grounding fields - passed to AI but not shown as form fields.
+      updates.source_url = p.source_url;
+      if (p.phone) updates.parsed_phone = p.phone;
+      if (p.address) updates.parsed_address = p.address;
+      if (Array.isArray(p.existing_h2)) updates.existing_h2 = p.existing_h2;
+      if (Array.isArray(p.existing_blocks)) updates.existing_blocks = p.existing_blocks;
+
+      setBrief((b) => ({ ...b, ...updates }));
+      markParsed(markedKeys);
+      setParseSummary({
+        company: p.company_name,
+        city: p.city,
+        phone: p.phone,
+        blocks: (p.existing_blocks || []).length,
+        h2: (p.existing_h2 || []).length,
+      });
+      toast.success("Страница проанализирована");
+    } catch (e) {
+      toast.warning(e instanceof Error ? e.message : "Не удалось проанализировать URL");
+    } finally {
+      setParsing(false);
+    }
+  };
 
   const initBlocks = (t: PageType) => {
     const list = BLOCKS[t].map<BlockState>((b) => ({
@@ -413,6 +499,43 @@ export default function CommercialPage() {
       {step === 2 && pageType && (
         <Card>
           <CardContent className="p-6 space-y-4">
+            {/* URL Parser */}
+            <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+              <div className="flex items-center gap-2">
+                <LinkIcon className="h-4 w-4 text-primary" />
+                <Label className="text-sm">Адрес страницы сайта (опционально)</Label>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={parseUrl}
+                  onChange={(e) => setParseUrl(e.target.value)}
+                  placeholder="https://example.com/uslugi/remont-kvartir"
+                  disabled={parsing}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); parsePageUrl(); } }}
+                />
+                <Button onClick={parsePageUrl} disabled={parsing || !parseUrl.trim()}>
+                  {parsing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Brain className="h-4 w-4 mr-1" />}
+                  Проанализировать
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                AI извлечет данные компании и заполнит бриф автоматически. Существующие H2 и блоки будут учтены, чтобы не дублировать.
+              </p>
+              {parseSummary && (
+                <div className="rounded-md bg-background/60 border border-border p-3 text-xs space-y-1 mt-2">
+                  <div className="flex items-center gap-1.5 text-success font-medium">
+                    <Check className="h-3.5 w-3.5" /> Страница проанализирована
+                  </div>
+                  {parseSummary.company && <div>Компания: <span className="text-foreground">{parseSummary.company}</span></div>}
+                  {parseSummary.city && <div>Город: <span className="text-foreground">{parseSummary.city}</span></div>}
+                  {parseSummary.phone && <div>Телефон: <span className="text-foreground">найден</span></div>}
+                  <div>Найдено блоков: <span className="text-foreground">{parseSummary.blocks ?? 0}</span></div>
+                  <div>Найдено H2: <span className="text-foreground">{parseSummary.h2 ?? 0}</span></div>
+                  <div className="text-muted-foreground pt-1">Проверьте поля брифа и при необходимости отредактируйте.</div>
+                </div>
+              )}
+            </div>
+
             {/* Templates bar */}
             <div className="flex items-end gap-2 flex-wrap pb-3 border-b">
               <div className="flex-1 min-w-[200px] space-y-1.5">
@@ -442,22 +565,22 @@ export default function CommercialPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Ниша / тематика *</Label>
+                <Label>Ниша / тематика *<FromSiteBadge field="niche" /></Label>
                 <Input value={brief.niche || ""} onChange={(e) => setBrief({ ...brief, niche: e.target.value })} placeholder="ремонт квартир" />
               </div>
               <div className="space-y-1.5">
-                <Label>Главный ключевой запрос *</Label>
+                <Label>Главный ключевой запрос *<FromSiteBadge field="keyword" /></Label>
                 <Input value={brief.keyword || ""} onChange={(e) => setBrief({ ...brief, keyword: e.target.value })} />
               </div>
               {(pageType === "service" || pageType === "local") && (
                 <div className="space-y-1.5">
-                  <Label>Название компании</Label>
+                  <Label>Название компании<FromSiteBadge field="company" /></Label>
                   <Input value={brief.company || ""} onChange={(e) => setBrief({ ...brief, company: e.target.value })} />
                 </div>
               )}
               {pageType === "category" && (
                 <div className="space-y-1.5">
-                  <Label>Название магазина / бренда</Label>
+                  <Label>Название магазина / бренда<FromSiteBadge field="shop_name" /></Label>
                   <Input value={brief.shop_name || ""} onChange={(e) => setBrief({ ...brief, shop_name: e.target.value })} />
                 </div>
               )}
@@ -475,7 +598,7 @@ export default function CommercialPage() {
               )}
               {(pageType === "service" || pageType === "local") && (
                 <div className="space-y-1.5">
-                  <Label>Город</Label>
+                  <Label>Город<FromSiteBadge field="city" /></Label>
                   <Input value={brief.city || ""} onChange={(e) => setBrief({ ...brief, city: e.target.value })} />
                 </div>
               )}
@@ -488,7 +611,7 @@ export default function CommercialPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Тон</Label>
+              <Label>Тон<FromSiteBadge field="tone" /></Label>
               <div className="flex flex-wrap gap-2">
                 {tones.map((t) => (
                   <button
@@ -508,11 +631,11 @@ export default function CommercialPage() {
             {pageType === "service" && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center justify-between rounded-md border p-3">
-                  <Label>Цены на сайте</Label>
+                  <Label>Цены на сайте<FromSiteBadge field="has_prices" /></Label>
                   <Switch checked={!!brief.has_prices} onCheckedChange={(v) => setBrief({ ...brief, has_prices: v })} />
                 </div>
                 <div className="flex items-center justify-between rounded-md border p-3">
-                  <Label>Гарантии</Label>
+                  <Label>Гарантии<FromSiteBadge field="has_guarantees" /></Label>
                   <Switch checked={!!brief.has_guarantees} onCheckedChange={(v) => setBrief({ ...brief, has_guarantees: v })} />
                 </div>
               </div>
@@ -547,11 +670,11 @@ export default function CommercialPage() {
             {pageType === "local" && (
               <>
                 <div className="space-y-1.5">
-                  <Label>Список услуг</Label>
+                  <Label>Список услуг<FromSiteBadge field="services" /></Label>
                   <Textarea rows={3} value={brief.services || ""} onChange={(e) => setBrief({ ...brief, services: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Режим работы (опц.)</Label>
+                  <Label>Режим работы (опц.)<FromSiteBadge field="hours" /></Label>
                   <Input value={brief.hours || ""} onChange={(e) => setBrief({ ...brief, hours: e.target.value })} />
                 </div>
               </>

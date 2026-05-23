@@ -30,6 +30,16 @@ interface Brief {
   services?: string;
   hours?: string;
   stop_words?: string;
+  /** URL parser fields (optional) — used to ground the AI in real client data. */
+  source_url?: string;
+  parsed_phone?: string;
+  parsed_address?: string;
+  parsed_work_hours?: string;
+  parsed_prices?: string;
+  parsed_guarantees?: string;
+  parsed_services?: string[];
+  existing_h2?: string[];
+  existing_blocks?: string[];
   [k: string]: unknown;
 }
 
@@ -148,6 +158,36 @@ function buildPrompt(body: ReqBody): { system: string; user: string } {
     briefLines.push(`СТОП-СЛОВА И ЗАПРЕТЫ (не упоминать ни в каком виде): ${brief.stop_words}`);
   }
 
+  // ── URL Parser grounding block (only if source_url present) ──
+  const hasParsed = !!brief.source_url || !!brief.parsed_phone || !!brief.parsed_address
+    || !!brief.parsed_work_hours || (brief.existing_h2?.length ?? 0) > 0
+    || (brief.existing_blocks?.length ?? 0) > 0;
+  let parsedAddon = "";
+  if (hasParsed) {
+    parsedAddon = `
+
+ДАННЫЕ С САЙТА КЛИЕНТА (используй как основу, не выдумывай):
+${brief.company ? `Компания: ${brief.company}` : ""}
+${brief.parsed_phone ? `Телефон: ${brief.parsed_phone}` : "Телефон: не указывать"}
+${brief.parsed_address ? `Адрес: ${brief.parsed_address}` : "Адрес: не указывать"}
+${brief.parsed_work_hours ? `Режим работы: ${brief.parsed_work_hours}` : "Режим работы: не указывать"}
+${brief.parsed_services?.length ? `Существующие услуги: ${brief.parsed_services.join(", ")}` : ""}
+${brief.parsed_prices ? `Цены: ${brief.parsed_prices}` : "Цены: не указывать конкретных сумм"}
+${brief.parsed_guarantees ? `Гарантии: ${brief.parsed_guarantees}` : "Гарантии: не упоминать"}
+
+БЛОКИ УЖЕ СУЩЕСТВУЮЩИЕ НА СТРАНИЦЕ (НЕ ПОВТОРЯТЬ ИХ СОДЕРЖАНИЕ):
+${brief.existing_blocks?.length ? brief.existing_blocks.map((b) => `- ${b}`).join("\n") : "нет данных"}
+
+СУЩЕСТВУЮЩИЕ H2 НА СТРАНИЦЕ (НЕ ДУБЛИРОВАТЬ ЗАГОЛОВКИ):
+${brief.existing_h2?.length ? brief.existing_h2.map((h) => `- ${h}`).join("\n") : "нет данных"}
+
+КРИТИЧЕСКИ ВАЖНО:
+- Используй только реальные данные компании из списка выше.
+- Не придумывай телефоны, адреса, цены, имена сотрудников.
+- Не повторяй блоки и заголовки, которые уже есть на странице.
+- Если данных нет - не упоминай эту информацию вообще.`.trim();
+  }
+
   const system = `Ты профессиональный SEO-копирайтер и маркетолог. Пишешь коммерческий текст для сайта на русском языке.
 Тип страницы: ${page_type}. Тип блока: ${block_type}.
 
@@ -171,7 +211,7 @@ ANTI-FAKE GUARD (zero tolerance):
 Инструкция для этого блока:
 ${instruction}
 
-${buildStealthSystemAddon("ru")}`;
+${parsedAddon ? parsedAddon + "\n\n" : ""}${buildStealthSystemAddon("ru")}`;
 
   const user = `Бриф:\n${briefLines.join("\n") || "(данных нет)"}\n\nСгенерируй блок.`;
   return { system, user };
