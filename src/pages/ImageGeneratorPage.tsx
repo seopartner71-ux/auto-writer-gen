@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import {
   Image as ImageIcon, Wand2, Loader2, Download, Copy, RefreshCw, Lock,
-  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit, X, Maximize2,
+  Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit, X, Maximize2, FileCode,
 } from "lucide-react";
 
 type Mode = "prompt" | "h2" | "cover";
@@ -31,6 +31,8 @@ interface GenImage {
   storage_path: string;
   label: string;
   prompt: string;
+  enhanced_prompt?: string;
+  raw_prompt?: string;
   index: number;
 }
 
@@ -65,6 +67,7 @@ export default function ImageGeneratorPage() {
   const [preview, setPreview] = useState<{ url: string; label?: string; prompt?: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [clearingAll, setClearingAll] = useState(false);
+  const [promptView, setPromptView] = useState<{ raw?: string; enhanced?: string } | null>(null);
 
   // In H2 mode, effective count = selected H2 count (one image per heading)
   const effectiveCount = mode === "h2" ? Math.max(selectedH2.length, 1) : count;
@@ -581,6 +584,9 @@ export default function ImageGeneratorPage() {
                           <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => handleCopyUrl(img.url)}>
                             <Copy className="h-3 w-3" />
                           </Button>
+                          <Button size="sm" variant="secondary" className="h-7 text-xs" title="Промпт" onClick={() => setPromptView({ raw: img.raw_prompt, enhanced: img.enhanced_prompt || img.prompt })}>
+                            <FileCode className="h-3 w-3" />
+                          </Button>
                           <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => callGenerate(1, i, img.prompt)} disabled={generating}>
                             <RefreshCw className="h-3 w-3" />
                           </Button>
@@ -683,6 +689,45 @@ export default function ImageGeneratorPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Prompt reveal dialog — shows the enhanced prompt actually sent to FAL */}
+      <Dialog open={!!promptView} onOpenChange={(o) => !o && setPromptView(null)}>
+        <DialogContent className="max-w-2xl">
+          <div className="space-y-4">
+            <div>
+              <div className="text-sm font-medium mb-1">Промпт, отправленный в FAL</div>
+              <div className="text-xs text-muted-foreground">
+                Автоматически улучшен AI для максимального качества изображения.
+              </div>
+            </div>
+            {promptView?.raw && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Ваш ввод</Label>
+                <Textarea readOnly value={promptView.raw} rows={2} className="mt-1.5 font-mono text-xs resize-none" />
+              </div>
+            )}
+            <div>
+              <Label className="text-xs text-muted-foreground">Улучшенный промпт</Label>
+              <Textarea readOnly value={promptView?.enhanced || ""} rows={8} className="mt-1.5 font-mono text-xs" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (promptView?.enhanced) {
+                    navigator.clipboard.writeText(promptView.enhanced);
+                    toast.success("Промпт скопирован");
+                  }
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" />Копировать промпт
+              </Button>
+              <Button size="sm" onClick={() => setPromptView(null)}>Закрыть</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
