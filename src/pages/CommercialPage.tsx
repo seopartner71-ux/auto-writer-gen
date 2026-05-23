@@ -359,6 +359,49 @@ export default function CommercialPage() {
     }
   };
 
+  // Inline block editing helpers
+  const toggleBlockEdit = (idx: number) => {
+    setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, editing: !x.editing } : x)));
+  };
+  const updateBlockContent = (idx: number, content: string) => {
+    const wc = content.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+    setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, content, wordCount: wc } : x)));
+  };
+
+  // Per-block image generation: calls generate-image and prepends an <img> into the block.
+  const generateBlockImage = async (idx: number) => {
+    const b = blocks[idx];
+    if (!b.content) return toast.error("Сначала сгенерируйте текст блока");
+    setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, imageBusy: true } : x)));
+    try {
+      const topic = `${b.title} ${brief.keyword || brief.niche || ""}`.trim();
+      const { data, error } = await supabase.functions.invoke("generate-image", {
+        body: {
+          mode: "cover",
+          topic,
+          keyword: brief.keyword || "",
+          aspect_ratio: "16:9",
+          style: "Реалистичный бизнес",
+          count: 1,
+          model: "schnell",
+        },
+      });
+      if (error) throw new Error(await getFunctionErrorMessage(error));
+      const res = data as { images?: Array<{ url: string; label?: string }> };
+      const url = res?.images?.[0]?.url;
+      if (!url) throw new Error("Изображение не получено");
+      const alt = (b.title || "").replace(/"/g, "&quot;");
+      const imgTag = `<img src="${url}" alt="${alt}" loading="lazy" style="width:100%;height:auto;border-radius:8px;margin:0 0 1rem 0;" />\n`;
+      setBlocks((arr) =>
+        arr.map((x, i) => (i === idx ? { ...x, content: imgTag + (x.content || ""), imageBusy: false } : x)),
+      );
+      toast.success("Фото добавлено в блок");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось сгенерировать фото");
+      setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, imageBusy: false } : x)));
+    }
+  };
+
   // Brief templates -------------------------------------------------------
   const loadTemplates = async () => {
     if (!profile?.id) return;
