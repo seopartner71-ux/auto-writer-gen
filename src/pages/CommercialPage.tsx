@@ -760,8 +760,9 @@ export default function CommercialPage() {
                         {b.wordCount && <span className="text-xs text-muted-foreground">{b.wordCount} сл.</span>}
                       </div>
                       {b.status !== "generating" && genIdx < 0 && (
-                        <Button size="sm" variant="ghost" onClick={() => generateBlock(idx)}>
-                          <RefreshCw className="h-3 w-3 mr-1" /> Перегенерировать
+                        <Button size="sm" variant="ghost" onClick={() => handleRegenClick(idx)}>
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          {(b.regenCount || 0) >= 1 ? "Перегенерировать (1 кр.)" : "Перегенерировать"}
                         </Button>
                       )}
                     </div>
@@ -787,6 +788,9 @@ export default function CommercialPage() {
                 </div>
               </CardContent>
             </Card>
+            <Button variant="outline" className="w-full" disabled={!fullHtml} onClick={() => setShowPreview(true)}>
+              <Eye className="h-4 w-4 mr-2" /> Превью всей страницы
+            </Button>
             <Button className="w-full" disabled={genIdx >= 0 || !fullHtml || !!savedArticleId} onClick={saveAsArticle}>
               <Save className="h-4 w-4 mr-2" /> Сохранить как статью
             </Button>
@@ -795,6 +799,21 @@ export default function CommercialPage() {
                 Открыть в редакторе
               </Button>
             )}
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={!brief.keyword}
+              onClick={() => {
+                const params = new URLSearchParams({
+                  mode: "cover",
+                  keyword: brief.keyword || "",
+                  topic: brief.product_name || brief.niche || brief.keyword || "",
+                });
+                navigate(`/images?${params.toString()}`);
+              }}
+            >
+              <ImageIcon className="h-4 w-4 mr-2" /> Сгенерировать обложку
+            </Button>
           </div>
         </div>
       )}
