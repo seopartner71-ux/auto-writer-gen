@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus, Eye, ImageIcon, BookmarkPlus, FolderOpen, Trash2, Link as LinkIcon, Globe } from "lucide-react";
+import { Check, Loader2, Sparkles, RefreshCw, Save, ChevronRight, ChevronLeft, Brain, Plus, Eye, ImageIcon, BookmarkPlus, FolderOpen, Trash2, Link as LinkIcon, Globe, Pencil, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PAGE_TYPES, TONES, BLOCKS, type PageType, type BlockDef } from "@/features/commercial/constants";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -26,6 +26,8 @@ interface BlockState extends BlockDef {
   customTitle?: string;
   source?: "default" | "ai";
   regenCount?: number;
+  editing?: boolean;
+  imageBusy?: boolean;
 }
 interface StructureAnalysis {
   intent: string;
