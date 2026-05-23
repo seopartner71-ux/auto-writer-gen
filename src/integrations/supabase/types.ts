@@ -564,6 +564,7 @@ export type Database = {
           cluster_fitness_details: Json | null
           cluster_fitness_score: number | null
           cluster_id: string | null
+          commercial_brief: Json | null
           content: string | null
           created_at: string | null
           embedding: string | null
@@ -581,6 +582,7 @@ export type Database = {
           last_improve_at: string | null
           lsi_keywords: Json | null
           meta_description: string | null
+          page_type: string
           pipeline_stages: Json | null
           project_id: string | null
           published_url: string | null
@@ -627,6 +629,7 @@ export type Database = {
           cluster_fitness_details?: Json | null
           cluster_fitness_score?: number | null
           cluster_id?: string | null
+          commercial_brief?: Json | null
           content?: string | null
           created_at?: string | null
           embedding?: string | null
@@ -644,6 +647,7 @@ export type Database = {
           last_improve_at?: string | null
           lsi_keywords?: Json | null
           meta_description?: string | null
+          page_type?: string
           pipeline_stages?: Json | null
           project_id?: string | null
           published_url?: string | null
@@ -690,6 +694,7 @@ export type Database = {
           cluster_fitness_details?: Json | null
           cluster_fitness_score?: number | null
           cluster_id?: string | null
+          commercial_brief?: Json | null
           content?: string | null
           created_at?: string | null
           embedding?: string | null
@@ -707,6 +712,7 @@ export type Database = {
           last_improve_at?: string | null
           lsi_keywords?: Json | null
           meta_description?: string | null
+          page_type?: string
           pipeline_stages?: Json | null
           project_id?: string | null
           published_url?: string | null
