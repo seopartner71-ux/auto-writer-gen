@@ -63,3 +63,24 @@ export function adminClient() {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 }
+
+/**
+ * Verifies caller has admin or staff role. Queue calls bypass this check.
+ * Returns null when allowed, or a Response (403) when forbidden.
+ */
+export async function requireAdminOrStaff(auth: AuthResult): Promise<Response | null> {
+  if (auth.isQueueCall) return null;
+  try {
+    const admin = adminClient();
+    const { data, error } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", auth.userId);
+    if (error) return errorResponse("Forbidden: role check failed", 403);
+    const roles = (data ?? []).map((r: any) => r.role);
+    if (roles.includes("admin") || roles.includes("staff")) return null;
+    return errorResponse("Forbidden: admin or staff role required", 403);
+  } catch (e) {
+    return errorResponse(`Forbidden: ${e instanceof Error ? e.message : "role check failed"}`, 403);
+  }
+}
