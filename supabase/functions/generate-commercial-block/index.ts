@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
             "HTTP-Referer": "https://seo-modul.pro",
-            "X-Title": "СЕО-Модуль Commercial",
+            "X-Title": "SEO-Module Commercial",
           },
           body: JSON.stringify({
             model,
