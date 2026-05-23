@@ -794,8 +794,16 @@ export default function CommercialPage() {
               <Save className="h-4 w-4 mr-2" /> Сохранить как статью
             </Button>
             {savedArticleId && (
-              <Button variant="outline" className="w-full" onClick={() => navigate(`/articles?edit=${savedArticleId}`)}>
-                Открыть в редакторе
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  // Open in a new tab so the heavy AI Writer editor cannot freeze
+                  // the commercial flow state, and the user can always come back.
+                  window.open(`/articles?edit=${savedArticleId}`, "_blank", "noopener,noreferrer");
+                }}
+              >
+                Открыть в редакторе (новая вкладка)
               </Button>
             )}
             <Button
