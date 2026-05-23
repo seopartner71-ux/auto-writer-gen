@@ -667,12 +667,6 @@ export default function ImageGeneratorPage() {
           {preview && (
             <div className="relative">
               <img src={preview.url} alt={preview.label || preview.prompt || ""} className="w-full h-auto max-h-[85vh] object-contain" />
-              <button
-                onClick={() => setPreview(null)}
-                className="absolute top-3 right-3 h-8 w-8 rounded-md bg-background/80 backdrop-blur-sm border flex items-center justify-center hover:bg-background"
-              >
-                <X className="h-4 w-4" />
-              </button>
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex items-end justify-between gap-3">
                 <div className="text-xs text-white/90 line-clamp-2">
                   {preview.label && <div className="font-medium">{preview.label}</div>}
