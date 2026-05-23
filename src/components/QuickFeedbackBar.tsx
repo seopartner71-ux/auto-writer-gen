@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Bug, Lightbulb, AlertTriangle, MessageSquarePlus, X } from "lucide-react";
+import { Bug, Lightbulb, AlertTriangle, MessageSquarePlus, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 type FeedbackType = "bug" | "error" | "idea";
@@ -90,17 +90,24 @@ export function QuickFeedbackBar() {
 
   return (
     <>
-      <div className="w-full border-b border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
-        <div className="flex items-center gap-3 px-4 py-1.5 text-xs">
-          <MessageSquarePlus className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="text-muted-foreground hidden sm:inline">
-            Нашли баг, ошибку или есть идея? Сообщите админу одной кнопкой.
+      <div className="sticky top-0 z-50 w-full border-b-2 border-primary/60 bg-gradient-to-r from-primary/30 via-fuchsia-500/20 to-primary/30 backdrop-blur-md shadow-[0_2px_20px_-2px_hsl(var(--primary)/0.5)]">
+        <div className="flex items-center gap-3 px-4 py-2 text-sm">
+          <span className="flex items-center gap-1.5 shrink-0 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground animate-pulse">
+            <Sparkles className="h-3 w-3" />
+            Beta
           </span>
-          <span className="text-muted-foreground sm:hidden">Сообщить о проблеме</span>
+          <MessageSquarePlus className="h-4 w-4 text-primary shrink-0 hidden sm:inline" />
+          <span className="text-foreground/90 font-medium hidden md:inline">
+            Идет бета-тестирование. Нашли баг, ошибку или есть идея? Сообщите админу одной кнопкой.
+          </span>
+          <span className="text-foreground/90 font-medium hidden sm:inline md:hidden">
+            Бета-тест. Помогите сделать сервис лучше.
+          </span>
+          <span className="text-foreground/90 font-medium sm:hidden">Бета-тест</span>
           <Button
             size="sm"
             variant="default"
-            className="h-6 px-2 text-xs ml-auto"
+            className="h-7 px-3 text-xs ml-auto font-semibold shadow-md"
             onClick={() => setOpen(true)}
           >
             Сообщить
