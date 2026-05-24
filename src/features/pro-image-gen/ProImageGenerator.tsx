@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Crown, Copy, Check, X, Images, EyeOff } from "lucide-react";
+import { Sparkles, Crown, Copy, Check, X, Images, EyeOff, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -15,11 +16,12 @@ interface ProImageGeneratorProps {
   title: string;
   content: string;
   keyword?: string;
+  articleId?: string;
   onImageGenerated?: (url: string, alt: string, markdown: string) => void;
   onMultiImagesGenerated?: (images: { heading: string; url: string; alt: string }[]) => void;
 }
 
-export function ProImageGenerator({ title, content, keyword, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
+export function ProImageGenerator({ title, content, keyword, articleId, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
   const { isPro } = usePlanLimits();
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("photorealistic");
   const [quality, setQuality] = useState<"fast" | "high">("fast");
@@ -27,6 +29,9 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
   const [localEnabled, setLocalEnabled] = useState(globalEnabled);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMulti, setIsGeneratingMulti] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editPrompt, setEditPrompt] = useState("");
   const [generatedImage, setGeneratedImage] = useState<{
     url: string;
     alt: string;
