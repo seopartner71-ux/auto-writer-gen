@@ -18,6 +18,7 @@ import {
   AlertTriangle, Search, Pencil, FileText, Trash2, X, Plus, Pause, RotateCcw, Globe
 } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 import JSZip from "jszip";
 import { Download as DownloadIcon, FileSpreadsheet } from "lucide-react";
 
@@ -26,6 +27,7 @@ interface BulkJob { id: string; status: string; total_items: number; completed_i
 
 export function BulkGenerationMode() {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [keywords, setKeywords] = useState<string[]>([]);
@@ -533,7 +535,7 @@ export function BulkGenerationMode() {
                   </Button>
                 )}
                 {(activeJob.status !== "processing") && (
-                  <Button size="sm" variant="ghost" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => { if (confirm(t("bulk.deleteConfirm"))) deleteJob.mutate(activeJob.id); }} disabled={deleteJob.isPending}>
+                  <Button size="sm" variant="ghost" className="gap-1.5 text-destructive hover:text-destructive" onClick={async () => { if (await confirm({ title: t("bulk.deleteConfirm"), destructive: true })) deleteJob.mutate(activeJob.id); }} disabled={deleteJob.isPending}>
                     {deleteJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}{t("bulk.delete")}
                   </Button>
                 )}
@@ -648,7 +650,7 @@ export function BulkGenerationMode() {
                               size="sm"
                               variant="ghost"
                               className="text-destructive hover:text-destructive"
-                              onClick={() => { if (confirm("Удалить статью и запись?")) deleteArticle.mutate(item); }}
+                              onClick={async () => { if (await confirm({ title: "Удалить статью и запись?", destructive: true, confirmText: "Удалить" })) deleteArticle.mutate(item); }}
                               disabled={deleteArticle.isPending && deletingItemId === item.id}
                               title="Удалить"
                             >
