@@ -133,6 +133,48 @@ function countWords(text: string): number {
   return countWordsQ(text);
 }
 
+/** Detect YMYL (Your Money / Your Life) niches that need stronger E-E-A-T signals. */
+const YMYL_PATTERNS: { kind: string; rx: RegExp }[] = [
+  { kind: "medical", rx: /(медиц|здоров|клиник|стоматолог|врач|лекарств|психолог|диагност|терапи|хирург|лечени|болезн|симптом|фарма|аптек)/i },
+  { kind: "financial", rx: /(финанс|кредит|займ|ипотек|инвест|банк|страхов|налог|бухгалт|трейд|крипт|форекс|пенси|депозит|вклад)/i },
+  { kind: "legal", rx: /(юрист|адвокат|закон|право|суд|нотариус|регистрац|лиценз|договор|претензи|уголовн|гражданск)/i },
+};
+// fix typo (object literal in array) – ensure simple array
+const YMYL_RULES: { kind: string; rx: RegExp }[] = [
+  { kind: "medical", rx: /(медиц|здоров|клиник|стоматолог|врач|лекарств|психолог|диагност|терапи|хирург|лечени|болезн|симптом|фарма|аптек)/i },
+  { kind: "financial", rx: /(финанс|кредит|займ|ипотек|инвест|банк|страхов|налог|бухгалт|трейд|крипт|форекс|пенси|депозит|вклад)/i },
+  { kind: "legal", rx: /(юрист|адвокат|закон|право|суд|нотариус|регистрац|лиценз|договор|претензи|уголовн|гражданск)/i },
+];
+function detectYmyl(brief: Brief): string | null {
+  const hay = `${brief.niche || ""} ${brief.keyword || ""} ${brief.services || ""}`.toLowerCase();
+  for (const r of YMYL_RULES) if (r.rx.test(hay)) return r.kind;
+  return null;
+}
+
+function buildEeatAddon(kind: string): string {
+  const kindRu = kind === "medical" ? "медицинской" : kind === "financial" ? "финансовой" : "юридической";
+  return `
+
+E-E-A-T (тематика ${kindRu}, повышенные требования YMYL):
+- В тексте дай понять, что материал подготовлен с участием профильного специалиста, БЕЗ выдуманных ФИО/должностей. Формулировки: "по практике профильных специалистов", "согласно методологии отрасли".
+- Если блок содержит рекомендации - в конце или в отдельном <p> добавь дисклеймер: "Материал носит информационный характер и не заменяет консультацию ${kind === "medical" ? "врача" : kind === "financial" ? "финансового консультанта" : "юриста"}".
+- Не давай конкретных дозировок/сумм/правовых выводов как окончательных; используй "уточняйте у специалиста".
+- Если бриф позволяет (есть блок faq/seo_text) - упомяни, на основе чего сформированы рекомендации ("стандарты отрасли", "официальные источники"), без вымышленных названий.`;
+}
+
+/** Compute share of LSI terms that actually appear in HTML (case-insensitive). */
+function lsiCoverage(html: string, lsi: string): { terms: string[]; missing: string[]; ratio: number } {
+  const terms = String(lsi || "")
+    .split(/[,;|\n]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 3)
+    .slice(0, 30);
+  if (terms.length === 0) return { terms: [], missing: [], ratio: 1 };
+  const plain = html.replace(/<[^>]+>/g, " ").toLowerCase();
+  const missing = terms.filter((t) => !plain.includes(t.toLowerCase()));
+  return { terms, missing, ratio: 1 - missing.length / terms.length };
+}
+
 /** Roughly count keyword occurrences in plain text. Case-insensitive whole-word-ish. */
 function keywordDensity(html: string, keyword: string): { count: number; density: number; total: number } {
   return keywordDensityQ(html, keyword);
