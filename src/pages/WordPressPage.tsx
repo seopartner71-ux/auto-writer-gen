@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 import {
   Globe, Plus, Trash2, CheckCircle2, XCircle, Loader2,
   Send, ExternalLink, Eye, EyeOff, RefreshCw, Pencil,
@@ -46,6 +47,7 @@ interface Article {
 }
 
 export default function WordPressPage() {
+  const confirm = useConfirm();
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -422,7 +424,7 @@ export default function WordPressPage() {
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); testConnection.mutate(site.id); }} disabled={testConnection.isPending} title={t("wp.checkConnection")}>
                         {testConnection.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); if (confirm(t("wp.deleteConnection"))) deleteSite.mutate(site.id); }} title={t("common.delete")}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={async (e) => { e.stopPropagation(); if (await confirm({ title: t("wp.deleteConnection"), destructive: true, confirmText: t("common.delete") })) deleteSite.mutate(site.id); }} title={t("common.delete")}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -615,7 +617,7 @@ export default function WordPressPage() {
                       </Button>
                     )}
                     {sp.status === "pending" && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { if (confirm(t("wp.cancelScheduled"))) cancelScheduled.mutate(sp.id); }}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={async () => { if (await confirm({ title: t("wp.cancelScheduled"), destructive: true })) cancelScheduled.mutate(sp.id); }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     )}

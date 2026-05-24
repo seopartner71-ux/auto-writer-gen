@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Sparkles } from "lucide-react";
 import { PbnTemplateImporter } from "./PbnTemplateImporter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 
 interface PbnTemplate {
   id: string;
@@ -91,6 +92,7 @@ const EMPTY: Partial<PbnTemplate> = {
 };
 
 export function PbnTemplatesTab() {
+  const confirm = useConfirm();
   const { toast } = useToast();
   const [list, setList] = useState<PbnTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,7 +202,7 @@ export function PbnTemplatesTab() {
       toast({ title: "Встроенный шаблон нельзя удалить", description: "Можно только отключить", variant: "destructive" });
       return;
     }
-    if (!confirm(`Удалить шаблон "${tpl.name}"?`)) return;
+    if (!(await confirm({ title: `Удалить шаблон "${tpl.name}"?`, destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("pbn_templates").delete().eq("id", tpl.id);
     if (error) toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     else load();

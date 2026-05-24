@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import JSZip from "jszip";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { QualityBadge } from "@/features/article-quality/QualityBadge";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AlertDialog,
@@ -30,6 +31,7 @@ interface MyArticlesPageProps {
 }
 
 export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps = {}) {
+  const confirm = useConfirm();
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -147,7 +149,7 @@ ${a.content || ""}
 
   const handleBatchDelete = async () => {
     if (selectedArticles.length === 0) return;
-    if (!confirm(`Удалить ${selectedArticles.length} статей?`)) return;
+    if (!(await confirm({ title: "Удалить статьи?", description: `Будет удалено: ${selectedArticles.length}`, destructive: true, confirmText: "Удалить" }))) return;
     const ids = selectedArticles.map((a: any) => a.id);
     const { error } = await supabase.from("articles").delete().in("id", ids);
     if (error) { toast.error(error.message); return; }

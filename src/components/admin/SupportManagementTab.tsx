@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Trash2, Send, ChevronDown, ChevronUp, User, ShieldCheck } from "lucide-react";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 
 const statusOptions = [
   { value: "open", label: "Открыт" },
@@ -25,6 +26,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 
 export function SupportManagementTab() {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
@@ -106,7 +108,7 @@ export function SupportManagementTab() {
   };
 
   const handleDelete = async (ticketId: string) => {
-    if (!confirm("Удалить этот тикет и все сообщения?")) return;
+    if (!(await confirm({ title: "Удалить тикет?", description: "Тикет и все сообщения будут удалены.", destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("support_tickets").delete().eq("id", ticketId);
     if (error) toast.error("Ошибка: " + error.message);
     else {
