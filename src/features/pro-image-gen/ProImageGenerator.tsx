@@ -340,15 +340,45 @@ export function ProImageGenerator({ title, content, keyword, articleId, onImageG
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerate}
-              className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-            >
-              <Sparkles className="h-3 w-3 mr-1.5" />
-              Перегенерировать
-            </Button>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerate}
+                className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+              >
+                <Sparkles className="h-3 w-3 mr-1.5" />
+                Перегенерировать
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEdit((v) => !v)}
+                className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+              >
+                <Wand2 className="h-3 w-3 mr-1.5" />
+                Доработать
+              </Button>
+            </div>
+            {showEdit && (
+              <div className="space-y-1.5 p-2 rounded-lg border border-purple-500/20 bg-purple-500/5">
+                <Textarea
+                  value={editPrompt}
+                  onChange={(e) => setEditPrompt(e.target.value)}
+                  placeholder="Например: добавь больше света, замени фон на офис, сделай тёплые тона"
+                  className="min-h-[60px] text-xs bg-background/50"
+                  disabled={isEditing}
+                />
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="flex-1 bg-purple-500 hover:bg-purple-600 text-white" onClick={handleEdit} disabled={isEditing || !editPrompt.trim()}>
+                    {isEditing ? "Дорабатываем..." : "Применить правку"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setShowEdit(false); setEditPrompt(""); }}>
+                    Отмена
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {variants.length > 1 && (
               <div className="space-y-1.5">
