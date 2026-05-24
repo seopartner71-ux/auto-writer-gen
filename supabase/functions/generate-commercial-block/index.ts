@@ -605,7 +605,7 @@ Deno.serve(async (req) => {
         keyword_density: Number(finalDens.density.toFixed(4)),
         retried: retry.retried,
         retry_reason: retry.reason,
-        anti_fake_count: 0,
+        anti_fake_count: guard.flagged.length,
         fact_check_count: factFlags.length,
         plan,
       },
