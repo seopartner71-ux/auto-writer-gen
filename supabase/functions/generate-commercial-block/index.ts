@@ -392,20 +392,27 @@ async function qualityRetry(opts: {
   html: string;
   target: number;
   keyword: string;
+  lsi?: string;
   buildPromptArgs: { system: string; user: string };
-}): Promise<{ html: string; retried: boolean; reason: string | null; tokensIn: number; tokensOut: number }> {
+}): Promise<{ html: string; retried: boolean; reason: string | null; tokensIn: number; tokensOut: number; lsi_ratio: number; lsi_missing: string[] }> {
   const wc = countWords(opts.html);
   const dens = keywordDensity(opts.html, opts.keyword);
   const wcDeviation = Math.abs(wc - opts.target) / Math.max(1, opts.target);
   const tooLong = wc > opts.target * 1.3;
   const tooShort = wc < opts.target * 0.7;
   const spam = dens.density > 0.035;
-  if (!tooLong && !tooShort && !spam) return { html: opts.html, retried: false, reason: null, tokensIn: 0, tokensOut: 0 };
+  const lsi = lsiCoverage(opts.html, opts.lsi || "");
+  // Only enforce LSI when at least 4 terms were provided (otherwise too noisy)
+  const lsiLow = lsi.terms.length >= 4 && lsi.ratio < 0.5;
+  if (!tooLong && !tooShort && !spam && !lsiLow) {
+    return { html: opts.html, retried: false, reason: null, tokensIn: 0, tokensOut: 0, lsi_ratio: lsi.ratio, lsi_missing: lsi.missing };
+  }
 
   const issues: string[] = [];
   if (tooLong) issues.push(`сократи до ~${opts.target} слов (сейчас ${wc})`);
   if (tooShort) issues.push(`расширь до ~${opts.target} слов (сейчас ${wc})`);
   if (spam) issues.push(`снизь плотность ключа "${opts.keyword}" - сейчас ${(dens.density * 100).toFixed(1)}%, нужно <2.5%`);
+  if (lsiLow) issues.push(`органично вплети недостающие LSI-термины: ${lsi.missing.slice(0, 10).join(", ")}`);
 
   const sys = `${opts.buildPromptArgs.system}\n\nЭто РЕРАЙТ. Текущий вариант нарушает требования:\n- ${issues.join("\n- ")}\nИсправь только эти проблемы, сохрани структуру и смысл. Верни чистый HTML.`;
   const usr = `${opts.buildPromptArgs.user}\n\nТЕКУЩИЙ ВАРИАНТ (исправь):\n${opts.html}`;
@@ -421,12 +428,13 @@ async function qualityRetry(opts: {
     });
     const cleaned = stripFences(out.content);
     if (cleaned.length > 40) {
-      return { html: cleaned, retried: true, reason: issues.join("; "), tokensIn: out.tokensIn, tokensOut: out.tokensOut };
+      const lsi2 = lsiCoverage(cleaned, opts.lsi || "");
+      return { html: cleaned, retried: true, reason: issues.join("; "), tokensIn: out.tokensIn, tokensOut: out.tokensOut, lsi_ratio: lsi2.ratio, lsi_missing: lsi2.missing };
     }
   } catch (e) {
     console.warn("[quality-retry] failed:", (e as Error).message);
   }
-  return { html: opts.html, retried: false, reason: issues.join("; "), tokensIn: 0, tokensOut: 0 };
+  return { html: opts.html, retried: false, reason: issues.join("; "), tokensIn: 0, tokensOut: 0, lsi_ratio: lsi.ratio, lsi_missing: lsi.missing };
 }
 
 Deno.serve(async (req) => {
