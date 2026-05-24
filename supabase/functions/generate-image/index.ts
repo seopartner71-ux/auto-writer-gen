@@ -302,6 +302,40 @@ Deno.serve(withErrorHandler("generate-image", async (req) => {
   };
 
   try {
+    // EDIT MODE — image-to-image via Lovable AI Gateway (Nano Banana)
+    if (mode === "edit") {
+      const src = String(body?.source_image || "").trim();
+      const instruction = String(body?.edit_prompt || body?.prompt || "").trim();
+      if (!src) throw new HttpError("source_image required (data URL or https URL)", 400);
+      if (!instruction) throw new HttpError("edit_prompt required", 400);
+      const editedUrl = await lovableEditImage(src, instruction);
+      const { path, publicUrl } = await uploadAnyToBucket(admin, userId, editedUrl, 0);
+      const label = instruction.slice(0, 80);
+      await admin.from("article_images").insert([{
+        user_id: userId,
+        article_id: articleId,
+        storage_path: path,
+        public_url: publicUrl,
+        prompt: label,
+        visual_prompt: instruction,
+        model: "nano-banana",
+        aspect_ratio: aspectRatio,
+        style: "edit",
+        mode: "edit",
+      }]);
+      return jsonResponse({
+        images: [{
+          url: publicUrl,
+          storage_path: path,
+          label,
+          prompt: instruction,
+          enhanced_prompt: instruction,
+          raw_prompt: instruction,
+          index: 0,
+        }],
+      });
+    }
+
     // Build prompts
     let prompts: string[] = [];
     let labels: string[] = [];
