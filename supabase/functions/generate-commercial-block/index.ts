@@ -134,12 +134,6 @@ function countWords(text: string): number {
 }
 
 /** Detect YMYL (Your Money / Your Life) niches that need stronger E-E-A-T signals. */
-const YMYL_PATTERNS: { kind: string; rx: RegExp }[] = [
-  { kind: "medical", rx: /(медиц|здоров|клиник|стоматолог|врач|лекарств|психолог|диагност|терапи|хирург|лечени|болезн|симптом|фарма|аптек)/i },
-  { kind: "financial", rx: /(финанс|кредит|займ|ипотек|инвест|банк|страхов|налог|бухгалт|трейд|крипт|форекс|пенси|депозит|вклад)/i },
-  { kind: "legal", rx: /(юрист|адвокат|закон|право|суд|нотариус|регистрац|лиценз|договор|претензи|уголовн|гражданск)/i },
-};
-// fix typo (object literal in array) – ensure simple array
 const YMYL_RULES: { kind: string; rx: RegExp }[] = [
   { kind: "medical", rx: /(медиц|здоров|клиник|стоматолог|врач|лекарств|психолог|диагност|терапи|хирург|лечени|болезн|симптом|фарма|аптек)/i },
   { kind: "financial", rx: /(финанс|кредит|займ|ипотек|инвест|банк|страхов|налог|бухгалт|трейд|крипт|форекс|пенси|депозит|вклад)/i },
