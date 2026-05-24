@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Sparkles, Wrench, Bug, AlertTriangle, Cog, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 import { format } from "date-fns";
 import { ru, enUS } from "date-fns/locale";
 
@@ -133,6 +134,7 @@ export default function ChangelogPage() {
 
 function ReleaseCard({ release, lang, fmtDate, isAdmin }: { release: Release; lang: string; fmtDate: (d: string) => string; isAdmin: boolean }) {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const grouped = useMemo(() => {
     const g: Partial<Record<ChangeType, ChangeItem[]>> = {};
     for (const it of release.items) (g[it.type] ||= []).push(it);
@@ -142,7 +144,7 @@ function ReleaseCard({ release, lang, fmtDate, isAdmin }: { release: Release; la
   const order: ChangeType[] = ["breaking", "new", "improvement", "fix", "tech"];
 
   const handleDelete = async () => {
-    if (!confirm(lang === "ru" ? `Удалить версию v${release.version}?` : `Delete version v${release.version}?`)) return;
+    if (!(await confirm({ title: lang === "ru" ? `Удалить версию v${release.version}?` : `Delete version v${release.version}?`, destructive: true, confirmText: lang === "ru" ? "Удалить" : "Delete" }))) return;
     const { error } = await supabase.from("changelog").delete().eq("id", release.id);
     if (error) toast.error(error.message);
     else {
