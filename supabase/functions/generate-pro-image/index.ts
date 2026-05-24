@@ -224,12 +224,32 @@ Deno.serve(async (req) => {
   const style = String(body?.style || "photorealistic");
   const variations = Math.max(1, Math.min(4, Number(body?.variations) || 1));
   const quality: "fast" | "high" = body?.quality === "high" ? "high" : "fast";
+  const articleId = body?.article_id ? String(body.article_id) : null;
+  const sourceUrl = String(body?.source_url || "").trim();
+  const editPrompt = String(body?.edit_prompt || "").trim();
 
-  if (!title) return errorResponse("title is required", 400);
+  if (mode !== "edit" && !title) return errorResponse("title is required", 400);
 
   const admin = adminClient();
 
   try {
+    if (mode === "edit") {
+      if (!sourceUrl || !editPrompt) return errorResponse("source_url and edit_prompt are required", 400);
+      const dataUrl = await editImage(sourceUrl, editPrompt);
+      const up = await uploadDataUrl(admin, userId, dataUrl);
+      void logCost(admin, {
+        operation_type: "fal_ai_photo",
+        model: "nano-banana-edit",
+        cost_usd: 0.005,
+        metadata: { source: "generate-pro-image", user_id: userId, mode: "edit" },
+      });
+      void linkToArticle(admin, {
+        userId, articleId, storagePath: up.filename, publicUrl: up.url,
+        prompt: editPrompt, visualPrompt: editPrompt, model: "nano-banana-edit", style, mode: "edit",
+      });
+      return jsonResponse({ url: up.url, alt: title || editPrompt.slice(0, 80), filename: up.filename, variants: [], remaining: 999 });
+    }
+
     if (mode === "multi") {
       const sections = extractH2Sections(content).slice(0, 5);
       if (sections.length === 0) return errorResponse("No H2 sections found", 400);
@@ -237,7 +257,7 @@ Deno.serve(async (req) => {
       for (const heading of sections) {
         try {
           const ctx = `${keyword}: ${heading}`;
-          const imgs = await generateOne(admin, userId, ctx, heading, style, 1, quality);
+          const imgs = await generateOne(admin, userId, ctx, heading, style, 1, quality, articleId);
           if (imgs[0]) images.push({ heading, url: imgs[0].url, alt: imgs[0].alt });
         } catch (e) {
           console.warn("[generate-pro-image] section failed:", heading, (e as Error).message);
@@ -248,7 +268,7 @@ Deno.serve(async (req) => {
 
     // Single cover
     const ctx = summary ? `${keyword}. ${summary}` : keyword;
-    const items = await generateOne(admin, userId, ctx, title, style, variations, quality);
+    const items = await generateOne(admin, userId, ctx, title, style, variations, quality, articleId);
     const first = items[0];
     return jsonResponse({
       url: first.url,
