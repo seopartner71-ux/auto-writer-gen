@@ -20,6 +20,7 @@ import { GitHubProjectsTab } from "@/components/admin/GitHubProjectsTab";
 import { CopilotLogsTab } from "@/components/admin/CopilotLogsTab";
 import { PbnTemplatesTab } from "@/components/admin/PbnTemplatesTab";
 import { CostAnalyticsTab } from "@/components/admin/CostAnalyticsTab";
+import { CommercialQualityTab } from "@/components/admin/CommercialQualityTab";
 import { TurgenevAnalyticsTab } from "@/components/admin/TurgenevAnalyticsTab";
 import { SemanticInterlinkingTab } from "@/components/admin/SemanticInterlinkingTab";
 import { TodayKpiCard } from "@/components/admin/TodayKpiCard";
@@ -63,6 +64,7 @@ export default function AdminPage() {
           <TabsTrigger value="github">GitHub</TabsTrigger>
           <TabsTrigger value="pbn">Шаблоны</TabsTrigger>
           <TabsTrigger value="costs">Расходы</TabsTrigger>
+          <TabsTrigger value="quality">Качество</TabsTrigger>
           <TabsTrigger value="turgenev">Тургенев</TabsTrigger>
           <TabsTrigger value="semantic">Семантика</TabsTrigger>
           <TabsTrigger value="copilot">Copilot Logs</TabsTrigger>
@@ -87,6 +89,7 @@ export default function AdminPage() {
         <TabsContent value="github" className="mt-4"><GitHubProjectsTab /></TabsContent>
         <TabsContent value="pbn" className="mt-4"><PbnTemplatesTab /></TabsContent>
         <TabsContent value="costs" className="mt-4"><CostAnalyticsTab /></TabsContent>
+        <TabsContent value="quality" className="mt-4"><CommercialQualityTab /></TabsContent>
         <TabsContent value="turgenev" className="mt-4"><TurgenevAnalyticsTab /></TabsContent>
         <TabsContent value="semantic" className="mt-4"><SemanticInterlinkingTab /></TabsContent>
         <TabsContent value="copilot" className="mt-4"><CopilotLogsTab /></TabsContent>

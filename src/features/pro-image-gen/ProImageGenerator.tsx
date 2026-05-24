@@ -22,6 +22,7 @@ interface ProImageGeneratorProps {
 export function ProImageGenerator({ title, content, keyword, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
   const { isPro } = usePlanLimits();
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("photorealistic");
+  const [quality, setQuality] = useState<"fast" | "high">("fast");
   const globalEnabled = localStorage.getItem("pro_image_enabled") === "true";
   const [localEnabled, setLocalEnabled] = useState(globalEnabled);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -96,6 +97,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
           title,
           summary,
           style: selectedStyle,
+          quality,
           keyword: keyword || title,
           variations: 2,
         }),
@@ -150,6 +152,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
           title,
           content,
           style: selectedStyle,
+          quality,
           keyword: keyword || title,
           mode: "multi",
         }),
@@ -379,7 +382,33 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
 
       {/* Style Presets */}
       {!generatedImage && !isAnyGenerating && (
-        <StylePresets selected={selectedStyle} onSelect={setSelectedStyle} />
+        <>
+          <StylePresets selected={selectedStyle} onSelect={setSelectedStyle} />
+          <div className="grid grid-cols-2 gap-1.5">
+            {([
+              { key: "fast", label: "Быстро", sub: "flux/schnell" },
+              { key: "high", label: "Качество", sub: "flux/dev · PRO" },
+            ] as const).map((q) => {
+              const active = quality === q.key;
+              return (
+                <button
+                  key={q.key}
+                  type="button"
+                  onClick={() => setQuality(q.key)}
+                  className={
+                    "flex flex-col items-center gap-0.5 p-2 rounded-lg border transition-all text-center " +
+                    (active
+                      ? "border-purple-500/60 bg-purple-500/10 text-purple-300"
+                      : "border-border bg-card/40 text-muted-foreground hover:border-purple-500/30 hover:text-purple-300")
+                  }
+                >
+                  <span className="text-[10px] font-medium leading-tight">{q.label}</span>
+                  <span className="text-[9px] opacity-60 leading-tight">{q.sub}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
       </>
       )}

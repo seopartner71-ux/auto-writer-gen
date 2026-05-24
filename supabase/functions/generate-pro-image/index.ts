@@ -14,7 +14,10 @@ import { logCost } from "../_shared/costLogger.ts";
 const FAL_KEY = (Deno.env.get("FAL_AI_API_KEY") || "").trim();
 const OPENROUTER_KEY = (Deno.env.get("OPENROUTER_API_KEY") || "").trim();
 const BUCKET = "article-images";
-const FAL_COST_USD = 0.003;
+const FAL_PRICE: Record<string, { endpoint: string; usd: number }> = {
+  fast: { endpoint: "fal-ai/flux/schnell", usd: 0.003 },
+  high: { endpoint: "fal-ai/flux/dev", usd: 0.025 },
+};
 
 interface FalImage { url: string }
 
@@ -58,8 +61,9 @@ async function buildVisualPrompt(context: string, style: string): Promise<string
   }
 }
 
-async function falGenerate(prompt: string, numImages = 1): Promise<string[]> {
-  const r = await fetch("https://fal.run/fal-ai/flux/schnell", {
+async function falGenerate(prompt: string, numImages = 1, quality: "fast" | "high" = "fast"): Promise<string[]> {
+  const tier = FAL_PRICE[quality] || FAL_PRICE.fast;
+  const r = await fetch(`https://fal.run/${tier.endpoint}`, {
     method: "POST",
     headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -103,15 +107,16 @@ function extractH2Sections(content: string): string[] {
   return out;
 }
 
-async function generateOne(admin: any, userId: string, context: string, alt: string, style: string, variations: number) {
+async function generateOne(admin: any, userId: string, context: string, alt: string, style: string, variations: number, quality: "fast" | "high") {
   const prompt = await buildVisualPrompt(context, style);
-  const falUrls = await falGenerate(prompt, variations);
+  const falUrls = await falGenerate(prompt, variations, quality);
   const uploaded = await Promise.all(falUrls.map((u) => uploadToBucket(admin, userId, u)));
+  const tier = FAL_PRICE[quality] || FAL_PRICE.fast;
   void logCost(admin, {
     operation_type: "fal_ai_photo",
-    model: "fal-ai/flux/schnell",
-    cost_usd: FAL_COST_USD * uploaded.length,
-    metadata: { source: "generate-pro-image", user_id: userId, style, variations: uploaded.length },
+    model: tier.endpoint,
+    cost_usd: tier.usd * uploaded.length,
+    metadata: { source: "generate-pro-image", user_id: userId, style, quality, variations: uploaded.length },
   });
   return uploaded.map((u) => ({ url: u.url, filename: u.filename, alt }));
 }
@@ -139,6 +144,7 @@ Deno.serve(async (req) => {
   const mode = String(body?.mode || "single");
   const style = String(body?.style || "photorealistic");
   const variations = Math.max(1, Math.min(4, Number(body?.variations) || 1));
+  const quality: "fast" | "high" = body?.quality === "high" ? "high" : "fast";
 
   if (!title) return errorResponse("title is required", 400);
 
@@ -152,7 +158,7 @@ Deno.serve(async (req) => {
       for (const heading of sections) {
         try {
           const ctx = `${keyword}: ${heading}`;
-          const imgs = await generateOne(admin, userId, ctx, heading, style, 1);
+          const imgs = await generateOne(admin, userId, ctx, heading, style, 1, quality);
           if (imgs[0]) images.push({ heading, url: imgs[0].url, alt: imgs[0].alt });
         } catch (e) {
           console.warn("[generate-pro-image] section failed:", heading, (e as Error).message);
@@ -163,7 +169,7 @@ Deno.serve(async (req) => {
 
     // Single cover
     const ctx = summary ? `${keyword}. ${summary}` : keyword;
-    const items = await generateOne(admin, userId, ctx, title, style, variations);
+    const items = await generateOne(admin, userId, ctx, title, style, variations, quality);
     const first = items[0];
     return jsonResponse({
       url: first.url,
