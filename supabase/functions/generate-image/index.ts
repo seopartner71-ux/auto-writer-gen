@@ -137,6 +137,68 @@ async function falGenerate(model: "schnell" | "flux-pro", prompt: string, imageS
   return url;
 }
 
+// Edit existing image via Lovable AI Gateway (Nano Banana — google/gemini-2.5-flash-image).
+// Accepts a data: URL or https URL; returns a data: URL with the edited PNG.
+async function lovableEditImage(imageUrl: string, instruction: string): Promise<string> {
+  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+  const r = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-image",
+      modalities: ["image", "text"],
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: instruction },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ],
+      }],
+    }),
+  }, 90_000);
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    if (r.status === 429) throw new HttpError("AI Gateway: лимит запросов исчерпан, попробуйте позже", 429);
+    if (r.status === 402) throw new HttpError("AI Gateway: закончились кредиты, пополните баланс", 402);
+    throw new Error(`Lovable AI ${r.status}: ${t.slice(0, 200)}`);
+  }
+  const d = await r.json();
+  const edited = d?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (!edited || typeof edited !== "string") throw new Error("AI Gateway не вернул изображение");
+  return edited;
+}
+
+// Upload a data: URL or fetchable URL to storage. Skips JPEG->WebP for PNG/data URLs.
+async function uploadAnyToBucket(admin: any, userId: string, sourceUrl: string, idx: number) {
+  let bytes: Uint8Array;
+  let contentType = "image/png";
+  let ext = "png";
+  if (sourceUrl.startsWith("data:")) {
+    const m = sourceUrl.match(/^data:([^;]+);base64,(.*)$/);
+    if (!m) throw new Error("Invalid data URL");
+    contentType = m[1] || "image/png";
+    ext = contentType.includes("jpeg") ? "jpg" : contentType.includes("webp") ? "webp" : "png";
+    const bin = atob(m[2]);
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } else {
+    const resp = await fetch(sourceUrl);
+    if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+    bytes = new Uint8Array(await resp.arrayBuffer());
+    const ct = resp.headers.get("content-type") || "image/png";
+    contentType = ct;
+    ext = ct.includes("jpeg") ? "jpg" : ct.includes("webp") ? "webp" : "png";
+  }
+  const path = `${userId}/${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
+  const { error } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false });
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+  const { data } = admin.storage.from(BUCKET).getPublicUrl(path);
+  return { path, publicUrl: data.publicUrl };
+}
+
 async function uploadToBucket(admin: any, userId: string, sourceUrl: string, idx: number) {
   const resp = await fetch(sourceUrl);
   if (!resp.ok) throw new Error(`Failed to fetch FAL image: ${resp.status}`);
