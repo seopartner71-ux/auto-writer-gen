@@ -9,6 +9,7 @@ import { fetchWithTimeout } from "../_shared/withTimeout.ts";
 
 const FAL_KEY = (Deno.env.get("FAL_AI_API_KEY") || Deno.env.get("FAL_API_KEY") || "").trim();
 const OPENROUTER_KEY = (Deno.env.get("OPENROUTER_API_KEY") || "").trim();
+const LOVABLE_API_KEY = (Deno.env.get("LOVABLE_API_KEY") || "").trim();
 const BUCKET = "article-images";
 
 const ASPECT_MAP: Record<string, string> = {
@@ -22,6 +23,8 @@ const ASPECT_MAP: Record<string, string> = {
 const STYLE_SUFFIX: Record<string, string> = {
   "Реалистичный бизнес": ", realistic business photo, professional lighting, 4K",
   "Редакционный": ", editorial photography, magazine style, natural light",
+  "Студийное фото": ", professional studio photography, softbox lighting, seamless backdrop, color-corrected, high detail, 4K",
+  "Фото товара": ", product photography, isolated on pure white background, soft even studio lighting, sharp focus on product, commercial e-commerce style, no shadows behind, 4K",
   "Инфографика": ", clean infographic, flat design, white background",
   "Flat-иллюстрация": ", flat vector illustration, minimal, colorful",
 };
