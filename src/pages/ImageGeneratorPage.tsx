@@ -25,7 +25,7 @@ import {
   Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit, X, Maximize2, FileCode,
 } from "lucide-react";
 
-type Mode = "prompt" | "h2" | "cover";
+type Mode = "prompt" | "h2" | "cover" | "edit";
 
 interface GenImage {
   url: string;
@@ -38,7 +38,7 @@ interface GenImage {
 }
 
 const ASPECT_RATIOS = ["16:9", "4:3", "1:1", "9:16", "3:2"];
-const STYLES = ["Реалистичный бизнес", "Редакционный", "Инфографика", "Flat-иллюстрация"];
+const STYLES = ["Реалистичный бизнес", "Студийное фото", "Фото товара", "Редакционный", "Инфографика", "Flat-иллюстрация"];
 const COUNTS = [1, 2, 4, 6];
 const MOODS = ["Деловое", "Динамичное", "Минимализм"];
 
@@ -56,6 +56,11 @@ export default function ImageGeneratorPage() {
   const [topic, setTopic] = useState("");
   const [keyword, setKeyword] = useState("");
   const [mood, setMood] = useState(MOODS[0]);
+
+  // EDIT mode state
+  const [editFileName, setEditFileName] = useState<string>("");
+  const [editSourceData, setEditSourceData] = useState<string>(""); // data: URL
+  const [editInstruction, setEditInstruction] = useState<string>("");
 
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [style, setStyle] = useState(STYLES[0]);
