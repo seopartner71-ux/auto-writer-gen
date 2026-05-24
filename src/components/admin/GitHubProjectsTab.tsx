@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Github, Save, Eye, EyeOff, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Cloud, Key, HelpCircle } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 
 interface ProjectGH {
   id: string;
@@ -26,6 +27,7 @@ const HOSTING_KEYS = [
 ];
 
 export function GitHubProjectsTab() {
+  const confirm = useConfirm();
   const { toast } = useToast();
   const [projects, setProjects] = useState<ProjectGH[]>([]);
   const [editing, setEditing] = useState<Record<string, { repo: string; token: string }>>({});
@@ -138,7 +140,7 @@ export function GitHubProjectsTab() {
   };
 
   const handleDeleteProject = async (projectId: string, projectName: string) => {
-    if (!confirm(`Удалить проект "${projectName}"? Это действие необратимо.`)) return;
+    if (!(await confirm({ title: `Удалить проект "${projectName}"?`, description: "Это действие необратимо.", destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("projects").delete().eq("id", projectId);
     if (error) {
       toast({ title: "Ошибка удаления", description: error.message, variant: "destructive" });
