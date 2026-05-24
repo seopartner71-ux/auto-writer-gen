@@ -1121,6 +1121,24 @@ export default function CommercialPage() {
                         {b.status === "done" && <Check className="h-3 w-3 text-green-500" />}
                         {b.status === "error" && <Badge variant="destructive" className="text-xs">ошибка</Badge>}
                         {b.wordCount && <span className="text-xs text-muted-foreground">{b.wordCount} сл.</span>}
+                        {b.status === "done" && b.quality && (
+                          <div className="flex items-center gap-1">
+                            {b.quality.antiFake === 0 && b.quality.factCheck === 0 ? (
+                              <Badge variant="outline" className="text-[10px] h-5 border-green-500/40 text-green-600 dark:text-green-400" title="Фактчек пройден, выдуманных данных не найдено">
+                                ✓ Fact-check OK
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] h-5 border-yellow-500/40 text-yellow-600 dark:text-yellow-400" title={`Удалено выдуманных фактов: ${b.quality.antiFake + b.quality.factCheck}`}>
+                                ⚠ Очищено: {b.quality.antiFake + b.quality.factCheck}
+                              </Badge>
+                            )}
+                            {b.quality.retried && (
+                              <Badge variant="outline" className="text-[10px] h-5 border-blue-500/40 text-blue-600 dark:text-blue-400" title="Текст автоматически переписан для соответствия объёму/плотности ключа">
+                                ↻ Рерайт
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                       </div>
                       {b.status !== "generating" && genIdx < 0 && (
                         <div className="flex items-center gap-1">
