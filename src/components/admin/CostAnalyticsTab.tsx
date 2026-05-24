@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, Calendar, TrendingUp, Layers, Download, Loader2, FileText, PenLine, Factory, Wallet, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 
 const OP_LABELS: Record<string, string> = {
   site_generation: "Генерация сайта",
@@ -644,6 +645,7 @@ function OpenRouterBudgetCard({
   avgPerArticleUsd: number;
 }) {
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [date, setDate] = useState("");
@@ -763,7 +765,7 @@ function OpenRouterBudgetCard({
   };
 
   const removeTopup = async (id: string) => {
-    if (!confirm("Удалить запись о пополнении?")) return;
+    if (!(await confirm({ title: "Удалить запись о пополнении?", destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("openrouter_topups").delete().eq("id", id);
     if (error) {
       toast.error(error.message);
