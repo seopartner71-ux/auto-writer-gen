@@ -566,6 +566,7 @@ Deno.serve(async (req) => {
       html: content,
       target,
       keyword: String(body.brief?.keyword || ""),
+      lsi: String(body.brief?.lsi || ""),
       buildPromptArgs: { system, user },
     });
     content = stripFences(retry.html);
@@ -614,6 +615,9 @@ Deno.serve(async (req) => {
         retry_reason: retry.reason,
         anti_fake_count: guard.flagged.length,
         fact_check_count: factFlags.length,
+        lsi_ratio: Number((retry.lsi_ratio ?? 1).toFixed(3)),
+        lsi_missing: retry.lsi_missing?.slice(0, 8) || [],
+        ymyl: detectYmyl(body.brief),
         plan,
       },
     });
