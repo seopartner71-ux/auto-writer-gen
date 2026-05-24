@@ -6,6 +6,7 @@ import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_s
 import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
 import { withTimeout } from "../_shared/withTimeout.ts";
 import { applyStealthPostProcess, buildStealthSystemAddon } from "../_shared/stealth.ts";
+import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 
 type PageType = "service" | "category" | "product" | "local";
 
@@ -123,6 +124,23 @@ const NANO_ALLOWED_TYPES = new Set<PageType>(["service", "local"]);
 
 function countWords(text: string): number {
   return text.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+}
+
+/** Roughly count keyword occurrences in plain text. Case-insensitive whole-word-ish. */
+function keywordDensity(html: string, keyword: string): { count: number; density: number; total: number } {
+  const plain = html.replace(/<[^>]+>/g, " ").toLowerCase();
+  const total = plain.trim().split(/\s+/).filter(Boolean).length || 1;
+  const kw = (keyword || "").trim().toLowerCase();
+  if (!kw) return { count: 0, density: 0, total };
+  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`\\b${escaped}\\b`, "gi");
+  const count = (plain.match(re) || []).length;
+  return { count, density: count / total, total };
+}
+
+/** Strip ```html fences if model wrapped the output. */
+function stripFences(s: string): string {
+  return s.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
 }
 
 function buildPrompt(body: ReqBody): { system: string; user: string } {
@@ -267,6 +285,141 @@ async function getUserPlan(userId: string): Promise<string> {
   return (data?.plan as string) || "basic";
 }
 
+/** Single OpenRouter completion (non-stream). */
+async function chatComplete(opts: {
+  apiKey: string;
+  model: string;
+  system: string;
+  user: string;
+  maxTokens: number;
+  temperature?: number;
+  timeoutMs?: number;
+}): Promise<string> {
+  const r = await withTimeout(
+    fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${opts.apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Module Commercial",
+      },
+      body: JSON.stringify({
+        model: opts.model,
+        max_tokens: opts.maxTokens,
+        temperature: opts.temperature ?? 0.7,
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.user },
+        ],
+      }),
+    }),
+    opts.timeoutMs ?? 60_000,
+    "openrouter timeout",
+  );
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`OpenRouter ${r.status}: ${t.slice(0, 200)}`);
+  }
+  const j = await r.json();
+  return String(j?.choices?.[0]?.message?.content || "").trim();
+}
+
+/**
+ * LLM Fact-Check Guard: a cheap second-pass that asks a small model to
+ * neutralize any hallucinated facts (numbers, names, claims) not supported by
+ * the brief. Returns rewritten HTML; falls back to input on failure.
+ */
+async function llmFactCheck(opts: {
+  apiKey: string;
+  html: string;
+  brief: Brief;
+}): Promise<{ html: string; flags: string[] }> {
+  const briefJson = JSON.stringify(opts.brief).slice(0, 3000);
+  const system = `Ты редактор-фактчекер коммерческого SEO-текста.
+Тебе дают HTML-блок и БРИФ. Найди в HTML любые конкретные факты, которых НЕТ в брифе:
+- имена сотрудников/экспертов с должностями
+- цифры процентов и статистики ("по данным 87%")
+- ссылки на исследования и годы
+- конкретные адреса, телефоны, e-mail
+- названия компаний-партнеров, наград, сертификатов
+- конкретные цены в рублях/долларах если их нет в брифе
+
+Перепиши такие места в нейтральные обтекаемые формулировки ("практика показывает", "по нашему опыту", "уточняйте на сайте").
+Сохрани структуру HTML и общий смысл, не сокращай текст.
+Если фактов нет - верни HTML БЕЗ изменений.
+
+Формат ответа: СТРОГИЙ JSON без markdown:
+{"html":"<исправленный HTML>","flags":["краткое описание каждой правки"]}`;
+  const user = `БРИФ:\n${briefJson}\n\nHTML:\n${opts.html}`;
+  try {
+    const raw = await chatComplete({
+      apiKey: opts.apiKey,
+      model: "google/gemini-2.5-flash-lite",
+      system,
+      user,
+      maxTokens: Math.min(3000, opts.html.length + 600),
+      temperature: 0.2,
+      timeoutMs: 40_000,
+    });
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed.html === "string" && parsed.html.length > 30) {
+      return { html: parsed.html, flags: Array.isArray(parsed.flags) ? parsed.flags.map(String) : [] };
+    }
+  } catch (e) {
+    console.warn("[fact-check] skipped:", (e as Error).message);
+  }
+  return { html: opts.html, flags: [] };
+}
+
+/**
+ * Quality retry: if word count is off target by >30% or keyword density >3.5%,
+ * ask the model to rewrite the SAME block once, with explicit constraints.
+ */
+async function qualityRetry(opts: {
+  apiKey: string;
+  model: string;
+  html: string;
+  target: number;
+  keyword: string;
+  buildPromptArgs: { system: string; user: string };
+}): Promise<{ html: string; retried: boolean; reason: string | null }> {
+  const wc = countWords(opts.html);
+  const dens = keywordDensity(opts.html, opts.keyword);
+  const wcDeviation = Math.abs(wc - opts.target) / Math.max(1, opts.target);
+  const tooLong = wc > opts.target * 1.3;
+  const tooShort = wc < opts.target * 0.7;
+  const spam = dens.density > 0.035;
+  if (!tooLong && !tooShort && !spam) return { html: opts.html, retried: false, reason: null };
+
+  const issues: string[] = [];
+  if (tooLong) issues.push(`сократи до ~${opts.target} слов (сейчас ${wc})`);
+  if (tooShort) issues.push(`расширь до ~${opts.target} слов (сейчас ${wc})`);
+  if (spam) issues.push(`снизь плотность ключа "${opts.keyword}" - сейчас ${(dens.density * 100).toFixed(1)}%, нужно <2.5%`);
+
+  const sys = `${opts.buildPromptArgs.system}\n\nЭто РЕРАЙТ. Текущий вариант нарушает требования:\n- ${issues.join("\n- ")}\nИсправь только эти проблемы, сохрани структуру и смысл. Верни чистый HTML.`;
+  const usr = `${opts.buildPromptArgs.user}\n\nТЕКУЩИЙ ВАРИАНТ (исправь):\n${opts.html}`;
+  try {
+    const out = await chatComplete({
+      apiKey: opts.apiKey,
+      model: opts.model,
+      system: sys,
+      user: usr,
+      maxTokens: Math.min(3500, opts.target * 4),
+      temperature: 0.6,
+      timeoutMs: 60_000,
+    });
+    const cleaned = stripFences(out);
+    if (cleaned.length > 40) {
+      return { html: cleaned, retried: true, reason: issues.join("; ") };
+    }
+  } catch (e) {
+    console.warn("[quality-retry] failed:", (e as Error).message);
+  }
+  return { html: opts.html, retried: false, reason: issues.join("; ") };
+}
+
 Deno.serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
@@ -323,40 +476,24 @@ Deno.serve(async (req) => {
       return errorResponse("OPENROUTER_API_KEY not configured", 500);
     }
 
-    const model = body.model || "google/gemini-2.5-flash";
+    // Model routing: PRO+ users get Claude Sonnet by default, basic stays on Gemini Flash.
+    // Explicit body.model still wins (admin/staff override).
+    let model = body.model || "google/gemini-2.5-flash";
+    if (!body.model && (plan === "pro" || plan === "factory")) {
+      model = resolveOpenRouterModel("claude-sonnet");
+    }
     const { system, user } = buildPrompt(body);
 
     let content = "";
     try {
-      const upstream = await withTimeout(
-        fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://seo-modul.pro",
-            "X-Title": "SEO-Module Commercial",
-          },
-          body: JSON.stringify({
-            model,
-            max_tokens: Math.min(3000, target * 3),
-            temperature: 0.75,
-            messages: [
-              { role: "system", content: system },
-              { role: "user", content: user },
-            ],
-          }),
-        }),
-        60_000,
-        "openrouter timeout",
-      );
-
-      if (!upstream.ok) {
-        const text = await upstream.text().catch(() => "");
-        throw new Error(`OpenRouter ${upstream.status}: ${text.slice(0, 200)}`);
-      }
-      const json = await upstream.json();
-      content = (json?.choices?.[0]?.message?.content || "").trim();
+      content = await chatComplete({
+        apiKey,
+        model,
+        system,
+        user,
+        maxTokens: Math.min(3000, target * 3),
+        temperature: 0.75,
+      });
     } catch (e) {
       await sb.rpc("refund_credits", {
         p_user_id: userId,
@@ -375,7 +512,18 @@ Deno.serve(async (req) => {
       return errorResponse("Empty response from model", 502);
     }
 
-    content = content.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    content = stripFences(content);
+
+    // Quality retry: rewrite once if word-count off or keyword over-spammed.
+    const retry = await qualityRetry({
+      apiKey,
+      model,
+      html: content,
+      target,
+      keyword: String(body.brief?.keyword || ""),
+      buildPromptArgs: { system, user },
+    });
+    content = stripFences(retry.html);
 
     // Stealth post-process: char sanitize + burstiness pass.
     content = applyStealthPostProcess(content, "ru");
@@ -384,11 +532,24 @@ Deno.serve(async (req) => {
     const guard = applyAntiFakeGuard(content, body.brief);
     content = guard.content;
 
+    // LLM Fact-Check second pass: catches subtler hallucinations regex misses.
+    // Skip for very short blocks (h1_lead, cta) to save budget/latency.
+    let factFlags: string[] = [];
+    if (countWords(content) >= 80) {
+      const fc = await llmFactCheck({ apiKey, html: content, brief: body.brief });
+      content = stripFences(fc.html);
+      factFlags = fc.flags;
+    }
+
     return jsonResponse({
       content,
       word_count: countWords(content),
       block_type: body.block_type,
       anti_fake_flags: guard.flagged,
+      fact_check_flags: factFlags,
+      retried: retry.retried,
+      retry_reason: retry.reason,
+      model_used: model,
     });
   } catch (e) {
     return errorResponse(`Server error: ${e instanceof Error ? e.message : "unknown"}`, 500);
