@@ -559,7 +559,7 @@ export default function CommercialPage() {
     toast.success("История очищена");
   };
 
-  const resetDraft = () => {
+  const resetDraft = async () => {
     if (!(await confirm({ title: "Сбросить черновик?", confirmText: "Сбросить", destructive: true }))) return;
     if (draftKey) localStorage.removeItem(draftKey);
     setPageType(null);
