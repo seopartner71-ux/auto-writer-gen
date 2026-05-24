@@ -71,6 +71,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
 
     setIsGenerating(true);
     setGeneratedImage(null);
+    setVariants([]);
 
     try {
       const token = await getAuthToken();
