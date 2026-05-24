@@ -8,6 +8,12 @@ import { withTimeout } from "../_shared/withTimeout.ts";
 import { applyStealthPostProcess, buildStealthSystemAddon } from "../_shared/stealth.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
+import {
+  countWords as countWordsQ,
+  keywordDensity as keywordDensityQ,
+  stripFences as stripFencesQ,
+  applyAntiFakeGuard as applyAntiFakeGuardQ,
+} from "./quality.ts";
 
 type PageType = "service" | "category" | "product" | "local";
 
@@ -124,24 +130,17 @@ const NANO_FORBIDDEN_BLOCKS = new Set(["seo_text", "geo_seo", "prices"]);
 const NANO_ALLOWED_TYPES = new Set<PageType>(["service", "local"]);
 
 function countWords(text: string): number {
-  return text.replace(/<[^>]+>/g, " ").trim().split(/\s+/).filter(Boolean).length;
+  return countWordsQ(text);
 }
 
 /** Roughly count keyword occurrences in plain text. Case-insensitive whole-word-ish. */
 function keywordDensity(html: string, keyword: string): { count: number; density: number; total: number } {
-  const plain = html.replace(/<[^>]+>/g, " ").toLowerCase();
-  const total = plain.trim().split(/\s+/).filter(Boolean).length || 1;
-  const kw = (keyword || "").trim().toLowerCase();
-  if (!kw) return { count: 0, density: 0, total };
-  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`\\b${escaped}\\b`, "gi");
-  const count = (plain.match(re) || []).length;
-  return { count, density: count / total, total };
+  return keywordDensityQ(html, keyword);
 }
 
 /** Strip ```html fences if model wrapped the output. */
 function stripFences(s: string): string {
-  return s.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  return stripFencesQ(s);
 }
 
 function buildPrompt(body: ReqBody): { system: string; user: string } {
@@ -241,43 +240,7 @@ ${parsedAddon ? parsedAddon + "\n\n" : ""}${buildStealthSystemAddon("ru")}`;
  * patterns in commercial copy. Runs only when the brief didn't authorize them.
  */
 function applyAntiFakeGuard(html: string, brief: Brief): { content: string; flagged: string[] } {
-  const flagged: string[] = [];
-  let out = html;
-
-  // Fake phone numbers (any 7+ digit cluster not present in brief)
-  const briefBlob = JSON.stringify(brief).toLowerCase();
-  out = out.replace(/(\+?7|8)[\s\-(]*\d{3}[\s\-)]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}/g, (m) => {
-    if (briefBlob.includes(m.replace(/\D/g, "").slice(-10))) return m;
-    flagged.push(`phone:${m}`);
-    return "по телефону на сайте";
-  });
-
-  // Fake emails
-  out = out.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (m) => {
-    if (briefBlob.includes(m.toLowerCase())) return m;
-    flagged.push(`email:${m}`);
-    return "по e-mail на сайте";
-  });
-
-  // Fabricated stats: "по данным NN%", "согласно исследованию ... NN%"
-  out = out.replace(/(по данным|согласно (?:исследованию|опросу|статистике)[^.]{0,40})\s*[^.<]{0,80}?\d{1,3}\s?%/gi, (m) => {
-    flagged.push(`fake_stat:${m.slice(0, 60)}`);
-    return "практика показывает";
-  });
-
-  // Fabricated expert citation: "Имя Фамилия, эксперт/директор/руководитель/CEO"
-  out = out.replace(/[А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+,\s*(эксперт|директор|руководитель|основатель|CEO|CTO|маркетолог|консультант)[^.<]{0,80}/g, (m) => {
-    flagged.push(`fake_expert:${m.slice(0, 60)}`);
-    return "эксперты отрасли отмечают";
-  });
-
-  // Fake years of research: "в 2019 году исследование", "опрос 2021 года"
-  out = out.replace(/(исследование|опрос|отчет|рейтинг)\s+(?:от\s+)?\d{4}\s*(?:года|г\.)/gi, (m) => {
-    flagged.push(`fake_year:${m}`);
-    return "по наблюдениям из практики";
-  });
-
-  return { content: out, flagged };
+  return applyAntiFakeGuardQ(html, brief);
 }
 
 async function getUserPlan(userId: string): Promise<string> {
@@ -610,6 +573,24 @@ Deno.serve(async (req) => {
         plan,
       },
     });
+
+    // Quality monitor: sample 1/8 calls, fire-and-forget alert if last-hour rates spike.
+    if (Math.random() < 0.125) {
+      try {
+        const supaUrl = Deno.env.get("SUPABASE_URL");
+        const supaKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        if (supaUrl && supaKey) {
+          void fetch(`${supaUrl}/functions/v1/commercial-quality-alert`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supaKey}`,
+            },
+            body: "{}",
+          }).catch(() => {});
+        }
+      } catch { /* ignore */ }
+    }
 
     return jsonResponse({
       content,
