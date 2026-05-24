@@ -73,7 +73,7 @@ export default function ImageGeneratorPage() {
     const qPrompt = searchParams.get("prompt");
     const qKeyword = searchParams.get("keyword");
     const qTopic = searchParams.get("topic");
-    if (qMode === "prompt" || qMode === "h2" || qMode === "cover") setMode(qMode);
+    if (qMode === "prompt" || qMode === "h2" || qMode === "cover" || qMode === "edit") setMode(qMode);
     if (qPrompt) setPrompt(qPrompt);
     if (qKeyword) setKeyword(qKeyword);
     if (qTopic) setTopic(qTopic);
