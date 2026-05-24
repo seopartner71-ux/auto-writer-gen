@@ -8,6 +8,7 @@ import { AuthProvider } from "@/shared/hooks/useAuth";
 import { ThemeProvider } from "@/shared/hooks/useTheme";
 import { I18nProvider } from "@/shared/hooks/useI18n";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
+import { ConfirmDialogProvider } from "@/shared/components/ConfirmDialog";
 import { AppLayout } from "@/components/AppLayout";
 import { SEOManager } from "@/components/SEOManager";
 import { AIAssistantFab } from "@/components/AIAssistantFab";
@@ -145,6 +146,7 @@ const App = () => (
     <ThemeProvider>
       <I18nProvider>
         <TooltipProvider>
+         <ConfirmDialogProvider>
           <Toaster />
           <Sonner />
           <SEOManager />
@@ -203,6 +205,7 @@ const App = () => (
               <AIAssistantFab />
             </AuthProvider>
           </BrowserRouter>
+         </ConfirmDialogProvider>
         </TooltipProvider>
       </I18nProvider>
     </ThemeProvider>
