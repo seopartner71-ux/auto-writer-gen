@@ -25,7 +25,7 @@ import {
   Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit, X, Maximize2, FileCode,
 } from "lucide-react";
 
-type Mode = "prompt" | "h2" | "cover";
+type Mode = "prompt" | "h2" | "cover" | "edit";
 
 interface GenImage {
   url: string;
@@ -38,7 +38,7 @@ interface GenImage {
 }
 
 const ASPECT_RATIOS = ["16:9", "4:3", "1:1", "9:16", "3:2"];
-const STYLES = ["Реалистичный бизнес", "Редакционный", "Инфографика", "Flat-иллюстрация"];
+const STYLES = ["Реалистичный бизнес", "Студийное фото", "Фото товара", "Редакционный", "Инфографика", "Flat-иллюстрация"];
 const COUNTS = [1, 2, 4, 6];
 const MOODS = ["Деловое", "Динамичное", "Минимализм"];
 
@@ -57,6 +57,11 @@ export default function ImageGeneratorPage() {
   const [keyword, setKeyword] = useState("");
   const [mood, setMood] = useState(MOODS[0]);
 
+  // EDIT mode state
+  const [editFileName, setEditFileName] = useState<string>("");
+  const [editSourceData, setEditSourceData] = useState<string>(""); // data: URL
+  const [editInstruction, setEditInstruction] = useState<string>("");
+
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [style, setStyle] = useState(STYLES[0]);
   const [count, setCount] = useState(1);
@@ -68,7 +73,7 @@ export default function ImageGeneratorPage() {
     const qPrompt = searchParams.get("prompt");
     const qKeyword = searchParams.get("keyword");
     const qTopic = searchParams.get("topic");
-    if (qMode === "prompt" || qMode === "h2" || qMode === "cover") setMode(qMode);
+    if (qMode === "prompt" || qMode === "h2" || qMode === "cover" || qMode === "edit") setMode(qMode);
     if (qPrompt) setPrompt(qPrompt);
     if (qKeyword) setKeyword(qKeyword);
     if (qTopic) setTopic(qTopic);
@@ -147,6 +152,7 @@ export default function ImageGeneratorPage() {
     if (mode === "prompt") return prompt.trim().length > 3;
     if (mode === "h2") return selectedH2.length > 0;
     if (mode === "cover") return topic.trim().length > 1;
+    if (mode === "edit") return !!editSourceData && editInstruction.trim().length > 2;
     return false;
   };
 
@@ -166,6 +172,11 @@ export default function ImageGeneratorPage() {
       else if (mode === "prompt") payload.prompt = prompt;
       else if (mode === "h2") { payload.h2_headings = selectedH2; payload.article_id = articleId; }
       else if (mode === "cover") { payload.topic = topic; payload.keyword = keyword; payload.mood = mood; }
+      else if (mode === "edit") {
+        payload.source_image = editSourceData;
+        payload.edit_prompt = editInstruction;
+        payload.count = 1;
+      }
 
       const { data, error } = await supabase.functions.invoke("generate-image", { body: payload });
       if (error) throw error;
@@ -319,11 +330,12 @@ export default function ImageGeneratorPage() {
       </div>
 
       {/* Mode cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { id: "prompt" as Mode, icon: MessageSquare, title: "По запросу", desc: "Свободное описание" },
           { id: "h2" as Mode, icon: FileText, title: "По H2-заголовкам", desc: "Из вашей статьи" },
           { id: "cover" as Mode, icon: Layers, title: "Обложка статьи", desc: "Тема + ключ + настроение" },
+          { id: "edit" as Mode, icon: Wand2, title: "Редактировать фото", desc: "Загрузите и доработайте" },
         ].map((m) => {
           const active = mode === m.id;
           return (
@@ -438,6 +450,58 @@ export default function ImageGeneratorPage() {
                 </>
               )}
 
+              {mode === "edit" && (
+                <>
+                  <div>
+                    <Label className="text-xs">Исходное фото</Label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="mt-1.5 block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary file:text-primary-foreground file:cursor-pointer file:text-xs hover:file:bg-primary/90"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        if (f.size > 8 * 1024 * 1024) {
+                          toast.error("Файл больше 8 МБ");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          setEditSourceData(String(reader.result || ""));
+                          setEditFileName(f.name);
+                        };
+                        reader.onerror = () => toast.error("Не удалось прочитать файл");
+                        reader.readAsDataURL(f);
+                      }}
+                    />
+                    {editFileName && (
+                      <div className="mt-1.5 text-[11px] text-muted-foreground truncate">{editFileName}</div>
+                    )}
+                    {editSourceData && (
+                      <img
+                        src={editSourceData}
+                        alt="источник"
+                        className="mt-2 rounded-md border w-full max-h-40 object-contain bg-muted/30"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Что изменить</Label>
+                    <Textarea
+                      value={editInstruction}
+                      onChange={(e) => setEditInstruction(e.target.value)}
+                      placeholder="Например: убери фон, замени на белый студийный, добавь мягкий свет, сделай теплее, уменьши блики на товаре"
+                      rows={4}
+                      className="mt-1.5"
+                    />
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      Редактирование через Nano Banana — 1 кредит за фото.
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {mode !== "edit" && (
               <div className="border-t pt-4 space-y-4">
                 <div>
                   <Label className="text-xs">Соотношение сторон</Label>
@@ -518,6 +582,7 @@ export default function ImageGeneratorPage() {
                   </div>
                 </div>
               </div>
+              )}
 
               <Button
                 className="w-full"
@@ -527,11 +592,11 @@ export default function ImageGeneratorPage() {
                 {generating ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Генерация...</>
                 ) : (
-                  <><Wand2 className="mr-2 h-4 w-4" />Сгенерировать</>
+                  <><Wand2 className="mr-2 h-4 w-4" />{mode === "edit" ? "Применить правку" : "Сгенерировать"}</>
                 )}
               </Button>
               <div className="text-center text-xs text-muted-foreground">
-                Стоимость: {effectiveCount} кредит{effectiveCount === 1 ? "" : effectiveCount < 5 ? "а" : "ов"}
+                Стоимость: {mode === "edit" ? 1 : effectiveCount} кредит{(mode === "edit" ? 1 : effectiveCount) === 1 ? "" : (mode === "edit" ? 1 : effectiveCount) < 5 ? "а" : "ов"}
               </div>
             </CardContent>
           </Card>
