@@ -133,6 +133,42 @@ function countWords(text: string): number {
   return countWordsQ(text);
 }
 
+/** Detect YMYL (Your Money / Your Life) niches that need stronger E-E-A-T signals. */
+const YMYL_RULES: { kind: string; rx: RegExp }[] = [
+  { kind: "medical", rx: /(медиц|здоров|клиник|стоматолог|врач|лекарств|психолог|диагност|терапи|хирург|лечени|болезн|симптом|фарма|аптек)/i },
+  { kind: "financial", rx: /(финанс|кредит|займ|ипотек|инвест|банк|страхов|налог|бухгалт|трейд|крипт|форекс|пенси|депозит|вклад)/i },
+  { kind: "legal", rx: /(юрист|адвокат|закон|право|суд|нотариус|регистрац|лиценз|договор|претензи|уголовн|гражданск)/i },
+];
+function detectYmyl(brief: Brief): string | null {
+  const hay = `${brief.niche || ""} ${brief.keyword || ""} ${brief.services || ""}`.toLowerCase();
+  for (const r of YMYL_RULES) if (r.rx.test(hay)) return r.kind;
+  return null;
+}
+
+function buildEeatAddon(kind: string): string {
+  const kindRu = kind === "medical" ? "медицинской" : kind === "financial" ? "финансовой" : "юридической";
+  return `
+
+E-E-A-T (тематика ${kindRu}, повышенные требования YMYL):
+- В тексте дай понять, что материал подготовлен с участием профильного специалиста, БЕЗ выдуманных ФИО/должностей. Формулировки: "по практике профильных специалистов", "согласно методологии отрасли".
+- Если блок содержит рекомендации - в конце или в отдельном <p> добавь дисклеймер: "Материал носит информационный характер и не заменяет консультацию ${kind === "medical" ? "врача" : kind === "financial" ? "финансового консультанта" : "юриста"}".
+- Не давай конкретных дозировок/сумм/правовых выводов как окончательных; используй "уточняйте у специалиста".
+- Если бриф позволяет (есть блок faq/seo_text) - упомяни, на основе чего сформированы рекомендации ("стандарты отрасли", "официальные источники"), без вымышленных названий.`;
+}
+
+/** Compute share of LSI terms that actually appear in HTML (case-insensitive). */
+function lsiCoverage(html: string, lsi: string): { terms: string[]; missing: string[]; ratio: number } {
+  const terms = String(lsi || "")
+    .split(/[,;|\n]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 3)
+    .slice(0, 30);
+  if (terms.length === 0) return { terms: [], missing: [], ratio: 1 };
+  const plain = html.replace(/<[^>]+>/g, " ").toLowerCase();
+  const missing = terms.filter((t) => !plain.includes(t.toLowerCase()));
+  return { terms, missing, ratio: 1 - missing.length / terms.length };
+}
+
 /** Roughly count keyword occurrences in plain text. Case-insensitive whole-word-ish. */
 function keywordDensity(html: string, keyword: string): { count: number; density: number; total: number } {
   return keywordDensityQ(html, keyword);
@@ -229,7 +265,7 @@ ANTI-FAKE GUARD (zero tolerance):
 Инструкция для этого блока:
 ${instruction}
 
-${parsedAddon ? parsedAddon + "\n\n" : ""}${buildStealthSystemAddon("ru")}`;
+${parsedAddon ? parsedAddon + "\n\n" : ""}${(() => { const k = detectYmyl(brief); return k ? buildEeatAddon(k) + "\n\n" : ""; })()}${buildStealthSystemAddon("ru")}`;
 
   const user = `Бриф:\n${briefLines.join("\n") || "(данных нет)"}\n\nСгенерируй блок.`;
   return { system, user };
@@ -356,20 +392,27 @@ async function qualityRetry(opts: {
   html: string;
   target: number;
   keyword: string;
+  lsi?: string;
   buildPromptArgs: { system: string; user: string };
-}): Promise<{ html: string; retried: boolean; reason: string | null; tokensIn: number; tokensOut: number }> {
+}): Promise<{ html: string; retried: boolean; reason: string | null; tokensIn: number; tokensOut: number; lsi_ratio: number; lsi_missing: string[] }> {
   const wc = countWords(opts.html);
   const dens = keywordDensity(opts.html, opts.keyword);
   const wcDeviation = Math.abs(wc - opts.target) / Math.max(1, opts.target);
   const tooLong = wc > opts.target * 1.3;
   const tooShort = wc < opts.target * 0.7;
   const spam = dens.density > 0.035;
-  if (!tooLong && !tooShort && !spam) return { html: opts.html, retried: false, reason: null, tokensIn: 0, tokensOut: 0 };
+  const lsi = lsiCoverage(opts.html, opts.lsi || "");
+  // Only enforce LSI when at least 4 terms were provided (otherwise too noisy)
+  const lsiLow = lsi.terms.length >= 4 && lsi.ratio < 0.5;
+  if (!tooLong && !tooShort && !spam && !lsiLow) {
+    return { html: opts.html, retried: false, reason: null, tokensIn: 0, tokensOut: 0, lsi_ratio: lsi.ratio, lsi_missing: lsi.missing };
+  }
 
   const issues: string[] = [];
   if (tooLong) issues.push(`сократи до ~${opts.target} слов (сейчас ${wc})`);
   if (tooShort) issues.push(`расширь до ~${opts.target} слов (сейчас ${wc})`);
   if (spam) issues.push(`снизь плотность ключа "${opts.keyword}" - сейчас ${(dens.density * 100).toFixed(1)}%, нужно <2.5%`);
+  if (lsiLow) issues.push(`органично вплети недостающие LSI-термины: ${lsi.missing.slice(0, 10).join(", ")}`);
 
   const sys = `${opts.buildPromptArgs.system}\n\nЭто РЕРАЙТ. Текущий вариант нарушает требования:\n- ${issues.join("\n- ")}\nИсправь только эти проблемы, сохрани структуру и смысл. Верни чистый HTML.`;
   const usr = `${opts.buildPromptArgs.user}\n\nТЕКУЩИЙ ВАРИАНТ (исправь):\n${opts.html}`;
@@ -385,12 +428,13 @@ async function qualityRetry(opts: {
     });
     const cleaned = stripFences(out.content);
     if (cleaned.length > 40) {
-      return { html: cleaned, retried: true, reason: issues.join("; "), tokensIn: out.tokensIn, tokensOut: out.tokensOut };
+      const lsi2 = lsiCoverage(cleaned, opts.lsi || "");
+      return { html: cleaned, retried: true, reason: issues.join("; "), tokensIn: out.tokensIn, tokensOut: out.tokensOut, lsi_ratio: lsi2.ratio, lsi_missing: lsi2.missing };
     }
   } catch (e) {
     console.warn("[quality-retry] failed:", (e as Error).message);
   }
-  return { html: opts.html, retried: false, reason: issues.join("; "), tokensIn: 0, tokensOut: 0 };
+  return { html: opts.html, retried: false, reason: issues.join("; "), tokensIn: 0, tokensOut: 0, lsi_ratio: lsi.ratio, lsi_missing: lsi.missing };
 }
 
 Deno.serve(async (req) => {
@@ -522,6 +566,7 @@ Deno.serve(async (req) => {
       html: content,
       target,
       keyword: String(body.brief?.keyword || ""),
+      lsi: String(body.brief?.lsi || ""),
       buildPromptArgs: { system, user },
     });
     content = stripFences(retry.html);
@@ -570,6 +615,9 @@ Deno.serve(async (req) => {
         retry_reason: retry.reason,
         anti_fake_count: guard.flagged.length,
         fact_check_count: factFlags.length,
+        lsi_ratio: Number((retry.lsi_ratio ?? 1).toFixed(3)),
+        lsi_missing: retry.lsi_missing?.slice(0, 8) || [],
+        ymyl: detectYmyl(body.brief),
         plan,
       },
     });
@@ -600,6 +648,9 @@ Deno.serve(async (req) => {
       fact_check_flags: factFlags,
       retried: retry.retried,
       retry_reason: retry.reason,
+      lsi_ratio: retry.lsi_ratio,
+      lsi_missing: retry.lsi_missing,
+      ymyl: detectYmyl(body.brief),
       model_used: model,
     });
   } catch (e) {

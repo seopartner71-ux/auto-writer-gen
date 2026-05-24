@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Crown, Copy, Check, X, Images, EyeOff } from "lucide-react";
+import { Sparkles, Crown, Copy, Check, X, Images, EyeOff, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
@@ -15,11 +16,12 @@ interface ProImageGeneratorProps {
   title: string;
   content: string;
   keyword?: string;
+  articleId?: string;
   onImageGenerated?: (url: string, alt: string, markdown: string) => void;
   onMultiImagesGenerated?: (images: { heading: string; url: string; alt: string }[]) => void;
 }
 
-export function ProImageGenerator({ title, content, keyword, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
+export function ProImageGenerator({ title, content, keyword, articleId, onImageGenerated, onMultiImagesGenerated }: ProImageGeneratorProps) {
   const { isPro } = usePlanLimits();
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>("photorealistic");
   const [quality, setQuality] = useState<"fast" | "high">("fast");
@@ -27,6 +29,9 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
   const [localEnabled, setLocalEnabled] = useState(globalEnabled);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMulti, setIsGeneratingMulti] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editPrompt, setEditPrompt] = useState("");
   const [generatedImage, setGeneratedImage] = useState<{
     url: string;
     alt: string;
@@ -100,6 +105,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
           quality,
           keyword: keyword || title,
           variations: 2,
+          article_id: articleId,
         }),
       });
 
@@ -155,6 +161,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
           quality,
           keyword: keyword || title,
           mode: "multi",
+          article_id: articleId,
         }),
       });
 
@@ -193,7 +200,47 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
     toast.success("Вариант выбран");
   };
 
-  const isAnyGenerating = isGenerating || isGeneratingMulti;
+  const handleEdit = async () => {
+    if (!generatedImage || !editPrompt.trim()) {
+      toast.error("Опишите, что доработать");
+      return;
+    }
+    setIsEditing(true);
+    try {
+      const token = await getAuthToken();
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pro-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          mode: "edit",
+          source_url: generatedImage.url,
+          edit_prompt: editPrompt.trim(),
+          title,
+          article_id: articleId,
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Ошибка доработки" }));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+      const data = await resp.json();
+      setGeneratedImage({ url: data.url, alt: data.alt, filename: data.filename, remaining: data.remaining });
+      setShowEdit(false);
+      setEditPrompt("");
+      if (onImageGenerated) onImageGenerated(data.url, data.alt, `![${data.alt}](${data.url})`);
+      toast.success("Доработано");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const isAnyGenerating = isGenerating || isGeneratingMulti || isEditing;
 
   return (
     <div className="space-y-3">
@@ -293,15 +340,45 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerate}
-              className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-            >
-              <Sparkles className="h-3 w-3 mr-1.5" />
-              Перегенерировать
-            </Button>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerate}
+                className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+              >
+                <Sparkles className="h-3 w-3 mr-1.5" />
+                Перегенерировать
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEdit((v) => !v)}
+                className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+              >
+                <Wand2 className="h-3 w-3 mr-1.5" />
+                Доработать
+              </Button>
+            </div>
+            {showEdit && (
+              <div className="space-y-1.5 p-2 rounded-lg border border-purple-500/20 bg-purple-500/5">
+                <Textarea
+                  value={editPrompt}
+                  onChange={(e) => setEditPrompt(e.target.value)}
+                  placeholder="Например: добавь больше света, замени фон на офис, сделай тёплые тона"
+                  className="min-h-[60px] text-xs bg-background/50"
+                  disabled={isEditing}
+                />
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="flex-1 bg-purple-500 hover:bg-purple-600 text-white" onClick={handleEdit} disabled={isEditing || !editPrompt.trim()}>
+                    {isEditing ? "Дорабатываем..." : "Применить правку"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setShowEdit(false); setEditPrompt(""); }}>
+                    Отмена
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {variants.length > 1 && (
               <div className="space-y-1.5">
