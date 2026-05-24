@@ -105,6 +105,7 @@ export function ProImageGenerator({ title, content, keyword, articleId, onImageG
           quality,
           keyword: keyword || title,
           variations: 2,
+          article_id: articleId,
         }),
       });
 
@@ -160,6 +161,7 @@ export function ProImageGenerator({ title, content, keyword, articleId, onImageG
           quality,
           keyword: keyword || title,
           mode: "multi",
+          article_id: articleId,
         }),
       });
 
@@ -198,7 +200,47 @@ export function ProImageGenerator({ title, content, keyword, articleId, onImageG
     toast.success("Вариант выбран");
   };
 
-  const isAnyGenerating = isGenerating || isGeneratingMulti;
+  const handleEdit = async () => {
+    if (!generatedImage || !editPrompt.trim()) {
+      toast.error("Опишите, что доработать");
+      return;
+    }
+    setIsEditing(true);
+    try {
+      const token = await getAuthToken();
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-pro-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          mode: "edit",
+          source_url: generatedImage.url,
+          edit_prompt: editPrompt.trim(),
+          title,
+          article_id: articleId,
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Ошибка доработки" }));
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+      const data = await resp.json();
+      setGeneratedImage({ url: data.url, alt: data.alt, filename: data.filename, remaining: data.remaining });
+      setShowEdit(false);
+      setEditPrompt("");
+      if (onImageGenerated) onImageGenerated(data.url, data.alt, `![${data.alt}](${data.url})`);
+      toast.success("Доработано");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const isAnyGenerating = isGenerating || isGeneratingMulti || isEditing;
 
   return (
     <div className="space-y-3">
