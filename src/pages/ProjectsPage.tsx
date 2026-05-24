@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 import {
   Plus, Pencil, Trash2, Globe, Link2, FolderOpen, Loader2, FileText, CheckCircle2, Eye, Zap, Sparkles, RefreshCw
 } from "lucide-react";
@@ -67,6 +68,7 @@ const defaultForm = {
 };
 
 export default function ProjectsPage() {
+  const confirm = useConfirm();
   const { user } = useAuth();
   const { t } = useI18n();
   const { limits, plan } = usePlanLimits();
@@ -351,13 +353,12 @@ export default function ProjectsPage() {
                       variant="ghost"
                       size="sm"
                       className="text-xs h-8 gap-1.5 text-destructive hover:text-destructive"
-                      onClick={() => {
-                        if (confirm(t("projects.confirmDelete"))) {
-                          deleteMutation.mutate(p.id);
-                          if (activeProjectId === p.id) {
-                            localStorage.removeItem("active_project_id");
-                            setActiveProjectId(null);
-                          }
+                      onClick={async () => {
+                        if (!(await confirm({ title: t("projects.confirmDelete"), destructive: true, confirmText: t("common.delete") }))) return;
+                        deleteMutation.mutate(p.id);
+                        if (activeProjectId === p.id) {
+                          localStorage.removeItem("active_project_id");
+                          setActiveProjectId(null);
                         }
                       }}
                     >
