@@ -82,6 +82,11 @@ serve(async (req) => {
         `⚠️ Последняя ошибка: <code>${String(last_error || '-').slice(0, 200)}</code>\n` +
         `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}\n\n` +
         `Проверь баланс OpenRouter и Lovable AI Gateway.`;
+    } else if (type === 'commercial_quality_alert' || type === 'quality_alert') {
+      const { text: msg } = data || {};
+      text = `📉 <b>Алерт качества генерации</b>\n\n` +
+        `${String(msg || '').slice(0, 1500)}\n\n` +
+        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
     } else {
       text = `ℹ️ ${type}: ${JSON.stringify(data)}`;
     }
