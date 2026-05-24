@@ -7,6 +7,7 @@ import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts
 import { withTimeout } from "../_shared/withTimeout.ts";
 import { applyStealthPostProcess, buildStealthSystemAddon } from "../_shared/stealth.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
+import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
 
 type PageType = "service" | "category" | "product" | "local";
 
@@ -294,7 +295,7 @@ async function chatComplete(opts: {
   maxTokens: number;
   temperature?: number;
   timeoutMs?: number;
-}): Promise<string> {
+}): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
   const r = await withTimeout(
     fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -322,7 +323,11 @@ async function chatComplete(opts: {
     throw new Error(`OpenRouter ${r.status}: ${t.slice(0, 200)}`);
   }
   const j = await r.json();
-  return String(j?.choices?.[0]?.message?.content || "").trim();
+  return {
+    content: String(j?.choices?.[0]?.message?.content || "").trim(),
+    tokensIn: Number(j?.usage?.prompt_tokens || 0),
+    tokensOut: Number(j?.usage?.completion_tokens || 0),
+  };
 }
 
 /**
@@ -334,7 +339,7 @@ async function llmFactCheck(opts: {
   apiKey: string;
   html: string;
   brief: Brief;
-}): Promise<{ html: string; flags: string[] }> {
+}): Promise<{ html: string; flags: string[]; tokensIn: number; tokensOut: number }> {
   const briefJson = JSON.stringify(opts.brief).slice(0, 3000);
   const system = `Ты редактор-фактчекер коммерческого SEO-текста.
 Тебе дают HTML-блок и БРИФ. Найди в HTML любые конкретные факты, которых НЕТ в брифе:
@@ -353,7 +358,7 @@ async function llmFactCheck(opts: {
 {"html":"<исправленный HTML>","flags":["краткое описание каждой правки"]}`;
   const user = `БРИФ:\n${briefJson}\n\nHTML:\n${opts.html}`;
   try {
-    const raw = await chatComplete({
+    const res = await chatComplete({
       apiKey: opts.apiKey,
       model: "google/gemini-2.5-flash-lite",
       system,
@@ -362,15 +367,20 @@ async function llmFactCheck(opts: {
       temperature: 0.2,
       timeoutMs: 40_000,
     });
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    const cleaned = res.content.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
     const parsed = JSON.parse(cleaned);
     if (parsed && typeof parsed.html === "string" && parsed.html.length > 30) {
-      return { html: parsed.html, flags: Array.isArray(parsed.flags) ? parsed.flags.map(String) : [] };
+      return {
+        html: parsed.html,
+        flags: Array.isArray(parsed.flags) ? parsed.flags.map(String) : [],
+        tokensIn: res.tokensIn,
+        tokensOut: res.tokensOut,
+      };
     }
   } catch (e) {
     console.warn("[fact-check] skipped:", (e as Error).message);
   }
-  return { html: opts.html, flags: [] };
+  return { html: opts.html, flags: [], tokensIn: 0, tokensOut: 0 };
 }
 
 /**
@@ -384,14 +394,14 @@ async function qualityRetry(opts: {
   target: number;
   keyword: string;
   buildPromptArgs: { system: string; user: string };
-}): Promise<{ html: string; retried: boolean; reason: string | null }> {
+}): Promise<{ html: string; retried: boolean; reason: string | null; tokensIn: number; tokensOut: number }> {
   const wc = countWords(opts.html);
   const dens = keywordDensity(opts.html, opts.keyword);
   const wcDeviation = Math.abs(wc - opts.target) / Math.max(1, opts.target);
   const tooLong = wc > opts.target * 1.3;
   const tooShort = wc < opts.target * 0.7;
   const spam = dens.density > 0.035;
-  if (!tooLong && !tooShort && !spam) return { html: opts.html, retried: false, reason: null };
+  if (!tooLong && !tooShort && !spam) return { html: opts.html, retried: false, reason: null, tokensIn: 0, tokensOut: 0 };
 
   const issues: string[] = [];
   if (tooLong) issues.push(`сократи до ~${opts.target} слов (сейчас ${wc})`);
@@ -410,14 +420,14 @@ async function qualityRetry(opts: {
       temperature: 0.6,
       timeoutMs: 60_000,
     });
-    const cleaned = stripFences(out);
+    const cleaned = stripFences(out.content);
     if (cleaned.length > 40) {
-      return { html: cleaned, retried: true, reason: issues.join("; ") };
+      return { html: cleaned, retried: true, reason: issues.join("; "), tokensIn: out.tokensIn, tokensOut: out.tokensOut };
     }
   } catch (e) {
     console.warn("[quality-retry] failed:", (e as Error).message);
   }
-  return { html: opts.html, retried: false, reason: issues.join("; ") };
+  return { html: opts.html, retried: false, reason: issues.join("; "), tokensIn: 0, tokensOut: 0 };
 }
 
 Deno.serve(async (req) => {
@@ -456,6 +466,27 @@ Deno.serve(async (req) => {
 
     const sb = adminClient();
 
+    // Budget gate: enforce per-plan day/month cost caps before any LLM spend.
+    // Admin/staff are bypassed inside the RPC.
+    try {
+      const tentativeModel = body.model
+        || ((plan === "pro" || plan === "factory") ? resolveOpenRouterModel("claude-sonnet") : "google/gemini-2.5-flash");
+      const { data: budget } = await sb.rpc("check_ai_budget", { _user_id: userId, _model: tentativeModel });
+      const b = budget as { allowed?: boolean; reason?: string; day_cost?: number; day_cap?: number; monthly_cost?: number; cost_cap?: number } | null;
+      if (b && b.allowed === false) {
+        return errorResponse(
+          b.reason === "day_cap" ? "Превышен дневной лимит AI-расходов" :
+          b.reason === "cost_cap" ? "Превышен месячный лимит AI-расходов" :
+          b.reason === "opus_cap" ? "Превышен лимит вызовов премиум-модели" :
+          "AI-бюджет исчерпан",
+          429,
+          { budget: b },
+        );
+      }
+    } catch (e) {
+      console.warn("[commercial] budget check failed:", (e as Error).message);
+    }
+
     const { data: deduct, error: dedErr } = await sb.rpc("deduct_credits_v2", {
       p_user_id: userId,
       p_amount: 1,
@@ -485,8 +516,11 @@ Deno.serve(async (req) => {
     const { system, user } = buildPrompt(body);
 
     let content = "";
+    let totalIn = 0;
+    let totalOut = 0;
+    let primaryUsd = 0;
     try {
-      content = await chatComplete({
+      const main = await chatComplete({
         apiKey,
         model,
         system,
@@ -494,6 +528,10 @@ Deno.serve(async (req) => {
         maxTokens: Math.min(3000, target * 3),
         temperature: 0.75,
       });
+      content = main.content;
+      totalIn += main.tokensIn;
+      totalOut += main.tokensOut;
+      primaryUsd = tokensToUsd(model, main.tokensIn, main.tokensOut);
     } catch (e) {
       await sb.rpc("refund_credits", {
         p_user_id: userId,
@@ -524,6 +562,8 @@ Deno.serve(async (req) => {
       buildPromptArgs: { system, user },
     });
     content = stripFences(retry.html);
+    totalIn += retry.tokensIn;
+    totalOut += retry.tokensOut;
 
     // Stealth post-process: char sanitize + burstiness pass.
     content = applyStealthPostProcess(content, "ru");
@@ -535,11 +575,41 @@ Deno.serve(async (req) => {
     // LLM Fact-Check second pass: catches subtler hallucinations regex misses.
     // Skip for very short blocks (h1_lead, cta) to save budget/latency.
     let factFlags: string[] = [];
+    let fcUsd = 0;
     if (countWords(content) >= 80) {
       const fc = await llmFactCheck({ apiKey, html: content, brief: body.brief });
       content = stripFences(fc.html);
       factFlags = fc.flags;
+      fcUsd = tokensToUsd("google/gemini-2.5-flash-lite", fc.tokensIn, fc.tokensOut);
+      totalIn += fc.tokensIn;
+      totalOut += fc.tokensOut;
     }
+
+    // Cost log (best-effort) for admin quality dashboard.
+    const finalWc = countWords(content);
+    const finalDens = keywordDensity(content, String(body.brief?.keyword || ""));
+    void logCost(sb, {
+      user_id: userId,
+      operation_type: "article_generation",
+      model,
+      tokens_input: totalIn,
+      tokens_output: totalOut,
+      cost_usd: primaryUsd + fcUsd,
+      metadata: {
+        kind: "commercial_block",
+        block_type: body.block_type,
+        page_type: body.page_type,
+        target_words: target,
+        word_count: finalWc,
+        word_deviation: Math.abs(finalWc - target) / Math.max(1, target),
+        keyword_density: Number(finalDens.density.toFixed(4)),
+        retried: retry.retried,
+        retry_reason: retry.reason,
+        anti_fake_count: 0,
+        fact_check_count: factFlags.length,
+        plan,
+      },
+    });
 
     return jsonResponse({
       content,
