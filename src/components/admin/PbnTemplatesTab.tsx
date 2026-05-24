@@ -202,7 +202,7 @@ export function PbnTemplatesTab() {
       toast({ title: "Встроенный шаблон нельзя удалить", description: "Можно только отключить", variant: "destructive" });
       return;
     }
-    if (!confirm(`Удалить шаблон "${tpl.name}"?`)) return;
+    if (!(await confirm({ title: `Удалить шаблон "${tpl.name}"?`, destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("pbn_templates").delete().eq("id", tpl.id);
     if (error) toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     else load();
