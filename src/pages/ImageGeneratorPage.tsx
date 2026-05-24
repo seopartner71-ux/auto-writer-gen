@@ -152,6 +152,7 @@ export default function ImageGeneratorPage() {
     if (mode === "prompt") return prompt.trim().length > 3;
     if (mode === "h2") return selectedH2.length > 0;
     if (mode === "cover") return topic.trim().length > 1;
+    if (mode === "edit") return !!editSourceData && editInstruction.trim().length > 2;
     return false;
   };
 
@@ -171,6 +172,11 @@ export default function ImageGeneratorPage() {
       else if (mode === "prompt") payload.prompt = prompt;
       else if (mode === "h2") { payload.h2_headings = selectedH2; payload.article_id = articleId; }
       else if (mode === "cover") { payload.topic = topic; payload.keyword = keyword; payload.mood = mood; }
+      else if (mode === "edit") {
+        payload.source_image = editSourceData;
+        payload.edit_prompt = editInstruction;
+        payload.count = 1;
+      }
 
       const { data, error } = await supabase.functions.invoke("generate-image", { body: payload });
       if (error) throw error;
