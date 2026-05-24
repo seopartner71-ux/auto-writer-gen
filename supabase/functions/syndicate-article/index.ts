@@ -1,6 +1,6 @@
-// Syndicate a Site Factory article to Blogger (RU), Hashnode (EN) and Dev.to (EN).
-// Translation RU -> EN happens once via Lovable AI Gateway (gemini-2.5-flash-lite)
-// and is cached on the article row. Each platform run is logged in syndication_log.
+// Syndicate a Site Factory article to Blogger.
+// Hashnode and Dev.to integrations were removed — Blogger is the only active platform.
+// Each platform run is logged in syndication_log.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -11,7 +11,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-syndicate-user-id",
 };
 
-type Platform = "blogger" | "hashnode" | "devto";
+type Platform = "blogger";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -388,7 +388,7 @@ serve(async (req) => {
       || (baseDomain ? `https://${baseDomain}/${slugify(article.title || article.id)}` : article.telegraph_url || "");
     if (!canonicalUrl) return json({ error: "No canonical URL available" }, 400);
 
-    // Hashnode/Dev.to disabled — only Blogger is actively supported now.
+    // Only Blogger is supported.
     const enabledPlatforms: Platform[] = (
       platformsOverride && platformsOverride.length
         ? platformsOverride

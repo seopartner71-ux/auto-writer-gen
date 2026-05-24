@@ -84,7 +84,7 @@ function TermsFallbackEn() {
         <li>PRO: $79/month — 40 credits</li>
         <li>FACTORY: $249/month — 150 credits</li>
       </ul>
-      <p>Payments are processed securely through Polar (card) and Cryptomus (cryptocurrency). All prices are in USD. Credits are non-transferable and expire at the end of the billing period unless otherwise stated.</p>
+      <p>Payments are processed securely through Polar (card). All prices are in USD. Credits are non-transferable and expire at the end of the billing period unless otherwise stated.</p>
 
       <h2 className="text-lg font-bold text-foreground">5. Acceptable Use</h2>
       <p>You agree not to:</p>
