@@ -28,6 +28,11 @@ interface BlockState extends BlockDef {
   regenCount?: number;
   editing?: boolean;
   imageBusy?: boolean;
+  quality?: {
+    retried: boolean;
+    antiFake: number;
+    factCheck: number;
+  };
 }
 interface StructureAnalysis {
   intent: string;
@@ -333,11 +338,28 @@ export default function CommercialPage() {
         },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
-      const res = data as { content: string; word_count: number };
+      const res = data as {
+        content: string;
+        word_count: number;
+        anti_fake_flags?: string[];
+        fact_check_flags?: string[];
+        retried?: boolean;
+      };
       setBlocks((arr) =>
         arr.map((x, i) =>
           i === idx
-            ? { ...x, status: "done", content: res.content, wordCount: res.word_count, regenCount: (x.regenCount || 0) + (x.content ? 1 : 0) }
+            ? {
+                ...x,
+                status: "done",
+                content: res.content,
+                wordCount: res.word_count,
+                regenCount: (x.regenCount || 0) + (x.content ? 1 : 0),
+                quality: {
+                  retried: !!res.retried,
+                  antiFake: res.anti_fake_flags?.length || 0,
+                  factCheck: res.fact_check_flags?.length || 0,
+                },
+              }
             : x,
         ),
       );
