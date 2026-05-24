@@ -32,6 +32,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
     filename: string;
     remaining: number;
   } | null>(null);
+  const [variants, setVariants] = useState<{ url: string; alt: string; filename: string }[]>([]);
   const [copied, setCopied] = useState(false);
 
   if (!isPro) {
@@ -70,6 +71,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
 
     setIsGenerating(true);
     setGeneratedImage(null);
+    setVariants([]);
 
     try {
       const token = await getAuthToken();
@@ -95,6 +97,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
           summary,
           style: selectedStyle,
           keyword: keyword || title,
+          variations: 2,
         }),
       });
 
@@ -105,6 +108,7 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
 
       const data = await resp.json();
       setGeneratedImage(data);
+      setVariants(Array.isArray(data?.variants) ? data.variants : []);
       toast.success(`Изображение сгенерировано! Осталось: ${data.remaining}`);
 
       if (onImageGenerated) {
@@ -178,6 +182,12 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast.success("Markdown скопирован");
+  };
+
+  const pickVariant = (v: { url: string; alt: string; filename: string }) => {
+    setGeneratedImage((cur) => (cur ? { ...cur, url: v.url, alt: v.alt, filename: v.filename } : cur));
+    if (onImageGenerated) onImageGenerated(v.url, v.alt, `![${v.alt}](${v.url})`);
+    toast.success("Вариант выбран");
   };
 
   const isAnyGenerating = isGenerating || isGeneratingMulti;
@@ -289,6 +299,34 @@ export function ProImageGenerator({ title, content, keyword, onImageGenerated, o
               <Sparkles className="h-3 w-3 mr-1.5" />
               Перегенерировать
             </Button>
+
+            {variants.length > 1 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Варианты</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {variants.map((v) => {
+                    const active = v.url === generatedImage.url;
+                    return (
+                      <button
+                        key={v.filename}
+                        type="button"
+                        onClick={() => pickVariant(v)}
+                        className={`relative rounded-lg overflow-hidden border transition-all ${
+                          active ? "border-purple-500/70 ring-2 ring-purple-500/30" : "border-border hover:border-purple-500/40"
+                        }`}
+                      >
+                        <img src={v.url} alt={v.alt} className="w-full h-20 object-cover" />
+                        {active && (
+                          <div className="absolute top-1 right-1 bg-purple-500 rounded-full p-0.5">
+                            <Check className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.div

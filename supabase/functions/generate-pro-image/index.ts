@@ -18,8 +18,22 @@ const FAL_COST_USD = 0.003;
 
 interface FalImage { url: string }
 
-async function buildVisualPrompt(context: string): Promise<string> {
-  const fallback = `Photorealistic business photo: ${context}. Natural lighting, professional, clean composition, no text, no logos, no watermarks.`;
+const STYLE_HINTS: Record<string, string> = {
+  photorealistic:
+    "Photorealistic business photo. Natural lighting, shallow depth of field, professional, clean composition.",
+  product:
+    "Studio product shot on a clean white seamless background. Soft even lighting, sharp focus, centered, e-commerce catalog style.",
+  lifestyle:
+    "Lifestyle photo: real people using the product/service in a natural everyday environment. Warm authentic light, candid feel.",
+  flatlay:
+    "Top-down flat lay composition on a neutral surface. Objects arranged with whitespace, balanced symmetry, soft daylight.",
+};
+
+const NEGATIVE = "No text, no letters, no captions, no logos, no watermarks, no signage, no distorted hands or faces, no extra fingers.";
+
+async function buildVisualPrompt(context: string, style: string): Promise<string> {
+  const styleHint = STYLE_HINTS[style] || STYLE_HINTS.photorealistic;
+  const fallback = `${styleHint} Subject: ${context}. ${NEGATIVE}`;
   if (!OPENROUTER_KEY) return fallback;
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -28,7 +42,7 @@ async function buildVisualPrompt(context: string): Promise<string> {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
-          { role: "system", content: "Convert the topic into a concise English visual prompt for a photorealistic business stock photo. Focus on a concrete visible subject and setting. Do NOT include any text, logos, watermarks, or letters in the image. Output ONLY the visual description, max 40 words." },
+          { role: "system", content: `Convert the topic into a concise English visual prompt for a ${style} image. Focus on ONE concrete visible subject and setting. Do NOT include any text, logos, watermarks, or letters in the image. Output ONLY the visual description, max 40 words.` },
           { role: "user", content: context.slice(0, 400) },
         ],
         max_tokens: 120,
@@ -38,20 +52,20 @@ async function buildVisualPrompt(context: string): Promise<string> {
     if (!r.ok) return fallback;
     const d = await r.json();
     const out = String(d?.choices?.[0]?.message?.content || "").trim();
-    return out ? `${out}. Photorealistic, natural lighting, no text, no logos, no watermarks.` : fallback;
+    return out ? `${styleHint} ${out}. ${NEGATIVE}` : fallback;
   } catch {
     return fallback;
   }
 }
 
-async function falGenerate(prompt: string): Promise<string> {
+async function falGenerate(prompt: string, numImages = 1): Promise<string[]> {
   const r = await fetch("https://fal.run/fal-ai/flux/schnell", {
     method: "POST",
     headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       prompt,
       image_size: "landscape_16_9",
-      num_images: 1,
+      num_images: Math.max(1, Math.min(4, numImages)),
       enable_safety_checker: true,
     }),
   });
@@ -60,9 +74,9 @@ async function falGenerate(prompt: string): Promise<string> {
     throw new Error(`FAL ${r.status}: ${t.slice(0, 200)}`);
   }
   const d = await r.json();
-  const url = (d?.images?.[0] as FalImage | undefined)?.url || "";
-  if (!url) throw new Error("FAL returned no image");
-  return url;
+  const urls = (d?.images || []).map((im: FalImage) => im?.url).filter(Boolean) as string[];
+  if (urls.length === 0) throw new Error("FAL returned no image");
+  return urls;
 }
 
 async function uploadToBucket(admin: any, userId: string, sourceUrl: string): Promise<{ url: string; filename: string }> {
@@ -89,17 +103,17 @@ function extractH2Sections(content: string): string[] {
   return out;
 }
 
-async function generateOne(admin: any, userId: string, context: string, alt: string) {
-  const prompt = await buildVisualPrompt(context);
-  const falUrl = await falGenerate(prompt);
-  const uploaded = await uploadToBucket(admin, userId, falUrl);
+async function generateOne(admin: any, userId: string, context: string, alt: string, style: string, variations: number) {
+  const prompt = await buildVisualPrompt(context, style);
+  const falUrls = await falGenerate(prompt, variations);
+  const uploaded = await Promise.all(falUrls.map((u) => uploadToBucket(admin, userId, u)));
   void logCost(admin, {
     operation_type: "fal_ai_photo",
     model: "fal-ai/flux/schnell",
-    cost_usd: FAL_COST_USD,
-    metadata: { source: "generate-pro-image", user_id: userId },
+    cost_usd: FAL_COST_USD * uploaded.length,
+    metadata: { source: "generate-pro-image", user_id: userId, style, variations: uploaded.length },
   });
-  return { url: uploaded.url, filename: uploaded.filename, alt };
+  return uploaded.map((u) => ({ url: u.url, filename: u.filename, alt }));
 }
 
 Deno.serve(async (req) => {
@@ -123,6 +137,8 @@ Deno.serve(async (req) => {
   const summary = String(body?.summary || "").trim();
   const content = String(body?.content || "").trim();
   const mode = String(body?.mode || "single");
+  const style = String(body?.style || "photorealistic");
+  const variations = Math.max(1, Math.min(4, Number(body?.variations) || 1));
 
   if (!title) return errorResponse("title is required", 400);
 
@@ -136,8 +152,8 @@ Deno.serve(async (req) => {
       for (const heading of sections) {
         try {
           const ctx = `${keyword}: ${heading}`;
-          const img = await generateOne(admin, userId, ctx, heading);
-          images.push({ heading, url: img.url, alt: img.alt });
+          const imgs = await generateOne(admin, userId, ctx, heading, style, 1);
+          if (imgs[0]) images.push({ heading, url: imgs[0].url, alt: imgs[0].alt });
         } catch (e) {
           console.warn("[generate-pro-image] section failed:", heading, (e as Error).message);
         }
@@ -147,11 +163,13 @@ Deno.serve(async (req) => {
 
     // Single cover
     const ctx = summary ? `${keyword}. ${summary}` : keyword;
-    const single = await generateOne(admin, userId, ctx, title);
+    const items = await generateOne(admin, userId, ctx, title, style, variations);
+    const first = items[0];
     return jsonResponse({
-      url: single.url,
-      alt: single.alt,
-      filename: single.filename,
+      url: first.url,
+      alt: first.alt,
+      filename: first.filename,
+      variants: items.map((i) => ({ url: i.url, alt: i.alt, filename: i.filename })),
       remaining: 999,
     });
   } catch (e: any) {
