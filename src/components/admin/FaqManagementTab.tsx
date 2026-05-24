@@ -14,6 +14,7 @@ import {
   Plus, Trash2, Pencil, Save, X, FolderPlus, BookOpen, FileText, Loader2, GripVertical,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 
 interface FaqCategory {
   id: string;
@@ -36,6 +37,7 @@ interface FaqArticle {
 }
 
 export function FaqManagementTab() {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
 
   // Category state
@@ -96,7 +98,7 @@ export function FaqManagementTab() {
 
   const deleteCategory = async (id: string) => {
     const count = articles.filter((a) => a.category_id === id).length;
-    if (count > 0 && !window.confirm(`В категории ${count} статей. Удалить всё?`)) return;
+    if (count > 0 && !(await confirm({ title: "Удалить категорию?", description: `В категории ${count} статей. Удалить все?`, destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("faq_categories").delete().eq("id", id);
     if (error) { toast.error("Ошибка: " + error.message); return; }
     invalidate();
