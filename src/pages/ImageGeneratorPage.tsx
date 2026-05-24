@@ -330,11 +330,12 @@ export default function ImageGeneratorPage() {
       </div>
 
       {/* Mode cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { id: "prompt" as Mode, icon: MessageSquare, title: "По запросу", desc: "Свободное описание" },
           { id: "h2" as Mode, icon: FileText, title: "По H2-заголовкам", desc: "Из вашей статьи" },
           { id: "cover" as Mode, icon: Layers, title: "Обложка статьи", desc: "Тема + ключ + настроение" },
+          { id: "edit" as Mode, icon: Wand2, title: "Редактировать фото", desc: "Загрузите и доработайте" },
         ].map((m) => {
           const active = mode === m.id;
           return (
