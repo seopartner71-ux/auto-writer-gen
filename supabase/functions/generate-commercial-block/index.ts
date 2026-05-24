@@ -265,7 +265,7 @@ ANTI-FAKE GUARD (zero tolerance):
 Инструкция для этого блока:
 ${instruction}
 
-${parsedAddon ? parsedAddon + "\n\n" : ""}${buildStealthSystemAddon("ru")}`;
+${parsedAddon ? parsedAddon + "\n\n" : ""}${(() => { const k = detectYmyl(brief); return k ? buildEeatAddon(k) + "\n\n" : ""; })()}${buildStealthSystemAddon("ru")}`;
 
   const user = `Бриф:\n${briefLines.join("\n") || "(данных нет)"}\n\nСгенерируй блок.`;
   return { system, user };
