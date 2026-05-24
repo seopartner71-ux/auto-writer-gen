@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sparkles, Loader2, RotateCcw, Wand2, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 
 interface AuthorRow {
   id: string;
@@ -19,6 +20,7 @@ interface AuthorRow {
 
 export function AuthorPromptImproverTab() {
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkShortRunning, setBulkShortRunning] = useState(false);
@@ -92,7 +94,7 @@ export function AuthorPromptImproverTab() {
 
   async function restoreBackup(a: AuthorRow) {
     if (!a.system_instruction_backup) return;
-    if (!confirm(`Восстановить оригинальный промпт автора "${a.name}"?`)) return;
+    if (!(await confirm({ title: `Восстановить оригинал?`, description: `Промпт автора "${a.name}" будет заменен на бэкап.`, confirmText: "Восстановить" }))) return;
     const { error } = await supabase
       .from("author_profiles")
       .update({ system_instruction: a.system_instruction_backup, prompt_improved_at: null })
@@ -106,7 +108,7 @@ export function AuthorPromptImproverTab() {
   async function improveAll() {
     const target = authors.filter(a => (a.system_instruction || "").trim().length >= 10);
     if (!target.length) { toast.error("Нет авторов с промптом"); return; }
-    if (!confirm(`Улучшить и автоматически сохранить промпты у ${target.length} авторов? Оригиналы будут забэкаплены.`)) return;
+    if (!(await confirm({ title: "Улучшить все промпты?", description: `Будут обработаны ${target.length} авторов. Оригиналы будут забэкаплены.`, confirmText: "Улучшить" }))) return;
     setBulkRunning(true);
     let ok = 0, fail = 0;
     for (const a of target) {
@@ -137,7 +139,7 @@ export function AuthorPromptImproverTab() {
       return len >= 10 && len < 300;
     });
     if (!target.length) { toast.info("Нет авторов с промптом короче 300 символов"); return; }
-    if (!confirm(`Найдено ${target.length} авторов с коротким промптом (<300 симв). Улучшить через Claude Opus 4? Оригиналы будут забэкаплены.`)) return;
+    if (!(await confirm({ title: "Улучшить короткие промпты?", description: `Найдено ${target.length} авторов с промптом <300 символов. Улучшить через Claude Opus 4? Оригиналы будут забэкаплены.`, confirmText: "Улучшить" }))) return;
     setBulkShortRunning(true);
     setBulkSummary(null);
     const summary: Array<{ name: string; before: number; after: number; ok: boolean; error?: string }> = [];
