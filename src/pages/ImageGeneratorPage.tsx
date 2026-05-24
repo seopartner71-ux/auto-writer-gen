@@ -501,6 +501,7 @@ export default function ImageGeneratorPage() {
                 </>
               )}
 
+              {mode !== "edit" && (
               <div className="border-t pt-4 space-y-4">
                 <div>
                   <Label className="text-xs">Соотношение сторон</Label>
@@ -581,6 +582,7 @@ export default function ImageGeneratorPage() {
                   </div>
                 </div>
               </div>
+              )}
 
               <Button
                 className="w-full"
@@ -590,11 +592,11 @@ export default function ImageGeneratorPage() {
                 {generating ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Генерация...</>
                 ) : (
-                  <><Wand2 className="mr-2 h-4 w-4" />Сгенерировать</>
+                  <><Wand2 className="mr-2 h-4 w-4" />{mode === "edit" ? "Применить правку" : "Сгенерировать"}</>
                 )}
               </Button>
               <div className="text-center text-xs text-muted-foreground">
-                Стоимость: {effectiveCount} кредит{effectiveCount === 1 ? "" : effectiveCount < 5 ? "а" : "ов"}
+                Стоимость: {mode === "edit" ? 1 : effectiveCount} кредит{(mode === "edit" ? 1 : effectiveCount) === 1 ? "" : (mode === "edit" ? 1 : effectiveCount) < 5 ? "а" : "ов"}
               </div>
             </CardContent>
           </Card>
