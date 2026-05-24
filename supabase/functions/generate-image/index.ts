@@ -9,7 +9,6 @@ import { fetchWithTimeout } from "../_shared/withTimeout.ts";
 
 const FAL_KEY = (Deno.env.get("FAL_AI_API_KEY") || Deno.env.get("FAL_API_KEY") || "").trim();
 const OPENROUTER_KEY = (Deno.env.get("OPENROUTER_API_KEY") || "").trim();
-const LOVABLE_API_KEY = (Deno.env.get("LOVABLE_API_KEY") || "").trim();
 const BUCKET = "article-images";
 
 const ASPECT_MAP: Record<string, string> = {
@@ -137,15 +136,17 @@ async function falGenerate(model: "schnell" | "flux-pro", prompt: string, imageS
   return url;
 }
 
-// Edit existing image via Lovable AI Gateway (Nano Banana — google/gemini-2.5-flash-image).
+// Edit existing image via OpenRouter (Nano Banana — google/gemini-2.5-flash-image).
 // Accepts a data: URL or https URL; returns a data: URL with the edited PNG.
-async function lovableEditImage(imageUrl: string, instruction: string): Promise<string> {
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-  const r = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+async function editImageNanoBanana(imageUrl: string, instruction: string): Promise<string> {
+  if (!OPENROUTER_KEY) throw new Error("OPENROUTER_API_KEY not configured");
+  const r = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      Authorization: `Bearer ${OPENROUTER_KEY}`,
       "Content-Type": "application/json",
+      "HTTP-Referer": "https://seo-modul.pro",
+      "X-Title": "SEO-Module Image Editor",
     },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash-image",
@@ -161,13 +162,13 @@ async function lovableEditImage(imageUrl: string, instruction: string): Promise<
   }, 90_000);
   if (!r.ok) {
     const t = await r.text().catch(() => "");
-    if (r.status === 429) throw new HttpError("AI Gateway: лимит запросов исчерпан, попробуйте позже", 429);
-    if (r.status === 402) throw new HttpError("AI Gateway: закончились кредиты, пополните баланс", 402);
-    throw new Error(`Lovable AI ${r.status}: ${t.slice(0, 200)}`);
+    if (r.status === 429) throw new HttpError("OpenRouter: лимит запросов исчерпан, попробуйте позже", 429);
+    if (r.status === 402) throw new HttpError("OpenRouter: закончились кредиты, пополните баланс", 402);
+    throw new Error(`OpenRouter ${r.status}: ${t.slice(0, 200)}`);
   }
   const d = await r.json();
   const edited = d?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!edited || typeof edited !== "string") throw new Error("AI Gateway не вернул изображение");
+  if (!edited || typeof edited !== "string") throw new Error("OpenRouter не вернул изображение");
   return edited;
 }
 
@@ -308,7 +309,7 @@ Deno.serve(withErrorHandler("generate-image", async (req) => {
       const instruction = String(body?.edit_prompt || body?.prompt || "").trim();
       if (!src) throw new HttpError("source_image required (data URL or https URL)", 400);
       if (!instruction) throw new HttpError("edit_prompt required", 400);
-      const editedUrl = await lovableEditImage(src, instruction);
+      const editedUrl = await editImageNanoBanana(src, instruction);
       const { path, publicUrl } = await uploadAnyToBucket(admin, userId, editedUrl, 0);
       const label = instruction.slice(0, 80);
       await admin.from("article_images").insert([{
