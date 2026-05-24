@@ -450,6 +450,57 @@ export default function ImageGeneratorPage() {
                 </>
               )}
 
+              {mode === "edit" && (
+                <>
+                  <div>
+                    <Label className="text-xs">Исходное фото</Label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="mt-1.5 block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary file:text-primary-foreground file:cursor-pointer file:text-xs hover:file:bg-primary/90"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        if (f.size > 8 * 1024 * 1024) {
+                          toast.error("Файл больше 8 МБ");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          setEditSourceData(String(reader.result || ""));
+                          setEditFileName(f.name);
+                        };
+                        reader.onerror = () => toast.error("Не удалось прочитать файл");
+                        reader.readAsDataURL(f);
+                      }}
+                    />
+                    {editFileName && (
+                      <div className="mt-1.5 text-[11px] text-muted-foreground truncate">{editFileName}</div>
+                    )}
+                    {editSourceData && (
+                      <img
+                        src={editSourceData}
+                        alt="источник"
+                        className="mt-2 rounded-md border w-full max-h-40 object-contain bg-muted/30"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Что изменить</Label>
+                    <Textarea
+                      value={editInstruction}
+                      onChange={(e) => setEditInstruction(e.target.value)}
+                      placeholder="Например: убери фон, замени на белый студийный, добавь мягкий свет, сделай теплее, уменьши блики на товаре"
+                      rows={4}
+                      className="mt-1.5"
+                    />
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      Редактирование через Nano Banana — 1 кредит за фото.
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="border-t pt-4 space-y-4">
                 <div>
                   <Label className="text-xs">Соотношение сторон</Label>
