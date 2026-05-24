@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { PAGE_TYPES, TONES, BLOCKS, type PageType, type BlockDef } from "@/features/commercial/constants";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useConfirm, usePrompt } from "@/shared/components/ConfirmDialog";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -74,6 +75,8 @@ const getFunctionErrorMessage = async (error: unknown, fallback = "Ошибка 
 export default function CommercialPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const confirm = useConfirm();
+  const prompt = usePrompt();
   const plan = (profile?.plan || "basic") as string;
   const isPro = plan === "pro" || plan === "factory";
 
@@ -448,7 +451,7 @@ export default function CommercialPage() {
 
   const saveTemplate = async () => {
     if (!profile?.id || !pageType) return;
-    const name = window.prompt("Название шаблона:", brief.keyword || "Без названия");
+    const name = await prompt({ title: "Название шаблона", defaultValue: brief.keyword || "Без названия", placeholder: "Введите название" });
     if (!name || !name.trim()) return;
     setSavingTemplate(true);
     const { error } = await supabase.from("commercial_brief_templates").insert({
@@ -465,7 +468,7 @@ export default function CommercialPage() {
 
   const deleteTemplate = async () => {
     if (!selectedTemplateId) return;
-    if (!window.confirm("Удалить шаблон?")) return;
+    if (!(await confirm({ title: "Удалить шаблон?", destructive: true, confirmText: "Удалить" }))) return;
     await supabase.from("commercial_brief_templates").delete().eq("id", selectedTemplateId);
     setSelectedTemplateId("");
     toast.success("Шаблон удален");
@@ -537,7 +540,7 @@ export default function CommercialPage() {
   useEffect(() => { loadHistory(); }, [profile?.id]);
 
   const deleteHistoryItem = async (id: string) => {
-    if (!confirm("Удалить эту страницу из истории? Запись будет удалена безвозвратно.")) return;
+    if (!(await confirm({ title: "Удалить страницу?", description: "Запись будет удалена безвозвратно.", destructive: true, confirmText: "Удалить" }))) return;
     const { error } = await supabase.from("articles").delete().eq("id", id);
     if (error) return toast.error(error.message);
     setHistory((prev) => prev.filter((h) => h.id !== id));
@@ -547,7 +550,7 @@ export default function CommercialPage() {
 
   const clearAllHistory = async () => {
     if (!profile?.id || history.length === 0) return;
-    if (!confirm(`Очистить всю историю коммерческих страниц (${history.length} шт.)? Это действие нельзя отменить.`)) return;
+    if (!(await confirm({ title: "Очистить историю?", description: `Будет удалено ${history.length} записей. Это действие нельзя отменить.`, destructive: true, confirmText: "Очистить" }))) return;
     const ids = history.map((h) => h.id);
     const { error } = await supabase.from("articles").delete().in("id", ids);
     if (error) return toast.error(error.message);
@@ -557,7 +560,7 @@ export default function CommercialPage() {
   };
 
   const resetDraft = () => {
-    if (!confirm("Сбросить текущий черновик?")) return;
+    if (!(await confirm({ title: "Сбросить черновик?", confirmText: "Сбросить", destructive: true }))) return;
     if (draftKey) localStorage.removeItem(draftKey);
     setPageType(null);
     setBrief({ tone: "" });
