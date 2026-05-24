@@ -648,6 +648,9 @@ Deno.serve(async (req) => {
       fact_check_flags: factFlags,
       retried: retry.retried,
       retry_reason: retry.reason,
+      lsi_ratio: retry.lsi_ratio,
+      lsi_missing: retry.lsi_missing,
+      ymyl: detectYmyl(body.brief),
       model_used: model,
     });
   } catch (e) {
