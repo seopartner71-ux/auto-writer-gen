@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Sparkles } from "lucide-react";
 import { PbnTemplateImporter } from "./PbnTemplateImporter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useConfirm } from "@/shared/components/ConfirmDialog";
 
 interface PbnTemplate {
   id: string;
@@ -91,6 +92,7 @@ const EMPTY: Partial<PbnTemplate> = {
 };
 
 export function PbnTemplatesTab() {
+  const confirm = useConfirm();
   const { toast } = useToast();
   const [list, setList] = useState<PbnTemplate[]>([]);
   const [loading, setLoading] = useState(true);
