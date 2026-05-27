@@ -1005,6 +1005,66 @@ export default function RadarPage() {
             <Badge variant="outline" className="text-xs">
               {lang === "ru" ? "Видимость" : "Visibility"}: {overallVisibility}%
             </Badge>
+            <HoverCard openDelay={100}>
+              <HoverCardTrigger asChild>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={lang === "ru" ? "Как считается видимость" : "How visibility is calculated"}
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </HoverCardTrigger>
+              <HoverCardContent align="end" className="w-80 text-xs leading-relaxed">
+                {lang === "ru" ? (
+                  <div className="space-y-2">
+                    <p className="font-semibold text-sm">Как считается видимость</p>
+                    <p>
+                      Видимость - это доля запросов, где AI-модель упомянула ваш бренд
+                      (<code className="text-primary">brand_mentioned</code>) или сослалась на ваш домен
+                      (<code className="text-primary">domain_linked</code>). Считается по последнему
+                      результату на пару keyword + модель и усредняется по всем активным моделям.
+                    </p>
+                    <p className="text-muted-foreground">
+                      <span className="text-amber-400 font-medium">Важно про самоповтор:</span> если в запросе
+                      уже присутствует название бренда или домен (например "отзывы о {`<бренд>`}"), модель
+                      вынуждена его упомянуть - это даёт ложные 100% видимости. Такие запросы помечаются
+                      <code className="text-primary"> is_branded_query</code> и полностью исключаются из
+                      расчёта SOM, Radar и Share of Voice. Метрика показывает только честные, non-branded
+                      запросы - реальную узнаваемость в AI-выдаче.
+                    </p>
+                    {brandedCount > 0 ? (
+                      <p className="text-[11px] text-muted-foreground border-t border-border pt-2">
+                        Сейчас исключено branded-результатов: <span className="text-foreground font-semibold">{brandedCount}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="font-semibold text-sm">How visibility is calculated</p>
+                    <p>
+                      Visibility is the share of queries where the AI model mentioned your brand
+                      (<code className="text-primary">brand_mentioned</code>) or linked your domain
+                      (<code className="text-primary">domain_linked</code>). It uses the latest result
+                      per keyword + model pair and is averaged across active models.
+                    </p>
+                    <p className="text-muted-foreground">
+                      <span className="text-amber-400 font-medium">Self-mention caveat:</span> if the query
+                      itself contains your brand name or domain (e.g. "reviews of {`<brand>`}"), the model is
+                      forced to mention it - producing a fake 100% visibility. Such queries are flagged with
+                      <code className="text-primary"> is_branded_query</code> and fully excluded from SOM,
+                      Radar and Share of Voice. The metric reflects only honest, non-branded queries -
+                      your real recognition in AI answers.
+                    </p>
+                    {brandedCount > 0 ? (
+                      <p className="text-[11px] text-muted-foreground border-t border-border pt-2">
+                        Currently excluded branded results: <span className="text-foreground font-semibold">{brandedCount}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </HoverCardContent>
+            </HoverCard>
           </div>
         </CardContent>
       </Card>
