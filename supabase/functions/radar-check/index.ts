@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
 
         return {
           ...baseRow,
-          status: "completed",
+          status: brandFound ? "captured" : "displaced",
           ai_response_text: text.slice(0, 8000),
           brand_mentioned: brandFound,
           domain_linked: domainFound,
@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
         console.error(`[radar-check] ${m.key} failed:`, msg);
         return {
           ...baseRow,
-          status: "failed",
+          status: "displaced",
           ai_response_text: `Error: ${msg.slice(0, 500)}`,
           brand_mentioned: false,
           domain_linked: false,
