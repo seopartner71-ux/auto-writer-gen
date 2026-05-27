@@ -68,12 +68,12 @@ function detectSentiment(text: string, brand: string): "positive" | "neutral" | 
   return "neutral";
 }
 
-async function queryOpenRouter(apiKey: string, model: string, prompt: string, lang: string): Promise<string> {
+async function queryOpenRouter(apiKey: string, model: string, prompt: string, lang: string, timeoutMs = 45_000): Promise<string> {
   const sys = lang === "ru"
     ? "Ты эксперт-консультант. Дай развёрнутый, полезный ответ на запрос пользователя. Если уместно — назови конкретные бренды, компании и сайты с доменами."
     : "You are an expert consultant. Give a thorough, useful answer to the user's query. When relevant, name specific brands, companies and websites with their domains.";
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 45_000);
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -179,7 +179,9 @@ Deno.serve(async (req) => {
       if (prompt_id) baseRow.prompt_id = prompt_id;
 
       try {
-        const text = await queryOpenRouter(openrouterKey!, m.openrouter, queryText, lang);
+        // Llama 70B стабильно медленнее остальных - даём ей в 2 раза больше времени.
+        const perModelTimeout = m.key === "llama" ? 90_000 : 45_000;
+        const text = await queryOpenRouter(openrouterKey!, m.openrouter, queryText, lang, perModelTimeout);
         const lc = text.toLowerCase();
         const brandFound = !!brand && lc.includes(brand.toLowerCase());
         const domainFound = !!domain && (lc.includes(domain) || (domainBase.length >= 3 && lc.includes(domainBase)));

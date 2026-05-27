@@ -6,8 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 export function useTrialStatus() {
   const { profile, role } = useAuth();
 
-  const isFreePlan = !profile?.plan || profile.plan === "free" || profile.plan === "basic";
-  const isPaidPlan = profile?.plan === "pro";
+  // Платных планов в проекте три: basic (NANO), pro (PRO), factory (FACTORY).
+  // Бесплатных тарифов нет - есть только trial на кредитах для новых регистраций.
+  const PAID_PLANS = ["basic", "pro", "factory"] as const;
+  const isPaidPlan = !!profile?.plan && (PAID_PLANS as readonly string[]).includes(profile.plan);
+  const isFreePlan = !isPaidPlan;
   const isAdmin = role === "admin";
 
   // Check if user has created any articles (to detect unused credits)
