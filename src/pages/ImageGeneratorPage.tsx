@@ -20,6 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { proxyAssetUrl } from "@/shared/utils/proxyAsset";
 import {
   Image as ImageIcon, Wand2, Loader2, Download, Copy, RefreshCw, Lock,
   Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit, X, Maximize2, FileCode,
@@ -647,7 +648,7 @@ export default function ImageGeneratorPage() {
                   {img?.url ? (
                     <>
                       <img
-                        src={img.url}
+                        src={proxyAssetUrl(img.url)}
                         alt={img.label || "generated"}
                         className="w-full h-full object-cover cursor-zoom-in"
                         loading="lazy"
@@ -717,7 +718,7 @@ export default function ImageGeneratorPage() {
                   {history.map((h: any) => (
                     <div key={h.id} className="group relative aspect-square rounded-md overflow-hidden border hover:border-primary/40 transition">
                       <img
-                        src={h.public_url}
+                        src={proxyAssetUrl(h.public_url)}
                         alt={h.prompt || ""}
                         className="w-full h-full object-cover cursor-zoom-in"
                         loading="lazy"
@@ -747,7 +748,7 @@ export default function ImageGeneratorPage() {
         <DialogContent className="max-w-5xl p-0 overflow-hidden bg-background/95 backdrop-blur">
           {preview && (
             <div className="relative">
-              <img src={preview.url} alt={preview.label || preview.prompt || ""} className="w-full h-auto max-h-[85vh] object-contain" />
+              <img src={proxyAssetUrl(preview.url)} alt={preview.label || preview.prompt || ""} className="w-full h-auto max-h-[85vh] object-contain" />
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex items-end justify-between gap-3">
                 <div className="text-xs text-white/90 line-clamp-2">
                   {preview.label && <div className="font-medium">{preview.label}</div>}

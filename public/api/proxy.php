@@ -8,6 +8,8 @@
 // Disable any PHP output compression to prevent ERR_CONTENT_DECODING_FAILED
 @ini_set('zlib.output_compression', 'Off');
 @ini_set('output_buffering', 'Off');
+@set_time_limit(180);
+@ini_set('max_execution_time', '180');
 if (function_exists('apache_setenv')) {
     @apache_setenv('no-gzip', '1');
 }
