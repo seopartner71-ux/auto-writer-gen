@@ -20,6 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { proxyAssetUrl } from "@/shared/utils/proxyAsset";
 import {
   Image as ImageIcon, Wand2, Loader2, Download, Copy, RefreshCw, Lock,
   Trash2, ChevronDown, Sparkles, FileText, MessageSquare, Layers, FileEdit, X, Maximize2, FileCode,
