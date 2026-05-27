@@ -25,6 +25,20 @@ function normalizeDomain(d: string): string {
   return (d || "").toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim();
 }
 
+/**
+ * Branded query - запрос, в котором уже фигурирует название бренда или его домен.
+ * Такие запросы дают ложную visibility: модель вынуждена упомянуть бренд,
+ * brand_mentioned=true всегда. Помечаем их флагом и исключаем из общей метрики.
+ */
+function isBrandedQuery(query: string, brand: string, domainBase: string): boolean {
+  const q = (query || "").toLowerCase();
+  const b = (brand || "").toLowerCase().trim();
+  const db = (domainBase || "").toLowerCase().trim();
+  if (b && b.length >= 3 && q.includes(b)) return true;
+  if (db && db.length >= 3 && q.includes(db)) return true;
+  return false;
+}
+
 function extractDomains(text: string): string[] {
   const re = /\b((?:[a-z0-9-]+\.)+[a-z]{2,})(?:\/[^\s)]*)?/gi;
   const out = new Set<string>();
@@ -138,11 +152,13 @@ Deno.serve(async (req) => {
 
     // Resolve prompt text
     let queryText = "";
+    let originalKeyword = "";
     if (keyword_id) {
       const { data: kw } = await admin
         .from("radar_keywords").select("keyword, project_id, user_id")
         .eq("id", keyword_id).maybeSingle();
       if (!kw || kw.project_id !== project_id) return errorResponse("Keyword not found", 404);
+      originalKeyword = kw.keyword || "";
       queryText = lang === "ru"
         ? `Назови лучшие компании и сервисы по запросу: ${kw.keyword}. Перечисли названия и сайты.`
         : `Name the best companies and services for query: ${kw.keyword}. List names and websites.`;
@@ -152,8 +168,12 @@ Deno.serve(async (req) => {
         .eq("id", prompt_id).maybeSingle();
       if (!pr || pr.project_id !== project_id) return errorResponse("Prompt not found", 404);
       queryText = pr.text || prompt_text || "";
+      originalKeyword = queryText;
     }
     if (!queryText) return errorResponse("Empty prompt", 400);
+
+    // Branded query detection: считаем по оригинальному keyword/prompt, не по обёртке
+    const branded = isBrandedQuery(originalKeyword, brand, domainBase);
 
     // Resolve OpenRouter key (DB first, env fallback)
     let openrouterKey: string | null = null;
@@ -174,6 +194,7 @@ Deno.serve(async (req) => {
         model: m.key,
         run_id: run_id ?? null,
         checked_at: new Date().toISOString(),
+        is_branded_query: branded,
       };
       if (keyword_id) baseRow.keyword_id = keyword_id;
       if (prompt_id) baseRow.prompt_id = prompt_id;
@@ -193,9 +214,13 @@ Deno.serve(async (req) => {
         ].slice(0, 3);
         const sentiment = detectSentiment(text, brand);
 
+        // Для branded-запросов visibility = domain_found (модель вынуждена упомянуть бренд,
+        // но домен/сайт - это уже честный сигнал авторитета). Для обычных - brand_mentioned.
+        const isVisible = branded ? domainFound : brandFound;
+
         return {
           ...baseRow,
-          status: brandFound ? "captured" : "displaced",
+          status: isVisible ? "captured" : "displaced",
           ai_response_text: text.slice(0, 8000),
           brand_mentioned: brandFound,
           domain_linked: domainFound,
