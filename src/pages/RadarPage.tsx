@@ -339,11 +339,23 @@ export default function RadarPage() {
   /* ── Filtered results by active models ── */
   const filteredResults = useMemo(() => results.filter((r: any) => activeModels.includes(r.model)), [results, activeModels]);
 
+  /**
+   * Visibility-метрики считаем ТОЛЬКО по non-branded запросам.
+   * Branded query (keyword содержит название бренда) даёт ложный сигнал:
+   * модель вынуждена упомянуть бренд - brand_mentioned=true всегда, метрика обманывает.
+   * Такие результаты остаются видны в таблицах, но не влияют на SOV/Radar/SOM.
+   */
+  const visibilityResults = useMemo(
+    () => filteredResults.filter((r: any) => !r.is_branded_query),
+    [filteredResults],
+  );
+  const brandedCount = filteredResults.length - visibilityResults.length;
+
   /* ── Computed Data ── */
   const somData = useMemo(() => {
     const models = ["gemini_flash", "chatgpt", "perplexity", "claude", "deepseek", "mistral", "llama"];
     return models.map(model => {
-      const modelResults = filteredResults.filter((r: any) => r.model === model);
+      const modelResults = visibilityResults.filter((r: any) => r.model === model);
       if (modelResults.length === 0) return { model, label: MODEL_LABELS[model], value: 0, status: "opportunity" as const };
       const latestByKw: Record<string, any> = {};
       modelResults.forEach((r: any) => {
@@ -355,13 +367,13 @@ export default function RadarPage() {
       const status = value >= 60 ? "captured" as const : value > 0 ? "displaced" as const : "opportunity" as const;
       return { model, label: MODEL_LABELS[model], value, status };
     });
-  }, [filteredResults]);
+  }, [visibilityResults]);
 
   // Radar chart data (5 axes)
   const radarChartData = useMemo(() => {
-    if (filteredResults.length === 0) return [];
+    if (visibilityResults.length === 0) return [];
     const latestByKwModel: Record<string, any> = {};
-    filteredResults.forEach((r: any) => {
+    visibilityResults.forEach((r: any) => {
       const key = `${r.keyword_id}_${r.model}`;
       if (!latestByKwModel[key] || r.checked_at > latestByKwModel[key].checked_at) latestByKwModel[key] = r;
     });
@@ -379,7 +391,7 @@ export default function RadarPage() {
       { axis: lang === "ru" ? "Поисковый" : "Search", value: Math.round((captured / total) * 100) },
       { axis: lang === "ru" ? "Рекомендательный" : "Recommendation", value: Math.round((domainLinked / total) * 100) },
     ];
-  }, [filteredResults, lang]);
+  }, [visibilityResults, lang]);
 
   // Bar chart data (visibility per model)
   const visibilityBarData = useMemo(() => {
@@ -392,9 +404,9 @@ export default function RadarPage() {
 
   // Sentiment donut
   const sentimentDonut = useMemo(() => {
-    if (filteredResults.length === 0) return [];
+    if (visibilityResults.length === 0) return [];
     const latestByKwModel: Record<string, any> = {};
-    filteredResults.forEach((r: any) => {
+    visibilityResults.forEach((r: any) => {
       const key = `${r.keyword_id}_${r.model}`;
       if (!latestByKwModel[key] || r.checked_at > latestByKwModel[key].checked_at) latestByKwModel[key] = r;
     });
@@ -411,13 +423,13 @@ export default function RadarPage() {
       { name: lang === "ru" ? "Нейтральный" : "Neutral", value: counts.neutral, fill: SENTIMENT_COLORS.neutral, pct: Math.round((counts.neutral / total) * 100) },
       { name: lang === "ru" ? "Негативный" : "Negative", value: counts.negative, fill: SENTIMENT_COLORS.negative, pct: Math.round((counts.negative / total) * 100) },
     ];
-  }, [filteredResults, lang]);
+  }, [visibilityResults, lang]);
 
   // Share of Voice donut
   const sovDonut = useMemo(() => {
-    if (filteredResults.length === 0) return [];
+    if (visibilityResults.length === 0) return [];
     const latestByKwModel: Record<string, any> = {};
-    filteredResults.forEach((r: any) => {
+    visibilityResults.forEach((r: any) => {
       const key = `${r.keyword_id}_${r.model}`;
       if (!latestByKwModel[key] || r.checked_at > latestByKwModel[key].checked_at) latestByKwModel[key] = r;
     });
@@ -429,12 +441,12 @@ export default function RadarPage() {
       { name: activeProject?.brand_name || "Brand", value: brandCount, fill: "hsl(var(--primary))", pct: Math.round((brandCount / total) * 100) },
       { name: lang === "ru" ? "Конкуренты" : "Competitors", value: competitorMentions, fill: "hsl(var(--destructive))", pct: Math.round((competitorMentions / total) * 100) },
     ];
-  }, [filteredResults, activeProject, lang]);
+  }, [visibilityResults, activeProject, lang]);
 
   // Competitor leaderboard
   const competitorLeaderboard = useMemo(() => {
     const latestByKwModel: Record<string, any> = {};
-    filteredResults.forEach((r: any) => {
+    visibilityResults.forEach((r: any) => {
       const key = `${r.keyword_id}_${r.model}`;
       if (!latestByKwModel[key] || r.checked_at > latestByKwModel[key].checked_at) latestByKwModel[key] = r;
     });
@@ -468,7 +480,7 @@ export default function RadarPage() {
       }))
       .sort((a, b) => b.visibility - a.visibility)
       .slice(0, 10);
-  }, [filteredResults, activeProject]);
+  }, [visibilityResults, activeProject]);
 
   // Keyword summary
   const keywordSummary = useMemo(() => {
@@ -482,7 +494,8 @@ export default function RadarPage() {
       const capturedCount = latest.filter((r: any) => r.status === "captured").length;
       const fullCaptureCount = latest.filter((r: any) => r.is_brand_found && r.is_domain_found).length;
       const mainStatus = fullCaptureCount > 0 ? "full_capture" : capturedCount > 0 ? "captured" : latest.some((r: any) => r.status === "displaced") ? "displaced" : "opportunity";
-      return { ...kw, latestResults: latest, mainStatus };
+      const isBranded = latest.some((r: any) => r.is_branded_query);
+      return { ...kw, latestResults: latest, mainStatus, isBranded };
     });
   }, [keywords, filteredResults]);
 

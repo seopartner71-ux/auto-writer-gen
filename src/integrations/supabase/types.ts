@@ -2549,6 +2549,7 @@ export type Database = {
           domain_linked: boolean | null
           id: string
           is_brand_found: boolean | null
+          is_branded_query: boolean
           is_domain_found: boolean | null
           keyword_id: string | null
           matched_snippets: string[] | null
@@ -2568,6 +2569,7 @@ export type Database = {
           domain_linked?: boolean | null
           id?: string
           is_brand_found?: boolean | null
+          is_branded_query?: boolean
           is_domain_found?: boolean | null
           keyword_id?: string | null
           matched_snippets?: string[] | null
@@ -2587,6 +2589,7 @@ export type Database = {
           domain_linked?: boolean | null
           id?: string
           is_brand_found?: boolean | null
+          is_branded_query?: boolean
           is_domain_found?: boolean | null
           keyword_id?: string | null
           matched_snippets?: string[] | null
