@@ -193,17 +193,23 @@ if (!$hasAuthorization) {
 $method = $_SERVER['REQUEST_METHOD'];
 $body = file_get_contents('php://input');
 $responseHeaders = [];
+$headersSent = false;
+
+// Streaming pass-through for edge functions (SSE / long generations).
+// Без него PHP буферизует весь ответ -> ERR_TIMEOUT / NetworkError для генерации статей.
+$isStreamable = starts_with_prefix($path, '/functions/v1/');
 
 $ch = curl_init($targetUrl);
 curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_RETURNTRANSFER => !$isStreamable,
     CURLOPT_CUSTOMREQUEST  => $method,
     CURLOPT_HTTPHEADER     => $forwardHeaders,
-    CURLOPT_TIMEOUT        => 120,
+    CURLOPT_TIMEOUT        => 0,
     CURLOPT_CONNECTTIMEOUT => 10,
     CURLOPT_FOLLOWLOCATION => false,
     CURLOPT_SSL_VERIFYPEER => true,
     CURLOPT_ENCODING       => '',
+    CURLOPT_BUFFERSIZE     => 1024,
     CURLOPT_HEADERFUNCTION => function ($curl, $headerLine) use (&$responseHeaders) {
         $length = strlen($headerLine);
         $trimmedHeader = trim($headerLine);
@@ -235,6 +241,26 @@ curl_setopt_array($ch, [
     },
 ]);
 
+if ($isStreamable) {
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($curl, $data) use (&$headersSent, &$responseHeaders, &$httpCode) {
+        if (!$headersSent) {
+            $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            http_response_code($code ?: 200);
+            $hasCt = false;
+            foreach ($responseHeaders as $h) {
+                if (strtolower($h[0]) === 'content-type') { $hasCt = true; }
+                header($h[0] . ': ' . $h[1], false);
+            }
+            if (!$hasCt) { header('Content-Type: application/json'); }
+            $headersSent = true;
+        }
+        echo $data;
+        @ob_flush();
+        @flush();
+        return strlen($data);
+    });
+}
+
 if ($method !== 'GET' && $method !== 'HEAD' && $body !== false && $body !== '') {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 }
@@ -243,6 +269,13 @@ $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $error = curl_error($ch);
 curl_close($ch);
+
+if ($isStreamable) {
+    if ($error && !$headersSent) {
+        respond_json(502, ['error' => 'Proxy error: ' . $error]);
+    }
+    exit;
+}
 
 if ($error) {
     respond_json(502, ['error' => 'Proxy error: ' . $error]);
