@@ -11,7 +11,8 @@ import {
 } from "../_shared/promptBuilder.ts";
 import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
 import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.ts";
-import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
+import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurgenevAddon.ts";
+import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 
 const corsHeaders = {
@@ -352,7 +353,14 @@ serve(async (req) => {
       bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
     );
     const articleLang = (bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en")).toLowerCase();
-    const antiTurgBlock = articleLang === "ru" ? ANTI_TURGENEV_ADDON : "";
+    // StyleProfile-aware addon: HARD_RULES берутся из пресета Persona, а не
+    // из статической константы. Это убирает конфликт «Persona хочет рваный
+    // синтаксис, antiTurgenev требует 18-30 слов».
+    const stylePreset = (authorData as any)?.style_analysis?.syntax_profile
+      ?? (authorData as any)?._auto_rule_syntax
+      ?? null;
+    const styleProfile = getStyleProfile(stylePreset);
+    const antiTurgBlock = articleLang === "ru" ? buildAntiTurgenevAddon(styleProfile) : "";
     const serpEntityBlock = buildSerpEntityDisciplineAddon(serpResults || [], articleLang);
     // Source-page facts: pull cached facts for the user's own page so the writer
     // uses concrete details from THEIR site (e.g. "5-day hike") instead of generic

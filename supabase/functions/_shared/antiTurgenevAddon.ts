@@ -1,27 +1,37 @@
-// Анти-Тургенев аддон, версия 2: разнесён на 3 уровня.
+// Анти-Тургенев аддон, версия 3: построение HARD_RULES из StyleProfile.
 //
-// HARD_RULES — то, что валидируется кодом на выходе (sentenceStructure,
-// cancellaryGuard, keywordFrequencyGuard, danglingThoughtGuard). Короткие
-// строки, без объяснений «почему» — LLM такие правила запоминает лучше.
+// HARD_RULES теперь генерируется функцией buildHardRules(profile), чтобы
+// пороги длины/частоты соответствовали выбранной Persona. Это убирает
+// конфликт «Persona хочет рваный синтаксис, а antiTurgenev требует
+// 18-30 слов».
 //
 // BANLIST — плоский перечень запрещённых слов и фраз. Список через запятую
 // модель парсит лучше, чем нумерованные пункты с обоснованиями.
 //
-// STYLE_GUIDE — мягкие рекомендации по стилю. Подключается опционально
-// (можно отключить для «raw»-Personas, чтобы не дрались правила).
+// STYLE_GUIDE — мягкие рекомендации по стилю. Для soft-Personas
+// (blogger, provocateur) пропускаются автоматически.
 //
-// ANTI_TURGENEV_ADDON — default-композиция (HARD + BANLIST), сохраняет
+// ANTI_TURGENEV_ADDON — default-композиция (HARD + BANLIST) для default-Persona, сохраняет
 // обратную совместимость с местами, где аддон уже подключён.
 
-export const HARD_RULES = `
+import { DEFAULT_STYLE_PROFILE, type StyleProfile } from "./styleProfile.ts";
+
+/** Собирает HARD_RULES под конкретный StyleProfile. */
+export function buildHardRules(p: StyleProfile): string {
+  const shortPct = Math.round(p.max_short_ratio * 100);
+  return `
 ЖЁСТКИЕ ПРАВИЛА (нарушение = брак, проверяется автоматически):
-- Средняя длина предложения 18-30 слов; не более 25% коротких (<8 слов); запрещены серии 3+ коротких подряд.
+- Средняя длина предложения ${p.sentence_avg_min}-${p.sentence_avg_max} слов; не более ${shortPct}% коротких (<${p.short_word_max} слов); запрещены серии ${p.max_short_run + 1}+ коротких подряд.
 - Каждое предложение завершено по смыслу; нет висящих "и", "но", "поэтому", "однако" в конце абзаца или H2.
-- Значимое слово — максимум 2 раза на 1000 знаков; seed-ключ — максимум 1 раз в каждом H2-блоке.
+- Значимое слово — максимум ${p.max_word_per_1k} раза на 1000 знаков; seed-ключ — максимум ${p.max_seed_per_h2} раз в каждом H2-блоке.
 - Один абзац — одна мысль, 2-5 предложений; запрещён одинаковый зачин в соседних абзацах.
 - Прямой ответ в первой фразе раздела, затем развёртка; не откладывай ответ в конец.
 - Не повторяй один риторический приём (вопрос к читателю, антитеза, перечисление через тире) более одного раза.
-`;
+`.trim();
+}
+
+/** Default-HARD_RULES для обратной совместимости. */
+export const HARD_RULES = buildHardRules(DEFAULT_STYLE_PROFILE);
 
 export const BANLIST = `
 Запрещённые слова и обороты (не использовать ни разу):
@@ -39,3 +49,18 @@ export const ANTI_TURGENEV_ADDON = `
 ${HARD_RULES}
 ${BANLIST}
 Текст проверяется автоматически на выходе. Нарушения переписываются.`;
+
+/**
+ * Собирает аддон под выбранный StyleProfile.
+ *  - HARD_RULES всегда (пороги из профиля)
+ *  - BANLIST подключается только для cliche_strictness === "hard"
+ *    (для blogger/provocateur оставляем рваный язык без чугунного запрета штампов)
+ */
+export function buildAntiTurgenevAddon(profile: StyleProfile): string {
+  const parts: string[] = [buildHardRules(profile)];
+  if (profile.cliche_strictness === "hard") {
+    parts.push(BANLIST.trim());
+  }
+  parts.push("Текст проверяется автоматически на выходе. Нарушения переписываются.");
+  return parts.join("\n\n");
+}

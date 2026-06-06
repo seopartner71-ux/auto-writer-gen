@@ -10,6 +10,13 @@ import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts } from "../_shared/validators/danglingThoughtGuard.ts";
+import {
+  getStyleProfile,
+  sentenceOptionsFromStyleProfile,
+  keywordOptionsFromStyleProfile,
+  cancellaryOptionsFromStyleProfile,
+  type StyleProfile,
+} from "../_shared/styleProfile.ts";
 
 async function logErr(admin: any, context: string, message: string, metadata?: Record<string, unknown>) {
   try {
@@ -630,7 +637,19 @@ async function runAutoQuality(
 
   // Fetch article + keyword (for density target)
   const { data: art } = await admin.from("articles")
-    .select("keyword_id, keywords, language").eq("id", articleId).maybeSingle();
+    .select("keyword_id, keywords, language, author_profile_id").eq("id", articleId).maybeSingle();
+
+  // Resolve StyleProfile from article's author preset so validators use
+  // the SAME thresholds as generation. Falls back to "default".
+  let styleProfile: StyleProfile = getStyleProfile(null);
+  if (art?.author_profile_id) {
+    try {
+      const { data: author } = await admin.from("author_profiles")
+        .select("style_analysis").eq("id", art.author_profile_id).maybeSingle();
+      const preset = (author?.style_analysis as any)?.syntax_profile;
+      styleProfile = getStyleProfile(preset);
+    } catch (_) { /* keep default */ }
+  }
 
   let primaryKeyword = "";
   let medianDensity = 0;
@@ -707,13 +726,13 @@ async function runAutoQuality(
 
   // ── Sentence structure analysis ───────────────────────────────────
   // Ловим "телеграфный" AI-стиль: серии коротких подряд, низкая средняя длина.
-  const sentStruct = analyzeSentenceStructure(plain);
+  const sentStruct = analyzeSentenceStructure(plain, sentenceOptionsFromStyleProfile(styleProfile));
   const sentStatus: "ok" | "warning" | "fail" =
     sentStruct.verdict === "fail" ? "fail" : sentStruct.verdict === "warning" ? "warning" : "ok";
 
   // ── Validators v2: канцеляризмы, частотность ключа, обрывы мысли ──
-  const cancellary = analyzeCancellary(plain);
-  const keywordFreq = analyzeKeywordFrequency(content, primaryKeyword || null);
+  const cancellary = analyzeCancellary(plain, cancellaryOptionsFromStyleProfile(styleProfile));
+  const keywordFreq = analyzeKeywordFrequency(content, primaryKeyword || null, keywordOptionsFromStyleProfile(styleProfile));
   const dangling = analyzeDanglingThoughts(content);
   const toStatus = (v: "pass" | "warning" | "fail"): "ok" | "warning" | "fail" =>
     v === "fail" ? "fail" : v === "warning" ? "warning" : "ok";

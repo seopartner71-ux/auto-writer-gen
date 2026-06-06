@@ -54,6 +54,13 @@ export interface KeywordFrequencyMetrics {
   issues: string[];
 }
 
+export interface KeywordFrequencyOptions {
+  /** Норма частоты значимого слова на 1000 знаков (default 2). */
+  maxWordPer1k?: number;
+  /** Максимум вхождений seed-ключа в одном H2-блоке (default 1). */
+  maxSeedPerH2?: number;
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -87,6 +94,7 @@ function stripTags(s: string): string {
 export function analyzeKeywordFrequency(
   contentHtmlOrText: string,
   seedKeyword: string | null,
+  options: KeywordFrequencyOptions = {},
 ): KeywordFrequencyMetrics {
   const plain = stripTags(contentHtmlOrText);
   const charCount = plain.length;
@@ -96,7 +104,8 @@ export function analyzeKeywordFrequency(
   const freq = new Map<string, number>();
   for (const t of tokens) freq.set(t, (freq.get(t) || 0) + 1);
 
-  const per1kThreshold = 2;
+  const per1kThreshold = options.maxWordPer1k ?? 2;
+  const maxSeedPerH2 = options.maxSeedPerH2 ?? 1;
   const topOverused: FrequencyHit[] = [];
   for (const [word, count] of freq.entries()) {
     const per1k = charCount ? +((count * 1000) / charCount).toFixed(2) : 0;
@@ -117,7 +126,7 @@ export function analyzeKeywordFrequency(
       const bodyText = normalize(stripTags(sec.body));
       const matches = bodyText.match(re) || [];
       seedTotal += matches.length;
-      if (matches.length > 1) {
+      if (matches.length > maxSeedPerH2) {
         seedOveruseSections.push({ heading: sec.heading, count: matches.length });
       }
     }
@@ -129,10 +138,12 @@ export function analyzeKeywordFrequency(
     issues.push(`Сверхчастые слова: ${top3}. Норма ≤ ${per1kThreshold} вхождений на 1000 знаков.`);
   }
   if (seedOveruseSections.length) {
-    issues.push(`Seed-ключ "${seed}" повторяется в одном H2-блоке: ${seedOveruseSections.map((s) => `«${s.heading}» x${s.count}`).slice(0, 3).join(", ")}.`);
+    issues.push(`Seed-ключ "${seed}" повторяется в одном H2-блоке (норма ≤ ${maxSeedPerH2}): ${seedOveruseSections.map((s) => `«${s.heading}» x${s.count}`).slice(0, 3).join(", ")}.`);
   }
 
-  const fail = topOverused.length >= 2 || seedOveruseSections.some((s) => s.count >= 3) || topOverused.some((h) => h.per1k >= 3.5);
+  const seedFailAt = maxSeedPerH2 + 2;
+  const per1kFailAt = per1kThreshold + 1.5;
+  const fail = topOverused.length >= 2 || seedOveruseSections.some((s) => s.count >= seedFailAt) || topOverused.some((h) => h.per1k >= per1kFailAt);
   const warning = topOverused.length > 0 || seedOveruseSections.length > 0;
   const verdict: "pass" | "warning" | "fail" = fail ? "fail" : warning ? "warning" : "pass";
 

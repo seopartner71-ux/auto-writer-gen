@@ -11,6 +11,13 @@ import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_sha
 import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
+import {
+  getStyleProfile,
+  sentenceOptionsFromStyleProfile,
+  keywordOptionsFromStyleProfile,
+  cancellaryOptionsFromStyleProfile,
+  type StyleProfile,
+} from "../_shared/styleProfile.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -165,7 +172,7 @@ Deno.serve(async (req) => {
       fix_type === "keyword_freq" ? "keyword_freq" : "all";
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count")
+      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
@@ -234,6 +241,17 @@ Deno.serve(async (req) => {
     const aiScore = Number(art.ai_score ?? 100);
     const burstStatus = String(art.burstiness_status || "ok");
     const dStatus = String(art.keyword_density_status || "ok");
+
+    // Resolve StyleProfile for this article (same source-of-truth as quality-check).
+    let styleProfile: StyleProfile = getStyleProfile(null);
+    if ((art as any).author_profile_id) {
+      try {
+        const { data: author } = await admin.from("author_profiles")
+          .select("style_analysis").eq("id", (art as any).author_profile_id).maybeSingle();
+        const preset = (author?.style_analysis as any)?.syntax_profile;
+        styleProfile = getStyleProfile(preset);
+      } catch (_) { /* keep default */ }
+    }
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
     if ((phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
@@ -357,7 +375,7 @@ ${content}`;
     // 5) Sentence-structure fix: чиним «телеграфный» стиль —
     //    серии 3+ коротких подряд, низкая средняя длина, перекос коротких.
     if ((phase === "sentence" || phase === "all") && orKey) {
-      const metrics = analyzeSentenceStructure(stripHtml(content));
+      const metrics = analyzeSentenceStructure(stripHtml(content), sentenceOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildSentenceStructureFixHint(metrics) || "";
         const sys = "Ты редактор-человек. Переписываешь абзацы HTML так, чтобы предложения были связными и завершёнными. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
@@ -415,7 +433,7 @@ ${content}`;
 
     // 7) Cancellary: канцеляризмы и штампы из BANLIST.
     if ((phase === "cancellary" || phase === "all") && orKey) {
-      const metrics = analyzeCancellary(stripHtml(content));
+      const metrics = analyzeCancellary(stripHtml(content), cancellaryOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildCancellaryFixHint(metrics) || "";
         const sys = "Ты редактор. Убираешь канцеляризмы и штампы из HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
@@ -442,7 +460,7 @@ ${content}`;
 
     // 8) Keyword frequency: сверхчастые значимые слова и переспам seed-ключа в H2.
     if ((phase === "keyword_freq" || phase === "all") && orKey) {
-      const metrics = analyzeKeywordFrequency(content, primaryKeyword || null);
+      const metrics = analyzeKeywordFrequency(content, primaryKeyword || null, keywordOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildKeywordFrequencyFixHint(metrics) || "";
         const sys = "Ты редактор. Снижаешь частотность повторяющихся слов в HTML через синонимы, местоимения и перестройку фраз. Сохраняешь ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
