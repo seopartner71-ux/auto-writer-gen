@@ -3,6 +3,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import type { AppRole } from "@/shared/api/types";
 import { Hexagon, Clock, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface Props {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ interface Props {
 
 export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) {
   const { session, role, profile, loading } = useAuth();
+  const { t } = useI18n();
 
   if (loading) {
     return (
@@ -45,16 +47,15 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
             </span>
           </div>
           <h2 className="text-2xl font-black text-foreground" style={{ letterSpacing: "-0.03em" }}>
-            Доступ в режиме очереди
+            {t("protected.queueTitle")}
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Ваш аккаунт зарегистрирован. Чтобы гарантировать качество синтеза и 0% детекции ИИ, мы одобряем
-            пользователей вручную. В течение 15 минут инженер активирует ваш профиль и начислит{" "}
-            <span className="text-primary font-semibold">10 приветственных кредитов</span> на тест.
+            {t("protected.queueIntro")}{" "}
+            <span className="text-primary font-semibold">{t("protected.welcomeCredits")}</span>{" "}
+            {t("protected.queueOnTest")}
           </p>
           <p className="text-xs text-destructive/80 leading-relaxed">
-            ⚠️ Внимание: аккаунты, не активированные в течение 7 дней с момента регистрации, автоматически удаляются.
-            После использования 10 бесплатных кредитов необходимо выбрать тарифный план для продолжения работы.
+            {t("protected.warning")}
           </p>
           <div className="flex flex-col items-center gap-3 pt-2">
             <a
@@ -64,10 +65,10 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
             >
               <Button variant="outline" className="gap-2 border-primary/30 hover:bg-primary/10">
                 <Send className="h-4 w-4" />
-                Написать в поддержку (Telegram)
+                {t("protected.contactSupportTg")}
               </Button>
             </a>
-            <p className="text-[11px] text-muted-foreground/50">Это ускорит процесс активации</p>
+            <p className="text-[11px] text-muted-foreground/50">{t("protected.speedUp")}</p>
           </div>
         </div>
       </div>
