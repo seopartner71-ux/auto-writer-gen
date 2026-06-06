@@ -433,7 +433,7 @@ ${content}`;
 
     // 7) Cancellary: канцеляризмы и штампы из BANLIST.
     if ((phase === "cancellary" || phase === "all") && orKey) {
-      const metrics = analyzeCancellary(stripHtml(content));
+      const metrics = analyzeCancellary(stripHtml(content), cancellaryOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildCancellaryFixHint(metrics) || "";
         const sys = "Ты редактор. Убираешь канцеляризмы и штампы из HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
