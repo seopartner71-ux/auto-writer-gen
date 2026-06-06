@@ -210,6 +210,92 @@ export function countRepeatedNgrams(text: string, n = 3, minFreq = 3): number {
   return count;
 }
 
+// ─── H2 structural validator ──────────────────────────────────────
+// Catches empty sections, uniformly-sized sections (templated), and
+// uniform prefixes ("В этом разделе...", "Что такое..."). Pure-regex,
+// runs in preflight; warnings are persisted to articles.h2_warnings.
+export interface H2Report {
+  sections: number;
+  empty: number;
+  tooShort: number;
+  uniformLength: boolean;
+  uniformPrefix: boolean;
+  warnings: string[];
+}
+export function analyzeH2Structure(text: string): H2Report {
+  const out: H2Report = {
+    sections: 0, empty: 0, tooShort: 0,
+    uniformLength: false, uniformPrefix: false, warnings: [],
+  };
+  if (!text) return out;
+  // Extract H2 titles + the text between this H2 and the next H2 / EOF.
+  // Supports both <h2> and markdown `## `.
+  const isHtml = /<h2[^>]*>/i.test(text);
+  const parts: Array<{ title: string; body: string }> = [];
+  if (isHtml) {
+    const re = /<h2[^>]*>([\s\S]*?)<\/h2>([\s\S]*?)(?=<h2[^>]*>|$)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      parts.push({
+        title: m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+        body: m[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+      });
+    }
+  } else {
+    const lines = text.split(/\n/);
+    let cur: { title: string; body: string } | null = null;
+    for (const ln of lines) {
+      const h = ln.match(/^##\s+(.+)$/);
+      if (h) {
+        if (cur) parts.push(cur);
+        cur = { title: h[1].trim(), body: "" };
+      } else if (cur) {
+        cur.body += " " + ln;
+      }
+    }
+    if (cur) parts.push(cur);
+    for (const p of parts) p.body = p.body.replace(/\s+/g, " ").trim();
+  }
+  out.sections = parts.length;
+  if (out.sections === 0) return out;
+  const lens = parts.map(p => p.body.length);
+  for (const len of lens) {
+    if (len < 50) out.empty++;
+    else if (len < 200) out.tooShort++;
+  }
+  if (out.empty) out.warnings.push(`${out.empty} пустых H2`);
+  if (out.tooShort) out.warnings.push(`${out.tooShort} слишком коротких H2`);
+  // Uniform length: stddev/avg < 0.15 на достаточном корпусе.
+  if (out.sections >= 4) {
+    const avg = lens.reduce((a, b) => a + b, 0) / lens.length;
+    if (avg > 200) {
+      const variance = lens.reduce((a, b) => a + (b - avg) ** 2, 0) / lens.length;
+      const sigma = Math.sqrt(variance);
+      if (avg > 0 && sigma / avg < 0.15) {
+        out.uniformLength = true;
+        out.warnings.push("одинаковая длина секций");
+      }
+    }
+  }
+  // Uniform prefix: >=50% секций начинаются с одной и той же пары слов.
+  if (out.sections >= 4) {
+    const prefixes = parts.map(p => {
+      const w = p.body.toLowerCase().split(/[^a-zа-яё0-9]+/i).filter(t => t.length >= 2).slice(0, 2);
+      return w.length === 2 ? w.join(" ") : "";
+    }).filter(Boolean);
+    if (prefixes.length) {
+      const freq = new Map<string, number>();
+      for (const p of prefixes) freq.set(p, (freq.get(p) || 0) + 1);
+      const top = Math.max(...freq.values());
+      if (top / out.sections >= 0.5) {
+        out.uniformPrefix = true;
+        out.warnings.push("одинаковые зачины секций");
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * Reject the pass if structural signatures shrank too much (lost links,
  * headings, list items, tables, numbers). Threshold: -15% relative or

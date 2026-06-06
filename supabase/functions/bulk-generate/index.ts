@@ -363,6 +363,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
     // If <50% of supplied facts/numbers ended up in the text, run a
     // targeted insert-pass on Sonnet that organically weaves the missing
     // nuggets into the existing paragraphs (cheaper than full regen).
+    let nuggetCoverage: number | null = null;
     try {
       const nuggetsList = (analysis as any)?.data_nuggets || [];
       if (Array.isArray(nuggetsList) && nuggetsList.length > 0) {
@@ -379,6 +380,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
         } else if (ne.beforeRatio < 0.5) {
           console.warn(`[bulk-generate][nuggets] low coverage ${(ne.beforeRatio * 100).toFixed(0)}% for "${item.seed_keyword}" - insert pass skipped/rejected`);
         }
+        nuggetCoverage = ne.afterRatio ?? ne.beforeRatio ?? null;
       }
     } catch (e) {
       console.warn(`[bulk-generate][nuggets] enforcement failed for "${item.seed_keyword}":`, (e as Error)?.message);
@@ -389,6 +391,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
     // If deviation > 30%, ask Sonnet for a single rhythm-rewrite pass.
     // Falls back to original content if integrity guard fails or if the
     // rewrite did not actually reduce deviation by ≥20%.
+    let personaDeviation: number | null = null;
     try {
       const expectedProfile = (job as any)?.author_profile?.style_analysis?.syntax_profile;
       if (expectedProfile) {
@@ -405,6 +408,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
         } else if (enforced.beforeDeviation > 0.3) {
           console.warn(`[bulk-generate][persona] high deviation ${(enforced.beforeDeviation * 100).toFixed(0)}% (profile=${expectedProfile}) for "${item.seed_keyword}" - rewrite skipped/rejected`);
         }
+        personaDeviation = enforced.afterDeviation ?? enforced.beforeDeviation ?? null;
       }
     } catch (e) {
       console.warn(`[bulk-generate][persona] enforcement failed for "${item.seed_keyword}":`, (e as Error)?.message);
@@ -455,6 +459,8 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       quality_status: "checking",
       serp_cluster_pipeline: true,
       generation_model: model || null,
+      data_nuggets_coverage: nuggetCoverage,
+      persona_deviation: personaDeviation,
     }).select("id").single();
 
     // Auto quality check (background, no credit)
