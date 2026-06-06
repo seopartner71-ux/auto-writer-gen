@@ -242,6 +242,15 @@ html {
   letter-spacing: -0.04em;
 }
 
+/* Tighter vertical rhythm between landing sections */
+.landing-shell section {
+  padding-top: clamp(2.5rem, 5vw, 4rem) !important;
+  padding-bottom: clamp(2.5rem, 5vw, 4rem) !important;
+}
+.landing-shell section:first-of-type {
+  padding-top: clamp(4rem, 7vw, 6rem) !important;
+}
+
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }

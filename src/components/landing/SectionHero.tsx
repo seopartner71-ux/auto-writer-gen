@@ -26,7 +26,8 @@ export function SectionHero() {
   const radius = 58;
   const circ = 2 * Math.PI * radius;
   const progress = (aiPercent / 100) * circ;
-  const color = aiPercent > 50 ? "#ef4444" : aiPercent > 15 ? "#f59e0b" : "#10b981";
+  // Premium minimalism: keep risk colors muted, success uses brand primary (no neon)
+  const color = aiPercent > 50 ? "#dc2626" : aiPercent > 15 ? "#d97706" : "#6E56CF";
   const label = aiPercent > 15 ? "AI Detected" : "Human Score";
   const displayVal = aiPercent > 15 ? `${aiPercent}%` : `${100 - aiPercent}%`;
 
@@ -67,12 +68,10 @@ export function SectionHero() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.35 }}
               className="mt-10 flex flex-wrap gap-4 justify-center lg:justify-start">
               <button onClick={() => navigate("/register")}
-                className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-10 py-5 text-base font-tech font-bold text-white shadow-[0_20px_60px_rgba(139,92,246,0.35)] transition-all duration-300 hover:scale-[1.04] hover:shadow-[0_25px_80px_rgba(139,92,246,0.5)] active:scale-[0.98]">
-                <span className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] opacity-20 blur-2xl animate-[pulse_2.5s_ease-in-out_infinite]" />
-                <span className="absolute inset-0 rounded-full border border-white/20 animate-[pulse_3s_ease-in-out_infinite]" />
-                <span className="relative flex items-center gap-2">
+                className="group inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-4 text-sm font-tech font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90">
+                <span className="flex items-center gap-2">
                   {t("lp.cta")}
-                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </button>
               <button
@@ -80,9 +79,9 @@ export function SectionHero() {
                   const el = document.getElementById("video-demo");
                   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
-                className="group inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-7 py-5 text-base font-tech font-medium text-white/90 backdrop-blur-md transition-all duration-300 hover:bg-white/[0.07] hover:border-white/25"
+                className="group inline-flex items-center gap-2 rounded-lg border border-border bg-transparent px-7 py-4 text-sm font-tech font-medium text-foreground transition-colors duration-200 hover:bg-accent/40"
               >
-                <PlayCircle className="h-5 w-5 text-primary" />
+                <PlayCircle className="h-4 w-4 text-muted-foreground" />
                 {lang === "ru" ? "Смотреть демо · 90 сек" : "Watch demo · 90 sec"}
               </button>
             </motion.div>
@@ -128,13 +127,13 @@ export function SectionHero() {
           {/* Right — Stealth Guard */}
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, delay: 0.3 }}
             className="relative shrink-0">
-            <div className="rounded-3xl border-t border-l border-r border-b border-t-white/20 border-l-white/10 border-r-white/5 border-b-white/[0.02] bg-white/[0.02] backdrop-blur-2xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(139,92,246,0.1)]">
-              <div className="rounded-2xl bg-[#06060b]/90 p-8 min-w-[280px]">
+            <div className="rounded-2xl border border-border bg-card p-2">
+              <div className="rounded-xl bg-[#06060b] p-8 min-w-[280px] border border-border">
                 {/* Title bar */}
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full bg-red-500/60" />
-                  <div className="w-2 h-2 rounded-full bg-yellow-500/60" />
-                  <div className="w-2 h-2 rounded-full bg-green-500/60" />
+                  <div className="w-2 h-2 rounded-full bg-white/10" />
+                  <div className="w-2 h-2 rounded-full bg-white/10" />
+                  <div className="w-2 h-2 rounded-full bg-white/10" />
                   <span className="ml-2 text-[10px] font-mono text-muted-foreground/60">stealth_guard.run</span>
                 </div>
                 <p className="text-center text-[10px] font-tech uppercase tracking-widest text-muted-foreground/40 mb-5">Stealth Guard™</p>
@@ -155,13 +154,13 @@ export function SectionHero() {
 
                   {phase === "done" ? (
                     <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                      className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/[0.06] px-4 py-1.5">
-                      <Shield className="h-3.5 w-3.5 text-emerald-400" />
-                      <span className="text-xs font-tech font-bold text-emerald-400">{t("lp.stealthActive")}</span>
+                      className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/[0.06] px-4 py-1.5">
+                      <Shield className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-tech font-bold text-primary">{t("lp.stealthActive")}</span>
                     </motion.div>
                   ) : (
                     <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/[0.06] px-4 py-1.5">
-                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      <div className="w-2 h-2 rounded-full bg-primary" />
                       <span className="text-xs font-tech text-primary">{t("lp.stealthProcessing")}</span>
                     </div>
                   )}
@@ -170,8 +169,8 @@ export function SectionHero() {
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
                       className="mt-4 flex flex-wrap gap-1.5 justify-center">
                       {["Originality.ai", "GPTZero", "Copyleaks"].map((d, i) => (
-                        <span key={i} className="text-[8px] font-tech px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.04] text-emerald-400">
-                          ✓ {d}
+                        <span key={i} className="text-[8px] font-tech px-2 py-0.5 rounded-full border border-border bg-muted/40 text-muted-foreground">
+                          <span className="text-emerald-500">✓</span> {d}
                         </span>
                       ))}
                     </motion.div>
