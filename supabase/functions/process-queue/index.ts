@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,6 +53,7 @@ serve(async (req) => {
     // Process items concurrently (up to availableSlots)
     const promises = queueItems.map(async (item) => {
       // Already marked as 'processing' by claim_queue_items RPC.
+      const itemTimer = startTimer();
       try {
         // Call generate-article with the stored payload
         const payload = item.request_payload as Record<string, unknown>;
@@ -250,6 +252,13 @@ serve(async (req) => {
           }).eq("id", item.id);
           results.push({ id: item.id, status: "completed" });
         }
+        logPipelineEvent({
+          stage: "queue_process",
+          user_id: item.user_id,
+          verdict: "pass",
+          duration_ms: itemTimer(),
+          meta: { queue_item_id: item.id, retry: item.retry_count },
+        });
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Unknown error";
         console.error(`Queue item ${item.id} error:`, errMsg);
@@ -261,6 +270,14 @@ serve(async (req) => {
             retry_count: nextRetry,
             error_message: `Error: ${errMsg}. Retry ${nextRetry}/${item.max_retries}`,
           }).eq("id", item.id);
+          logPipelineEvent({
+            stage: "queue_process",
+            user_id: item.user_id,
+            verdict: "warning",
+            error_kind: "retry",
+            error_message: errMsg,
+            meta: { queue_item_id: item.id, retry: nextRetry, max_retries: item.max_retries },
+          });
           results.push({ id: item.id, status: "retry", error: errMsg });
         } else {
           await admin.from("generation_queue").update({
@@ -276,6 +293,14 @@ serve(async (req) => {
             message: `Не удалось сгенерировать статью: ${errMsg}`,
           });
 
+          logPipelineEvent({
+            stage: "queue_process",
+            user_id: item.user_id,
+            verdict: "fail",
+            error_kind: "exhausted_retries",
+            error_message: errMsg,
+            meta: { queue_item_id: item.id, attempts: nextRetry },
+          });
           results.push({ id: item.id, status: "failed", error: errMsg });
         }
       }

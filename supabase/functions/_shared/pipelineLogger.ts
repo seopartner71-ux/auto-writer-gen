@@ -18,7 +18,12 @@ export type PipelineStage =
   | "compliance_check"
   | "improve"
   | "commercial_block"
-  | "quality_retry";
+  | "quality_retry"
+  | "quality_check"
+  | "ai_detect"
+  | "polish"
+  | "deep_parse"
+  | "queue_process";
 
 export type PipelineVerdict = "pass" | "warning" | "fail";
 

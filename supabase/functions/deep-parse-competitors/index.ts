@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { DOMParser, Element } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -357,6 +358,9 @@ function calculateTfIdf(pages: CompetitorAnalysis[]): {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const timer = startTimer();
+  let userIdForLog: string | null = null;
+  let keywordIdForLog: string | null = null;
   try {
     const supabaseAdmin0 = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: orKey } = await supabaseAdmin0.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
@@ -371,6 +375,7 @@ serve(async (req) => {
     const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
     const userId = payload.sub as string;
     if (!userId) throw new Error("Unauthorized");
+    userIdForLog = userId;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -380,6 +385,7 @@ serve(async (req) => {
 
     const { keyword_id, force_refresh } = await req.json();
     if (!keyword_id) throw new Error("keyword_id is required");
+    keywordIdForLog = keyword_id;
 
     // ── Cache check ──
     if (!force_refresh) {
@@ -397,6 +403,7 @@ serve(async (req) => {
           const cachedEntities = cached._cached_result?.entities || [];
           if (cachedEntities.length > 0) {
             console.log("Returning cached deep analysis");
+            logPipelineEvent({ stage: "deep_parse", user_id: userIdForLog, verdict: "pass", duration_ms: timer(), meta: { keyword_id: keywordIdForLog, cached: true } });
             return new Response(JSON.stringify(cached._cached_result), {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
@@ -461,6 +468,7 @@ serve(async (req) => {
         per_competitor: [],
         warning: "Все результаты SERP — видео или соцсети. Используются значения по умолчанию.",
       };
+      logPipelineEvent({ stage: "deep_parse", user_id: userIdForLog, verdict: "warning", duration_ms: timer(), meta: { keyword_id: keywordIdForLog, reason: "all_social_or_video" } });
       return new Response(JSON.stringify(emptyResult), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -717,6 +725,18 @@ Extract 10-15 important entities (importance 1-10) and 5-10 must-use LSI phrases
 
     console.log(`Deep parse complete: ${parsedPages.length} pages, ${(entityAnalysis.entities || []).length} entities, score ready`);
 
+    logPipelineEvent({
+      stage: "deep_parse",
+      user_id: userIdForLog,
+      verdict: parsedPages.length > 0 ? "pass" : "warning",
+      duration_ms: timer(),
+      meta: {
+        keyword_id: keywordIdForLog,
+        parsed: parsedPages.length,
+        failed: failedUrls.length,
+        entities: (entityAnalysis.entities || []).length,
+      },
+    });
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -725,6 +745,15 @@ Extract 10-15 important entities (importance 1-10) and 5-10 must-use LSI phrases
     console.error("deep-parse-competitors error:", e);
     const msg = e instanceof Error ? e.message : "Unknown error";
     const status = msg.includes("Unauthorized") ? 401 : 500;
+    logPipelineEvent({
+      stage: "deep_parse",
+      user_id: userIdForLog,
+      verdict: "fail",
+      duration_ms: timer(),
+      error_kind: status === 401 ? "unauthorized" : "exception",
+      error_message: msg,
+      meta: { keyword_id: keywordIdForLog },
+    });
     return new Response(JSON.stringify({ error: msg }), {
       status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

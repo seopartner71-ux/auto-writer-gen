@@ -6,6 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
@@ -1141,6 +1142,9 @@ ${paragraphs.map((p, i) => `[${i + 1}] ${p.slice(0, 400)}`).join("\n\n")}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const timer = startTimer();
+  let articleIdForLog: string | null = null;
+  let userIdForLog: string | null = null;
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1158,6 +1162,7 @@ Deno.serve(async (req) => {
     };
     if (!article_id) return json({ error: "article_id required" }, 400);
     if (!content || typeof content !== "string") return json({ error: "content required" }, 400);
+    articleIdForLog = article_id;
 
     // Resolve user: try service-role bypass first (auto mode from bulk), then user JWT.
     const serviceToken = authHeader.replace(/^Bearer\s+/i, "") === serviceKey;
@@ -1173,6 +1178,7 @@ Deno.serve(async (req) => {
       if (u) user = { id: u.id };
     }
     if (!user) return json({ error: "Unauthorized" }, 401);
+    userIdForLog = user.id;
 
     // ── AUTO mode: run AI(internal+ZeroGPT) + burstiness + density in background, no credits ──
     if (mode === "auto") {
@@ -1347,6 +1353,34 @@ Deno.serve(async (req) => {
 
     await admin.from("articles").update(update).eq("id", article_id);
 
+    {
+      const turg = finalTurg ?? existing?.turgenev_score ?? null;
+      const ai = finalAi ?? fallbackManualAi?.score ?? existing?.ai_human_score ?? null;
+      const uniq2 = finalUniq ?? existing?.uniqueness_percent ?? null;
+      const verdict: "pass" | "warning" | "fail" =
+        (ai !== null && ai < 50) || (uniq2 !== null && uniq2 < 70) || (turg !== null && turg > 10)
+          ? "fail"
+          : (ai !== null && ai < 70) || (uniq2 !== null && uniq2 < 85) || (turg !== null && turg > 5)
+          ? "warning"
+          : "pass";
+      logPipelineEvent({
+        stage: "quality_check",
+        article_id: article_id,
+        user_id: user.id,
+        verdict,
+        score: ai,
+        duration_ms: timer(),
+        meta: {
+          turgenev: turg,
+          uniqueness: uniq2,
+          ai_human: ai,
+          checks: Array.from(requested),
+          uniqueness_error: uniqError || null,
+          badge,
+        },
+      });
+    }
+
     // Cost logging
     const totalIn = (out.score?.tokens_in || 0) + (out.ai?.tokens_in || 0);
     const totalOut = (out.score?.tokens_out || 0) + (out.ai?.tokens_out || 0);
@@ -1380,6 +1414,15 @@ Deno.serve(async (req) => {
     });
   } catch (e: any) {
     console.error("[quality-check] fatal", e);
+    logPipelineEvent({
+      stage: "quality_check",
+      article_id: articleIdForLog,
+      user_id: userIdForLog,
+      verdict: "fail",
+      error_kind: "exception",
+      error_message: e?.message || String(e),
+      duration_ms: timer(),
+    });
     return json({ error: e?.message || "Unknown error" }, 500);
   }
 });
