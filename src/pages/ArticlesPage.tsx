@@ -45,6 +45,7 @@ import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMoun
 import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
+import { ArticleFeedback } from "@/features/article-editor/ArticleFeedback";
 import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
 import { QualityImproveCard } from "@/features/article-quality/QualityImproveCard";
 import { ImprovingTipsLoader } from "@/features/article-quality/ImprovingTipsLoader";
@@ -1678,6 +1679,9 @@ export default function ArticlesPage() {
                       onRestoreVersion={(c) => setContent(c)}
                     />
                   </div>
+                )}
+                {currentArticleId && content && !isStreaming && (
+                  <ArticleFeedback articleId={currentArticleId} language={lang === "en" ? "en" : "ru"} />
                 )}
                 <TabsContent value="edit" className="mt-0">
                   <Textarea
