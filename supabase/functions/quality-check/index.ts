@@ -979,17 +979,30 @@ async function runAutoQuality(
     console.warn("[quality-check] auto-turgenev-fix gate error", e);
   }
 
-  // ── Sentence-Structure Auto-Fix ─────────────────────────────────
-  // verdict === "fail" -> один тихий проход improve-article с fix_type="sentence_structure".
-  // Флаг хранится в quality_details.sentence_structure_auto_fixed, чтобы не зацикливаться.
+  // ── Validators v2 Auto-Fix dispatcher ───────────────────────────
+  // Приоритет: dangling (структурно ломает текст) → sentence (стиль) →
+  // cancellary (лексика) → keyword_frequency (тонкая настройка).
+  // На один прогон quality-check диспатчится максимум один fix: следующая
+  // фаза выберется при ре-чек после improve-article.
+  // Анти-петля: каждая фаза помечается флагом в quality_details.
   try {
-    if (sentStruct.verdict === "fail" && orKey) {
+    if (orKey) {
       const { data: prevDet } = await admin.from("articles")
         .select("quality_details").eq("id", articleId).maybeSingle();
       const det: any = (prevDet?.quality_details as any) || {};
-      if (det.sentence_structure_auto_fixed !== true) {
+
+      type Phase = { name: string; fixType: string; source: string; flag: string; verdict: "pass" | "warning" | "fail" };
+      const phases: Phase[] = [
+        { name: "dangling", fixType: "dangling", source: "auto_dangling", flag: "dangling_auto_fixed", verdict: dangling.verdict },
+        { name: "sentence", fixType: "sentence_structure", source: "auto_sentence_structure", flag: "sentence_structure_auto_fixed", verdict: sentStruct.verdict },
+        { name: "cancellary", fixType: "cancellary", source: "auto_cancellary", flag: "cancellary_auto_fixed", verdict: cancellary.verdict },
+        { name: "keyword_freq", fixType: "keyword_freq", source: "auto_keyword_freq", flag: "keyword_freq_auto_fixed", verdict: keywordFreq.verdict },
+      ];
+
+      const next = phases.find((p) => p.verdict === "fail" && det[p.flag] !== true);
+      if (next) {
         await admin.from("articles").update({
-          quality_details: { ...det, sentence_structure_auto_fixed: true },
+          quality_details: { ...det, [next.flag]: true },
         }).eq("id", articleId);
 
         const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
@@ -1004,20 +1017,20 @@ async function runAutoQuality(
               },
               body: JSON.stringify({
                 article_id: articleId,
-                fix_type: "sentence_structure",
+                fix_type: next.fixType,
                 user_id: userId,
-                source: "auto_sentence_structure",
+                source: next.source,
               }),
             });
           } catch (e) {
-            await logErr(admin, "quality-check", "auto_sentence_structure_dispatch_failed", { article_id: articleId, error: String(e) });
+            await logErr(admin, "quality-check", `auto_${next.name}_dispatch_failed`, { article_id: articleId, error: String(e) });
           }
         })();
         try { (globalThis as any).EdgeRuntime?.waitUntil?.(fixTask); } catch (_) { void fixTask; }
       }
     }
   } catch (e) {
-    await logErr(admin, "quality-check", "auto_sentence_structure_gate_error", { article_id: articleId, error: String(e) });
+    await logErr(admin, "quality-check", "auto_validators_gate_error", { article_id: articleId, error: String(e) });
   }
 }
 
