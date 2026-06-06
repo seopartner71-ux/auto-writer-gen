@@ -288,7 +288,7 @@ export function SectionVideoDemo() {
               <div className="mb-5">
                 <button
                   type="button"
-                  className={`relative w-full h-11 rounded-lg bg-gradient-to-r from-primary to-[#a855f7] text-primary-foreground font-medium text-sm transition-transform overflow-hidden ${
+                  className={`relative w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium text-sm transition-transform overflow-hidden ${
                     step === "click" ? "scale-[0.97]" : ""
                   }`}
                 >
@@ -387,9 +387,7 @@ export function SectionVideoDemo() {
             <Button
               asChild
               size="lg"
-              className={`h-14 px-8 text-base bg-gradient-to-r from-primary to-[#a855f7] hover:opacity-95 transition-all relative ${
-                pulseCta ? "shadow-[0_0_60px_-5px_hsl(var(--primary)/0.7)] animate-glow-pulse" : ""
-              }`}
+              className="h-14 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 transition-colors relative"
             >
             <Link to="/register">
                 Создать первую статью бесплатно

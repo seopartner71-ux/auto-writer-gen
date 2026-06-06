@@ -36,9 +36,9 @@ export function SectionDeepDive() {
                 <Globe className="h-3.5 w-3.5 text-[#06b6d4]" />
                 <span className="text-[10px] font-tech font-medium text-[#06b6d4] uppercase tracking-widest">GEO</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(6,182,212,0.08)" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05] text-foreground" style={{ letterSpacing: "-0.05em" }}>
                 {t("deep2.geoH1")}{" "}
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#06b6d4] to-[#3b82f6]">{t("deep2.geoH2")}</span>
+                <span className="text-primary">{t("deep2.geoH2")}</span>
               </h2>
               <p className="text-[15px] text-muted-foreground/80 leading-[1.8]" dangerouslySetInnerHTML={{ __html: t("deep2.geoBody") }} />
               <p className="text-sm font-tech text-[#06b6d4]/80 tracking-wider">{t("deep2.geoMetric")}</p>
@@ -61,9 +61,9 @@ export function SectionDeepDive() {
                 <Shield className="h-3.5 w-3.5 text-primary" />
                 <span className="text-[10px] font-tech font-medium text-primary uppercase tracking-widest">Stealth Engine</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(139,92,246,0.08)" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05] text-foreground" style={{ letterSpacing: "-0.05em" }}>
                 {t("deep2.stealthH1")}{" "}
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">{t("deep2.stealthH2")}</span>
+                <span className="text-primary">{t("deep2.stealthH2")}</span>
               </h2>
               <p className="text-[15px] text-muted-foreground/80 leading-[1.8]" dangerouslySetInnerHTML={{ __html: t("deep2.stealthBody") }} />
               <p className="text-sm font-tech text-emerald-400/80 tracking-wider">{t("deep2.stealthMetric")}</p>
@@ -86,9 +86,9 @@ export function SectionDeepDive() {
                 <Layers className="h-3.5 w-3.5 text-[#f59e0b]" />
                 <span className="text-[10px] font-tech font-medium text-[#f59e0b] uppercase tracking-widest">Factory</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(245,158,11,0.08)" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05] text-foreground" style={{ letterSpacing: "-0.05em" }}>
                 {t("deep2.factoryH1")}{" "}
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#f59e0b] to-[#ef4444]">{t("deep2.factoryH2")}</span>
+                <span className="text-primary">{t("deep2.factoryH2")}</span>
               </h2>
               <p className="text-[15px] text-muted-foreground/80 leading-[1.8]" dangerouslySetInnerHTML={{ __html: t("deep2.factoryBody") }} />
               <p className="text-sm font-tech text-[#f59e0b]/80 tracking-wider">{t("deep2.factoryMetric")}</p>
@@ -111,9 +111,9 @@ export function SectionDeepDive() {
                 <Wifi className="h-3.5 w-3.5 text-[#06b6d4]" />
                 <span className="text-[10px] font-tech font-medium text-[#06b6d4] uppercase tracking-widest">AI Radar</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05]" style={{ letterSpacing: "-0.05em", textShadow: "0 0 60px rgba(6,182,212,0.08)" }}>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.05] text-foreground" style={{ letterSpacing: "-0.05em" }}>
                 {t("deep2.radarH1")}{" "}
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#06b6d4] to-primary">{t("deep2.radarH2")}</span>
+                <span className="text-primary">{t("deep2.radarH2")}</span>
               </h2>
               <p className="text-[15px] text-muted-foreground/80 leading-[1.8]" dangerouslySetInnerHTML={{ __html: t("deep2.radarBody") }} />
               <p className="text-sm font-tech text-[#06b6d4]/80 tracking-wider">{t("deep2.radarMetric")}</p>

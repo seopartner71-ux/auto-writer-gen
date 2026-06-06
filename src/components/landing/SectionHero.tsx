@@ -32,7 +32,7 @@ export function SectionHero() {
   const displayVal = aiPercent > 15 ? `${aiPercent}%` : `${100 - aiPercent}%`;
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative flex items-center justify-center overflow-hidden pt-24 pb-16 md:pt-28 md:pb-20">
       {/* Grid */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.025]" style={{
         backgroundImage: "linear-gradient(hsl(270 60% 60% / 0.5) 1px, transparent 1px), linear-gradient(90deg, hsl(270 60% 60% / 0.5) 1px, transparent 1px)",
@@ -52,7 +52,7 @@ export function SectionHero() {
             </motion.div>
 
             <motion.h1 initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95] text-white" style={{ letterSpacing: "-0.06em", textShadow: "0 0 80px rgba(139,92,246,0.12)" }}>
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95] text-foreground" style={{ letterSpacing: "-0.06em" }}>
               {t("lp.heroLine1")}
             </motion.h1>
 
