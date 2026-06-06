@@ -10,6 +10,13 @@ import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts } from "../_shared/validators/danglingThoughtGuard.ts";
+import {
+  getStyleProfile,
+  sentenceOptionsFromStyleProfile,
+  keywordOptionsFromStyleProfile,
+  cancellaryOptionsFromStyleProfile,
+  type StyleProfile,
+} from "../_shared/styleProfile.ts";
 
 async function logErr(admin: any, context: string, message: string, metadata?: Record<string, unknown>) {
   try {
