@@ -460,7 +460,7 @@ ${content}`;
 
     // 8) Keyword frequency: сверхчастые значимые слова и переспам seed-ключа в H2.
     if ((phase === "keyword_freq" || phase === "all") && orKey) {
-      const metrics = analyzeKeywordFrequency(content, primaryKeyword || null);
+      const metrics = analyzeKeywordFrequency(content, primaryKeyword || null, keywordOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildKeywordFrequencyFixHint(metrics) || "";
         const sys = "Ты редактор. Снижаешь частотность повторяющихся слов в HTML через синонимы, местоимения и перестройку фраз. Сохраняешь ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
