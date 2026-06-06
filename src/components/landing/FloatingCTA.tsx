@@ -38,7 +38,7 @@ export function FloatingCTA() {
   return (
     <button
       onClick={() => navigate("/register")}
-      className={`fixed right-4 sm:right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-[0_4px_24px_rgba(139,92,246,0.4)] hover:shadow-[0_4px_32px_rgba(139,92,246,0.6)] hover:scale-105 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 ${
+      className={`fixed right-4 sm:right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors duration-200 animate-in fade-in slide-in-from-bottom-4 ${
         cookieVisible ? "bottom-[140px] sm:bottom-6" : "bottom-6"
       }`}
     >
