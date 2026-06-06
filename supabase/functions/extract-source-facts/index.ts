@@ -7,6 +7,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { chatJson, aiErrorToResponse, AiError } from "../_shared/aiClient.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const FACTS_PROMPT = `Ты извлекаешь МАКСИМУМ конкретных фактов со страницы сайта пользователя, чтобы AI-писатель опирался на НИХ вместо общих данных конкурентов.
 
@@ -155,37 +157,50 @@ Deno.serve(async (req) => {
     }
     const text = `${meta}\n\n=== ОСНОВНОЙ ТЕКСТ ===\n${pageText}`;
 
-    // AI extraction via Lovable AI Gateway (cheap, fast model)
+    // AI extraction via unified aiClient (json_object + auto-retry на парсе).
     const aiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!aiKey) return errorResponse("OPENROUTER_API_KEY not configured", 500);
 
-    const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${aiKey}` },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: FACTS_PROMPT },
-          { role: "user", content: `URL: ${rawUrl}\n\nТЕКСТ СТРАНИЦЫ:\n${text}` },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    if (aiRes.status === 429) return errorResponse("AI rate limit, попробуйте позже", 429);
-    if (aiRes.status === 402) return errorResponse("AI credits exhausted", 402);
-    if (!aiRes.ok) {
-      const errTxt = await aiRes.text().catch(() => "");
-      console.error("[extract-source-facts] AI error", aiRes.status, errTxt.slice(0, 200));
-      return errorResponse("AI extraction failed", 500);
-    }
-
-    const aiData = await aiRes.json();
-    const raw = aiData?.choices?.[0]?.message?.content || "{}";
+    const elapsed = startTimer();
     let facts: any;
-    try { facts = JSON.parse(raw); } catch {
-      const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
-      try { facts = JSON.parse(cleaned); } catch { facts = null; }
+    let modelUsed = "google/gemini-2.5-flash-lite";
+    try {
+      const r = await chatJson<any>({
+        apiKey: aiKey,
+        model: modelUsed,
+        system: FACTS_PROMPT,
+        user: `URL: ${rawUrl}\n\nТЕКСТ СТРАНИЦЫ:\n${text}`,
+        temperature: 0.2,
+        maxTokens: 2500,
+        timeoutMs: 45_000,
+        retries: 1,
+        appTitle: "extract-source-facts",
+      });
+      facts = r.data;
+      modelUsed = r.model;
+      logPipelineEvent({
+        stage: "generate",
+        user_id: user.id,
+        verdict: "pass",
+        duration_ms: elapsed(),
+        model: r.model,
+        tokens_in: r.tokensIn,
+        tokens_out: r.tokensOut,
+        meta: { fn: "extract-source-facts", url: rawUrl.slice(0, 200) },
+      });
+    } catch (e) {
+      const err = e instanceof AiError ? e : null;
+      logPipelineEvent({
+        stage: "generate",
+        user_id: user.id,
+        verdict: "fail",
+        duration_ms: elapsed(),
+        model: modelUsed,
+        error_kind: err?.kind || "upstream",
+        error_message: (e as Error)?.message,
+        meta: { fn: "extract-source-facts", url: rawUrl.slice(0, 200) },
+      });
+      return aiErrorToResponse(e, corsHeaders);
     }
     if (!facts || typeof facts !== "object") {
       return errorResponse("Не удалось распознать факты страницы", 500);

@@ -12,6 +12,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 function detectLang(text: string, hint?: string | null): "ru" | "en" {
   if (hint === "ru" || hint === "en") return hint;
@@ -87,9 +88,41 @@ serve(async (req) => {
 
     const lang = detectLang(content, article.language);
 
-    const result = await runDoubleHumanizePass(content, lang, openRouterKey, {
-      admin,
-      userId: article.user_id,
+    const elapsed = startTimer();
+    let result;
+    try {
+      result = await runDoubleHumanizePass(content, lang, openRouterKey, {
+        admin,
+        userId: article.user_id,
+      });
+    } catch (e) {
+      logPipelineEvent({
+        stage: "humanize",
+        user_id: article.user_id,
+        article_id: article_id,
+        verdict: "fail",
+        duration_ms: elapsed(),
+        error_kind: "upstream",
+        error_message: (e as Error)?.message,
+        meta: { lang, force },
+      });
+      throw e;
+    }
+    logPipelineEvent({
+      stage: "humanize",
+      user_id: article.user_id,
+      article_id: article_id,
+      verdict: result.passesApplied === 0 ? "warning" : "pass",
+      duration_ms: elapsed(),
+      model: result.modelsUsed.join(","),
+      meta: {
+        lang,
+        force,
+        passes: result.passesApplied,
+        models: result.modelsUsed,
+        opus_skipped: result.opusSkipped || false,
+        opus_skip_reason: result.opusSkipReason || null,
+      },
     });
 
     // No passes succeeded — log to humanize_meta but don't mark rewritten.
