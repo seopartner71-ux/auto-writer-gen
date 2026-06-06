@@ -7,6 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
+import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_shared/sentenceStructure.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -133,6 +134,8 @@ Deno.serve(async (req) => {
     const isServiceCall =
       authHeader === `Bearer ${serviceKey}` && typeof bodyUserId === "string" && bodyUserId.length > 0;
     const isAutoTurgenev = isServiceCall && source === "auto_turgenev";
+    const isAutoSentence = isServiceCall && source === "auto_sentence_structure";
+    const bypassLimits = isAutoTurgenev || isAutoSentence;
 
     let user: { id: string } | null = null;
     if (isServiceCall) {
@@ -168,7 +171,7 @@ Deno.serve(async (req) => {
     console.log("[improve-article][plan-check] user:", user.id, "plan:", planRaw, "key:", normalizePlanKey(planRaw), "limit:", improveLimit, "used:", usedImprove);
     // Auto-Turgenev fix bypasses the plan limit and cooldown — это автоматическая правка качества,
     // которая не должна расходовать пользовательский лимит улучшений.
-    if (!isAutoTurgenev && usedImprove >= improveLimit) {
+    if (!bypassLimits && usedImprove >= improveLimit) {
       return json({
         ok: false,
         limit_reached: true,
@@ -177,7 +180,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Cooldown: 60s between improve calls per article ──
-    if (!isAutoTurgenev && art.last_improve_at) {
+    if (!bypassLimits && art.last_improve_at) {
       const elapsed = Date.now() - new Date(art.last_improve_at as string).getTime();
       if (elapsed < 60_000) {
         return json({
