@@ -14,6 +14,7 @@ import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.
 import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurgenevAddon.ts";
 import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,10 @@ const corsHeaders = {
 // ─── Main Handler ───────────────────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
+  const elapsed = startTimer();
+  let logUserId: string | undefined;
+  let logModel: string | undefined;
+  let logArticleId: string | undefined;
   try {
     const supabaseAdmin0 = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: orKey } = await supabaseAdmin0.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
