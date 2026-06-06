@@ -14,6 +14,7 @@ import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.
 import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurgenevAddon.ts";
 import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,10 @@ const corsHeaders = {
 // ─── Main Handler ───────────────────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
+  const elapsed = startTimer();
+  let logUserId: string | undefined;
+  let logModel: string | undefined;
+  let logArticleId: string | undefined;
   try {
     const supabaseAdmin0 = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: orKey } = await supabaseAdmin0.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
@@ -185,6 +189,8 @@ serve(async (req) => {
       ? "anthropic/claude-sonnet-4"
       : (userPlan === "pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash-lite");
     let model = assignment?.model_key || fallbackModel;
+    logUserId = user.id;
+    logModel = model;
     if (isHumanizePolish) console.log("[generate-article] humanize_polish route ->", model);
 
     // Site Factory project override: respect project.ai_model preference.
@@ -521,6 +527,15 @@ serve(async (req) => {
       });
     } catch (_) { /* ignore */ }
 
+    logPipelineEvent({
+      stage: "generate",
+      user_id: user.id,
+      verdict: "pass",
+      duration_ms: elapsed(),
+      model: String(model),
+      meta: { project_id: project_id || null, stream: true },
+    });
+
     // Wrap upstream stream with keep-alive pings every 20s. Prevents Cloudflare
     // idle-timeout from killing the connection when the model thinks silently.
     // SSE comment lines (starting with ":") are ignored by clients.
@@ -563,6 +578,16 @@ serve(async (req) => {
     console.error("generate-article error:", e);
     const msg = e instanceof Error ? e.message : "Unknown error";
     const status = msg.includes("Unauthorized") ? 401 : 500;
+    logPipelineEvent({
+      stage: "generate",
+      user_id: logUserId,
+      article_id: logArticleId,
+      verdict: "fail",
+      duration_ms: elapsed(),
+      model: logModel,
+      error_kind: status === 401 ? "auth" : "upstream",
+      error_message: msg,
+    });
     return new Response(JSON.stringify({ error: msg }), {
       status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
