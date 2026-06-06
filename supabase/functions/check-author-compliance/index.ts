@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { chatJson, AiError, aiErrorToResponse } from "../_shared/aiClient.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,66 +21,32 @@ type ComplianceResult = {
   matched_rules: string[]; // правила, которые соблюдены
 };
 
-function extractJson(aiData: any): ComplianceResult {
-  const toolArgs = aiData?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (toolArgs) {
-    try { return JSON.parse(toolArgs); } catch { return parseLoose(toolArgs) as ComplianceResult; }
-  }
-  const raw = aiData?.choices?.[0]?.message?.content;
-  if (typeof raw !== "string") throw new Error("Empty AI response");
-  let cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
-  const a = cleaned.indexOf("{");
-  const b = cleaned.lastIndexOf("}");
-  if (a !== -1 && b !== -1) cleaned = cleaned.slice(a, b + 1);
-  try { return JSON.parse(cleaned); } catch { return parseLoose(cleaned) as ComplianceResult; }
-}
-
-function parseLoose(s: string): unknown {
-  // strip control chars, trailing commas, then try again
-  let t = s.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, "")
-           .replace(/,\s*}/g, "}")
-           .replace(/,\s*]/g, "]");
-  try { return JSON.parse(t); } catch {}
-  // try to repair by truncating to last valid bracket and closing structures
-  // walk and track depth, ignoring chars inside strings
-  let depth = 0; let inStr = false; let esc = false; let lastSafe = -1;
-  const stack: string[] = [];
-  for (let i = 0; i < t.length; i++) {
-    const c = t[i];
-    if (inStr) {
-      if (esc) { esc = false; continue; }
-      if (c === "\\") { esc = true; continue; }
-      if (c === '"') inStr = false;
-      continue;
-    }
-    if (c === '"') { inStr = true; continue; }
-    if (c === "{" || c === "[") { stack.push(c); depth++; }
-    else if (c === "}" || c === "]") { stack.pop(); depth--; if (depth === 0) lastSafe = i; }
-    else if (c === "," && depth > 0) lastSafe = i - 1;
-  }
-  // cut at last safe element boundary, drop trailing comma, close open brackets
-  let cut = lastSafe > 0 ? t.slice(0, lastSafe + 1) : t;
-  cut = cut.replace(/,\s*$/, "");
-  // close remaining open brackets
-  // recompute open brackets
-  const open: string[] = [];
-  inStr = false; esc = false;
-  for (let i = 0; i < cut.length; i++) {
-    const c = cut[i];
-    if (inStr) {
-      if (esc) { esc = false; continue; }
-      if (c === "\\") { esc = true; continue; }
-      if (c === '"') inStr = false;
-      continue;
-    }
-    if (c === '"') { inStr = true; continue; }
-    if (c === "{" || c === "[") open.push(c);
-    else if (c === "}" || c === "]") open.pop();
-  }
-  if (inStr) cut += '"';
-  while (open.length) { const o = open.pop(); cut += o === "{" ? "}" : "]"; }
-  return JSON.parse(cut);
-}
+const COMPLIANCE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["score", "verdict", "summary", "deviations", "matched_rules"],
+  properties: {
+    score: { type: "number", minimum: 0, maximum: 100 },
+    verdict: { type: "string", enum: ["pass", "warning", "fail"] },
+    summary: { type: "string" },
+    deviations: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["severity", "category", "rule", "quote", "suggestion"],
+        properties: {
+          severity: { type: "string", enum: ["high", "medium", "low"] },
+          category: { type: "string" },
+          rule: { type: "string" },
+          quote: { type: "string" },
+          suggestion: { type: "string" },
+        },
+      },
+    },
+    matched_rules: { type: "array", items: { type: "string" } },
+  },
+} as const;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -148,12 +115,7 @@ serve(async (req) => {
       .maybeSingle();
     const model = assignment?.model_key || "google/gemini-2.5-flash";
 
-    const LOVABLE_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    const aiUrl = OPENROUTER_API_KEY
-      ? "https://openrouter.ai/api/v1/chat/completions"
-      : "https://openrouter.ai/api/v1/chat/completions";
-    const aiKey = OPENROUTER_API_KEY || LOVABLE_API_KEY;
+    const aiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!aiKey) throw new Error("AI key not configured");
 
     const stopWords: string[] = Array.isArray(author.stop_words) ? author.stop_words : [];
@@ -198,44 +160,26 @@ ${sample}
 
 Верни строго JSON.`;
 
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 45000);
-
-    const resp = await fetch(aiUrl, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { Authorization: `Bearer ${aiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    let json;
+    try {
+      json = await chatJson<ComplianceResult>({
+        apiKey: aiKey,
         model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        system: systemPrompt,
+        user: userPrompt,
         temperature: 0.2,
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
-      }),
-    });
-    clearTimeout(timer);
-
-    if (!resp.ok) {
-      if (resp.status === 429) {
-        return new Response(JSON.stringify({ error: "Превышен лимит запросов, попробуйте позже" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (resp.status === 402) {
-        return new Response(JSON.stringify({ error: "AI-кредиты исчерпаны" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const txt = await resp.text();
-      console.error("AI error", resp.status, txt);
-      throw new Error(`AI gateway error: ${resp.status}`);
+        maxTokens: 4000,
+        timeoutMs: 45_000,
+        schema: COMPLIANCE_SCHEMA as unknown as Record<string, unknown>,
+        schemaName: "AuthorCompliance",
+        retries: 1,
+        appTitle: "SEO-Modul Compliance",
+      });
+    } catch (e) {
+      if (e instanceof AiError) return aiErrorToResponse(e, corsHeaders);
+      throw e;
     }
-
-    const aiData = await resp.json();
-    const result = extractJson(aiData);
+    const result = json.data;
 
     // Sanity defaults
     if (typeof result.score !== "number") result.score = 0;
@@ -250,10 +194,10 @@ ${sample}
       user_id: user.id,
       action: "check_author_compliance",
       model_used: model,
-      tokens_used: aiData.usage?.total_tokens || 0,
+      tokens_used: json.tokensIn + json.tokensOut,
     });
 
-    return new Response(JSON.stringify({ result, model_used: model }), {
+    return new Response(JSON.stringify({ result, model_used: json.model, retries: json.retries }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
