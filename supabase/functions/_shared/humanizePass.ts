@@ -11,6 +11,7 @@
  */
 
 import { applyStealthPostProcess } from "./stealth.ts";
+import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "./sentenceStructure.ts";
 
 const SONNET_MODEL = "anthropic/claude-sonnet-4";
 const OPUS_MODEL = "anthropic/claude-opus-4";
@@ -38,15 +39,30 @@ STRICT rules:
 - Replace em/en dashes (—, –) with regular hyphens (-).
 - Write directly and concretely. Return ONLY the rewritten markdown, no commentary.`;
 
-const PASS1_USER = (lang: "ru" | "en", content: string) =>
-  lang === "ru"
-    ? `Перепиши текст под живой человеческий ритм. Цель: AI-детектор должен показать <30%. Не теряй ни одного факта или ссылки.\n\nТекст:\n${content}`
-    : `Rewrite the text with a lively human rhythm. Goal: AI detectors must score <30%. Do not lose any facts or links.\n\nText:\n${content}`;
+function structureHintFor(lang: "ru" | "en", content: string): string {
+  if (lang !== "ru") return "";
+  try {
+    const metrics = analyzeSentenceStructure(content);
+    const hint = buildSentenceStructureFixHint(metrics);
+    return hint ? `\n\n${hint}\n` : "";
+  } catch {
+    return "";
+  }
+}
 
-const PASS2_USER = (lang: "ru" | "en", content: string) =>
-  lang === "ru"
-    ? `Микро-проход: убери оставшиеся "ИИ-подписи" - монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Цель: AI-детектор <5%. Никаких изменений в фактах, цифрах, ссылках.\n\nТекст:\n${content}`
+const PASS1_USER = (lang: "ru" | "en", content: string) => {
+  const hint = structureHintFor(lang, content);
+  return lang === "ru"
+    ? `Перепиши текст под живой человеческий ритм. Цель: AI-детектор должен показать <30%. Не теряй ни одного факта или ссылки.${hint}\nТекст:\n${content}`
+    : `Rewrite the text with a lively human rhythm. Goal: AI detectors must score <30%. Do not lose any facts or links.\n\nText:\n${content}`;
+};
+
+const PASS2_USER = (lang: "ru" | "en", content: string) => {
+  const hint = structureHintFor(lang, content);
+  return lang === "ru"
+    ? `Микро-проход: убери оставшиеся "ИИ-подписи" - монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Цель: AI-детектор <5%. Никаких изменений в фактах, цифрах, ссылках.${hint}\nТекст:\n${content}`
     : `Micro-pass: remove remaining "AI fingerprints" - monotonous syntax, repeated paragraph openers, lexical bursts. Goal: AI detectors <5%. Do not touch facts, numbers, or links.\n\nText:\n${content}`;
+};
 
 async function callOpenRouter(
   apiKey: string,
