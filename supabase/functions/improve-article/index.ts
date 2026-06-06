@@ -6,6 +6,8 @@
 // Returns: { ok: true } and re-triggers quality-check auto-mode in background.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { chatComplete, AiError } from "../_shared/aiClient.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
 import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
@@ -86,41 +88,25 @@ function splitLongSentences(text: string): string {
 
 async function callOpenRouter(model: string, system: string, user: string, key: string, maxTokens = 8000): Promise<string | null> {
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: system }, { role: "user", content: user }],
-        max_tokens: maxTokens,
-        temperature: 0.85,
-      }),
+    const r = await chatComplete({
+      apiKey: key, model, system, user,
+      maxTokens, temperature: 0.85, timeoutMs: 120_000,
+      appTitle: "SEO-Modul improve-article",
     });
-    if (!res.ok) {
-      console.error("[improve-article] OR error", res.status, await res.text());
-      return null;
-    }
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content || null;
+    return r.content || null;
   } catch (e) {
-    console.error("[improve-article] OR exception", e);
+    console.error("[improve-article] OR exception", (e as Error)?.message);
     return null;
   }
 }
 
 async function callGateway(model: string, system: string, user: string, key: string): Promise<string | null> {
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      }),
+    const r = await chatComplete({
+      apiKey: key, model, system, user, timeoutMs: 120_000,
+      appTitle: "SEO-Modul improve-article",
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content || null;
+    return r.content || null;
   } catch { return null; }
 }
 
