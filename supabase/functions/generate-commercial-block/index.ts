@@ -8,6 +8,7 @@ import { withTimeout } from "../_shared/withTimeout.ts";
 import { applyStealthPostProcess, buildStealthSystemAddon } from "../_shared/stealth.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
+import { webGroundedFactCheck, hasRiskyClaims } from "../_shared/webGroundedCheck.ts";
 import {
   countWords as countWordsQ,
   keywordDensity as keywordDensityQ,
