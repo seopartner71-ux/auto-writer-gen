@@ -5,6 +5,7 @@
 // Body: { article_id: string }
 // Returns: { ok: true } and re-triggers quality-check auto-mode in background.
 
+import { verifyAuth } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { chatComplete, AiError } from "../_shared/aiClient.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";

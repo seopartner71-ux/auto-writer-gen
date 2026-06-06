@@ -2,6 +2,7 @@
 // Modes:
 //   POST { user_id }       — service-role daily cron (no JWT, run for all active users if user_id omitted)
 //   POST {}                — authenticated user runs check for own keywords (manual refresh)
+import { verifyAuth } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
