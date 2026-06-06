@@ -206,7 +206,6 @@ export async function chatJson<T = unknown>(opts: ChatJsonOptions<T>): Promise<C
   throw new AiError("parse_failed", `Failed to parse JSON after ${retries + 1} attempts: ${lastErr?.message || "unknown"}`, { upstreamBody: lastRaw.slice(0, 1000) });
 }
 
-const baseExtraJsonObject = { response_format: { type: "json_object" } } as const;
 
 /** Маппинг AiError → HTTP-ответ для edge-функций. */
 export function aiErrorToResponse(e: unknown, cors: Record<string, string>): Response {
