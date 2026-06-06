@@ -64,11 +64,30 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         id: toastId,
         duration: TOTAL_BUDGET_MS,
       });
-      const { data: hz, error: hzErr } = await supabase.functions.invoke("humanize-article", {
+      // Client-side hard cap so the toast does not hang if the edge function
+      // gets killed by the wall-clock (Cloudflare/Workers tears down the
+      // connection without a clean error). 150s ≈ edge function budget.
+      const invokePromise = supabase.functions.invoke("humanize-article", {
         body: { article_id: articleId },
       });
-      if (hzErr) console.warn("[stealth] humanize-article failed:", hzErr);
-      else logger.debug("[stealth] humanize-article:", hz);
+      const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
+        setTimeout(
+          () => resolve({ data: null, error: new Error("humanize_client_timeout_150s") }),
+          150_000,
+        ),
+      );
+      const { data: hz, error: hzErr } = (await Promise.race([invokePromise, timeoutPromise])) as
+        | { data: unknown; error: null }
+        | { data: null; error: Error };
+      if (hzErr) {
+        console.warn("[stealth] humanize-article failed:", hzErr);
+        toast.loading(
+          t("Гуманизация не завершилась, продолжаем проверки...", "Humanize didn't finish, continuing checks..."),
+          { id: toastId, duration: 4_000 },
+        );
+      } else {
+        logger.debug("[stealth] humanize-article:", hz);
+      }
     } catch (e) {
       console.warn("[stealth] humanize-article threw:", errMessage(e));
     }
