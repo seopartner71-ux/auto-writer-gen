@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { logger, errMessage } from "@/shared/utils/logger";
 import { toast } from "sonner";
 import { createElement } from "react";
-import { HumanizeProgress, type HumanizeStage } from "./HumanizeProgress";
+import { HumanizeProgress, type HumanizeStage, type HumanizeMetricsReport } from "./HumanizeProgress";
 
 const HUMANIZE_THRESHOLD = 70;
 const FIRST_PASS_THRESHOLD = 60;
@@ -64,12 +64,13 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     try {
       // Custom toast with stepper (Pass 1 / Pass 2 / Finalize) + progress bar.
       const humanizeStartedAt = Date.now();
-      const renderHumanize = (stage?: HumanizeStage) =>
+      const renderHumanize = (stage?: HumanizeStage, metrics?: HumanizeMetricsReport) =>
         createElement(HumanizeProgress, {
           startedAt: humanizeStartedAt,
           estimatedMs: 130_000,
           forcedStage: stage,
           lang,
+          metrics,
         });
       toast.custom(() => renderHumanize(), { id: toastId, duration: 160_000 });
       // Client-side hard cap so the toast does not hang if the edge function
@@ -92,7 +93,12 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         toast.custom(() => renderHumanize("error"), { id: toastId, duration: 4_000 });
       } else {
         logger.debug("[stealth] humanize-article:", hz);
-        toast.custom(() => renderHumanize("done"), { id: toastId, duration: 2_500 });
+        const metrics = (hz as { metrics?: HumanizeMetricsReport } | null)?.metrics;
+        // Hold the toast a bit longer when we have a delta to show.
+        toast.custom(() => renderHumanize("done", metrics), {
+          id: toastId,
+          duration: metrics ? 6_000 : 2_500,
+        });
       }
     } catch (e) {
       console.warn("[stealth] humanize-article threw:", errMessage(e));
