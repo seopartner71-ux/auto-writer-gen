@@ -172,7 +172,7 @@ export function SectionPricing() {
                     <div className="absolute -inset-px rounded-3xl opacity-30 animate-pulse" style={{
                       background: "linear-gradient(135deg, transparent 30%, hsl(270 60% 60% / 0.3) 50%, transparent 70%)",
                     }} />
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 bg-gradient-to-r from-primary to-[#3b82f6] text-white text-[10px] font-tech font-bold px-4 py-1 rounded-full uppercase tracking-wider">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 bg-primary text-primary-foreground text-[10px] font-tech font-bold px-4 py-1 rounded-full uppercase tracking-wider">
                       <Star className="h-3 w-3" /> Popular
                     </div>
                   </>
@@ -216,10 +216,10 @@ export function SectionPricing() {
                   </ul>
 
                   <button onClick={() => navigate("/register")}
-                    className={`w-full py-3.5 rounded-xl text-sm font-tech font-semibold transition-all ${
+                    className={`w-full py-3.5 rounded-xl text-sm font-tech font-semibold transition-colors ${
                       plan.popular
-                        ? "bg-gradient-to-r from-primary to-[#3b82f6] text-white hover:shadow-[0_0_30px_rgba(139,92,246,0.4)]"
-                        : "border border-white/10 bg-white/[0.03] text-foreground hover:bg-white/[0.06]"
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "border border-border bg-transparent text-foreground hover:bg-accent/50"
                     }`}>
                     {plan.cta}
                   </button>
