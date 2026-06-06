@@ -31,13 +31,10 @@ function QuickStartBanner() {
   return (
     <Card
       onClick={() => navigate("/quick-start")}
-      className="group relative cursor-pointer overflow-hidden border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent hover:border-primary/50 transition-all"
+      className="group relative cursor-pointer overflow-hidden border-border hover:border-primary/40 transition-colors"
     >
-      <div className="absolute inset-0 opacity-30 pointer-events-none">
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-primary/20 blur-3xl" />
-      </div>
       <CardContent className="relative flex items-center gap-4 p-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-[hsl(217,91%,60%)] text-white shadow-lg shadow-primary/20">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Sparkles className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
