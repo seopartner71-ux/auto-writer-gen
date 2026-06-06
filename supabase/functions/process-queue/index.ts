@@ -1,17 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
+import { requireServiceRole } from "../_shared/auth.ts";
 
 const MAX_CONCURRENT = 5; // Process up to 5 items at a time
 const RETRY_BASE_DELAY_MS = 5000; // 5s, 10s, 20s exponential backoff
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const pre = handlePreflight(req); if (pre) return pre;
+
+  // Internal-only: invoked by pg_cron or admin tools with service-role bearer.
+  const denied = requireServiceRole(req);
+  if (denied) return denied;
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
