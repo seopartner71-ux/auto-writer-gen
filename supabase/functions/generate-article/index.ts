@@ -189,6 +189,8 @@ serve(async (req) => {
       ? "anthropic/claude-sonnet-4"
       : (userPlan === "pro" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash-lite");
     let model = assignment?.model_key || fallbackModel;
+    logUserId = user.id;
+    logModel = model;
     if (isHumanizePolish) console.log("[generate-article] humanize_polish route ->", model);
 
     // Site Factory project override: respect project.ai_model preference.
