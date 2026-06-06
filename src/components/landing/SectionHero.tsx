@@ -54,11 +54,12 @@ export function SectionHero() {
             <motion.h1 initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
               className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95] text-white" style={{ letterSpacing: "-0.06em", textShadow: "0 0 80px rgba(139,92,246,0.12)" }}>
               {t("lp.heroLine1")}
-              <br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">
-                {t("lp.heroLine2")}
-              </span>
             </motion.h1>
+
+            <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.18 }}
+              className="mt-5 text-xl sm:text-2xl md:text-3xl font-medium text-foreground/85 leading-[1.2] tracking-tight max-w-2xl mx-auto lg:mx-0">
+              {t("lp.heroLine2")}
+            </motion.p>
 
             <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25 }}
               className="mt-6 max-w-lg text-[15px] text-muted-foreground/80 leading-[1.7] mx-auto lg:mx-0">
