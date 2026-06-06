@@ -142,11 +142,9 @@ Deno.serve(async (req) => {
     if (isServiceCall) {
       user = { id: bodyUserId };
     } else {
-      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user: u } } = await userClient.auth.getUser();
-      if (u) user = { id: u.id };
+      const __auth = await verifyAuth(req);
+      if (__auth instanceof Response) return __auth;
+      user = { id: __auth.userId };
     }
     if (!user) return json({ error: "Unauthorized" }, 401);
 
