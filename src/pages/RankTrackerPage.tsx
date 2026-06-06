@@ -186,9 +186,12 @@ export default function RankTrackerPage() {
 
       const { data, error } = await supabase
         .from("tracked_keywords")
-        .upsert(rowsToInsert, { onConflict: "user_id,keyword,target_domain,engine,region,city", ignoreDuplicates: true })
+        .insert(rowsToInsert)
         .select("id");
-      if (error) throw error;
+      if (error) {
+        console.error("[rank-tracker] insert failed", error);
+        throw new Error(error.message || (isRu ? "Ошибка добавления" : "Insert failed"));
+      }
       const inserted = data?.length ?? 0;
       return { inserted, skipped: rows.length - inserted };
     },
