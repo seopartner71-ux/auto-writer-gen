@@ -139,6 +139,8 @@ export interface HumanizeMetrics {
   maxShortRun: number;
   chainViolations: number;
   banlistHits: number;
+  repeatedOpeners: number;
+  repeatedNgrams: number;
 }
 
 export function measureHumanize(text: string, lang: "ru" | "en"): HumanizeMetrics {
@@ -151,7 +153,61 @@ export function measureHumanize(text: string, lang: "ru" | "en"): HumanizeMetric
     maxShortRun: sent.maxShortRun,
     chainViolations: countChainViolations(text, lang),
     banlistHits: countBanlistHits(text, lang),
+    repeatedOpeners: countRepeatedOpeners(text),
+    repeatedNgrams: countRepeatedNgrams(text),
   };
+}
+
+// ─── Repeated paragraph/heading openers ───────────────────────────
+// Counts how many H2 titles + first paragraph after each H2 (or top-level
+// paragraphs in markdown) share the same first 3 words. Returns the number
+// of "extra" duplicates (sum of (group_size - 1) for groups of size >= 2).
+// Catches templates like "В этом разделе...", "Стоит понимать, что...".
+export function countRepeatedOpeners(text: string): number {
+  if (!text) return 0;
+  const blocks: string[] = [];
+  const htmlBlockRe = /<(?:h2|h3|p|li)[^>]*>([\s\S]*?)<\/(?:h2|h3|p|li)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = htmlBlockRe.exec(text)) !== null) {
+    const inner = m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (inner) blocks.push(inner);
+  }
+  if (blocks.length === 0) {
+    // Markdown fallback — split on blank lines, skip code fences.
+    const md = text.replace(/```[\s\S]*?```/g, " ");
+    for (const para of md.split(/\n{2,}/)) {
+      const t = para.replace(/^[#>\-\*\d\.\s]+/, "").replace(/\s+/g, " ").trim();
+      if (t) blocks.push(t);
+    }
+  }
+  const freq = new Map<string, number>();
+  for (const b of blocks) {
+    const words = b.toLowerCase().split(/[^a-zа-яё0-9]+/i).filter(w => w.length >= 2).slice(0, 3);
+    if (words.length < 3) continue;
+    const key = words.join(" ");
+    freq.set(key, (freq.get(key) || 0) + 1);
+  }
+  let extra = 0;
+  for (const c of freq.values()) if (c >= 2) extra += (c - 1);
+  return extra;
+}
+
+// ─── Repeated 3-grams ─────────────────────────────────────────────
+// Counts distinct 3-word sequences (of meaningful words >= 3 chars) that
+// appear >= minFreq times in the article body. Catches LLM phrase loops.
+export function countRepeatedNgrams(text: string, n = 3, minFreq = 3): number {
+  if (!text) return 0;
+  const plain = text.replace(/<[^>]+>/g, " ").replace(/```[\s\S]*?```/g, " ").toLowerCase();
+  const words = plain.split(/[^a-zа-яё0-9]+/i).filter(w => w.length >= 3);
+  if (words.length < n) return 0;
+  const freq = new Map<string, number>();
+  for (let i = 0; i <= words.length - n; i++) {
+    const gram = words.slice(i, i + n).join(" ");
+    freq.set(gram, (freq.get(gram) || 0) + 1);
+  }
+  let count = 0;
+  for (const c of freq.values()) if (c >= minFreq) count++;
+  return count;
 }
 
 /**

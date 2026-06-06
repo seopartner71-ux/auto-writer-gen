@@ -13,6 +13,7 @@ import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { validateContent } from "../_shared/contentValidator.ts";
 
 function detectLang(text: string, hint?: string | null): "ru" | "en" {
   if (hint === "ru" || hint === "en") return hint;
@@ -88,10 +89,16 @@ serve(async (req) => {
 
     const lang = detectLang(content, article.language);
 
+    // Preflight: anti-fake regex pass (fake experts, pseudo-stats, fake orgs).
+    // Runs BEFORE humanize so LLM rewrites already-clean text.
+    const preflight = validateContent(content);
+    const cleanedInput = preflight.fixedContent;
+    const fakesFixed = preflight.issues.length;
+
     const elapsed = startTimer();
     let result;
     try {
-      result = await runDoubleHumanizePass(content, lang, openRouterKey, {
+      result = await runDoubleHumanizePass(cleanedInput, lang, openRouterKey, {
         admin,
         userId: article.user_id,
       });
@@ -124,6 +131,7 @@ serve(async (req) => {
         opus_skip_reason: result.opusSkipReason || null,
         metrics: result.metrics || null,
         rejections: result.rejections || null,
+        fakes_fixed: fakesFixed,
       },
     });
 
@@ -140,16 +148,25 @@ serve(async (req) => {
       opus_skip_reason: result.opusSkipReason || null,
       metrics: result.metrics || null,
       rejections: result.rejections || null,
+      fakes_fixed: fakesFixed,
+      preflight_issues: preflight.issues.slice(0, 20).map(i => ({ type: i.type, original: i.original.slice(0, 80) })),
       ran_at: new Date().toISOString(),
       lang,
     };
 
     if (result.passesApplied === 0) {
       // Persist meta even when nothing changed, so we can see why in admin.
+      // If only anti-fake preflight applied changes, still save fixedContent.
+      const updatePayload: Record<string, unknown> = { humanize_meta: meta, pipeline_stages: newStages };
+      if (fakesFixed > 0 && cleanedInput !== content) {
+        updatePayload.content = cleanedInput;
+      }
       await admin
         .from("articles")
-        .update({ humanize_meta: meta, pipeline_stages: newStages })
+        .update(updatePayload)
         .eq("id", article_id);
+      // Fire-and-forget server-side quality-check so metrics don't depend on the client tab.
+      fireQualityCheck(article_id, cleanedInput);
       return jsonResponse({
         ok: true,
         applied: false,
@@ -172,6 +189,9 @@ serve(async (req) => {
       return errorResponse(`DB update failed: ${updErr.message}`, 500);
     }
 
+    // Fire-and-forget server-side quality-check (kills client-tab dependency).
+    fireQualityCheck(article_id, result.content);
+
     return jsonResponse({
       ok: true,
       applied: true,
@@ -181,9 +201,24 @@ serve(async (req) => {
       reason: result.opusSkipReason || null,
       metrics: result.metrics || null,
       rejections: result.rejections || null,
+      fakes_fixed: fakesFixed,
     });
   } catch (e) {
     console.error("[humanize-article] error", e);
     return errorResponse(e instanceof Error ? e.message : "Unknown error", 500);
   }
 });
+
+function fireQualityCheck(articleId: string, content: string): void {
+  try {
+    if (!content || content.length < 200) return;
+    const url = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !key) return;
+    void fetch(`${url}/functions/v1/quality-check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      body: JSON.stringify({ article_id: articleId, content, mode: "auto" }),
+    }).catch(() => {});
+  } catch { /* ignore */ }
+}

@@ -24,6 +24,8 @@ export interface HumanizeMetricsSnapshot {
   maxShortRun?: number;
   chainViolations?: number;
   banlistHits?: number;
+  repeatedOpeners?: number;
+  repeatedNgrams?: number;
   signatures?: {
     headings?: number;
     listItems?: number;
@@ -37,6 +39,8 @@ export interface HumanizeMetricsReport {
   postPass1?: HumanizeMetricsSnapshot;
   postPass2?: HumanizeMetricsSnapshot;
   postCleanup?: HumanizeMetricsSnapshot;
+  /** Preflight anti-fake replacements (counted once before pass 1). */
+  fakesFixed?: number;
 }
 
 interface Props {
@@ -147,7 +151,7 @@ export function HumanizeProgress({
         })}
       </ul>
 
-      {forcedStage === "done" && metrics?.pre && (
+      {forcedStage === "done" && (metrics?.pre || (metrics?.fakesFixed || 0) > 0) && metrics && (
         <MetricsDelta metrics={metrics} lang={lang} />
       )}
     </div>
@@ -182,11 +186,14 @@ function MetricsDelta({
     { key: "short", label: t("Коротких",     "Short %"),     before: pre.shortRatio != null ? Math.round(pre.shortRatio * 100) : undefined, after: post.shortRatio != null ? Math.round(post.shortRatio * 100) : undefined, lowerBetter: true, suffix: "%" },
     { key: "chain", label: t("Цепочки союзов","Chains"),     before: pre.chainViolations, after: post.chainViolations, lowerBetter: true },
     { key: "ban",   label: t("Запрещ. слова", "Banlist"),    before: pre.banlistHits,     after: post.banlistHits,     lowerBetter: true },
+    { key: "open",  label: t("Повторы зачинов","Repeated openers"), before: pre.repeatedOpeners, after: post.repeatedOpeners, lowerBetter: true },
+    { key: "ngram", label: t("Повторы фраз",  "Repeated phrases"),  before: pre.repeatedNgrams,  after: post.repeatedNgrams,  lowerBetter: true },
   ];
 
   // Drop rows where both sides are zero — keeps the panel tight.
   const visible = rows.filter((r) => (r.before || 0) + (r.after || 0) > 0);
-  if (!visible.length) return null;
+  const fakes = metrics.fakesFixed || 0;
+  if (!visible.length && !fakes) return null;
 
   return (
     <div className="mt-3 pt-2 border-t border-border space-y-1">
@@ -205,6 +212,12 @@ function MetricsDelta({
           </span>
         </div>
       ))}
+      {fakes > 0 && (
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground">{t("Фейк-нейтрализации", "Fake fixes")}</span>
+          <span className="tabular-nums font-medium text-emerald-500">{fakes}</span>
+        </div>
+      )}
     </div>
   );
 }

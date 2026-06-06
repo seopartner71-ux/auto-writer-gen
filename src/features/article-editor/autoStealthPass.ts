@@ -93,7 +93,10 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         toast.custom(() => renderHumanize("error"), { id: toastId, duration: 4_000 });
       } else {
         logger.debug("[stealth] humanize-article:", hz);
-        const metrics = (hz as { metrics?: HumanizeMetricsReport } | null)?.metrics;
+        const raw = hz as { metrics?: HumanizeMetricsReport; fakes_fixed?: number } | null;
+        const metrics: HumanizeMetricsReport | undefined = raw?.metrics
+          ? { ...raw.metrics, fakesFixed: raw.fakes_fixed }
+          : (raw?.fakes_fixed ? { fakesFixed: raw.fakes_fixed } : undefined);
         // Hold the toast a bit longer when we have a delta to show.
         toast.custom(() => renderHumanize("done", metrics), {
           id: toastId,
