@@ -1386,6 +1386,15 @@ Deno.serve(async (req) => {
     });
   } catch (e: any) {
     console.error("[quality-check] fatal", e);
+    logPipelineEvent({
+      stage: "quality_check",
+      article_id: articleIdForLog,
+      user_id: userIdForLog,
+      verdict: "fail",
+      error_kind: "exception",
+      error_message: e?.message || String(e),
+      duration_ms: timer(),
+    });
     return json({ error: e?.message || "Unknown error" }, 500);
   }
 });
