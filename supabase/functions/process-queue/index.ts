@@ -252,6 +252,13 @@ serve(async (req) => {
           }).eq("id", item.id);
           results.push({ id: item.id, status: "completed" });
         }
+        logPipelineEvent({
+          stage: "queue_process",
+          user_id: item.user_id,
+          verdict: "pass",
+          duration_ms: itemTimer(),
+          meta: { queue_item_id: item.id, retry: item.retry_count },
+        });
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Unknown error";
         console.error(`Queue item ${item.id} error:`, errMsg);
