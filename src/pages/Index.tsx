@@ -1,27 +1,16 @@
-import { lazy, Suspense } from "react";
-import { LandingNav } from "@/components/landing/LandingNav";
-import { SectionHero } from "@/components/landing/SectionHero";
+import { lazy, Suspense, useEffect } from "react";
+import { LandingNavV3 } from "@/components/landing/v3/LandingNavV3";
+import { LandingHeroV3 } from "@/components/landing/v3/LandingHeroV3";
 import { SectionFaq } from "@/components/landing/SectionFaq";
-import { LandingFooter } from "@/components/landing/LandingFooter";
 import { CookieConsent } from "@/components/landing/CookieConsent";
 import { ScrollToTop } from "@/components/landing/ScrollToTop";
-import { FloatingCTA } from "@/components/landing/FloatingCTA";
 import { useI18n } from "@/shared/hooks/useI18n";
-import { useEffect } from "react";
 
-// Below-fold sections — lazy loaded
-const SectionResearch = lazy(() => import("@/components/landing/SectionResearch").then(m => ({ default: m.SectionResearch })));
-const LandingSandbox = lazy(() => import("@/components/landing/LandingSandbox").then(m => ({ default: m.LandingSandbox })));
-const SectionVideoDemo = lazy(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
-const SectionRealCase = lazy(() => import("@/components/landing/SectionRealCase").then(m => ({ default: m.SectionRealCase })));
-const SectionPersona = lazy(() => import("@/components/landing/SectionPersona").then(m => ({ default: m.SectionPersona })));
-const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m => ({ default: m.SectionGeo })));
-const SectionRankTracker = lazy(() => import("@/components/landing/SectionRankTracker").then(m => ({ default: m.SectionRankTracker })));
-const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
-const SectionComparison = lazy(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
-const SectionPricing = lazy(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
-const SectionFinalCta = lazy(() => import("@/components/landing/SectionFinalCta").then(m => ({ default: m.SectionFinalCta })));
-const SectionQualityProof = lazy(() => import("@/components/landing/SectionQualityProof").then(m => ({ default: m.SectionQualityProof })));
+const LandingTrustV3 = lazy(() => import("@/components/landing/v3/LandingTrustV3").then(m => ({ default: m.LandingTrustV3 })));
+const LandingBentoV3 = lazy(() => import("@/components/landing/v3/LandingBentoV3").then(m => ({ default: m.LandingBentoV3 })));
+const LandingPricingV3 = lazy(() => import("@/components/landing/v3/LandingPricingV3").then(m => ({ default: m.LandingPricingV3 })));
+const LandingFinalCtaV3 = lazy(() => import("@/components/landing/v3/LandingFinalCtaV3").then(m => ({ default: m.LandingFinalCtaV3 })));
+const LandingFooterV3 = lazy(() => import("@/components/landing/v3/LandingFooterV3").then(m => ({ default: m.LandingFooterV3 })));
 
 export default function Index() {
   const { lang } = useI18n();
@@ -113,46 +102,21 @@ export default function Index() {
   }, [lang]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-foreground relative">
-      {/* Noise texture */}
-      <div
-        className="pointer-events-none fixed inset-0 z-[1] opacity-[0.02]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
-          backgroundRepeat: "repeat",
-          backgroundSize: "256px 256px",
-        }}
-      />
-      <div className="pointer-events-none fixed top-[30%] left-[15%] w-[600px] h-[500px] rounded-full bg-primary/[0.03] blur-[250px] z-[1]" />
-      <div className="pointer-events-none fixed top-[60%] right-[10%] w-[500px] h-[400px] rounded-full bg-[#3b82f6]/[0.025] blur-[220px] z-[1]" />
-
-      <div className="relative z-[3]">
-        <LandingNav />
-      </div>
-
-      <div className="relative z-[2]">
-        <SectionHero />
+    <div className="min-h-screen bg-background text-foreground">
+      <LandingNavV3 />
+      <main>
+        <LandingHeroV3 />
         <Suspense fallback={null}>
-          <LandingSandbox />
-          <SectionVideoDemo />
-          <SectionRealCase />
-          <SectionQualityProof />
-          <SectionResearch />
-          <SectionPersona />
-          <SectionGeo />
-          <SectionRankTracker />
-          <SectionStealthEngine />
-          <SectionComparison />
-          <SectionPricing />
-          <SectionFinalCta />
+          <LandingTrustV3 />
+          <LandingBentoV3 />
+          <LandingPricingV3 />
+          <SectionFaq />
+          <LandingFinalCtaV3 />
+          <LandingFooterV3 />
         </Suspense>
-        <SectionFaq />
-        <LandingFooter />
-      </div>
-
+      </main>
       <CookieConsent />
       <ScrollToTop />
-      <FloatingCTA />
     </div>
   );
 }
