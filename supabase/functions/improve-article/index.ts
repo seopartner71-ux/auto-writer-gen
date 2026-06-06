@@ -11,6 +11,13 @@ import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_sha
 import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
+import {
+  getStyleProfile,
+  sentenceOptionsFromStyleProfile,
+  keywordOptionsFromStyleProfile,
+  cancellaryOptionsFromStyleProfile,
+  type StyleProfile,
+} from "../_shared/styleProfile.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -165,7 +172,7 @@ Deno.serve(async (req) => {
       fix_type === "keyword_freq" ? "keyword_freq" : "all";
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count")
+      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
@@ -234,6 +241,17 @@ Deno.serve(async (req) => {
     const aiScore = Number(art.ai_score ?? 100);
     const burstStatus = String(art.burstiness_status || "ok");
     const dStatus = String(art.keyword_density_status || "ok");
+
+    // Resolve StyleProfile for this article (same source-of-truth as quality-check).
+    let styleProfile: StyleProfile = getStyleProfile(null);
+    if ((art as any).author_profile_id) {
+      try {
+        const { data: author } = await admin.from("author_profiles")
+          .select("style_analysis").eq("id", (art as any).author_profile_id).maybeSingle();
+        const preset = (author?.style_analysis as any)?.syntax_profile;
+        styleProfile = getStyleProfile(preset);
+      } catch (_) { /* keep default */ }
+    }
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
     if ((phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
