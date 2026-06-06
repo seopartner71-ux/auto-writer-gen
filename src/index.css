@@ -146,7 +146,8 @@ html {
    Strip gradients, glows and heavy shadows inside the authenticated
    app shell. Landing pages keep their visual richness because they
    render outside `.app-shell`. Gradient-text (bg-clip-text) is kept. */
-.app-shell [class*="bg-gradient-to-"]:not(.bg-clip-text) {
+.app-shell [class*="bg-gradient-to-"]:not(.bg-clip-text),
+.landing-shell [class*="bg-gradient-to-"]:not(.bg-clip-text) {
   background-image: none !important;
 }
 .app-shell .shadow-sm,
@@ -160,7 +161,19 @@ html {
 .app-shell .drop-shadow-md,
 .app-shell .drop-shadow-lg,
 .app-shell .glow-primary,
-.app-shell .animate-pulse-glow {
+.app-shell .animate-pulse-glow,
+.landing-shell .shadow-sm,
+.landing-shell .shadow,
+.landing-shell .shadow-md,
+.landing-shell .shadow-lg,
+.landing-shell .shadow-xl,
+.landing-shell .shadow-2xl,
+.landing-shell [class*="shadow-["],
+.landing-shell .drop-shadow,
+.landing-shell .drop-shadow-md,
+.landing-shell .drop-shadow-lg,
+.landing-shell .glow-primary,
+.landing-shell .animate-pulse-glow {
   box-shadow: none !important;
   filter: none !important;
   animation: none !important;
@@ -169,17 +182,64 @@ html {
 .app-shell .backdrop-blur-sm,
 .app-shell .backdrop-blur-md,
 .app-shell .backdrop-blur-lg,
-.app-shell .backdrop-blur-xl {
+.app-shell .backdrop-blur-xl,
+.landing-shell .backdrop-blur,
+.landing-shell .backdrop-blur-sm,
+.landing-shell .backdrop-blur-md,
+.landing-shell .backdrop-blur-lg,
+.landing-shell .backdrop-blur-xl,
+.landing-shell [class*="backdrop-blur-["] {
   backdrop-filter: none !important;
 }
 
 /* Premium Minimalism: large numeric stats use mono with tabular figures */
 .app-shell .stat-num,
-.app-shell [data-stat] {
+.app-shell [data-stat],
+.landing-shell .stat-num,
+.landing-shell [data-stat] {
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   font-weight: 500;
+}
+
+/* Landing-only refinements: kill decorative blur-blob backgrounds,
+   neutralize remaining filter/animation noise, tighten display type. */
+.landing-shell [class*="blur-["] {
+  filter: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+.landing-shell .animate-pulse,
+.landing-shell [class*="animate-[pulse"] {
+  animation: none !important;
+}
+.landing-shell h1,
+.landing-shell h2,
+.landing-shell h3 {
+  letter-spacing: -0.035em;
+}
+/* Force solid foreground on gradient-text headings (premium minimalism) */
+.landing-shell h1 .bg-clip-text,
+.landing-shell h2 .bg-clip-text,
+.landing-shell h3 .bg-clip-text,
+.landing-shell h1.bg-clip-text,
+.landing-shell h2.bg-clip-text,
+.landing-shell h3.bg-clip-text {
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  color: hsl(var(--foreground)) !important;
+  background-image: none !important;
+}
+/* Large display numbers → mono tabular */
+.landing-shell .text-3xl.font-black,
+.landing-shell .text-4xl.font-black,
+.landing-shell .text-5xl.font-black,
+.landing-shell .text-6xl.font-black,
+.landing-shell .text-4xl.font-bold.tabular-nums,
+.landing-shell .text-5xl.font-bold.tabular-nums {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
 }
 
 @keyframes marquee {
