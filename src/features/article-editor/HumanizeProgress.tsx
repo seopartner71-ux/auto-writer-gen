@@ -151,7 +151,7 @@ export function HumanizeProgress({
         })}
       </ul>
 
-      {forcedStage === "done" && metrics?.pre && (
+      {forcedStage === "done" && (metrics?.pre || (metrics?.fakesFixed || 0) > 0) && metrics && (
         <MetricsDelta metrics={metrics} lang={lang} />
       )}
     </div>
