@@ -11,44 +11,46 @@ html {
 @layer base {
   :root,
   .dark {
-    --background: 220 18% 7%;
+    /* Linear/Vercel premium minimalism — dark */
+    --background: 0 0% 4%;            /* #0A0A0A */
     --foreground: 0 0% 98%;
 
-    --card: 220 16% 10%;
-    --card-foreground: 210 20% 92%;
+    --card: 0 0% 7%;                  /* #121212 */
+    --card-foreground: 0 0% 96%;
 
-    --popover: 220 16% 12%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 270 60% 60%;
-    --primary-foreground: 220 18% 7%;
+    --primary: 252 56% 57%;           /* #6E56CF */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 16%;
-    --secondary-foreground: 210 15% 75%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 80%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 215 12% 50%;
+    --muted: 0 0% 10%;                /* #1A1A1A */
+    --muted-foreground: 0 0% 60%;     /* ~rgba(255,255,255,0.6) */
 
-    --accent: 270 50% 50%;
-    --accent-foreground: 210 20% 95%;
+    --accent: 252 56% 57%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 55%;
-    --destructive-foreground: 210 20% 95%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 270 60% 60%;
+    --border: 0 0% 14%;               /* ~rgba(255,255,255,0.08) on #0A0A0A */
+    --input: 0 0% 14%;
+    --ring: 252 56% 57%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 220 18% 6%;
-    --sidebar-foreground: 210 15% 70%;
-    --sidebar-primary: 270 60% 60%;
-    --sidebar-primary-foreground: 220 18% 7%;
-    --sidebar-accent: 220 14% 12%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 14% 14%;
-    --sidebar-ring: 270 60% 60%;
+    /* Sidebar merges with the app background */
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 60%;
+    --sidebar-primary: 252 56% 57%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 9%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 4%;
+    --sidebar-ring: 252 56% 57%;
 
     --success: 142 71% 45%;
     --warning: 38 90% 55%;
@@ -56,44 +58,45 @@ html {
   }
 
   .light {
-    --background: 210 20% 98%;
-    --foreground: 220 18% 10%;
+    /* Linear/Vercel premium minimalism — light */
+    --background: 240 9% 97%;         /* #F7F7F8 */
+    --foreground: 0 0% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 18% 10%;
+    --card-foreground: 0 0% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 18% 10%;
+    --popover-foreground: 0 0% 8%;
 
-    --primary: 270 60% 55%;
+    --primary: 252 56% 57%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 15% 93%;
-    --secondary-foreground: 220 14% 35%;
+    --secondary: 240 9% 95%;
+    --secondary-foreground: 0 0% 25%;
 
-    --muted: 210 15% 95%;
-    --muted-foreground: 215 12% 45%;
+    --muted: 240 9% 95%;              /* #F1F1F3 */
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 270 50% 45%;
+    --accent: 252 56% 57%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 15% 88%;
-    --input: 210 15% 88%;
-    --ring: 270 60% 55%;
+    --border: 240 5% 90%;             /* ~rgba(0,0,0,0.08) on #F7F7F8 */
+    --input: 240 5% 90%;
+    --ring: 252 56% 57%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 210 18% 96%;
-    --sidebar-foreground: 220 14% 35%;
-    --sidebar-primary: 270 60% 55%;
+    --sidebar-background: 240 9% 97%;
+    --sidebar-foreground: 0 0% 40%;
+    --sidebar-primary: 252 56% 57%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 15% 90%;
-    --sidebar-accent-foreground: 220 18% 10%;
-    --sidebar-border: 210 15% 88%;
-    --sidebar-ring: 270 60% 55%;
+    --sidebar-accent: 240 9% 93%;
+    --sidebar-accent-foreground: 0 0% 8%;
+    --sidebar-border: 240 9% 97%;
+    --sidebar-ring: 252 56% 57%;
 
     --success: 142 71% 45%;
     --warning: 38 85% 48%;
@@ -108,6 +111,11 @@ html {
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4 {
+    @apply tracking-tight;
   }
 }
 
