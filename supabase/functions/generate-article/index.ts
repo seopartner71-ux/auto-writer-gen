@@ -527,6 +527,15 @@ serve(async (req) => {
       });
     } catch (_) { /* ignore */ }
 
+    logPipelineEvent({
+      stage: "generate",
+      user_id: user.id,
+      verdict: "pass",
+      duration_ms: elapsed(),
+      model: String(model),
+      meta: { project_id: project_id || null, stream: true },
+    });
+
     // Wrap upstream stream with keep-alive pings every 20s. Prevents Cloudflare
     // idle-timeout from killing the connection when the model thinks silently.
     // SSE comment lines (starting with ":") are ignored by clients.
