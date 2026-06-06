@@ -1174,7 +1174,7 @@ export default function CommercialPage() {
                           className="font-mono text-xs"
                         />
                       ) : (
-                        <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: b.content }} />
+                        <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(b.content) }} />
                       )
                     ) : b.status === "pending" ? (
                       <p className="text-sm text-muted-foreground">Ожидание...</p>
@@ -1256,7 +1256,7 @@ export default function CommercialPage() {
               Так страница будет выглядеть после сохранения как статьи.
             </DialogDescription>
           </DialogHeader>
-          <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: fullHtml }} />
+          <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(fullHtml) }} />
         </DialogContent>
       </Dialog>
 
