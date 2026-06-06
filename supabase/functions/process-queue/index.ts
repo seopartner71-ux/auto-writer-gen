@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -261,6 +262,14 @@ serve(async (req) => {
             retry_count: nextRetry,
             error_message: `Error: ${errMsg}. Retry ${nextRetry}/${item.max_retries}`,
           }).eq("id", item.id);
+          logPipelineEvent({
+            stage: "queue_process",
+            user_id: item.user_id,
+            verdict: "warning",
+            error_kind: "retry",
+            error_message: errMsg,
+            meta: { queue_item_id: item.id, retry: nextRetry, max_retries: item.max_retries },
+          });
           results.push({ id: item.id, status: "retry", error: errMsg });
         } else {
           await admin.from("generation_queue").update({
@@ -276,6 +285,14 @@ serve(async (req) => {
             message: `Не удалось сгенерировать статью: ${errMsg}`,
           });
 
+          logPipelineEvent({
+            stage: "queue_process",
+            user_id: item.user_id,
+            verdict: "fail",
+            error_kind: "exhausted_retries",
+            error_message: errMsg,
+            meta: { queue_item_id: item.id, attempts: nextRetry },
+          });
           results.push({ id: item.id, status: "failed", error: errMsg });
         }
       }
