@@ -53,6 +53,7 @@ serve(async (req) => {
     // Process items concurrently (up to availableSlots)
     const promises = queueItems.map(async (item) => {
       // Already marked as 'processing' by claim_queue_items RPC.
+      const itemTimer = startTimer();
       try {
         // Call generate-article with the stored payload
         const payload = item.request_payload as Record<string, unknown>;
