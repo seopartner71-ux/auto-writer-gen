@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 type ConfirmOptions = {
   title?: string;
@@ -48,6 +49,7 @@ interface Ctx {
 const ConfirmCtx = createContext<Ctx | null>(null);
 
 export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [promptState, setPromptState] = useState<PromptState | null>(null);
   const [promptValue, setPromptValue] = useState("");
@@ -80,7 +82,7 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
       <AlertDialog open={!!confirmState} onOpenChange={(o) => !o && closeConfirm(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirmState?.title || "Подтверждение"}</AlertDialogTitle>
+            <AlertDialogTitle>{confirmState?.title || t("common.confirmTitle")}</AlertDialogTitle>
             {confirmState?.description && (
               <AlertDialogDescription className="whitespace-pre-line">
                 {confirmState.description}
@@ -89,13 +91,13 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => closeConfirm(false)}>
-              {confirmState?.cancelText || "Отмена"}
+              {confirmState?.cancelText || t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => closeConfirm(true)}
               className={confirmState?.destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
             >
-              {confirmState?.confirmText || "Подтвердить"}
+              {confirmState?.confirmText || t("common.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -104,7 +106,7 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
       <Dialog open={!!promptState} onOpenChange={(o) => !o && closePrompt(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{promptState?.title || "Ввод"}</DialogTitle>
+            <DialogTitle>{promptState?.title || t("common.input")}</DialogTitle>
             {promptState?.description && (
               <DialogDescription>{promptState.description}</DialogDescription>
             )}
@@ -121,10 +123,10 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
           />
           <DialogFooter>
             <Button variant="ghost" onClick={() => closePrompt(null)}>
-              {promptState?.cancelText || "Отмена"}
+              {promptState?.cancelText || t("common.cancel")}
             </Button>
             <Button onClick={() => closePrompt(promptValue)}>
-              {promptState?.confirmText || "ОК"}
+              {promptState?.confirmText || t("common.ok")}
             </Button>
           </DialogFooter>
         </DialogContent>

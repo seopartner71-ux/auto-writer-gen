@@ -28,6 +28,23 @@ const translations: Record<string, Record<Lang, string>> = {
   "common.delete": { ru: "Удалить", en: "Delete" },
   "common.cancel": { ru: "Отмена", en: "Cancel" },
   "common.loading": { ru: "Загрузка...", en: "Loading..." },
+  "common.confirm": { ru: "Подтвердить", en: "Confirm" },
+  "common.confirmTitle": { ru: "Подтверждение", en: "Confirm" },
+  "common.ok": { ru: "ОК", en: "OK" },
+  "common.input": { ru: "Ввод", en: "Input" },
+  "protected.queueTitle": { ru: "Доступ в режиме очереди", en: "Queued for access" },
+  "protected.queueIntro": {
+    ru: "Ваш аккаунт зарегистрирован. Чтобы гарантировать качество синтеза и 0% детекции ИИ, мы одобряем пользователей вручную. В течение 15 минут инженер активирует ваш профиль и начислит",
+    en: "Your account is registered. To guarantee synthesis quality and 0% AI detection, we approve users manually. An engineer will activate your profile within 15 minutes and credit"
+  },
+  "protected.welcomeCredits": { ru: "10 приветственных кредитов", en: "10 welcome credits" },
+  "protected.queueOnTest": { ru: "на тест.", en: "for testing." },
+  "protected.warning": {
+    ru: "Внимание: аккаунты, не активированные в течение 7 дней с момента регистрации, автоматически удаляются. После использования 10 бесплатных кредитов необходимо выбрать тарифный план для продолжения работы.",
+    en: "Notice: accounts not activated within 7 days of registration are deleted automatically. After spending the 10 free credits, choose a plan to continue."
+  },
+  "protected.contactSupportTg": { ru: "Написать в поддержку (Telegram)", en: "Contact support (Telegram)" },
+  "protected.speedUp": { ru: "Это ускорит процесс активации", en: "This speeds up activation" },
   "common.noData": { ru: "Нет данных", en: "No data" },
   "common.words": { ru: "слов", en: "words" },
   "common.articles": { ru: "Статьи", en: "Articles" },
