@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
-import { requireServiceRole } from "../_shared/auth.ts";
+import { requireServiceRole, verifyAuth, requireAdminOrStaff } from "../_shared/auth.ts";
 
 const MAX_CONCURRENT = 5; // Process up to 5 items at a time
 const RETRY_BASE_DELAY_MS = 5000; // 5s, 10s, 20s exponential backoff
@@ -10,9 +10,13 @@ const RETRY_BASE_DELAY_MS = 5000; // 5s, 10s, 20s exponential backoff
 serve(async (req) => {
   const pre = handlePreflight(req); if (pre) return pre;
 
-  // Internal-only: invoked by pg_cron or admin tools with service-role bearer.
-  const denied = requireServiceRole(req);
-  if (denied) return denied;
+  // Allow service-role (cron) OR admin/staff (manual trigger from dashboard).
+  if (requireServiceRole(req)) {
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return auth;
+    const denied = await requireAdminOrStaff(auth);
+    if (denied) return denied;
+  }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
