@@ -569,6 +569,16 @@ serve(async (req) => {
     console.error("generate-article error:", e);
     const msg = e instanceof Error ? e.message : "Unknown error";
     const status = msg.includes("Unauthorized") ? 401 : 500;
+    logPipelineEvent({
+      stage: "generate",
+      user_id: logUserId,
+      article_id: logArticleId,
+      verdict: "fail",
+      duration_ms: elapsed(),
+      model: logModel,
+      error_kind: status === 401 ? "auth" : "upstream",
+      error_message: msg,
+    });
     return new Response(JSON.stringify({ error: msg }), {
       status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
