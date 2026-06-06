@@ -649,7 +649,7 @@ Deno.serve(async (req) => {
       model,
       tokens_input: totalIn,
       tokens_output: totalOut,
-      cost_usd: primaryUsd + fcUsd,
+      cost_usd: primaryUsd + fcUsd + webUsd,
       metadata: {
         kind: "commercial_block",
         block_type: body.block_type,
