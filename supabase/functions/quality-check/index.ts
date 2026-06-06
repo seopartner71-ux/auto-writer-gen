@@ -6,6 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
+import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 
 async function logErr(admin: any, context: string, message: string, metadata?: Record<string, unknown>) {
   try {
