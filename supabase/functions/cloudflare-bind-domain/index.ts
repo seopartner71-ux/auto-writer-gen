@@ -101,22 +101,9 @@ serve(async (req) => {
     // === Step 1: Create zone (or fetch existing) to get NS servers ===
     let nameServers: string[] = [];
     let zoneStatus = "unknown";
-    const createZoneRes = await fetch("https://api.cloudflare.com/client/v4/zones", {
-      method: "POST",
-      headers: cfHeaders,
-      body: JSON.stringify({
-        name: zoneName,
-        account: { id: accountId },
-        jump_start: true,
-      }),
-    });
-    const createZoneJson = await createZoneRes.json().catch(() => ({} as any));
-
-    if (createZoneRes.ok && createZoneJson?.success) {
-      nameServers = createZoneJson?.result?.name_servers || [];
-      zoneStatus = createZoneJson?.result?.status || "pending";
-    } else {
-      // Likely zone already exists -> look it up
+    let zoneManaged = false;
+    // First try to find an existing zone — many tokens lack zone.create permission
+    try {
       const lookupRes = await fetch(
         `https://api.cloudflare.com/client/v4/zones?name=${encodeURIComponent(zoneName)}`,
         { headers: cfHeaders },
@@ -126,10 +113,24 @@ serve(async (req) => {
       if (zone) {
         nameServers = zone.name_servers || [];
         zoneStatus = zone.status || "unknown";
-      } else {
-        const msg = createZoneJson?.errors?.map((e: any) => e.message).join("; ") || "Failed to create zone";
-        return json({ error: `Cloudflare zone error: ${msg}` }, 400);
+        zoneManaged = true;
       }
+    } catch { /* ignore */ }
+
+    // If no zone found — try to create one (best effort; OK to fail if token lacks permission)
+    if (!zoneManaged) {
+      const createZoneRes = await fetch("https://api.cloudflare.com/client/v4/zones", {
+        method: "POST",
+        headers: cfHeaders,
+        body: JSON.stringify({ name: zoneName, account: { id: accountId }, jump_start: true }),
+      });
+      const createZoneJson = await createZoneRes.json().catch(() => ({} as any));
+      if (createZoneRes.ok && createZoneJson?.success) {
+        nameServers = createZoneJson?.result?.name_servers || [];
+        zoneStatus = createZoneJson?.result?.status || "pending";
+        zoneManaged = true;
+      }
+      // If creation failed (e.g. no zone.create permission) — proceed with CNAME-mode binding
     }
 
     // === Step 2: Attach domain to Pages project ===
@@ -165,7 +166,11 @@ serve(async (req) => {
       zone_status: zoneStatus,
       domain_status: domainStatus,
       cf_project: cfProjectName,
-      message: `Домен привязан. Пропишите NS-серверы у регистратора: ${nameServers.join(", ")}. Сайт заработает через 30 минут - 24 часа.`,
+      zone_managed: zoneManaged,
+      cname_target: `${cfProjectName}.pages.dev`,
+      message: zoneManaged && nameServers.length
+        ? `Домен привязан. Пропишите NS-серверы у регистратора: ${nameServers.join(", ")}. Сайт заработает через 30 минут - 24 часа.`
+        : `Домен привязан к Pages. Создайте у регистратора CNAME-запись: ${domain} -> ${cfProjectName}.pages.dev. Сайт заработает через 5-30 минут.`,
     });
   } catch (err: any) {
     console.error("[cloudflare-bind-domain] error:", err);
