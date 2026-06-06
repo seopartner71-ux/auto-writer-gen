@@ -526,6 +526,7 @@ Deno.serve(async (req) => {
     let totalIn = 0;
     let totalOut = 0;
     let primaryUsd = 0;
+    const tGen = startTimer();
     try {
       const main = await chatComplete({
         apiKey,
@@ -539,7 +540,28 @@ Deno.serve(async (req) => {
       totalIn += main.tokensIn;
       totalOut += main.tokensOut;
       primaryUsd = tokensToUsd(model, main.tokensIn, main.tokensOut);
+      logPipelineEvent({
+        stage: "commercial_block",
+        user_id: userId,
+        verdict: "pass",
+        model,
+        tokens_in: main.tokensIn,
+        tokens_out: main.tokensOut,
+        cost_usd: primaryUsd,
+        duration_ms: tGen(),
+        meta: { block_type: body.block_type, page_type: body.page_type, target_words: target, plan },
+      });
     } catch (e) {
+      logPipelineEvent({
+        stage: "commercial_block",
+        user_id: userId,
+        verdict: "fail",
+        model,
+        duration_ms: tGen(),
+        error_kind: e instanceof AiError ? e.kind : "unknown",
+        error_message: e instanceof Error ? e.message : String(e),
+        meta: { block_type: body.block_type, page_type: body.page_type, plan },
+      });
       await sb.rpc("refund_credits", {
         p_user_id: userId,
         p_amount: 1,
@@ -585,12 +607,24 @@ Deno.serve(async (req) => {
     let factFlags: string[] = [];
     let fcUsd = 0;
     if (countWords(content) >= 80) {
+      const tFc = startTimer();
       const fc = await llmFactCheck({ apiKey, html: content, brief: body.brief, generatorModel: model });
       content = stripFences(fc.html);
       factFlags = fc.flags;
       fcUsd = tokensToUsd(fc.model, fc.tokensIn, fc.tokensOut);
       totalIn += fc.tokensIn;
       totalOut += fc.tokensOut;
+      logPipelineEvent({
+        stage: "fact_check_llm",
+        user_id: userId,
+        verdict: factFlags.length === 0 ? "pass" : factFlags.length <= 2 ? "warning" : "fail",
+        model: fc.model,
+        tokens_in: fc.tokensIn,
+        tokens_out: fc.tokensOut,
+        cost_usd: fcUsd,
+        duration_ms: tFc(),
+        meta: { flags_count: factFlags.length, generator_model: model },
+      });
     }
 
     // Step 3 — Web-grounded fact-check via Perplexity Sonar (PRO/FACTORY only).
