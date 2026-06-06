@@ -49,17 +49,30 @@ Deno.serve(async (req) => {
       return json({ ok: true, content, skipped: true, reason: "too_long" });
     }
 
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content },
-        ],
-      }),
-    });
+    // 90s hard timeout so polish doesn't eat the whole edge budget when OpenRouter stalls.
+    const polishCtrl = new AbortController();
+    const polishTimer = setTimeout(() => polishCtrl.abort(), 90_000);
+    let res: Response;
+    try {
+      res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content },
+          ],
+        }),
+        signal: polishCtrl.signal,
+      });
+    } catch (e) {
+      clearTimeout(polishTimer);
+      const aborted = e instanceof Error && e.name === "AbortError";
+      logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "fail", error_kind: aborted ? "timeout" : "ai_error", duration_ms: timer() });
+      return json({ ok: true, content, skipped: true, reason: aborted ? "timeout" : "ai_error" });
+    }
+    clearTimeout(polishTimer);
 
     if (res.status === 429) {
       logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "fail", error_kind: "rate_limit", duration_ms: timer() });
