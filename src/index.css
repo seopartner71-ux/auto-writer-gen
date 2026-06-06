@@ -173,6 +173,15 @@ html {
   backdrop-filter: none !important;
 }
 
+/* Premium Minimalism: large numeric stats use mono with tabular figures */
+.app-shell .stat-num,
+.app-shell [data-stat] {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
