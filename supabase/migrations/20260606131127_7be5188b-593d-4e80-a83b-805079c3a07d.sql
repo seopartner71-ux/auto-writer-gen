@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anon can insert analytics hits" ON public.analytics_logs;
