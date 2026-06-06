@@ -6,6 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
+import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 
 async function logErr(admin: any, context: string, message: string, metadata?: Record<string, unknown>) {
   try {
@@ -701,6 +702,12 @@ async function runAutoQuality(
   const density = primaryKeyword ? computeDensity(plain, primaryKeyword) : 0;
   const dStatus = primaryKeyword && medianDensity > 0 ? densityStatus(density, medianDensity) : "ok";
 
+  // ── Sentence structure analysis ───────────────────────────────────
+  // Ловим "телеграфный" AI-стиль: серии коротких подряд, низкая средняя длина.
+  const sentStruct = analyzeSentenceStructure(plain);
+  const sentStatus: "ok" | "warning" | "fail" =
+    sentStruct.verdict === "fail" ? "fail" : sentStruct.verdict === "warning" ? "warning" : "ok";
+
   // Compute aggregate quality_status
   // ai_score: <50 fail, 50-69 warning, >=70 ok (higher = more human-like)
   let aiStatus: "ok" | "warning" | "fail" = "ok";
@@ -714,6 +721,7 @@ async function runAutoQuality(
     burst.status,
     dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail"),
     turgenevFinal ? turgStatus : "ok",
+    sentStatus,
   ];
   let quality: "ok" | "warning" | "fail" = "ok";
   if (all.includes("fail")) quality = "fail";
@@ -740,12 +748,23 @@ async function runAutoQuality(
   if (aiInternalRes?.score == null && claudeRes == null) qErrors.push("ai_score:local_heuristic_fallback");
   if (isRu && turgenevKey && !turgenevRes) qErrors.push("turgenev:api_failed_used_local_fallback");
   if (isRu && !turgenevKey) qErrors.push("turgenev:key_missing_used_local_fallback");
-  if (qErrors.length) {
+  {
     const { data: prevDet } = await admin.from("articles").select("quality_details").eq("id", articleId).maybeSingle();
     updatePatch.quality_details = {
       ...((prevDet?.quality_details as any) || {}),
-      errors: qErrors,
-      errors_at: new Date().toISOString(),
+      sentence_structure: {
+        verdict: sentStruct.verdict,
+        status: sentStatus,
+        avg_words: sentStruct.avgWords,
+        sentence_count: sentStruct.sentenceCount,
+        short_ratio: sentStruct.shortRatio,
+        long_ratio: sentStruct.longRatio,
+        max_short_run: sentStruct.maxShortRun,
+        short_runs_3plus: sentStruct.shortRuns3Plus.slice(0, 5),
+        issues: sentStruct.issues,
+        checked_at: new Date().toISOString(),
+      },
+      ...(qErrors.length ? { errors: qErrors, errors_at: new Date().toISOString() } : {}),
     };
   }
   if (turgenevFinal) {
@@ -912,6 +931,47 @@ async function runAutoQuality(
     }
   } catch (e) {
     console.warn("[quality-check] auto-turgenev-fix gate error", e);
+  }
+
+  // ── Sentence-Structure Auto-Fix ─────────────────────────────────
+  // verdict === "fail" -> один тихий проход improve-article с fix_type="sentence_structure".
+  // Флаг хранится в quality_details.sentence_structure_auto_fixed, чтобы не зацикливаться.
+  try {
+    if (sentStruct.verdict === "fail" && orKey) {
+      const { data: prevDet } = await admin.from("articles")
+        .select("quality_details").eq("id", articleId).maybeSingle();
+      const det: any = (prevDet?.quality_details as any) || {};
+      if (det.sentence_structure_auto_fixed !== true) {
+        await admin.from("articles").update({
+          quality_details: { ...det, sentence_structure_auto_fixed: true },
+        }).eq("id", articleId);
+
+        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const fixTask = (async () => {
+          try {
+            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${serviceKey}`,
+              },
+              body: JSON.stringify({
+                article_id: articleId,
+                fix_type: "sentence_structure",
+                user_id: userId,
+                source: "auto_sentence_structure",
+              }),
+            });
+          } catch (e) {
+            await logErr(admin, "quality-check", "auto_sentence_structure_dispatch_failed", { article_id: articleId, error: String(e) });
+          }
+        })();
+        try { (globalThis as any).EdgeRuntime?.waitUntil?.(fixTask); } catch (_) { void fixTask; }
+      }
+    }
+  } catch (e) {
+    await logErr(admin, "quality-check", "auto_sentence_structure_gate_error", { article_id: articleId, error: String(e) });
   }
 }
 

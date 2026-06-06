@@ -7,6 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
+import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_shared/sentenceStructure.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -133,6 +134,8 @@ Deno.serve(async (req) => {
     const isServiceCall =
       authHeader === `Bearer ${serviceKey}` && typeof bodyUserId === "string" && bodyUserId.length > 0;
     const isAutoTurgenev = isServiceCall && source === "auto_turgenev";
+    const isAutoSentence = isServiceCall && source === "auto_sentence_structure";
+    const bypassLimits = isAutoTurgenev || isAutoSentence;
 
     let user: { id: string } | null = null;
     if (isServiceCall) {
@@ -147,9 +150,10 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     if (!article_id) return json({ error: "article_id required" }, 400);
-    const phase: "humanize" | "turgenev" | "all" =
+    const phase: "humanize" | "turgenev" | "sentence" | "all" =
       fix_type === "humanize" ? "humanize" :
-      fix_type === "turgenev" ? "turgenev" : "all";
+      fix_type === "turgenev" ? "turgenev" :
+      fix_type === "sentence_structure" ? "sentence" : "all";
 
     const { data: art } = await admin.from("articles")
       .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count")
@@ -168,7 +172,7 @@ Deno.serve(async (req) => {
     console.log("[improve-article][plan-check] user:", user.id, "plan:", planRaw, "key:", normalizePlanKey(planRaw), "limit:", improveLimit, "used:", usedImprove);
     // Auto-Turgenev fix bypasses the plan limit and cooldown — это автоматическая правка качества,
     // которая не должна расходовать пользовательский лимит улучшений.
-    if (!isAutoTurgenev && usedImprove >= improveLimit) {
+    if (!bypassLimits && usedImprove >= improveLimit) {
       return json({
         ok: false,
         limit_reached: true,
@@ -177,7 +181,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Cooldown: 60s between improve calls per article ──
-    if (!isAutoTurgenev && art.last_improve_at) {
+    if (!bypassLimits && art.last_improve_at) {
       const elapsed = Date.now() - new Date(art.last_improve_at as string).getTime();
       if (elapsed < 60_000) {
         return json({
@@ -223,7 +227,7 @@ Deno.serve(async (req) => {
     const dStatus = String(art.keyword_density_status || "ok");
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
-    if (phase !== "turgenev" && aiScore < 70 && (orKey || lovableKey)) {
+    if ((phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
 
@@ -282,9 +286,9 @@ ${content}`;
     }
 
     // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times
-    if (phase !== "turgenev" && primaryKeyword && dStatus === "overuse") {
+    if ((phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "overuse") {
       content = removeEveryNthKeyword(content, primaryKeyword, 3);
-    } else if (phase !== "turgenev" && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
+    } else if ((phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
       const sys = "Ты редактор. Вставляешь фразу в текст органично. Возвращаешь только итоговый HTML.";
       const usr = `Вставь фразу "${primaryKeyword}" органично в 2-3 места текста где это звучит естественно. Не меняй факты. Сохрани все HTML-теги. Верни только исправленный HTML.
 
@@ -302,7 +306,7 @@ ${content}`;
     }
 
     // 3) Burstiness fix: split long sentences (JS post-processor)
-    if (phase !== "turgenev" && (burstStatus === "fail" || burstStatus === "warning")) {
+    if ((phase === "humanize" || phase === "all") && (burstStatus === "fail" || burstStatus === "warning")) {
       // Apply only to text inside <p>/<li> blocks
       content = content.replace(/(<(?:p|li)[^>]*>)([\s\S]*?)(<\/(?:p|li)>)/gi, (_m, open, inner, close) => {
         return `${open}${splitLongSentences(inner)}${close}`;
@@ -312,7 +316,7 @@ ${content}`;
     // 4) Turgenev (Yandex Baden-Baden) fix when status = fail (RU only, needs OpenRouter)
     const turgStatus = String((art as any).turgenev_status || "ok");
     const isRu = String((art as any).language || "ru").toLowerCase() === "ru";
-    if (phase !== "humanize" && turgStatus === "fail" && isRu && orKey) {
+    if ((phase === "turgenev" || phase === "all") && turgStatus === "fail" && isRu && orKey) {
       const sys = "Ты редактор. Улучшаешь текст под Яндекс Баден-Баден, но СОХРАНЯЕШЬ человечность стиля. Возвращай ТОЛЬКО исправленный HTML без комментариев и markdown-обёрток.";
       const usr = `Снизь риск фильтра Баден-Баден, НЕ ухудшая человечность текста.
 
@@ -338,6 +342,37 @@ ${content}`;
         const integrity = htmlIntegrityOk(content, candidate);
         if (integrity.ok) content = candidate;
         else console.warn("[improve-article] turgenev-fix rejected:", integrity.reason);
+      }
+    }
+
+    // 5) Sentence-structure fix: чиним «телеграфный» стиль —
+    //    серии 3+ коротких подряд, низкая средняя длина, перекос коротких.
+    if ((phase === "sentence" || phase === "all") && orKey) {
+      const metrics = analyzeSentenceStructure(stripHtml(content));
+      if (metrics.verdict === "fail") {
+        const hint = buildSentenceStructureFixHint(metrics) || "";
+        const sys = "Ты редактор-человек. Переписываешь абзацы HTML так, чтобы предложения были связными и завершёнными. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
+        const usr = `Перепиши текст, исправив структуру предложений.
+
+${hint}
+
+ТРЕБОВАНИЯ:
+- Средняя длина предложения 18-30 слов.
+- Не более 1 короткого предложения подряд как акцент.
+- Соединяй связанные мысли через "поскольку", "при этом", "хотя", "однако", "так как".
+- Каждое предложение должно быть завершённым, без обрывов на "и", "но", "поэтому".
+- НЕ выравнивай длину механически: чередуй средние (15-22) и длинные (22-30).
+- Не меняй факты, цифры, бренды, ссылки. Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
+
+HTML:
+${content}`;
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        if (fixed && fixed.length > 200) {
+          const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          const integrity = htmlIntegrityOk(content, candidate);
+          if (integrity.ok) content = candidate;
+          else console.warn("[improve-article] sentence-fix rejected:", integrity.reason);
+        }
       }
     }
 
