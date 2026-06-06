@@ -50,7 +50,7 @@ export function LandingPricingV3() {
     },
   });
 
-  const fmt = (id: string, fb: { rub: number; usd: number; credits: number }) => {
+  const fmt = (id: string, fb: { rub: number; usd: number; credits: number; ru: string[]; en: string[] }) => {
     const db = plans?.find((p) => p.id === id);
     const rub = db?.price_rub ?? fb.rub;
     const usd = db?.price_usd ?? fb.usd;
