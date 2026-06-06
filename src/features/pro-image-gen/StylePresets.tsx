@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Camera, Package, Coffee, LayoutGrid } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 export type ImageStyle = "photorealistic" | "product" | "lifestyle" | "flatlay";
 
@@ -8,17 +9,18 @@ interface StylePresetsProps {
   onSelect: (style: ImageStyle) => void;
 }
 
-const PRESETS: { key: ImageStyle; label: string; sub: string; Icon: typeof Camera }[] = [
-  { key: "photorealistic", label: "Photo", sub: "Бизнес-фото", Icon: Camera },
-  { key: "product", label: "Product", sub: "Белый фон", Icon: Package },
-  { key: "lifestyle", label: "Lifestyle", sub: "В использовании", Icon: Coffee },
-  { key: "flatlay", label: "Flat lay", sub: "Сверху, плоско", Icon: LayoutGrid },
+const PRESETS: { key: ImageStyle; label: string; subKey: string; Icon: typeof Camera }[] = [
+  { key: "photorealistic", label: "Photo", subKey: "stylePresets.photoSub", Icon: Camera },
+  { key: "product", label: "Product", subKey: "stylePresets.productSub", Icon: Package },
+  { key: "lifestyle", label: "Lifestyle", subKey: "stylePresets.lifestyleSub", Icon: Coffee },
+  { key: "flatlay", label: "Flat lay", subKey: "stylePresets.flatlaySub", Icon: LayoutGrid },
 ];
 
 export function StylePresets({ selected, onSelect }: StylePresetsProps) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-2 gap-1.5">
-      {PRESETS.map(({ key, label, sub, Icon }) => {
+      {PRESETS.map(({ key, label, subKey, Icon }) => {
         const active = selected === key;
         return (
           <button
@@ -34,7 +36,7 @@ export function StylePresets({ selected, onSelect }: StylePresetsProps) {
           >
             <Icon className="h-4 w-4" />
             <span className="text-[10px] font-medium leading-tight">{label}</span>
-            <span className="text-[9px] opacity-60 leading-tight">{sub}</span>
+            <span className="text-[9px] opacity-60 leading-tight">{t(subKey)}</span>
           </button>
         );
       })}
