@@ -1679,6 +1679,9 @@ export default function ArticlesPage() {
                     />
                   </div>
                 )}
+                {currentArticleId && content && !isStreaming && (
+                  <ArticleFeedback articleId={currentArticleId} language={lang === "en" ? "en" : "ru"} />
+                )}
                 <TabsContent value="edit" className="mt-0">
                   <Textarea
                     ref={editorTextareaRef}
