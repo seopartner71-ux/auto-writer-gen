@@ -31,7 +31,8 @@ const SAMPLE_RU = `<h2>Контракт против собственного п
 <p>Подробнее в обзоре <a href="https://example.com/report">отраслевой отчет</a>.</p>`;
 
 function countChain(text: string): number {
-  const sentences = text.split(/(?<=[.!?])\s+/);
+  const plain = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  const sentences = plain.split(/(?<=[.!?])\s+/);
   let n = 0;
   for (const s of sentences) {
     const markers = [
