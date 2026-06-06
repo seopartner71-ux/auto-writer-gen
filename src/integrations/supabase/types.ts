@@ -218,6 +218,61 @@ export type Database = {
         }
         Relationships: []
       }
+      article_feedback: {
+        Row: {
+          article_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          problem_type: string
+          rating: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          problem_type?: string
+          rating: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          problem_type?: string
+          rating?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_feedback_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "article_feedback_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "article_feedback_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       article_images: {
         Row: {
           article_id: string | null
