@@ -18,6 +18,27 @@ const STEPS: Step[] = [
   { key: "finalize", labelRu: "Finalize — сохраняем результат",           labelEn: "Finalize - saving result",          endAt: 1.00 },
 ];
 
+export interface HumanizeMetricsSnapshot {
+  avgWords?: number;
+  shortRatio?: number;
+  maxShortRun?: number;
+  chainViolations?: number;
+  banlistHits?: number;
+  signatures?: {
+    headings?: number;
+    listItems?: number;
+    links?: number;
+    numbers?: number;
+  };
+}
+
+export interface HumanizeMetricsReport {
+  pre?: HumanizeMetricsSnapshot;
+  postPass1?: HumanizeMetricsSnapshot;
+  postPass2?: HumanizeMetricsSnapshot;
+  postCleanup?: HumanizeMetricsSnapshot;
+}
+
 interface Props {
   startedAt: number;
   /** Estimated total duration in ms. Used to drive the progress bar. */
@@ -25,6 +46,8 @@ interface Props {
   /** Override the auto-derived stage (e.g. on completion or error). */
   forcedStage?: HumanizeStage;
   lang?: "ru" | "en";
+  /** Pre/post metrics from the edge function; shown on "done". */
+  metrics?: HumanizeMetricsReport;
 }
 
 /**
@@ -38,6 +61,7 @@ export function HumanizeProgress({
   estimatedMs = 130_000,
   forcedStage,
   lang = "ru",
+  metrics,
 }: Props) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -122,6 +146,65 @@ export function HumanizeProgress({
           );
         })}
       </ul>
+
+      {forcedStage === "done" && metrics?.pre && (
+        <MetricsDelta metrics={metrics} lang={lang} />
+      )}
+    </div>
+  );
+}
+
+function fmt(n: number | undefined, digits = 1): string {
+  if (n === undefined || n === null || Number.isNaN(n)) return "-";
+  return Number.isInteger(n) ? String(n) : n.toFixed(digits);
+}
+
+function deltaTone(before: number | undefined, after: number | undefined, lowerIsBetter: boolean): string {
+  if (before == null || after == null) return "text-muted-foreground";
+  if (before === after) return "text-muted-foreground";
+  const better = lowerIsBetter ? after < before : after > before;
+  return better ? "text-emerald-500" : "text-amber-500";
+}
+
+function MetricsDelta({
+  metrics,
+  lang,
+}: {
+  metrics: HumanizeMetricsReport;
+  lang: "ru" | "en";
+}) {
+  const pre = metrics.pre || {};
+  const post = metrics.postCleanup || metrics.postPass2 || metrics.postPass1 || {};
+  const t = (ru: string, en: string) => (lang === "ru" ? ru : en);
+
+  const rows: Array<{ key: string; label: string; before?: number; after?: number; lowerBetter: boolean; digits?: number; suffix?: string }> = [
+    { key: "avg",   label: t("Средняя длина", "Avg length"), before: pre.avgWords,        after: post.avgWords,        lowerBetter: false, digits: 1, suffix: t(" сл.", " w") },
+    { key: "short", label: t("Коротких",     "Short %"),     before: pre.shortRatio != null ? Math.round(pre.shortRatio * 100) : undefined, after: post.shortRatio != null ? Math.round(post.shortRatio * 100) : undefined, lowerBetter: true, suffix: "%" },
+    { key: "chain", label: t("Цепочки союзов","Chains"),     before: pre.chainViolations, after: post.chainViolations, lowerBetter: true },
+    { key: "ban",   label: t("Запрещ. слова", "Banlist"),    before: pre.banlistHits,     after: post.banlistHits,     lowerBetter: true },
+  ];
+
+  // Drop rows where both sides are zero — keeps the panel tight.
+  const visible = rows.filter((r) => (r.before || 0) + (r.after || 0) > 0);
+  if (!visible.length) return null;
+
+  return (
+    <div className="mt-3 pt-2 border-t border-border space-y-1">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+        {t("Качество до → после", "Quality before → after")}
+      </div>
+      {visible.map((r) => (
+        <div key={r.key} className="flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground">{r.label}</span>
+          <span className="tabular-nums">
+            <span className="text-muted-foreground">{fmt(r.before, r.digits ?? 0)}{r.suffix || ""}</span>
+            <span className="mx-1 text-muted-foreground">→</span>
+            <span className={cn("font-medium", deltaTone(r.before, r.after, r.lowerBetter))}>
+              {fmt(r.after, r.digits ?? 0)}{r.suffix || ""}
+            </span>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
