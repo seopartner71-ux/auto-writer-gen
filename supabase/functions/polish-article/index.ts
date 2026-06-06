@@ -1,6 +1,7 @@
 // polish-article: точечный пост-корректор сгенерированной статьи.
 // Не переписывает текст, только чинит технические баги по 5 правилам.
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const SYSTEM_PROMPT = `Ты — строгий технический SEO-редактор и валидатор кода. Тебе передают черновик статьи. Твоя задача — точечно исправить технические баги, СОХРАНИВ 95% оригинального текста нетронутым.
 
@@ -27,17 +28,24 @@ function json(data: unknown, status = 200) {
 
 Deno.serve(async (req) => {
   const pre = handlePreflight(req); if (pre) return pre;
+  const timer = startTimer();
+  let articleId: string | null = null;
+  let userId: string | null = null;
   try {
     const apiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!apiKey) return json({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
     const body = await req.json().catch(() => ({} as any));
     const content: string = body?.content || "";
+    articleId = body?.article_id || body?.articleId || null;
+    userId = body?.user_id || body?.userId || null;
     if (!content || content.length < 200) {
+      logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "warning", duration_ms: timer(), meta: { skipped: "too_short" } });
       return json({ ok: true, content, skipped: true, reason: "too_short" });
     }
     if (content.length > 60000) {
       // Защита от слишком длинных статей — пост-обработка дороже стрима.
+      logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "warning", duration_ms: timer(), meta: { skipped: "too_long" } });
       return json({ ok: true, content, skipped: true, reason: "too_long" });
     }
 
@@ -53,11 +61,18 @@ Deno.serve(async (req) => {
       }),
     });
 
-    if (res.status === 429) return json({ ok: true, content, skipped: true, reason: "rate_limit" });
-    if (res.status === 402) return json({ ok: true, content, skipped: true, reason: "ai_credits_exhausted" });
+    if (res.status === 429) {
+      logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "fail", error_kind: "rate_limit", duration_ms: timer() });
+      return json({ ok: true, content, skipped: true, reason: "rate_limit" });
+    }
+    if (res.status === 402) {
+      logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "fail", error_kind: "ai_credits_exhausted", duration_ms: timer() });
+      return json({ ok: true, content, skipped: true, reason: "ai_credits_exhausted" });
+    }
     if (!res.ok) {
       const t = await res.text().catch(() => "");
       console.error("[polish-article] AI error", res.status, t.slice(0, 200));
+      logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "fail", error_kind: "ai_error", error_message: t.slice(0, 200), duration_ms: timer() });
       return json({ ok: true, content, skipped: true, reason: "ai_error" });
     }
 
@@ -66,6 +81,7 @@ Deno.serve(async (req) => {
     if (!polished || polished.length < content.length * 0.7) {
       // Подозрительное сокращение — модель могла обрезать. Возвращаем оригинал.
       console.warn("[polish-article] polished too short:", polished.length, "vs", content.length);
+      logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "warning", duration_ms: timer(), meta: { skipped: "shrunk", in: content.length, out: polished.length } });
       return json({ ok: true, content, skipped: true, reason: "shrunk" });
     }
 
@@ -80,9 +96,11 @@ Deno.serve(async (req) => {
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
+    logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "pass", model: "google/gemini-2.5-flash", duration_ms: timer(), meta: { in: content.length, out: polished.length } });
     return json({ ok: true, content: polished, polished: true });
   } catch (e: any) {
     console.error("[polish-article] exception:", e?.message || e);
+    logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "fail", error_kind: "exception", error_message: e?.message || String(e), duration_ms: timer() });
     // Никогда не валим запрос — клиент должен получить рабочий контент.
     try {
       const body = await req.clone().json().catch(() => ({} as any));
