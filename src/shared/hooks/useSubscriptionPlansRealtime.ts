@@ -17,8 +17,12 @@ export function useSubscriptionPlansRealtime() {
       qc.invalidateQueries({ queryKey: ["ai-models-active"] });
     };
 
+    // Unique channel id per mount — otherwise multiple consumers (AppLayout +
+    // PricingPage + landing) collide on the same channel name and race on
+    // removeChannel during unmount.
+    const channelId = `subscription-plans-rt-${Math.random().toString(36).slice(2, 10)}`;
     const channel = supabase
-      .channel("subscription-plans-rt")
+      .channel(channelId)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "subscription_plans" },
