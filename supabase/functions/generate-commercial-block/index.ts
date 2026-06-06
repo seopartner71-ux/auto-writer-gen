@@ -338,7 +338,8 @@ async function llmFactCheck(opts: {
   apiKey: string;
   html: string;
   brief: Brief;
-}): Promise<{ html: string; flags: string[]; tokensIn: number; tokensOut: number }> {
+  generatorModel?: string;
+}): Promise<{ html: string; flags: string[]; tokensIn: number; tokensOut: number; model: string }> {
   const briefJson = JSON.stringify(opts.brief).slice(0, 3000);
   const system = `Ты редактор-фактчекер коммерческого SEO-текста.
 Тебе дают HTML-блок и БРИФ. Найди в HTML любые конкретные факты, которых НЕТ в брифе:
@@ -356,15 +357,21 @@ async function llmFactCheck(opts: {
 Формат ответа: СТРОГИЙ JSON без markdown:
 {"html":"<исправленный HTML>","flags":["краткое описание каждой правки"]}`;
   const user = `БРИФ:\n${briefJson}\n\nHTML:\n${opts.html}`;
+  // Cross-family fact-check: pick a model from a different family than the
+  // generator so the checker doesn't share the same blind spots.
+  const gen = (opts.generatorModel || "").toLowerCase();
+  const checkerModel = gen.includes("anthropic") || gen.includes("claude")
+    ? "google/gemini-2.5-pro"
+    : "anthropic/claude-sonnet-4";
   try {
     const res = await chatComplete({
       apiKey: opts.apiKey,
-      model: "google/gemini-2.5-flash-lite",
+      model: checkerModel,
       system,
       user,
-      maxTokens: Math.min(3000, opts.html.length + 600),
+      maxTokens: Math.min(4000, opts.html.length + 800),
       temperature: 0.2,
-      timeoutMs: 40_000,
+      timeoutMs: 60_000,
     });
     const cleaned = res.content.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
     const parsed = JSON.parse(cleaned);
@@ -374,12 +381,13 @@ async function llmFactCheck(opts: {
         flags: Array.isArray(parsed.flags) ? parsed.flags.map(String) : [],
         tokensIn: res.tokensIn,
         tokensOut: res.tokensOut,
+        model: checkerModel,
       };
     }
   } catch (e) {
     console.warn("[fact-check] skipped:", (e as Error).message);
   }
-  return { html: opts.html, flags: [], tokensIn: 0, tokensOut: 0 };
+  return { html: opts.html, flags: [], tokensIn: 0, tokensOut: 0, model: checkerModel };
 }
 
 /**
