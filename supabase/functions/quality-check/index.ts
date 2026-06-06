@@ -702,6 +702,12 @@ async function runAutoQuality(
   const density = primaryKeyword ? computeDensity(plain, primaryKeyword) : 0;
   const dStatus = primaryKeyword && medianDensity > 0 ? densityStatus(density, medianDensity) : "ok";
 
+  // ── Sentence structure analysis ───────────────────────────────────
+  // Ловим "телеграфный" AI-стиль: серии коротких подряд, низкая средняя длина.
+  const sentStruct = analyzeSentenceStructure(plain);
+  const sentStatus: "ok" | "warning" | "fail" =
+    sentStruct.verdict === "fail" ? "fail" : sentStruct.verdict === "warning" ? "warning" : "ok";
+
   // Compute aggregate quality_status
   // ai_score: <50 fail, 50-69 warning, >=70 ok (higher = more human-like)
   let aiStatus: "ok" | "warning" | "fail" = "ok";
@@ -715,6 +721,7 @@ async function runAutoQuality(
     burst.status,
     dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail"),
     turgenevFinal ? turgStatus : "ok",
+    sentStatus,
   ];
   let quality: "ok" | "warning" | "fail" = "ok";
   if (all.includes("fail")) quality = "fail";
