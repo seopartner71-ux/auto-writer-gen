@@ -2173,6 +2173,7 @@ export default function SiteFactoryPage() {
                       try {
                         const domain = customDomain.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
                         setNsServers([]);
+                        setCnameTarget("");
                         const { data, error } = await supabase.functions.invoke("cloudflare-bind-domain", {
                           body: { project_id: selectedProjectId, domain },
                         });
@@ -2184,15 +2185,12 @@ export default function SiteFactoryPage() {
                         setCustomDomain(domain);
                         const ns: string[] = (data as any)?.name_servers || [];
                         setNsServers(ns);
+                        setCnameTarget(String((data as any)?.cname_target || ""));
                         const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
                         if (updated) setProjects(updated as ProjectRow[]);
                         toast({
                           title: lang === "ru" ? "Домен привязан" : "Domain bound",
-                          description: ns.length
-                            ? (lang === "ru"
-                                ? `Пропишите NS у регистратора: ${ns.join(", ")}`
-                                : `Set NS at your registrar: ${ns.join(", ")}`)
-                            : undefined,
+                          description: (data as any)?.message,
                         });
                         setShowDnsHelper(true);
                       } catch (err: any) {
