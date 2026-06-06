@@ -145,10 +145,14 @@ export async function runDoubleHumanizePass(
   let opusSkipped = false;
   let opusSkipReason: string | undefined;
 
-  // Adaptive timeouts based on content length. Opus is much slower per token.
+  // Adaptive timeouts based on content length. The double-pass MUST fit
+  // inside the edge-function wall clock (~150s on Lovable Cloud), otherwise
+  // the request is killed mid-flight ("connection closed before message
+  // completed") and the client toast hangs indefinitely. Budget: ~135s total
+  // for short/medium texts, ~145s for long (Opus is dropped for >15k anyway).
   const len = content.length;
-  const sonnetTimeout = len > 12_000 ? 180_000 : len > 6_000 ? 120_000 : 90_000;
-  const opusTimeout = len > 12_000 ? 240_000 : len > 6_000 ? 180_000 : 120_000;
+  const sonnetTimeout = len > 12_000 ? 75_000 : len > 6_000 ? 65_000 : 55_000;
+  const opusTimeout   = len > 12_000 ? 70_000 : len > 6_000 ? 70_000 : 70_000;
 
   // Pass 1: Sonnet (deeper rewrite)
   const out1 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS1_USER(language, current), sonnetTimeout);
