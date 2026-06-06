@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { logger, errMessage } from "@/shared/utils/logger";
 import { toast } from "sonner";
+import { createElement } from "react";
+import { HumanizeProgress, type HumanizeStage } from "./HumanizeProgress";
 
 const HUMANIZE_THRESHOLD = 70;
 const FIRST_PASS_THRESHOLD = 60;
@@ -60,10 +62,16 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     // This is the primary "quality first" pass for every freshly generated article.
     // Conditional skips inside humanize-article: already rewritten, too short, already great.
     try {
-      toast.loading(t("Гуманизируем текст (двойной проход)...", "Humanizing text (double pass)..."), {
-        id: toastId,
-        duration: TOTAL_BUDGET_MS,
-      });
+      // Custom toast with stepper (Pass 1 / Pass 2 / Finalize) + progress bar.
+      const humanizeStartedAt = Date.now();
+      const renderHumanize = (stage?: HumanizeStage) =>
+        createElement(HumanizeProgress, {
+          startedAt: humanizeStartedAt,
+          estimatedMs: 130_000,
+          forcedStage: stage,
+          lang,
+        });
+      toast.custom(() => renderHumanize(), { id: toastId, duration: 160_000 });
       // Client-side hard cap so the toast does not hang if the edge function
       // gets killed by the wall-clock (Cloudflare/Workers tears down the
       // connection without a clean error). 150s ≈ edge function budget.
@@ -81,12 +89,10 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         | { data: null; error: Error };
       if (hzErr) {
         console.warn("[stealth] humanize-article failed:", hzErr);
-        toast.loading(
-          t("Гуманизация не завершилась, продолжаем проверки...", "Humanize didn't finish, continuing checks..."),
-          { id: toastId, duration: 4_000 },
-        );
+        toast.custom(() => renderHumanize("error"), { id: toastId, duration: 4_000 });
       } else {
         logger.debug("[stealth] humanize-article:", hz);
+        toast.custom(() => renderHumanize("done"), { id: toastId, duration: 2_500 });
       }
     } catch (e) {
       console.warn("[stealth] humanize-article threw:", errMessage(e));
