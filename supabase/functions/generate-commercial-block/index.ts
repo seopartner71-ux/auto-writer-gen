@@ -5,6 +5,7 @@
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
 import { chatComplete as aiChatComplete, chatJson, AiError } from "../_shared/aiClient.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { applyStealthPostProcess, buildStealthSystemAddon } from "../_shared/stealth.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
