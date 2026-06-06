@@ -644,6 +644,7 @@ Deno.serve(async (req) => {
       && (hasRiskyClaims(content) || factFlags.length > 0);
     if (shouldWebVerify) {
       const briefSummary = `Ниша: ${body.brief?.niche || ""}. Компания: ${body.brief?.company || body.brief?.shop_name || ""}. Город: ${body.brief?.city || ""}. Ключ: ${body.brief?.keyword || ""}.`;
+      const tWeb = startTimer();
       const web = await webGroundedFactCheck({
         apiKey,
         html: content,
@@ -663,6 +664,19 @@ Deno.serve(async (req) => {
         totalOut += web.tokensOut;
         webUsd = tokensToUsd(web.model, web.tokensIn, web.tokensOut);
       }
+      logPipelineEvent({
+        stage: "fact_check_web",
+        user_id: userId,
+        verdict: web.skipped ? "fail" : webUnverified.length === 0 ? "pass" : "warning",
+        model: web.model,
+        tokens_in: web.tokensIn,
+        tokens_out: web.tokensOut,
+        cost_usd: webUsd,
+        duration_ms: tWeb(),
+        error_kind: web.skipped ? "skipped" : null,
+        error_message: web.skipped ? web.reason : null,
+        meta: { plan, verified: webVerified.length, unverified: webUnverified.length, citations: webCitations.length },
+      });
     }
 
     // Cost log (best-effort) for admin quality dashboard.
