@@ -14,9 +14,8 @@ import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_s
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { validateContent } from "../_shared/contentValidator.ts";
-import { analyzeH2Structure } from "../_shared/humanizeMetrics.ts";
 import { webGroundedFactCheck, hasRiskyClaims } from "../_shared/webGroundedCheck.ts";
-import { countSignatures, structuralIntegrityOk } from "../_shared/humanizeMetrics.ts";
+import { analyzeH2Structure, countSignatures, structuralIntegrityOk } from "../_shared/humanizeMetrics.ts";
 
 function detectLang(text: string, hint?: string | null): "ru" | "en" {
   if (hint === "ru" || hint === "en") return hint;
