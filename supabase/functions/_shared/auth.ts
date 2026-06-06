@@ -65,6 +65,21 @@ export function adminClient() {
 }
 
 /**
+ * Verifies the caller is using the service-role key.
+ * Use for internal-only endpoints (cron jobs, queue workers, cleanup tasks).
+ * Returns null when allowed, or a Response (401) when forbidden.
+ */
+export function requireServiceRole(req: Request): Response | null {
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!serviceKey) return errorResponse("Server misconfigured", 500);
+  if (!authHeader || authHeader !== `Bearer ${serviceKey}`) {
+    return errorResponse("Unauthorized: service role required", 401);
+  }
+  return null;
+}
+
+/**
  * Verifies caller has admin or staff role. Queue calls bypass this check.
  * Returns null when allowed, or a Response (403) when forbidden.
  */

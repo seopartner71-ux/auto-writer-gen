@@ -19,13 +19,24 @@ serve(async (req) => {
     const projectId = body.p;
     const url = body.u;
 
-    if (!projectId || typeof projectId !== "string") {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!projectId || typeof projectId !== "string" || !UUID_RE.test(projectId)) {
       return new Response("ok", { status: 200, headers: corsHeaders });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Verify project exists before recording — prevents arbitrary insert/view inflation.
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (!project) {
+      return new Response("ok", { status: 200, headers: corsHeaders });
+    }
 
     // Insert analytics log
     await supabase.from("analytics_logs").insert({
