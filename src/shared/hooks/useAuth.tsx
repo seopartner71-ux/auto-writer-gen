@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const lastFetchedUserId = useRef<string | null>(null);
   const inFlightUserId = useRef<string | null>(null);
+  const mountedRef = useRef(true);
 
   const fetchUserData = useCallback(async (userId: string, force = false) => {
     if (inFlightUserId.current === userId) return;
@@ -42,6 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from("profiles").select("*").eq("id", userId).single(),
         supabase.from("user_roles").select("role").eq("user_id", userId),
       ]);
+
+      if (!mountedRef.current) return;
 
       if (profileRes.status === "fulfilled") {
         if (profileRes.value.error) {
@@ -104,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
             }
           } catch { /* ignore network errors */ }
+          if (!mountedRef.current) return;
           await supabase.functions.invoke("track-login", {
             body: { client_ip: clientIp },
           });
@@ -122,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchUserData, session?.user?.id]);
 
   useEffect(() => {
+    mountedRef.current = true;
     let isMounted = true;
 
     const syncSession = async (nextSession: Session | null) => {
@@ -158,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isMounted = false;
+      mountedRef.current = false;
       subscription.unsubscribe();
     };
   }, [fetchUserData]);
