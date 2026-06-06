@@ -702,7 +702,7 @@ export default function ArticlesPage() {
           seo_keywords: seoKeywords.trim() || null,
           geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
           custom_instructions: customInstructions.trim() || null,
-          project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
+          project_id: (selectedProjectId && selectedProjectId !== "none" && (projects as any[]).some((p: any) => p.id === selectedProjectId)) ? selectedProjectId : null,
           source_page_url: sourcePageUrl.trim() || null,
         }),
         signal: controller.signal,
