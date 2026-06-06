@@ -75,6 +75,8 @@ import {
 } from "@/pages/articles/utils";
 import { markdownToDocxBlob, safeFilename } from "@/pages/articles/markdownToDocx";
 import { saveAs } from "file-saver";
+import { useArticleAutoSave } from "@/pages/articles/useArticleAutoSave";
+import { useAiScorePoll } from "@/pages/articles/useAiScorePoll";
 
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
@@ -1062,54 +1064,17 @@ export default function ArticlesPage() {
   });
 
   // ── Auto-save: debounced 8s after last edit, only if article already saved ──
-  const autoSaveTimerRef = useRef<number | null>(null);
-  const lastSavedContentRef = useRef<string>("");
-  useEffect(() => {
-    if (!currentArticleId) return;
-    if (isStreaming) return;
-    if (!content || content.length < 50) return;
-    if (content === lastSavedContentRef.current) return;
-    if (saveArticle.isPending) return;
-    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = window.setTimeout(async () => {
-      try {
-        const { error } = await supabase
-          .from("articles")
-          .update({
-            content,
-            title: title || null,
-            meta_description: metaDescription || null,
-            updated_at: new Date().toISOString(),
-          } as any)
-          .eq("id", currentArticleId);
-        if (!error) {
-          lastSavedContentRef.current = content;
-        }
-      } catch { /* silent */ }
-    }, 8000);
-    return () => {
-      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
-    };
-  }, [content, title, metaDescription, currentArticleId, isStreaming, saveArticle.isPending]);
+  useArticleAutoSave({
+    articleId: currentArticleId,
+    content,
+    title,
+    metaDescription,
+    isStreaming,
+    isSavingExternally: saveArticle.isPending,
+  });
 
   // Poll ai_score after article id appears (stealth pass updates row async)
-  useEffect(() => {
-    if (!currentArticleId) { setAiScore(null); return; }
-    let cancelled = false;
-    const fetchScore = async () => {
-      const { data } = await supabase
-        .from("articles")
-        .select("ai_score")
-        .eq("id", currentArticleId)
-        .maybeSingle();
-      if (!cancelled && data && typeof (data as any).ai_score === "number") {
-        setAiScore((data as any).ai_score);
-      }
-    };
-    fetchScore();
-    const interval = window.setInterval(fetchScore, 8000);
-    return () => { cancelled = true; window.clearInterval(interval); };
-  }, [currentArticleId]);
+  useAiScorePoll(currentArticleId, setAiScore);
 
   // Generate schema
   const generateSchema = useMutation({

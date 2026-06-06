@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 const STORAGE_KEY = "tariff_update_seen_v2";
 
@@ -12,16 +13,17 @@ const STORAGE_KEY = "tariff_update_seen_v2";
 export function useTariffUpdateNotifier() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!user) return;
     if (localStorage.getItem(STORAGE_KEY)) return;
     const timer = setTimeout(() => {
-      toast.success("🎁 Ваш тариф стал лучше!", {
-        description: "Мы добавили новые функции без изменения цены.",
+      toast.success(t("notifier.tariffTitle"), {
+        description: t("notifier.tariffDesc"),
         duration: 10000,
         action: {
-          label: "Посмотреть что нового",
+          label: t("notifier.tariffAction"),
           onClick: () => {
             localStorage.setItem(STORAGE_KEY, "1");
             navigate("/changelog");
@@ -32,5 +34,5 @@ export function useTariffUpdateNotifier() {
       });
     }, 1500);
     return () => clearTimeout(timer);
-  }, [user, navigate]);
+  }, [user, navigate, t]);
 }

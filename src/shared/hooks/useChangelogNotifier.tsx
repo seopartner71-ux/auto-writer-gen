@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 /**
  * Notifies the user once when a new changelog version appears.
@@ -9,6 +10,7 @@ import { toast } from "sonner";
  */
 export function useChangelogNotifier() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -23,17 +25,17 @@ export function useChangelogNotifier() {
       if (seen === data.version) return;
       // Compare to avoid downgrading
       if (seen && cmpVersions(seen, data.version) >= 0) return;
-      toast.info(`Обновление v${data.version}`, {
+      toast.info(`${t("notifier.changelogTitle")}${data.version}`, {
         description: data.title,
         duration: 8000,
         action: {
-          label: "Что нового",
+          label: t("notifier.changelogAction"),
           onClick: () => navigate("/changelog"),
         },
       });
     })();
     return () => { cancelled = true; };
-  }, [navigate]);
+  }, [navigate, t]);
 }
 
 function cmpVersions(a: string, b: string) {
