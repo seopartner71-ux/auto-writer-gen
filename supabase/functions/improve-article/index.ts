@@ -375,7 +375,7 @@ ${content}`;
     // 5) Sentence-structure fix: чиним «телеграфный» стиль —
     //    серии 3+ коротких подряд, низкая средняя длина, перекос коротких.
     if ((phase === "sentence" || phase === "all") && orKey) {
-      const metrics = analyzeSentenceStructure(stripHtml(content));
+      const metrics = analyzeSentenceStructure(stripHtml(content), sentenceOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildSentenceStructureFixHint(metrics) || "";
         const sys = "Ты редактор-человек. Переписываешь абзацы HTML так, чтобы предложения были связными и завершёнными. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
