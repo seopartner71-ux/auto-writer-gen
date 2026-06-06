@@ -150,9 +150,10 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     if (!article_id) return json({ error: "article_id required" }, 400);
-    const phase: "humanize" | "turgenev" | "all" =
+    const phase: "humanize" | "turgenev" | "sentence" | "all" =
       fix_type === "humanize" ? "humanize" :
-      fix_type === "turgenev" ? "turgenev" : "all";
+      fix_type === "turgenev" ? "turgenev" :
+      fix_type === "sentence_structure" ? "sentence" : "all";
 
     const { data: art } = await admin.from("articles")
       .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count")
