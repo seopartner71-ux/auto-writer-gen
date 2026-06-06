@@ -2797,7 +2797,7 @@ export default function SiteFactoryPage() {
                     prose-code:text-violet-700 prose-code:bg-violet-50 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5
                     prose-li:marker:text-violet-400
                   "
-                  dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(previewArticle.content) }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderMarkdownPreview(previewArticle.content)) }}
                 />
               )}
               <div className="mt-10 pt-6 border-t border-gray-100">
