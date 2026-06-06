@@ -1353,6 +1353,34 @@ Deno.serve(async (req) => {
 
     await admin.from("articles").update(update).eq("id", article_id);
 
+    {
+      const turg = finalTurg ?? existing?.turgenev_score ?? null;
+      const ai = finalAi ?? fallbackManualAi?.score ?? existing?.ai_human_score ?? null;
+      const uniq2 = finalUniq ?? existing?.uniqueness_percent ?? null;
+      const verdict: "pass" | "warning" | "fail" =
+        (ai !== null && ai < 50) || (uniq2 !== null && uniq2 < 70) || (turg !== null && turg > 10)
+          ? "fail"
+          : (ai !== null && ai < 70) || (uniq2 !== null && uniq2 < 85) || (turg !== null && turg > 5)
+          ? "warning"
+          : "pass";
+      logPipelineEvent({
+        stage: "quality_check",
+        article_id: article_id,
+        user_id: user.id,
+        verdict,
+        score: ai,
+        duration_ms: timer(),
+        meta: {
+          turgenev: turg,
+          uniqueness: uniq2,
+          ai_human: ai,
+          checks: Array.from(requested),
+          uniqueness_error: uniqError || null,
+          badge,
+        },
+      });
+    }
+
     // Cost logging
     const totalIn = (out.score?.tokens_in || 0) + (out.ai?.tokens_in || 0);
     const totalOut = (out.score?.tokens_out || 0) + (out.ai?.tokens_out || 0);
