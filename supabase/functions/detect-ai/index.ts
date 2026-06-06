@@ -4,6 +4,7 @@
 
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const RU_CLICHES = [
   "является","данный","стоит отметить","в заключение","важно отметить",
@@ -150,9 +151,14 @@ Deno.serve(async (req) => {
   const auth = await verifyAuth(req);
   if (auth instanceof Response) return auth;
 
+  const timer = startTimer();
+  let articleId: string | null = null;
   try {
-    const { content, language, skip_llm } = await req.json();
+    const body = await req.json();
+    const { content, language, skip_llm } = body;
+    articleId = body?.article_id || body?.articleId || null;
     if (!content || typeof content !== "string" || content.trim().length < 50) {
+      logPipelineEvent({ stage: "ai_detect", user_id: auth.userId, article_id: articleId, verdict: "warning", duration_ms: timer(), error_kind: "too_short" });
       return errorResponse("content (>=50 chars) required", 400);
     }
     const lang = (language === "ru" || language === "en") ? language : detectLang(content);
@@ -172,6 +178,15 @@ Deno.serve(async (req) => {
       final >= 70 ? "high_risk" :
       final >= 40 ? "medium_risk" : "human_like";
 
+    logPipelineEvent({
+      stage: "ai_detect",
+      user_id: auth.userId,
+      article_id: articleId,
+      verdict: final >= 70 ? "fail" : final >= 40 ? "warning" : "pass",
+      score: final,
+      duration_ms: timer(),
+      meta: { heuristic: heur.ai_score, llm, language: lang },
+    });
     return jsonResponse({
       ai_score: final,
       heuristic_score: heur.ai_score,
@@ -181,6 +196,7 @@ Deno.serve(async (req) => {
       details: heur,
     });
   } catch (e) {
+    logPipelineEvent({ stage: "ai_detect", user_id: auth.userId, article_id: articleId, verdict: "fail", error_kind: "exception", error_message: e instanceof Error ? e.message : String(e), duration_ms: timer() });
     return errorResponse(e instanceof Error ? e.message : "detect-ai failed", 500);
   }
 });
