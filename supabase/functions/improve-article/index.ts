@@ -112,6 +112,8 @@ async function callGateway(model: string, system: string, user: string, key: str
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const elapsed = startTimer();
+  let logCtx: { user_id?: string; article_id?: string; phase?: string } = {};
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
