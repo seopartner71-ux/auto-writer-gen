@@ -1107,6 +1107,7 @@ ${lsiStr || "Нет"}
 ВОПРОСЫ ПОЛЬЗОВАТЕЛЕЙ:
 ${questionsStr ? `- ${questionsStr}` : "Нет"}
 ${topicsBlock}${gapsBlock}${entitiesBlock}${insightsBlock}${linksBlock}${anchorBlock}
+${noExternalLinksBlock}
 РЕКОМЕНДУЕМЫЙ ОБЪЁМ: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} слов
 
 ВАЖНО: Статья ОБЯЗАТЕЛЬНО должна начинаться с заголовка H1 (# Заголовок).${geoLocation?.trim() ? ` H1 ДОЛЖЕН содержать "${geoLocation}".` : ""} H1 должен содержать ключевое слово и быть первой строкой вывода.${finalReminder}
