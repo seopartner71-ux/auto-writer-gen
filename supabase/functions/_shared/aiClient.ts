@@ -56,6 +56,7 @@ export interface ChatResult {
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_TIMEOUT = 60_000;
+const baseExtraJsonObject = { response_format: { type: "json_object" } } as const;
 
 function buildHeaders(apiKey: string, appTitle?: string): Record<string, string> {
   return {
