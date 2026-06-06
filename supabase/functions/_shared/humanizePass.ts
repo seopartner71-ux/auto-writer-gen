@@ -12,6 +12,13 @@
 
 import { applyStealthPostProcess } from "./stealth.ts";
 import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "./sentenceStructure.ts";
+import {
+  measureHumanize,
+  structuralIntegrityOk,
+  countBanlistHits,
+  listBanlistHits,
+  type HumanizeMetrics,
+} from "./humanizeMetrics.ts";
 
 const SONNET_MODEL = "anthropic/claude-sonnet-4";
 const OPUS_MODEL = "anthropic/claude-opus-4";
@@ -39,11 +46,30 @@ STRICT rules:
 - Replace em/en dashes (—, –) with regular hyphens (-).
 - Write directly and concretely. Return ONLY the rewritten markdown, no commentary.`;
 
+function buildEnSentenceHint(m: ReturnType<typeof analyzeSentenceStructure>): string | null {
+  if (m.verdict === "pass") return null;
+  const problems: string[] = [];
+  if (m.avgWords && m.avgWords < 14) problems.push(`- Avg sentence length ${m.avgWords.toFixed(1)} words is too short (target 16-26).`);
+  if (m.shortRatio > 0.3) problems.push(`- Too many short sentences (${Math.round(m.shortRatio * 100)}%). Merge them with "because", "while", "so that".`);
+  if (m.maxShortRun >= 3) problems.push(`- Runs of ${m.maxShortRun} short sentences in a row. Max 2 in a row.`);
+  if (!problems.length) return null;
+  return [
+    "SENTENCE STRUCTURE PROBLEMS:",
+    problems.join("\n"),
+    "",
+    "RULES:",
+    "1. Don't split one thought into two sentences. Join with commas or em-dashes.",
+    "2. Don't stack 3+ short sentences in a row — combine through subordination.",
+    "3. Keep facts, numbers, links and HTML/markdown structure untouched.",
+  ].join("\n");
+}
+
 function structureHintFor(lang: "ru" | "en", content: string): string {
-  if (lang !== "ru") return "";
   try {
     const metrics = analyzeSentenceStructure(content);
-    const hint = buildSentenceStructureFixHint(metrics);
+    const hint = lang === "ru"
+      ? buildSentenceStructureFixHint(metrics)
+      : buildEnSentenceHint(metrics);
     return hint ? `\n\n${hint}\n` : "";
   } catch {
     return "";
@@ -134,6 +160,13 @@ export interface DoubleHumanizeResult {
   modelsUsed: string[];
   opusSkipped?: boolean;
   opusSkipReason?: string;
+  metrics?: {
+    pre: HumanizeMetrics;
+    postPass1?: HumanizeMetrics;
+    postPass2?: HumanizeMetrics;
+    postCleanup?: HumanizeMetrics;
+  };
+  rejections?: string[];
 }
 
 /**
@@ -160,6 +193,12 @@ export async function runDoubleHumanizePass(
   let passes = 0;
   let opusSkipped = false;
   let opusSkipReason: string | undefined;
+  const rejections: string[] = [];
+  const preMetrics = measureHumanize(current, language);
+  const preSig = preMetrics.signatures;
+  let postPass1: HumanizeMetrics | undefined;
+  let postPass2: HumanizeMetrics | undefined;
+  let postCleanup: HumanizeMetrics | undefined;
 
   // Adaptive timeouts based on content length. The double-pass MUST fit
   // inside the edge-function wall clock (~150s on Lovable Cloud), otherwise
@@ -174,12 +213,19 @@ export async function runDoubleHumanizePass(
   const out1 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS1_USER(language, current), sonnetTimeout);
   if (out1) {
     const cand1 = applyStealthPostProcess(stripCodeFences(out1), language);
-    if (integrityOk(current, cand1)) {
+    const candSig = (await Promise.resolve(measureHumanize(cand1, language))).signatures;
+    const struct = structuralIntegrityOk(preSig, candSig);
+    if (!integrityOk(current, cand1)) {
+      rejections.push("pass1:word_count");
+      console.warn("[humanize] pass1 rejected by word-count guard");
+    } else if (!struct.ok) {
+      rejections.push(`pass1:structure:${struct.reason}`);
+      console.warn("[humanize] pass1 rejected by structure guard:", struct.reason);
+    } else {
       current = cand1;
       passes++;
       modelsUsed.push(SONNET_MODEL);
-    } else {
-      console.warn("[humanize] pass1 rejected by integrity guard");
+      postPass1 = measureHumanize(current, language);
     }
   }
 
@@ -235,14 +281,76 @@ export async function runDoubleHumanizePass(
 
   if (out2) {
     const cand2 = applyStealthPostProcess(stripCodeFences(out2), language);
-    if (integrityOk(current, cand2)) {
+    const candSig = measureHumanize(cand2, language).signatures;
+    const struct = structuralIntegrityOk(preSig, candSig);
+    if (!integrityOk(current, cand2)) {
+      rejections.push("pass2:word_count");
+      console.warn("[humanize] pass2 rejected by word-count guard");
+    } else if (!struct.ok) {
+      rejections.push(`pass2:structure:${struct.reason}`);
+      console.warn("[humanize] pass2 rejected by structure guard:", struct.reason);
+    } else {
       current = cand2;
       passes++;
       modelsUsed.push(pass2Model);
-    } else {
-      console.warn("[humanize] pass2 rejected by integrity guard");
+      postPass2 = measureHumanize(current, language);
     }
   }
 
-  return { content: current, passesApplied: passes, modelsUsed, opusSkipped, opusSkipReason };
+  // Optional 3rd mini-pass: targeted BANLIST cleanup if hits remain too high.
+  // Cheap and short (Sonnet, 35s budget). Only RU, only if pass1 ran.
+  const afterMetrics = postPass2 || postPass1;
+  const banlistAfter = afterMetrics ? afterMetrics.banlistHits : 0;
+  const chainsAfter = afterMetrics ? afterMetrics.chainViolations : 0;
+  if (
+    language === "ru" &&
+    passes > 0 &&
+    (banlistAfter >= 6 || chainsAfter >= 3)
+  ) {
+    const hits = listBanlistHits(current, language, 10);
+    const hintList = hits.length
+      ? `Конкретно перепиши/убери эти обороты: ${hits.map((h) => `"${h}"`).join(", ")}.`
+      : "";
+    const cleanupUser = [
+      "Финальная зачистка штампов. Не меняй структуру, факты, числа, ссылки, HTML-теги, заголовки и списки.",
+      hintList,
+      chainsAfter >= 3
+        ? "Если в одном предложении 2+ союзов из \"в то время как\", \"поскольку\", \"что\" - разбей на два предложения."
+        : "",
+      "Возвращай ТОЛЬКО переписанный markdown.",
+      "",
+      "Текст:",
+      current,
+    ].filter(Boolean).join("\n");
+    const out3 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, cleanupUser, 35_000);
+    if (out3) {
+      const cand3 = applyStealthPostProcess(stripCodeFences(out3), language);
+      const candSig = measureHumanize(cand3, language).signatures;
+      const struct = structuralIntegrityOk(preSig, candSig);
+      if (integrityOk(current, cand3) && struct.ok) {
+        // Accept only if it actually reduces violations.
+        const after = measureHumanize(cand3, language);
+        if (after.banlistHits + after.chainViolations < banlistAfter + chainsAfter) {
+          current = cand3;
+          passes++;
+          modelsUsed.push(SONNET_MODEL + ":cleanup");
+          postCleanup = after;
+        } else {
+          rejections.push("cleanup:no_improvement");
+        }
+      } else {
+        rejections.push(`cleanup:${struct.ok ? "word_count" : "structure:" + struct.reason}`);
+      }
+    }
+  }
+
+  return {
+    content: current,
+    passesApplied: passes,
+    modelsUsed,
+    opusSkipped,
+    opusSkipReason,
+    metrics: { pre: preMetrics, postPass1, postPass2, postCleanup },
+    rejections: rejections.length ? rejections : undefined,
+  };
 }
