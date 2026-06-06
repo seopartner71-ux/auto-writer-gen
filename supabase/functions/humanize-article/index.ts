@@ -122,6 +122,8 @@ serve(async (req) => {
         models: result.modelsUsed,
         opus_skipped: result.opusSkipped || false,
         opus_skip_reason: result.opusSkipReason || null,
+        metrics: result.metrics || null,
+        rejections: result.rejections || null,
       },
     });
 
@@ -136,6 +138,8 @@ serve(async (req) => {
       models_used: result.modelsUsed,
       opus_skipped: result.opusSkipped || false,
       opus_skip_reason: result.opusSkipReason || null,
+      metrics: result.metrics || null,
+      rejections: result.rejections || null,
       ran_at: new Date().toISOString(),
       lang,
     };
@@ -175,6 +179,8 @@ serve(async (req) => {
       models: result.modelsUsed,
       opus_skipped: result.opusSkipped || false,
       reason: result.opusSkipReason || null,
+      metrics: result.metrics || null,
+      rejections: result.rejections || null,
     });
   } catch (e) {
     console.error("[humanize-article] error", e);
