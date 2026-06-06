@@ -8,6 +8,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
 import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_shared/sentenceStructure.ts";
+import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
+import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
+import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -135,7 +138,10 @@ Deno.serve(async (req) => {
       authHeader === `Bearer ${serviceKey}` && typeof bodyUserId === "string" && bodyUserId.length > 0;
     const isAutoTurgenev = isServiceCall && source === "auto_turgenev";
     const isAutoSentence = isServiceCall && source === "auto_sentence_structure";
-    const bypassLimits = isAutoTurgenev || isAutoSentence;
+    const isAutoDangling = isServiceCall && source === "auto_dangling";
+    const isAutoCancellary = isServiceCall && source === "auto_cancellary";
+    const isAutoKwFreq = isServiceCall && source === "auto_keyword_freq";
+    const bypassLimits = isAutoTurgenev || isAutoSentence || isAutoDangling || isAutoCancellary || isAutoKwFreq;
 
     let user: { id: string } | null = null;
     if (isServiceCall) {
@@ -150,10 +156,13 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     if (!article_id) return json({ error: "article_id required" }, 400);
-    const phase: "humanize" | "turgenev" | "sentence" | "all" =
+    const phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "all" =
       fix_type === "humanize" ? "humanize" :
       fix_type === "turgenev" ? "turgenev" :
-      fix_type === "sentence_structure" ? "sentence" : "all";
+      fix_type === "sentence_structure" ? "sentence" :
+      fix_type === "dangling" ? "dangling" :
+      fix_type === "cancellary" ? "cancellary" :
+      fix_type === "keyword_freq" ? "keyword_freq" : "all";
 
     const { data: art } = await admin.from("articles")
       .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count")
@@ -372,6 +381,88 @@ ${content}`;
           const integrity = htmlIntegrityOk(content, candidate);
           if (integrity.ok) content = candidate;
           else console.warn("[improve-article] sentence-fix rejected:", integrity.reason);
+        }
+      }
+    }
+
+    // 6) Dangling thoughts: висящие союзы и обрывы абзацев без терминатора.
+    if ((phase === "dangling" || phase === "all") && orKey) {
+      const metrics = analyzeDanglingThoughts(content);
+      if (metrics.verdict === "fail") {
+        const hint = buildDanglingFixHint(metrics) || "";
+        const sys = "Ты редактор. Закрываешь оборванные мысли в HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
+        const usr = `Закрой оборванные мысли в тексте. Каждое предложение должно быть завершённым; ни один абзац не должен заканчиваться висящим союзом ("и", "но", "поэтому", "однако") или без терминатора.
+
+${hint}
+
+Правила:
+- Допиши логическое завершение там, где мысль обрывается.
+- Не выкидывай абзацы целиком — дополни их.
+- Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
+- Не меняй факты, цифры, бренды, ссылки.
+
+HTML:
+${content}`;
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        if (fixed && fixed.length > 200) {
+          const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          const integrity = htmlIntegrityOk(content, candidate);
+          if (integrity.ok) content = candidate;
+          else console.warn("[improve-article] dangling-fix rejected:", integrity.reason);
+        }
+      }
+    }
+
+    // 7) Cancellary: канцеляризмы и штампы из BANLIST.
+    if ((phase === "cancellary" || phase === "all") && orKey) {
+      const metrics = analyzeCancellary(stripHtml(content));
+      if (metrics.verdict === "fail") {
+        const hint = buildCancellaryFixHint(metrics) || "";
+        const sys = "Ты редактор. Убираешь канцеляризмы и штампы из HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
+        const usr = `Перепиши фразы, содержащие запрещённые обороты. Заменяй конкретикой, фактом или действием — не выбрасывай слова механически.
+
+${hint}
+
+Правила:
+- Сохрани все HTML-теги и структуру.
+- Не меняй цифры, бренды, ссылки.
+- Если фразу нечем заменить — выкидывай целиком, не оставляй обрубок.
+
+HTML:
+${content}`;
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        if (fixed && fixed.length > 200) {
+          const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          const integrity = htmlIntegrityOk(content, candidate);
+          if (integrity.ok) content = candidate;
+          else console.warn("[improve-article] cancellary-fix rejected:", integrity.reason);
+        }
+      }
+    }
+
+    // 8) Keyword frequency: сверхчастые значимые слова и переспам seed-ключа в H2.
+    if ((phase === "keyword_freq" || phase === "all") && orKey) {
+      const metrics = analyzeKeywordFrequency(content, primaryKeyword || null);
+      if (metrics.verdict === "fail") {
+        const hint = buildKeywordFrequencyFixHint(metrics) || "";
+        const sys = "Ты редактор. Снижаешь частотность повторяющихся слов в HTML через синонимы, местоимения и перестройку фраз. Сохраняешь ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
+        const usr = `Снизь частотность сверхчастых слов и seed-ключа. Используй синонимы, местоимения, перестройку фразы — не выкидывай слова механически.
+
+${hint}
+
+Правила:
+- Норма: значимое слово ≤ 2 раз на 1000 знаков; seed-ключ ≤ 1 раз в каждом H2-блоке.
+- Сохрани смысл и факты; не делай текст безличным.
+- Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
+
+HTML:
+${content}`;
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        if (fixed && fixed.length > 200) {
+          const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          const integrity = htmlIntegrityOk(content, candidate);
+          if (integrity.ok) content = candidate;
+          else console.warn("[improve-article] keyword-freq-fix rejected:", integrity.reason);
         }
       }
     }

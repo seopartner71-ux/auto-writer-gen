@@ -7,6 +7,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
+import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
+import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
+import { analyzeDanglingThoughts } from "../_shared/validators/danglingThoughtGuard.ts";
 
 async function logErr(admin: any, context: string, message: string, metadata?: Record<string, unknown>) {
   try {
@@ -708,6 +711,16 @@ async function runAutoQuality(
   const sentStatus: "ok" | "warning" | "fail" =
     sentStruct.verdict === "fail" ? "fail" : sentStruct.verdict === "warning" ? "warning" : "ok";
 
+  // ── Validators v2: канцеляризмы, частотность ключа, обрывы мысли ──
+  const cancellary = analyzeCancellary(plain);
+  const keywordFreq = analyzeKeywordFrequency(content, primaryKeyword || null);
+  const dangling = analyzeDanglingThoughts(content);
+  const toStatus = (v: "pass" | "warning" | "fail"): "ok" | "warning" | "fail" =>
+    v === "fail" ? "fail" : v === "warning" ? "warning" : "ok";
+  const cancStatus = toStatus(cancellary.verdict);
+  const freqStatus = toStatus(keywordFreq.verdict);
+  const dangStatus = toStatus(dangling.verdict);
+
   // Compute aggregate quality_status
   // ai_score: <50 fail, 50-69 warning, >=70 ok (higher = more human-like)
   let aiStatus: "ok" | "warning" | "fail" = "ok";
@@ -722,6 +735,9 @@ async function runAutoQuality(
     dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail"),
     turgenevFinal ? turgStatus : "ok",
     sentStatus,
+    cancStatus,
+    freqStatus,
+    dangStatus,
   ];
   let quality: "ok" | "warning" | "fail" = "ok";
   if (all.includes("fail")) quality = "fail";
@@ -762,6 +778,36 @@ async function runAutoQuality(
         max_short_run: sentStruct.maxShortRun,
         short_runs_3plus: sentStruct.shortRuns3Plus.slice(0, 5),
         issues: sentStruct.issues,
+        checked_at: new Date().toISOString(),
+      },
+      validators: {
+        sentence_structure: {
+          verdict: sentStruct.verdict,
+          avg_words: sentStruct.avgWords,
+          short_ratio: sentStruct.shortRatio,
+          max_short_run: sentStruct.maxShortRun,
+          issues: sentStruct.issues,
+        },
+        cancellary: {
+          verdict: cancellary.verdict,
+          total_hits: cancellary.totalHits,
+          unique_hits: cancellary.uniqueHits,
+          hits: cancellary.hits.slice(0, 8),
+          issues: cancellary.issues,
+        },
+        keyword_frequency: {
+          verdict: keywordFreq.verdict,
+          top_overused: keywordFreq.topOverused.slice(0, 5),
+          seed_keyword: keywordFreq.seedKeyword,
+          seed_overuse_sections: keywordFreq.seedOveruseSections.slice(0, 5),
+          issues: keywordFreq.issues,
+        },
+        dangling_thoughts: {
+          verdict: dangling.verdict,
+          hit_count: dangling.hits.length,
+          hits: dangling.hits.slice(0, 5),
+          issues: dangling.issues,
+        },
         checked_at: new Date().toISOString(),
       },
       ...(qErrors.length ? { errors: qErrors, errors_at: new Date().toISOString() } : {}),
@@ -933,17 +979,30 @@ async function runAutoQuality(
     console.warn("[quality-check] auto-turgenev-fix gate error", e);
   }
 
-  // ── Sentence-Structure Auto-Fix ─────────────────────────────────
-  // verdict === "fail" -> один тихий проход improve-article с fix_type="sentence_structure".
-  // Флаг хранится в quality_details.sentence_structure_auto_fixed, чтобы не зацикливаться.
+  // ── Validators v2 Auto-Fix dispatcher ───────────────────────────
+  // Приоритет: dangling (структурно ломает текст) → sentence (стиль) →
+  // cancellary (лексика) → keyword_frequency (тонкая настройка).
+  // На один прогон quality-check диспатчится максимум один fix: следующая
+  // фаза выберется при ре-чек после improve-article.
+  // Анти-петля: каждая фаза помечается флагом в quality_details.
   try {
-    if (sentStruct.verdict === "fail" && orKey) {
+    if (orKey) {
       const { data: prevDet } = await admin.from("articles")
         .select("quality_details").eq("id", articleId).maybeSingle();
       const det: any = (prevDet?.quality_details as any) || {};
-      if (det.sentence_structure_auto_fixed !== true) {
+
+      type Phase = { name: string; fixType: string; source: string; flag: string; verdict: "pass" | "warning" | "fail" };
+      const phases: Phase[] = [
+        { name: "dangling", fixType: "dangling", source: "auto_dangling", flag: "dangling_auto_fixed", verdict: dangling.verdict },
+        { name: "sentence", fixType: "sentence_structure", source: "auto_sentence_structure", flag: "sentence_structure_auto_fixed", verdict: sentStruct.verdict },
+        { name: "cancellary", fixType: "cancellary", source: "auto_cancellary", flag: "cancellary_auto_fixed", verdict: cancellary.verdict },
+        { name: "keyword_freq", fixType: "keyword_freq", source: "auto_keyword_freq", flag: "keyword_freq_auto_fixed", verdict: keywordFreq.verdict },
+      ];
+
+      const next = phases.find((p) => p.verdict === "fail" && det[p.flag] !== true);
+      if (next) {
         await admin.from("articles").update({
-          quality_details: { ...det, sentence_structure_auto_fixed: true },
+          quality_details: { ...det, [next.flag]: true },
         }).eq("id", articleId);
 
         const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
@@ -958,20 +1017,20 @@ async function runAutoQuality(
               },
               body: JSON.stringify({
                 article_id: articleId,
-                fix_type: "sentence_structure",
+                fix_type: next.fixType,
                 user_id: userId,
-                source: "auto_sentence_structure",
+                source: next.source,
               }),
             });
           } catch (e) {
-            await logErr(admin, "quality-check", "auto_sentence_structure_dispatch_failed", { article_id: articleId, error: String(e) });
+            await logErr(admin, "quality-check", `auto_${next.name}_dispatch_failed`, { article_id: articleId, error: String(e) });
           }
         })();
         try { (globalThis as any).EdgeRuntime?.waitUntil?.(fixTask); } catch (_) { void fixTask; }
       }
     }
   } catch (e) {
-    await logErr(admin, "quality-check", "auto_sentence_structure_gate_error", { article_id: articleId, error: String(e) });
+    await logErr(admin, "quality-check", "auto_validators_gate_error", { article_id: articleId, error: String(e) });
   }
 }
 
