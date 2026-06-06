@@ -162,6 +162,7 @@ export default function SiteFactoryPage() {
   const [showDnsHelper, setShowDnsHelper] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
   const [nsServers, setNsServers] = useState<string[]>([]);
+  const [cnameTarget, setCnameTarget] = useState<string>("");
   const [editingArticle, setEditingArticle] = useState<QueueArticle | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
