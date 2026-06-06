@@ -131,7 +131,7 @@ function ServiceLoadPanel() {
               { label: t("adminDash.totalInQueue"), value: s.queueTotal, color: pressureColor },
             ].map((m) => (
               <div key={m.label} className="text-center">
-                <p className={`text-xl font-bold ${m.color}`}>{m.value}</p>
+                <p className={`text-xl font-bold stat-num ${m.color}`}>{m.value}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{m.label}</p>
               </div>
             ))}
@@ -195,7 +195,7 @@ function QueueMonitor() {
             { label: t("adminDash.errors"), value: s.failed, color: "text-destructive" },
           ].map((m) => (
             <div key={m.label} className="text-center">
-              <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
+              <p className={`text-2xl font-bold stat-num ${m.color}`}>{m.value}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">{m.label}</p>
             </div>
           ))}
@@ -332,7 +332,7 @@ function MetricaWidget() {
                 ].map((m) => (
                   <div key={m.label} className="text-center">
                     <m.icon className={`h-3.5 w-3.5 mx-auto mb-1 ${m.color}`} />
-                    <p className="text-lg font-bold">{m.value}</p>
+                    <p className="text-lg font-bold stat-num">{m.value}</p>
                     <p className="text-[10px] text-muted-foreground">{m.label}</p>
                   </div>
                 ))}
