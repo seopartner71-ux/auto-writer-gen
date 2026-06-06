@@ -11,6 +11,8 @@ const LandingBentoV3 = lazy(() => import("@/components/landing/v3/LandingBentoV3
 const LandingPricingV3 = lazy(() => import("@/components/landing/v3/LandingPricingV3").then(m => ({ default: m.LandingPricingV3 })));
 const LandingFinalCtaV3 = lazy(() => import("@/components/landing/v3/LandingFinalCtaV3").then(m => ({ default: m.LandingFinalCtaV3 })));
 const LandingFooterV3 = lazy(() => import("@/components/landing/v3/LandingFooterV3").then(m => ({ default: m.LandingFooterV3 })));
+const SectionVideoDemo = lazy(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
+const SectionTestimonials = lazy(() => import("@/components/landing/SectionTestimonials").then(m => ({ default: m.SectionTestimonials })));
 
 export default function Index() {
   const { lang } = useI18n();
@@ -109,6 +111,8 @@ export default function Index() {
         <Suspense fallback={null}>
           <LandingTrustV3 />
           <LandingBentoV3 />
+          <SectionVideoDemo />
+          <SectionTestimonials />
           <LandingPricingV3 />
           <SectionFaq />
           <LandingFinalCtaV3 />
