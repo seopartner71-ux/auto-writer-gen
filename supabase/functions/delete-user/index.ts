@@ -1,58 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { verifyAuth, requireAdminOrStaff, adminClient } from "../_shared/auth.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const pre = handlePreflight(req); if (pre) return pre;
 
   try {
-    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
+    const auth = await verifyAuth(req);
+    if (auth instanceof Response) return auth;
 
-    const token = authHeader.replace("Bearer ", "");
-    const payloadB64 = token.split(".")[1];
-    if (!payloadB64) throw new Error("Unauthorized");
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-    const adminId = payload.sub as string;
-    if (!adminId) throw new Error("Unauthorized");
-
-    // Verify caller is admin
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
+    // Restrict to admin only (not staff) for destructive account deletion.
+    const supabaseAdmin = adminClient();
     const { data: roleData } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", adminId)
+      .eq("user_id", auth.userId)
       .eq("role", "admin")
-      .single();
-
-    if (!roleData) throw new Error("Forbidden: admin role required");
+      .maybeSingle();
+    if (!roleData) return errorResponse("Forbidden: admin role required", 403);
 
     const { user_id } = await req.json();
-    if (!user_id) throw new Error("user_id is required");
-    if (user_id === adminId) throw new Error("Cannot delete yourself");
+    if (!user_id || typeof user_id !== "string") return errorResponse("user_id is required", 400);
+    if (user_id === auth.userId) return errorResponse("Cannot delete yourself", 400);
 
-    // Delete user from auth (cascades to profiles, user_roles, etc.)
     const { error } = await supabaseAdmin.auth.admin.deleteUser(user_id);
     if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ success: true });
   } catch (e) {
     console.error("delete-user error:", e);
     const msg = e instanceof Error ? e.message : "Unknown error";
-    const status = msg.includes("Unauthorized") ? 401 : msg.includes("Forbidden") ? 403 : 500;
-    return new Response(JSON.stringify({ error: msg }), {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return errorResponse(msg, 500);
   }
 });
