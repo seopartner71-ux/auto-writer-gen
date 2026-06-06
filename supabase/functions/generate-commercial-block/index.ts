@@ -593,10 +593,10 @@ Deno.serve(async (req) => {
     let factFlags: string[] = [];
     let fcUsd = 0;
     if (countWords(content) >= 80) {
-      const fc = await llmFactCheck({ apiKey, html: content, brief: body.brief });
+      const fc = await llmFactCheck({ apiKey, html: content, brief: body.brief, generatorModel: model });
       content = stripFences(fc.html);
       factFlags = fc.flags;
-      fcUsd = tokensToUsd("google/gemini-2.5-flash-lite", fc.tokensIn, fc.tokensOut);
+      fcUsd = tokensToUsd(fc.model, fc.tokensIn, fc.tokensOut);
       totalIn += fc.tokensIn;
       totalOut += fc.tokensOut;
     }
