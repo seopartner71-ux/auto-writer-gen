@@ -325,11 +325,11 @@ async function runTextRuUniqueness(plain: string, apiKey: string): Promise<
   const post = async (form: Record<string, string>) => {
     const fd = new URLSearchParams();
     for (const [k, v] of Object.entries(form)) fd.append(k, v);
-    const res = await fetch("https://api.text.ru/post", {
+    const res = await fetchWithTimeout("https://api.text.ru/post", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: fd.toString(),
-    });
+    }, 30_000);
     const j: any = await res.json().catch(() => ({}));
     return { res, j };
   };
@@ -1104,7 +1104,7 @@ ${paragraphs.map((p, i) => `[${i + 1}] ${p.slice(0, 400)}`).join("\n\n")}
   "off_cluster": [{"i": номер, "reason": "коротко чем именно уходит из кластера"}]
 }`;
 
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1115,7 +1115,7 @@ ${paragraphs.map((p, i) => `[${i + 1}] ${p.slice(0, 400)}`).join("\n\n")}
       ],
       response_format: { type: "json_object" },
     }),
-  });
+  }, 60_000);
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
   const raw = data?.choices?.[0]?.message?.content || "{}";

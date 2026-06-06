@@ -450,26 +450,35 @@ serve(async (req) => {
     // Use author's temperature if set, otherwise default
     const authorTemperature = authorData?.temperature ? Number(authorData.temperature) : 0.85;
 
-    // Stream AI response with retry on 429
+    // Stream AI response with retry on 429.
+    // Hard 120s timeout on connection open prevents stuck "processing" tasks
+    // when OpenRouter hangs (separate from streaming read which has no timer).
     let aiResponse: Response | null = null;
     const maxRetries = 3;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          stream: true,
-          temperature: authorTemperature,
-        }),
-      });
+      const openCtrl = new AbortController();
+      const openTimer = setTimeout(() => openCtrl.abort(), 120_000);
+      try {
+        aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            stream: true,
+            temperature: authorTemperature,
+          }),
+          signal: openCtrl.signal,
+        });
+      } finally {
+        clearTimeout(openTimer);
+      }
 
       if (aiResponse.status === 429 && attempt < maxRetries) {
         // Tightened backoff: 2s, 4s, 0s — frees ~27s of the 150s edge budget for actual generation.
