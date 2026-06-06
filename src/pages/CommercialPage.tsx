@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
