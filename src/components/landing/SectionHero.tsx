@@ -26,7 +26,8 @@ export function SectionHero() {
   const radius = 58;
   const circ = 2 * Math.PI * radius;
   const progress = (aiPercent / 100) * circ;
-  const color = aiPercent > 50 ? "#ef4444" : aiPercent > 15 ? "#f59e0b" : "#10b981";
+  // Premium minimalism: keep risk colors muted, success uses brand primary (no neon)
+  const color = aiPercent > 50 ? "#dc2626" : aiPercent > 15 ? "#d97706" : "#6E56CF";
   const label = aiPercent > 15 ? "AI Detected" : "Human Score";
   const displayVal = aiPercent > 15 ? `${aiPercent}%` : `${100 - aiPercent}%`;
 
