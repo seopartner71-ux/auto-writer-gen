@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,8 +22,9 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false },
     });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) throw new Error("Unauthorized");
+    const __auth = await verifyAuth(req);
+    if (__auth instanceof Response) return __auth;
+    const user = { id: __auth.userId };
 
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 

@@ -1,3 +1,4 @@
+import { verifyAuth } from "../_shared/auth.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -892,11 +893,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
+    const __auth = await verifyAuth(req);
+    if (__auth instanceof Response) return __auth;
+    const user = { id: __auth.userId };
 
     const { project_id, action, site_name, site_copyright, site_about, site_contacts, site_privacy, language, author_name, author_bio, author_avatar, primary_color, font_pair } = await req.json();
     if (!project_id) {

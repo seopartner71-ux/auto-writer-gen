@@ -5,6 +5,7 @@
 // Body: { article_id: string }
 // Returns: { ok: true } and re-triggers quality-check auto-mode in background.
 
+import { verifyAuth } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { chatComplete, AiError } from "../_shared/aiClient.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
@@ -142,11 +143,9 @@ Deno.serve(async (req) => {
     if (isServiceCall) {
       user = { id: bodyUserId };
     } else {
-      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user: u } } = await userClient.auth.getUser();
-      if (u) user = { id: u.id };
+      const __auth = await verifyAuth(req);
+      if (__auth instanceof Response) return __auth;
+      user = { id: __auth.userId };
     }
     if (!user) return json({ error: "Unauthorized" }, 401);
 

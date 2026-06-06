@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 import { buildStealthSystemAddon, applyStealthPostProcess } from "../_shared/stealth.ts";
+import { verifyAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,7 +61,9 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user } } = await userClient.auth.getUser();
+    const __auth = await verifyAuth(req);
+    if (__auth instanceof Response) return __auth;
+    const user = { id: __auth.userId };
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({}));
