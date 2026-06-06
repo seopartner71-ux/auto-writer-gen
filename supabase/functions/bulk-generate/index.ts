@@ -303,7 +303,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
     );
     const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
       + SERP_CLUSTER_DISCIPLINE_ADDON
-      + (isRussian ? ANTI_TURGENEV_ADDON : "")
+      + (isRussian ? buildAntiTurgenevAddon(getStyleProfile((job as any)?.author_profile?.style_analysis?.syntax_profile)) : "")
       + serpEntityBlock;
 
     const userPrompt = buildNewArticleUserPrompt(
