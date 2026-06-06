@@ -90,7 +90,7 @@ export function QuickFeedbackBar() {
 
   return (
     <>
-      <div className="sticky top-0 z-50 w-full border-b-2 border-primary/60 bg-gradient-to-r from-primary/30 via-fuchsia-500/20 to-primary/30 backdrop-blur-md shadow-[0_2px_20px_-2px_hsl(var(--primary)/0.5)]">
+      <div className="sticky top-0 z-50 w-full border-b border-border bg-card">
         <div className="flex items-center gap-3 px-4 py-2 text-sm">
           <span className="flex items-center gap-1.5 shrink-0 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground animate-pulse">
             <Sparkles className="h-3 w-3" />
@@ -107,7 +107,7 @@ export function QuickFeedbackBar() {
           <Button
             size="sm"
             variant="default"
-            className="h-7 px-3 text-xs ml-auto font-semibold shadow-md"
+            className="h-7 px-3 text-xs ml-auto font-semibold"
             onClick={() => setOpen(true)}
           >
             Сообщить

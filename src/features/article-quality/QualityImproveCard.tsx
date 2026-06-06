@@ -421,7 +421,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               </div>
             )}
             <Button
-              className="w-full gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white"
+              className="w-full gap-2"
               disabled={!articleId || !currentContent}
               onClick={runImprove}
             >

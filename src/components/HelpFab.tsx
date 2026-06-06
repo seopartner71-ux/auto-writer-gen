@@ -16,7 +16,7 @@ export function HelpFab() {
     <Button
       onClick={() => navigate("/wiki")}
       size="icon"
-      className="fixed bottom-5 right-5 z-40 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+      className="fixed bottom-5 right-5 z-40 h-12 w-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
       title={t("nav.wiki")}
       aria-label={t("nav.wiki")}
     >
