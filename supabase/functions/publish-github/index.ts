@@ -1,3 +1,4 @@
+import { verifyAuth } from "../_shared/auth.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
