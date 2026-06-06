@@ -932,6 +932,47 @@ async function runAutoQuality(
   } catch (e) {
     console.warn("[quality-check] auto-turgenev-fix gate error", e);
   }
+
+  // ── Sentence-Structure Auto-Fix ─────────────────────────────────
+  // verdict === "fail" -> один тихий проход improve-article с fix_type="sentence_structure".
+  // Флаг хранится в quality_details.sentence_structure_auto_fixed, чтобы не зацикливаться.
+  try {
+    if (sentStruct.verdict === "fail" && orKey) {
+      const { data: prevDet } = await admin.from("articles")
+        .select("quality_details").eq("id", articleId).maybeSingle();
+      const det: any = (prevDet?.quality_details as any) || {};
+      if (det.sentence_structure_auto_fixed !== true) {
+        await admin.from("articles").update({
+          quality_details: { ...det, sentence_structure_auto_fixed: true },
+        }).eq("id", articleId);
+
+        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const fixTask = (async () => {
+          try {
+            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${serviceKey}`,
+              },
+              body: JSON.stringify({
+                article_id: articleId,
+                fix_type: "sentence_structure",
+                user_id: userId,
+                source: "auto_sentence_structure",
+              }),
+            });
+          } catch (e) {
+            await logErr(admin, "quality-check", "auto_sentence_structure_dispatch_failed", { article_id: articleId, error: String(e) });
+          }
+        })();
+        try { (globalThis as any).EdgeRuntime?.waitUntil?.(fixTask); } catch (_) { void fixTask; }
+      }
+    }
+  } catch (e) {
+    await logErr(admin, "quality-check", "auto_sentence_structure_gate_error", { article_id: articleId, error: String(e) });
+  }
 }
 
 // ── Cluster Fitness ──────────────────────────────────────────────
