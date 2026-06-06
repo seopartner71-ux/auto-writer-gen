@@ -2236,6 +2236,32 @@ export default function SiteFactoryPage() {
                         </p>
                       </div>
                     )}
+                    {nsServers.length === 0 && cnameTarget && (
+                      <div className="rounded-md border border-green-500/30 bg-green-500/10 p-3 space-y-2">
+                        <p className="font-medium text-green-400">
+                          {lang === "ru"
+                            ? "Домен привязан! Создайте CNAME-запись у регистратора:"
+                            : "Domain bound! Create CNAME at your registrar:"}
+                        </p>
+                        <div className="font-mono text-xs flex items-center gap-2">
+                          <span className="text-muted-foreground">CNAME:</span>
+                          <span className="text-primary">{customDomain}</span>
+                          <span className="text-muted-foreground">-&gt;</span>
+                          <span className="text-primary">{cnameTarget}</span>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(cnameTarget); toast({ title: lang === "ru" ? "Скопировано" : "Copied" }); }}
+                            className="text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {lang === "ru"
+                            ? "Сайт заработает через 5-30 минут после применения DNS."
+                            : "Site will be live in 5-30 min after DNS propagation."}
+                        </p>
+                      </div>
+                    )}
                     <p className="font-medium text-primary">
                       {lang === "ru"
                         ? `DNS-записи для ${platformLabel}:`
