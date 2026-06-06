@@ -158,6 +158,7 @@ Deno.serve(async (req) => {
       fix_type === "dangling" ? "dangling" :
       fix_type === "cancellary" ? "cancellary" :
       fix_type === "keyword_freq" ? "keyword_freq" : "all";
+    logCtx = { user_id: user.id, article_id, phase };
 
     const { data: art } = await admin.from("articles")
       .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id")
@@ -497,9 +498,27 @@ ${content}`;
     })();
     try { (globalThis as any).EdgeRuntime?.waitUntil?.(reCheck); } catch (_) { void reCheck; }
 
+    logPipelineEvent({
+      stage: "improve",
+      user_id: user.id,
+      article_id,
+      verdict: "pass",
+      duration_ms: elapsed(),
+      meta: { phase, source: source ?? null, auto: bypassLimits },
+    });
     return json({ ok: true });
   } catch (e: any) {
     console.error("[improve-article] fatal", e);
+    logPipelineEvent({
+      stage: "improve",
+      user_id: logCtx.user_id,
+      article_id: logCtx.article_id,
+      verdict: "fail",
+      duration_ms: elapsed(),
+      error_kind: e instanceof AiError ? e.kind : "upstream",
+      error_message: e?.message,
+      meta: { phase: logCtx.phase },
+    });
     return json({ error: e?.message || "Unknown error" }, 500);
   }
 });
