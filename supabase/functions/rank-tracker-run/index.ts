@@ -178,16 +178,9 @@ Deno.serve(async (req) => {
     const isCron = body.cron === true && authHeader?.includes(SERVICE_KEY);
 
     if (!isCron) {
-      // Authenticated path — manual refresh by user
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } });
-      const { data: { user }, error } = await userClient.auth.getUser();
-      if (error || !user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      targetUserId = user.id;
+      const __auth = await verifyAuth(req);
+      if (__auth instanceof Response) return __auth;
+      targetUserId = __auth.userId;
     }
 
     let query = admin.from("tracked_keywords").select("id,user_id,keyword,target_domain,engine,region,city").eq("is_active", true);
