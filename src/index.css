@@ -142,6 +142,37 @@ html {
   }
 }
 
+/* ─── Premium Minimalism scope (Linear / Vercel / Stripe) ─────────────
+   Strip gradients, glows and heavy shadows inside the authenticated
+   app shell. Landing pages keep their visual richness because they
+   render outside `.app-shell`. Gradient-text (bg-clip-text) is kept. */
+.app-shell [class*="bg-gradient-to-"]:not(.bg-clip-text) {
+  background-image: none !important;
+}
+.app-shell .shadow-sm,
+.app-shell .shadow,
+.app-shell .shadow-md,
+.app-shell .shadow-lg,
+.app-shell .shadow-xl,
+.app-shell .shadow-2xl,
+.app-shell [class*="shadow-["],
+.app-shell .drop-shadow,
+.app-shell .drop-shadow-md,
+.app-shell .drop-shadow-lg,
+.app-shell .glow-primary,
+.app-shell .animate-pulse-glow {
+  box-shadow: none !important;
+  filter: none !important;
+  animation: none !important;
+}
+.app-shell .backdrop-blur,
+.app-shell .backdrop-blur-sm,
+.app-shell .backdrop-blur-md,
+.app-shell .backdrop-blur-lg,
+.app-shell .backdrop-blur-xl {
+  backdrop-filter: none !important;
+}
+
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
