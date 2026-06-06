@@ -27,6 +27,7 @@ import { applyWordPressEmulation } from "./wordpressEmulation.ts";
 import { validateHeadings, summarizeReport } from "./headingValidator.ts";
 import { logCost } from "../_shared/costLogger.ts";
 import { aiTranslateToPhotoQuery, fetchPexelsPhotos, fetchUnsplashPhotos, getUnsplashKey, hashImageContent, hashKey, normalizeImageKey } from "../_shared/unsplash.ts";
+import { verifyAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -343,7 +344,9 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    const __auth = await verifyAuth(req);
+    if (__auth instanceof Response) return __auth;
+    const user = { id: __auth.userId };
     console.log("[deploy-cloudflare-direct] auth user:", user?.id || "none", "err:", authErr?.message || "none");
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {

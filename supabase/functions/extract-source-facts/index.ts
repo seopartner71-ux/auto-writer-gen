@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { chatJson, aiErrorToResponse, AiError } from "../_shared/aiClient.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { verifyAuth } from "../_shared/auth.ts";
 
 const FACTS_PROMPT = `Ты извлекаешь МАКСИМУМ конкретных фактов со страницы сайта пользователя, чтобы AI-писатель опирался на НИХ вместо общих данных конкурентов.
 
@@ -95,7 +96,9 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const __auth = await verifyAuth(req);
+    if (__auth instanceof Response) return __auth;
+    const user = { id: __auth.userId };
     if (userError || !user) return errorResponse("Unauthorized", 401);
 
     const body = await req.json().catch(() => ({} as any));
