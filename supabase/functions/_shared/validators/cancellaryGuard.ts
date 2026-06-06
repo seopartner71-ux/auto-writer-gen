@@ -39,6 +39,11 @@ export interface CancellaryMetrics {
   issues: string[];
 }
 
+export interface CancellaryOptions {
+  /** "soft" — пороги fail повышаются в 2 раза (blogger/provocateur). */
+  strictness?: "soft" | "hard";
+}
+
 function normalize(s: string): string {
   return s.toLowerCase().replace(/ё/g, "е");
 }
@@ -53,7 +58,8 @@ function snippetAround(text: string, idx: number, len: number): string {
   return (start > 0 ? "…" : "") + text.slice(start, end).replace(/\s+/g, " ").trim() + (end < text.length ? "…" : "");
 }
 
-export function analyzeCancellary(text: string): CancellaryMetrics {
+export function analyzeCancellary(text: string, options: CancellaryOptions = {}): CancellaryMetrics {
+  const soft = options.strictness === "soft";
   const lower = normalize(text);
   const hits: CancellaryHit[] = [];
   let total = 0;
@@ -79,9 +85,11 @@ export function analyzeCancellary(text: string): CancellaryMetrics {
 
   const issues: string[] = [];
   if (uniqueHits > 0) issues.push(`Найдено ${uniqueHits} уникальных запрещённых оборотов (всего вхождений ${total}).`);
-  if (maxSingle >= 3) issues.push(`Один и тот же оборот повторяется ${maxSingle} раз — переформулируй.`);
+  const repeatLimit = soft ? 5 : 3;
+  if (maxSingle >= repeatLimit) issues.push(`Один и тот же оборот повторяется ${maxSingle} раз — переформулируй.`);
 
-  const fail = uniqueHits > 3 || maxSingle >= 3;
+  const failUnique = soft ? 6 : 3;
+  const fail = uniqueHits > failUnique || maxSingle >= repeatLimit;
   const warning = uniqueHits > 0;
   const verdict: "pass" | "warning" | "fail" = fail ? "fail" : warning ? "warning" : "pass";
 
