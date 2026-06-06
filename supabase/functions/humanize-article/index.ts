@@ -14,6 +14,8 @@ import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_s
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { validateContent } from "../_shared/contentValidator.ts";
+import { webGroundedFactCheck, hasRiskyClaims } from "../_shared/webGroundedCheck.ts";
+import { analyzeH2Structure, countSignatures, structuralIntegrityOk } from "../_shared/humanizeMetrics.ts";
 
 function detectLang(text: string, hint?: string | null): "ru" | "en" {
   if (hint === "ru" || hint === "en") return hint;
@@ -92,8 +94,52 @@ serve(async (req) => {
     // Preflight: anti-fake regex pass (fake experts, pseudo-stats, fake orgs).
     // Runs BEFORE humanize so LLM rewrites already-clean text.
     const preflight = validateContent(content);
-    const cleanedInput = preflight.fixedContent;
+    let cleanedInput = preflight.fixedContent;
     const fakesFixed = preflight.issues.length;
+
+    // H2 structural warnings (persisted to articles.h2_warnings).
+    const h2 = analyzeH2Structure(cleanedInput);
+
+    // PRO/FACTORY: optional web-grounded fact check via Perplexity.
+    // Only when content has risky factual claims. Best-effort with timeout.
+    let webGroundedApplied = false;
+    let webGroundedSkipped: string | undefined;
+    try {
+      const { data: profileRow } = await admin
+        .from("profiles")
+        .select("plan")
+        .eq("id", article.user_id)
+        .maybeSingle();
+      const plan = String(profileRow?.plan || "basic").toLowerCase();
+      if ((plan === "pro" || plan === "factory") && hasRiskyClaims(cleanedInput)) {
+        const sigBefore = countSignatures(cleanedInput);
+        const wg = await webGroundedFactCheck({
+          apiKey: openRouterKey,
+          html: cleanedInput,
+          briefSummary: "",
+          language: lang,
+          timeoutMs: 60_000,
+        });
+        if (!wg.skipped && wg.html && wg.html.length > 300) {
+          const sigAfter = countSignatures(wg.html);
+          const guard = structuralIntegrityOk(sigBefore, sigAfter);
+          if (guard.ok) {
+            cleanedInput = wg.html;
+            webGroundedApplied = true;
+          } else {
+            webGroundedSkipped = `integrity: ${guard.reason}`;
+          }
+        } else {
+          webGroundedSkipped = wg.reason || "skipped";
+        }
+      } else if (plan !== "pro" && plan !== "factory") {
+        webGroundedSkipped = "plan_not_eligible";
+      } else {
+        webGroundedSkipped = "no_risky_claims";
+      }
+    } catch (e) {
+      webGroundedSkipped = `error: ${(e as Error)?.message?.slice(0, 80)}`;
+    }
 
     const elapsed = startTimer();
     let result;
@@ -132,6 +178,9 @@ serve(async (req) => {
         metrics: result.metrics || null,
         rejections: result.rejections || null,
         fakes_fixed: fakesFixed,
+        h2_warnings: h2.warnings,
+        web_grounded_applied: webGroundedApplied,
+        web_grounded_skipped: webGroundedSkipped || null,
       },
     });
 
@@ -150,6 +199,9 @@ serve(async (req) => {
       rejections: result.rejections || null,
       fakes_fixed: fakesFixed,
       preflight_issues: preflight.issues.slice(0, 20).map(i => ({ type: i.type, original: i.original.slice(0, 80) })),
+      h2: { sections: h2.sections, empty: h2.empty, tooShort: h2.tooShort, uniformLength: h2.uniformLength, uniformPrefix: h2.uniformPrefix, warnings: h2.warnings },
+      web_grounded_applied: webGroundedApplied,
+      web_grounded_skipped: webGroundedSkipped || null,
       ran_at: new Date().toISOString(),
       lang,
     };
@@ -161,6 +213,7 @@ serve(async (req) => {
       if (fakesFixed > 0 && cleanedInput !== content) {
         updatePayload.content = cleanedInput;
       }
+      updatePayload.h2_warnings = h2.warnings.length ? h2 : null;
       await admin
         .from("articles")
         .update(updatePayload)
@@ -182,6 +235,7 @@ serve(async (req) => {
         rewritten: true,
         humanize_meta: meta,
         pipeline_stages: newStages,
+        h2_warnings: h2.warnings.length ? h2 : null,
       })
       .eq("id", article_id);
     if (updErr) {

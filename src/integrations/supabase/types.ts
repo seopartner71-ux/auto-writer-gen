@@ -567,10 +567,12 @@ export type Database = {
           commercial_brief: Json | null
           content: string | null
           created_at: string | null
+          data_nuggets_coverage: number | null
           embedding: string | null
           featured_image_url: string | null
           generation_model: string | null
           geo: string | null
+          h2_warnings: Json | null
           humanize_meta: Json | null
           id: string
           is_public: boolean | null
@@ -583,6 +585,7 @@ export type Database = {
           lsi_keywords: Json | null
           meta_description: string | null
           page_type: string
+          persona_deviation: number | null
           pipeline_stages: Json | null
           project_id: string | null
           published_url: string | null
@@ -632,10 +635,12 @@ export type Database = {
           commercial_brief?: Json | null
           content?: string | null
           created_at?: string | null
+          data_nuggets_coverage?: number | null
           embedding?: string | null
           featured_image_url?: string | null
           generation_model?: string | null
           geo?: string | null
+          h2_warnings?: Json | null
           humanize_meta?: Json | null
           id?: string
           is_public?: boolean | null
@@ -648,6 +653,7 @@ export type Database = {
           lsi_keywords?: Json | null
           meta_description?: string | null
           page_type?: string
+          persona_deviation?: number | null
           pipeline_stages?: Json | null
           project_id?: string | null
           published_url?: string | null
@@ -697,10 +703,12 @@ export type Database = {
           commercial_brief?: Json | null
           content?: string | null
           created_at?: string | null
+          data_nuggets_coverage?: number | null
           embedding?: string | null
           featured_image_url?: string | null
           generation_model?: string | null
           geo?: string | null
+          h2_warnings?: Json | null
           humanize_meta?: Json | null
           id?: string
           is_public?: boolean | null
@@ -713,6 +721,7 @@ export type Database = {
           lsi_keywords?: Json | null
           meta_description?: string | null
           page_type?: string
+          persona_deviation?: number | null
           pipeline_stages?: Json | null
           project_id?: string | null
           published_url?: string | null
