@@ -748,12 +748,23 @@ async function runAutoQuality(
   if (aiInternalRes?.score == null && claudeRes == null) qErrors.push("ai_score:local_heuristic_fallback");
   if (isRu && turgenevKey && !turgenevRes) qErrors.push("turgenev:api_failed_used_local_fallback");
   if (isRu && !turgenevKey) qErrors.push("turgenev:key_missing_used_local_fallback");
-  if (qErrors.length) {
+  {
     const { data: prevDet } = await admin.from("articles").select("quality_details").eq("id", articleId).maybeSingle();
     updatePatch.quality_details = {
       ...((prevDet?.quality_details as any) || {}),
-      errors: qErrors,
-      errors_at: new Date().toISOString(),
+      sentence_structure: {
+        verdict: sentStruct.verdict,
+        status: sentStatus,
+        avg_words: sentStruct.avgWords,
+        sentence_count: sentStruct.sentenceCount,
+        short_ratio: sentStruct.shortRatio,
+        long_ratio: sentStruct.longRatio,
+        max_short_run: sentStruct.maxShortRun,
+        short_runs_3plus: sentStruct.shortRuns3Plus.slice(0, 5),
+        issues: sentStruct.issues,
+        checked_at: new Date().toISOString(),
+      },
+      ...(qErrors.length ? { errors: qErrors, errors_at: new Date().toISOString() } : {}),
     };
   }
   if (turgenevFinal) {
