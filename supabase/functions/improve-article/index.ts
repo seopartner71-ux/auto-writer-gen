@@ -8,6 +8,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
 import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_shared/sentenceStructure.ts";
+import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
+import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
+import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -135,7 +138,10 @@ Deno.serve(async (req) => {
       authHeader === `Bearer ${serviceKey}` && typeof bodyUserId === "string" && bodyUserId.length > 0;
     const isAutoTurgenev = isServiceCall && source === "auto_turgenev";
     const isAutoSentence = isServiceCall && source === "auto_sentence_structure";
-    const bypassLimits = isAutoTurgenev || isAutoSentence;
+    const isAutoDangling = isServiceCall && source === "auto_dangling";
+    const isAutoCancellary = isServiceCall && source === "auto_cancellary";
+    const isAutoKwFreq = isServiceCall && source === "auto_keyword_freq";
+    const bypassLimits = isAutoTurgenev || isAutoSentence || isAutoDangling || isAutoCancellary || isAutoKwFreq;
 
     let user: { id: string } | null = null;
     if (isServiceCall) {
@@ -150,10 +156,13 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     if (!article_id) return json({ error: "article_id required" }, 400);
-    const phase: "humanize" | "turgenev" | "sentence" | "all" =
+    const phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "all" =
       fix_type === "humanize" ? "humanize" :
       fix_type === "turgenev" ? "turgenev" :
-      fix_type === "sentence_structure" ? "sentence" : "all";
+      fix_type === "sentence_structure" ? "sentence" :
+      fix_type === "dangling" ? "dangling" :
+      fix_type === "cancellary" ? "cancellary" :
+      fix_type === "keyword_freq" ? "keyword_freq" : "all";
 
     const { data: art } = await admin.from("articles")
       .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count")
