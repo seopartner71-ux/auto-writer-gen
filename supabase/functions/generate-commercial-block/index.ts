@@ -8,6 +8,7 @@ import { withTimeout } from "../_shared/withTimeout.ts";
 import { applyStealthPostProcess, buildStealthSystemAddon } from "../_shared/stealth.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
+import { webGroundedFactCheck, hasRiskyClaims } from "../_shared/webGroundedCheck.ts";
 import {
   countWords as countWordsQ,
   keywordDensity as keywordDensityQ,
@@ -601,6 +602,44 @@ Deno.serve(async (req) => {
       totalOut += fc.tokensOut;
     }
 
+    // Step 3 — Web-grounded fact-check via Perplexity Sonar (PRO/FACTORY only).
+    // Triggers when content has risky factual claims (percents, years, sums,
+    // "according to X"). Either cross-model already flagged something, or the
+    // content still contains numbers that the LLM-checker did not touch.
+    let webVerified: string[] = [];
+    let webUnverified: string[] = [];
+    let webCitations: string[] = [];
+    let webModel: string | null = null;
+    let webSkipped = true;
+    let webReason: string | undefined;
+    let webUsd = 0;
+    const planAllowsWeb = plan === "pro" || plan === "factory";
+    const shouldWebVerify = planAllowsWeb
+      && countWords(content) >= 80
+      && (hasRiskyClaims(content) || factFlags.length > 0);
+    if (shouldWebVerify) {
+      const briefSummary = `Ниша: ${body.brief?.niche || ""}. Компания: ${body.brief?.company || body.brief?.shop_name || ""}. Город: ${body.brief?.city || ""}. Ключ: ${body.brief?.keyword || ""}.`;
+      const web = await webGroundedFactCheck({
+        apiKey,
+        html: content,
+        briefSummary,
+        language: "ru",
+        timeoutMs: 75_000,
+      });
+      webModel = web.model;
+      webSkipped = web.skipped;
+      webReason = web.reason;
+      if (!web.skipped) {
+        content = stripFences(web.html);
+        webVerified = web.verified;
+        webUnverified = web.unverified;
+        webCitations = web.citations;
+        totalIn += web.tokensIn;
+        totalOut += web.tokensOut;
+        webUsd = tokensToUsd(web.model, web.tokensIn, web.tokensOut);
+      }
+    }
+
     // Cost log (best-effort) for admin quality dashboard.
     const finalWc = countWords(content);
     const finalDens = keywordDensity(content, String(body.brief?.keyword || ""));
@@ -610,7 +649,7 @@ Deno.serve(async (req) => {
       model,
       tokens_input: totalIn,
       tokens_output: totalOut,
-      cost_usd: primaryUsd + fcUsd,
+      cost_usd: primaryUsd + fcUsd + webUsd,
       metadata: {
         kind: "commercial_block",
         block_type: body.block_type,
@@ -623,6 +662,11 @@ Deno.serve(async (req) => {
         retry_reason: retry.reason,
         anti_fake_count: guard.flagged.length,
         fact_check_count: factFlags.length,
+        web_verified_count: webVerified.length,
+        web_unverified_count: webUnverified.length,
+        web_citations_count: webCitations.length,
+        web_skipped: webSkipped,
+        web_skip_reason: webReason,
         lsi_ratio: Number((retry.lsi_ratio ?? 1).toFixed(3)),
         lsi_missing: retry.lsi_missing?.slice(0, 8) || [],
         ymyl: detectYmyl(body.brief),
@@ -654,6 +698,12 @@ Deno.serve(async (req) => {
       block_type: body.block_type,
       anti_fake_flags: guard.flagged,
       fact_check_flags: factFlags,
+      web_verified: webVerified,
+      web_unverified: webUnverified,
+      web_citations: webCitations,
+      web_grounded_skipped: webSkipped,
+      web_grounded_reason: webReason,
+      web_grounded_model: webModel,
       retried: retry.retried,
       retry_reason: retry.reason,
       lsi_ratio: retry.lsi_ratio,
