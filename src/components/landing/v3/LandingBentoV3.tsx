@@ -1,4 +1,4 @@
-import { Search, Radar, Shield, Zap, Layers, FileText } from "lucide-react";
+import { Search, Radar, Shield, Zap, Layers, FileText, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function LandingBentoV3() {
@@ -111,7 +111,7 @@ function Cell({ children, className = "" }: { children: React.ReactNode; classNa
   );
 }
 
-function Icon({ as: Comp }: { as: React.ComponentType<{ className?: string; strokeWidth?: number }> }) {
+function Icon({ as: Comp }: { as: LucideIcon }) {
   return (
     <div className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background/50">
       <Comp className="h-4 w-4 text-foreground" strokeWidth={1.75} />
