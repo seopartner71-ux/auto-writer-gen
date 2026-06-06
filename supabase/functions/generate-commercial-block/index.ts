@@ -4,7 +4,7 @@
 
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
-import { withTimeout } from "../_shared/withTimeout.ts";
+import { chatComplete as aiChatComplete, chatJson, AiError } from "../_shared/aiClient.ts";
 import { applyStealthPostProcess, buildStealthSystemAddon } from "../_shared/stealth.ts";
 import { resolveOpenRouterModel } from "../_shared/aiModel.ts";
 import { logCost, tokensToUsd } from "../_shared/costLogger.ts";
@@ -286,7 +286,7 @@ async function getUserPlan(userId: string): Promise<string> {
   return (data?.plan as string) || "basic";
 }
 
-/** Single OpenRouter completion (non-stream). */
+/** Тонкая обёртка над общим aiClient — сохраняем старую сигнатуру по месту вызова. */
 async function chatComplete(opts: {
   apiKey: string;
   model: string;
@@ -296,38 +296,17 @@ async function chatComplete(opts: {
   temperature?: number;
   timeoutMs?: number;
 }): Promise<{ content: string; tokensIn: number; tokensOut: number }> {
-  const r = await withTimeout(
-    fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${opts.apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://seo-modul.pro",
-        "X-Title": "SEO-Module Commercial",
-      },
-      body: JSON.stringify({
-        model: opts.model,
-        max_tokens: opts.maxTokens,
-        temperature: opts.temperature ?? 0.7,
-        messages: [
-          { role: "system", content: opts.system },
-          { role: "user", content: opts.user },
-        ],
-      }),
-    }),
-    opts.timeoutMs ?? 60_000,
-    "openrouter timeout",
-  );
-  if (!r.ok) {
-    const t = await r.text().catch(() => "");
-    throw new Error(`OpenRouter ${r.status}: ${t.slice(0, 200)}`);
-  }
-  const j = await r.json();
-  return {
-    content: String(j?.choices?.[0]?.message?.content || "").trim(),
-    tokensIn: Number(j?.usage?.prompt_tokens || 0),
-    tokensOut: Number(j?.usage?.completion_tokens || 0),
-  };
+  const res = await aiChatComplete({
+    apiKey: opts.apiKey,
+    model: opts.model,
+    system: opts.system,
+    user: opts.user,
+    maxTokens: opts.maxTokens,
+    temperature: opts.temperature,
+    timeoutMs: opts.timeoutMs,
+    appTitle: "SEO-Module Commercial",
+  });
+  return { content: res.content, tokensIn: res.tokensIn, tokensOut: res.tokensOut };
 }
 
 /**
@@ -365,7 +344,7 @@ async function llmFactCheck(opts: {
     ? "google/gemini-2.5-pro"
     : "anthropic/claude-sonnet-4";
   try {
-    const res = await chatComplete({
+    const j = await chatJson<{ html: string; flags?: string[] }>({
       apiKey: opts.apiKey,
       model: checkerModel,
       system,
@@ -373,20 +352,31 @@ async function llmFactCheck(opts: {
       maxTokens: Math.min(4000, opts.html.length + 800),
       temperature: 0.2,
       timeoutMs: 60_000,
+      schemaName: "FactCheck",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["html", "flags"],
+        properties: {
+          html: { type: "string" },
+          flags: { type: "array", items: { type: "string" } },
+        },
+      },
+      retries: 1,
+      appTitle: "SEO-Module FactCheck",
     });
-    const cleaned = res.content.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
-    const parsed = JSON.parse(cleaned);
-    if (parsed && typeof parsed.html === "string" && parsed.html.length > 30) {
+    if (j.data?.html && j.data.html.length > 30) {
       return {
-        html: parsed.html,
-        flags: Array.isArray(parsed.flags) ? parsed.flags.map(String) : [],
-        tokensIn: res.tokensIn,
-        tokensOut: res.tokensOut,
-        model: checkerModel,
+        html: j.data.html,
+        flags: Array.isArray(j.data.flags) ? j.data.flags.map(String) : [],
+        tokensIn: j.tokensIn,
+        tokensOut: j.tokensOut,
+        model: j.model,
       };
     }
   } catch (e) {
-    console.warn("[fact-check] skipped:", (e as Error).message);
+    const kind = e instanceof AiError ? e.kind : "unknown";
+    console.warn("[fact-check] skipped:", kind, (e as Error).message);
   }
   return { html: opts.html, flags: [], tokensIn: 0, tokensOut: 0, model: checkerModel };
 }
