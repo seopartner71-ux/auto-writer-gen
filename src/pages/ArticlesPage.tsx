@@ -702,7 +702,7 @@ export default function ArticlesPage() {
           seo_keywords: seoKeywords.trim() || null,
           geo_location: enableGeo && geoLocation.trim() ? geoLocation.trim() : null,
           custom_instructions: customInstructions.trim() || null,
-          project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
+          project_id: (selectedProjectId && selectedProjectId !== "none" && (projects as any[]).some((p: any) => p.id === selectedProjectId)) ? selectedProjectId : null,
           source_page_url: sourcePageUrl.trim() || null,
         }),
         signal: controller.signal,
@@ -941,6 +941,16 @@ export default function ArticlesPage() {
       const userId = session.data.session?.user?.id;
       if (!userId) throw new Error("Not authenticated");
 
+      // Validate project_id: drop it if the project was deleted or doesn't exist.
+      const projectExists =
+        selectedProjectId &&
+        selectedProjectId !== "none" &&
+        (projects as any[]).some((p: any) => p.id === selectedProjectId);
+      if (selectedProjectId && selectedProjectId !== "none" && !projectExists) {
+        try { localStorage.removeItem("active_project_id"); } catch {}
+      }
+      const safeProjectId = projectExists ? selectedProjectId : null;
+
       const payload = {
         user_id: userId,
         keyword_id: selectedKeywordId || null,
@@ -950,7 +960,7 @@ export default function ArticlesPage() {
         meta_description: metaDescription || null,
         anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
         published_url: publishedUrl.trim() || null,
-        project_id: (selectedProjectId && selectedProjectId !== "none") ? selectedProjectId : null,
+        project_id: safeProjectId,
         seo_score: {
           readability,
           wordCount,
