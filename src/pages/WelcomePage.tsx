@@ -6,27 +6,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Loader2, Rocket, Sparkles, UserCheck, PenLine, FlaskConical } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 const LS_KEY = "first_article_wizard_shown";
 
 const STYLES = [
-  { id: "expert",  icon: UserCheck,    label: "Эксперт",  desc: "авторитетный тон" },
-  { id: "blogger", icon: PenLine,      label: "Блогер",   desc: "живой разговорный стиль" },
-  { id: "analyst", icon: FlaskConical, label: "Аналитик", desc: "факты и данные" },
+  { id: "expert",  icon: UserCheck,    labelKey: "welcome.styleExpert",  descKey: "welcome.styleExpertDesc" },
+  { id: "blogger", icon: PenLine,      labelKey: "welcome.styleBlogger", descKey: "welcome.styleBloggerDesc" },
+  { id: "analyst", icon: FlaskConical, labelKey: "welcome.styleAnalyst", descKey: "welcome.styleAnalystDesc" },
 ];
 
-const EXAMPLES = [
-  "купить диван недорого",
-  "стоматология Москва цены",
-  "как похудеть за месяц",
-];
+const EXAMPLES_BY_LANG: Record<string, string[]> = {
+  ru: ["купить диван недорого", "стоматология Москва цены", "как похудеть за месяц"],
+  en: ["buy cheap sofa", "dentist New York prices", "how to lose weight in a month"],
+};
 
 export default function WelcomePage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { t, lang } = useI18n();
   const [keyword, setKeyword] = useState("");
   const [author, setAuthor] = useState("blogger");
   const [checking, setChecking] = useState(true);
+  const EXAMPLES = EXAMPLES_BY_LANG[lang] || EXAMPLES_BY_LANG.ru;
 
   // Bail out if user already has articles or already saw the wizard
   useEffect(() => {
@@ -82,24 +84,22 @@ export default function WelcomePage() {
           <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-primary/10">
             <Sparkles className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold">Добро пожаловать в СЕО-Модуль!</h1>
-          <p className="text-sm text-muted-foreground">
-            Давайте создадим вашу первую статью прямо сейчас - это займёт 2 минуты
-          </p>
+          <h1 className="text-2xl font-bold">{t("welcome.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("welcome.subtitle")}</p>
         </div>
 
         <div className="space-y-3">
-          <label className="text-sm font-medium">О чём написать статью?</label>
+          <label className="text-sm font-medium">{t("welcome.aboutWhat")}</label>
           <Input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="как выбрать газовую колонку"
+            placeholder={t("welcome.placeholder")}
             className="h-12 text-base"
             autoFocus
             onKeyDown={(e) => { if (e.key === "Enter") handleStart(); }}
           />
           <div className="text-xs text-muted-foreground">
-            <div className="mb-1">Примеры:</div>
+            <div className="mb-1">{t("welcome.examples")}</div>
             <div className="flex flex-wrap gap-2">
               {EXAMPLES.map((ex) => (
                 <button
@@ -116,7 +116,7 @@ export default function WelcomePage() {
         </div>
 
         <div className="space-y-3">
-          <label className="text-sm font-medium">Выберите стиль автора:</label>
+          <label className="text-sm font-medium">{t("welcome.chooseStyle")}</label>
           <div className="grid grid-cols-3 gap-3">
             {STYLES.map((s) => {
               const Icon = s.icon;
@@ -133,8 +133,8 @@ export default function WelcomePage() {
                   }`}
                 >
                   <Icon className={`h-6 w-6 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                  <div className="text-sm font-medium">{s.label}</div>
-                  <div className="text-[11px] text-muted-foreground text-center">{s.desc}</div>
+                  <div className="text-sm font-medium">{t(s.labelKey)}</div>
+                  <div className="text-[11px] text-muted-foreground text-center">{t(s.descKey)}</div>
                 </button>
               );
             })}
@@ -148,7 +148,7 @@ export default function WelcomePage() {
           disabled={keyword.trim().length < 2}
         >
           <Rocket className="h-5 w-5" />
-          Создать первую статью бесплатно
+          {t("welcome.startCta")}
         </Button>
 
         <div className="border-t border-border pt-4 text-center">
@@ -157,7 +157,7 @@ export default function WelcomePage() {
             onClick={handleSkip}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            Хочу разобраться самостоятельно -&gt;
+            {t("welcome.skip")}
           </button>
         </div>
       </Card>
