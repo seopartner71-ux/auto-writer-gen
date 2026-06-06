@@ -11,7 +11,8 @@ import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
 import { enforcePersonaSyntax } from "../_shared/personaEnforce.ts";
 import { enforceDataNuggets } from "../_shared/nuggetsEnforce.ts";
 import { validateContent } from "../_shared/contentValidator.ts";
-import { ANTI_TURGENEV_ADDON } from "../_shared/antiTurgenevAddon.ts";
+import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurgenevAddon.ts";
+import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 
 const corsHeaders = {
