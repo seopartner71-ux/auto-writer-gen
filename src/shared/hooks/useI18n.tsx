@@ -1558,6 +1558,35 @@ const translations: Record<string, Record<Lang, string>> = {
   "onboarding.startWithResearch": { ru: "Начать с исследования →", en: "Start with Research →" },
   "onboarding.reminderTitle": { ru: "Вы ещё не попробовали генерацию!", en: "You haven't tried generating yet!" },
   "onboarding.reminderDesc": { ru: "Создайте первую статью прямо сейчас →", en: "Create your first article now →" },
+
+  // Welcome wizard
+  "welcome.title": { ru: "Добро пожаловать в СЕО-Модуль!", en: "Welcome to SEO-Module!" },
+  "welcome.subtitle": { ru: "Давайте создадим вашу первую статью прямо сейчас - это займет 2 минуты", en: "Let's create your first article right now - it takes 2 minutes" },
+  "welcome.aboutWhat": { ru: "О чем написать статью?", en: "What should the article be about?" },
+  "welcome.placeholder": { ru: "как выбрать газовую колонку", en: "how to choose a gas water heater" },
+  "welcome.examples": { ru: "Примеры:", en: "Examples:" },
+  "welcome.chooseStyle": { ru: "Выберите стиль автора:", en: "Choose author style:" },
+  "welcome.startCta": { ru: "Создать первую статью бесплатно", en: "Create first article for free" },
+  "welcome.skip": { ru: "Хочу разобраться самостоятельно ->", en: "I'll figure it out myself ->" },
+  "welcome.styleExpert": { ru: "Эксперт", en: "Expert" },
+  "welcome.styleExpertDesc": { ru: "авторитетный тон", en: "authoritative tone" },
+  "welcome.styleBlogger": { ru: "Блогер", en: "Blogger" },
+  "welcome.styleBloggerDesc": { ru: "живой разговорный стиль", en: "casual conversational style" },
+  "welcome.styleAnalyst": { ru: "Аналитик", en: "Analyst" },
+  "welcome.styleAnalystDesc": { ru: "факты и данные", en: "facts and data" },
+
+  // Tariff / changelog notifiers
+  "notifier.tariffTitle": { ru: "🎁 Ваш тариф стал лучше!", en: "🎁 Your plan just got better!" },
+  "notifier.tariffDesc": { ru: "Мы добавили новые функции без изменения цены.", en: "We added new features at no extra cost." },
+  "notifier.tariffAction": { ru: "Посмотреть что нового", en: "See what's new" },
+  "notifier.changelogTitle": { ru: "Обновление v", en: "Update v" },
+  "notifier.changelogAction": { ru: "Что нового", en: "What's new" },
+
+  // Style presets (image generator)
+  "stylePresets.photoSub": { ru: "Бизнес-фото", en: "Business photo" },
+  "stylePresets.productSub": { ru: "Белый фон", en: "White background" },
+  "stylePresets.lifestyleSub": { ru: "В использовании", en: "In use" },
+  "stylePresets.flatlaySub": { ru: "Сверху, плоско", en: "Top-down, flat" },
 };
 
 interface I18nContextValue {
