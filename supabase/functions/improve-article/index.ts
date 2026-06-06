@@ -345,6 +345,37 @@ ${content}`;
       }
     }
 
+    // 5) Sentence-structure fix: чиним «телеграфный» стиль —
+    //    серии 3+ коротких подряд, низкая средняя длина, перекос коротких.
+    if ((phase === "sentence" || phase === "all") && orKey) {
+      const metrics = analyzeSentenceStructure(stripHtml(content));
+      if (metrics.verdict === "fail") {
+        const hint = buildSentenceStructureFixHint(metrics) || "";
+        const sys = "Ты редактор-человек. Переписываешь абзацы HTML так, чтобы предложения были связными и завершёнными. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
+        const usr = `Перепиши текст, исправив структуру предложений.
+
+${hint}
+
+ТРЕБОВАНИЯ:
+- Средняя длина предложения 18-30 слов.
+- Не более 1 короткого предложения подряд как акцент.
+- Соединяй связанные мысли через "поскольку", "при этом", "хотя", "однако", "так как".
+- Каждое предложение должно быть завершённым, без обрывов на "и", "но", "поэтому".
+- НЕ выравнивай длину механически: чередуй средние (15-22) и длинные (22-30).
+- Не меняй факты, цифры, бренды, ссылки. Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
+
+HTML:
+${content}`;
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        if (fixed && fixed.length > 200) {
+          const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          const integrity = htmlIntegrityOk(content, candidate);
+          if (integrity.ok) content = candidate;
+          else console.warn("[improve-article] sentence-fix rejected:", integrity.reason);
+        }
+      }
+    }
+
     // Save improved content
     await admin.from("articles").update({
       content,
