@@ -1,84 +1,89 @@
-# План закрытия техдолга
+## Цель
 
-Работаем по убыванию критичности. Каждый пункт - отдельный коммит, чтобы можно было откатить.
+Убрать «промт-винегрет»: то, что можно проверить кодом - проверять кодом и автоматически переписывать. То, что нельзя - оставить в промте, но коротко и приоритизированно.
 
-## 1. GEO Radar: честная visibility для brand-keywords
+## Структура
 
-Проблема: если keyword содержит название бренда - модель вынуждена его упомянуть, `brand_mentioned=true` всегда, метрика visibility 57% становится фейковой.
+### Шаг 1. Разбить `antiTurgenevAddon.ts` на 3 константы
 
-Решение в `supabase/functions/radar-check/index.ts`:
-- Добавить детектор: если `keyword.toLowerCase().includes(brand.toLowerCase())` или наоборот - помечать запрос как `branded=true`.
-- Для branded-запросов НЕ засчитывать `brand_mentioned` в visibility. Считать только `cited` (есть ли ссылка/упоминание сайта) и `recommended` (рекомендует ли модель к выбору).
-- В UI на `RadarPage` показывать badge "Branded query - visibility excluded" рядом с такими keywords.
-- В формуле итоговой visibility делить только на non-branded запросы.
+Файл `supabase/functions/_shared/antiTurgenevAddon.ts` превращается в композицию:
 
-## 2. Beget timeouts: фоновая очередь для image generation
+- `HARD_RULES` - 6-7 строк, только то, что валидируется кодом (длина предложений, серии коротких, обрывы мыслей, частотность ключа, запрет повтора зачинов абзацев). Идёт в system-промт первой.
+- `BANLIST` - плоский список запрещённых слов/фраз через запятую (канцеляризмы, штампы, заглушки, клише). Идёт отдельным блоком - LLM такие списки парсит лучше нумерованных.
+- `STYLE_GUIDE` - мягкие рекомендации по чередованию длин, абзацам, риторике. Подключается опционально (отключается для «raw» Persona, чтобы не дрались правила).
 
-Проблема: Flux Pro иногда > 180s, PHP-proxy дропает.
+Экспортируем `ANTI_TURGENEV_ADDON` (HARD + BANLIST) как дефолт - совместимость со всеми вызовами не ломается. `STYLE_GUIDE` экспортируется отдельно.
 
-Решение:
-- Использовать существующую таблицу `background_jobs` (уже есть, видна в схеме).
-- В `generate-image` edge function: если запрос пришёл с флагом `async=true` - создать запись в `background_jobs` (job_type='image_generation', status='pending'), сразу вернуть `job_id`, запустить генерацию в `EdgeRuntime.waitUntil()`.
-- По завершении обновить job: `status='completed'`, `result={ url, storage_path }`.
-- На клиенте `ImageGeneratorPage`: после POST поллить `background_jobs` по `id` каждые 3с до `completed/failed`. Realtime подписка - бонус, не обязателен.
-- Синхронный режим (`async=false`) оставить для preview/мелких задач.
+### Шаг 2. Создать 3 новых валидатора (по образцу `sentenceStructure.ts`)
 
-## 3. Shared infra для новых edge functions
+В `supabase/functions/_shared/validators/`:
 
-`radar-check` и `generate-geo-plan` не используют `_shared/` модули.
+1. **`cancellaryGuard.ts`** - regex по BANLIST канцеляризмов и штампов. Возвращает `{ verdict, hits: [{phrase, count, samples}], issues }`. `fail` если >3 уникальных канцеляризма или любой встречается ≥3 раз.
 
-Решение: рефакторинг обоих файлов:
-- `import { corsHeaders } from '../_shared/cors.ts'`
-- `import { verifyJWT } from '../_shared/auth.ts'`
-- `import { withTimeout } from '../_shared/withTimeout.ts'`
-- `import { handleError } from '../_shared/errorHandler.ts'`
+2. **`keywordFrequencyGuard.ts`** - считает частотность seed-ключа и значимых слов на 1000 знаков. `fail` если ключ чаще 2 раз в H2-блоке или значимое слово >2/1000 знаков.
 
-Убрать дублирование CORS-заголовков и ручного base64url JWT-декода.
+3. **`danglingThoughtGuard.ts`** - regex на висящие союзы в конце абзацев/H2 (`и`, `но`, `поэтому`, `однако`, `при этом`) и предложения, обрывающиеся без терминатора. `fail` если хоть один висящий союз.
 
-## 4. Синхронизация тарифов: единый источник правды
+Каждый валидатор экспортирует `analyze*` + `build*FixHint(metrics)` - точно как `sentenceStructure.ts`.
 
-Проблема: `_shared/planLimits.ts` хардкодит `basic=5` статей, реальные лимиты в БД `subscription_plans.monthly_article_limit` (basic=450 кредитов).
+Дублирующая копия для фронта - в `src/shared/utils/validators/` (если понадобится в LiveTurgenevBadge).
 
-Решение:
-- Удалить захардкоженные числа из `PLAN_LIMITS`, `IMPROVE_LIMITS`, `BULK_LIMITS`.
-- Превратить в async-функции `getPlanLimit(plan, type)` которые читают `subscription_plans` из БД с in-memory кэшем на 60с.
-- Все вызовы (`generate-article`, `seo-improve`, `bulk-generate`) - перевести на async-версию.
-- Поле в БД для bulk-лимита: добавить колонку `bulk_limit INTEGER DEFAULT 1` в `subscription_plans` через migration.
+### Шаг 3. Подключить к `quality-check`
 
-## 5. useTrialStatus: исправить определение paid-плана
+В `supabase/functions/quality-check/index.ts`:
 
-В `src/shared/hooks/useTrialStatus.ts` сейчас:
-```ts
-const isFreePlan = !profile?.plan || profile.plan === "free" || profile.plan === "basic";
-const isPaidPlan = profile?.plan === "pro";
-```
+- Импортировать все 4 валидатора (sentence + 3 новых).
+- Прогонять последовательно по plain text.
+- Сложить результаты в `quality_details.validators = { sentence_structure, cancellary, keyword_frequency, dangling_thoughts }`.
+- Aggregate verdict: `fail` если ≥1 валидатор fail; `warning` если ≥1 warning.
+- При `fail` - диспатчить `improve-article` с `fix_type: <validator_name>` и hint. Флаг `*_auto_fixed: true` в `quality_details` чтобы избежать петель. Если несколько fail - вызвать **последовательно по приоритету**: dangling → sentence → cancellary → keyword_frequency.
 
-Это неверно: `basic` (NANO) - платный, `pro` (PRO) - платный, `factory` (FACTORY) - платный. Бесплатных тарифов нет вообще (есть trial на кредитах).
+### Шаг 4. Расширить `improve-article`
 
-Решение:
-- `isPaidPlan = ['basic','pro','factory'].includes(profile?.plan)`
-- `isFreePlan = !profile?.plan` (только если профиля нет / плана нет)
-- Логика nudge/paywall переориентируется на `credits_amount <= 0` независимо от плана.
+В `supabase/functions/improve-article/index.ts` добавить phase для каждого валидатора:
+- `phase: "cancellary"` - Sonnet перепишет фрагменты с канцеляризмами.
+- `phase: "keyword_freq"` - Sonnet снизит частотность через синонимы/местоимения.
+- `phase: "dangling"` - Sonnet закроет висящие мысли.
 
-## 6. Radar: убрать Llama или поднять timeout
+Каждая phase: bypass plan limits + cooldown (как `sentence`), system-промт с конкретным hint от валидатора, после фикса - background re-trigger `quality-check`.
 
-Llama стабильно падает по 45s. Два варианта:
-- Поднять её personal timeout до 90s (другие модели не трогаем).
-- Или вообще удалить из списка проверяемых моделей.
+### Шаг 5. Урезать промт
 
-Делаю первый вариант - поднимаю до 90s. Если снова таймауты - вторым шагом удалим.
+После того как валидаторы покрывают правила - в `antiTurgenevAddon` оставить:
+- 6-7 HARD-строк (одной строкой каждая, без объяснений «почему»).
+- BANLIST одной плоской строкой.
+- Финальная строка: «Текст проверяется автоматически на выходе. Нарушения переписываются.»
 
----
+Получается ~30% от текущего объёма. Промт читается LLM целиком, а не выборочно.
 
-## Порядок выполнения
+## Технические детали
 
-1. Пункт 5 (useTrialStatus) - 1 файл, безопасно.
-2. Пункт 6 (Llama timeout) - 1 строка в radar-check.
-3. Пункт 1 (Radar branded queries) - radar-check + RadarPage.
-4. Пункт 3 (shared infra) - рефакторинг 2 функций.
-5. Пункт 4 (планы из БД) - миграция + рефакторинг 3-4 edge функций.
-6. Пункт 2 (async image gen) - самый объёмный, требует Realtime/polling на клиенте.
+### Совместимость
+- Имя `ANTI_TURGENEV_ADDON` и сигнатура не меняются - все edge-функции, что импортируют его, продолжают работать.
+- `analyzeSentenceStructure` и `buildSentenceStructureFixHint` остаются с прежними сигнатурами.
 
-После каждого пункта - короткий чек что не сломалось.
+### Анти-петли
+- Каждый валидатор пишет `quality_details.<name>_auto_fixed: true` после фикса.
+- Второй вызов `quality-check` не диспатчит `improve-article` если флаг уже стоит (даже если verdict снова fail) - чтобы не зациклиться на трудных текстах. Логируется warning.
 
-Подтверди план - и начну с пункта 1 (useTrialStatus). Если хочешь другой порядок или какие-то пункты пропустить - скажи сейчас.
+### Порядок фиксов
+Dangling (структурно ломает текст) → Sentence (стиль) → Cancellary (лексика) → Keyword frequency (тонкая настройка). Каждый следующий шаг работает с уже улучшенным текстом.
+
+### Файлы
+
+Новые:
+- `supabase/functions/_shared/validators/cancellaryGuard.ts`
+- `supabase/functions/_shared/validators/keywordFrequencyGuard.ts`
+- `supabase/functions/_shared/validators/danglingThoughtGuard.ts`
+
+Изменения:
+- `supabase/functions/_shared/antiTurgenevAddon.ts` - разнести на 3 константы, урезать.
+- `supabase/functions/quality-check/index.ts` - подключить все валидаторы, aggregate, dispatch по приоритету.
+- `supabase/functions/improve-article/index.ts` - добавить phases: cancellary, keyword_freq, dangling.
+
+Деплой: `quality-check`, `improve-article`.
+
+## Что НЕ делаю на этом шаге
+- Per-Persona оверрайды STYLE_GUIDE (отдельная задача).
+- UI-индикаторы новых валидаторов в `QualityCheckPanel` (могу добавить отдельно после проверки).
+- Front-копии валидаторов в `src/shared/utils/` - подключим, когда понадобится live-валидация в редакторе.
