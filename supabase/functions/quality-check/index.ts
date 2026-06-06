@@ -711,6 +711,16 @@ async function runAutoQuality(
   const sentStatus: "ok" | "warning" | "fail" =
     sentStruct.verdict === "fail" ? "fail" : sentStruct.verdict === "warning" ? "warning" : "ok";
 
+  // ── Validators v2: канцеляризмы, частотность ключа, обрывы мысли ──
+  const cancellary = analyzeCancellary(plain);
+  const keywordFreq = analyzeKeywordFrequency(content, primaryKeyword || null);
+  const dangling = analyzeDanglingThoughts(content);
+  const toStatus = (v: "pass" | "warning" | "fail"): "ok" | "warning" | "fail" =>
+    v === "fail" ? "fail" : v === "warning" ? "warning" : "ok";
+  const cancStatus = toStatus(cancellary.verdict);
+  const freqStatus = toStatus(keywordFreq.verdict);
+  const dangStatus = toStatus(dangling.verdict);
+
   // Compute aggregate quality_status
   // ai_score: <50 fail, 50-69 warning, >=70 ok (higher = more human-like)
   let aiStatus: "ok" | "warning" | "fail" = "ok";
@@ -725,6 +735,9 @@ async function runAutoQuality(
     dStatus === "ok" ? "ok" : (dStatus === "underuse" ? "warning" : "fail"),
     turgenevFinal ? turgStatus : "ok",
     sentStatus,
+    cancStatus,
+    freqStatus,
+    dangStatus,
   ];
   let quality: "ok" | "warning" | "fail" = "ok";
   if (all.includes("fail")) quality = "fail";
@@ -765,6 +778,36 @@ async function runAutoQuality(
         max_short_run: sentStruct.maxShortRun,
         short_runs_3plus: sentStruct.shortRuns3Plus.slice(0, 5),
         issues: sentStruct.issues,
+        checked_at: new Date().toISOString(),
+      },
+      validators: {
+        sentence_structure: {
+          verdict: sentStruct.verdict,
+          avg_words: sentStruct.avgWords,
+          short_ratio: sentStruct.shortRatio,
+          max_short_run: sentStruct.maxShortRun,
+          issues: sentStruct.issues,
+        },
+        cancellary: {
+          verdict: cancellary.verdict,
+          total_hits: cancellary.totalHits,
+          unique_hits: cancellary.uniqueHits,
+          hits: cancellary.hits.slice(0, 8),
+          issues: cancellary.issues,
+        },
+        keyword_frequency: {
+          verdict: keywordFreq.verdict,
+          top_overused: keywordFreq.topOverused.slice(0, 5),
+          seed_keyword: keywordFreq.seedKeyword,
+          seed_overuse_sections: keywordFreq.seedOveruseSections.slice(0, 5),
+          issues: keywordFreq.issues,
+        },
+        dangling_thoughts: {
+          verdict: dangling.verdict,
+          hit_count: dangling.hits.length,
+          hits: dangling.hits.slice(0, 5),
+          issues: dangling.issues,
+        },
         checked_at: new Date().toISOString(),
       },
       ...(qErrors.length ? { errors: qErrors, errors_at: new Date().toISOString() } : {}),
