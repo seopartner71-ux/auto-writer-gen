@@ -2045,6 +2045,60 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_events: {
+        Row: {
+          article_id: string | null
+          cost_usd: number | null
+          created_at: string
+          duration_ms: number | null
+          error_kind: string | null
+          error_message: string | null
+          id: string
+          meta: Json
+          model: string | null
+          score: number | null
+          stage: string
+          tokens_in: number | null
+          tokens_out: number | null
+          user_id: string | null
+          verdict: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          error_kind?: string | null
+          error_message?: string | null
+          id?: string
+          meta?: Json
+          model?: string | null
+          score?: number | null
+          stage: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+          verdict?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          error_kind?: string | null
+          error_message?: string | null
+          id?: string
+          meta?: Json
+          model?: string | null
+          score?: number | null
+          stage?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string | null
+          verdict?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           auto_humanize_threshold: number
@@ -3838,6 +3892,21 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      pipeline_health_24h: {
+        Args: never
+        Returns: {
+          avg_duration_ms: number
+          avg_score: number
+          errors: number
+          fails: number
+          p95_duration_ms: number
+          passes: number
+          stage: string
+          total: number
+          total_cost_usd: number
+          warnings: number
+        }[]
       }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }

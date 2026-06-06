@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { chatJson, AiError, aiErrorToResponse } from "../_shared/aiClient.ts";
+import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -161,6 +162,7 @@ ${sample}
 Верни строго JSON.`;
 
     let json;
+    const tCheck = startTimer();
     try {
       json = await chatJson<ComplianceResult>({
         apiKey: aiKey,
@@ -176,7 +178,19 @@ ${sample}
         appTitle: "SEO-Modul Compliance",
       });
     } catch (e) {
-      if (e instanceof AiError) return aiErrorToResponse(e, corsHeaders);
+      if (e instanceof AiError) {
+        logPipelineEvent({
+          stage: "compliance_check",
+          user_id: user.id,
+          verdict: "fail",
+          model,
+          duration_ms: tCheck(),
+          error_kind: e.kind,
+          error_message: e.message,
+          meta: { author_id: author_profile_id },
+        });
+        return aiErrorToResponse(e, corsHeaders);
+      }
       throw e;
     }
     const result = json.data;
@@ -189,6 +203,23 @@ ${sample}
     }
     if (!Array.isArray(result.deviations)) result.deviations = [];
     if (!Array.isArray(result.matched_rules)) result.matched_rules = [];
+
+    logPipelineEvent({
+      stage: "compliance_check",
+      user_id: user.id,
+      verdict: result.verdict,
+      score: result.score,
+      model: json.model,
+      tokens_in: json.tokensIn,
+      tokens_out: json.tokensOut,
+      duration_ms: tCheck(),
+      meta: {
+        author_id: author_profile_id,
+        deviations: result.deviations.length,
+        high_severity: result.deviations.filter(d => d.severity === "high").length,
+        retries: json.retries,
+      },
+    });
 
     await admin.from("usage_logs").insert({
       user_id: user.id,
