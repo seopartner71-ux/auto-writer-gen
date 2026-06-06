@@ -7,6 +7,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
+import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
+import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
+import { analyzeDanglingThoughts } from "../_shared/validators/danglingThoughtGuard.ts";
 
 async function logErr(admin: any, context: string, message: string, metadata?: Record<string, unknown>) {
   try {
