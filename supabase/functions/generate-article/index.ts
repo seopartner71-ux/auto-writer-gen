@@ -480,7 +480,7 @@ serve(async (req) => {
         clearTimeout(openTimer);
       }
 
-      if (aiResponse.status === 429 && attempt < maxRetries) {
+      if (aiResponse && aiResponse.status === 429 && attempt < maxRetries) {
         // Tightened backoff: 2s, 4s, 0s — frees ~27s of the 150s edge budget for actual generation.
         const delays = [2000, 4000, 0];
         const delay = delays[attempt] ?? 0;
