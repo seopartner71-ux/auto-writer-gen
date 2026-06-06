@@ -1142,6 +1142,9 @@ ${paragraphs.map((p, i) => `[${i + 1}] ${p.slice(0, 400)}`).join("\n\n")}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const timer = startTimer();
+  let articleIdForLog: string | null = null;
+  let userIdForLog: string | null = null;
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1159,6 +1162,7 @@ Deno.serve(async (req) => {
     };
     if (!article_id) return json({ error: "article_id required" }, 400);
     if (!content || typeof content !== "string") return json({ error: "content required" }, 400);
+    articleIdForLog = article_id;
 
     // Resolve user: try service-role bypass first (auto mode from bulk), then user JWT.
     const serviceToken = authHeader.replace(/^Bearer\s+/i, "") === serviceKey;
@@ -1174,6 +1178,7 @@ Deno.serve(async (req) => {
       if (u) user = { id: u.id };
     }
     if (!user) return json({ error: "Unauthorized" }, 401);
+    userIdForLog = user.id;
 
     // ── AUTO mode: run AI(internal+ZeroGPT) + burstiness + density in background, no credits ──
     if (mode === "auto") {
