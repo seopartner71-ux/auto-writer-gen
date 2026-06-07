@@ -19,6 +19,7 @@ const SectionGeo = lazy(() => import("@/components/landing/SectionGeo").then(m =
 const SectionRankTracker = lazy(() => import("@/components/landing/SectionRankTracker").then(m => ({ default: m.SectionRankTracker })));
 const SectionStealthEngine = lazy(() => import("@/components/landing/SectionStealthEngine").then(m => ({ default: m.SectionStealthEngine })));
 const SectionComparison = lazy(() => import("@/components/landing/SectionComparison").then(m => ({ default: m.SectionComparison })));
+const SectionCompetitors = lazy(() => import("@/components/landing/SectionCompetitors").then(m => ({ default: m.SectionCompetitors })));
 const SectionPricing = lazy(() => import("@/components/landing/SectionPricing").then(m => ({ default: m.SectionPricing })));
 const SectionFinalCta = lazy(() => import("@/components/landing/SectionFinalCta").then(m => ({ default: m.SectionFinalCta })));
 const SectionQualityProof = lazy(() => import("@/components/landing/SectionQualityProof").then(m => ({ default: m.SectionQualityProof })));
@@ -131,6 +132,7 @@ export default function Index() {
           <SectionRankTracker />
           <SectionStealthEngine />
           <SectionComparison />
+          <SectionCompetitors />
           <SectionPricing />
           <SectionFinalCta />
         </Suspense>
