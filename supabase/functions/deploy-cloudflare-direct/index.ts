@@ -347,12 +347,7 @@ serve(async (req) => {
     const __auth = await verifyAuth(req);
     if (__auth instanceof Response) return __auth;
     const user = { id: __auth.userId };
-    console.log("[deploy-cloudflare-direct] auth user:", user?.id || "none", "err:", authErr?.message || "none");
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    console.log("[deploy-cloudflare-direct] auth user:", user.id);
 
     const body = await req.json();
     console.log("[deploy-cloudflare-direct] body:", JSON.stringify(body));
