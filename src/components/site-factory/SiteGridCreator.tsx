@@ -191,10 +191,11 @@ export function SiteGridCreator() {
           console.warn("[SiteGridCreator] generate-site-content failed, continuing", e);
         }
 
-        // 4. Seed 3 starter articles so the site is not empty
+        // 4. Seed 5-10 starter articles so the site has real content from day one
         try {
+          const seedCount = 5 + Math.floor(Math.random() * 6); // 5..10
           await supabase.functions.invoke("seed-starter-articles", {
-            body: { project_id: projectId, topic, count: 3 },
+            body: { project_id: projectId, topic, count: seedCount },
           });
         } catch (e) {
           console.warn("[SiteGridCreator] seed-starter-articles failed, continuing", e);
