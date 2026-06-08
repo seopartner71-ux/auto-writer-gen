@@ -275,7 +275,7 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const projectId: string = body.project_id;
-    const count = Math.max(1, Math.min(5, Number(body.count) || 3));
+    const count = Math.max(1, Math.min(10, Number(body.count) || 5));
     if (!projectId) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -306,8 +306,8 @@ serve(async (req) => {
     const projectAuthors: SeedAuthor[] = Array.isArray((project as any).authors) ? (project as any).authors : [];
 
     const created: string[] = [];
-    for (let i = 0; i < count; i++) {
-      // Rotate through project authors so different posts get different bylines.
+    // Parallelize: with 5-10 articles sequential mode would hit Edge timeout.
+    await Promise.all(Array.from({ length: count }, async (_, i) => {
       const author = projectAuthors.length > 0 ? projectAuthors[i % projectAuthors.length] : undefined;
       let art;
       try {
@@ -318,7 +318,6 @@ serve(async (req) => {
         console.error("[seed-starter-articles] AI fail, using fallback:", e?.message);
         art = fallbackArticle(topic, i, lang);
       }
-      // Generate hero image via FAL.ai (best-effort — null on failure).
       let heroUrl: string | null = null;
       if (falKey) {
         heroUrl = await generateHeroImage(falKey, topic, art.title, { admin, projectId, userId: user.id });
@@ -337,7 +336,7 @@ serve(async (req) => {
       }).select("id").maybeSingle();
       if (insErr) {
         console.error("[seed-starter-articles] insert err:", insErr.message);
-        continue;
+        return;
       }
       if (inserted?.id) {
         created.push(inserted.id);
@@ -347,7 +346,7 @@ serve(async (req) => {
           body: JSON.stringify({ article_id: inserted.id, content: art.content, mode: "auto" }),
         }).catch(() => {});
       }
-    }
+    }));
 
     // Best-effort smart interlinking pass after seeding (non-blocking).
     let interlinking: { ok: boolean; links_inserted?: number } = { ok: false };
