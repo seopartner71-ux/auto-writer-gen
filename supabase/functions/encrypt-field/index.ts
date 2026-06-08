@@ -31,13 +31,6 @@ serve(async (req) => {
     const __auth = await verifyAuth(req);
     if (__auth instanceof Response) return __auth;
     const user = { id: __auth.userId };
-    if (authErr || !user) {
-      console.error("Auth error:", authErr?.message);
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const { value } = await req.json();
     if (!value || typeof value !== "string") {

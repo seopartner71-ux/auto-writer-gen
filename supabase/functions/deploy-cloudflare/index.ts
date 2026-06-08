@@ -122,11 +122,6 @@ serve(async (req) => {
     const __auth = await verifyAuth(req);
     if (__auth instanceof Response) return __auth;
     const user = { id: __auth.userId };
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: corsHeaders,
-      });
-    }
 
     const { project_id } = await req.json();
     if (!project_id) {

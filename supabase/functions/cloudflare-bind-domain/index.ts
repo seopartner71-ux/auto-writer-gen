@@ -54,7 +54,6 @@ serve(async (req) => {
     const __auth = await verifyAuth(req);
     if (__auth instanceof Response) return __auth;
     const user = { id: __auth.userId };
-    if (authErr || !user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({}));
     const projectId: string = body?.project_id;
