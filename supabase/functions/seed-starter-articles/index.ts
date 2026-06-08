@@ -275,7 +275,7 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const projectId: string = body.project_id;
-    const count = Math.max(1, Math.min(5, Number(body.count) || 3));
+    const count = Math.max(1, Math.min(10, Number(body.count) || 5));
     if (!projectId) {
       return new Response(JSON.stringify({ error: "Missing project_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
