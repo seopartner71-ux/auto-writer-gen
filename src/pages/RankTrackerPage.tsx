@@ -81,6 +81,16 @@ function daysBetween(from: string, to: string | null): number | null {
   return Math.max(1, Math.round(ms / 86400000));
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "object" && error && "message" in error) {
+    const message = String((error as { message?: unknown }).message ?? "").trim();
+    if (message) return message;
+  }
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
+
 export default function RankTrackerPage() {
   const { user, role } = useAuth();
   const isAdmin = role === "admin";
@@ -144,6 +154,8 @@ export default function RankTrackerPage() {
 
   const addMut = useMutation({
     mutationFn: async () => {
+      const currentUserId = user?.id;
+      if (!currentUserId) throw new Error(isRu ? "Войдите в аккаунт" : "Sign in first");
       const cleanDomain = domain.trim().toLowerCase()
         .replace(/^https?:\/\//, "")
         .replace(/^www\./, "")
@@ -160,7 +172,7 @@ export default function RankTrackerPage() {
       const cleanRegion = region.trim().toLowerCase() || "ru";
       const cleanCity = city.trim() || null;
       const rows = keywords.flatMap(k => engines.map(eng => ({
-        user_id: user!.id,
+        user_id: currentUserId,
         keyword: k,
         target_domain: cleanDomain,
         engine: eng,
@@ -171,7 +183,7 @@ export default function RankTrackerPage() {
       let existingQuery = supabase
         .from("tracked_keywords")
         .select("keyword,engine")
-        .eq("user_id", user!.id)
+        .eq("user_id", currentUserId)
         .eq("target_domain", cleanDomain)
         .eq("region", cleanRegion)
         .in("engine", engines);
@@ -203,7 +215,7 @@ export default function RankTrackerPage() {
       toast.success(msg);
       qc.invalidateQueries({ queryKey: ["tracked-keywords"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(getErrorMessage(e, isRu ? "Не удалось добавить ключ" : "Could not add keyword")),
   });
 
   const delMut = useMutation({
