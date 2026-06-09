@@ -143,6 +143,7 @@ export function SiteGridCreator() {
       const tpl = activeTemplates.length > 0 ? pickRandom(activeTemplates) : null;
       const templateKey = tpl?.template_key;
       const templateName = tpl?.name;
+      const starterArticleCount = 5 + Math.floor(Math.random() * 6); // 5..10
 
       try {
         // 1. AI-generate brand-style site name
@@ -193,9 +194,8 @@ export function SiteGridCreator() {
 
         // 4. Seed 5-10 starter articles so the site has real content from day one
         try {
-          const seedCount = 5 + Math.floor(Math.random() * 6); // 5..10
           await supabase.functions.invoke("seed-starter-articles", {
-            body: { project_id: projectId, topic, count: seedCount },
+            body: { project_id: projectId, topic, count: starterArticleCount },
           });
         } catch (e) {
           console.warn("[SiteGridCreator] seed-starter-articles failed, continuing", e);
@@ -216,6 +216,7 @@ export function SiteGridCreator() {
           audience: spec.audience || undefined,
           business_type: spec.businessType || undefined,
           language: spec.language,
+          starter_article_count: starterArticleCount,
         };
         let cfData: any = null;
         let cfErr: any = null;

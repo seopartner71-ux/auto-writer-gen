@@ -449,6 +449,50 @@ serve(async (req) => {
       });
     }
 
+    // Safety net for first site generation: the UI calls seed-starter-articles
+    // before deploy, but if that request times out or is skipped, never publish
+    // an empty site. Ensure at least 5 starter posts exist before rendering.
+    if (body.skip_starter_seed !== true) {
+      const { count: existingCount, error: countErr } = await supabaseAdmin
+        .from("articles")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", projectId)
+        .eq("user_id", user.id)
+        .in("status", ["completed", "published"]);
+
+      if (countErr) {
+        console.warn("[deploy-cloudflare-direct] starter article count failed:", countErr.message);
+      } else if ((existingCount || 0) < 5) {
+        const starterCount = Math.max(5, Math.min(10, Number(body.starter_article_count) || 5));
+        console.log("[deploy-cloudflare-direct] seeding starter articles:", starterCount, "existing:", existingCount || 0);
+        const seedRes = await fetch(`${supabaseUrl}/functions/v1/seed-starter-articles`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+            "x-queue-user-id": user.id,
+          },
+          body: JSON.stringify({
+            project_id: projectId,
+            topic: body.topic || project.site_about || project.name,
+            count: starterCount,
+            language: project.language,
+          }),
+        });
+        const seedJson = await seedRes.json().catch(() => ({}));
+        console.log("[deploy-cloudflare-direct] starter seed result:", seedRes.status, JSON.stringify(seedJson));
+        if (!seedRes.ok || Number(seedJson?.created_count || 0) === 0) {
+          return new Response(JSON.stringify({
+            error: "Starter articles failed",
+            message: seedJson?.error || "Не удалось добавить стартовые статьи",
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
+
     // Strip HTML tags and collapse whitespace — topic/about must be plain text,
     // otherwise raw <p> tags leak into hero <h1> and meta tags.
     const stripHtml = (s: string): string =>
