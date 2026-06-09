@@ -91,6 +91,17 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function buildSerpUrl(engine: "google" | "yandex", keyword: string, region: string, city: string | null): string {
+  const q = encodeURIComponent([keyword, city].filter(Boolean).join(" "));
+  if (engine === "google") {
+    const gl = (region || "ru").toLowerCase();
+    const hl = gl === "ru" ? "ru" : "en";
+    return `https://www.google.com/search?q=${q}&num=30&hl=${hl}&gl=${gl}&pws=0`;
+  }
+  const lr = /^\d+$/.test((region || "").trim()) ? region.trim() : "";
+  return `https://yandex.ru/search/?text=${q}${lr ? `&lr=${lr}` : ""}`;
+}
+
 export default function RankTrackerPage() {
   const { user, role } = useAuth();
   const isAdmin = role === "admin";
@@ -417,6 +428,7 @@ export default function RankTrackerPage() {
                     <th>Google</th>
                     <th>Yandex</th>
                     <th>{isRu ? "Страницы в ТОП" : "Ranking pages"}</th>
+                    <th>{isRu ? "Выдача" : "SERP"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
                     <th>{isRu ? "Дата размещения" : "Placed on"}</th>
                     <th>{isRu ? "Проверено" : "Checked"}</th>
@@ -473,6 +485,20 @@ export default function RankTrackerPage() {
                               </a>
                             )}
                             {!google?.last_url && !yandex?.last_url && <span className="text-xs text-muted-foreground">—</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="flex flex-col gap-1">
+                            <a href={buildSerpUrl("google", group.keyword, group.region, group.city)}
+                              target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline">
+                              Google ↗
+                            </a>
+                            <a href={buildSerpUrl("yandex", group.keyword, group.region, group.city)}
+                              target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline">
+                              Yandex ↗
+                            </a>
                           </div>
                         </td>
                         <td className="w-32 h-10">
