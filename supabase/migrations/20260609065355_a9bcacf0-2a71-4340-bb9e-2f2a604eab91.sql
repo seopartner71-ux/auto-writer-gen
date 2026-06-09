@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.tracked_keywords_unique_idx;
