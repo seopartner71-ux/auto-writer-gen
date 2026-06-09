@@ -371,7 +371,7 @@ export default function RankTrackerPage() {
               </SelectContent>
             </Select>
             <Input placeholder={engine === "yandex" ? "lr (213)" : "ru"} value={region} onChange={e => setRegion(e.target.value)} />
-            <Input className="md:col-span-2" placeholder={isRu ? "Город (опц., Google)" : "City (opt., Google)"} value={city} onChange={e => setCity(e.target.value)} />
+            <Input className="md:col-span-2" placeholder={isRu ? "Город (для Google/Yandex)" : "City (Google/Yandex)"} value={city} onChange={e => setCity(e.target.value)} />
             <Button className="md:col-span-1" onClick={() => addMut.mutate()} disabled={addMut.isPending || isImpersonating}>
               {addMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-2" />{isRu ? "Добавить" : "Add"}</>}
             </Button>
@@ -416,7 +416,7 @@ export default function RankTrackerPage() {
                     <th>{isRu ? "Домен" : "Domain"}</th>
                     <th>Google</th>
                     <th>Yandex</th>
-                    <th>{isRu ? "Страница в ТОП" : "Ranking page"}</th>
+                    <th>{isRu ? "Страницы в ТОП" : "Ranking pages"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
                     <th>{isRu ? "Дата размещения" : "Placed on"}</th>
                     <th>{isRu ? "Проверено" : "Checked"}</th>
@@ -456,14 +456,24 @@ export default function RankTrackerPage() {
                             {renderTrend(yandex?.id)}
                           </div>
                         </td>
-                        <td className="max-w-[240px]">
-                          {latestRow?.last_url ? (
-                            <a href={latestRow.last_url} target="_blank" rel="noopener noreferrer"
-                               className="text-xs text-primary hover:underline truncate block"
-                               title={latestRow.last_url}>
-                              {latestRow.last_url.replace(/^https?:\/\//, "").slice(0, 50)}
-                            </a>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                        <td className="max-w-[260px]">
+                          <div className="space-y-1">
+                            {google?.last_url && (
+                              <a href={google.last_url} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline truncate block"
+                                title={google.last_url}>
+                                Google: {google.last_url.replace(/^https?:\/\//, "").slice(0, 48)}
+                              </a>
+                            )}
+                            {yandex?.last_url && (
+                              <a href={yandex.last_url} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline truncate block"
+                                title={yandex.last_url}>
+                                Yandex: {yandex.last_url.replace(/^https?:\/\//, "").slice(0, 48)}
+                              </a>
+                            )}
+                            {!google?.last_url && !yandex?.last_url && <span className="text-xs text-muted-foreground">—</span>}
+                          </div>
                         </td>
                         <td className="w-32 h-10">
                           {sparkData.length > 1 ? (

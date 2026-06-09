@@ -25,16 +25,52 @@ interface TrackedRow {
 }
 
 function normalizeDomain(d: string): string {
-  return d.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim();
+  const raw = d.toLowerCase().trim();
+  try {
+    const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return raw.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim();
+  }
 }
 
 const SEARCH_DEPTH = 30;
+
+const YANDEX_REGION_BY_CITY: Record<string, string> = {
+  "москва": "213",
+  "санкт-петербург": "2",
+  "санкт петербург": "2",
+  "спб": "2",
+  "тула": "15",
+  "орел": "10",
+  "воронеж": "193",
+  "калуга": "6",
+  "рязан": "11",
+  "рязань": "11",
+  "курск": "8",
+  "брянск": "191",
+  "липецк": "9",
+};
+
+function resolveYandexRegion(region: string, city: string | null): string {
+  const rawRegion = region.trim();
+  if (/^\d+$/.test(rawRegion)) return rawRegion;
+
+  const rawCity = city?.trim().toLowerCase().replace(/ё/g, "е") ?? "";
+  if (rawCity && YANDEX_REGION_BY_CITY[rawCity]) return YANDEX_REGION_BY_CITY[rawCity];
+
+  const normalizedRegion = rawRegion.toLowerCase().replace(/ё/g, "е");
+  if (normalizedRegion && YANDEX_REGION_BY_CITY[normalizedRegion]) return YANDEX_REGION_BY_CITY[normalizedRegion];
+
+  return "225";
+}
 
 function findPosition(items: Array<{ link?: string; url?: string; position?: number }>, target: string): { pos: number | null; url: string | null } {
   const t = normalizeDomain(target);
   for (let i = 0; i < items.length; i++) {
     const link = items[i].link || items[i].url || "";
-    if (normalizeDomain(link).endsWith(t) || normalizeDomain(link) === t) {
+    const host = normalizeDomain(link);
+    if (host === t || host.endsWith(`.${t}`)) {
       return { pos: typeof items[i].position === "number" && Number.isFinite(items[i].position) ? items[i].position : i + 1, url: link };
     }
   }
@@ -42,30 +78,42 @@ function findPosition(items: Array<{ link?: string; url?: string; position?: num
 }
 
 async function checkGoogle(serperKey: string, kw: string, region: string, city: string | null): Promise<{ results: Array<{ link: string; position: number }> }> {
-  const body: Record<string, unknown> = {
-    q: kw,
-    gl: region.toLowerCase() || "ru",
-    hl: region.toLowerCase() || "ru",
-    num: SEARCH_DEPTH,
-  };
-  if (city) body.location = city;
-  const res = await fetch("https://google.serper.dev/search", {
-    method: "POST",
-    headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Serper Google ${res.status}`);
-  const data = await res.json();
-  const organic = Array.isArray(data.organic)
-    ? data.organic.slice(0, SEARCH_DEPTH).map((r: { link?: string; position?: number }, index: number) => ({
-      link: r.link || "",
-      position: typeof r.position === "number" && Number.isFinite(r.position) ? r.position : index + 1,
-    }))
-    : [];
+  const organic: Array<{ link: string; position: number }> = [];
+  const pages = Math.ceil(SEARCH_DEPTH / 10);
+
+  for (let page = 1; page <= pages; page++) {
+    const body: Record<string, unknown> = {
+      q: kw,
+      gl: region.toLowerCase() || "ru",
+      hl: region.toLowerCase() || "ru",
+      num: 10,
+    };
+    if (page > 1) body.page = page;
+    if (city) body.location = city;
+    const res = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Serper Google ${res.status}`);
+    const data = await res.json();
+    const pageOrganic = Array.isArray(data.organic) ? data.organic : [];
+    if (pageOrganic.length === 0) break;
+
+    for (const r of pageOrganic) {
+      const link = r?.link || "";
+      if (!link || organic.some((item) => item.link === link)) continue;
+      organic.push({ link, position: organic.length + 1 });
+      if (organic.length >= SEARCH_DEPTH) break;
+    }
+
+    if (organic.length >= SEARCH_DEPTH || pageOrganic.length < 10) break;
+  }
+
   return { results: organic };
 }
 
-async function checkYandex(apiKey: string, folderId: string, kw: string, region: string): Promise<{ results: Array<{ link: string; position: number }> }> {
+async function checkYandex(apiKey: string, folderId: string, kw: string, region: string, city: string | null): Promise<{ results: Array<{ link: string; position: number }> }> {
   // New Yandex Cloud Search API (synchronous). Returns base64-encoded XML in `rawData`.
   // Docs: https://yandex.cloud/ru/docs/search-api/operations/web-search
   const body = {
@@ -82,7 +130,7 @@ async function checkYandex(apiKey: string, folderId: string, kw: string, region:
       groupsOnPage: SEARCH_DEPTH,
       docsInGroup: 1,
     },
-    region: /^\d+$/.test(region) ? region : "213",
+    region: resolveYandexRegion(region, city),
     l10N: "LOCALIZATION_RU",
     folderId,
     responseFormat: "FORMAT_XML",
@@ -128,7 +176,7 @@ async function processRow(admin: ReturnType<typeof createClient>, row: TrackedRo
       pos = found.pos; url = found.url;
     } else {
       if (!keys.yandexApiKey || !keys.yandexFolderId) throw new Error("Yandex Cloud credentials missing");
-      const y = await checkYandex(keys.yandexApiKey, keys.yandexFolderId, row.keyword, row.region);
+      const y = await checkYandex(keys.yandexApiKey, keys.yandexFolderId, row.keyword, row.region, row.city);
       top10 = y.results;
       const found = findPosition(y.results, row.target_domain);
       pos = found.pos; url = found.url;
