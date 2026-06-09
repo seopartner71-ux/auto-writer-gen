@@ -180,32 +180,15 @@ export default function RankTrackerPage() {
         city: cleanCity,
       })));
 
-      let existingQuery = supabase
-        .from("tracked_keywords")
-        .select("keyword,engine")
-        .eq("user_id", currentUserId)
-        .eq("target_domain", cleanDomain)
-        .eq("region", cleanRegion)
-        .in("engine", engines);
-
-      existingQuery = cleanCity ? existingQuery.eq("city", cleanCity) : existingQuery.is("city", null);
-      const { data: existing, error: existingError } = await existingQuery;
-      if (existingError) throw existingError;
-
-      const existingKeys = new Set((existing ?? []).map((item) => `${String(item.keyword).trim().toLowerCase()}::${item.engine}`));
-      const rowsToInsert = rows.filter((item) => !existingKeys.has(`${item.keyword.trim().toLowerCase()}::${item.engine}`));
-      if (rowsToInsert.length === 0) return { inserted: 0, skipped: rows.length };
-
-      const { data, error } = await supabase
-        .from("tracked_keywords")
-        .insert(rowsToInsert)
-        .select("id");
+      const { data, error } = await (supabase as any).rpc("add_tracked_keywords", { _rows: rows });
       if (error) {
-        console.error("[rank-tracker] insert failed", error);
+        console.error("[rank-tracker] add failed", error);
         throw new Error(error.message || (isRu ? "Ошибка добавления" : "Insert failed"));
       }
-      const inserted = data?.length ?? 0;
-      return { inserted, skipped: rows.length - inserted };
+      const result = Array.isArray(data) ? data[0] : data;
+      const inserted = Number(result?.inserted ?? 0);
+      const skipped = Number(result?.skipped ?? Math.max(rows.length - inserted, 0));
+      return { inserted, skipped };
     },
     onSuccess: ({ inserted, skipped }: { inserted: number; skipped: number }) => {
       setKw(""); setCity("");

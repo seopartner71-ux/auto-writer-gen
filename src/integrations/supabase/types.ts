@@ -3826,6 +3826,13 @@ export type Database = {
       }
     }
     Functions: {
+      add_tracked_keywords: {
+        Args: { _rows: Json }
+        Returns: {
+          inserted: number
+          skipped: number
+        }[]
+      }
       admin_add_credits: {
         Args: {
           p_amount: number
