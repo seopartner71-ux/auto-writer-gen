@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { sanitizeKeyword, validateKeywordInput } from "@/shared/utils/sanitizeKeyword";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Loader2, Globe, MapPin, Settings2, ChevronDown } from "lucide-react";
@@ -116,6 +117,16 @@ export default function KeywordsPage() {
   const [language, setLanguage] = useState("ru");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [results, setResults] = useState<ResearchData | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; currentKw: string } | null>(null);
+
+  const parsedKeywords = useMemo(() => {
+    return keyword
+      .split(/\r?\n/)
+      .map((k) => k.trim())
+      .filter((k) => k.length >= 2)
+      .slice(0, 10);
+  }, [keyword]);
+  const isBatch = parsedKeywords.length > 1;
 
   const currentCities = useMemo(() => {
     return GEO_OPTIONS.find((o) => o.value === geo)?.cities || [];
@@ -125,21 +136,44 @@ export default function KeywordsPage() {
 
   const research = useMutation({
     mutationFn: async () => {
-      const clean = sanitizeKeyword(keyword);
-      const vErr = validateKeywordInput(clean);
-      if (vErr) throw new Error(vErr === "too_short" ? "Слишком короткий запрос" : "Слишком длинный запрос");
-      const { data, error } = await supabase.functions.invoke("smart-research", {
-        body: { keyword: clean, geo, language, ...(geoMode === "city" && city ? { city } : {}) },
-      });
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-      return data as ResearchData;
+      const list = parsedKeywords.length ? parsedKeywords : [keyword.trim()];
+      let lastResult: ResearchData | null = null;
+      let ok = 0;
+      let failed = 0;
+      for (let i = 0; i < list.length; i++) {
+        const raw = list[i];
+        const clean = sanitizeKeyword(raw);
+        const vErr = validateKeywordInput(clean);
+        if (vErr) { failed++; toast.error(`"${raw}": ${vErr === "too_short" ? "слишком короткий" : "слишком длинный"}`); continue; }
+        setBatchProgress({ current: i + 1, total: list.length, currentKw: clean });
+        try {
+          const { data, error } = await supabase.functions.invoke("smart-research", {
+            body: { keyword: clean, geo, language, ...(geoMode === "city" && city ? { city } : {}) },
+          });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+          lastResult = data as ResearchData;
+          ok++;
+        } catch (e: any) {
+          failed++;
+          toast.error(`"${clean}": ${e?.message || "ошибка"}`);
+        }
+      }
+      setBatchProgress(null);
+      if (!lastResult) throw new Error("Все запросы завершились с ошибкой");
+      (lastResult as any).__batchStats = { ok, failed, total: list.length };
+      return lastResult;
     },
     onSuccess: (data) => {
       setResults(data);
-      toast.success(`${t("keywords.analysisComplete")} (${data.model_used})`);
+      const stats = (data as any).__batchStats;
+      if (stats && stats.total > 1) {
+        toast.success(`Готово: ${stats.ok} из ${stats.total}${stats.failed ? ` (ошибок: ${stats.failed})` : ""}`);
+      } else {
+        toast.success(`${t("keywords.analysisComplete")} (${data.model_used})`);
+      }
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => { setBatchProgress(null); toast.error(e.message); },
   });
 
   useEffect(() => {
@@ -178,17 +212,29 @@ export default function KeywordsPage() {
       <div className="rounded-lg border border-border bg-card p-5">
         <div className="flex flex-col gap-3">
           <div className="space-y-1.5 max-w-xl">
-            <Label className="text-xs text-muted-foreground">{t("keywords.keyword")}</Label>
-            <Input
-              placeholder={t("keywords.keywordPlaceholder")}
+            <Label className="text-xs text-muted-foreground flex items-center justify-between">
+              <span>{t("keywords.keyword")}</span>
+              <span className="text-[10px] text-muted-foreground/70">
+                {isBatch ? `${parsedKeywords.length} / 10 запросов` : "До 10 запросов — по одному в строке"}
+              </span>
+            </Label>
+            <Textarea
+              placeholder={`${t("keywords.keywordPlaceholder")}\nможно несколько — каждый с новой строки`}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && keyword.trim().length >= 2 && research.mutate()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && parsedKeywords.length > 0) {
+                  e.preventDefault();
+                  research.mutate();
+                }
+              }}
+              rows={isBatch ? Math.min(parsedKeywords.length + 1, 11) : 2}
+              className="resize-y min-h-[44px]"
             />
           </div>
           <div className="flex items-end gap-3 flex-wrap">
             <Button
-              disabled={keyword.trim().length < 2 || research.isPending}
+              disabled={parsedKeywords.length === 0 || research.isPending}
               onClick={() => research.mutate()}
             >
               {research.isPending ? (
@@ -196,7 +242,11 @@ export default function KeywordsPage() {
               ) : (
                 <Globe className="h-4 w-4 mr-2" />
               )}
-              {research.isPending ? t("keywords.analyzing") : t("keywords.research")}
+              {research.isPending
+                ? (batchProgress && batchProgress.total > 1
+                    ? `${batchProgress.current} / ${batchProgress.total}...`
+                    : t("keywords.analyzing"))
+                : (isBatch ? `Исследовать (${parsedKeywords.length})` : t("keywords.research"))}
             </Button>
             <button
               type="button"
@@ -262,7 +312,11 @@ export default function KeywordsPage() {
       {research.isPending && (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-          <p className="text-sm">{t("keywords.searching")}</p>
+          <p className="text-sm">
+            {batchProgress && batchProgress.total > 1
+              ? `Обработка ${batchProgress.current} / ${batchProgress.total}: ${batchProgress.currentKw}`
+              : t("keywords.searching")}
+          </p>
           <p className="text-xs mt-1">{t("keywords.searchTime")}</p>
         </div>
       )}
