@@ -3628,6 +3628,107 @@ export type Database = {
         }
         Relationships: []
       }
+      vc_writer_batch_items: {
+        Row: {
+          audience: string | null
+          batch_id: string
+          created_at: string
+          error: string | null
+          format: string
+          id: string
+          length: number
+          position: number
+          result: Json | null
+          status: string
+          thesis: string | null
+          tone: string | null
+          topic: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audience?: string | null
+          batch_id: string
+          created_at?: string
+          error?: string | null
+          format: string
+          id?: string
+          length?: number
+          position: number
+          result?: Json | null
+          status?: string
+          thesis?: string | null
+          tone?: string | null
+          topic: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audience?: string | null
+          batch_id?: string
+          created_at?: string
+          error?: string | null
+          format?: string
+          id?: string
+          length?: number
+          position?: number
+          result?: Json | null
+          status?: string
+          thesis?: string | null
+          tone?: string | null
+          topic?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vc_writer_batch_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "vc_writer_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vc_writer_batches: {
+        Row: {
+          completed: number
+          created_at: string
+          failed: number
+          generate_cover: boolean
+          id: string
+          model: string
+          status: string
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: number
+          created_at?: string
+          failed?: number
+          generate_cover?: boolean
+          id?: string
+          model: string
+          status?: string
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: number
+          created_at?: string
+          failed?: number
+          generate_cover?: boolean
+          id?: string
+          model?: string
+          status?: string
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wordpress_sites: {
         Row: {
           app_password: string
@@ -3900,6 +4001,32 @@ export type Database = {
           to: "generation_queue"
           isOneToOne: false
           isSetofReturn: true
+        }
+      }
+      claim_vc_batch_item: {
+        Args: { p_batch_id: string }
+        Returns: {
+          audience: string | null
+          batch_id: string
+          created_at: string
+          error: string | null
+          format: string
+          id: string
+          length: number
+          position: number
+          result: Json | null
+          status: string
+          thesis: string | null
+          tone: string | null
+          topic: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "vc_writer_batch_items"
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
       cleanup_rate_limits: { Args: never; Returns: undefined }
