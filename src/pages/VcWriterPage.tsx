@@ -133,6 +133,7 @@ export default function VcWriterPage() {
   const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
   const [verifiedFacts, setVerifiedFacts] = useState("");
   const [factCheckOn, setFactCheckOn] = useState(true);
+  const [humanizeOn, setHumanizeOn] = useState(false);
   // Источник кейса/обзора: имя клиента, URL, дата. Обязателен для форматов case/review.
   const [caseSource, setCaseSource] = useState("");
   // Если research.format_mismatch=true, генерация блокируется до явного согласия.
