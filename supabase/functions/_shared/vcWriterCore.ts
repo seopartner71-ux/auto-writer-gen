@@ -212,6 +212,7 @@ export interface VcGenResult {
   cover_data_url: string | null;
   stats: { chars: number; model: string };
   links_report?: { injected: string[]; appended: string[] };
+  risk_report?: RiskReport;
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
