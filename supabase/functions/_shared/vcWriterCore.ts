@@ -266,6 +266,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     checklist,
     cover_data_url,
     stats: { chars: stripText(markdown).length, model: result.model },
+    links_report: linksReport,
   };
 }
 
