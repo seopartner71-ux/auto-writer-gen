@@ -280,6 +280,7 @@ export interface VcGenResult {
   stats: { chars: number; model: string };
   links_report?: { injected: string[]; appended: string[] };
   risk_report?: RiskReport;
+  numeric_guard?: { replaced: string[]; count: number };
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
@@ -387,6 +388,10 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   let markdown = stripMarkdownTables(
     normalizeDashes(ruEReplace(String(data.markdown || "")))
   ).replace(/\*\*([^*]+)\*\*/g, "$1");
+  // Numeric Guard: режем конкретные числа, которых нет в проверенных фактах.
+  const guard = applyNumericGuard(markdown, input.verifiedFacts || "");
+  markdown = guard.content;
+  const numeric_guard = { replaced: guard.replaced.slice(0, 40), count: guard.replaced.length };
   const title = normalizeDashes(ruEReplace(String(data.title || ""))).slice(0, 90);
   const subtitle = normalizeDashes(ruEReplace(String(data.subtitle || ""))).slice(0, 240);
   const ps_question = normalizeDashes(ruEReplace(String(data.ps_question || "")));
@@ -431,6 +436,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     stats: { chars: stripText(markdown).length, model: result.model },
     links_report: linksReport,
     risk_report,
+    numeric_guard,
   };
 }
 
