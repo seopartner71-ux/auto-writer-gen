@@ -170,7 +170,8 @@ export default function UtmGeneratorPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-background text-foreground">
+    <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Генератор UTM-меток</h1>
         <p className="text-sm text-muted-foreground">
@@ -436,6 +437,7 @@ export default function UtmGeneratorPage() {
           </Accordion>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }
