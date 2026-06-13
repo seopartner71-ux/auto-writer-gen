@@ -589,11 +589,14 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   let markdown = stripMarkdownTables(
     normalizeDashes(ruEReplace(String(data.markdown || "")))
   ).replace(/\*\*([^*]+)\*\*/g, "$1");
+  // Cliché stripper: быстрая зачистка штампов до Numeric Guard.
+  const clicheCleaned = stripCliches(markdown);
+  markdown = clicheCleaned.md;
   // Numeric Guard: режем конкретные числа, которых нет в проверенных фактах.
   const guard = applyNumericGuard(markdown, input.verifiedFacts || "");
   markdown = guard.content;
   const numeric_guard = { replaced: guard.replaced.slice(0, 40), count: guard.replaced.length };
-  const title = normalizeDashes(ruEReplace(String(data.title || ""))).slice(0, 90);
+  let title = normalizeDashes(ruEReplace(String(data.title || ""))).slice(0, 90);
   const subtitle = normalizeDashes(ruEReplace(String(data.subtitle || ""))).slice(0, 240);
   const ps_question = normalizeDashes(ruEReplace(String(data.ps_question || "")));
   const tags = Array.isArray(data.tags)
@@ -604,6 +607,40 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     markdown += `\n\nP.S. ${ps_question}`;
   }
 
+  // Удаляем дубль H1 заголовка и понижаем оставшиеся '#' до '##'.
+  markdown = stripDuplicateH1(markdown, title);
+
+  // Lead-banality fix: если лид начинается со штампа, перепишем только его дешёвой моделью.
+  let lead_report: { wasBanal: boolean; matched?: string; rewritten: boolean } = { wasBanal: false, rewritten: false };
+  if (!input.skipLeadFix) {
+    const banal = detectLeadBanality(markdown);
+    lead_report = { wasBanal: banal.banal, matched: banal.matched, rewritten: false };
+    if (banal.banal && banal.lead) {
+      const newLead = await rewriteLead(input.apiKey, banal.lead, input.topic, input.thesis || "");
+      if (newLead && newLead.length > 60) {
+        markdown = replaceLead(markdown, newLead);
+        lead_report.rewritten = true;
+      }
+    }
+  }
+
+  // SEO post-check + title auto-fix.
+  let seoReportFull: (SeoReport & { titleFixed?: boolean }) | undefined;
+  if (input.targetQuery) {
+    let seoR = validateSeo(markdown, title, input.targetQuery);
+    let titleFixed = false;
+    if (!input.skipSeoFix && !seoR.inTitle) {
+      const newTitle = await fixTitleForSeo(input.apiKey, title, input.targetQuery);
+      if (newTitle) {
+        title = newTitle;
+        titleFixed = true;
+        markdown = stripDuplicateH1(markdown, title);
+        seoR = validateSeo(markdown, title, input.targetQuery);
+      }
+    }
+    seoReportFull = { ...seoR, titleFixed };
+  }
+
   // Гарантия вставки клиентских ссылок.
   let linksReport: { injected: string[]; appended: string[] } = { injected: [], appended: [] };
   if (input.clientLinks && input.clientLinks.length) {
@@ -612,12 +649,59 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     linksReport = { injected: r.injected, appended: r.appended };
   }
 
+  // Humanize pass (опциональный, долгий — ~120с).
+  let humanize_report: VcGenResult["humanize_report"] | undefined;
+  if (input.humanize) {
+    try {
+      const h: DoubleHumanizeResult = await runDoubleHumanizePass(markdown, "ru", input.apiKey);
+      if (h.content && h.content.length > 200 && h.passesApplied > 0) {
+        markdown = stripMarkdownTables(normalizeDashes(ruEReplace(h.content))).replace(/\*\*([^*]+)\*\*/g, "$1");
+        markdown = stripDuplicateH1(markdown, title);
+      }
+      humanize_report = {
+        applied: h.passesApplied > 0,
+        passes: h.passesApplied,
+        models: h.modelsUsed,
+        rejections: h.rejections,
+        skipped: h.opusSkipReason,
+      };
+    } catch (e) {
+      console.error("[generateVcArticle] humanize failed", e);
+      humanize_report = { applied: false, passes: 0, models: [], skipped: "exception" };
+    }
+  }
+
   let cover_data_url: string | null = null;
   if (input.wantCover) {
     cover_data_url = await generateCover(`${title}. ${subtitle}`);
   }
 
   const checklist = buildChecklist(markdown, ps_question);
+  const story_report = validateStoryFirst(markdown);
+  const openers_report = detectRepeatedOpeners(markdown);
+
+  checklist.push(
+    { label: "Story-First (сумма+последствие+человек в первых 500 словах)",
+      ok: story_report.ok,
+      hint: story_report.ok ? "ок" : `не хватает: ${story_report.missing.join(", ")}` },
+    { label: "Лид без банальных штампов",
+      ok: !lead_report.wasBanal || lead_report.rewritten,
+      hint: lead_report.wasBanal
+        ? (lead_report.rewritten ? `переписан (был: "${lead_report.matched}")` : `штамп: "${lead_report.matched}"`)
+        : "ок" },
+    { label: "Без повторяющихся зачинов абзацев",
+      ok: openers_report.ok,
+      hint: openers_report.ok ? "ок" : openers_report.offenders.map((o) => `"${o.opener}" x${o.count}`).join(", ") },
+  );
+  if (input.targetQuery && seoReportFull) {
+    checklist.push({
+      label: `SEO: запрос "${input.targetQuery}" в title и H2`,
+      ok: seoReportFull.ok,
+      hint: seoReportFull.ok
+        ? `${seoReportFull.occurrences} упоминаний${seoReportFull.titleFixed ? ", title пофиксили" : ""}`
+        : seoReportFull.issues.join(", "),
+    });
+  }
 
   // Fact-Check Guard (по умолчанию ON).
   let risk_report: RiskReport | undefined;
@@ -638,6 +722,12 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     links_report: linksReport,
     risk_report,
     numeric_guard,
+    story_report,
+    lead_report,
+    seo_report: seoReportFull,
+    openers_report,
+    cliches_removed: clicheCleaned.removed,
+    humanize_report,
   };
 }
 
