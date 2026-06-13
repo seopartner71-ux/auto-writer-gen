@@ -616,18 +616,21 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   const __startedAt = Date.now();
   const { system, user } = buildPrompt(input);
 
-  const requestedLength = Math.min(6500, Math.max(2500, Number(input.length) || 5500));
+  const requestedLength = Math.min(5200, Math.max(2500, Number(input.length) || 5000));
   const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
-  const result = await chatJson<{
+  let effectiveModel = input.model;
+  let result;
+  try {
+    result = await chatJson<{
     title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
-  }>({
+    }>({
     apiKey: input.apiKey,
-    model: input.model,
+    model: effectiveModel,
     system,
     user,
     temperature: 0.85,
-    maxTokens: requestedLength >= 6000 ? 5000 : 4300,
-    timeoutMs: isSlowModel ? 95_000 : 60_000,
+    maxTokens: requestedLength >= 5000 ? 3800 : 3200,
+    timeoutMs: isSlowModel ? 72_000 : 55_000,
     appTitle: "vc.ru Writer",
     schemaName: "vc_article",
     schema: {
@@ -643,7 +646,25 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
       },
     },
     retries: 0,
-  });
+    });
+  } catch (e) {
+    if (!isSlowModel || !shouldRetryVcDraft(e)) throw e;
+    console.warn("[generateVcArticle] slow model failed, retrying with flash", { model: input.model, err: (e as Error)?.message });
+    effectiveModel = "google/gemini-2.5-flash";
+    result = await chatJson<{
+      title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
+    }>({
+      apiKey: input.apiKey,
+      model: effectiveModel,
+      system,
+      user,
+      temperature: 0.8,
+      maxTokens: 3600,
+      timeoutMs: 45_000,
+      appTitle: "vc.ru Writer Fallback",
+      retries: 0,
+    });
+  }
 
   const data = result.data || ({} as any);
   let markdown = stripMarkdownTables(
@@ -789,7 +810,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     meta: { title, subtitle, tags, ps_question },
     checklist,
     cover_data_url,
-    stats: { chars: stripText(markdown).length, model: result.model },
+    stats: { chars: stripText(markdown).length, model: result.model || effectiveModel },
     links_report: linksReport,
     risk_report,
     numeric_guard,
