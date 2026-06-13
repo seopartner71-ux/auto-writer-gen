@@ -245,6 +245,8 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
   const chars = text.length;
   const digitsCount = (text.match(/\b\d+[\d\s.,%]*/g) || []).length;
   const h2 = (md.match(/^##\s+/gm) || []).length;
+  const h3 = (md.match(/^###\s+/gm) || []).length;
+  const h4 = (md.match(/^####\s+/gm) || []).length;
   const hasPS = /P\.?\s*S\.?/i.test(md) || (ps && md.includes(ps));
   const hasPersonal = /(мы\s|у\s+клиента|на\s+практик|сам\s+столк|попробовал)/i.test(text);
   const hasMistake = /(ошибк|провал|пошло\s+не\s+так|потеряли|не\s+сработал)/i.test(text);
@@ -256,6 +258,8 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
     { label: "Длина 4500-7000 знаков", ok: chars >= 4500 && chars <= 7000, hint: `сейчас ${chars}` },
     { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
     { label: "Минимум 3 подзаголовка H2", ok: h2 >= 3, hint: `${h2} H2` },
+    { label: "Минимум 4 подзаголовка H3", ok: h3 >= 4, hint: `${h3} H3` },
+    { label: "Минимум 2 подзаголовка H4", ok: h4 >= 2, hint: `${h4} H4` },
     { label: "Личный опыт", ok: hasPersonal, hint: hasPersonal ? "ок" : "добавь сцену" },
     { label: "Упомянут провал/ошибка", ok: hasMistake, hint: hasMistake ? "ок" : "vc.ru любит честность" },
     { label: "Есть P.S. с вопросом", ok: !!hasPS, hint: hasPS ? "ок" : "добавь P.S." },
