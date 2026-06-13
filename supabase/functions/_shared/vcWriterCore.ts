@@ -616,7 +616,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   const __startedAt = Date.now();
   const { system, user } = buildPrompt(input);
 
-  const requestedLength = Math.min(5200, Math.max(2500, Number(input.length) || 5000));
+  const requestedLength = Math.min(5000, Math.max(2500, Number(input.length) || 4800));
   const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
   let effectiveModel = input.model;
   let result;
@@ -629,8 +629,8 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     system,
     user,
     temperature: 0.85,
-    maxTokens: requestedLength >= 5000 ? 3800 : 3200,
-    timeoutMs: isSlowModel ? 72_000 : 55_000,
+    maxTokens: requestedLength >= 5000 ? 3600 : 3200,
+    timeoutMs: isSlowModel ? 55_000 : 50_000,
     appTitle: "vc.ru Writer",
     schemaName: "vc_article",
     schema: {
@@ -659,8 +659,8 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
       system,
       user,
       temperature: 0.8,
-      maxTokens: 3600,
-      timeoutMs: 45_000,
+      maxTokens: 3400,
+      timeoutMs: 38_000,
       appTitle: "vc.ru Writer Fallback",
       retries: 0,
     });
@@ -831,7 +831,7 @@ export const ALLOWED_VC_MODELS = new Set([
   "google/gemini-2.5-flash",
 ]);
 
-export const DEFAULT_VC_MODEL = "anthropic/claude-sonnet-4.5";
+export const DEFAULT_VC_MODEL = "google/gemini-2.5-flash";
 
 export function pickVcModel(raw: unknown): string {
   return ALLOWED_VC_MODELS.has(String(raw)) ? String(raw) : DEFAULT_VC_MODEL;
