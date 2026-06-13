@@ -409,6 +409,9 @@ export default function UtmGeneratorPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Динамические переменные</CardTitle>
+          <p className="text-xs text-muted-foreground pt-1">
+            Это параметры в фигурных скобках, которые рекламная площадка автоматически заменяет на реальные значения в момент клика - например, на ID объявления, тип устройства или ключевую фразу. Чаще всего их подставляют в utm_content или utm_term.
+          </p>
         </CardHeader>
         <CardContent>
           <Accordion type="single" collapsible defaultValue="ref">
@@ -491,6 +494,52 @@ export default function UtmGeneratorPage() {
                     </Table>
                   </TabsContent>
                 </Tabs>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Частые вопросы</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="single" collapsible className="text-sm">
+            <AccordionItem value="q1">
+              <AccordionTrigger className="text-left">Какие параметры обязательны, а какие нет?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Обязательные: utm_source, utm_medium, utm_campaign. Без них Метрика и GA4 не смогут корректно атрибутировать визит к источнику. utm_content и utm_term - опциональны и нужны для более детальной разбивки внутри одной кампании.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q2">
+              <AccordionTrigger className="text-left">Почему все значения автоматически переводятся в нижний регистр?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Аналитические системы считают utm_source=Google и utm_source=google разными источниками. Чтобы статистика не дробилась, принято писать все значения строчными буквами без пробелов. Генератор делает это автоматически.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q3">
+              <AccordionTrigger className="text-left">Зачем включать транслитерацию?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Кириллица в UTM-параметрах превращается в длинные процентные коды вида %D0%BA%D1%83%D0%BF%D0%B8%D1%82%D1%8C, которые сложно читать в отчетах. Транслитерация автоматически конвертирует «купить_диван» в «kupit_divan» - ссылка остается короткой и читаемой.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q4">
+              <AccordionTrigger className="text-left">Что делать, если у моей ссылки уже есть параметры (?id=123)?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Генератор автоматически добавит UTM-параметры через &amp;, а не через ?, чтобы не сломать существующие. В адресе всегда останется только один знак вопроса. Якоря (#section) обрезаются - они мешают атрибуции в большинстве систем.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q5">
+              <AccordionTrigger className="text-left">Как использовать динамические переменные площадок?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Вставьте переменную прямо в значение поля - например, в utm_content укажите device_{`{device}`} или kw_{`{keyword}`}. При показе объявления Google или Яндекс сами подставят туда тип устройства, ключевое слово, ID объявления и т.д. Так одна метка дает детализированную статистику по каждому клику.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q6">
+              <AccordionTrigger className="text-left">Можно ли использовать UTM в email-рассылках и Telegram?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Да, и даже нужно. Для email обычно ставят utm_source=email, utm_medium=newsletter, utm_campaign=название_рассылки. Для Telegram - utm_source=telegram, utm_medium=channel, utm_campaign=название_канала. Это поможет отделить трафик из мессенджеров от соцсетей.
               </AccordionContent>
             </AccordionItem>
           </Accordion>
