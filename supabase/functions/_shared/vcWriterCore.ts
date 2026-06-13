@@ -434,9 +434,12 @@ export function replaceLead(md: string, newLead: string): string {
 async function generateCover(prompt: string): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12_000);
   try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
+      signal: ctrl.signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "openai/gpt-image-2",
@@ -452,6 +455,8 @@ async function generateCover(prompt: string): Promise<string | null> {
     return b64 ? `data:image/png;base64,${b64}` : null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -563,6 +568,7 @@ export async function factCheckMarkdown(
   apiKey: string,
   markdown: string,
   verifiedFacts: string | undefined,
+  timeoutMs = 30_000,
 ): Promise<RiskReport> {
   const empty: RiskReport = { total: 0, unverified: 0, level: "low", claims: [], summary: "Нет рисков" };
   if (!markdown || markdown.length < 200) return empty;
@@ -579,7 +585,7 @@ export async function factCheckMarkdown(
       user,
       temperature: 0.1,
       maxTokens: 2500,
-      timeoutMs: 60_000,
+      timeoutMs,
       appTitle: "vc.ru Fact-Check",
       retries: 0,
     });
