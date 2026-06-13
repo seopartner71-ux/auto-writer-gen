@@ -420,6 +420,19 @@ export default function VcWriterPage() {
                       <span className="font-mono">{result.seo.target_query}</span>
                     </div>
                   )}
+                  {result.links_report && (result.links_report.injected.length + result.links_report.appended.length > 0) && (
+                    <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                        <Link2 className="h-3 w-3" /> Клиентские ссылки вставлены
+                      </div>
+                      {result.links_report.injected.length > 0 && (
+                        <div className="text-muted-foreground">В текст: {result.links_report.injected.join(", ")}</div>
+                      )}
+                      {result.links_report.appended.length > 0 && (
+                        <div className="text-amber-400">В блок «Полезное по теме»: {result.links_report.appended.join(", ")}</div>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Заголовок ({result.meta.title.length}/90)</div>
                     <div className="flex items-start gap-2">
