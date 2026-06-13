@@ -3732,6 +3732,7 @@ export type Database = {
       vc_writer_history: {
         Row: {
           audience: string | null
+          author_persona: string | null
           chars: number | null
           checklist: Json | null
           client_links: Json | null
@@ -3745,6 +3746,7 @@ export type Database = {
           markdown: string | null
           model: string
           ps_question: string | null
+          risk_report: Json | null
           seo_mode: boolean | null
           subtitle: string | null
           tags: Json | null
@@ -3755,9 +3757,11 @@ export type Database = {
           topic: string
           updated_at: string
           user_id: string
+          verified_facts: string | null
         }
         Insert: {
           audience?: string | null
+          author_persona?: string | null
           chars?: number | null
           checklist?: Json | null
           client_links?: Json | null
@@ -3771,6 +3775,7 @@ export type Database = {
           markdown?: string | null
           model: string
           ps_question?: string | null
+          risk_report?: Json | null
           seo_mode?: boolean | null
           subtitle?: string | null
           tags?: Json | null
@@ -3781,9 +3786,11 @@ export type Database = {
           topic: string
           updated_at?: string
           user_id: string
+          verified_facts?: string | null
         }
         Update: {
           audience?: string | null
+          author_persona?: string | null
           chars?: number | null
           checklist?: Json | null
           client_links?: Json | null
@@ -3797,6 +3804,7 @@ export type Database = {
           markdown?: string | null
           model?: string
           ps_question?: string | null
+          risk_report?: Json | null
           seo_mode?: boolean | null
           subtitle?: string | null
           tags?: Json | null
@@ -3807,6 +3815,7 @@ export type Database = {
           topic?: string
           updated_at?: string
           user_id?: string
+          verified_facts?: string | null
         }
         Relationships: []
       }
