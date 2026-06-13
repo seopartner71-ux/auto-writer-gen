@@ -6,7 +6,7 @@ export type VcFormat = "guide" | "rating" | "review" | "case";
 
 export const VC_FORMAT_BRIEF: Record<VcFormat, string> = {
   guide: "Статья-разбор / пошаговый гайд. Структура: проблема -> почему это важно -> 4-7 шагов с цифрами и подводными камнями -> итог -> что делать дальше.",
-  rating: "Рейтинг / подборка ТОП-N. Структура: критерии отбора (3-5 пунктов) -> карточки по каждому пункту (название, для кого, плюсы, минусы, цена/условия, личная оценка 1-10) -> сводная таблица -> вывод 'кому что брать'.",
+  rating: "Рейтинг / подборка ТОП-N. Структура: критерии отбора (3-5 пунктов) -> карточки по каждому пункту (название, для кого, плюсы, минусы, цена/условия, личная оценка 1-10) -> сводный список 'итог одной строкой по каждому' -> вывод 'кому что брать'. БЕЗ markdown-таблиц.",
   review: "Обзор продукта/сервиса. Структура: что это и для кого -> как тестировали (контекст, срок, задачи) -> что понравилось (3-5) -> что бесит (3-5) -> цена и альтернативы -> кому брать, кому пройти мимо.",
   case: "Кейс / антикейс / мнение. Структура: лид с конфликтом или цифрой потерь/прибыли -> предыстория (кто мы, что хотели) -> что сделали по шагам -> что пошло не так и почему -> цифры до/после -> выводы и спорный тезис в финале.",
 };
@@ -21,10 +21,11 @@ EDITORIAL PROTOCOL vc.ru (ОБЯЗАТЕЛЬНО):
 6. ОШИБКИ/ПРОВАЛЫ: обязательно 1-2 момента "что пошло не так" - vc.ru любит честность.
 7. ФИНАЛ: P.S. с прямым вопросом аудитории для комментариев ("А вы как делаете X? Расскажите в комментариях").
 8. ДЛИНА: целевая 4500-6500 знаков (можно +-20%). Слишком короткое не попадает в топ, слишком длинное не дочитывают.
-9. ФОРМАТИРОВАНИЕ: markdown с H2, списками, цитатами (>), таблицами где уместно. БЕЗ жирного (**). БЕЗ ё - заменяй на е.
+9. ФОРМАТИРОВАНИЕ: markdown с H2, списками (-), цитатами (>). БЕЗ markdown-таблиц (|---|): vc.ru их не рендерит, превращается в кашу. Сравнения делай списками с подзаголовками или H3-карточками. БЕЗ жирного (**). БЕЗ ё - заменяй на е.
 10. ЗАГОЛОВОК (до 90 символов): цифра + конкретика + интрига.
 11. ТЕГИ: 4-6 коротких тегов через запятую.
 12. ТИРЕ: СТРОГО ЗАПРЕЩЕНО длинное тире (—), среднее тире (–) и любые юникод-дефисы. Используй ТОЛЬКО обычный дефис-минус "-" (U+002D). Это касается заголовка, подзаголовка, тегов, P.S. и всего markdown.
+13. БЕЗ ТАБЛИЦ: vc.ru-редактор не поддерживает markdown-таблицы. Никогда не используй символ | для построения таблиц и не пиши строки вида |---|---|. Любое сравнение оформляй как маркированный список или серию H3-блоков "Название -> 3 строки текста".
 `.trim();
 
 export function ruEReplace(s: string): string {
@@ -35,6 +36,40 @@ export function ruEReplace(s: string): string {
 export function normalizeDashes(s: string): string {
   // U+2010..U+2015, U+2212 (minus), U+2043, U+FE58/FE63/FF0D
   return (s || "").replace(/[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/g, "-");
+}
+
+/**
+ * Удаляет markdown-таблицы (vc.ru их не рендерит) и превращает в маркированный список.
+ * Таблица: блок строк, начинающихся с | и содержащих разделитель |---|.
+ */
+export function stripMarkdownTables(md: string): string {
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const isTableRow = /^\s*\|.*\|\s*$/.test(line);
+    const nextIsSep = i + 1 < lines.length && /^\s*\|?\s*:?-{2,}.*\|/.test(lines[i + 1]);
+    if (isTableRow && nextIsSep) {
+      const header = line.split("|").map((c) => c.trim()).filter(Boolean);
+      i += 2; // skip header + separator
+      const rows: string[][] = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+        rows.push(lines[i].split("|").map((c) => c.trim()).filter(Boolean));
+        i++;
+      }
+      // Convert to list: "- col1: header1; col2: header2; ..."
+      for (const row of rows) {
+        const parts = row.map((cell, idx) => `${header[idx] || "—"}: ${cell}`).join("; ");
+        out.push(`- ${parts}`);
+      }
+      out.push("");
+      continue;
+    }
+    out.push(line);
+    i++;
+  }
+  return out.join("\n");
 }
 
 export function stripText(md: string): string {
@@ -52,6 +87,7 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
   const hasBold = /\*\*[^*]+\*\*/.test(md);
   const hasYo = /ё|Ё/.test(md);
   const hasLongDash = /[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/.test(md);
+  const hasTable = /^\s*\|.*\|\s*$/m.test(md) && /^\s*\|?\s*:?-{2,}.*\|/m.test(md);
   return [
     { label: "Длина 3500-8000 знаков", ok: chars >= 3500 && chars <= 8000, hint: `сейчас ${chars}` },
     { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
@@ -62,6 +98,7 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
     { label: "Нет жирного (**)", ok: !hasBold, hint: hasBold ? "убери **" : "ок" },
     { label: "Нет буквы ё", ok: !hasYo, hint: hasYo ? "замени на е" : "ок" },
     { label: "Только дефис '-' (без — и –)", ok: !hasLongDash, hint: hasLongDash ? "замени тире на -" : "ок" },
+    { label: "Без markdown-таблиц (vc.ru их не рендерит)", ok: !hasTable, hint: hasTable ? "переделай в список" : "ок" },
   ];
 }
 
@@ -138,7 +175,9 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   });
 
   const data = result.data || ({} as any);
-  let markdown = normalizeDashes(ruEReplace(String(data.markdown || ""))).replace(/\*\*([^*]+)\*\*/g, "$1");
+  let markdown = stripMarkdownTables(
+    normalizeDashes(ruEReplace(String(data.markdown || "")))
+  ).replace(/\*\*([^*]+)\*\*/g, "$1");
   const title = normalizeDashes(ruEReplace(String(data.title || ""))).slice(0, 90);
   const subtitle = normalizeDashes(ruEReplace(String(data.subtitle || ""))).slice(0, 240);
   const ps_question = normalizeDashes(ruEReplace(String(data.ps_question || "")));
