@@ -592,7 +592,7 @@ export default function VcWriterPage() {
               <Label className="text-sm flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5" /> От лица кого пишем
               </Label>
-              <Select value={authorPersona} onValueChange={(v) => setAuthorPersona(v as AuthorPersona)}>
+              <Select value={authorPersona} onValueChange={(v) => { setAuthorPersona(v as AuthorPersona); setPersonaTouched(true); }}>
                 <SelectTrigger><SelectValue>{PERSONA_OPTIONS.find((o) => o.value === authorPersona)?.label}</SelectValue></SelectTrigger>
                 <SelectContent>
                   {PERSONA_OPTIONS.map((o) => (
