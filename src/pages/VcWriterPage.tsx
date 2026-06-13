@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import VcWriterBulk from "@/components/vc-writer/VcWriterBulk";
@@ -33,6 +34,31 @@ interface Result {
   stats?: { chars: number; model: string };
   seo?: { mode: boolean; target_query: string | null; suggestions: string[] };
   links_report?: { injected: string[]; appended: string[] };
+  history_id?: string | null;
+}
+
+interface HistoryRow {
+  id: string;
+  created_at: string;
+  format: string;
+  model: string;
+  topic: string;
+  thesis: string | null;
+  audience: string | null;
+  tone: string | null;
+  length_target: number | null;
+  target_query: string | null;
+  seo_mode: boolean | null;
+  client_links: Array<{ url: string; anchor: string; hint?: string }> | null;
+  title: string | null;
+  subtitle: string | null;
+  tags: string[] | null;
+  ps_question: string | null;
+  markdown: string | null;
+  checklist: Array<{ label: string; ok: boolean; hint: string }> | null;
+  links_report: { injected: string[]; appended: string[] } | null;
+  chars: number | null;
+  is_favorite: boolean | null;
 }
 
 const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
@@ -54,8 +80,77 @@ export default function VcWriterPage() {
   const [seoMode, setSeoMode] = useState(true);
   const [targetQuery, setTargetQuery] = useState("");
   const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
+  const [addUtm, setAddUtm] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("vc_writer_history")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setHistory((data as unknown as HistoryRow[]) || []);
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось загрузить историю");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (historyOpen) loadHistory();
+  }, [historyOpen]);
+
+  const restoreFromHistory = (row: HistoryRow) => {
+    setFormat((row.format as Format) || "guide");
+    setModel(row.model || "anthropic/claude-sonnet-4.5");
+    setTopic(row.topic || "");
+    setThesis(row.thesis || "");
+    setAudience(row.audience || "");
+    setTone(row.tone || "экспертно-разговорный с легкой провокацией");
+    setLength(row.length_target || 5500);
+    setSeoMode(!!row.seo_mode);
+    setTargetQuery(row.target_query || "");
+    setClientLinks(
+      Array.isArray(row.client_links)
+        ? row.client_links.map((l) => ({ url: l.url || "", anchor: l.anchor || "", hint: l.hint || "" }))
+        : [],
+    );
+    setResult({
+      ok: true,
+      markdown: row.markdown || "",
+      meta: {
+        title: row.title || "",
+        subtitle: row.subtitle || "",
+        tags: Array.isArray(row.tags) ? row.tags : [],
+        ps_question: row.ps_question || "",
+      },
+      checklist: Array.isArray(row.checklist) ? row.checklist : [],
+      cover_data_url: null,
+      stats: { chars: row.chars || 0, model: row.model },
+      seo: { mode: !!row.seo_mode, target_query: row.target_query, suggestions: [] },
+      links_report: row.links_report || undefined,
+      history_id: row.id,
+    });
+    setHistoryOpen(false);
+    toast.success("Параметры и результат загружены");
+  };
+
+  const deleteHistoryRow = async (id: string) => {
+    const { error } = await supabase.from("vc_writer_history").delete().eq("id", id);
+    if (error) {
+      toast.error("Не удалось удалить");
+      return;
+    }
+    setHistory((h) => h.filter((r) => r.id !== id));
+  };
 
   const handleGenerate = async () => {
     if (topic.trim().length < 5) {
@@ -83,6 +178,17 @@ export default function VcWriterPage() {
           target_query: primaryQuery,
           client_links: clientLinks
             .filter((l) => l.url.trim() && l.anchor.trim())
+            .map((l) => {
+              if (!addUtm) return l;
+              try {
+                const u = new URL(l.url.trim());
+                if (!u.searchParams.has("utm_source")) u.searchParams.set("utm_source", "vc");
+                if (!u.searchParams.has("utm_medium")) u.searchParams.set("utm_medium", "article");
+                return { ...l, url: u.toString() };
+              } catch {
+                return l;
+              }
+            })
             .slice(0, 5),
         },
       });
@@ -114,14 +220,67 @@ export default function VcWriterPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div className="flex items-center gap-3">
-        <Sparkles className="h-6 w-6 text-primary" />
-        <div>
-          <h1 className="text-2xl font-semibold">vc.ru Writer</h1>
-          <p className="text-sm text-muted-foreground">
-            Генератор статей под формат vc.ru - с крючком в лиде, цифрами, провалами и P.S. для комментариев
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Sparkles className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold">vc.ru Writer</h1>
+            <p className="text-sm text-muted-foreground">
+              Генератор статей под формат vc.ru - с крючком в лиде, цифрами, провалами и P.S. для комментариев
+            </p>
+          </div>
         </div>
+        <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm">
+              <History className="h-4 w-4 mr-1.5" /> История
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>История генераций</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 space-y-2">
+              {historyLoading && (
+                <div className="py-10 text-center text-muted-foreground text-sm">
+                  <Loader2 className="h-5 w-5 mx-auto animate-spin mb-2" /> Загружаю...
+                </div>
+              )}
+              {!historyLoading && history.length === 0 && (
+                <div className="py-10 text-center text-muted-foreground text-sm">
+                  Пока ничего не сгенерировано
+                </div>
+              )}
+              {history.map((row) => (
+                <div key={row.id} className="rounded-md border border-border p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{row.title || row.topic}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">{row.topic}</div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => restoreFromHistory(row)}>
+                        <RotateCcw className="h-3 w-3 mr-1" /> Открыть
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-rose-400" onClick={() => deleteHistoryRow(row.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">{row.format}</Badge>
+                    {row.target_query && (
+                      <Badge variant="outline" className="h-4 px-1.5 text-[9px]">SEO: {row.target_query.slice(0, 40)}</Badge>
+                    )}
+                    {!!row.chars && <span>{row.chars} зн.</span>}
+                    <span>•</span>
+                    <span>{new Date(row.created_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <Tabs defaultValue="single" className="space-y-4">
@@ -271,6 +430,11 @@ export default function VcWriterPage() {
                   <p className="text-[10px] text-muted-foreground">
                     Первый запрос - главный (войдет в заголовок и H2). Остальные - дополнительные, естественно впишутся в текст. Пусто - подберём автоматически из реальных запросов Google.
                   </p>
+                  {targetQuery.split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean).length > 1 && (
+                    <div className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
+                      Внимание: только первый запрос - основной SEO-таргет. Остальные используются как LSI (1-2 упоминания в тексте), не как равноценные цели. Если нужно равноценно - сгенерируй отдельные статьи в Пакетном режиме.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -278,6 +442,24 @@ export default function VcWriterPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>Длина: {length} знаков</Label>
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: "Короткий", v: 3500 },
+                    { label: "Стандарт", v: 5500 },
+                    { label: "Лонгрид", v: 7500 },
+                  ].map((p) => (
+                    <Button
+                      key={p.v}
+                      type="button"
+                      size="sm"
+                      variant={length === p.v ? "default" : "ghost"}
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => setLength(p.v)}
+                    >
+                      {p.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
               <Slider
                 value={[length]}
@@ -286,7 +468,7 @@ export default function VcWriterPage() {
                 max={8000}
                 step={500}
               />
-              <p className="text-[10px] text-muted-foreground">vc.ru-топ обычно 4500-6500 знаков</p>
+              <p className="text-[10px] text-muted-foreground">vc.ru-топ обычно 4500-6500 знаков. Считаем без пробелов и markdown-разметки - vc.ru-редактор покажет похожее число (±5%).</p>
             </div>
 
             <div className="space-y-2 rounded-md border border-border p-3">
@@ -309,6 +491,14 @@ export default function VcWriterPage() {
                   <Plus className="h-3 w-3 mr-1" /> Добавить
                 </Button>
               </div>
+              {clientLinks.length > 0 && (
+                <div className="flex items-center justify-between rounded border border-border/60 px-2 py-1.5">
+                  <Label className="text-[11px] flex-1 cursor-pointer" htmlFor="utm-toggle">
+                    Добавлять UTM-метки (utm_source=vc, utm_medium=article)
+                  </Label>
+                  <Switch id="utm-toggle" checked={addUtm} onCheckedChange={setAddUtm} />
+                </div>
+              )}
               {clientLinks.map((l, i) => (
                 <div key={i} className="space-y-1.5 rounded border border-border/60 p-2">
                   <div className="flex items-center justify-between">
