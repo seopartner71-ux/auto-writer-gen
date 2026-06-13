@@ -106,7 +106,11 @@ export default function VcWriterPage() {
             <div className="space-y-1.5">
               <Label>Формат</Label>
               <Select value={format} onValueChange={(v) => setFormat(v as Format)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue>
+                    {FORMAT_OPTIONS.find((o) => o.value === format)?.label}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {FORMAT_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
@@ -123,7 +127,11 @@ export default function VcWriterPage() {
             <div className="space-y-1.5">
               <Label>Модель</Label>
               <Select value={model} onValueChange={setModel}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue>
+                    {MODEL_OPTIONS.find((o) => o.value === model)?.label}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {MODEL_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
@@ -138,6 +146,9 @@ export default function VcWriterPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-[10px] text-muted-foreground">
+                {MODEL_OPTIONS.find((o) => o.value === model)?.hint}
+              </p>
             </div>
 
             <div className="space-y-1.5">
