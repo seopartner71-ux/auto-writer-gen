@@ -137,9 +137,10 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
     const admin = adminClient();
-    if (action === "humanize") return await actionHumanize(body, auth, admin);
-    if (action === "fix")      return await actionFix(body, admin);
-    if (action === "serp_top") return await actionSerpTop(body, admin);
+    if (action === "humanize")  return await actionHumanize(body, auth, admin);
+    if (action === "fix")       return await actionFix(body, admin);
+    if (action === "serp_top")  return await actionSerpTop(body, admin);
+    if (action === "factcheck") return await actionFactCheck(body, admin);
     return errorResponse("unknown action", 400);
   } catch (e: any) {
     console.error("[vc-writer-tools] error", e?.message || e);
