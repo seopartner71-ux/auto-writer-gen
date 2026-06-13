@@ -133,6 +133,10 @@ export default function VcWriterPage() {
   const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
   const [verifiedFacts, setVerifiedFacts] = useState("");
   const [factCheckOn, setFactCheckOn] = useState(true);
+  // Источник кейса/обзора: имя клиента, URL, дата. Обязателен для форматов case/review.
+  const [caseSource, setCaseSource] = useState("");
+  // Если research.format_mismatch=true, генерация блокируется до явного согласия.
+  const [allowMismatch, setAllowMismatch] = useState(false);
   const [rechecking, setRechecking] = useState(false);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -151,6 +155,8 @@ export default function VcWriterPage() {
 
   // Topic Research (этап анализа топ-материалов перед генерацией)
   const [researching, setResearching] = useState(false);
+  // Отметка о том, что research уже запускался для текущей темы (чтобы не дёргать повторно).
+  const [autoResearchedTopic, setAutoResearchedTopic] = useState<string>("");
   const [research, setResearch] = useState<{
     summary_md: string;
     recommended_format: Format;
@@ -170,6 +176,7 @@ export default function VcWriterPage() {
     }
     setResearching(true);
     setResearch(null);
+    setAllowMismatch(false);
     try {
       const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
         body: { action: "topic_research", topic: topic.trim(), selected_format: format },
@@ -186,6 +193,25 @@ export default function VcWriterPage() {
       setResearching(false);
     }
   };
+
+  // Автозапуск анализа темы с дебаунсом 1.5с: только если тема ≥15 символов
+  // и для этой темы ещё не запускали. Снимает с пользователя необходимость
+  // помнить про кнопку - именно это раньше ломало качество.
+  useEffect(() => {
+    const t = topic.trim();
+    if (t.length < 15) return;
+    if (autoResearchedTopic === t) return;
+    if (researching) return;
+    const id = setTimeout(() => {
+      setAutoResearchedTopic(t);
+      runTopicResearch();
+    }, 1500);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic]);
+
+  // Любая смена формата сбрасывает разрешение на mismatch.
+  useEffect(() => { setAllowMismatch(false); }, [format]);
 
   // Auto-suggest persona on topic change (only if user didn't manually pick).
   useEffect(() => {
@@ -271,6 +297,16 @@ export default function VcWriterPage() {
       toast.error("Укажите тему (минимум 5 символов)");
       return;
     }
+    // Hard-stop: для case/review без источника блокируем генерацию.
+    if ((format === "case" || format === "review") && caseSource.trim().length < 5) {
+      toast.error("Укажите источник кейса: имя клиента/проекта, URL или дату. Без этого модель выдумает героя.");
+      return;
+    }
+    // Hard-stop: research показал несоответствие формата, а пользователь не подтвердил.
+    if (research?.format_mismatch && !allowMismatch) {
+      toast.error(`Формат «${format}» не соответствует топу выдачи. Смените на «${research.recommended_format}» или подтвердите генерацию.`);
+      return;
+    }
     setLoading(true);
     setResult(null);
     try {
@@ -284,6 +320,16 @@ export default function VcWriterPage() {
       const thesisWithExtras = extraQueries.length
         ? `${thesis}\n\nДополнительные SEO-запросы (вписать естественно в текст и подзаголовки, по 1-2 раза каждый): ${extraQueries.join(", ")}`
         : thesis;
+      // Источник кейса присоединяем к проверенным фактам, чтобы модель использовала
+      // именно его как героя/контекст материала и не выдумывала клиента.
+      const factsWithSource = (() => {
+        const src = caseSource.trim();
+        if (!src) return verifiedFacts.trim() || null;
+        const header = format === "case"
+          ? `ИСТОЧНИК КЕЙСА (использовать как героя статьи, не выдумывать другого):\n${src}`
+          : `ОБЪЕКТ ОБЗОРА (использовать именно его, не подменять):\n${src}`;
+        return [header, verifiedFacts.trim()].filter(Boolean).join("\n\n").slice(0, 4000);
+      })();
       const { data, error } = await supabase.functions.invoke("vc-writer", {
         body: {
           format, model, topic, thesis: thesisWithExtras, audience, tone, length,
@@ -291,7 +337,7 @@ export default function VcWriterPage() {
           seo_mode: seoMode,
           target_query: primaryQuery,
           author_persona: authorPersona,
-          verified_facts: verifiedFacts.trim() || null,
+          verified_facts: factsWithSource,
           fact_check: factCheckOn,
           topic_research: research?.summary_md || null,
           client_links: clientLinks
@@ -824,6 +870,28 @@ export default function VcWriterPage() {
               )}
             </div>
 
+            {(format === "case" || format === "review") && (
+              <div className="space-y-1.5 rounded-md border border-border p-3">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Источник {format === "case" ? "кейса" : "обзора"}
+                  <span className="text-rose-400">*</span>
+                </Label>
+                <Textarea
+                  value={caseSource}
+                  onChange={(e) => setCaseSource(e.target.value.slice(0, 600))}
+                  placeholder={format === "case"
+                    ? "Имя клиента/проекта, URL, период работ. Пример:\nКлиент: интернет-магазин SportLine (sportline.ru)\nПериод: март-сентябрь 2025\nИсточник данных: внутренние отчёты Метрики"
+                    : "Что обозреваете: точное название, версия, URL, дата покупки. Пример:\nПродукт: масло KAT 5W-30, артикул 12345\nГде купили: Ozon, 12.03.2025, 2400 руб/4л\nНа чём тестировали: Toyota Camry 2019"}
+                  rows={3}
+                  className="text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Обязательное поле. Без него модель выдумает героя - это главная причина «вранья» в кейсах.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <div className="space-y-0.5">
                 <Label className="text-sm flex items-center gap-1.5">
@@ -982,13 +1050,72 @@ export default function VcWriterPage() {
               <Switch checked={withCover} onCheckedChange={setWithCover} />
             </div>
 
-            <Button onClick={handleGenerate} disabled={loading} className="w-full" size="lg">
-              {loading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Пишу материал...</>
-              ) : (
-                <><Sparkles className="h-4 w-4 mr-2" /> Сгенерировать</>
-              )}
-            </Button>
+            {(() => {
+              const needSource = format === "case" || format === "review";
+              const sourceOk = !needSource || caseSource.trim().length >= 5;
+              const researchDone = !!research;
+              const personaOk = authorPersona !== "freeform" || personaTouched;
+              const factsOk = verifiedFacts.trim().length >= 20 || !!caseSource.trim();
+              const mismatchBlock = !!research?.format_mismatch && !allowMismatch;
+              const checks: Array<{ ok: boolean; label: string }> = [
+                { ok: researchDone, label: "Анализ темы выполнен" },
+                { ok: sourceOk, label: needSource ? `Источник ${format === "case" ? "кейса" : "обзора"} указан` : "Источник не требуется" },
+                { ok: factsOk, label: "Проверенные факты или источник" },
+                { ok: personaOk, label: "Persona выбрана" },
+                { ok: !mismatchBlock, label: mismatchBlock ? "Формат не совпадает с топом выдачи" : "Формат соответствует выдаче" },
+              ];
+              const readyCount = checks.filter((c) => c.ok).length;
+              const total = checks.length;
+              const color = readyCount === total
+                ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
+                : readyCount >= total - 1
+                  ? "text-amber-400 border-amber-500/40 bg-amber-500/10"
+                  : "text-rose-400 border-rose-500/40 bg-rose-500/10";
+              return (
+                <>
+                  <div className={`rounded-md border px-3 py-2 text-[11px] space-y-1 ${color}`}>
+                    <div className="font-medium">VC-готовность: {readyCount}/{total}</div>
+                    <ul className="space-y-0.5">
+                      {checks.map((c, i) => (
+                        <li key={i} className="flex items-center gap-1.5">
+                          <span className="opacity-80">{c.ok ? "✓" : "✗"}</span>
+                          <span className={c.ok ? "opacity-90" : ""}>{c.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {mismatchBlock ? (
+                    <div className="space-y-2">
+                      <Button
+                        onClick={() => setFormat(research!.recommended_format)}
+                        className="w-full" size="lg"
+                      >
+                        Сменить формат на «{research!.recommended_format}»
+                      </Button>
+                      <Button
+                        onClick={() => setAllowMismatch(true)}
+                        variant="outline" className="w-full" size="sm"
+                      >
+                        Сгенерировать всё равно
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={loading || !sourceOk}
+                      className="w-full" size="lg"
+                    >
+                      {loading ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Пишу материал...</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4 mr-2" /> Сгенерировать</>
+                      )}
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
             <p className="text-[10px] text-muted-foreground text-center">
               Занимает 30-90 секунд. Обложка добавляет ~15 сек.
             </p>
