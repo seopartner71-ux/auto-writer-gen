@@ -742,6 +742,48 @@ export default function VcWriterPage() {
                 </CardContent>
               </Card>
 
+              {/* Google SERP preview */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Search className="h-4 w-4" /> Превью в Google
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border border-border bg-background p-3 space-y-1">
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="inline-block h-4 w-4 rounded-full bg-emerald-500/20 border border-emerald-500/40" />
+                      <span>vc.ru</span>
+                      <span>›</span>
+                      <span className="truncate">{(result.meta.title || "статья").toLowerCase().replace(/[^a-zа-я0-9]+/gi, "-").slice(0, 50)}</span>
+                    </div>
+                    <div className="text-[17px] leading-snug text-[#1a0dab] dark:text-[#8ab4f8] font-normal line-clamp-2">
+                      {result.meta.title.length > 60 ? result.meta.title.slice(0, 57) + "..." : result.meta.title}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground line-clamp-2">
+                      {result.meta.subtitle.length > 160 ? result.meta.subtitle.slice(0, 157) + "..." : result.meta.subtitle}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
+                    <span className={result.meta.title.length > 60 ? "text-amber-400" : "text-emerald-400"}>
+                      Title: {result.meta.title.length}/60
+                    </span>
+                    <span>•</span>
+                    <span className={result.meta.subtitle.length > 160 ? "text-amber-400" : "text-emerald-400"}>
+                      Description: {result.meta.subtitle.length}/160
+                    </span>
+                    {result.seo?.target_query && (
+                      <>
+                        <span>•</span>
+                        <span className={result.meta.title.toLowerCase().includes(result.seo.target_query.toLowerCase().slice(0, 20)) ? "text-emerald-400" : "text-rose-400"}>
+                          {result.meta.title.toLowerCase().includes(result.seo.target_query.toLowerCase().slice(0, 20)) ? "Запрос в title" : "Запрос НЕ в title"}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Cover */}
               {result.cover_data_url && (
                 <Card>
@@ -762,7 +804,15 @@ export default function VcWriterPage() {
               {/* Checklist */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">Чек-лист соответствия vc.ru</CardTitle>
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span>Чек-лист соответствия vc.ru</span>
+                    {result.checklist.some((c) => !c.ok) && (
+                      <Button size="sm" variant="outline" disabled={fixing} onClick={runAutoFix}>
+                        {fixing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wrench className="h-3 w-3 mr-1" />}
+                        Автоисправление
+                      </Button>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid sm:grid-cols-2 gap-2">
@@ -779,6 +829,65 @@ export default function VcWriterPage() {
                 </CardContent>
               </Card>
 
+              {/* Competitive SERP */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span className="flex items-center gap-2"><Search className="h-4 w-4" /> Топ выдачи по запросу</span>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
+                        <Switch checked={serpOnlyVc} onCheckedChange={setSerpOnlyVc} /> только vc.ru
+                      </label>
+                      <Button size="sm" variant="outline" onClick={loadSerpTop} disabled={serpLoading}>
+                        {serpLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
+                        Показать
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!serpTop && !serpLoading && (
+                    <p className="text-xs text-muted-foreground">
+                      Подгрузим топ-10 Google по {serpOnlyVc ? "vc.ru" : "всему вебу"} - чтобы увидеть конкурентов и подсмотреть углы подачи.
+                    </p>
+                  )}
+                  {serpTop && serpTop.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Пусто. Поменяйте запрос или снимите фильтр «только vc.ru».</p>
+                  )}
+                  {serpTop && serpTop.length > 0 && (
+                    <div className="space-y-2">
+                      {serpTop.map((r) => (
+                        <a
+                          key={r.position + r.link}
+                          href={r.link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block rounded-md border border-border p-2 hover:bg-muted/40 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <Badge variant="outline" className="h-4 px-1.5 text-[9px]">#{r.position}</Badge>
+                            <span className="truncate">{r.link}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </div>
+                          <div className="text-sm font-medium text-foreground mt-0.5 line-clamp-2">{r.title}</div>
+                          <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{r.snippet}</div>
+                        </a>
+                      ))}
+                      {serpPaa.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <div className="text-[11px] text-muted-foreground mb-1.5">Люди также спрашивают:</div>
+                          <ul className="space-y-1">
+                            {serpPaa.map((q) => (
+                              <li key={q} className="text-xs">- {q}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Markdown */}
               <Card>
                 <CardHeader className="pb-3">
@@ -786,6 +895,10 @@ export default function VcWriterPage() {
                     <span>Текст материала (markdown)</span>
                     <div className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
                       <span>{result.stats?.chars ?? 0} знаков</span>
+                      <Button size="sm" variant="outline" onClick={runHumanize} disabled={humanizing}>
+                        {humanizing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+                        Humanize
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => copy(result.markdown, "Текст")}>
                         <Copy className="h-3 w-3 mr-1" /> Копировать в vc.ru
                       </Button>
