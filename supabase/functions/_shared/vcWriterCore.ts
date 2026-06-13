@@ -1,6 +1,7 @@
 // Core vc.ru Writer logic: prompt, generation, checklist, cover.
 // Shared by single-shot vc-writer and the batch worker.
 import { chatJson } from "./aiClient.ts";
+import { runDoubleHumanizePass, type DoubleHumanizeResult } from "./humanizePass.ts";
 
 export type VcFormat = "guide" | "rating" | "review" | "case";
 
