@@ -127,6 +127,16 @@ async function actionSerpTop(req: any, admin: any) {
   }
 }
 
+async function actionFactCheck(req: any, admin: any) {
+  const md = String(req.markdown || "");
+  if (md.length < 200) return errorResponse("markdown is too short", 400);
+  const apiKey = await getOpenRouterKey(admin);
+  if (!apiKey) return errorResponse("OpenRouter key not configured", 500);
+  const verifiedFacts = ruEReplace(normalizeDashes(String(req.verified_facts || ""))).slice(0, 4000);
+  const report = await factCheckMarkdown(apiKey, md, verifiedFacts || undefined);
+  return jsonResponse({ ok: true, risk_report: report });
+}
+
 serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
