@@ -1,6 +1,6 @@
 // Core vc.ru Writer logic: prompt, generation, checklist, cover.
 // Shared by single-shot vc-writer and the batch worker.
-import { chatJson } from "./aiClient.ts";
+import { AiError, chatJson } from "./aiClient.ts";
 import { runDoubleHumanizePass, type DoubleHumanizeResult } from "./humanizePass.ts";
 
 export type VcFormat = "guide" | "rating" | "review" | "case";
@@ -383,7 +383,7 @@ async function rewriteLead(apiKey: string, lead: string, topic: string, thesis: 
       user: `Тема: ${topic}\nТезис: ${thesis || "(не задан)"}\nТекущий банальный лид:\n${lead}\n\nВерни JSON: {"lead": "новый лид одним абзацем"}`,
       temperature: 0.9,
       maxTokens: 500,
-      timeoutMs: 30_000,
+      timeoutMs: 12_000,
       appTitle: "vc.ru Lead Rewrite",
       retries: 0,
     });
@@ -405,7 +405,7 @@ async function fixTitleForSeo(apiKey: string, title: string, targetQuery: string
       user: `Запрос: ${targetQuery}\nТекущий заголовок: ${title}\n\nВерни JSON: {"title": "новый заголовок"}`,
       temperature: 0.5,
       maxTokens: 200,
-      timeoutMs: 20_000,
+      timeoutMs: 8_000,
       appTitle: "vc.ru Title Fix",
       retries: 0,
     });
@@ -519,6 +519,11 @@ export interface VcGenResult {
   humanize_report?: { applied: boolean; passes: number; models: string[]; rejections?: string[]; skipped?: string };
 }
 
+function shouldRetryVcDraft(e: unknown): boolean {
+  if (!(e instanceof AiError)) return true;
+  return ["timeout", "upstream", "rate_limit", "parse_failed", "network"].includes(e.kind);
+}
+
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
   const ratingBlock = p.format === "rating" ? `\n\n${VC_RATING_PROTOCOL}` : "";
   const system = `Ты - редактор vc.ru с 5-летним опытом. Твоя задача - написать материал, который попадет в топ vc.ru и зайдет в Google/Yandex. Пиши на русском, без буквы ё (заменяй на е).\n\n${VC_PROTOCOL}\n\n${VC_STORY_PROTOCOL}\n\nФОРМАТ ЭТОГО МАТЕРИАЛА: ${VC_FORMAT_BRIEF[p.format]}${ratingBlock}`;
@@ -611,18 +616,21 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   const __startedAt = Date.now();
   const { system, user } = buildPrompt(input);
 
-  const requestedLength = Math.min(6500, Math.max(2500, Number(input.length) || 5500));
+  const requestedLength = Math.min(5000, Math.max(2500, Number(input.length) || 4800));
   const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
-  const result = await chatJson<{
+  let effectiveModel = input.model;
+  let result;
+  try {
+    result = await chatJson<{
     title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
-  }>({
+    }>({
     apiKey: input.apiKey,
-    model: input.model,
+    model: effectiveModel,
     system,
     user,
     temperature: 0.85,
-    maxTokens: requestedLength >= 6000 ? 5000 : 4300,
-    timeoutMs: isSlowModel ? 95_000 : 60_000,
+    maxTokens: requestedLength >= 5000 ? 3600 : 3200,
+    timeoutMs: isSlowModel ? 55_000 : 50_000,
     appTitle: "vc.ru Writer",
     schemaName: "vc_article",
     schema: {
@@ -638,7 +646,25 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
       },
     },
     retries: 0,
-  });
+    });
+  } catch (e) {
+    if (!isSlowModel || !shouldRetryVcDraft(e)) throw e;
+    console.warn("[generateVcArticle] slow model failed, retrying with flash", { model: input.model, err: (e as Error)?.message });
+    effectiveModel = "google/gemini-2.5-flash";
+    result = await chatJson<{
+      title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
+    }>({
+      apiKey: input.apiKey,
+      model: effectiveModel,
+      system,
+      user,
+      temperature: 0.8,
+      maxTokens: 3400,
+      timeoutMs: 38_000,
+      appTitle: "vc.ru Writer Fallback",
+      retries: 0,
+    });
+  }
 
   const data = result.data || ({} as any);
   let markdown = stripMarkdownTables(
@@ -667,7 +693,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   // Lead-banality fix: если лид начинается со штампа, перепишем только его дешёвой моделью.
   let lead_report: { wasBanal: boolean; matched?: string; rewritten: boolean } = { wasBanal: false, rewritten: false };
-  if (!input.skipLeadFix) {
+  if (!input.skipLeadFix && Date.now() - __startedAt < 82_000) {
     const banal = detectLeadBanality(markdown);
     lead_report = { wasBanal: banal.banal, matched: banal.matched, rewritten: false };
     if (banal.banal && banal.lead) {
@@ -684,7 +710,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   if (input.targetQuery) {
     let seoR = validateSeo(markdown, title, input.targetQuery);
     let titleFixed = false;
-    if (!input.skipSeoFix && !seoR.inTitle) {
+    if (!input.skipSeoFix && !seoR.inTitle && Date.now() - __startedAt < 95_000) {
       const newTitle = await fixTitleForSeo(input.apiKey, title, input.targetQuery);
       if (newTitle) {
         title = newTitle;
@@ -736,7 +762,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   let cover_data_url: string | null = null;
   const elapsedBeforeCover = Date.now() - __startedAt;
-  if (input.wantCover && elapsedBeforeCover < 128_000) {
+  if (input.wantCover && elapsedBeforeCover < 105_000) {
     cover_data_url = await generateCover(`${title}. ${subtitle}`);
   }
 
@@ -770,9 +796,9 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   // Fact-Check Guard (по умолчанию ON).
   let risk_report: RiskReport | undefined;
   const elapsedBeforeFactCheck = Date.now() - __startedAt;
-  if (input.factCheck !== false && elapsedBeforeFactCheck < 120_000) {
+  if (input.factCheck !== false && elapsedBeforeFactCheck < 108_000) {
     try {
-      const factBudget = Math.max(10_000, Math.min(30_000, 140_000 - elapsedBeforeFactCheck));
+      const factBudget = Math.max(8_000, Math.min(18_000, 125_000 - elapsedBeforeFactCheck));
       risk_report = await factCheckMarkdown(input.apiKey, markdown, input.verifiedFacts, factBudget);
     } catch (e) {
       console.error("[generateVcArticle] fact-check failed", e);
@@ -784,7 +810,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     meta: { title, subtitle, tags, ps_question },
     checklist,
     cover_data_url,
-    stats: { chars: stripText(markdown).length, model: result.model },
+    stats: { chars: stripText(markdown).length, model: result.model || effectiveModel },
     links_report: linksReport,
     risk_report,
     numeric_guard,
@@ -805,7 +831,7 @@ export const ALLOWED_VC_MODELS = new Set([
   "google/gemini-2.5-flash",
 ]);
 
-export const DEFAULT_VC_MODEL = "anthropic/claude-sonnet-4.5";
+export const DEFAULT_VC_MODEL = "google/gemini-2.5-flash";
 
 export function pickVcModel(raw: unknown): string {
   return ALLOWED_VC_MODELS.has(String(raw)) ? String(raw) : DEFAULT_VC_MODEL;

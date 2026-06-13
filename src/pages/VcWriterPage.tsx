@@ -46,11 +46,11 @@ function suggestPersona(topic: string): { persona: AuthorPersona; reason: string
 }
 
 const MODEL_OPTIONS = [
-  { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", hint: "Рекомендуем - живой русский, лучший тон для vc.ru", recommended: true },
+  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", hint: "Рекомендуем сейчас - стабильно укладывается в лимит генерации", recommended: true },
+  { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", hint: "Живой русский, но может быть медленнее" },
   { value: "anthropic/claude-opus-4.1", label: "Claude Opus 4.1", hint: "Премиум - сильнее в нюансах и аргументации, дороже" },
   { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Длинный контекст, стабильный markdown" },
   { value: "openai/gpt-5", label: "GPT-5", hint: "Универсал, чуть суше по тону" },
-  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", hint: "Быстро и дешево, просядет на длинных" },
 ];
 
 interface Result {
@@ -117,7 +117,7 @@ const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
 
 export default function VcWriterPage() {
   const [format, setFormat] = useState<Format>("guide");
-  const [model, setModel] = useState<string>("anthropic/claude-sonnet-4.5");
+  const [model, setModel] = useState<string>("google/gemini-2.5-flash");
   const [topic, setTopic] = useState("");
   const [thesis, setThesis] = useState("");
   const [audience, setAudience] = useState("");
