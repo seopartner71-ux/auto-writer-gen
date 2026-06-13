@@ -12,6 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Copy, HelpCircle, Check, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
+import { LandingFooter } from "@/components/landing/LandingFooter";
+import { Sparkles, ArrowRight } from "lucide-react";
 
 type Protocol = "https://" | "http://";
 type Preset = "custom" | "google" | "yandex" | "vk" | "mycom";
@@ -546,6 +549,47 @@ export default function UtmGeneratorPage() {
         </CardContent>
       </Card>
     </div>
+
+      {/* Branding / Register CTA */}
+      <section className="mx-auto max-w-6xl px-4 pb-12">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-8 sm:p-10">
+          <div className="relative z-10 grid gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1 text-xs text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5" />
+                СЕО-Модуль - платформа для SEO и контента
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+                Этот генератор - часть СЕО-Модуля
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-xl">
+                Бесплатный генератор UTM-меток сделан командой СЕО-Модуля. Внутри платформы - генерация SEO-статей, GEO-оптимизация под ИИ-поиск, отслеживание позиций в Google и Яндексе, аудит конкурентов и автопубликация в блоги.
+              </p>
+              <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-primary shrink-0" /> Генерация SEO-статей с фактчекингом</li>
+                <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-primary shrink-0" /> Отслеживание позиций по ключам</li>
+                <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-primary shrink-0" /> GEO-радар для ChatGPT и Gemini</li>
+                <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-primary shrink-0" /> Автопостинг в WordPress и Telegraph</li>
+              </ul>
+            </div>
+            <div className="flex flex-col gap-3 lg:items-end">
+              <Button asChild size="lg" className="w-full lg:w-auto gap-2">
+                <Link to="/register">
+                  Создать аккаунт бесплатно <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="w-full lg:w-auto">
+                <Link to="/">Узнать больше о платформе</Link>
+              </Button>
+              <p className="text-[11px] text-muted-foreground lg:text-right">
+                Стартовые кредиты после регистрации. Без привязки карты.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <LandingFooter />
     </div>
   );
 }
