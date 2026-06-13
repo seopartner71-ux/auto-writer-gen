@@ -26,6 +26,7 @@ import { TurgenevAnalyticsTab } from "@/components/admin/TurgenevAnalyticsTab";
 import { SemanticInterlinkingTab } from "@/components/admin/SemanticInterlinkingTab";
 import { TodayKpiCard } from "@/components/admin/TodayKpiCard";
 import { TopSpendersCard } from "@/components/admin/TopSpendersCard";
+import { OpenRouterBalanceBanner } from "@/components/admin/OpenRouterBalanceBanner";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export default function AdminPage() {
@@ -40,6 +41,8 @@ export default function AdminPage() {
           <p className="text-sm text-muted-foreground">{t("admin.subtitle")}</p>
         </div>
       </div>
+
+      <OpenRouterBalanceBanner />
 
       <TodayKpiCard />
       <TopSpendersCard />
