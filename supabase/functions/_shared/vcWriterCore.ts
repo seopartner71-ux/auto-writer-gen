@@ -446,6 +446,12 @@ export interface VcGenInput {
   factCheck?: boolean;
   /** Markdown-выжимка анализа топ-материалов по теме (из action=topic_research). */
   topicResearch?: string;
+  /** Запустить humanize-пасс (Sonnet+Opus). Долго (~120с). По умолчанию false. */
+  humanize?: boolean;
+  /** Запретить авто-rewrite лида при банальном начале. По умолчанию false (фикс включен). */
+  skipLeadFix?: boolean;
+  /** Запретить SEO-фикс title. По умолчанию false (фикс включен). */
+  skipSeoFix?: boolean;
 }
 
 export type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
@@ -467,6 +473,12 @@ export interface VcGenResult {
   links_report?: { injected: string[]; appended: string[] };
   risk_report?: RiskReport;
   numeric_guard?: { replaced: string[]; count: number };
+  story_report?: StoryFirstReport;
+  lead_report?: { wasBanal: boolean; matched?: string; rewritten: boolean };
+  seo_report?: SeoReport & { titleFixed?: boolean };
+  openers_report?: { ok: boolean; offenders: Array<{ opener: string; count: number }> };
+  cliches_removed?: number;
+  humanize_report?: { applied: boolean; passes: number; models: string[]; rejections?: string[]; skipped?: string };
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
