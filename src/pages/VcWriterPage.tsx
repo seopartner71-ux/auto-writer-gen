@@ -771,6 +771,100 @@ export default function VcWriterPage() {
               </p>
             </div>
 
+            {/* Topics by Site: анализ сайта клиента -> валидные темы в VC-форматах */}
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <Label className="text-sm flex items-center gap-1.5">
+                <Globe className="h-3.5 w-3.5" /> Темы по сайту клиента
+              </Label>
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                Введите URL сайта клиента - подберём 8 тем, где сайт встроен нативно (как инструмент в процессе), а не выглядит рекламой. Сразу проверим: статья останется полезной, даже если убрать ссылку.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={siteUrl}
+                  onChange={(e) => setSiteUrl(e.target.value)}
+                  placeholder="https://client.ru"
+                  className="h-9 text-xs"
+                />
+                <Button
+                  type="button" size="sm" variant="outline"
+                  className="shrink-0 h-9 gap-1.5"
+                  onClick={runTopicsBySite}
+                  disabled={siteLoading || !siteUrl.trim()}
+                >
+                  {siteLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Подобрать темы
+                </Button>
+              </div>
+              <Input
+                value={siteExtra}
+                onChange={(e) => setSiteExtra(e.target.value.slice(0, 600))}
+                placeholder="Контекст (необязательно): что именно продаёт, кому, частые жалобы клиентов"
+                className="h-8 text-xs"
+              />
+
+              {siteResult && (
+                <div className="space-y-2 pt-1">
+                  <details className="text-[10px] text-muted-foreground">
+                    <summary className="cursor-pointer hover:text-foreground">Анализ сайта (товары, аудитория, боли)</summary>
+                    <div className="mt-1.5 space-y-1.5 pl-2 border-l border-border/40">
+                      {siteResult.site_analysis.products_services?.length > 0 && (
+                        <div><span className="opacity-70">Что продаёт:</span> {siteResult.site_analysis.products_services.join("; ")}</div>
+                      )}
+                      {siteResult.site_analysis.audience?.length > 0 && (
+                        <div><span className="opacity-70">Аудитория:</span> {siteResult.site_analysis.audience.join("; ")}</div>
+                      )}
+                      {siteResult.site_analysis.client_pains?.length > 0 && (
+                        <div><span className="opacity-70">Боли:</span> {siteResult.site_analysis.client_pains.join("; ")}</div>
+                      )}
+                      {siteResult.site_analysis.buyer_mistakes?.length > 0 && (
+                        <div><span className="opacity-70">Ошибки покупателей:</span> {siteResult.site_analysis.buyer_mistakes.join("; ")}</div>
+                      )}
+                      {siteResult.site_analysis.loss_points?.length > 0 && (
+                        <div><span className="opacity-70">Точки потерь:</span> {siteResult.site_analysis.loss_points.join("; ")}</div>
+                      )}
+                      <div className="opacity-60">Страницы: {siteResult.pages_analyzed.length}</div>
+                    </div>
+                  </details>
+
+                  <div className="space-y-1.5">
+                    {siteResult.topics.map((t, i) => (
+                      <div
+                        key={i}
+                        className={`rounded border p-2 space-y-1 ${t.valid ? "border-border bg-muted/30" : "border-rose-500/30 bg-rose-500/5 opacity-70"}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium leading-snug">{t.title}</div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px]">{t.format}</Badge>
+                              <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">→ {t.vc_format}</Badge>
+                              {!t.valid && (
+                                <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-rose-500/40 text-rose-400">рекламная</Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm" variant={t.valid ? "default" : "outline"}
+                            className="h-7 shrink-0 text-[10px]"
+                            disabled={!t.valid}
+                            onClick={() => applySiteTopic(t)}
+                          >
+                            Применить
+                          </Button>
+                        </div>
+                        {t.problem && <div className="text-[10px] text-muted-foreground"><span className="opacity-70">Проблема:</span> {t.problem}</div>}
+                        {t.site_role && <div className="text-[10px] text-muted-foreground"><span className="opacity-70">Роль сайта:</span> {t.site_role}</div>}
+                        {!t.valid && t.reject_reason && (
+                          <div className="text-[10px] text-rose-400">Отклонено: {t.reject_reason}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label>Тема материала</Label>
               <Input
