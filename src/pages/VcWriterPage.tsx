@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -86,6 +86,12 @@ export default function VcWriterPage() {
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [humanizing, setHumanizing] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const [serpTop, setSerpTop] = useState<Array<{ position: number; title: string; link: string; snippet: string }> | null>(null);
+  const [serpPaa, setSerpPaa] = useState<string[]>([]);
+  const [serpLoading, setSerpLoading] = useState(false);
+  const [serpOnlyVc, setSerpOnlyVc] = useState(true);
 
   const loadHistory = async () => {
     setHistoryLoading(true);
@@ -214,6 +220,88 @@ export default function VcWriterPage() {
     a.href = result.cover_data_url;
     a.download = `vc-cover-${Date.now()}.png`;
     a.click();
+  };
+
+  const runHumanize = async () => {
+    if (!result?.markdown) return;
+    setHumanizing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: { action: "humanize", markdown: result.markdown },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("humanize failed");
+      setResult({
+        ...result,
+        markdown: data.markdown,
+        checklist: data.checklist || result.checklist,
+        stats: { chars: data.stats?.chars ?? result.stats?.chars ?? 0, model: result.stats?.model || "" },
+      });
+      toast.success(`Humanize готово (${data.passes_applied} прохода)`);
+    } catch (e: any) {
+      toast.error(e?.message || "Humanize не удался");
+    } finally {
+      setHumanizing(false);
+    }
+  };
+
+  const runAutoFix = async () => {
+    if (!result?.markdown) return;
+    const failed = result.checklist.filter((c) => !c.ok).map((c) => `${c.label} (${c.hint})`);
+    if (!failed.length) {
+      toast.info("Чек-лист уже зелёный");
+      return;
+    }
+    setFixing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: {
+          action: "fix",
+          markdown: result.markdown,
+          failed,
+          ps_question: result.meta.ps_question,
+          model,
+          client_links: clientLinks.filter((l) => l.url && l.anchor).slice(0, 5),
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("fix failed");
+      setResult({
+        ...result,
+        markdown: data.markdown,
+        checklist: data.checklist || result.checklist,
+        links_report: data.links_report || result.links_report,
+        stats: { chars: data.stats?.chars ?? result.stats?.chars ?? 0, model: result.stats?.model || "" },
+      });
+      const stillBad = (data.checklist || []).filter((c: any) => !c.ok).length;
+      toast.success(stillBad ? `Исправлено. Осталось ${stillBad} замечаний` : "Все пункты зелёные");
+    } catch (e: any) {
+      toast.error(e?.message || "Автофикс не удался");
+    } finally {
+      setFixing(false);
+    }
+  };
+
+  const loadSerpTop = async () => {
+    const q = (result?.seo?.target_query || targetQuery.split(/[,\n;]+/)[0] || topic || "").trim();
+    if (!q) {
+      toast.error("Нет запроса для поиска");
+      return;
+    }
+    setSerpLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: { action: "serp_top", query: q, only_vc: serpOnlyVc },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("serp failed");
+      setSerpTop(data.top || []);
+      setSerpPaa(data.paa || []);
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось загрузить SERP");
+    } finally {
+      setSerpLoading(false);
+    }
   };
 
   const modelLabel = MODEL_OPTIONS.find((o) => o.value === model)?.label || model;
