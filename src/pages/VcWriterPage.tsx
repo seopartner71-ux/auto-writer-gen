@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import VcWriterBulk from "@/components/vc-writer/VcWriterBulk";
 
 type Format = "guide" | "rating" | "review" | "case";
 
@@ -84,6 +86,8 @@ export default function VcWriterPage() {
     a.click();
   };
 
+  const modelLabel = MODEL_OPTIONS.find((o) => o.value === model)?.label || model;
+
   return (
     <div className="space-y-6 max-w-6xl">
       <div className="flex items-center gap-3">
@@ -96,7 +100,43 @@ export default function VcWriterPage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[420px_1fr] gap-6">
+      <Tabs defaultValue="single" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="single">Одиночная статья</TabsTrigger>
+          <TabsTrigger value="bulk">Пакет (до 15)</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="bulk" className="space-y-4">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Модель для всей пачки</Label>
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger>
+                    <SelectValue>{modelLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODEL_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        <div className="flex flex-col">
+                          <span className="flex items-center gap-2">
+                            {o.label}
+                            {o.recommended && <Badge variant="secondary" className="h-4 text-[9px] px-1.5">рекомендуем</Badge>}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{o.hint}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+          <VcWriterBulk model={model} modelLabel={modelLabel} />
+        </TabsContent>
+
+        <TabsContent value="single">
+        <div className="grid lg:grid-cols-[420px_1fr] gap-6">
         {/* Form */}
         <Card>
           <CardHeader>
@@ -348,6 +388,8 @@ export default function VcWriterPage() {
           )}
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
