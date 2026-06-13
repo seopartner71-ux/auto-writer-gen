@@ -76,6 +76,51 @@ export function stripText(md: string): string {
   return md.replace(/```[\s\S]*?```/g, " ").replace(/[#>*_`\-\|]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Гарантирует, что каждая клиентская ссылка присутствует в markdown.
+ * Сначала пытаемся найти анкор в тексте и обернуть его в [anchor](url).
+ * Если анкор не найден, добавляем компактный блок "Полезное по теме" перед P.S.
+ */
+export function ensureClientLinks(md: string, links: Array<{ url: string; anchor: string }>): { md: string; injected: string[]; appended: string[] } {
+  const injected: string[] = [];
+  const appended: string[] = [];
+  if (!links || !links.length) return { md, injected, appended };
+
+  let out = md;
+  for (const l of links) {
+    const anchor = (l.anchor || "").trim();
+    const url = (l.url || "").trim();
+    if (!anchor || !url) continue;
+    // Уже есть как markdown-ссылка?
+    const already = new RegExp(`\\]\\(\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\)`).test(out);
+    if (already) { injected.push(anchor); continue; }
+    // Попробуем найти анкор в тексте (вне заголовков и P.S.).
+    const re = new RegExp(`(^|[^[\\w])(${anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?![\\w\\]])`, "i");
+    const psIdx = out.search(/\n+P\.?\s*S\.?/i);
+    const head = psIdx > 0 ? out.slice(0, psIdx) : out;
+    const tail = psIdx > 0 ? out.slice(psIdx) : "";
+    const m = head.match(re);
+    if (m && m.index !== undefined) {
+      const before = head.slice(0, m.index + (m[1] ? m[1].length : 0));
+      const after = head.slice(m.index + (m[1] ? m[1].length : 0) + m[2].length);
+      out = `${before}[${m[2]}](${url})${after}${tail}`;
+      injected.push(anchor);
+    } else {
+      appended.push(anchor);
+    }
+  }
+
+  if (appended.length) {
+    const block = `\n\n## Полезное по теме\n\n${links
+      .filter((l) => appended.includes(l.anchor.trim()))
+      .map((l) => `- [${l.anchor.trim()}](${l.url.trim()})`)
+      .join("\n")}`;
+    const psIdx = out.search(/\n+P\.?\s*S\.?/i);
+    out = psIdx > 0 ? `${out.slice(0, psIdx)}${block}${out.slice(psIdx)}` : `${out}${block}`;
+  }
+  return { md: out, injected, appended };
+}
+
 export function buildChecklist(md: string, ps: string): Array<{ label: string; ok: boolean; hint: string }> {
   const text = stripText(md);
   const chars = text.length;
