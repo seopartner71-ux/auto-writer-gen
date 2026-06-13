@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -458,7 +458,7 @@ export default function VcWriterPage() {
   const modelLabel = MODEL_OPTIONS.find((o) => o.value === model)?.label || model;
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-7xl">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Sparkles className="h-6 w-6 text-primary" />
@@ -571,7 +571,7 @@ export default function VcWriterPage() {
         </TabsContent>
 
         <TabsContent value="single">
-        <div className="grid lg:grid-cols-[420px_1fr] gap-6">
+        <div className={result || loading ? "grid lg:grid-cols-[minmax(380px,440px)_1fr] gap-6 items-start" : "max-w-3xl mx-auto"}>
         {/* Form */}
         <Card>
           <CardHeader>
@@ -877,16 +877,8 @@ export default function VcWriterPage() {
         </Card>
 
         {/* Result */}
+        {(result || loading) && (
         <div className="space-y-4">
-          {!result && !loading && (
-            <Card>
-              <CardContent className="py-16 text-center text-muted-foreground">
-                <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p>Заполните параметры слева и нажмите «Сгенерировать»</p>
-              </CardContent>
-            </Card>
-          )}
-
           {loading && (
             <Card>
               <CardContent className="py-16 text-center text-muted-foreground">
@@ -1275,6 +1267,7 @@ export default function VcWriterPage() {
             </>
           )}
         </div>
+        )}
       </div>
         </TabsContent>
       </Tabs>
