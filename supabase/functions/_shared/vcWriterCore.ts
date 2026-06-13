@@ -255,6 +255,7 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
   const hasYo = /ё|Ё/.test(md);
   const hasLongDash = /[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/.test(md);
   const hasTable = /^\s*\|.*\|\s*$/m.test(md) && /^\s*\|?\s*:?-{2,}.*\|/m.test(md);
+  const quoteCount = (md.match(/^>\s+\S/gm) || []).length;
   return [
     { label: "Длина 4500-7000 знаков", ok: chars >= 4500 && chars <= 7000, hint: `сейчас ${chars}` },
     { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
@@ -268,6 +269,7 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
     { label: "Нет буквы ё", ok: !hasYo, hint: hasYo ? "замени на е" : "ок" },
     { label: "Только дефис '-' (без — и –)", ok: !hasLongDash, hint: hasLongDash ? "замени тире на -" : "ок" },
     { label: "Без markdown-таблиц (vc.ru их не рендерит)", ok: !hasTable, hint: hasTable ? "переделай в список" : "ок" },
+    { label: "Цитаты-врезки (2-4 шт)", ok: quoteCount >= 2 && quoteCount <= 4, hint: `найдено ${quoteCount} (нужно 2-4)` },
   ];
 }
 
