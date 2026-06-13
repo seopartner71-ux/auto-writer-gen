@@ -27,6 +27,7 @@ import {
   Image as ImageIcon,
   Store,
   MoreHorizontal,
+  Link2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -129,6 +130,7 @@ export function AppSidebar() {
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
     { title: lang === "ru" ? "Календарь" : "Calendar", url: "/calendar", icon: CalendarDays },
     { title: lang === "ru" ? "База знаний" : "Wiki", url: "/wiki", icon: BookOpen },
+    { title: lang === "ru" ? "UTM-генератор" : "UTM Generator", url: "/utm-generator", icon: Link2 },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
     { title: t("nav.support"), url: "/support", icon: LifeBuoy },
