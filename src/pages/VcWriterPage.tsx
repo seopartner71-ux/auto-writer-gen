@@ -299,6 +299,7 @@ export default function VcWriterPage() {
           failed,
           ps_question: result.meta.ps_question,
           model,
+          verified_facts: verifiedFacts.trim() || null,
           client_links: clientLinks.filter((l) => l.url && l.anchor).slice(0, 5),
         },
       });
@@ -309,6 +310,7 @@ export default function VcWriterPage() {
         markdown: data.markdown,
         checklist: data.checklist || result.checklist,
         links_report: data.links_report || result.links_report,
+        risk_report: data.risk_report ?? result.risk_report,
         stats: { chars: data.stats?.chars ?? result.stats?.chars ?? 0, model: result.stats?.model || "" },
       });
       const stillBad = (data.checklist || []).filter((c: any) => !c.ok).length;
