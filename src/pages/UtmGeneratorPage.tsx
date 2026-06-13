@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { Sparkles, ArrowRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type Protocol = "https://" | "http://";
 type Preset = "custom" | "google" | "yandex" | "vk" | "mycom";
@@ -173,6 +174,26 @@ export default function UtmGeneratorPage() {
 
   useEffect(() => {
     document.title = "Генератор UTM-меток - СЕО-Модуль";
+  }, []);
+
+  // Track page visit (once per browser session)
+  useEffect(() => {
+    const SESSION_FLAG = "pv_utm_generator";
+    if (sessionStorage.getItem(SESSION_FLAG)) return;
+    sessionStorage.setItem(SESSION_FLAG, "1");
+
+    let sessionKey = localStorage.getItem("pv_session_key");
+    if (!sessionKey) {
+      sessionKey = (crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem("pv_session_key", sessionKey);
+    }
+
+    supabase.from("page_visits").insert({
+      page: "/utm-generator",
+      session_key: sessionKey,
+      user_agent: navigator.userAgent?.slice(0, 500) ?? null,
+      referrer: document.referrer?.slice(0, 500) || null,
+    }).then(() => {}, () => {});
   }, []);
 
   const handleUrlChange = (raw: string) => {
