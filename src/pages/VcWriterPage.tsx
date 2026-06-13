@@ -511,6 +511,19 @@ export default function VcWriterPage() {
                     {row.target_query && (
                       <Badge variant="outline" className="h-4 px-1.5 text-[9px]">SEO: {row.target_query.slice(0, 40)}</Badge>
                     )}
+                    {row.risk_report && row.risk_report.total > 0 && (
+                      <Badge
+                        variant="outline"
+                        className={`h-4 px-1.5 text-[9px] ${
+                          row.risk_report.level === "high" ? "border-rose-500/40 text-rose-300"
+                          : row.risk_report.level === "medium" ? "border-amber-500/40 text-amber-300"
+                          : "border-emerald-500/40 text-emerald-300"
+                        }`}
+                        title={row.risk_report.summary}
+                      >
+                        Риск: {row.risk_report.unverified}/{row.risk_report.total}
+                      </Badge>
+                    )}
                     {!!row.chars && <span>{row.chars} зн.</span>}
                     <span>•</span>
                     <span>{new Date(row.created_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
