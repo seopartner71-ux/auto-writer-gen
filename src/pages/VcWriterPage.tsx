@@ -161,6 +161,8 @@ export default function VcWriterPage() {
         ? row.client_links.map((l) => ({ url: l.url || "", anchor: l.anchor || "", hint: l.hint || "" }))
         : [],
     );
+    setAuthorPersona(((row.author_persona as AuthorPersona) || "freeform"));
+    setVerifiedFacts(row.verified_facts || "");
     setResult({
       ok: true,
       markdown: row.markdown || "",
@@ -175,6 +177,7 @@ export default function VcWriterPage() {
       stats: { chars: row.chars || 0, model: row.model },
       seo: { mode: !!row.seo_mode, target_query: row.target_query, suggestions: [] },
       links_report: row.links_report || undefined,
+      risk_report: row.risk_report || null,
       history_id: row.id,
     });
     setHistoryOpen(false);
