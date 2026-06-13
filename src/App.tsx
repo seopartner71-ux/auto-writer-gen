@@ -96,6 +96,7 @@ const WelcomePage = lazyWithRetry(() => import("@/pages/WelcomePage"));
 const RankTrackerPage = lazyWithRetry(() => import("@/pages/RankTrackerPage"));
 const ImageGeneratorPage = lazyWithRetry(() => import("@/pages/ImageGeneratorPage"));
 const CommercialPage = lazyWithRetry(() => import("@/pages/CommercialPage"));
+const VcWriterPage = lazyWithRetry(() => import("@/pages/VcWriterPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
