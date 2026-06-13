@@ -137,6 +137,110 @@ async function actionFactCheck(req: any, admin: any) {
   return jsonResponse({ ok: true, risk_report: report });
 }
 
+async function actionDefake(req: any, admin: any) {
+  const md = String(req.markdown || "");
+  if (md.length < 200) return errorResponse("markdown is too short", 400);
+  const claims: Array<{ text: string; note?: string }> = Array.isArray(req.claims)
+    ? req.claims.filter((c: any) => c && typeof c.text === "string").slice(0, 25)
+    : [];
+  if (!claims.length) return errorResponse("claims list is empty", 400);
+  const apiKey = await getOpenRouterKey(admin);
+  if (!apiKey) return errorResponse("OpenRouter key not configured", 500);
+  const model = pickVcModel(req.model);
+  const verifiedFacts = ruEReplace(normalizeDashes(String(req.verified_facts || ""))).slice(0, 4000);
+
+  const claimsList = claims.map((c, i) => `${i + 1}. "${c.text}"${c.note ? ` -> риск: ${c.note}` : ""}`).join("\n");
+  const factsBlock = verifiedFacts
+    ? `\n\nПодтверждённые факты (их НЕ трогай):\n${verifiedFacts}`
+    : "";
+  const system = `Ты редактор-факт-чекер vc.ru. Тебе дают черновик и список неподтверждённых конкретных чисел/фактов. Задача:\n- Для КАЖДОГО пункта из списка перепиши соответствующую фразу так, чтобы убрать выдуманную конкретику.\n- Заменяй на обобщения: "по нашей практике", "обычно", "у коллег по рынку видел", или на диапазон ("на 15-30% дороже" вместо точной цены).\n- НЕ выдумывай новых чисел и брендов взамен.\n- Не меняй структуру H2, длина текста ±10%.\n- Запреты: жирный (**), ё, длинное тире (—/–), markdown-таблицы. Дефис только "-".${factsBlock}`;
+  const user = `НЕПОДТВЕРЖДЁННЫЕ УТВЕРЖДЕНИЯ:\n${claimsList}\n\nЧерновик:\n\n${md}\n\nВерни JSON: {"markdown": "переписанный markdown целиком"}`;
+
+  const result = await chatJson<{ markdown: string }>({
+    apiKey, model, system, user,
+    temperature: 0.3, maxTokens: 6000, timeoutMs: 150_000,
+    appTitle: "vc.ru Defake", retries: 1,
+  });
+  let fixed = mechanicalCleanup(String(result.data?.markdown || md));
+  const links = Array.isArray(req.client_links) ? req.client_links : [];
+  let linksReport: { injected: string[]; appended: string[] } | undefined;
+  if (links.length) {
+    const r = ensureClientLinks(fixed, links.map((l: any) => ({ url: String(l.url || ""), anchor: String(l.anchor || "") })));
+    fixed = r.md;
+    linksReport = { injected: r.injected, appended: r.appended };
+  }
+  const checklist = buildChecklist(fixed, String(req.ps_question || ""));
+  let risk_report: any = null;
+  try { risk_report = await factCheckMarkdown(apiKey, fixed, verifiedFacts || undefined); } catch (_) {}
+  return jsonResponse({
+    ok: true,
+    markdown: fixed,
+    checklist,
+    links_report: linksReport,
+    risk_report,
+    stats: { chars: stripText(fixed).length, model: result.model },
+  });
+}
+
+async function actionFactCheckWeb(req: any, admin: any) {
+  const claimsIn: Array<{ text: string; kind?: string; note?: string }> = Array.isArray(req.claims)
+    ? req.claims.filter((c: any) => c && typeof c.text === "string").slice(0, 12)
+    : [];
+  if (!claimsIn.length) return errorResponse("claims list is empty", 400);
+  const { data: keyRow } = await admin
+    .from("api_keys").select("api_key")
+    .eq("provider", "serper").eq("is_valid", true).maybeSingle();
+  const serperKey = keyRow?.api_key || Deno.env.get("SERPER_API_KEY");
+  if (!serperKey) return errorResponse("Serper API key not configured", 500);
+  const apiKey = await getOpenRouterKey(admin);
+
+  async function checkOne(claim: { text: string; kind?: string; note?: string }) {
+    const q = claim.text.slice(0, 200);
+    try {
+      const r = await withTimeout(fetch("https://google.serper.dev/search", {
+        method: "POST",
+        headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ q, gl: "ru", hl: "ru", num: 5 }),
+      }), 9_000, "serper");
+      if (!r.ok) return { ...claim, status: "not_found" as const, evidence: [] as Array<{ title: string; link: string; snippet: string }> };
+      const j: any = await r.json();
+      const evidence = Array.isArray(j?.organic) ? j.organic.slice(0, 3).map((o: any) => ({
+        title: ruEReplace(normalizeDashes(String(o?.title || ""))).slice(0, 160),
+        link: String(o?.link || ""),
+        snippet: ruEReplace(normalizeDashes(String(o?.snippet || ""))).slice(0, 300),
+      })) : [];
+      if (!evidence.length || !apiKey) {
+        return { ...claim, status: "not_found" as const, evidence };
+      }
+      const sys = "Ты факт-чекер. Дано утверждение и 3 сниппета из Google. Реши: confirmed (сниппеты прямо подтверждают конкретику), contradicted (опровергают), not_found (нет данных). Верни JSON.";
+      const usr = `Утверждение: "${claim.text}"\n\nСниппеты:\n${evidence.map((e, i) => `${i + 1}. ${e.title} - ${e.snippet}`).join("\n")}\n\nJSON: {"status":"confirmed|contradicted|not_found","why":"коротко до 120 символов"}`;
+      try {
+        const cls = await chatJson<{ status: string; why: string }>({
+          apiKey: apiKey!, model: "google/gemini-2.5-flash",
+          system: sys, user: usr,
+          temperature: 0.1, maxTokens: 200, timeoutMs: 30_000,
+          appTitle: "vc.ru Web Fact-Check", retries: 0,
+        });
+        const status = ["confirmed", "contradicted", "not_found"].includes(cls.data?.status || "") ? cls.data!.status : "not_found";
+        return { ...claim, status, why: cls.data?.why || "", evidence };
+      } catch {
+        return { ...claim, status: "not_found" as const, evidence };
+      }
+    } catch {
+      return { ...claim, status: "not_found" as const, evidence: [] };
+    }
+  }
+
+  const results = await Promise.all(claimsIn.map(checkOne));
+  const summary = {
+    confirmed: results.filter((r) => r.status === "confirmed").length,
+    contradicted: results.filter((r) => r.status === "contradicted").length,
+    not_found: results.filter((r) => r.status === "not_found").length,
+    total: results.length,
+  };
+  return jsonResponse({ ok: true, results, summary });
+}
+
 serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
@@ -151,6 +255,8 @@ serve(async (req) => {
     if (action === "fix")       return await actionFix(body, admin);
     if (action === "serp_top")  return await actionSerpTop(body, admin);
     if (action === "factcheck") return await actionFactCheck(body, admin);
+    if (action === "defake")        return await actionDefake(body, admin);
+    if (action === "factcheck_web") return await actionFactCheckWeb(body, admin);
     return errorResponse("unknown action", 400);
   } catch (e: any) {
     console.error("[vc-writer-tools] error", e?.message || e);

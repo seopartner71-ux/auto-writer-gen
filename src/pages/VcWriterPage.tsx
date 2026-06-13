@@ -26,6 +26,25 @@ const PERSONA_OPTIONS: Array<{ value: AuthorPersona; label: string; hint: string
   { value: "expert", label: "Независимый эксперт", hint: "От первого лица как наблюдатель. Без своего бизнеса/штата/клиентов." },
 ];
 
+/** Эвристика автоподбора персоны по теме. */
+function suggestPersona(topic: string): { persona: AuthorPersona; reason: string } | null {
+  const t = (topic || "").toLowerCase();
+  if (!t || t.length < 8) return null;
+  if (/\b(наш(е|и|у|его)?\s+(продукт|сервис|приложение|бренд|масло|стартап|сайт))|мы\s+(запустили|выпустили|сделали\s+продукт)|наша\s+компания|наш\s+стартап\b/.test(t)) {
+    return { persona: "brand_owner", reason: "тема от первого лица о собственном продукте" };
+  }
+  if (/\b(агентств|подрядчик|клиент(а|у|ы)?\s+привели|для\s+клиента|на\s+проекте\s+клиента)\b/.test(t)) {
+    return { persona: "agency", reason: "тема про работу с клиентами" };
+  }
+  if (/\b(in-?house|внутри\s+компании|внутренн|у\s+нас\s+в\s+команде|маркетолог\s+в\s+штате)\b/.test(t)) {
+    return { persona: "inhouse", reason: "тема про in-house работу" };
+  }
+  if (/\b(обзор|сравнение|тестировал|проверил|разбор\s+продукта|опыт\s+использован|плюсы\s+и\s+минусы)\b/.test(t)) {
+    return { persona: "expert", reason: "обзорно-аналитическая тема" };
+  }
+  return null;
+}
+
 const MODEL_OPTIONS = [
   { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", hint: "Рекомендуем - живой русский, лучший тон для vc.ru", recommended: true },
   { value: "anthropic/claude-opus-4.1", label: "Claude Opus 4.1", hint: "Премиум - сильнее в нюансах и аргументации, дороже" },
@@ -124,6 +143,22 @@ export default function VcWriterPage() {
   const [serpPaa, setSerpPaa] = useState<string[]>([]);
   const [serpLoading, setSerpLoading] = useState(false);
   const [serpOnlyVc, setSerpOnlyVc] = useState(true);
+  const [defaking, setDefaking] = useState(false);
+  const [webChecking, setWebChecking] = useState(false);
+  const [webResults, setWebResults] = useState<Array<{ text: string; status: string; why?: string; evidence?: Array<{ title: string; link: string; snippet: string }> }> | null>(null);
+  const [personaTouched, setPersonaTouched] = useState(false);
+  const [personaSuggest, setPersonaSuggest] = useState<{ persona: AuthorPersona; reason: string } | null>(null);
+
+  // Auto-suggest persona on topic change (only if user didn't manually pick).
+  useEffect(() => {
+    if (personaTouched) return;
+    const s = suggestPersona(topic);
+    setPersonaSuggest(s);
+    if (s && s.persona !== authorPersona) {
+      setAuthorPersona(s.persona);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic]);
 
   const loadHistory = async () => {
     setHistoryLoading(true);
@@ -301,6 +336,64 @@ export default function VcWriterPage() {
     }
   };
 
+  const runDefake = async () => {
+    if (!result?.markdown || !result?.risk_report) return;
+    const claims = result.risk_report.claims.filter((c) => !c.verified).map((c) => ({ text: c.text, note: c.note }));
+    if (!claims.length) { toast.info("Нет неподтверждённых утверждений"); return; }
+    setDefaking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: {
+          action: "defake",
+          markdown: result.markdown,
+          claims,
+          model,
+          verified_facts: verifiedFacts.trim() || null,
+          ps_question: result.meta.ps_question,
+          client_links: clientLinks.filter((l) => l.url && l.anchor).slice(0, 5),
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("defake failed");
+      setResult({
+        ...result,
+        markdown: data.markdown,
+        checklist: data.checklist || result.checklist,
+        links_report: data.links_report || result.links_report,
+        risk_report: data.risk_report ?? result.risk_report,
+        stats: { chars: data.stats?.chars ?? result.stats?.chars ?? 0, model: result.stats?.model || "" },
+      });
+      setWebResults(null);
+      const newUnv = data.risk_report?.unverified ?? 0;
+      toast.success(newUnv ? `Готово. Осталось ${newUnv} непроверенных` : "Выдуманные числа убраны");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось убрать выдуманные числа");
+    } finally {
+      setDefaking(false);
+    }
+  };
+
+  const runWebFactCheck = async () => {
+    if (!result?.risk_report) return;
+    const claims = result.risk_report.claims.filter((c) => !c.verified).map((c) => ({ text: c.text, kind: c.kind, note: c.note }));
+    if (!claims.length) { toast.info("Нет неподтверждённых утверждений"); return; }
+    setWebChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: { action: "factcheck_web", claims },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("web factcheck failed");
+      setWebResults(data.results || []);
+      const s = data.summary || { confirmed: 0, contradicted: 0, not_found: 0, total: 0 };
+      toast.success(`Web-проверка: подтверждено ${s.confirmed}, опровергнуто ${s.contradicted}, не найдено ${s.not_found}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Web-проверка не удалась");
+    } finally {
+      setWebChecking(false);
+    }
+  };
+
   const runAutoFix = async () => {
     if (!result?.markdown) return;
     const failed = result.checklist.filter((c) => !c.ok).map((c) => `${c.label} (${c.hint})`);
@@ -417,6 +510,19 @@ export default function VcWriterPage() {
                     <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">{row.format}</Badge>
                     {row.target_query && (
                       <Badge variant="outline" className="h-4 px-1.5 text-[9px]">SEO: {row.target_query.slice(0, 40)}</Badge>
+                    )}
+                    {row.risk_report && row.risk_report.total > 0 && (
+                      <Badge
+                        variant="outline"
+                        className={`h-4 px-1.5 text-[9px] ${
+                          row.risk_report.level === "high" ? "border-rose-500/40 text-rose-300"
+                          : row.risk_report.level === "medium" ? "border-amber-500/40 text-amber-300"
+                          : "border-emerald-500/40 text-emerald-300"
+                        }`}
+                        title={row.risk_report.summary}
+                      >
+                        Риск: {row.risk_report.unverified}/{row.risk_report.total}
+                      </Badge>
                     )}
                     {!!row.chars && <span>{row.chars} зн.</span>}
                     <span>•</span>
@@ -557,7 +663,7 @@ export default function VcWriterPage() {
               <Label className="text-sm flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5" /> От лица кого пишем
               </Label>
-              <Select value={authorPersona} onValueChange={(v) => setAuthorPersona(v as AuthorPersona)}>
+              <Select value={authorPersona} onValueChange={(v) => { setAuthorPersona(v as AuthorPersona); setPersonaTouched(true); }}>
                 <SelectTrigger><SelectValue>{PERSONA_OPTIONS.find((o) => o.value === authorPersona)?.label}</SelectValue></SelectTrigger>
                 <SelectContent>
                   {PERSONA_OPTIONS.map((o) => (
@@ -573,6 +679,11 @@ export default function VcWriterPage() {
               <p className="text-[10px] text-muted-foreground">
                 Блокирует выдумывание фейковых сервисов, оборотов и парка клиентов автора - частая причина рискованного текста.
               </p>
+              {personaSuggest && !personaTouched && (
+                <div className="text-[10px] rounded bg-primary/10 border border-primary/20 px-2 py-1 text-primary">
+                  Автоподбор: «{PERSONA_OPTIONS.find((o) => o.value === personaSuggest.persona)?.label}» ({personaSuggest.reason}). Изменить - выбери вручную.
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5 rounded-md border border-border p-3">
@@ -988,6 +1099,18 @@ export default function VcWriterPage() {
                         }`}>
                           {result.risk_report.summary}
                         </p>
+                        {result.risk_report.unverified > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="default" disabled={defaking} onClick={runDefake}>
+                              {defaking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wrench className="h-3 w-3 mr-1" />}
+                              Убрать выдуманные числа
+                            </Button>
+                            <Button size="sm" variant="outline" disabled={webChecking} onClick={runWebFactCheck}>
+                              {webChecking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
+                              Проверить в Google
+                            </Button>
+                          </div>
+                        )}
                         {!verifiedFacts.trim() && result.risk_report.unverified > 0 && (
                           <div className="text-[11px] rounded bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 text-amber-200">
                             Совет: заполни «Проверенные факты» слева своими реальными цифрами и нажми «Сгенерировать» снова или «Автоисправление» - модель уберёт выдуманные числа.
@@ -1015,6 +1138,49 @@ export default function VcWriterPage() {
                               </li>
                             ))}
                           </ul>
+                        )}
+                        {webResults && webResults.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                            <div className="text-[11px] text-muted-foreground">Результаты проверки в Google:</div>
+                            {webResults.map((w, i) => (
+                              <div
+                                key={i}
+                                className={`rounded p-2 text-xs ${
+                                  w.status === "confirmed" ? "bg-emerald-500/10"
+                                  : w.status === "contradicted" ? "bg-rose-500/10"
+                                  : "bg-muted/40"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      w.status === "confirmed" ? "border-emerald-500/40 text-emerald-300"
+                                      : w.status === "contradicted" ? "border-rose-500/40 text-rose-300"
+                                      : "border-muted-foreground/40 text-muted-foreground"
+                                    }
+                                  >
+                                    {w.status === "confirmed" ? "подтверждено"
+                                      : w.status === "contradicted" ? "опровергнуто"
+                                      : "не найдено"}
+                                  </Badge>
+                                  <span className="font-mono text-[11px] truncate">{w.text}</span>
+                                </div>
+                                {w.why && <div className="text-[10px] text-muted-foreground mb-1">{w.why}</div>}
+                                {Array.isArray(w.evidence) && w.evidence.length > 0 && (
+                                  <ul className="space-y-0.5">
+                                    {w.evidence.slice(0, 2).map((e, j) => (
+                                      <li key={j} className="text-[10px] truncate">
+                                        <a href={e.link} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                          {e.title || e.link}
+                                        </a>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}
