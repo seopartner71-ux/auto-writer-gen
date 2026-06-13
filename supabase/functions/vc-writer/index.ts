@@ -113,6 +113,17 @@ serve(async (req) => {
     const length = Math.min(8000, Math.max(2500, Number(body.length) || 5500));
     const wantCover = !!body.generate_cover;
 
+    const ALLOWED_MODELS = new Set([
+      "anthropic/claude-sonnet-4.5",
+      "anthropic/claude-opus-4.1",
+      "google/gemini-2.5-pro",
+      "openai/gpt-5",
+      "google/gemini-2.5-flash",
+    ]);
+    const model = ALLOWED_MODELS.has(String(body.model))
+      ? String(body.model)
+      : "anthropic/claude-sonnet-4.5";
+
     const admin = adminClient();
     const { data: orRow } = await admin
       .from("api_keys")
@@ -129,7 +140,7 @@ serve(async (req) => {
       title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
     }>({
       apiKey,
-      model: "google/gemini-2.5-pro",
+      model,
       system,
       user,
       temperature: 0.85,
