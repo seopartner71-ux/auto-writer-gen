@@ -233,37 +233,56 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Wand2 className="h-4 w-4 text-primary" />
-            Генератор тем (опционально)
+            SEO-генератор тем (по реальным поисковым запросам)
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid sm:grid-cols-[1fr_140px_180px_auto] gap-3 items-end">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Ниша / о чем</Label>
-            <Input value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="напр. SEO для интернет-магазинов" />
+        <CardContent className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Ниша / о чем</Label>
+              <Input value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="напр. SEO для интернет-магазинов" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Ключевые слова-семена (через запятую, опционально)</Label>
+              <Input
+                value={seedKeywords}
+                onChange={(e) => setSeedKeywords(e.target.value)}
+                placeholder="seo продвижение интернет магазина, накрутка поведенческих..."
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Кол-во тем</Label>
-            <Select value={String(topicsCount)} onValueChange={(v) => setTopicsCount(Number(v))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[5, 7, 8, 10, 12, 15].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="grid sm:grid-cols-[1fr_140px_180px_auto] gap-3 items-end">
+            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+              <div className="space-y-0.5">
+                <Label className="text-xs">SEO-режим (по запросам Google)</Label>
+                <p className="text-[10px] text-muted-foreground">Подтягиваем реальные PAA / related из выдачи. Идеально под ссылки клиентам.</p>
+              </div>
+              <Switch checked={seoMode} onCheckedChange={setSeoMode} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Кол-во тем</Label>
+              <Select value={String(topicsCount)} onValueChange={(v) => setTopicsCount(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[5, 7, 8, 10, 12, 15].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Формат тем</Label>
+              <Select value={preferredFormat} onValueChange={(v) => setPreferredFormat(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mixed">Микс (рекомендуем)</SelectItem>
+                  {FORMATS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleGenerateTopics} disabled={generatingTopics} variant="secondary">
+              {generatingTopics ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              Подобрать темы
+            </Button>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Формат тем</Label>
-            <Select value={preferredFormat} onValueChange={(v) => setPreferredFormat(v as any)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mixed">Микс (рекомендуем)</SelectItem>
-                {FORMATS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={handleGenerateTopics} disabled={generatingTopics} variant="secondary">
-            {generatingTopics ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            Подобрать темы
-          </Button>
         </CardContent>
       </Card>
 
@@ -278,23 +297,38 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
         </CardHeader>
         <CardContent className="space-y-2">
           {rows.map((r, i) => (
-            <div key={r.id} className="grid grid-cols-[28px_140px_1fr_28px] gap-2 items-start">
-              <div className="text-xs text-muted-foreground pt-2.5">{i + 1}.</div>
-              <Select value={r.format} onValueChange={(v) => updateRow(r.id, { format: v as Format })}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FORMATS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Input
-                value={r.topic}
-                onChange={(e) => updateRow(r.id, { topic: e.target.value })}
-                placeholder="Тема статьи (заголовок-крючок)"
-                className="h-9"
-              />
-              <Button size="icon" variant="ghost" onClick={() => removeRow(r.id)} disabled={rows.length <= 1} className="h-9 w-9">
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+            <div key={r.id} className="space-y-1.5 border border-border rounded-md p-2">
+              <div className="grid grid-cols-[28px_140px_1fr_28px] gap-2 items-start">
+                <div className="text-xs text-muted-foreground pt-2.5">{i + 1}.</div>
+                <Select value={r.format} onValueChange={(v) => updateRow(r.id, { format: v as Format })}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FORMATS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={r.topic}
+                  onChange={(e) => updateRow(r.id, { topic: e.target.value })}
+                  placeholder="Тема статьи (заголовок-крючок)"
+                  className="h-9"
+                />
+                <Button size="icon" variant="ghost" onClick={() => removeRow(r.id)} disabled={rows.length <= 1} className="h-9 w-9">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-[28px_1fr] gap-2 items-center pl-0">
+                <div />
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">SEO-запрос</span>
+                  <Input
+                    value={r.target_query || ""}
+                    onChange={(e) => updateRow(r.id, { target_query: e.target.value })}
+                    placeholder="напр. как продвинуть интернет-магазин в google"
+                    className="h-7 text-xs"
+                  />
+                  {r.intent && <Badge variant="outline" className="text-[9px] uppercase">{r.intent}</Badge>}
+                </div>
+              </div>
             </div>
           ))}
         </CardContent>
