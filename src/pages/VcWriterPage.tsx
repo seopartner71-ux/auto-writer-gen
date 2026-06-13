@@ -106,7 +106,11 @@ export default function VcWriterPage() {
             <div className="space-y-1.5">
               <Label>Формат</Label>
               <Select value={format} onValueChange={(v) => setFormat(v as Format)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue>
+                    {FORMAT_OPTIONS.find((o) => o.value === format)?.label}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {FORMAT_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
