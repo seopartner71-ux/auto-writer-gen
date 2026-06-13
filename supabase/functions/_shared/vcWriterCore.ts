@@ -1,6 +1,6 @@
 // Core vc.ru Writer logic: prompt, generation, checklist, cover.
 // Shared by single-shot vc-writer and the batch worker.
-import { chatJson } from "./aiClient.ts";
+import { AiError, chatJson } from "./aiClient.ts";
 import { runDoubleHumanizePass, type DoubleHumanizeResult } from "./humanizePass.ts";
 
 export type VcFormat = "guide" | "rating" | "review" | "case";
@@ -517,6 +517,11 @@ export interface VcGenResult {
   openers_report?: { ok: boolean; offenders: Array<{ opener: string; count: number }> };
   cliches_removed?: number;
   humanize_report?: { applied: boolean; passes: number; models: string[]; rejections?: string[]; skipped?: string };
+}
+
+function shouldRetryVcDraft(e: unknown): boolean {
+  if (!(e instanceof AiError)) return true;
+  return ["timeout", "upstream", "rate_limit", "parse_failed", "network"].includes(e.kind);
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
