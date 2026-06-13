@@ -330,6 +330,12 @@ export default function VcWriterPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
+                  {result.seo?.target_query && (
+                    <div className="rounded-md bg-primary/10 border border-primary/20 px-2.5 py-1.5 text-xs">
+                      <span className="text-muted-foreground">SEO-цель: </span>
+                      <span className="font-mono">{result.seo.target_query}</span>
+                    </div>
+                  )}
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Заголовок ({result.meta.title.length}/90)</div>
                     <div className="flex items-start gap-2">
