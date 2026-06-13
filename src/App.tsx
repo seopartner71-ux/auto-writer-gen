@@ -166,6 +166,7 @@ const App = () => (
                 <Route path="/cookies" element={<Suspense fallback={<PageLoader />}><CookiesPage /></Suspense>} />
                 <Route path="/consent" element={<Suspense fallback={<PageLoader />}><ConsentPage /></Suspense>} />
                 <Route path="/payment-success" element={<Suspense fallback={<PageLoader />}><PaymentSuccessPage /></Suspense>} />
+                <Route path="/utm-generator" element={<Suspense fallback={<PageLoader />}><UtmGeneratorPage /></Suspense>} />
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
@@ -180,7 +181,6 @@ const App = () => (
                   <Route path="/commercial" element={<ProtectedRoute allowedRoles={["admin","staff"]}><CommercialPage /></ProtectedRoute>} />
                   <Route path="/rank-tracker" element={<RankTrackerPage />} />
                   <Route path="/vc-writer" element={<VcWriterPage />} />
-                  <Route path="/utm-generator" element={<UtmGeneratorPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/author-profiles" element={<AuthorProfilesPage />} />
