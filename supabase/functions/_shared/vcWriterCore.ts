@@ -383,7 +383,7 @@ async function rewriteLead(apiKey: string, lead: string, topic: string, thesis: 
       user: `Тема: ${topic}\nТезис: ${thesis || "(не задан)"}\nТекущий банальный лид:\n${lead}\n\nВерни JSON: {"lead": "новый лид одним абзацем"}`,
       temperature: 0.9,
       maxTokens: 500,
-      timeoutMs: 30_000,
+      timeoutMs: 12_000,
       appTitle: "vc.ru Lead Rewrite",
       retries: 0,
     });
@@ -405,7 +405,7 @@ async function fixTitleForSeo(apiKey: string, title: string, targetQuery: string
       user: `Запрос: ${targetQuery}\nТекущий заголовок: ${title}\n\nВерни JSON: {"title": "новый заголовок"}`,
       temperature: 0.5,
       maxTokens: 200,
-      timeoutMs: 20_000,
+      timeoutMs: 8_000,
       appTitle: "vc.ru Title Fix",
       retries: 0,
     });
@@ -762,7 +762,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   let cover_data_url: string | null = null;
   const elapsedBeforeCover = Date.now() - __startedAt;
-  if (input.wantCover && elapsedBeforeCover < 128_000) {
+  if (input.wantCover && elapsedBeforeCover < 105_000) {
     cover_data_url = await generateCover(`${title}. ${subtitle}`);
   }
 
@@ -796,9 +796,9 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   // Fact-Check Guard (по умолчанию ON).
   let risk_report: RiskReport | undefined;
   const elapsedBeforeFactCheck = Date.now() - __startedAt;
-  if (input.factCheck !== false && elapsedBeforeFactCheck < 120_000) {
+  if (input.factCheck !== false && elapsedBeforeFactCheck < 108_000) {
     try {
-      const factBudget = Math.max(10_000, Math.min(30_000, 140_000 - elapsedBeforeFactCheck));
+      const factBudget = Math.max(8_000, Math.min(18_000, 125_000 - elapsedBeforeFactCheck));
       risk_report = await factCheckMarkdown(input.apiKey, markdown, input.verifiedFacts, factBudget);
     } catch (e) {
       console.error("[generateVcArticle] fact-check failed", e);
