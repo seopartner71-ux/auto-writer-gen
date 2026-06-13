@@ -140,6 +140,8 @@ export interface VcGenInput {
   avoidTitles?: string[];
   /** SEO-цель: точный поисковый запрос, под который оптимизируется статья. */
   targetQuery?: string;
+  /** Клиентские ссылки для естественной вставки в текст. */
+  clientLinks?: Array<{ url: string; anchor: string; hint?: string }>;
 }
 
 export interface VcGenResult {
