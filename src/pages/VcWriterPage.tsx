@@ -283,6 +283,24 @@ export default function VcWriterPage() {
     }
   };
 
+  const rerunFactCheck = async () => {
+    if (!result?.markdown) return;
+    setRechecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: { action: "factcheck", markdown: result.markdown, verified_facts: verifiedFacts.trim() || null },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("factcheck failed");
+      setResult({ ...result, risk_report: data.risk_report });
+      toast.success("Факт-чек обновлён");
+    } catch (e: any) {
+      toast.error(e?.message || "Факт-чек не удался");
+    } finally {
+      setRechecking(false);
+    }
+  };
+
   const runAutoFix = async () => {
     if (!result?.markdown) return;
     const failed = result.checklist.filter((c) => !c.ok).map((c) => `${c.label} (${c.hint})`);
