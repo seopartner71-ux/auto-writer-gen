@@ -90,7 +90,41 @@ serve(async (req) => {
       targetQuery: targetQuery || undefined,
       clientLinks: clientLinks.length ? clientLinks : undefined,
     });
-    return jsonResponse({ ok: true, ...out, seo: { mode: seoMode, target_query: targetQuery || null, suggestions: serperSuggestions } });
+
+    // Сохраняем в историю (без cover_data_url - тяжёлый base64).
+    let historyId: string | null = null;
+    try {
+      const { data: hist } = await admin
+        .from("vc_writer_history")
+        .insert({
+          user_id: auth.user.id,
+          format, model, topic, thesis: thesis || null, audience: audience || null, tone: tone || null,
+          length_target: length,
+          target_query: targetQuery || null,
+          seo_mode: seoMode,
+          client_links: clientLinks,
+          title: out.meta.title,
+          subtitle: out.meta.subtitle,
+          tags: out.meta.tags,
+          ps_question: out.meta.ps_question,
+          markdown: out.markdown,
+          checklist: out.checklist,
+          links_report: out.links_report ?? null,
+          chars: out.stats?.chars ?? 0,
+        })
+        .select("id")
+        .maybeSingle();
+      historyId = hist?.id ?? null;
+    } catch (e) {
+      console.error("[vc-writer] history insert failed", e);
+    }
+
+    return jsonResponse({
+      ok: true,
+      ...out,
+      history_id: historyId,
+      seo: { mode: seoMode, target_query: targetQuery || null, suggestions: serperSuggestions },
+    });
   } catch (e: any) {
     console.error("[vc-writer] error", e?.message || e);
     const msg = e?.message || "Unknown error";
