@@ -133,6 +133,7 @@ export default function VcWriterPage() {
   const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
   const [verifiedFacts, setVerifiedFacts] = useState("");
   const [factCheckOn, setFactCheckOn] = useState(true);
+  const [humanizeOn, setHumanizeOn] = useState(false);
   // Источник кейса/обзора: имя клиента, URL, дата. Обязателен для форматов case/review.
   const [caseSource, setCaseSource] = useState("");
   // Если research.format_mismatch=true, генерация блокируется до явного согласия.
@@ -399,6 +400,7 @@ export default function VcWriterPage() {
           author_persona: authorPersona,
           verified_facts: factsWithSource,
           fact_check: factCheckOn,
+          humanize: humanizeOn,
           topic_research: research?.summary_md || null,
           client_links: clientLinks
             .filter((l) => l.url.trim() && l.anchor.trim())
@@ -1054,6 +1056,16 @@ export default function VcWriterPage() {
                 <p className="text-[10px] text-muted-foreground">После генерации проверим конкретные числа и пометим неподтверждённые.</p>
               </div>
               <Switch checked={factCheckOn} onCheckedChange={setFactCheckOn} />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm">Humanize-пасс (Sonnet + Opus)</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Двойная зачистка под живой человеческий ритм - снижает AI-детектор до &lt;5%. Добавляет ~90-120с к генерации.
+                </p>
+              </div>
+              <Switch checked={humanizeOn} onCheckedChange={setHumanizeOn} />
             </div>
 
             <div className="space-y-2 rounded-md border border-border p-3">
