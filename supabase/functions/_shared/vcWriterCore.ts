@@ -907,6 +907,14 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     editor_pass_report = { applied: false, skipped: "no_budget" };
   }
 
+  checklist.push({
+    label: "Редактура vc.ru (6 правил)",
+    ok: editor_pass_report.applied,
+    hint: editor_pass_report.applied
+      ? `применена (${editor_pass_report.in} -> ${editor_pass_report.out} знаков)`
+      : `пропущена: ${editor_pass_report.skipped || "n/a"}`,
+  });
+
   return {
     markdown,
     meta: { title, subtitle, tags, ps_question },
