@@ -624,6 +624,19 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     maxTokens: requestedLength >= 6000 ? 5000 : 4300,
     timeoutMs: isSlowModel ? 95_000 : 60_000,
     appTitle: "vc.ru Writer",
+    schemaName: "vc_article",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["title", "subtitle", "tags", "ps_question", "markdown"],
+      properties: {
+        title: { type: "string" },
+        subtitle: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
+        ps_question: { type: "string" },
+        markdown: { type: "string" },
+      },
+    },
     retries: 0,
   });
 
