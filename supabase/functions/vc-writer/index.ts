@@ -5,6 +5,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { generateVcArticle, isVcFormat, pickVcModel, ruEReplace, normalizeDashes } from "../_shared/vcWriterCore.ts";
+import type { AuthorPersona } from "../_shared/vcWriterCore.ts";
+
+const ALLOWED_PERSONAS: ReadonlySet<AuthorPersona> = new Set([
+  "agency", "inhouse", "brand_owner", "expert", "freeform",
+]);
 import { withTimeout } from "../_shared/withTimeout.ts";
 
 async function serperSuggest(apiKey: string, q: string): Promise<string[]> {
@@ -48,6 +53,11 @@ serve(async (req) => {
     const seoMode = !!body.seo_mode;
     let targetQuery = ruEReplace(normalizeDashes(String(body.target_query || ""))).trim().slice(0, 120);
 
+    const personaRaw = String(body.author_persona || "freeform") as AuthorPersona;
+    const authorPersona: AuthorPersona = ALLOWED_PERSONAS.has(personaRaw) ? personaRaw : "freeform";
+    const verifiedFacts = ruEReplace(normalizeDashes(String(body.verified_facts || ""))).slice(0, 4000);
+    const factCheckOn = body.fact_check !== false;
+
     // Клиентские ссылки: до 5 шт, валидируем url+anchor.
     const rawLinks = Array.isArray(body.client_links) ? body.client_links : [];
     const clientLinks = rawLinks
@@ -89,6 +99,9 @@ serve(async (req) => {
       apiKey, model, format, topic, thesis, audience, tone, length, wantCover,
       targetQuery: targetQuery || undefined,
       clientLinks: clientLinks.length ? clientLinks : undefined,
+      authorPersona,
+      verifiedFacts: verifiedFacts || undefined,
+      factCheck: factCheckOn,
     });
 
     // Сохраняем в историю (без cover_data_url - тяжёлый base64).
@@ -111,6 +124,9 @@ serve(async (req) => {
           checklist: out.checklist,
           links_report: out.links_report ?? null,
           chars: out.stats?.chars ?? 0,
+          author_persona: authorPersona,
+          verified_facts: verifiedFacts || null,
+          risk_report: out.risk_report ?? null,
         })
         .select("id")
         .maybeSingle();
