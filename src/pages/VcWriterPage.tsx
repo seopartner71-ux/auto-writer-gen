@@ -458,7 +458,7 @@ export default function VcWriterPage() {
   const modelLabel = MODEL_OPTIONS.find((o) => o.value === model)?.label || model;
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-7xl">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Sparkles className="h-6 w-6 text-primary" />
@@ -571,7 +571,7 @@ export default function VcWriterPage() {
         </TabsContent>
 
         <TabsContent value="single">
-        <div className="grid lg:grid-cols-[420px_1fr] gap-6">
+        <div className={result || loading ? "grid lg:grid-cols-[minmax(380px,440px)_1fr] gap-6 items-start" : "max-w-3xl mx-auto"}>
         {/* Form */}
         <Card>
           <CardHeader>
