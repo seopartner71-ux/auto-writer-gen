@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,7 @@ interface Result {
   cover_data_url: string | null;
   stats?: { chars: number; model: string };
   seo?: { mode: boolean; target_query: string | null; suggestions: string[] };
+  links_report?: { injected: string[]; appended: string[] };
 }
 
 const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
@@ -52,6 +53,7 @@ export default function VcWriterPage() {
   const [withCover, setWithCover] = useState(true);
   const [seoMode, setSeoMode] = useState(true);
   const [targetQuery, setTargetQuery] = useState("");
+  const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
@@ -79,6 +81,9 @@ export default function VcWriterPage() {
           generate_cover: withCover,
           seo_mode: seoMode,
           target_query: primaryQuery,
+          client_links: clientLinks
+            .filter((l) => l.url.trim() && l.anchor.trim())
+            .slice(0, 5),
         },
       });
       if (error) throw error;
