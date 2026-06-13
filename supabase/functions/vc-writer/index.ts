@@ -111,7 +111,7 @@ serve(async (req) => {
     const audience = String(body.audience || "").slice(0, 200);
     const tone = String(body.tone || "").slice(0, 100);
     const length = Math.min(8000, Math.max(2500, Number(body.length) || 5500));
-    const generateCover = !!body.generate_cover;
+    const wantCover = !!body.generate_cover;
 
     const admin = adminClient();
     const { data: orRow } = await admin
@@ -152,7 +152,7 @@ serve(async (req) => {
     }
 
     let cover_data_url: string | null = null;
-    if (generateCover) {
+    if (wantCover) {
       cover_data_url = await generateCover(`${title}. ${subtitle}`);
     }
 
