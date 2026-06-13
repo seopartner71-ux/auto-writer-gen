@@ -426,6 +426,73 @@ async function fixTitleForSeo(apiKey: string, title: string, targetQuery: string
   }
 }
 
+/**
+ * vc.ru Editor Pass — финальная редактура по правилам редакции vc.ru.
+ * Не переписывает текст, не меняет структуру, факты не добавляет.
+ * 6 правил: анонимность автора, неверифицированные цифры, результат в лид,
+ * размытые формулировки, конкретный P.S., минимальные правки.
+ */
+const VC_EDITOR_PASS_PROMPT = `Ты редактор медиа vc.ru. Перед тобой статья - отредактируй ее по следующим правилам:
+
+1. АНОНИМНОСТЬ АВТОРА
+Если в тексте есть "мы" без объяснения кто это - добавь в первый абзац одно предложение с типом компании и масштабом. Если данных нет - впиши placeholder [ТИП КОМПАНИИ] и [МАСШТАБ].
+
+2. НЕВЕРИФИЦИРОВАННЫЕ ЦИФРЫ
+Найди все утверждения вида "по данным исследований / эксперты говорят / статистика показывает" без указания конкретного источника. Замени на "по нашему опыту" или "по нашим наблюдениям". Цифры из собственной практики автора - не трогай.
+
+3. РЕЗУЛЬТАТЫ В ЛИД
+Найди главный результат или вывод статьи. Перенеси ключевую цифру или итог в первый абзац. В конце статьи оставь полную версию.
+
+4. РАЗМЫТЫЕ ФОРМУЛИРОВКИ
+Найди фразы без конкретики: "значительная часть", "существенная доля", "заметное улучшение", "колоссальное количество". Замени на конкретные цифры если они есть в тексте, или удали усилитель оставив нейтральную формулировку.
+
+5. P.S.
+Если есть P.S. с общим призывом к комментариям - замени на конкретный вопрос из главной боли читателя этой статьи.
+
+6. СТИЛЬ
+Не меняй структуру, заголовки и порядок разделов. Не добавляй новые факты. Не удаляй существующие примеры. Редактируй минимально - только то что указано выше. Не используй букву ё (везде е). Не используй длинные тире (только -). Не используй **жирный**.
+
+ПРАВИЛО ВЫВОДА: верни ТОЛЬКО полный отредактированный текст статьи от первого до последнего слова. Никаких "Вот отредактированный текст", никаких комментариев, никаких code fences. Чистый markdown готовый к публикации.`;
+
+async function runVcEditorPass(apiKey: string, markdown: string): Promise<string | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 22_000);
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "X-Title": "vc.ru Editor Pass",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        temperature: 0.3,
+        messages: [
+          { role: "system", content: VC_EDITOR_PASS_PROMPT },
+          { role: "user", content: markdown },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      console.warn("[runVcEditorPass] AI error", res.status, t.slice(0, 200));
+      return null;
+    }
+    const data = await res.json();
+    let out: string = data?.choices?.[0]?.message?.content || "";
+    if (!out) return null;
+    out = out.replace(/^```(?:markdown|md|html)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    return out;
+  } catch (e) {
+    console.warn("[runVcEditorPass] failed", (e as Error)?.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Заменяет первый «лид-абзац» в markdown на новый текст, сохраняя H1/H2 сверху. */
 export function replaceLead(md: string, newLead: string): string {
   const lines = md.split("\n");
