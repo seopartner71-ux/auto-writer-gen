@@ -72,6 +72,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/network-monitor": () => import("@/pages/NetworkMonitorPage"),
   "/domain-hunter": () => import("@/pages/DomainHunterPage"),
   "/rank-tracker": () => import("@/pages/RankTrackerPage"),
+  "/vc-writer": () => import("@/pages/VcWriterPage"),
 };
 
 export function AppSidebar() {
