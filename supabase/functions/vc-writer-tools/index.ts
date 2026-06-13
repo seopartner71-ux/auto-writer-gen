@@ -151,6 +151,8 @@ serve(async (req) => {
     if (action === "fix")       return await actionFix(body, admin);
     if (action === "serp_top")  return await actionSerpTop(body, admin);
     if (action === "factcheck") return await actionFactCheck(body, admin);
+    if (action === "defake")        return await actionDefake(body, admin);
+    if (action === "factcheck_web") return await actionFactCheckWeb(body, admin);
     return errorResponse("unknown action", 400);
   } catch (e: any) {
     console.error("[vc-writer-tools] error", e?.message || e);
