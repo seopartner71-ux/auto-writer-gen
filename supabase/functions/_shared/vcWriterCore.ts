@@ -244,6 +244,14 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     markdown += `\n\nP.S. ${ps_question}`;
   }
 
+  // Гарантия вставки клиентских ссылок.
+  let linksReport: { injected: string[]; appended: string[] } = { injected: [], appended: [] };
+  if (input.clientLinks && input.clientLinks.length) {
+    const r = ensureClientLinks(markdown, input.clientLinks.map((l) => ({ url: l.url, anchor: l.anchor })));
+    markdown = r.md;
+    linksReport = { injected: r.injected, appended: r.appended };
+  }
+
   let cover_data_url: string | null = null;
   if (input.wantCover) {
     cover_data_url = await generateCover(`${title}. ${subtitle}`);
