@@ -1086,6 +1086,18 @@ export default function VcWriterPage() {
                         }`}>
                           {result.risk_report.summary}
                         </p>
+                        {result.risk_report.unverified > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="default" disabled={defaking} onClick={runDefake}>
+                              {defaking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wrench className="h-3 w-3 mr-1" />}
+                              Убрать выдуманные числа
+                            </Button>
+                            <Button size="sm" variant="outline" disabled={webChecking} onClick={runWebFactCheck}>
+                              {webChecking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
+                              Проверить в Google
+                            </Button>
+                          </div>
+                        )}
                         {!verifiedFacts.trim() && result.risk_report.unverified > 0 && (
                           <div className="text-[11px] rounded bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 text-amber-200">
                             Совет: заполни «Проверенные факты» слева своими реальными цифрами и нажми «Сгенерировать» снова или «Автоисправление» - модель уберёт выдуманные числа.
