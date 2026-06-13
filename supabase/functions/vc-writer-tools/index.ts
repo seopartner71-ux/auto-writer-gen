@@ -245,6 +245,99 @@ async function actionFactCheckWeb(req: any, admin: any) {
   return jsonResponse({ ok: true, results, summary });
 }
 
+/**
+ * Topic Research: ищет в Google топ-материалы по теме (общий + site:vc.ru),
+ * прогоняет сниппеты через LLM и возвращает паттерны + рекомендованный формат.
+ */
+async function actionTopicResearch(req: any, admin: any) {
+  const topic = ruEReplace(normalizeDashes(String(req.topic || ""))).trim().slice(0, 200);
+  if (topic.length < 5) return errorResponse("topic is required", 400);
+  const selectedFormat = String(req.selected_format || "").trim();
+
+  const { data: serperRow } = await admin
+    .from("api_keys").select("api_key")
+    .eq("provider", "serper").eq("is_valid", true).maybeSingle();
+  const serperKey = serperRow?.api_key || Deno.env.get("SERPER_API_KEY");
+  if (!serperKey) return errorResponse("Serper API key not configured", 500);
+
+  async function searchSerper(q: string, num = 10) {
+    try {
+      const r = await withTimeout(fetch("https://google.serper.dev/search", {
+        method: "POST",
+        headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ q, gl: "ru", hl: "ru", num }),
+      }), 12_000, "serper");
+      if (!r.ok) return [] as Array<{ title: string; link: string; snippet: string }>;
+      const j: any = await r.json();
+      return Array.isArray(j?.organic) ? j.organic.slice(0, num).map((o: any) => ({
+        title: ruEReplace(normalizeDashes(String(o?.title || ""))).slice(0, 200),
+        link: String(o?.link || ""),
+        snippet: ruEReplace(normalizeDashes(String(o?.snippet || ""))).slice(0, 400),
+      })) : [];
+    } catch { return []; }
+  }
+
+  const [general, onVc] = await Promise.all([
+    searchSerper(topic, 10),
+    searchSerper(`site:vc.ru ${topic}`, 8),
+  ]);
+  const all = [...onVc, ...general].slice(0, 16);
+  if (!all.length) return errorResponse("no search results", 502);
+
+  const apiKey = await getOpenRouterKey(admin);
+  if (!apiKey) return errorResponse("OpenRouter key not configured", 500);
+
+  const list = all.map((r, i) => `${i + 1}. [${r.link}] ${r.title}\n   ${r.snippet}`).join("\n");
+  const system = `Ты - редактор-аналитик vc.ru. На входе - список топ-материалов по теме из Google (vc.ru + общая выдача). Твоя задача - выделить ПАТТЕРНЫ успешных публикаций по теме и рекомендовать формат.\nВерни строгий JSON. Не копируй конкретные цифры/кейсы из статей - только закономерности.`;
+  const user = `Тема: "${topic}"\n${selectedFormat ? `Пользователь хочет писать в формате: ${selectedFormat}.` : ""}\n\nТоп-материалы:\n${list}\n\nВерни JSON:\n{\n  "title_patterns": ["3-5 коротких типов заголовков, например: 'Личный кейс с цифрой потерь', 'Сравнение 5 брендов', 'Гайд по выбору'"],\n  "structure_patterns": ["3-5 типовых структур, кратко"],\n  "audience_signals": ["3-5 что обсуждает аудитория в комментах / какие возражения"],\n  "dominant_format": "case|rating|review|guide",\n  "recommended_format": "case|rating|review|guide",\n  "format_reason": "1-2 предложения, почему именно этот формат для темы",\n  "format_mismatch": true|false,\n  "mismatch_warning": "если пользователь выбрал не тот формат - короткий совет, иначе пустая строка",\n  "do_not_copy": ["3-5 вещей, которые модель НЕ должна копировать из этих статей: имена, конкретные цены, расчёты и т.п."]\n}`;
+
+  const r = await chatJson<any>({
+    apiKey, model: "google/gemini-2.5-flash",
+    system, user,
+    temperature: 0.2, maxTokens: 1500, timeoutMs: 60_000,
+    appTitle: "vc.ru Topic Research", retries: 0,
+  });
+  const d = r.data || {};
+  const recommended = ["case", "rating", "review", "guide"].includes(d.recommended_format) ? d.recommended_format : "case";
+  const dominant = ["case", "rating", "review", "guide"].includes(d.dominant_format) ? d.dominant_format : recommended;
+  const mismatch = selectedFormat && selectedFormat !== recommended;
+
+  const summaryMd = [
+    `Тема: ${topic}`,
+    `Доминирующий формат в топе: ${dominant}. Рекомендуем: ${recommended}.`,
+    d.format_reason ? `Почему: ${d.format_reason}` : "",
+    "",
+    "Типы заголовков, которые работают:",
+    ...(Array.isArray(d.title_patterns) ? d.title_patterns : []).slice(0, 6).map((s: string) => `- ${s}`),
+    "",
+    "Типовые структуры:",
+    ...(Array.isArray(d.structure_patterns) ? d.structure_patterns : []).slice(0, 6).map((s: string) => `- ${s}`),
+    "",
+    "Сигналы аудитории (что обсуждают, возражения):",
+    ...(Array.isArray(d.audience_signals) ? d.audience_signals : []).slice(0, 6).map((s: string) => `- ${s}`),
+    "",
+    "НЕ копировать из исследованных статей:",
+    ...(Array.isArray(d.do_not_copy) ? d.do_not_copy : []).slice(0, 6).map((s: string) => `- ${s}`),
+  ].filter(Boolean).join("\n");
+
+  return jsonResponse({
+    ok: true,
+    topic,
+    selected_format: selectedFormat || null,
+    recommended_format: recommended,
+    dominant_format: dominant,
+    format_reason: String(d.format_reason || ""),
+    format_mismatch: !!mismatch,
+    mismatch_warning: mismatch ? (String(d.mismatch_warning || "") || `В топе по теме доминируют материалы в формате "${dominant}", а не "${selectedFormat}". Подумайте о смене формата.`) : "",
+    title_patterns: Array.isArray(d.title_patterns) ? d.title_patterns.slice(0, 6) : [],
+    structure_patterns: Array.isArray(d.structure_patterns) ? d.structure_patterns.slice(0, 6) : [],
+    audience_signals: Array.isArray(d.audience_signals) ? d.audience_signals.slice(0, 6) : [],
+    do_not_copy: Array.isArray(d.do_not_copy) ? d.do_not_copy.slice(0, 6) : [],
+    sources: all.map((s) => ({ title: s.title, link: s.link })).slice(0, 12),
+    summary_md: summaryMd,
+  });
+}
+
 serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
@@ -261,6 +354,7 @@ serve(async (req) => {
     if (action === "factcheck") return await actionFactCheck(body, admin);
     if (action === "defake")        return await actionDefake(body, admin);
     if (action === "factcheck_web") return await actionFactCheckWeb(body, admin);
+    if (action === "topic_research") return await actionTopicResearch(body, admin);
     return errorResponse("unknown action", 400);
   } catch (e: any) {
     console.error("[vc-writer-tools] error", e?.message || e);

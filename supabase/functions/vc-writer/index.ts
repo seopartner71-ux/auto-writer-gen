@@ -57,6 +57,7 @@ serve(async (req) => {
     const authorPersona: AuthorPersona = ALLOWED_PERSONAS.has(personaRaw) ? personaRaw : "freeform";
     const verifiedFacts = ruEReplace(normalizeDashes(String(body.verified_facts || ""))).slice(0, 4000);
     const factCheckOn = body.fact_check !== false;
+    const topicResearch = ruEReplace(normalizeDashes(String(body.topic_research || ""))).slice(0, 5000);
 
     // Клиентские ссылки: до 5 шт, валидируем url+anchor.
     const rawLinks = Array.isArray(body.client_links) ? body.client_links : [];
@@ -102,6 +103,7 @@ serve(async (req) => {
       authorPersona,
       verifiedFacts: verifiedFacts || undefined,
       factCheck: factCheckOn,
+      topicResearch: topicResearch || undefined,
     });
 
     // Сохраняем в историю (без cover_data_url - тяжёлый base64).
