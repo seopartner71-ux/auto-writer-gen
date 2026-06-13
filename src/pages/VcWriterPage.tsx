@@ -1126,6 +1126,49 @@ export default function VcWriterPage() {
                             ))}
                           </ul>
                         )}
+                        {webResults && webResults.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+                            <div className="text-[11px] text-muted-foreground">Результаты проверки в Google:</div>
+                            {webResults.map((w, i) => (
+                              <div
+                                key={i}
+                                className={`rounded p-2 text-xs ${
+                                  w.status === "confirmed" ? "bg-emerald-500/10"
+                                  : w.status === "contradicted" ? "bg-rose-500/10"
+                                  : "bg-muted/40"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      w.status === "confirmed" ? "border-emerald-500/40 text-emerald-300"
+                                      : w.status === "contradicted" ? "border-rose-500/40 text-rose-300"
+                                      : "border-muted-foreground/40 text-muted-foreground"
+                                    }
+                                  >
+                                    {w.status === "confirmed" ? "подтверждено"
+                                      : w.status === "contradicted" ? "опровергнуто"
+                                      : "не найдено"}
+                                  </Badge>
+                                  <span className="font-mono text-[11px] truncate">{w.text}</span>
+                                </div>
+                                {w.why && <div className="text-[10px] text-muted-foreground mb-1">{w.why}</div>}
+                                {Array.isArray(w.evidence) && w.evidence.length > 0 && (
+                                  <ul className="space-y-0.5">
+                                    {w.evidence.slice(0, 2).map((e, j) => (
+                                      <li key={j} className="text-[10px] truncate">
+                                        <a href={e.link} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                          {e.title || e.link}
+                                        </a>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
