@@ -143,6 +143,22 @@ export default function VcWriterPage() {
   const [serpPaa, setSerpPaa] = useState<string[]>([]);
   const [serpLoading, setSerpLoading] = useState(false);
   const [serpOnlyVc, setSerpOnlyVc] = useState(true);
+  const [defaking, setDefaking] = useState(false);
+  const [webChecking, setWebChecking] = useState(false);
+  const [webResults, setWebResults] = useState<Array<{ text: string; status: string; why?: string; evidence?: Array<{ title: string; link: string; snippet: string }> }> | null>(null);
+  const [personaTouched, setPersonaTouched] = useState(false);
+  const [personaSuggest, setPersonaSuggest] = useState<{ persona: AuthorPersona; reason: string } | null>(null);
+
+  // Auto-suggest persona on topic change (only if user didn't manually pick).
+  useEffect(() => {
+    if (personaTouched) return;
+    const s = suggestPersona(topic);
+    setPersonaSuggest(s);
+    if (s && s.persona !== authorPersona) {
+      setAuthorPersona(s.persona);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic]);
 
   const loadHistory = async () => {
     setHistoryLoading(true);
