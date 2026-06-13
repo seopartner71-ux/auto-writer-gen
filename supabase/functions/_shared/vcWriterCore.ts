@@ -195,6 +195,7 @@ export interface VcGenResult {
   checklist: Array<{ label: string; ok: boolean; hint: string }>;
   cover_data_url: string | null;
   stats: { chars: number; model: string };
+  links_report?: { injected: string[]; appended: string[] };
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
