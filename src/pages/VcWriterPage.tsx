@@ -111,6 +111,10 @@ export default function VcWriterPage() {
   const [addUtm, setAddUtm] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
+  const [verifiedFacts, setVerifiedFacts] = useState("");
+  const [factCheckOn, setFactCheckOn] = useState(true);
+  const [rechecking, setRechecking] = useState(false);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
