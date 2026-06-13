@@ -355,6 +355,7 @@ serve(async (req) => {
     if (action === "defake")        return await actionDefake(body, admin);
     if (action === "factcheck_web") return await actionFactCheckWeb(body, admin);
     if (action === "topic_research") return await actionTopicResearch(body, admin);
+    if (action === "topics_by_site") return await actionTopicsBySite(body, admin);
     return errorResponse("unknown action", 400);
   } catch (e: any) {
     console.error("[vc-writer-tools] error", e?.message || e);
