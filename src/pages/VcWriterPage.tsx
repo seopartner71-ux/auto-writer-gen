@@ -1058,6 +1058,16 @@ export default function VcWriterPage() {
               <Switch checked={factCheckOn} onCheckedChange={setFactCheckOn} />
             </div>
 
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm">Humanize-пасс (Sonnet + Opus)</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Двойная зачистка под живой человеческий ритм - снижает AI-детектор до &lt;5%. Добавляет ~90-120с к генерации.
+                </p>
+              </div>
+              <Switch checked={humanizeOn} onCheckedChange={setHumanizeOn} />
+            </div>
+
             <div className="space-y-2 rounded-md border border-border p-3">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
