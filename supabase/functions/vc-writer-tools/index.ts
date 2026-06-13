@@ -12,6 +12,7 @@ import { withTimeout } from "../_shared/withTimeout.ts";
 import {
   buildChecklist, ensureClientLinks, normalizeDashes, ruEReplace,
   stripMarkdownTables, stripText, pickVcModel, factCheckMarkdown,
+  applyNumericGuard,
 } from "../_shared/vcWriterCore.ts";
 import { chatJson } from "../_shared/aiClient.ts";
 import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
@@ -73,6 +74,8 @@ async function actionFix(req: any, admin: any) {
     appTitle: "vc.ru Writer Fix", retries: 1,
   });
   let fixed = mechanicalCleanup(String(result.data?.markdown || md));
+  // Numeric Guard поверх правок - чтобы fix не вернул выдуманные числа.
+  fixed = applyNumericGuard(fixed, verifiedFacts).content;
   // Re-inject client links if provided.
   const links = Array.isArray(req.client_links) ? req.client_links : [];
   let linksReport: { injected: string[]; appended: string[] } | undefined;
@@ -162,6 +165,7 @@ async function actionDefake(req: any, admin: any) {
     appTitle: "vc.ru Defake", retries: 1,
   });
   let fixed = mechanicalCleanup(String(result.data?.markdown || md));
+  fixed = applyNumericGuard(fixed, verifiedFacts).content;
   const links = Array.isArray(req.client_links) ? req.client_links : [];
   let linksReport: { injected: string[]; appended: string[] } | undefined;
   if (links.length) {

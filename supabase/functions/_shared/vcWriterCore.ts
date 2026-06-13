@@ -92,6 +92,58 @@ export function stripText(md: string): string {
 }
 
 /**
+ * Numeric Guard: режет в тексте конкретные числа с "рискованными" единицами
+ * (рубли, %, км, литры, л.с., сСт, клиентов и т.п.), которых нет в списке
+ * verifiedFacts. Заменяет на нейтральные обобщения. Числа, которые встречаются
+ * в verifiedFacts как есть, пропускаются. Годы (1900-2099) тоже пропускаются.
+ */
+export function applyNumericGuard(md: string, verifiedFacts: string): { content: string; replaced: string[] } {
+  const replaced: string[] = [];
+  const facts = (verifiedFacts || "").toLowerCase();
+  const allowed = new Set<string>();
+  for (const m of facts.matchAll(/\d[\d.,]*\d|\d/g)) {
+    allowed.add(m[0].replace(/[.,]+$/, ""));
+  }
+  const isAllowed = (raw: string) => {
+    const n = raw.replace(/\s+/g, "").replace(/[.,]+$/, "");
+    if (/^(19|20)\d{2}$/.test(n)) return true; // годы общеизвестны
+    return allowed.has(n);
+  };
+  const log = (label: string, m: string) => { replaced.push(`${label}:${m.trim().slice(0, 50)}`); };
+
+  const patterns: Array<{ re: RegExp; soft: () => string; label: string }> = [
+    // Цены в рублях / тыс / млн руб
+    { re: /\b(\d[\d\s.,]{0,8})\s?(?:руб(?:лей|\.|ля)?|₽|р\.|тыс\.?\s?руб|млн\s?руб)\b/gi,
+      soft: () => "в среднем по рынку", label: "price" },
+    // Проценты
+    { re: /\b(\d+[.,]?\d*)\s?(?:%|процент(?:а|ов)?)/gi,
+      soft: () => "заметно", label: "percent" },
+    // Единицы измерения: км, литры, л.с., сСт, мощность, моменты, расход
+    { re: /\b(\d+[.,]?\d*)\s?(?:км|л\/100\s?км|литр(?:а|ов)?\b|л\.?с\.?|с[Сс]т|нм|кВт|вт|об\/мин|мпа|бар)\b/gi,
+      soft: () => "ощутимо", label: "measurement" },
+    // Сроки в днях/месяцах/часах с числом
+    { re: /\b(\d+)\s?(?:дн(?:я|ей)?|сут(?:ок|ки)?|мес(?:яц(?:а|ев)?)?|час(?:а|ов)?|мин(?:ут(?:а|ы)?)?)\b/gi,
+      soft: () => "несколько", label: "duration" },
+    // Бизнес-метрики автора: N клиентов / постов / машин / заказов
+    { re: /\b(\d{2,})\s?(?:клиент(?:а|ов)?|машин|заказ(?:а|ов)?|пост(?:а|ов)?|пользоват(?:еля|елей)?|сотрудник(?:а|ов)?|подписчик(?:а|ов)?)\b/gi,
+      soft: () => "десятки", label: "count" },
+    // Деньги в виде "1,2 млн", "120 тыс" (без слова "руб")
+    { re: /\b(\d+[.,]?\d*)\s?(?:млн|млрд|тыс\.?)\b(?!\s?руб)/gi,
+      soft: () => "значительная сумма", label: "money" },
+  ];
+
+  let out = md;
+  for (const { re, soft, label } of patterns) {
+    out = out.replace(re, (m, num) => {
+      if (typeof num === "string" && isAllowed(num)) return m;
+      log(label, m);
+      return soft();
+    });
+  }
+  return { content: out, replaced };
+}
+
+/**
  * Гарантирует, что каждая клиентская ссылка присутствует в markdown.
  * Сначала пытаемся найти анкор в тексте и обернуть его в [anchor](url).
  * Если анкор не найден, добавляем компактный блок "Полезное по теме" перед P.S.
@@ -228,6 +280,7 @@ export interface VcGenResult {
   stats: { chars: number; model: string };
   links_report?: { injected: string[]; appended: string[] };
   risk_report?: RiskReport;
+  numeric_guard?: { replaced: string[]; count: number };
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
@@ -247,7 +300,7 @@ function buildPrompt(p: VcGenInput): { system: string; user: string } {
     : "";
   const facts = p.verifiedFacts && p.verifiedFacts.trim()
     ? `\n\nПРОВЕРЕННЫЕ ФАКТЫ (ИСПОЛЬЗОВАТЬ ТОЛЬКО ИХ):\nНиже список реальных цифр, цен, кейсов и характеристик. Все конкретные цифры, цены, проценты, сроки, лабораторные показатели, технические параметры, количество клиентов и обороты в тексте ДОЛЖНЫ браться отсюда. Если факта нет в списке - НЕ выдумывай число, используй формулировки 'по нашей практике', 'обычно', 'в среднем по рынку' БЕЗ конкретной цифры. Запрещено добавлять цифры, которых нет в списке.\n--- начало списка ---\n${p.verifiedFacts.trim().slice(0, 4000)}\n--- конец списка ---`
-    : `\n\nАНТИ-ГАЛЛЮЦИНАЦИИ (КРИТИЧНО): пользователь НЕ дал проверенных цифр. Это значит:\n- НЕ выдумывай конкретные цены брендов-конкурентов (Shell, Mobil, Castrol и т.п.).\n- НЕ выдумывай лабораторные показатели (вязкость, плотность, моторесурс и т.п.).\n- НЕ выдумывай конкретные пробеги клиентов и их марки авто.\n- НЕ выдумывай численность команды/штата/количество клиентов автора.\n- Используй обобщения: 'по нашей практике', 'обычно', 'у коллег по рынку', 'часто встречаем'. Цифры из протокола (4-6 шт) бери из общеизвестных фактов рынка или формулируй как диапазоны/пропорции ('у X из Y клиентов', 'на 15-25% дороже').`;
+    : `\n\nРЕЖИМ "БЕЗ КОНКРЕТНЫХ ЧИСЕЛ" (КРИТИЧНО, нарушение = текст идёт в мусорку):\nПользователь НЕ дал проверенных фактов. Это значит АБСОЛЮТНЫЙ ЗАПРЕТ на любые конкретные числа в следующих категориях:\n- Цены (в рублях, тысячах, миллионах) - ни своих, ни конкурентов. НЕ писать "Shell 4100 руб", "наш сервис 2400 руб", "сэкономили 1800 руб".\n- Проценты (5%, 18%, 0,4 л) - запрещены, кроме широко известных констант (например, НДС 20%).\n- Лабораторные/технические показатели: вязкость, плотность, моторесурс, расход топлива, мощность, крутящий момент, давление, температура.\n- Конкретные пробеги ("за 6000 км"), сроки ("за 8 месяцев"), даты с месяцем ("в январе 2023").\n- Бизнес-метрики автора: количество клиентов, машин, постов, штат, оборот.\n- Названия конкретных моделей техники с результатами ("Camry 2019", "Kia Rio").\n- Сертификации с кодами (API SN, ACEA A3/B4) - только если общеизвестны для категории.\nВместо конкретики ОБЯЗАТЕЛЬНО используй: "по нашей практике", "обычно", "в среднем по рынку", "у коллег видел", диапазоны ("на 15-30% дешевле"), пропорции ("у X из Y клиентов"). Лучше пресный честный текст, чем живой с галлюцинациями - постпроцессор всё равно вырежет конкретику и заменит на обобщения, ты только испортишь читаемость.`;
   const user = `Тема: ${p.topic}\nГлавный тезис: ${p.thesis || "сформулируй сам исходя из темы"}\nАудитория vc.ru: ${p.audience || "предприниматели, маркетологи, продактменеджеры"}\nТон: ${p.tone || "экспертно-разговорный с легкой провокацией"}\nЦелевая длина: ${p.length || 5500} знаков (+-20%).${persona}${facts}${seo}${links}${avoid}\n\nВерни строго JSON:\n{\n  "title": "заголовок до 90 символов",\n  "subtitle": "подзаголовок 1-2 предложения, продает клик",\n  "tags": ["тег1","тег2",...],\n  "ps_question": "вопрос аудитории для P.S.",\n  "markdown": "полный текст материала в markdown с H2, списками. Включи в конец строку 'P.S. <ps_question>'"\n}`;
   return { system, user };
 }
@@ -335,6 +388,10 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   let markdown = stripMarkdownTables(
     normalizeDashes(ruEReplace(String(data.markdown || "")))
   ).replace(/\*\*([^*]+)\*\*/g, "$1");
+  // Numeric Guard: режем конкретные числа, которых нет в проверенных фактах.
+  const guard = applyNumericGuard(markdown, input.verifiedFacts || "");
+  markdown = guard.content;
+  const numeric_guard = { replaced: guard.replaced.slice(0, 40), count: guard.replaced.length };
   const title = normalizeDashes(ruEReplace(String(data.title || ""))).slice(0, 90);
   const subtitle = normalizeDashes(ruEReplace(String(data.subtitle || ""))).slice(0, 240);
   const ps_question = normalizeDashes(ruEReplace(String(data.ps_question || "")));
@@ -379,6 +436,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     stats: { chars: stripText(markdown).length, model: result.model },
     links_report: linksReport,
     risk_report,
+    numeric_guard,
   };
 }
 
