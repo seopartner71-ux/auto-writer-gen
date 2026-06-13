@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert, Telescope } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert, Telescope, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -168,6 +168,66 @@ export default function VcWriterPage() {
     audience_signals: string[];
     sources: Array<{ title: string; link: string }>;
   } | null>(null);
+
+  // Topics by Site: анализ сайта клиента -> темы в VC-форматах.
+  const [siteUrl, setSiteUrl] = useState("");
+  const [siteExtra, setSiteExtra] = useState("");
+  const [siteLoading, setSiteLoading] = useState(false);
+  const [siteResult, setSiteResult] = useState<null | {
+    site_url: string;
+    pages_analyzed: string[];
+    site_analysis: {
+      products_services: string[]; audience: string[];
+      buying_scenarios: string[]; client_pains: string[];
+      buyer_mistakes: string[]; loss_points: string[];
+    };
+    topics: Array<{
+      title: string; format: string; vc_format: Format;
+      problem: string; site_role: string; case_source_hint: string;
+      site_removable: boolean; site_is_only_reason: boolean;
+      valid: boolean; reject_reason: string;
+    }>;
+    valid_count: number;
+  }>(null);
+
+  const runTopicsBySite = async () => {
+    const u = siteUrl.trim();
+    if (!/^https?:\/\/\S+\.\S+/i.test(u)) {
+      toast.error("Укажите корректный URL сайта (с http:// или https://)");
+      return;
+    }
+    setSiteLoading(true);
+    setSiteResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: { action: "topics_by_site", site_url: u, extra_context: siteExtra.trim() || null },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Не удалось проанализировать сайт");
+      setSiteResult(data);
+      toast.success(`Найдено ${data.valid_count}/${data.topics.length} валидных тем`);
+    } catch (e: any) {
+      toast.error(e?.message || "Анализ сайта не удался");
+    } finally {
+      setSiteLoading(false);
+    }
+  };
+
+  const applySiteTopic = (t: NonNullable<typeof siteResult>["topics"][number]) => {
+    setTopic(t.title);
+    setFormat(t.vc_format);
+    setThesis(t.problem);
+    if (siteResult?.site_url && !clientLinks.some((l) => l.url === siteResult.site_url)) {
+      setClientLinks([
+        ...clientLinks,
+        { url: siteResult.site_url, anchor: "сайт", hint: t.site_role },
+      ].slice(0, 5));
+    }
+    if ((t.vc_format === "case" || t.vc_format === "review") && t.case_source_hint && !caseSource.trim()) {
+      setCaseSource(t.case_source_hint);
+    }
+    toast.success("Тема применена. Дополните «Источник кейса» реальными данными.");
+  };
 
   const runTopicResearch = async () => {
     if (topic.trim().length < 5) {
