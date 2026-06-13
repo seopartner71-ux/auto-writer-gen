@@ -338,6 +338,188 @@ async function actionTopicResearch(req: any, admin: any) {
   });
 }
 
+/**
+ * Topics by Site: анализирует сайт клиента и предлагает темы статей для vc.ru
+ * ТОЛЬКО в форматах кейс/ошибка/потеря/эксперимент/сравнение. Сайт - не герой,
+ * а нативный участник процесса. Каждая тема проходит self-check:
+ *   site_removable=true (статья жива без сайта) И site_is_only_reason=false.
+ */
+function stripHtmlToText(html: string, limit = 8000): string {
+  let t = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#?\w+;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return t.slice(0, limit);
+}
+
+async function fetchSitePages(rootUrl: string): Promise<{ url: string; text: string }[]> {
+  const out: Array<{ url: string; text: string }> = [];
+  let root: URL;
+  try { root = new URL(rootUrl); } catch { return out; }
+  const seen = new Set<string>();
+  async function grab(u: string) {
+    if (seen.has(u) || seen.size >= 4) return;
+    seen.add(u);
+    try {
+      const r = await withTimeout(fetch(u, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; SEO-Module/1.0; +https://seo-modul.pro)",
+          "Accept": "text/html,application/xhtml+xml",
+        },
+        redirect: "follow",
+      }), 10_000, "site-fetch");
+      if (!r.ok) return;
+      const ctype = r.headers.get("content-type") || "";
+      if (!/text\/html|application\/xhtml/i.test(ctype)) return;
+      const html = await r.text();
+      out.push({ url: u, text: stripHtmlToText(html, 6000) });
+      if (out.length === 1) {
+        // На главной достаём 2-3 ссылки на внутренние страницы (about/services/catalog).
+        const links = Array.from(html.matchAll(/<a[^>]+href=["']([^"'#]+)["']/gi))
+          .map((m) => m[1])
+          .filter((h) => h && !h.startsWith("mailto:") && !h.startsWith("tel:"))
+          .slice(0, 200);
+        const candidates: string[] = [];
+        for (const href of links) {
+          let abs: URL;
+          try { abs = new URL(href, u); } catch { continue; }
+          if (abs.hostname !== root.hostname) continue;
+          if (/\.(jpe?g|png|gif|svg|webp|css|js|pdf|zip|mp4|webm)$/i.test(abs.pathname)) continue;
+          const key = abs.origin + abs.pathname;
+          if (seen.has(key)) continue;
+          if (/about|services?|uslug|catalog|product|tarif|price|cases?|portfolio|kontakt|contact/i.test(abs.pathname)) {
+            candidates.push(key);
+          }
+        }
+        for (const c of candidates.slice(0, 3)) await grab(c);
+      }
+    } catch (_) { /* ignore */ }
+  }
+  await grab(root.origin + root.pathname.replace(/\/+$/, "") || root.origin);
+  return out;
+}
+
+async function actionTopicsBySite(req: any, admin: any) {
+  const rawUrl = String(req.site_url || "").trim();
+  if (!/^https?:\/\/\S+\.\S+/i.test(rawUrl)) return errorResponse("site_url is required (http/https)", 400);
+  const extraContext = ruEReplace(normalizeDashes(String(req.extra_context || ""))).slice(0, 600);
+
+  const apiKey = await getOpenRouterKey(admin);
+  if (!apiKey) return errorResponse("OpenRouter key not configured", 500);
+
+  const pages = await fetchSitePages(rawUrl);
+  if (!pages.length) return errorResponse("Не удалось получить контент сайта (возможно, JS-only или закрыт)", 502);
+
+  const siteDump = pages.map((p, i) => `--- СТРАНИЦА ${i + 1}: ${p.url} ---\n${p.text}`).join("\n\n").slice(0, 18000);
+
+  const system = `Ты - редактор vc.ru, который генерирует темы статей по сайту клиента.
+
+ЖЁСТКИЕ ПРАВИЛА:
+1. Сайт клиента - НЕ герой статьи, а нативный участник процесса (инструмент/шаг закупки/часть решения).
+2. Темы ТОЛЬКО в форматах: case (кейс), error (разбор ошибки), loss (потеря денег/времени), experiment (эксперимент), comparison (сравнение подходов), process (разбор процесса).
+3. ЗАПРЕЩЕНЫ темы вида "купить X на сайте Y", "лучшие товары Y", "обзор сайта Y", "почему мы лучшие".
+4. Каждая тема должна строиться ОТ ПРОБЛЕМЫ (потеря денег / ошибка / конфликт / сбой), а не от продукта.
+5. Тема ДОЛЖНА оставаться полезной, даже если убрать ссылку на сайт клиента.
+
+SELF-CHECK для каждой темы:
+- site_removable = true, если статью можно прочитать без потери смысла без упоминания сайта клиента.
+- site_is_only_reason = true, если ЕДИНСТВЕННАЯ причина существования статьи - реклама сайта (это ПЛОХО, тема рекламная).
+- Тема считается ПРАВИЛЬНОЙ, только если site_removable=true И site_is_only_reason=false.
+
+Верни строгий JSON, без markdown.`;
+
+  const user = `САЙТ КЛИЕНТА: ${rawUrl}
+${extraContext ? `Дополнительный контекст от пользователя: ${extraContext}` : ""}
+
+СОДЕРЖИМОЕ САЙТА (выжимка нескольких страниц):
+${siteDump}
+
+Задача:
+1) Сделай краткий анализ сайта.
+2) Сгенерируй 8 ВАЛИДНЫХ тем (по правилам выше).
+
+Верни JSON:
+{
+  "site_analysis": {
+    "products_services": ["до 5 строк - что именно продаёт"],
+    "audience": ["1-3 строки - кто покупатель"],
+    "buying_scenarios": ["до 4 строк - типичные сценарии покупки"],
+    "client_pains": ["до 5 строк - реальные боли клиентов в этой нише"],
+    "buyer_mistakes": ["до 5 строк - какие ошибки совершают покупатели"],
+    "loss_points": ["до 5 строк - где аудитория теряет деньги/время/эффективность"]
+  },
+  "topics": [
+    {
+      "title": "конкретный заголовок будущей статьи (без слова 'обзор', без названия сайта в заголовке)",
+      "format": "case|error|loss|experiment|comparison|process",
+      "problem": "1-2 предложения: какая боль/потеря в фокусе",
+      "site_role": "1 предложение: как сайт клиента нативно появляется (инструмент в процессе, шаг закупки, часть кейса)",
+      "case_source_hint": "что пользователь должен указать в поле 'Источник кейса' (имя клиента/проекта/период)",
+      "site_removable": true|false,
+      "site_is_only_reason": true|false,
+      "valid": true|false,
+      "reject_reason": "если valid=false - короткая причина, иначе пустая строка"
+    }
+  ]
+}
+
+Сгенерируй РОВНО 8 тем. Каждая должна иметь site_removable=true и site_is_only_reason=false. Не повторяйся.`;
+
+  const r = await chatJson<any>({
+    apiKey, model: "google/gemini-2.5-flash",
+    system, user,
+    temperature: 0.5, maxTokens: 3500, timeoutMs: 90_000,
+    appTitle: "vc.ru Topics by Site", retries: 0,
+  });
+  const d = r.data || {};
+  const ALLOWED = new Set(["case", "error", "loss", "experiment", "comparison", "process"]);
+  const topicsRaw: any[] = Array.isArray(d.topics) ? d.topics : [];
+  const topics = topicsRaw.map((t) => ({
+    title: ruEReplace(normalizeDashes(String(t?.title || ""))).slice(0, 200),
+    format: ALLOWED.has(String(t?.format)) ? String(t.format) : "case",
+    problem: ruEReplace(normalizeDashes(String(t?.problem || ""))).slice(0, 400),
+    site_role: ruEReplace(normalizeDashes(String(t?.site_role || ""))).slice(0, 300),
+    case_source_hint: ruEReplace(normalizeDashes(String(t?.case_source_hint || ""))).slice(0, 200),
+    site_removable: t?.site_removable !== false,
+    site_is_only_reason: !!t?.site_is_only_reason,
+    valid: t?.valid !== false && t?.site_removable !== false && !t?.site_is_only_reason,
+    reject_reason: ruEReplace(normalizeDashes(String(t?.reject_reason || ""))).slice(0, 200),
+  })).filter((t) => t.title.length >= 10).slice(0, 12);
+
+  // Сопоставление наших внутренних форматов с форматами VcWriter (guide/rating/review/case).
+  const formatMap: Record<string, "case" | "review" | "guide" | "rating"> = {
+    case: "case", error: "case", loss: "case", experiment: "case",
+    process: "guide", comparison: "guide",
+  };
+  const enriched = topics.map((t) => ({ ...t, vc_format: formatMap[t.format] || "case" }));
+
+  return jsonResponse({
+    ok: true,
+    site_url: rawUrl,
+    pages_analyzed: pages.map((p) => p.url),
+    site_analysis: {
+      products_services: Array.isArray(d?.site_analysis?.products_services) ? d.site_analysis.products_services.slice(0, 6) : [],
+      audience: Array.isArray(d?.site_analysis?.audience) ? d.site_analysis.audience.slice(0, 4) : [],
+      buying_scenarios: Array.isArray(d?.site_analysis?.buying_scenarios) ? d.site_analysis.buying_scenarios.slice(0, 5) : [],
+      client_pains: Array.isArray(d?.site_analysis?.client_pains) ? d.site_analysis.client_pains.slice(0, 6) : [],
+      buyer_mistakes: Array.isArray(d?.site_analysis?.buyer_mistakes) ? d.site_analysis.buyer_mistakes.slice(0, 6) : [],
+      loss_points: Array.isArray(d?.site_analysis?.loss_points) ? d.site_analysis.loss_points.slice(0, 6) : [],
+    },
+    topics: enriched,
+    valid_count: enriched.filter((t) => t.valid).length,
+  });
+}
+
 serve(async (req) => {
   const pre = handlePreflight(req);
   if (pre) return pre;
@@ -355,6 +537,7 @@ serve(async (req) => {
     if (action === "defake")        return await actionDefake(body, admin);
     if (action === "factcheck_web") return await actionFactCheckWeb(body, admin);
     if (action === "topic_research") return await actionTopicResearch(body, admin);
+    if (action === "topics_by_site") return await actionTopicsBySite(body, admin);
     return errorResponse("unknown action", 400);
   } catch (e: any) {
     console.error("[vc-writer-tools] error", e?.message || e);
