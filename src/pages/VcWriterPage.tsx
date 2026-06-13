@@ -1050,13 +1050,72 @@ export default function VcWriterPage() {
               <Switch checked={withCover} onCheckedChange={setWithCover} />
             </div>
 
-            <Button onClick={handleGenerate} disabled={loading} className="w-full" size="lg">
-              {loading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Пишу материал...</>
-              ) : (
-                <><Sparkles className="h-4 w-4 mr-2" /> Сгенерировать</>
-              )}
-            </Button>
+            {(() => {
+              const needSource = format === "case" || format === "review";
+              const sourceOk = !needSource || caseSource.trim().length >= 5;
+              const researchDone = !!research;
+              const personaOk = authorPersona !== "freeform" || personaTouched;
+              const factsOk = verifiedFacts.trim().length >= 20 || !!caseSource.trim();
+              const mismatchBlock = !!research?.format_mismatch && !allowMismatch;
+              const checks: Array<{ ok: boolean; label: string }> = [
+                { ok: researchDone, label: "Анализ темы выполнен" },
+                { ok: sourceOk, label: needSource ? `Источник ${format === "case" ? "кейса" : "обзора"} указан` : "Источник не требуется" },
+                { ok: factsOk, label: "Проверенные факты или источник" },
+                { ok: personaOk, label: "Persona выбрана" },
+                { ok: !mismatchBlock, label: mismatchBlock ? "Формат не совпадает с топом выдачи" : "Формат соответствует выдаче" },
+              ];
+              const readyCount = checks.filter((c) => c.ok).length;
+              const total = checks.length;
+              const color = readyCount === total
+                ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
+                : readyCount >= total - 1
+                  ? "text-amber-400 border-amber-500/40 bg-amber-500/10"
+                  : "text-rose-400 border-rose-500/40 bg-rose-500/10";
+              return (
+                <>
+                  <div className={`rounded-md border px-3 py-2 text-[11px] space-y-1 ${color}`}>
+                    <div className="font-medium">VC-готовность: {readyCount}/{total}</div>
+                    <ul className="space-y-0.5">
+                      {checks.map((c, i) => (
+                        <li key={i} className="flex items-center gap-1.5">
+                          <span className="opacity-80">{c.ok ? "✓" : "✗"}</span>
+                          <span className={c.ok ? "opacity-90" : ""}>{c.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {mismatchBlock ? (
+                    <div className="space-y-2">
+                      <Button
+                        onClick={() => setFormat(research!.recommended_format)}
+                        className="w-full" size="lg"
+                      >
+                        Сменить формат на «{research!.recommended_format}»
+                      </Button>
+                      <Button
+                        onClick={() => setAllowMismatch(true)}
+                        variant="outline" className="w-full" size="sm"
+                      >
+                        Сгенерировать всё равно
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={loading || !sourceOk}
+                      className="w-full" size="lg"
+                    >
+                      {loading ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Пишу материал...</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4 mr-2" /> Сгенерировать</>
+                      )}
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
             <p className="text-[10px] text-muted-foreground text-center">
               Занимает 30-90 секунд. Обложка добавляет ~15 сек.
             </p>
