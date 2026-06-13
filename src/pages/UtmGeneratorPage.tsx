@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type Protocol = "https://" | "http://";
-type Preset = "custom" | "google" | "yandex" | "vk";
+type Preset = "custom" | "google" | "yandex" | "vk" | "mycom";
 
 const TRANSLIT_MAP: Record<string, string> = {
   а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "yo", ж: "zh", з: "z",
@@ -84,6 +84,7 @@ const PRESETS: Record<Exclude<Preset, "custom">, { source: string; medium: strin
   google: { source: "google", medium: "cpc" },
   yandex: { source: "yandex", medium: "cpc" },
   vk: { source: "vkontakte", medium: "social" },
+  mycom: { source: "mytarget", medium: "cpc" },
 };
 
 function Hint({ text }: { text: string }) {
@@ -98,12 +99,52 @@ function Hint({ text }: { text: string }) {
           <HelpCircle className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" className="max-w-xs text-xs leading-relaxed">
+      <PopoverContent side="top" className="max-w-sm text-xs leading-relaxed whitespace-pre-line">
         {text}
       </PopoverContent>
     </Popover>
   );
 }
+
+const TIP_SOURCE = `utm_source - название рекламной площадки, с которой пришел трафик.
+
+Примеры значений: google, yandex, vkontakte, facebook, mytarget, telegram, email, instagram.
+
+По этому параметру вы понимаете, какой канал привел пользователя на сайт. Заполняется обязательно.`;
+
+const TIP_MEDIUM = `utm_medium - тип трафика или способ его получения.
+
+Устоявшиеся значения:
+- cpc - контекстная реклама с оплатой за клик
+- display - баннерная реклама с оплатой за показы
+- social_cpc / social - реклама в соцсетях
+- email - рассылки
+- referral - переходы с других сайтов
+- organic - органический поиск
+
+Стандартные значения помогают потом фильтровать трафик в Метрике и GA4.`;
+
+const TIP_CAMPAIGN = `utm_campaign - произвольное название рекламной кампании.
+
+Задается на ваше усмотрение, главное - чтобы вы сами потом отличили одну кампанию от другой в статистике.
+
+Примеры: spring_sale, black_friday_2026, retarget_cart, promo_mebel.
+
+Используйте латиницу и нижний регистр, слова разделяйте подчеркиванием.`;
+
+const TIP_CONTENT = `utm_content - дополнительная информация об объявлении.
+
+Часто используется, чтобы внутри одной кампании различать креативы: баннер vs текстовое объявление, разные изображения, разные тексты, разные кнопки.
+
+Примеры: banner_240x60, text_v1, headline_a, btn_red, video_15s.
+
+Удобно использовать вместе с динамическими переменными площадки.`;
+
+const TIP_TERM = `utm_term - ключевое слово (или фраза), по которому показывалось объявление.
+
+Чаще всего сюда подставляют динамическую переменную площадки: {keyword} для Google Ads или {keyword} / {phrase_id} для Яндекс.Директа - площадка сама подставит реальную фразу пользователя.
+
+Можно задать и статически: kupit_divan, dostavka_moskva.`;
 
 function ParamRow({ name, desc }: { name: string; desc: string }) {
   return (
@@ -179,6 +220,23 @@ export default function UtmGeneratorPage() {
         </p>
       </header>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Когда стоит использовать UTM-метки?</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li>Вы ведете рекламу в Google, Яндексе или соцсетях и хотите видеть, <span className="text-foreground">откуда именно приходят пользователи</span>, а не просто «реклама».</li>
+            <li>Вы рассылаете письма или сообщения и хотите понять, <span className="text-foreground">какая рассылка приносит больше переходов и заявок</span>.</li>
+            <li>Вы публикуетесь на внешних площадках (СМИ, блоги, Telegram-каналы) и хотите отделить трафик от каждой публикации.</li>
+            <li>Вы тестируете несколько креативов или лендингов и хотите сравнить их эффективность в одной таблице Метрики/GA4.</li>
+          </ul>
+          <p className="text-xs">
+            UTM-метки - это технические параметры в адресе ссылки, которые автоматически передаются в системы аналитики и позволяют точно атрибутировать каждый клик.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
         {/* LEFT: form */}
         <div className="space-y-6">
@@ -221,11 +279,12 @@ export default function UtmGeneratorPage() {
             </CardHeader>
             <CardContent>
               <Tabs value={preset} onValueChange={(v) => applyPreset(v as Preset)}>
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
                   <TabsTrigger value="custom">Свои значения</TabsTrigger>
                   <TabsTrigger value="google">Google Ads</TabsTrigger>
                   <TabsTrigger value="yandex">Яндекс.Директ</TabsTrigger>
                   <TabsTrigger value="vk">ВКонтакте</TabsTrigger>
+                  <TabsTrigger value="mycom">Target My.com</TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardContent>
@@ -239,21 +298,21 @@ export default function UtmGeneratorPage() {
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs">
-                  utm_source <Hint text="utm_source - название рекламной площадки. Примеры: google, yandex, vk" />
+                  utm_source <Hint text={TIP_SOURCE} />
                   <span className="text-muted-foreground">- Источник кампании</span>
                 </Label>
                 <Input value={source} onChange={(e) => setSource(e.target.value)} placeholder="google" className="font-mono" />
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs">
-                  utm_medium <Hint text="utm_medium - тип рекламы. Примеры: cpc, email, social, banner, display" />
+                  utm_medium <Hint text={TIP_MEDIUM} />
                   <span className="text-muted-foreground">- Тип трафика</span>
                 </Label>
                 <Input value={medium} onChange={(e) => setMedium(e.target.value)} placeholder="cpc" className="font-mono" />
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs">
-                  utm_campaign <Hint text="utm_campaign - произвольное название кампании. Пример: mebel_dlya_doma" />
+                  utm_campaign <Hint text={TIP_CAMPAIGN} />
                   <span className="text-muted-foreground">- Название кампании</span>
                 </Label>
                 <Input value={campaign} onChange={(e) => setCampaign(e.target.value)} placeholder="spring_sale" className="font-mono" />
@@ -275,14 +334,14 @@ export default function UtmGeneratorPage() {
               <CardContent className="space-y-4 pt-0">
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs">
-                    utm_content <Hint text="Дополнительная информация об объявлении. Пример: banner_240x60" />
+                    utm_content <Hint text={TIP_CONTENT} />
                     <span className="text-muted-foreground">- Идентификатор объявления</span>
                   </Label>
                   <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="banner_240x60" className="font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs">
-                    utm_term <Hint text="Ключевое слово, по которому показывается объявление" />
+                    utm_term <Hint text={TIP_TERM} />
                     <span className="text-muted-foreground">- Ключевое слово</span>
                   </Label>
                   <Input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="kupit_divan" className="font-mono" />
@@ -350,6 +409,9 @@ export default function UtmGeneratorPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Динамические переменные</CardTitle>
+          <p className="text-xs text-muted-foreground pt-1">
+            Это параметры в фигурных скобках, которые рекламная площадка автоматически заменяет на реальные значения в момент клика - например, на ID объявления, тип устройства или ключевую фразу. Чаще всего их подставляют в utm_content или utm_term.
+          </p>
         </CardHeader>
         <CardContent>
           <Accordion type="single" collapsible defaultValue="ref">
@@ -432,6 +494,52 @@ export default function UtmGeneratorPage() {
                     </Table>
                   </TabsContent>
                 </Tabs>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Частые вопросы</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="single" collapsible className="text-sm">
+            <AccordionItem value="q1">
+              <AccordionTrigger className="text-left">Какие параметры обязательны, а какие нет?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Обязательные: utm_source, utm_medium, utm_campaign. Без них Метрика и GA4 не смогут корректно атрибутировать визит к источнику. utm_content и utm_term - опциональны и нужны для более детальной разбивки внутри одной кампании.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q2">
+              <AccordionTrigger className="text-left">Почему все значения автоматически переводятся в нижний регистр?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Аналитические системы считают utm_source=Google и utm_source=google разными источниками. Чтобы статистика не дробилась, принято писать все значения строчными буквами без пробелов. Генератор делает это автоматически.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q3">
+              <AccordionTrigger className="text-left">Зачем включать транслитерацию?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Кириллица в UTM-параметрах превращается в длинные процентные коды вида %D0%BA%D1%83%D0%BF%D0%B8%D1%82%D1%8C, которые сложно читать в отчетах. Транслитерация автоматически конвертирует «купить_диван» в «kupit_divan» - ссылка остается короткой и читаемой.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q4">
+              <AccordionTrigger className="text-left">Что делать, если у моей ссылки уже есть параметры (?id=123)?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Генератор автоматически добавит UTM-параметры через &amp;, а не через ?, чтобы не сломать существующие. В адресе всегда останется только один знак вопроса. Якоря (#section) обрезаются - они мешают атрибуции в большинстве систем.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q5">
+              <AccordionTrigger className="text-left">Как использовать динамические переменные площадок?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Вставьте переменную прямо в значение поля - например, в utm_content укажите device_{`{device}`} или kw_{`{keyword}`}. При показе объявления Google или Яндекс сами подставят туда тип устройства, ключевое слово, ID объявления и т.д. Так одна метка дает детализированную статистику по каждому клику.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="q6">
+              <AccordionTrigger className="text-left">Можно ли использовать UTM в email-рассылках и Telegram?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Да, и даже нужно. Для email обычно ставят utm_source=email, utm_medium=newsletter, utm_campaign=название_рассылки. Для Telegram - utm_source=telegram, utm_medium=channel, utm_campaign=название_канала. Это поможет отделить трафик из мессенджеров от соцсетей.
               </AccordionContent>
             </AccordionItem>
           </Accordion>
