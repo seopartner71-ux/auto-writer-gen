@@ -553,6 +553,57 @@ export default function VcWriterPage() {
               <Input value={tone} onChange={(e) => setTone(e.target.value)} />
             </div>
 
+            <div className="space-y-1.5 rounded-md border border-border p-3">
+              <Label className="text-sm flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" /> От лица кого пишем
+              </Label>
+              <Select value={authorPersona} onValueChange={(v) => setAuthorPersona(v as AuthorPersona)}>
+                <SelectTrigger><SelectValue>{PERSONA_OPTIONS.find((o) => o.value === authorPersona)?.label}</SelectValue></SelectTrigger>
+                <SelectContent>
+                  {PERSONA_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      <div className="flex flex-col">
+                        <span>{o.label}</span>
+                        <span className="text-xs text-muted-foreground">{o.hint}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Блокирует выдумывание фейковых сервисов, оборотов и парка клиентов автора - частая причина рискованного текста.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Проверенные факты
+                </Label>
+                <span className="text-[10px] text-muted-foreground">{verifiedFacts.length}/4000</span>
+              </div>
+              <Textarea
+                value={verifiedFacts}
+                onChange={(e) => setVerifiedFacts(e.target.value.slice(0, 4000))}
+                placeholder={`Только реальные цифры и факты - модель не выдумает новые.\nПример:\n- цена нашего масла KAT 5W-30: 2400 руб/4л\n- цена Shell Helix Ultra 5W-30: 4100 руб/4л (Озон, июнь 2026)\n- тестировали на Camry 2019 и Kia Rio 2021, пробег по 12000 км\n- сертификация KAT: API SN, ACEA A3/B4`}
+                rows={5}
+                className="text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Если пусто - модель использует только обобщения ("по нашей практике", диапазоны) и не сочиняет конкретных чисел.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <ShieldAlert className="h-3.5 w-3.5" /> Fact-Check Guard
+                </Label>
+                <p className="text-[10px] text-muted-foreground">После генерации проверим конкретные числа и пометим неподтверждённые.</p>
+              </div>
+              <Switch checked={factCheckOn} onCheckedChange={setFactCheckOn} />
+            </div>
+
             <div className="space-y-2 rounded-md border border-border p-3">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
