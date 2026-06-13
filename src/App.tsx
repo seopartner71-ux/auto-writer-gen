@@ -96,6 +96,7 @@ const WelcomePage = lazyWithRetry(() => import("@/pages/WelcomePage"));
 const RankTrackerPage = lazyWithRetry(() => import("@/pages/RankTrackerPage"));
 const ImageGeneratorPage = lazyWithRetry(() => import("@/pages/ImageGeneratorPage"));
 const CommercialPage = lazyWithRetry(() => import("@/pages/CommercialPage"));
+const VcWriterPage = lazyWithRetry(() => import("@/pages/VcWriterPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -177,6 +178,7 @@ const App = () => (
                   <Route path="/images" element={<ProtectedRoute allowedRoles={["admin","staff"]}><ImageGeneratorPage /></ProtectedRoute>} />
                   <Route path="/commercial" element={<ProtectedRoute allowedRoles={["admin","staff"]}><CommercialPage /></ProtectedRoute>} />
                   <Route path="/rank-tracker" element={<RankTrackerPage />} />
+                  <Route path="/vc-writer" element={<VcWriterPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/author-profiles" element={<AuthorProfilesPage />} />
