@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,15 @@ import { supabase } from "@/integrations/supabase/client";
 import VcWriterBulk from "@/components/vc-writer/VcWriterBulk";
 
 type Format = "guide" | "rating" | "review" | "case";
+type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
+
+const PERSONA_OPTIONS: Array<{ value: AuthorPersona; label: string; hint: string }> = [
+  { value: "freeform", label: "Свободный формат", hint: "Без конкретного автора-бизнеса. Обобщения: 'практика показывает', 'у коллег'." },
+  { value: "agency", label: "Агентство / подрядчик", hint: "'Мы в агентстве', 'клиент пришёл с задачей'. Без выдуманных имён клиентов." },
+  { value: "inhouse", label: "In-house маркетолог/продакт", hint: "'У нас в компании', 'наша команда'. Без выдуманных оборотов и штата." },
+  { value: "brand_owner", label: "Владелец бренда продукта", hint: "Запрещены выдуманные собственные сервис, штат, парк, кейсы клиентов." },
+  { value: "expert", label: "Независимый эксперт", hint: "От первого лица как наблюдатель. Без своего бизнеса/штата/клиентов." },
+];
 
 const MODEL_OPTIONS = [
   { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", hint: "Рекомендуем - живой русский, лучший тон для vc.ru", recommended: true },
@@ -35,6 +44,22 @@ interface Result {
   seo?: { mode: boolean; target_query: string | null; suggestions: string[] };
   links_report?: { injected: string[]; appended: string[] };
   history_id?: string | null;
+  risk_report?: RiskReport | null;
+}
+
+interface FactClaim {
+  text: string;
+  kind: string;
+  verified: boolean;
+  note: string;
+}
+
+interface RiskReport {
+  total: number;
+  unverified: number;
+  level: "low" | "medium" | "high";
+  claims: FactClaim[];
+  summary: string;
 }
 
 interface HistoryRow {
@@ -59,6 +84,9 @@ interface HistoryRow {
   links_report: { injected: string[]; appended: string[] } | null;
   chars: number | null;
   is_favorite: boolean | null;
+  author_persona?: string | null;
+  verified_facts?: string | null;
+  risk_report?: RiskReport | null;
 }
 
 const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
