@@ -24,10 +24,17 @@ EDITORIAL PROTOCOL vc.ru (ОБЯЗАТЕЛЬНО):
 9. ФОРМАТИРОВАНИЕ: markdown с H2, списками, цитатами (>), таблицами где уместно. БЕЗ жирного (**). БЕЗ ё - заменяй на е.
 10. ЗАГОЛОВОК (до 90 символов): цифра + конкретика + интрига.
 11. ТЕГИ: 4-6 коротких тегов через запятую.
+12. ТИРЕ: СТРОГО ЗАПРЕЩЕНО длинное тире (—), среднее тире (–) и любые юникод-дефисы. Используй ТОЛЬКО обычный дефис-минус "-" (U+002D). Это касается заголовка, подзаголовка, тегов, P.S. и всего markdown.
 `.trim();
 
 export function ruEReplace(s: string): string {
   return (s || "").replace(/ё/g, "е").replace(/Ё/g, "Е");
+}
+
+/** Заменяет любые длинные/средние тире и юникод-дефисы на обычный "-". */
+export function normalizeDashes(s: string): string {
+  // U+2010..U+2015, U+2212 (minus), U+2043, U+FE58/FE63/FF0D
+  return (s || "").replace(/[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/g, "-");
 }
 
 export function stripText(md: string): string {
@@ -44,6 +51,7 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
   const hasMistake = /(ошибк|провал|пошло\s+не\s+так|потеряли|не\s+сработал)/i.test(text);
   const hasBold = /\*\*[^*]+\*\*/.test(md);
   const hasYo = /ё|Ё/.test(md);
+  const hasLongDash = /[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/.test(md);
   return [
     { label: "Длина 3500-8000 знаков", ok: chars >= 3500 && chars <= 8000, hint: `сейчас ${chars}` },
     { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
@@ -53,6 +61,7 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
     { label: "Есть P.S. с вопросом", ok: !!hasPS, hint: hasPS ? "ок" : "добавь P.S." },
     { label: "Нет жирного (**)", ok: !hasBold, hint: hasBold ? "убери **" : "ок" },
     { label: "Нет буквы ё", ok: !hasYo, hint: hasYo ? "замени на е" : "ок" },
+    { label: "Только дефис '-' (без — и –)", ok: !hasLongDash, hint: hasLongDash ? "замени тире на -" : "ок" },
   ];
 }
 
@@ -129,12 +138,12 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   });
 
   const data = result.data || ({} as any);
-  let markdown = ruEReplace(String(data.markdown || "")).replace(/\*\*([^*]+)\*\*/g, "$1");
-  const title = ruEReplace(String(data.title || "")).slice(0, 90);
-  const subtitle = ruEReplace(String(data.subtitle || "")).slice(0, 240);
-  const ps_question = ruEReplace(String(data.ps_question || ""));
+  let markdown = normalizeDashes(ruEReplace(String(data.markdown || ""))).replace(/\*\*([^*]+)\*\*/g, "$1");
+  const title = normalizeDashes(ruEReplace(String(data.title || ""))).slice(0, 90);
+  const subtitle = normalizeDashes(ruEReplace(String(data.subtitle || ""))).slice(0, 240);
+  const ps_question = normalizeDashes(ruEReplace(String(data.ps_question || "")));
   const tags = Array.isArray(data.tags)
-    ? data.tags.slice(0, 6).map((t: any) => ruEReplace(String(t)).slice(0, 30))
+    ? data.tags.slice(0, 6).map((t: any) => normalizeDashes(ruEReplace(String(t))).slice(0, 30))
     : [];
 
   if (ps_question && !/P\.?\s*S\.?/i.test(markdown)) {
