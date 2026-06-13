@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type Protocol = "https://" | "http://";
-type Preset = "custom" | "google" | "yandex" | "vk";
+type Preset = "custom" | "google" | "yandex" | "vk" | "mycom";
 
 const TRANSLIT_MAP: Record<string, string> = {
   а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "yo", ж: "zh", з: "z",
@@ -84,6 +84,7 @@ const PRESETS: Record<Exclude<Preset, "custom">, { source: string; medium: strin
   google: { source: "google", medium: "cpc" },
   yandex: { source: "yandex", medium: "cpc" },
   vk: { source: "vkontakte", medium: "social" },
+  mycom: { source: "mytarget", medium: "cpc" },
 };
 
 function Hint({ text }: { text: string }) {
@@ -98,12 +99,52 @@ function Hint({ text }: { text: string }) {
           <HelpCircle className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" className="max-w-xs text-xs leading-relaxed">
+      <PopoverContent side="top" className="max-w-sm text-xs leading-relaxed whitespace-pre-line">
         {text}
       </PopoverContent>
     </Popover>
   );
 }
+
+const TIP_SOURCE = `utm_source - название рекламной площадки, с которой пришел трафик.
+
+Примеры значений: google, yandex, vkontakte, facebook, mytarget, telegram, email, instagram.
+
+По этому параметру вы понимаете, какой канал привел пользователя на сайт. Заполняется обязательно.`;
+
+const TIP_MEDIUM = `utm_medium - тип трафика или способ его получения.
+
+Устоявшиеся значения:
+- cpc - контекстная реклама с оплатой за клик
+- display - баннерная реклама с оплатой за показы
+- social_cpc / social - реклама в соцсетях
+- email - рассылки
+- referral - переходы с других сайтов
+- organic - органический поиск
+
+Стандартные значения помогают потом фильтровать трафик в Метрике и GA4.`;
+
+const TIP_CAMPAIGN = `utm_campaign - произвольное название рекламной кампании.
+
+Задается на ваше усмотрение, главное - чтобы вы сами потом отличили одну кампанию от другой в статистике.
+
+Примеры: spring_sale, black_friday_2026, retarget_cart, promo_mebel.
+
+Используйте латиницу и нижний регистр, слова разделяйте подчеркиванием.`;
+
+const TIP_CONTENT = `utm_content - дополнительная информация об объявлении.
+
+Часто используется, чтобы внутри одной кампании различать креативы: баннер vs текстовое объявление, разные изображения, разные тексты, разные кнопки.
+
+Примеры: banner_240x60, text_v1, headline_a, btn_red, video_15s.
+
+Удобно использовать вместе с динамическими переменными площадки.`;
+
+const TIP_TERM = `utm_term - ключевое слово (или фраза), по которому показывалось объявление.
+
+Чаще всего сюда подставляют динамическую переменную площадки: {keyword} для Google Ads или {keyword} / {phrase_id} для Яндекс.Директа - площадка сама подставит реальную фразу пользователя.
+
+Можно задать и статически: kupit_divan, dostavka_moskva.`;
 
 function ParamRow({ name, desc }: { name: string; desc: string }) {
   return (
