@@ -11,7 +11,7 @@ import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { withTimeout } from "../_shared/withTimeout.ts";
 import {
   buildChecklist, ensureClientLinks, normalizeDashes, ruEReplace,
-  stripMarkdownTables, stripText, pickVcModel,
+  stripMarkdownTables, stripText, pickVcModel, factCheckMarkdown,
 } from "../_shared/vcWriterCore.ts";
 import { chatJson } from "../_shared/aiClient.ts";
 import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
@@ -58,9 +58,13 @@ async function actionFix(req: any, admin: any) {
   if (!apiKey) return errorResponse("OpenRouter key not configured", 500);
   const model = pickVcModel(req.model);
   const psQuestion = String(req.ps_question || "").trim();
+  const verifiedFacts = ruEReplace(normalizeDashes(String(req.verified_facts || ""))).slice(0, 4000);
 
   const fixesText = failed.map((f, i) => `${i + 1}. ${f}`).join("\n");
-  const system = `Ты редактор vc.ru. Тебе дают черновик статьи и список проблем. Перепиши минимально, чтобы устранить ВСЕ проблемы из списка. Запреты: жирный (**), ё, длинное тире (—/–), markdown-таблицы. Все тире только обычный дефис "-". Сохрани заголовки H2, факты, цифры, длину (±10%), общий тон. Не выдумывай имён экспертов и компаний.`;
+  const factsBlock = verifiedFacts
+    ? `\n\nПРОВЕРЕННЫЕ ФАКТЫ (использовать ТОЛЬКО эти конкретные цифры, новые не выдумывать):\n${verifiedFacts}`
+    : `\n\nНе выдумывай новые цифры/цены/лабораторные показатели/количество клиентов. Если для исправления нужно число - используй обобщения ("по нашей практике", "обычно", диапазон).`;
+  const system = `Ты редактор vc.ru. Тебе дают черновик статьи и список проблем. Перепиши минимально, чтобы устранить ВСЕ проблемы из списка. Запреты: жирный (**), ё, длинное тире (—/–), markdown-таблицы. Все тире только обычный дефис "-". Сохрани заголовки H2, факты, цифры, длину (±10%), общий тон. Не выдумывай имён экспертов, компаний, новых конкретных чисел.${factsBlock}`;
   const user = `СПИСОК ПРОБЛЕМ:\n${fixesText}\n\n${psQuestion ? `Если нужно добавить P.S. - используй вопрос: "${psQuestion}"\n\n` : ""}Текущий markdown:\n\n${md}\n\nВерни строго JSON: {"markdown": "исправленный markdown целиком"}`;
 
   const result = await chatJson<{ markdown: string }>({
@@ -78,11 +82,14 @@ async function actionFix(req: any, admin: any) {
     linksReport = { injected: r.injected, appended: r.appended };
   }
   const checklist = buildChecklist(fixed, psQuestion);
+  let risk_report: any = null;
+  try { risk_report = await factCheckMarkdown(apiKey, fixed, verifiedFacts || undefined); } catch (_) {}
   return jsonResponse({
     ok: true,
     markdown: fixed,
     checklist,
     links_report: linksReport,
+    risk_report,
     stats: { chars: stripText(fixed).length, model: result.model },
   });
 }
