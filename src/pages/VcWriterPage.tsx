@@ -208,14 +208,67 @@ export default function VcWriterPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div className="flex items-center gap-3">
-        <Sparkles className="h-6 w-6 text-primary" />
-        <div>
-          <h1 className="text-2xl font-semibold">vc.ru Writer</h1>
-          <p className="text-sm text-muted-foreground">
-            Генератор статей под формат vc.ru - с крючком в лиде, цифрами, провалами и P.S. для комментариев
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Sparkles className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold">vc.ru Writer</h1>
+            <p className="text-sm text-muted-foreground">
+              Генератор статей под формат vc.ru - с крючком в лиде, цифрами, провалами и P.S. для комментариев
+            </p>
+          </div>
         </div>
+        <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm">
+              <History className="h-4 w-4 mr-1.5" /> История
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>История генераций</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 space-y-2">
+              {historyLoading && (
+                <div className="py-10 text-center text-muted-foreground text-sm">
+                  <Loader2 className="h-5 w-5 mx-auto animate-spin mb-2" /> Загружаю...
+                </div>
+              )}
+              {!historyLoading && history.length === 0 && (
+                <div className="py-10 text-center text-muted-foreground text-sm">
+                  Пока ничего не сгенерировано
+                </div>
+              )}
+              {history.map((row) => (
+                <div key={row.id} className="rounded-md border border-border p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{row.title || row.topic}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">{row.topic}</div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => restoreFromHistory(row)}>
+                        <RotateCcw className="h-3 w-3 mr-1" /> Открыть
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-rose-400" onClick={() => deleteHistoryRow(row.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">{row.format}</Badge>
+                    {row.target_query && (
+                      <Badge variant="outline" className="h-4 px-1.5 text-[9px]">SEO: {row.target_query.slice(0, 40)}</Badge>
+                    )}
+                    {!!row.chars && <span>{row.chars} зн.</span>}
+                    <span>•</span>
+                    <span>{new Date(row.created_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <Tabs defaultValue="single" className="space-y-4">
