@@ -217,6 +217,9 @@ export default function VcWriterPage() {
           generate_cover: withCover,
           seo_mode: seoMode,
           target_query: primaryQuery,
+          author_persona: authorPersona,
+          verified_facts: verifiedFacts.trim() || null,
+          fact_check: factCheckOn,
           client_links: clientLinks
             .filter((l) => l.url.trim() && l.anchor.trim())
             .map((l) => {
