@@ -400,6 +400,7 @@ export default function VcWriterPage() {
           author_persona: authorPersona,
           verified_facts: factsWithSource,
           fact_check: factCheckOn,
+          humanize: humanizeOn,
           topic_research: research?.summary_md || null,
           client_links: clientLinks
             .filter((l) => l.url.trim() && l.anchor.trim())
