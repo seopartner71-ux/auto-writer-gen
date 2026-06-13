@@ -525,6 +525,7 @@ export interface VcGenResult {
   openers_report?: { ok: boolean; offenders: Array<{ opener: string; count: number }> };
   cliches_removed?: number;
   humanize_report?: { applied: boolean; passes: number; models: string[]; rejections?: string[]; skipped?: string };
+  editor_pass_report?: { applied: boolean; skipped?: string; in?: number; out?: number };
 }
 
 function shouldRetryVcDraft(e: unknown): boolean {
