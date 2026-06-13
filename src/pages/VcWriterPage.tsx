@@ -666,6 +666,11 @@ export default function VcWriterPage() {
               <p className="text-[10px] text-muted-foreground">
                 Блокирует выдумывание фейковых сервисов, оборотов и парка клиентов автора - частая причина рискованного текста.
               </p>
+              {personaSuggest && !personaTouched && (
+                <div className="text-[10px] rounded bg-primary/10 border border-primary/20 px-2 py-1 text-primary">
+                  Автоподбор: «{PERSONA_OPTIONS.find((o) => o.value === personaSuggest.persona)?.label}» ({personaSuggest.reason}). Изменить - выбери вручную.
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5 rounded-md border border-border p-3">
