@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert, Telescope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -148,6 +148,44 @@ export default function VcWriterPage() {
   const [webResults, setWebResults] = useState<Array<{ text: string; status: string; why?: string; evidence?: Array<{ title: string; link: string; snippet: string }> }> | null>(null);
   const [personaTouched, setPersonaTouched] = useState(false);
   const [personaSuggest, setPersonaSuggest] = useState<{ persona: AuthorPersona; reason: string } | null>(null);
+
+  // Topic Research (этап анализа топ-материалов перед генерацией)
+  const [researching, setResearching] = useState(false);
+  const [research, setResearch] = useState<{
+    summary_md: string;
+    recommended_format: Format;
+    dominant_format: Format;
+    format_reason: string;
+    format_mismatch: boolean;
+    mismatch_warning: string;
+    title_patterns: string[];
+    audience_signals: string[];
+    sources: Array<{ title: string; link: string }>;
+  } | null>(null);
+
+  const runTopicResearch = async () => {
+    if (topic.trim().length < 5) {
+      toast.error("Сначала укажите тему (минимум 5 символов)");
+      return;
+    }
+    setResearching(true);
+    setResearch(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: { action: "topic_research", topic: topic.trim(), selected_format: format },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Анализ не удался");
+      setResearch(data);
+      toast.success(data.format_mismatch
+        ? `В топе доминирует формат "${data.dominant_format}", а вы выбрали "${format}"`
+        : `Анализ готов. Рекомендованный формат: ${data.recommended_format}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось проанализировать тему");
+    } finally {
+      setResearching(false);
+    }
+  };
 
   // Auto-suggest persona on topic change (only if user didn't manually pick).
   useEffect(() => {
