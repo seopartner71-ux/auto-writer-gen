@@ -938,6 +938,90 @@ export default function VcWriterPage() {
                 </CardContent>
               </Card>
 
+              {/* Risk / Fact-Check Report */}
+              {(result.risk_report || factCheckOn) && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        {result.risk_report?.level === "high" ? (
+                          <ShieldAlert className="h-4 w-4 text-rose-400" />
+                        ) : result.risk_report?.level === "medium" ? (
+                          <AlertTriangle className="h-4 w-4 text-amber-400" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                        )}
+                        Fact-Check Guard
+                        {result.risk_report && (
+                          <Badge
+                            variant="outline"
+                            className={
+                              result.risk_report.level === "high"
+                                ? "border-rose-500/40 text-rose-300"
+                                : result.risk_report.level === "medium"
+                                  ? "border-amber-500/40 text-amber-300"
+                                  : "border-emerald-500/40 text-emerald-300"
+                            }
+                          >
+                            {result.risk_report.unverified}/{result.risk_report.total} непроверенных
+                          </Badge>
+                        )}
+                      </span>
+                      <Button size="sm" variant="outline" disabled={rechecking} onClick={rerunFactCheck}>
+                        {rechecking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
+                        Перепроверить
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {!result.risk_report && (
+                      <p className="text-xs text-muted-foreground">
+                        Нажми «Перепроверить» - модель найдёт все конкретные цифры/цены/показатели в тексте и пометит риск-моменты.
+                      </p>
+                    )}
+                    {result.risk_report && (
+                      <div className="space-y-2.5">
+                        <p className={`text-xs ${
+                          result.risk_report.level === "high" ? "text-rose-300"
+                          : result.risk_report.level === "medium" ? "text-amber-300"
+                          : "text-emerald-300"
+                        }`}>
+                          {result.risk_report.summary}
+                        </p>
+                        {!verifiedFacts.trim() && result.risk_report.unverified > 0 && (
+                          <div className="text-[11px] rounded bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 text-amber-200">
+                            Совет: заполни «Проверенные факты» слева своими реальными цифрами и нажми «Сгенерировать» снова или «Автоисправление» - модель уберёт выдуманные числа.
+                          </div>
+                        )}
+                        {result.risk_report.claims.length > 0 && (
+                          <ul className="space-y-1.5">
+                            {result.risk_report.claims.map((c, i) => (
+                              <li
+                                key={i}
+                                className={`flex items-start gap-2 text-xs rounded p-2 ${
+                                  c.verified ? "bg-emerald-500/10" : "bg-rose-500/10"
+                                }`}
+                              >
+                                {c.verified
+                                  ? <Check className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                                  : <AlertTriangle className="h-3.5 w-3.5 text-rose-400 mt-0.5 shrink-0" />}
+                                <div className="min-w-0">
+                                  <div className="font-mono text-[11px] truncate">{c.text}</div>
+                                  <div className="text-muted-foreground text-[10px]">
+                                    <Badge variant="outline" className="h-3.5 px-1 text-[9px] mr-1">{c.kind}</Badge>
+                                    {c.note}
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Competitive SERP */}
               <Card>
                 <CardHeader className="pb-3">
