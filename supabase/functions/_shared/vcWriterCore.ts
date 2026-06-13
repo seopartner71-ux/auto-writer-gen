@@ -813,6 +813,32 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     }
   }
 
+  // vc.ru Editor Pass — финальная редактура по 6 правилам редакции vc.ru.
+  // Минимальные правки: анонимность автора, неверифицированные цифры, лид-результат,
+  // размытые формулировки, P.S.-вопрос. Структуру и факты не трогает.
+  let editor_pass_report: { applied: boolean; skipped?: string; in?: number; out?: number } = { applied: false };
+  const elapsedBeforeEditor = Date.now() - __startedAt;
+  if (elapsedBeforeEditor < 125_000 && markdown.length > 500) {
+    try {
+      const edited = await runVcEditorPass(input.apiKey, markdown);
+      if (edited && edited.length > markdown.length * 0.75 && edited.length < markdown.length * 1.4) {
+        const before = markdown.length;
+        markdown = stripDuplicateH1(
+          normalizeDashes(ruEReplace(edited)).replace(/\*\*([^*]+)\*\*/g, "$1"),
+          title,
+        );
+        editor_pass_report = { applied: true, in: before, out: markdown.length };
+      } else {
+        editor_pass_report = { applied: false, skipped: edited ? "size_drift" : "empty" };
+      }
+    } catch (e: any) {
+      console.error("[generateVcArticle] vc-editor-pass failed", e?.message || e);
+      editor_pass_report = { applied: false, skipped: "exception" };
+    }
+  } else {
+    editor_pass_report = { applied: false, skipped: "no_budget" };
+  }
+
   return {
     markdown,
     meta: { title, subtitle, tags, ps_question },
@@ -828,6 +854,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     openers_report,
     cliches_removed: clicheCleaned.removed,
     humanize_report,
+    editor_pass_report,
   };
 }
 
