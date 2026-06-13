@@ -53,6 +53,8 @@ interface FormRow {
   format: Format;
   topic: string;
   thesis: string;
+  target_query?: string;
+  intent?: string;
 }
 
 const newRow = (format: Format = "guide"): FormRow => ({
@@ -60,6 +62,8 @@ const newRow = (format: Format = "guide"): FormRow => ({
   format,
   topic: "",
   thesis: "",
+  target_query: "",
+  intent: "",
 });
 
 export default function VcWriterBulk({ model, modelLabel }: Props) {
@@ -72,6 +76,8 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
 
   // Topic generator
   const [niche, setNiche] = useState("");
+  const [seedKeywords, setSeedKeywords] = useState("");
+  const [seoMode, setSeoMode] = useState(true);
   const [topicsCount, setTopicsCount] = useState(8);
   const [preferredFormat, setPreferredFormat] = useState<Format | "mixed">("mixed");
   const [generatingTopics, setGeneratingTopics] = useState(false);
@@ -100,6 +106,8 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
       const { data, error } = await supabase.functions.invoke("vc-writer-topics", {
         body: {
           niche,
+          keywords: seedKeywords,
+          seo_mode: seoMode,
           count: topicsCount,
           preferred_format: preferredFormat === "mixed" ? null : preferredFormat,
           model,
@@ -107,15 +115,18 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
       });
       if (error) throw error;
       if (!data?.ok) throw new Error("Не удалось получить темы");
-      const topics = data.topics as Array<{ topic: string; format: Format; thesis: string }>;
+      const topics = data.topics as Array<{ topic: string; format: Format; thesis: string; target_query?: string; intent?: string }>;
       if (!topics?.length) throw new Error("Модель не вернула темы");
       setRows(topics.map((t) => ({
         id: Math.random().toString(36).slice(2),
         format: (t.format as Format) || "guide",
         topic: t.topic,
         thesis: t.thesis || "",
+        target_query: t.target_query || "",
+        intent: t.intent || "",
       })));
-      toast.success(`Сгенерировано тем: ${topics.length}`);
+      const suffix = data.serper_used ? ` (на базе ${data.real_queries_count} реальных запросов Google)` : "";
+      toast.success(`Сгенерировано тем: ${topics.length}${suffix}`);
     } catch (e: any) {
       toast.error(e?.message || "Ошибка генерации тем");
     } finally {
@@ -144,7 +155,9 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
           items: validRows.map((r) => ({
             format: r.format,
             topic: r.topic,
-            thesis: r.thesis,
+            thesis: r.target_query
+              ? `SEO target_query (естественно вписать в заголовок и H2, использовать 4-8 раз в тексте в разных формах): "${r.target_query}". ${r.thesis}`.trim()
+              : r.thesis,
           })),
         },
       });
