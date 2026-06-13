@@ -260,6 +260,8 @@ export interface VcGenInput {
   verifiedFacts?: string;
   /** Запустить факт-чек после генерации (по умолчанию true, если есть числовые утверждения). */
   factCheck?: boolean;
+  /** Markdown-выжимка анализа топ-материалов по теме (из action=topic_research). */
+  topicResearch?: string;
 }
 
 export type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
