@@ -336,6 +336,64 @@ export default function VcWriterPage() {
     }
   };
 
+  const runDefake = async () => {
+    if (!result?.markdown || !result?.risk_report) return;
+    const claims = result.risk_report.claims.filter((c) => !c.verified).map((c) => ({ text: c.text, note: c.note }));
+    if (!claims.length) { toast.info("Нет неподтверждённых утверждений"); return; }
+    setDefaking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: {
+          action: "defake",
+          markdown: result.markdown,
+          claims,
+          model,
+          verified_facts: verifiedFacts.trim() || null,
+          ps_question: result.meta.ps_question,
+          client_links: clientLinks.filter((l) => l.url && l.anchor).slice(0, 5),
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("defake failed");
+      setResult({
+        ...result,
+        markdown: data.markdown,
+        checklist: data.checklist || result.checklist,
+        links_report: data.links_report || result.links_report,
+        risk_report: data.risk_report ?? result.risk_report,
+        stats: { chars: data.stats?.chars ?? result.stats?.chars ?? 0, model: result.stats?.model || "" },
+      });
+      setWebResults(null);
+      const newUnv = data.risk_report?.unverified ?? 0;
+      toast.success(newUnv ? `Готово. Осталось ${newUnv} непроверенных` : "Выдуманные числа убраны");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось убрать выдуманные числа");
+    } finally {
+      setDefaking(false);
+    }
+  };
+
+  const runWebFactCheck = async () => {
+    if (!result?.risk_report) return;
+    const claims = result.risk_report.claims.filter((c) => !c.verified).map((c) => ({ text: c.text, kind: c.kind, note: c.note }));
+    if (!claims.length) { toast.info("Нет неподтверждённых утверждений"); return; }
+    setWebChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: { action: "factcheck_web", claims },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("web factcheck failed");
+      setWebResults(data.results || []);
+      const s = data.summary || { confirmed: 0, contradicted: 0, not_found: 0, total: 0 };
+      toast.success(`Web-проверка: подтверждено ${s.confirmed}, опровергнуто ${s.contradicted}, не найдено ${s.not_found}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Web-проверка не удалась");
+    } finally {
+      setWebChecking(false);
+    }
+  };
+
   const runAutoFix = async () => {
     if (!result?.markdown) return;
     const failed = result.checklist.filter((c) => !c.ok).map((c) => `${c.label} (${c.hint})`);
