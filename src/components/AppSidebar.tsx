@@ -101,6 +101,7 @@ export function AppSidebar() {
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
+    { title: lang === "ru" ? "vc.ru Writer" : "vc.ru Writer", url: "/vc-writer", icon: PenSquare },
     ...(isStaffOrAdmin ? [
       { title: lang === "ru" ? "Изображения" : "Images", url: "/images", icon: ImageIcon },
       { title: lang === "ru" ? "Коммерческие страницы" : "Commercial Pages", url: "/commercial", icon: Store },
