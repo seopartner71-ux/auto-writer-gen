@@ -63,12 +63,22 @@ export default function VcWriterPage() {
     setLoading(true);
     setResult(null);
     try {
+      // Поддержка нескольких запросов через запятую: первый - главный target, остальные - LSI
+      const queries = targetQuery
+        .split(/[,\n;]+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      const primaryQuery = queries[0] || null;
+      const extraQueries = queries.slice(1);
+      const thesisWithExtras = extraQueries.length
+        ? `${thesis}\n\nДополнительные SEO-запросы (вписать естественно в текст и подзаголовки, по 1-2 раза каждый): ${extraQueries.join(", ")}`
+        : thesis;
       const { data, error } = await supabase.functions.invoke("vc-writer", {
         body: {
-          format, model, topic, thesis, audience, tone, length,
+          format, model, topic, thesis: thesisWithExtras, audience, tone, length,
           generate_cover: withCover,
           seo_mode: seoMode,
-          target_query: targetQuery.trim() || null,
+          target_query: primaryQuery,
         },
       });
       if (error) throw error;
@@ -245,15 +255,16 @@ export default function VcWriterPage() {
               </div>
               {seoMode && (
                 <div className="space-y-1">
-                  <Label className="text-xs">Целевой поисковый запрос (опционально)</Label>
-                  <Input
+                  <Label className="text-xs">Целевые поисковые запросы (через запятую, до 5)</Label>
+                  <Textarea
                     value={targetQuery}
                     onChange={(e) => setTargetQuery(e.target.value)}
-                    placeholder="напр. как продвинуть интернет-магазин в google"
-                    className="h-9"
+                    placeholder="как продвинуть интернет-магазин в google, seo для маркетплейса, продвижение сайта услуг"
+                    rows={2}
+                    className="text-sm"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    Пусто - подберём автоматически из реальных запросов Google по теме.
+                    Первый запрос - главный (войдет в заголовок и H2). Остальные - дополнительные, естественно впишутся в текст. Пусто - подберём автоматически из реальных запросов Google.
                   </p>
                 </div>
               )}
