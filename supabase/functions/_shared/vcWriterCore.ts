@@ -948,8 +948,12 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     editor_pass_report = { applied: false, skipped: "no_budget" };
   }
 
+  // Детерминированные пост-фиксы: бэктики, битый markdown, остатки "бесплатно" в заголовках.
+  // Применяются ВСЕГДА — даже если Editor Pass упал/пропущен.
+  markdown = applyVcDeterministicFixes(markdown);
+
   checklist.push({
-    label: "Редактура vc.ru (6 правил)",
+    label: "Редактура vc.ru (10 правил)",
     ok: editor_pass_report.applied,
     hint: editor_pass_report.applied
       ? `применена (${editor_pass_report.in} -> ${editor_pass_report.out} знаков)`
