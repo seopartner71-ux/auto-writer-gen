@@ -14,6 +14,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Format = "guide" | "rating" | "review" | "case";
 
+const MODEL_OPTIONS = [
+  { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", hint: "Рекомендуем - живой русский, лучший тон для vc.ru", recommended: true },
+  { value: "anthropic/claude-opus-4.1", label: "Claude Opus 4.1", hint: "Премиум - сильнее в нюансах и аргументации, дороже" },
+  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Длинный контекст, стабильный markdown" },
+  { value: "openai/gpt-5", label: "GPT-5", hint: "Универсал, чуть суше по тону" },
+  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", hint: "Быстро и дешево, просядет на длинных" },
+];
+
 interface Result {
   ok: boolean;
   markdown: string;
@@ -32,6 +40,7 @@ const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
 
 export default function VcWriterPage() {
   const [format, setFormat] = useState<Format>("guide");
+  const [model, setModel] = useState<string>("anthropic/claude-sonnet-4.5");
   const [topic, setTopic] = useState("");
   const [thesis, setThesis] = useState("");
   const [audience, setAudience] = useState("");
@@ -50,7 +59,7 @@ export default function VcWriterPage() {
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("vc-writer", {
-        body: { format, topic, thesis, audience, tone, length, generate_cover: withCover },
+        body: { format, model, topic, thesis, audience, tone, length, generate_cover: withCover },
       });
       if (error) throw error;
       if (!data?.ok) throw new Error("Не удалось сгенерировать материал");
@@ -103,6 +112,26 @@ export default function VcWriterPage() {
                     <SelectItem key={o.value} value={o.value}>
                       <div className="flex flex-col">
                         <span>{o.label}</span>
+                        <span className="text-xs text-muted-foreground">{o.hint}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Модель</Label>
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MODEL_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      <div className="flex flex-col">
+                        <span className="flex items-center gap-2">
+                          {o.label}
+                          {o.recommended && <Badge variant="secondary" className="h-4 text-[9px] px-1.5">рекомендуем</Badge>}
+                        </span>
                         <span className="text-xs text-muted-foreground">{o.hint}</span>
                       </div>
                     </SelectItem>
