@@ -345,6 +345,16 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   const checklist = buildChecklist(markdown, ps_question);
 
+  // Fact-Check Guard (по умолчанию ON).
+  let risk_report: RiskReport | undefined;
+  if (input.factCheck !== false) {
+    try {
+      risk_report = await factCheckMarkdown(input.apiKey, markdown, input.verifiedFacts);
+    } catch (e) {
+      console.error("[generateVcArticle] fact-check failed", e);
+    }
+  }
+
   return {
     markdown,
     meta: { title, subtitle, tags, ps_question },
@@ -352,6 +362,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     cover_data_url,
     stats: { chars: stripText(markdown).length, model: result.model },
     links_report: linksReport,
+    risk_report,
   };
 }
 
