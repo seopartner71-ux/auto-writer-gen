@@ -76,6 +76,51 @@ export function stripText(md: string): string {
   return md.replace(/```[\s\S]*?```/g, " ").replace(/[#>*_`\-\|]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Гарантирует, что каждая клиентская ссылка присутствует в markdown.
+ * Сначала пытаемся найти анкор в тексте и обернуть его в [anchor](url).
+ * Если анкор не найден, добавляем компактный блок "Полезное по теме" перед P.S.
+ */
+export function ensureClientLinks(md: string, links: Array<{ url: string; anchor: string }>): { md: string; injected: string[]; appended: string[] } {
+  const injected: string[] = [];
+  const appended: string[] = [];
+  if (!links || !links.length) return { md, injected, appended };
+
+  let out = md;
+  for (const l of links) {
+    const anchor = (l.anchor || "").trim();
+    const url = (l.url || "").trim();
+    if (!anchor || !url) continue;
+    // Уже есть как markdown-ссылка?
+    const already = new RegExp(`\\]\\(\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\)`).test(out);
+    if (already) { injected.push(anchor); continue; }
+    // Попробуем найти анкор в тексте (вне заголовков и P.S.).
+    const re = new RegExp(`(^|[^[\\w])(${anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?![\\w\\]])`, "i");
+    const psIdx = out.search(/\n+P\.?\s*S\.?/i);
+    const head = psIdx > 0 ? out.slice(0, psIdx) : out;
+    const tail = psIdx > 0 ? out.slice(psIdx) : "";
+    const m = head.match(re);
+    if (m && m.index !== undefined) {
+      const before = head.slice(0, m.index + (m[1] ? m[1].length : 0));
+      const after = head.slice(m.index + (m[1] ? m[1].length : 0) + m[2].length);
+      out = `${before}[${m[2]}](${url})${after}${tail}`;
+      injected.push(anchor);
+    } else {
+      appended.push(anchor);
+    }
+  }
+
+  if (appended.length) {
+    const block = `\n\n## Полезное по теме\n\n${links
+      .filter((l) => appended.includes(l.anchor.trim()))
+      .map((l) => `- [${l.anchor.trim()}](${l.url.trim()})`)
+      .join("\n")}`;
+    const psIdx = out.search(/\n+P\.?\s*S\.?/i);
+    out = psIdx > 0 ? `${out.slice(0, psIdx)}${block}${out.slice(psIdx)}` : `${out}${block}`;
+  }
+  return { md: out, injected, appended };
+}
+
 export function buildChecklist(md: string, ps: string): Array<{ label: string; ok: boolean; hint: string }> {
   const text = stripText(md);
   const chars = text.length;
@@ -140,6 +185,8 @@ export interface VcGenInput {
   avoidTitles?: string[];
   /** SEO-цель: точный поисковый запрос, под который оптимизируется статья. */
   targetQuery?: string;
+  /** Клиентские ссылки для естественной вставки в текст. */
+  clientLinks?: Array<{ url: string; anchor: string; hint?: string }>;
 }
 
 export interface VcGenResult {
@@ -148,6 +195,7 @@ export interface VcGenResult {
   checklist: Array<{ label: string; ok: boolean; hint: string }>;
   cover_data_url: string | null;
   stats: { chars: number; model: string };
+  links_report?: { injected: string[]; appended: string[] };
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
@@ -158,7 +206,10 @@ function buildPrompt(p: VcGenInput): { system: string; user: string } {
   const seo = p.targetQuery
     ? `\n\nSEO-ЦЕЛЬ (КРИТИЧНО): статья должна ранжироваться в Google/Yandex по запросу "${p.targetQuery}". Требования:\n- target_query почти дословно входит в title (можно слегка перефразировать падежом).\n- target_query или его близкая форма встречается в первом H2 и в лиде.\n- В тексте 4-8 упоминаний target_query и его словоформ (естественно, без переспама).\n- Добавь 2-3 LSI/синонима этого запроса в H2.\n- Подзаголовок (subtitle) тоже содержит ключевую фразу.`
     : "";
-  const user = `Тема: ${p.topic}\nГлавный тезис: ${p.thesis || "сформулируй сам исходя из темы"}\nАудитория vc.ru: ${p.audience || "предприниматели, маркетологи, продактменеджеры"}\nТон: ${p.tone || "экспертно-разговорный с легкой провокацией"}\nЦелевая длина: ${p.length || 5500} знаков (+-20%).${seo}${avoid}\n\nВерни строго JSON:\n{\n  "title": "заголовок до 90 символов",\n  "subtitle": "подзаголовок 1-2 предложения, продает клик",\n  "tags": ["тег1","тег2",...],\n  "ps_question": "вопрос аудитории для P.S.",\n  "markdown": "полный текст материала в markdown с H2, списками. Включи в конец строку 'P.S. <ps_question>'"\n}`;
+  const links = (p.clientLinks && p.clientLinks.length)
+    ? `\n\nКЛИЕНТСКИЕ ССЫЛКИ (КРИТИЧНО, ОБЯЗАТЕЛЬНО ВПИСАТЬ):\nВ тексте нужно естественно вписать markdown-ссылки на эти ресурсы. Каждая ссылка вставляется 1 раз, в подходящем по смыслу месте (не подряд, не в первом абзаце, не в P.S., не в заголовке). Анкор использовать ровно такой, как указан. Формат: [анкор](url). Без рекламной приписки, без "перейти", "узнать больше" - просто органично в предложении.\n${p.clientLinks.slice(0, 5).map((l, i) => `${i + 1}. Анкор: "${l.anchor}" -> ${l.url}${l.hint ? ` (контекст: ${l.hint})` : ""}`).join("\n")}`
+    : "";
+  const user = `Тема: ${p.topic}\nГлавный тезис: ${p.thesis || "сформулируй сам исходя из темы"}\nАудитория vc.ru: ${p.audience || "предприниматели, маркетологи, продактменеджеры"}\nТон: ${p.tone || "экспертно-разговорный с легкой провокацией"}\nЦелевая длина: ${p.length || 5500} знаков (+-20%).${seo}${links}${avoid}\n\nВерни строго JSON:\n{\n  "title": "заголовок до 90 символов",\n  "subtitle": "подзаголовок 1-2 предложения, продает клик",\n  "tags": ["тег1","тег2",...],\n  "ps_question": "вопрос аудитории для P.S.",\n  "markdown": "полный текст материала в markdown с H2, списками. Включи в конец строку 'P.S. <ps_question>'"\n}`;
   return { system, user };
 }
 
@@ -194,6 +245,14 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     markdown += `\n\nP.S. ${ps_question}`;
   }
 
+  // Гарантия вставки клиентских ссылок.
+  let linksReport: { injected: string[]; appended: string[] } = { injected: [], appended: [] };
+  if (input.clientLinks && input.clientLinks.length) {
+    const r = ensureClientLinks(markdown, input.clientLinks.map((l) => ({ url: l.url, anchor: l.anchor })));
+    markdown = r.md;
+    linksReport = { injected: r.injected, appended: r.appended };
+  }
+
   let cover_data_url: string | null = null;
   if (input.wantCover) {
     cover_data_url = await generateCover(`${title}. ${subtitle}`);
@@ -207,6 +266,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     checklist,
     cover_data_url,
     stats: { chars: stripText(markdown).length, model: result.model },
+    links_report: linksReport,
   };
 }
 

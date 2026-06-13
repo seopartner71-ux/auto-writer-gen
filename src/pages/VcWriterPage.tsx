@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,7 @@ interface Result {
   cover_data_url: string | null;
   stats?: { chars: number; model: string };
   seo?: { mode: boolean; target_query: string | null; suggestions: string[] };
+  links_report?: { injected: string[]; appended: string[] };
 }
 
 const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
@@ -52,6 +53,7 @@ export default function VcWriterPage() {
   const [withCover, setWithCover] = useState(true);
   const [seoMode, setSeoMode] = useState(true);
   const [targetQuery, setTargetQuery] = useState("");
+  const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
@@ -79,6 +81,9 @@ export default function VcWriterPage() {
           generate_cover: withCover,
           seo_mode: seoMode,
           target_query: primaryQuery,
+          client_links: clientLinks
+            .filter((l) => l.url.trim() && l.anchor.trim())
+            .slice(0, 5),
         },
       });
       if (error) throw error;
@@ -284,6 +289,74 @@ export default function VcWriterPage() {
               <p className="text-[10px] text-muted-foreground">vc.ru-топ обычно 4500-6500 знаков</p>
             </div>
 
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm flex items-center gap-1.5">
+                    <Link2 className="h-3.5 w-3.5" /> Клиентские ссылки ({clientLinks.length}/5)
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Ссылки впишутся в текст естественно, по 1 разу. Если модель не найдет место - добавим блоком «Полезное по теме» перед P.S.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={clientLinks.length >= 5}
+                  onClick={() => setClientLinks([...clientLinks, { url: "", anchor: "", hint: "" }])}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Добавить
+                </Button>
+              </div>
+              {clientLinks.map((l, i) => (
+                <div key={i} className="space-y-1.5 rounded border border-border/60 p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">Ссылка {i + 1}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2"
+                      onClick={() => setClientLinks(clientLinks.filter((_, idx) => idx !== i))}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Input
+                    value={l.url}
+                    onChange={(e) => {
+                      const next = [...clientLinks];
+                      next[i] = { ...next[i], url: e.target.value };
+                      setClientLinks(next);
+                    }}
+                    placeholder="https://client.ru/service"
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    value={l.anchor}
+                    onChange={(e) => {
+                      const next = [...clientLinks];
+                      next[i] = { ...next[i], anchor: e.target.value };
+                      setClientLinks(next);
+                    }}
+                    placeholder="Анкор (как фраза появится в тексте)"
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    value={l.hint}
+                    onChange={(e) => {
+                      const next = [...clientLinks];
+                      next[i] = { ...next[i], hint: e.target.value };
+                      setClientLinks(next);
+                    }}
+                    placeholder="Контекст (необязательно): где уместно упомянуть"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              ))}
+            </div>
+
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <div className="space-y-0.5">
                 <Label className="text-sm">Сгенерировать обложку</Label>
@@ -345,6 +418,19 @@ export default function VcWriterPage() {
                     <div className="rounded-md bg-primary/10 border border-primary/20 px-2.5 py-1.5 text-xs">
                       <span className="text-muted-foreground">SEO-цель: </span>
                       <span className="font-mono">{result.seo.target_query}</span>
+                    </div>
+                  )}
+                  {result.links_report && (result.links_report.injected.length + result.links_report.appended.length > 0) && (
+                    <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                        <Link2 className="h-3 w-3" /> Клиентские ссылки вставлены
+                      </div>
+                      {result.links_report.injected.length > 0 && (
+                        <div className="text-muted-foreground">В текст: {result.links_report.injected.join(", ")}</div>
+                      )}
+                      {result.links_report.appended.length > 0 && (
+                        <div className="text-amber-400">В блок «Полезное по теме»: {result.links_report.appended.join(", ")}</div>
+                      )}
                     </div>
                   )}
                   <div>

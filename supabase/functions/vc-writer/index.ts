@@ -48,6 +48,17 @@ serve(async (req) => {
     const seoMode = !!body.seo_mode;
     let targetQuery = ruEReplace(normalizeDashes(String(body.target_query || ""))).trim().slice(0, 120);
 
+    // Клиентские ссылки: до 5 шт, валидируем url+anchor.
+    const rawLinks = Array.isArray(body.client_links) ? body.client_links : [];
+    const clientLinks = rawLinks
+      .map((l: any) => ({
+        url: String(l?.url || "").trim().slice(0, 500),
+        anchor: ruEReplace(normalizeDashes(String(l?.anchor || ""))).trim().slice(0, 120),
+        hint: String(l?.hint || "").trim().slice(0, 200),
+      }))
+      .filter((l: any) => /^https?:\/\/\S+$/i.test(l.url) && l.anchor.length >= 2)
+      .slice(0, 5);
+
     const admin = adminClient();
     const { data: orRow } = await admin
       .from("api_keys")
@@ -77,6 +88,7 @@ serve(async (req) => {
     const out = await generateVcArticle({
       apiKey, model, format, topic, thesis, audience, tone, length, wantCover,
       targetQuery: targetQuery || undefined,
+      clientLinks: clientLinks.length ? clientLinks : undefined,
     });
     return jsonResponse({ ok: true, ...out, seo: { mode: seoMode, target_query: targetQuery || null, suggestions: serperSuggestions } });
   } catch (e: any) {
