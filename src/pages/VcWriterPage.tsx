@@ -870,6 +870,28 @@ export default function VcWriterPage() {
               )}
             </div>
 
+            {(format === "case" || format === "review") && (
+              <div className="space-y-1.5 rounded-md border border-border p-3">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Источник {format === "case" ? "кейса" : "обзора"}
+                  <span className="text-rose-400">*</span>
+                </Label>
+                <Textarea
+                  value={caseSource}
+                  onChange={(e) => setCaseSource(e.target.value.slice(0, 600))}
+                  placeholder={format === "case"
+                    ? "Имя клиента/проекта, URL, период работ. Пример:\nКлиент: интернет-магазин SportLine (sportline.ru)\nПериод: март-сентябрь 2025\nИсточник данных: внутренние отчёты Метрики"
+                    : "Что обозреваете: точное название, версия, URL, дата покупки. Пример:\nПродукт: масло KAT 5W-30, артикул 12345\nГде купили: Ozon, 12.03.2025, 2400 руб/4л\nНа чём тестировали: Toyota Camry 2019"}
+                  rows={3}
+                  className="text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Обязательное поле. Без него модель выдумает героя - это главная причина «вранья» в кейсах.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <div className="space-y-0.5">
                 <Label className="text-sm flex items-center gap-1.5">
