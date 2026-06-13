@@ -133,6 +133,10 @@ export default function VcWriterPage() {
   const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
   const [verifiedFacts, setVerifiedFacts] = useState("");
   const [factCheckOn, setFactCheckOn] = useState(true);
+  // Источник кейса/обзора: имя клиента, URL, дата. Обязателен для форматов case/review.
+  const [caseSource, setCaseSource] = useState("");
+  // Если research.format_mismatch=true, генерация блокируется до явного согласия.
+  const [allowMismatch, setAllowMismatch] = useState(false);
   const [rechecking, setRechecking] = useState(false);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -151,6 +155,8 @@ export default function VcWriterPage() {
 
   // Topic Research (этап анализа топ-материалов перед генерацией)
   const [researching, setResearching] = useState(false);
+  // Отметка о том, что research уже запускался для текущей темы (чтобы не дёргать повторно).
+  const [autoResearchedTopic, setAutoResearchedTopic] = useState<string>("");
   const [research, setResearch] = useState<{
     summary_md: string;
     recommended_format: Format;
@@ -170,6 +176,7 @@ export default function VcWriterPage() {
     }
     setResearching(true);
     setResearch(null);
+    setAllowMismatch(false);
     try {
       const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
         body: { action: "topic_research", topic: topic.trim(), selected_format: format },
@@ -186,6 +193,25 @@ export default function VcWriterPage() {
       setResearching(false);
     }
   };
+
+  // Автозапуск анализа темы с дебаунсом 1.5с: только если тема ≥15 символов
+  // и для этой темы ещё не запускали. Снимает с пользователя необходимость
+  // помнить про кнопку - именно это раньше ломало качество.
+  useEffect(() => {
+    const t = topic.trim();
+    if (t.length < 15) return;
+    if (autoResearchedTopic === t) return;
+    if (researching) return;
+    const id = setTimeout(() => {
+      setAutoResearchedTopic(t);
+      runTopicResearch();
+    }, 1500);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic]);
+
+  // Любая смена формата сбрасывает разрешение на mismatch.
+  useEffect(() => { setAllowMismatch(false); }, [format]);
 
   // Auto-suggest persona on topic change (only if user didn't manually pick).
   useEffect(() => {
@@ -271,6 +297,16 @@ export default function VcWriterPage() {
       toast.error("Укажите тему (минимум 5 символов)");
       return;
     }
+    // Hard-stop: для case/review без источника блокируем генерацию.
+    if ((format === "case" || format === "review") && caseSource.trim().length < 5) {
+      toast.error("Укажите источник кейса: имя клиента/проекта, URL или дату. Без этого модель выдумает героя.");
+      return;
+    }
+    // Hard-stop: research показал несоответствие формата, а пользователь не подтвердил.
+    if (research?.format_mismatch && !allowMismatch) {
+      toast.error(`Формат «${format}» не соответствует топу выдачи. Смените на «${research.recommended_format}» или подтвердите генерацию.`);
+      return;
+    }
     setLoading(true);
     setResult(null);
     try {
@@ -284,6 +320,16 @@ export default function VcWriterPage() {
       const thesisWithExtras = extraQueries.length
         ? `${thesis}\n\nДополнительные SEO-запросы (вписать естественно в текст и подзаголовки, по 1-2 раза каждый): ${extraQueries.join(", ")}`
         : thesis;
+      // Источник кейса присоединяем к проверенным фактам, чтобы модель использовала
+      // именно его как героя/контекст материала и не выдумывала клиента.
+      const factsWithSource = (() => {
+        const src = caseSource.trim();
+        if (!src) return verifiedFacts.trim() || null;
+        const header = format === "case"
+          ? `ИСТОЧНИК КЕЙСА (использовать как героя статьи, не выдумывать другого):\n${src}`
+          : `ОБЪЕКТ ОБЗОРА (использовать именно его, не подменять):\n${src}`;
+        return [header, verifiedFacts.trim()].filter(Boolean).join("\n\n").slice(0, 4000);
+      })();
       const { data, error } = await supabase.functions.invoke("vc-writer", {
         body: {
           format, model, topic, thesis: thesisWithExtras, audience, tone, length,
@@ -291,7 +337,7 @@ export default function VcWriterPage() {
           seo_mode: seoMode,
           target_query: primaryQuery,
           author_persona: authorPersona,
-          verified_facts: verifiedFacts.trim() || null,
+          verified_facts: factsWithSource,
           fact_check: factCheckOn,
           topic_research: research?.summary_md || null,
           client_links: clientLinks
