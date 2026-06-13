@@ -693,7 +693,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   // Lead-banality fix: если лид начинается со штампа, перепишем только его дешёвой моделью.
   let lead_report: { wasBanal: boolean; matched?: string; rewritten: boolean } = { wasBanal: false, rewritten: false };
-  if (!input.skipLeadFix) {
+  if (!input.skipLeadFix && Date.now() - __startedAt < 82_000) {
     const banal = detectLeadBanality(markdown);
     lead_report = { wasBanal: banal.banal, matched: banal.matched, rewritten: false };
     if (banal.banal && banal.lead) {
@@ -710,7 +710,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   if (input.targetQuery) {
     let seoR = validateSeo(markdown, title, input.targetQuery);
     let titleFixed = false;
-    if (!input.skipSeoFix && !seoR.inTitle) {
+    if (!input.skipSeoFix && !seoR.inTitle && Date.now() - __startedAt < 95_000) {
       const newTitle = await fixTitleForSeo(input.apiKey, title, input.targetQuery);
       if (newTitle) {
         title = newTitle;
