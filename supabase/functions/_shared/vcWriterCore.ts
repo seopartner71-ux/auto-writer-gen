@@ -602,6 +602,7 @@ export async function factCheckMarkdown(
 }
 
 export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult> {
+  const __startedAt = Date.now();
   const { system, user } = buildPrompt(input);
 
   const result = await chatJson<{
@@ -686,7 +687,15 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   let humanize_report: VcGenResult["humanize_report"] | undefined;
   if (input.humanize) {
     try {
-      const h: DoubleHumanizeResult = await runDoubleHumanizePass(markdown, "ru", input.apiKey);
+      // Edge-function wall clock ~150s. Leave 8s for fact-check/cover/response.
+      const elapsed = Date.now() - __startedAt;
+      const budget = Math.max(0, 145_000 - elapsed - 8_000);
+      const h: DoubleHumanizeResult = await runDoubleHumanizePass(
+        markdown,
+        "ru",
+        input.apiKey,
+        { maxMs: budget },
+      );
       if (h.content && h.content.length > 200 && h.passesApplied > 0) {
         markdown = stripMarkdownTables(normalizeDashes(ruEReplace(h.content))).replace(/\*\*([^*]+)\*\*/g, "$1");
         markdown = stripDuplicateH1(markdown, title);

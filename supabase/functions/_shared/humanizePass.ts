@@ -182,11 +182,18 @@ export async function runDoubleHumanizePass(
   content: string,
   language: "ru" | "en",
   openRouterKey: string | null | undefined,
-  opts?: { admin?: any; userId?: string | null },
+  opts?: { admin?: any; userId?: string | null; maxMs?: number },
 ): Promise<DoubleHumanizeResult> {
   if (!openRouterKey || !content || content.length < 300) {
     return { content, passesApplied: 0, modelsUsed: [] };
   }
+  const budgetMs = Math.max(0, Number(opts?.maxMs) || 0);
+  // If caller passed a very tight budget, skip humanize entirely.
+  if (budgetMs > 0 && budgetMs < 30_000) {
+    return { content, passesApplied: 0, modelsUsed: [], opusSkipped: true, opusSkipReason: "time_budget_too_small" };
+  }
+  const startedAt = Date.now();
+  const remaining = () => budgetMs > 0 ? Math.max(0, budgetMs - (Date.now() - startedAt)) : Infinity;
   const system = language === "ru" ? SYSTEM_RU : SYSTEM_EN;
   const modelsUsed: string[] = [];
   let current = content;
@@ -206,8 +213,12 @@ export async function runDoubleHumanizePass(
   // completed") and the client toast hangs indefinitely. Budget: ~135s total
   // for short/medium texts, ~145s for long (Opus is dropped for >15k anyway).
   const len = content.length;
-  const sonnetTimeout = len > 12_000 ? 75_000 : len > 6_000 ? 65_000 : 55_000;
-  const opusTimeout   = len > 12_000 ? 70_000 : len > 6_000 ? 70_000 : 70_000;
+  let sonnetTimeout = len > 12_000 ? 75_000 : len > 6_000 ? 65_000 : 55_000;
+  let opusTimeout   = len > 12_000 ? 70_000 : len > 6_000 ? 70_000 : 70_000;
+  // Cap pass1 timeout to ~half of remaining budget so pass2 has air.
+  if (budgetMs > 0) {
+    sonnetTimeout = Math.min(sonnetTimeout, Math.max(20_000, Math.floor(budgetMs * 0.55)));
+  }
 
   // Pass 1: Sonnet (deeper rewrite)
   const out1 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS1_USER(language, current), sonnetTimeout);
@@ -254,6 +265,17 @@ export async function runDoubleHumanizePass(
     }
   }
   let pass2Model = useSonnetForPass2 ? SONNET_MODEL : OPUS_MODEL;
+  // Recompute remaining budget; skip pass2 if not enough time left.
+  const rem2 = remaining();
+  if (budgetMs > 0 && rem2 < 25_000) {
+    opusAllowed = false;
+    opusSkipped = true;
+    opusSkipReason = (opusSkipReason ? opusSkipReason + "+" : "") + "no_time_for_pass2";
+  } else if (budgetMs > 0) {
+    const cap = Math.max(20_000, rem2 - 5_000);
+    opusTimeout = Math.min(opusTimeout, cap);
+    sonnetTimeout = Math.min(sonnetTimeout, cap);
+  }
   let out2 = opusAllowed
     ? await callOpenRouter(openRouterKey, pass2Model, system, PASS2_USER(language, current), useSonnetForPass2 ? sonnetTimeout : opusTimeout)
     : null;
@@ -261,22 +283,29 @@ export async function runDoubleHumanizePass(
   // Fallback: if Opus failed (timeout/HTTP error), retry pass2 with Sonnet
   // so we still get a polish pass instead of degrading silently.
   if (opusAllowed && !out2 && !useSonnetForPass2) {
-    console.warn("[humanize] Opus failed, falling back to Sonnet for pass2");
-    opusSkipped = true;
-    opusSkipReason = "opus_failed_fallback_sonnet";
-    pass2Model = SONNET_MODEL;
-    out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), sonnetTimeout);
+    const remFb = remaining();
+    if (budgetMs > 0 && remFb < 25_000) {
+      opusSkipReason = (opusSkipReason ? opusSkipReason + "+" : "") + "no_time_for_fallback";
+    } else {
+      console.warn("[humanize] Opus failed, falling back to Sonnet for pass2");
+      opusSkipped = true;
+      opusSkipReason = "opus_failed_fallback_sonnet";
+      pass2Model = SONNET_MODEL;
+      const cap = budgetMs > 0 ? Math.max(20_000, remFb - 5_000) : sonnetTimeout;
+      out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), Math.min(sonnetTimeout, cap));
+    }
   }
 
   // 3rd-tier fallback: if Sonnet also failed (e.g. account 402, region
   // throttling), fall back to Llama 3.3 70B so the article still gets a
   // micro-polish instead of skipping pass2 entirely.
-  if (!out2) {
+  if (!out2 && (budgetMs === 0 || remaining() >= 25_000)) {
     console.warn("[humanize] Sonnet also failed, falling back to Llama 3.3 70B for pass2");
     opusSkipped = true;
     opusSkipReason = (opusSkipReason ? opusSkipReason + "+" : "") + "sonnet_failed_fallback_llama";
     pass2Model = LLAMA_FALLBACK_MODEL;
-    out2 = await callOpenRouter(openRouterKey, LLAMA_FALLBACK_MODEL, system, PASS2_USER(language, current), 90_000);
+    const cap = budgetMs > 0 ? Math.max(20_000, remaining() - 5_000) : 90_000;
+    out2 = await callOpenRouter(openRouterKey, LLAMA_FALLBACK_MODEL, system, PASS2_USER(language, current), Math.min(90_000, cap));
   }
 
   if (out2) {
@@ -305,7 +334,8 @@ export async function runDoubleHumanizePass(
   if (
     language === "ru" &&
     passes > 0 &&
-    (banlistAfter >= 6 || chainsAfter >= 3)
+    (banlistAfter >= 6 || chainsAfter >= 3) &&
+    (budgetMs === 0 || remaining() >= 40_000)
   ) {
     const hits = listBanlistHits(current, language, 10);
     const hintList = hits.length
