@@ -700,9 +700,15 @@ export default function VcWriterPage() {
                 rows={5}
                 className="text-xs"
               />
-              <p className="text-[10px] text-muted-foreground">
-                Если пусто - модель использует только обобщения ("по нашей практике", диапазоны) и не сочиняет конкретных чисел.
-              </p>
+              {verifiedFacts.trim().length < 20 ? (
+                <div className="text-[10px] rounded bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 text-amber-600 dark:text-amber-400 leading-snug">
+                  Включён режим «без конкретных чисел». Постпроцессор автоматически вырежет любые цены (руб, ₽), проценты, км/л/л.с., бизнес-метрики (N клиентов, постов) и заменит их на обобщения. Чтобы оставить конкретику - добавьте сюда реальные цифры построчно.
+                </div>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  Числа из этого списка попадут в текст как есть. Любые другие конкретные цифры будут заменены на обобщения постпроцессором.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between rounded-md border border-border p-3">
