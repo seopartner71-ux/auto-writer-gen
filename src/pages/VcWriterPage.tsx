@@ -430,6 +430,11 @@ export default function VcWriterPage() {
                   <p className="text-[10px] text-muted-foreground">
                     Первый запрос - главный (войдет в заголовок и H2). Остальные - дополнительные, естественно впишутся в текст. Пусто - подберём автоматически из реальных запросов Google.
                   </p>
+                  {targetQuery.split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean).length > 1 && (
+                    <div className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
+                      Внимание: только первый запрос - основной SEO-таргет. Остальные используются как LSI (1-2 упоминания в тексте), не как равноценные цели. Если нужно равноценно - сгенерируй отдельные статьи в Пакетном режиме.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -437,6 +442,24 @@ export default function VcWriterPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>Длина: {length} знаков</Label>
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: "Короткий", v: 3500 },
+                    { label: "Стандарт", v: 5500 },
+                    { label: "Лонгрид", v: 7500 },
+                  ].map((p) => (
+                    <Button
+                      key={p.v}
+                      type="button"
+                      size="sm"
+                      variant={length === p.v ? "default" : "ghost"}
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => setLength(p.v)}
+                    >
+                      {p.label}
+                    </Button>
+                  ))}
+                </div>
               </div>
               <Slider
                 value={[length]}
@@ -445,7 +468,7 @@ export default function VcWriterPage() {
                 max={8000}
                 step={500}
               />
-              <p className="text-[10px] text-muted-foreground">vc.ru-топ обычно 4500-6500 знаков</p>
+              <p className="text-[10px] text-muted-foreground">vc.ru-топ обычно 4500-6500 знаков. Считаем без пробелов и markdown-разметки - vc.ru-редактор покажет похожее число (±5%).</p>
             </div>
 
             <div className="space-y-2 rounded-md border border-border p-3">
@@ -468,6 +491,14 @@ export default function VcWriterPage() {
                   <Plus className="h-3 w-3 mr-1" /> Добавить
                 </Button>
               </div>
+              {clientLinks.length > 0 && (
+                <div className="flex items-center justify-between rounded border border-border/60 px-2 py-1.5">
+                  <Label className="text-[11px] flex-1 cursor-pointer" htmlFor="utm-toggle">
+                    Добавлять UTM-метки (utm_source=vc, utm_medium=article)
+                  </Label>
+                  <Switch id="utm-toggle" checked={addUtm} onCheckedChange={setAddUtm} />
+                </div>
+              )}
               {clientLinks.map((l, i) => (
                 <div key={i} className="space-y-1.5 rounded border border-border/60 p-2">
                   <div className="flex items-center justify-between">
