@@ -31,6 +31,7 @@ interface Result {
   checklist: Array<{ label: string; ok: boolean; hint: string }>;
   cover_data_url: string | null;
   stats?: { chars: number; model: string };
+  seo?: { mode: boolean; target_query: string | null; suggestions: string[] };
 }
 
 const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
@@ -49,6 +50,8 @@ export default function VcWriterPage() {
   const [tone, setTone] = useState("экспертно-разговорный с легкой провокацией");
   const [length, setLength] = useState(5500);
   const [withCover, setWithCover] = useState(true);
+  const [seoMode, setSeoMode] = useState(true);
+  const [targetQuery, setTargetQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
@@ -61,12 +64,18 @@ export default function VcWriterPage() {
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("vc-writer", {
-        body: { format, model, topic, thesis, audience, tone, length, generate_cover: withCover },
+        body: {
+          format, model, topic, thesis, audience, tone, length,
+          generate_cover: withCover,
+          seo_mode: seoMode,
+          target_query: targetQuery.trim() || null,
+        },
       });
       if (error) throw error;
       if (!data?.ok) throw new Error("Не удалось сгенерировать материал");
       setResult(data as Result);
-      toast.success("Материал готов");
+      const tq = (data as Result).seo?.target_query;
+      toast.success(tq ? `Материал готов. SEO-цель: ${tq}` : "Материал готов");
     } catch (e: any) {
       toast.error(e?.message || "Ошибка генерации");
     } finally {
