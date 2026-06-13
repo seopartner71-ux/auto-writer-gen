@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,15 @@ import { supabase } from "@/integrations/supabase/client";
 import VcWriterBulk from "@/components/vc-writer/VcWriterBulk";
 
 type Format = "guide" | "rating" | "review" | "case";
+type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
+
+const PERSONA_OPTIONS: Array<{ value: AuthorPersona; label: string; hint: string }> = [
+  { value: "freeform", label: "Свободный формат", hint: "Без конкретного автора-бизнеса. Обобщения: 'практика показывает', 'у коллег'." },
+  { value: "agency", label: "Агентство / подрядчик", hint: "'Мы в агентстве', 'клиент пришёл с задачей'. Без выдуманных имён клиентов." },
+  { value: "inhouse", label: "In-house маркетолог/продакт", hint: "'У нас в компании', 'наша команда'. Без выдуманных оборотов и штата." },
+  { value: "brand_owner", label: "Владелец бренда продукта", hint: "Запрещены выдуманные собственные сервис, штат, парк, кейсы клиентов." },
+  { value: "expert", label: "Независимый эксперт", hint: "От первого лица как наблюдатель. Без своего бизнеса/штата/клиентов." },
+];
 
 const MODEL_OPTIONS = [
   { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", hint: "Рекомендуем - живой русский, лучший тон для vc.ru", recommended: true },
@@ -35,6 +44,22 @@ interface Result {
   seo?: { mode: boolean; target_query: string | null; suggestions: string[] };
   links_report?: { injected: string[]; appended: string[] };
   history_id?: string | null;
+  risk_report?: RiskReport | null;
+}
+
+interface FactClaim {
+  text: string;
+  kind: string;
+  verified: boolean;
+  note: string;
+}
+
+interface RiskReport {
+  total: number;
+  unverified: number;
+  level: "low" | "medium" | "high";
+  claims: FactClaim[];
+  summary: string;
 }
 
 interface HistoryRow {
@@ -59,6 +84,9 @@ interface HistoryRow {
   links_report: { injected: string[]; appended: string[] } | null;
   chars: number | null;
   is_favorite: boolean | null;
+  author_persona?: string | null;
+  verified_facts?: string | null;
+  risk_report?: RiskReport | null;
 }
 
 const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
@@ -83,6 +111,10 @@ export default function VcWriterPage() {
   const [addUtm, setAddUtm] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
+  const [verifiedFacts, setVerifiedFacts] = useState("");
+  const [factCheckOn, setFactCheckOn] = useState(true);
+  const [rechecking, setRechecking] = useState(false);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -129,6 +161,8 @@ export default function VcWriterPage() {
         ? row.client_links.map((l) => ({ url: l.url || "", anchor: l.anchor || "", hint: l.hint || "" }))
         : [],
     );
+    setAuthorPersona(((row.author_persona as AuthorPersona) || "freeform"));
+    setVerifiedFacts(row.verified_facts || "");
     setResult({
       ok: true,
       markdown: row.markdown || "",
@@ -143,6 +177,7 @@ export default function VcWriterPage() {
       stats: { chars: row.chars || 0, model: row.model },
       seo: { mode: !!row.seo_mode, target_query: row.target_query, suggestions: [] },
       links_report: row.links_report || undefined,
+      risk_report: row.risk_report || null,
       history_id: row.id,
     });
     setHistoryOpen(false);
@@ -182,6 +217,9 @@ export default function VcWriterPage() {
           generate_cover: withCover,
           seo_mode: seoMode,
           target_query: primaryQuery,
+          author_persona: authorPersona,
+          verified_facts: verifiedFacts.trim() || null,
+          fact_check: factCheckOn,
           client_links: clientLinks
             .filter((l) => l.url.trim() && l.anchor.trim())
             .map((l) => {
@@ -245,6 +283,24 @@ export default function VcWriterPage() {
     }
   };
 
+  const rerunFactCheck = async () => {
+    if (!result?.markdown) return;
+    setRechecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-tools", {
+        body: { action: "factcheck", markdown: result.markdown, verified_facts: verifiedFacts.trim() || null },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("factcheck failed");
+      setResult({ ...result, risk_report: data.risk_report });
+      toast.success("Факт-чек обновлён");
+    } catch (e: any) {
+      toast.error(e?.message || "Факт-чек не удался");
+    } finally {
+      setRechecking(false);
+    }
+  };
+
   const runAutoFix = async () => {
     if (!result?.markdown) return;
     const failed = result.checklist.filter((c) => !c.ok).map((c) => `${c.label} (${c.hint})`);
@@ -261,6 +317,7 @@ export default function VcWriterPage() {
           failed,
           ps_question: result.meta.ps_question,
           model,
+          verified_facts: verifiedFacts.trim() || null,
           client_links: clientLinks.filter((l) => l.url && l.anchor).slice(0, 5),
         },
       });
@@ -271,6 +328,7 @@ export default function VcWriterPage() {
         markdown: data.markdown,
         checklist: data.checklist || result.checklist,
         links_report: data.links_report || result.links_report,
+        risk_report: data.risk_report ?? result.risk_report,
         stats: { chars: data.stats?.chars ?? result.stats?.chars ?? 0, model: result.stats?.model || "" },
       });
       const stillBad = (data.checklist || []).filter((c: any) => !c.ok).length;
@@ -493,6 +551,57 @@ export default function VcWriterPage() {
             <div className="space-y-1.5">
               <Label>Тон</Label>
               <Input value={tone} onChange={(e) => setTone(e.target.value)} />
+            </div>
+
+            <div className="space-y-1.5 rounded-md border border-border p-3">
+              <Label className="text-sm flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" /> От лица кого пишем
+              </Label>
+              <Select value={authorPersona} onValueChange={(v) => setAuthorPersona(v as AuthorPersona)}>
+                <SelectTrigger><SelectValue>{PERSONA_OPTIONS.find((o) => o.value === authorPersona)?.label}</SelectValue></SelectTrigger>
+                <SelectContent>
+                  {PERSONA_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      <div className="flex flex-col">
+                        <span>{o.label}</span>
+                        <span className="text-xs text-muted-foreground">{o.hint}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Блокирует выдумывание фейковых сервисов, оборотов и парка клиентов автора - частая причина рискованного текста.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Проверенные факты
+                </Label>
+                <span className="text-[10px] text-muted-foreground">{verifiedFacts.length}/4000</span>
+              </div>
+              <Textarea
+                value={verifiedFacts}
+                onChange={(e) => setVerifiedFacts(e.target.value.slice(0, 4000))}
+                placeholder={`Только реальные цифры и факты - модель не выдумает новые.\nПример:\n- цена нашего масла KAT 5W-30: 2400 руб/4л\n- цена Shell Helix Ultra 5W-30: 4100 руб/4л (Озон, июнь 2026)\n- тестировали на Camry 2019 и Kia Rio 2021, пробег по 12000 км\n- сертификация KAT: API SN, ACEA A3/B4`}
+                rows={5}
+                className="text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Если пусто - модель использует только обобщения ("по нашей практике", диапазоны) и не сочиняет конкретных чисел.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <ShieldAlert className="h-3.5 w-3.5" /> Fact-Check Guard
+                </Label>
+                <p className="text-[10px] text-muted-foreground">После генерации проверим конкретные числа и пометим неподтверждённые.</p>
+              </div>
+              <Switch checked={factCheckOn} onCheckedChange={setFactCheckOn} />
             </div>
 
             <div className="space-y-2 rounded-md border border-border p-3">
@@ -828,6 +937,90 @@ export default function VcWriterPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Risk / Fact-Check Report */}
+              {(result.risk_report || factCheckOn) && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        {result.risk_report?.level === "high" ? (
+                          <ShieldAlert className="h-4 w-4 text-rose-400" />
+                        ) : result.risk_report?.level === "medium" ? (
+                          <AlertTriangle className="h-4 w-4 text-amber-400" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                        )}
+                        Fact-Check Guard
+                        {result.risk_report && (
+                          <Badge
+                            variant="outline"
+                            className={
+                              result.risk_report.level === "high"
+                                ? "border-rose-500/40 text-rose-300"
+                                : result.risk_report.level === "medium"
+                                  ? "border-amber-500/40 text-amber-300"
+                                  : "border-emerald-500/40 text-emerald-300"
+                            }
+                          >
+                            {result.risk_report.unverified}/{result.risk_report.total} непроверенных
+                          </Badge>
+                        )}
+                      </span>
+                      <Button size="sm" variant="outline" disabled={rechecking} onClick={rerunFactCheck}>
+                        {rechecking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
+                        Перепроверить
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {!result.risk_report && (
+                      <p className="text-xs text-muted-foreground">
+                        Нажми «Перепроверить» - модель найдёт все конкретные цифры/цены/показатели в тексте и пометит риск-моменты.
+                      </p>
+                    )}
+                    {result.risk_report && (
+                      <div className="space-y-2.5">
+                        <p className={`text-xs ${
+                          result.risk_report.level === "high" ? "text-rose-300"
+                          : result.risk_report.level === "medium" ? "text-amber-300"
+                          : "text-emerald-300"
+                        }`}>
+                          {result.risk_report.summary}
+                        </p>
+                        {!verifiedFacts.trim() && result.risk_report.unverified > 0 && (
+                          <div className="text-[11px] rounded bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 text-amber-200">
+                            Совет: заполни «Проверенные факты» слева своими реальными цифрами и нажми «Сгенерировать» снова или «Автоисправление» - модель уберёт выдуманные числа.
+                          </div>
+                        )}
+                        {result.risk_report.claims.length > 0 && (
+                          <ul className="space-y-1.5">
+                            {result.risk_report.claims.map((c, i) => (
+                              <li
+                                key={i}
+                                className={`flex items-start gap-2 text-xs rounded p-2 ${
+                                  c.verified ? "bg-emerald-500/10" : "bg-rose-500/10"
+                                }`}
+                              >
+                                {c.verified
+                                  ? <Check className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                                  : <AlertTriangle className="h-3.5 w-3.5 text-rose-400 mt-0.5 shrink-0" />}
+                                <div className="min-w-0">
+                                  <div className="font-mono text-[11px] truncate">{c.text}</div>
+                                  <div className="text-muted-foreground text-[10px]">
+                                    <Badge variant="outline" className="h-3.5 px-1 text-[9px] mr-1">{c.kind}</Badge>
+                                    {c.note}
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Competitive SERP */}
               <Card>

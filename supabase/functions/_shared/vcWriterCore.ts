@@ -187,7 +187,23 @@ export interface VcGenInput {
   targetQuery?: string;
   /** Клиентские ссылки для естественной вставки в текст. */
   clientLinks?: Array<{ url: string; anchor: string; hint?: string }>;
+  /** От лица кого пишется статья. Влияет на запреты выдуманных сервисов/команд. */
+  authorPersona?: AuthorPersona;
+  /** Проверенные пользователем факты (цены, измерения, кейсы). Только их можно использовать как точные числа. */
+  verifiedFacts?: string;
+  /** Запустить факт-чек после генерации (по умолчанию true, если есть числовые утверждения). */
+  factCheck?: boolean;
 }
+
+export type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
+
+export const AUTHOR_PERSONA_BRIEF: Record<AuthorPersona, string> = {
+  agency: "Агентство или подрядчик. Можно говорить 'мы в агентстве', 'клиент пришел с задачей'. НЕЛЬЗЯ выдумывать конкретное название клиента - используй 'один из клиентов', 'компания из ниши X'.",
+  inhouse: "Сотрудник компании-заказчика (in-house маркетолог/продакт). Можно говорить 'мы внутри компании', 'у нас в команде'. НЕЛЬЗЯ выдумывать численность команды, обороты, конкретные внутренние процессы, если они не даны в проверенных фактах.",
+  brand_owner: "Владелец/представитель бренда продукта или услуги. ЗАПРЕЩЕНО выдумывать собственный сервис, количество клиентов, обороты, парк техники, количество сотрудников, кейсы. Можно говорить только о самом продукте на основе общедоступных фактов и проверенных данных. Все 'мы обслуживаем X машин в месяц' и 'у нас сервис на N постов' категорически запрещены.",
+  expert: "Независимый эксперт или практик без своего сервиса/компании. Говори от первого лица как наблюдатель: 'по моему опыту', 'когда я разбирался', 'видел кейсы, где'. ЗАПРЕЩЕНО выдумывать собственный бизнес, штат, обороты, количество клиентов.",
+  freeform: "Свободный формат - можно использовать обобщенные сцены вида 'практика показывает', 'у коллег по рынку видел'. Без конкретных названий компаний-клиентов и без выдуманных бизнес-метрик от автора.",
+};
 
 export interface VcGenResult {
   markdown: string;
@@ -196,6 +212,7 @@ export interface VcGenResult {
   cover_data_url: string | null;
   stats: { chars: number; model: string };
   links_report?: { injected: string[]; appended: string[] };
+  risk_report?: RiskReport;
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
@@ -209,8 +226,76 @@ function buildPrompt(p: VcGenInput): { system: string; user: string } {
   const links = (p.clientLinks && p.clientLinks.length)
     ? `\n\nКЛИЕНТСКИЕ ССЫЛКИ (КРИТИЧНО, ОБЯЗАТЕЛЬНО ВПИСАТЬ):\nВ тексте нужно естественно вписать markdown-ссылки на эти ресурсы. Каждая ссылка вставляется 1 раз, в подходящем по смыслу месте (не подряд, не в первом абзаце, не в P.S., не в заголовке). Анкор использовать ровно такой, как указан. Формат: [анкор](url). Без рекламной приписки, без "перейти", "узнать больше" - просто органично в предложении.\n${p.clientLinks.slice(0, 5).map((l, i) => `${i + 1}. Анкор: "${l.anchor}" -> ${l.url}${l.hint ? ` (контекст: ${l.hint})` : ""}`).join("\n")}`
     : "";
-  const user = `Тема: ${p.topic}\nГлавный тезис: ${p.thesis || "сформулируй сам исходя из темы"}\nАудитория vc.ru: ${p.audience || "предприниматели, маркетологи, продактменеджеры"}\nТон: ${p.tone || "экспертно-разговорный с легкой провокацией"}\nЦелевая длина: ${p.length || 5500} знаков (+-20%).${seo}${links}${avoid}\n\nВерни строго JSON:\n{\n  "title": "заголовок до 90 символов",\n  "subtitle": "подзаголовок 1-2 предложения, продает клик",\n  "tags": ["тег1","тег2",...],\n  "ps_question": "вопрос аудитории для P.S.",\n  "markdown": "полный текст материала в markdown с H2, списками. Включи в конец строку 'P.S. <ps_question>'"\n}`;
+  const persona = p.authorPersona && AUTHOR_PERSONA_BRIEF[p.authorPersona]
+    ? `\n\nОТ ЛИЦА КОГО ПИШЕМ (КРИТИЧНО): ${AUTHOR_PERSONA_BRIEF[p.authorPersona]}`
+    : "";
+  const facts = p.verifiedFacts && p.verifiedFacts.trim()
+    ? `\n\nПРОВЕРЕННЫЕ ФАКТЫ (ИСПОЛЬЗОВАТЬ ТОЛЬКО ИХ):\nНиже список реальных цифр, цен, кейсов и характеристик. Все конкретные цифры, цены, проценты, сроки, лабораторные показатели, технические параметры, количество клиентов и обороты в тексте ДОЛЖНЫ браться отсюда. Если факта нет в списке - НЕ выдумывай число, используй формулировки 'по нашей практике', 'обычно', 'в среднем по рынку' БЕЗ конкретной цифры. Запрещено добавлять цифры, которых нет в списке.\n--- начало списка ---\n${p.verifiedFacts.trim().slice(0, 4000)}\n--- конец списка ---`
+    : `\n\nАНТИ-ГАЛЛЮЦИНАЦИИ (КРИТИЧНО): пользователь НЕ дал проверенных цифр. Это значит:\n- НЕ выдумывай конкретные цены брендов-конкурентов (Shell, Mobil, Castrol и т.п.).\n- НЕ выдумывай лабораторные показатели (вязкость, плотность, моторесурс и т.п.).\n- НЕ выдумывай конкретные пробеги клиентов и их марки авто.\n- НЕ выдумывай численность команды/штата/количество клиентов автора.\n- Используй обобщения: 'по нашей практике', 'обычно', 'у коллег по рынку', 'часто встречаем'. Цифры из протокола (4-6 шт) бери из общеизвестных фактов рынка или формулируй как диапазоны/пропорции ('у X из Y клиентов', 'на 15-25% дороже').`;
+  const user = `Тема: ${p.topic}\nГлавный тезис: ${p.thesis || "сформулируй сам исходя из темы"}\nАудитория vc.ru: ${p.audience || "предприниматели, маркетологи, продактменеджеры"}\nТон: ${p.tone || "экспертно-разговорный с легкой провокацией"}\nЦелевая длина: ${p.length || 5500} знаков (+-20%).${persona}${facts}${seo}${links}${avoid}\n\nВерни строго JSON:\n{\n  "title": "заголовок до 90 символов",\n  "subtitle": "подзаголовок 1-2 предложения, продает клик",\n  "tags": ["тег1","тег2",...],\n  "ps_question": "вопрос аудитории для P.S.",\n  "markdown": "полный текст материала в markdown с H2, списками. Включи в конец строку 'P.S. <ps_question>'"\n}`;
   return { system, user };
+}
+
+export interface FactClaim {
+  text: string;
+  kind: "price" | "measurement" | "stat" | "date" | "count" | "brand_price" | "other";
+  verified: boolean;
+  note: string;
+}
+
+export interface RiskReport {
+  total: number;
+  unverified: number;
+  level: "low" | "medium" | "high";
+  claims: FactClaim[];
+  summary: string;
+}
+
+/**
+ * Fact-Check Guard: достаёт численные/конкретные утверждения из markdown и
+ * сверяет с проверенными фактами пользователя. Возвращает risk_report.
+ * Использует дешёвую модель (gemini-2.5-flash).
+ */
+export async function factCheckMarkdown(
+  apiKey: string,
+  markdown: string,
+  verifiedFacts: string | undefined,
+): Promise<RiskReport> {
+  const empty: RiskReport = { total: 0, unverified: 0, level: "low", claims: [], summary: "Нет рисков" };
+  if (!markdown || markdown.length < 200) return empty;
+
+  const facts = (verifiedFacts || "").trim();
+  const system = `Ты - редактор-факт-чекер vc.ru. Найди в тексте все КОНКРЕТНЫЕ числовые утверждения, которые читатель воспримет как факты:\n- цены конкурентов и собственные цены ("Shell 4200 руб", "наш сервис 1800 руб")\n- лабораторные/технические показатели (вязкость 14.2 сСт, мощность 250 л.с., расход 10.8 л/100км)\n- конкретные пробеги, сроки эксплуатации, "за 6000 км"\n- численность бизнеса автора (клиентов в месяц, постов в сервисе, штат)\n- статистика рынка ("доля 18%", "выросло в 2 раза")\n- сертификации с конкретными кодами (API SN/CF, ACEA A3/B4)\n- марки/модели техники с конкретными результатами\n\nДля КАЖДОГО утверждения определи:\n- verified=true если оно прямо подтверждается списком проверенных фактов пользователя ИЛИ если это общеизвестный факт (например, "Mercedes - немецкий бренд")\n- verified=false если это конкретное число/факт, не подтверждённый списком (риск галлюцинации)\n\nВерни строго JSON.`;
+  const user = `ПРОВЕРЕННЫЕ ФАКТЫ ПОЛЬЗОВАТЕЛЯ:\n${facts ? facts.slice(0, 3000) : "(пользователь не дал проверенных фактов - значит ЛЮБОЕ конкретное число в тексте, кроме общеизвестных, считай unverified=true)"}\n\nТЕКСТ ДЛЯ ПРОВЕРКИ:\n${markdown.slice(0, 8000)}\n\nВерни JSON:\n{\n  "claims": [\n    {"text": "цитата из текста (до 120 символов)", "kind": "price|measurement|stat|date|count|brand_price|other", "verified": true|false, "note": "почему verified или какой риск (до 100 символов)"}\n  ]\n}\nМаксимум 20 утверждений, в первую очередь те, у которых verified=false.`;
+
+  try {
+    const r = await chatJson<{ claims: FactClaim[] }>({
+      apiKey,
+      model: "google/gemini-2.5-flash",
+      system,
+      user,
+      temperature: 0.1,
+      maxTokens: 2500,
+      timeoutMs: 60_000,
+      appTitle: "vc.ru Fact-Check",
+      retries: 0,
+    });
+    const claims = Array.isArray(r.data?.claims) ? r.data!.claims.slice(0, 30) : [];
+    const unverified = claims.filter((c) => c && c.verified === false).length;
+    const total = claims.length;
+    let level: "low" | "medium" | "high" = "low";
+    if (unverified >= 6) level = "high";
+    else if (unverified >= 3) level = "medium";
+    const summary = total === 0
+      ? "Конкретных проверяемых утверждений не нашли"
+      : unverified === 0
+        ? `Все ${total} утверждений подтверждены`
+        : `${unverified} из ${total} утверждений не подтверждены - проверь перед публикацией`;
+    return { total, unverified, level, claims, summary };
+  } catch (e) {
+    console.error("[factCheckMarkdown] failed", e);
+    return empty;
+  }
 }
 
 export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult> {
@@ -260,6 +345,16 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   const checklist = buildChecklist(markdown, ps_question);
 
+  // Fact-Check Guard (по умолчанию ON).
+  let risk_report: RiskReport | undefined;
+  if (input.factCheck !== false) {
+    try {
+      risk_report = await factCheckMarkdown(input.apiKey, markdown, input.verifiedFacts);
+    } catch (e) {
+      console.error("[generateVcArticle] fact-check failed", e);
+    }
+  }
+
   return {
     markdown,
     meta: { title, subtitle, tags, ps_question },
@@ -267,6 +362,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     cover_data_url,
     stats: { chars: stripText(markdown).length, model: result.model },
     links_report: linksReport,
+    risk_report,
   };
 }
 
