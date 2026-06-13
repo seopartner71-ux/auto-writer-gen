@@ -82,6 +82,74 @@ export default function VcWriterPage() {
   const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("vc_writer_history")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setHistory((data as unknown as HistoryRow[]) || []);
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось загрузить историю");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (historyOpen) loadHistory();
+  }, [historyOpen]);
+
+  const restoreFromHistory = (row: HistoryRow) => {
+    setFormat((row.format as Format) || "guide");
+    setModel(row.model || "anthropic/claude-sonnet-4.5");
+    setTopic(row.topic || "");
+    setThesis(row.thesis || "");
+    setAudience(row.audience || "");
+    setTone(row.tone || "экспертно-разговорный с легкой провокацией");
+    setLength(row.length_target || 5500);
+    setSeoMode(!!row.seo_mode);
+    setTargetQuery(row.target_query || "");
+    setClientLinks(
+      Array.isArray(row.client_links)
+        ? row.client_links.map((l) => ({ url: l.url || "", anchor: l.anchor || "", hint: l.hint || "" }))
+        : [],
+    );
+    setResult({
+      ok: true,
+      markdown: row.markdown || "",
+      meta: {
+        title: row.title || "",
+        subtitle: row.subtitle || "",
+        tags: Array.isArray(row.tags) ? row.tags : [],
+        ps_question: row.ps_question || "",
+      },
+      checklist: Array.isArray(row.checklist) ? row.checklist : [],
+      cover_data_url: null,
+      stats: { chars: row.chars || 0, model: row.model },
+      seo: { mode: !!row.seo_mode, target_query: row.target_query, suggestions: [] },
+      links_report: row.links_report || undefined,
+      history_id: row.id,
+    });
+    setHistoryOpen(false);
+    toast.success("Параметры и результат загружены");
+  };
+
+  const deleteHistoryRow = async (id: string) => {
+    const { error } = await supabase.from("vc_writer_history").delete().eq("id", id);
+    if (error) {
+      toast.error("Не удалось удалить");
+      return;
+    }
+    setHistory((h) => h.filter((r) => r.id !== id));
+  };
 
   const handleGenerate = async () => {
     if (topic.trim().length < 5) {
