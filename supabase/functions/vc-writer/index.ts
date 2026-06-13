@@ -97,7 +97,7 @@ serve(async (req) => {
       const { data: hist } = await admin
         .from("vc_writer_history")
         .insert({
-          user_id: auth.user.id,
+          user_id: auth.userId,
           format, model, topic, thesis: thesis || null, audience: audience || null, tone: tone || null,
           length_target: length,
           target_query: targetQuery || null,
