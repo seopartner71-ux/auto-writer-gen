@@ -3729,6 +3729,87 @@ export type Database = {
         }
         Relationships: []
       }
+      vc_writer_history: {
+        Row: {
+          audience: string | null
+          chars: number | null
+          checklist: Json | null
+          client_links: Json | null
+          cover_url: string | null
+          created_at: string
+          format: string
+          id: string
+          is_favorite: boolean | null
+          length_target: number | null
+          links_report: Json | null
+          markdown: string | null
+          model: string
+          ps_question: string | null
+          seo_mode: boolean | null
+          subtitle: string | null
+          tags: Json | null
+          target_query: string | null
+          thesis: string | null
+          title: string | null
+          tone: string | null
+          topic: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audience?: string | null
+          chars?: number | null
+          checklist?: Json | null
+          client_links?: Json | null
+          cover_url?: string | null
+          created_at?: string
+          format: string
+          id?: string
+          is_favorite?: boolean | null
+          length_target?: number | null
+          links_report?: Json | null
+          markdown?: string | null
+          model: string
+          ps_question?: string | null
+          seo_mode?: boolean | null
+          subtitle?: string | null
+          tags?: Json | null
+          target_query?: string | null
+          thesis?: string | null
+          title?: string | null
+          tone?: string | null
+          topic: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audience?: string | null
+          chars?: number | null
+          checklist?: Json | null
+          client_links?: Json | null
+          cover_url?: string | null
+          created_at?: string
+          format?: string
+          id?: string
+          is_favorite?: boolean | null
+          length_target?: number | null
+          links_report?: Json | null
+          markdown?: string | null
+          model?: string
+          ps_question?: string | null
+          seo_mode?: boolean | null
+          subtitle?: string | null
+          tags?: Json | null
+          target_query?: string | null
+          thesis?: string | null
+          title?: string | null
+          tone?: string | null
+          topic?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wordpress_sites: {
         Row: {
           app_password: string
