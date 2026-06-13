@@ -877,16 +877,8 @@ export default function VcWriterPage() {
         </Card>
 
         {/* Result */}
+        {(result || loading) && (
         <div className="space-y-4">
-          {!result && !loading && (
-            <Card>
-              <CardContent className="py-16 text-center text-muted-foreground">
-                <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p>Заполните параметры слева и нажмите «Сгенерировать»</p>
-              </CardContent>
-            </Card>
-          )}
-
           {loading && (
             <Card>
               <CardContent className="py-16 text-center text-muted-foreground">
