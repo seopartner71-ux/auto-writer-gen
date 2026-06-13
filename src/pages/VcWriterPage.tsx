@@ -233,6 +233,32 @@ export default function VcWriterPage() {
               <Input value={tone} onChange={(e) => setTone(e.target.value)} />
             </div>
 
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm">SEO-режим (под поисковые запросы)</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Статья оптимизируется под целевой запрос - ловит трафик из Google/Yandex, идеально для ссылок на клиентов.
+                  </p>
+                </div>
+                <Switch checked={seoMode} onCheckedChange={setSeoMode} />
+              </div>
+              {seoMode && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Целевой поисковый запрос (опционально)</Label>
+                  <Input
+                    value={targetQuery}
+                    onChange={(e) => setTargetQuery(e.target.value)}
+                    placeholder="напр. как продвинуть интернет-магазин в google"
+                    className="h-9"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Пусто - подберём автоматически из реальных запросов Google по теме.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>Длина: {length} знаков</Label>
