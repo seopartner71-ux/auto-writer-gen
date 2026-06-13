@@ -220,6 +220,23 @@ export default function UtmGeneratorPage() {
         </p>
       </header>
 
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Когда стоит использовать UTM-метки?</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li>Вы ведете рекламу в Google, Яндексе или соцсетях и хотите видеть, <span className="text-foreground">откуда именно приходят пользователи</span>, а не просто «реклама».</li>
+            <li>Вы рассылаете письма или сообщения и хотите понять, <span className="text-foreground">какая рассылка приносит больше переходов и заявок</span>.</li>
+            <li>Вы публикуетесь на внешних площадках (СМИ, блоги, Telegram-каналы) и хотите отделить трафик от каждой публикации.</li>
+            <li>Вы тестируете несколько креативов или лендингов и хотите сравнить их эффективность в одной таблице Метрики/GA4.</li>
+          </ul>
+          <p className="text-xs">
+            UTM-метки - это технические параметры в адресе ссылки, которые автоматически передаются в системы аналитики и позволяют точно атрибутировать каждый клик.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
         {/* LEFT: form */}
         <div className="space-y-6">
@@ -262,11 +279,12 @@ export default function UtmGeneratorPage() {
             </CardHeader>
             <CardContent>
               <Tabs value={preset} onValueChange={(v) => applyPreset(v as Preset)}>
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
                   <TabsTrigger value="custom">Свои значения</TabsTrigger>
                   <TabsTrigger value="google">Google Ads</TabsTrigger>
                   <TabsTrigger value="yandex">Яндекс.Директ</TabsTrigger>
                   <TabsTrigger value="vk">ВКонтакте</TabsTrigger>
+                  <TabsTrigger value="mycom">Target My.com</TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardContent>
@@ -280,21 +298,21 @@ export default function UtmGeneratorPage() {
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs">
-                  utm_source <Hint text="utm_source - название рекламной площадки. Примеры: google, yandex, vk" />
+                  utm_source <Hint text={TIP_SOURCE} />
                   <span className="text-muted-foreground">- Источник кампании</span>
                 </Label>
                 <Input value={source} onChange={(e) => setSource(e.target.value)} placeholder="google" className="font-mono" />
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs">
-                  utm_medium <Hint text="utm_medium - тип рекламы. Примеры: cpc, email, social, banner, display" />
+                  utm_medium <Hint text={TIP_MEDIUM} />
                   <span className="text-muted-foreground">- Тип трафика</span>
                 </Label>
                 <Input value={medium} onChange={(e) => setMedium(e.target.value)} placeholder="cpc" className="font-mono" />
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs">
-                  utm_campaign <Hint text="utm_campaign - произвольное название кампании. Пример: mebel_dlya_doma" />
+                  utm_campaign <Hint text={TIP_CAMPAIGN} />
                   <span className="text-muted-foreground">- Название кампании</span>
                 </Label>
                 <Input value={campaign} onChange={(e) => setCampaign(e.target.value)} placeholder="spring_sale" className="font-mono" />
@@ -316,14 +334,14 @@ export default function UtmGeneratorPage() {
               <CardContent className="space-y-4 pt-0">
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs">
-                    utm_content <Hint text="Дополнительная информация об объявлении. Пример: banner_240x60" />
+                    utm_content <Hint text={TIP_CONTENT} />
                     <span className="text-muted-foreground">- Идентификатор объявления</span>
                   </Label>
                   <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="banner_240x60" className="font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5 text-xs">
-                    utm_term <Hint text="Ключевое слово, по которому показывается объявление" />
+                    utm_term <Hint text={TIP_TERM} />
                     <span className="text-muted-foreground">- Ключевое слово</span>
                   </Label>
                   <Input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="kupit_divan" className="font-mono" />
