@@ -1,0 +1,176 @@
+// Core vc.ru Writer logic: prompt, generation, checklist, cover.
+// Shared by single-shot vc-writer and the batch worker.
+import { chatJson } from "./aiClient.ts";
+
+export type VcFormat = "guide" | "rating" | "review" | "case";
+
+export const VC_FORMAT_BRIEF: Record<VcFormat, string> = {
+  guide: "Статья-разбор / пошаговый гайд. Структура: проблема -> почему это важно -> 4-7 шагов с цифрами и подводными камнями -> итог -> что делать дальше.",
+  rating: "Рейтинг / подборка ТОП-N. Структура: критерии отбора (3-5 пунктов) -> карточки по каждому пункту (название, для кого, плюсы, минусы, цена/условия, личная оценка 1-10) -> сводная таблица -> вывод 'кому что брать'.",
+  review: "Обзор продукта/сервиса. Структура: что это и для кого -> как тестировали (контекст, срок, задачи) -> что понравилось (3-5) -> что бесит (3-5) -> цена и альтернативы -> кому брать, кому пройти мимо.",
+  case: "Кейс / антикейс / мнение. Структура: лид с конфликтом или цифрой потерь/прибыли -> предыстория (кто мы, что хотели) -> что сделали по шагам -> что пошло не так и почему -> цифры до/после -> выводы и спорный тезис в финале.",
+};
+
+const VC_PROTOCOL = `
+EDITORIAL PROTOCOL vc.ru (ОБЯЗАТЕЛЬНО):
+1. ЛИД (первые 3-4 строки): крючок - цифра, провал, спорный тезис или личная сцена. БЕЗ "В современном мире", "Сегодня многие".
+2. ТОН: разговорный, как практик пишет коллегам. Короткие предложения. Канцелярит запрещен. Без "осуществляется", "является", "представляет собой".
+3. ЦИФРЫ И КОНКРЕТИКА: минимум 4-6 цифр в тексте (суммы, проценты, сроки, число клиентов). Если точных нет - "по нашей практике X из Y".
+4. ПОДЗАГОЛОВКИ-КРЮЧКИ: H2 формулируются как вопрос, провокация или результат ("Потеряли 1,2 млн на одной ошибке"). Не "Введение", "Заключение".
+5. ЛИЧНЫЙ ОПЫТ: вставлять "мы попробовали", "у клиента было", "сам столкнулся" - даже если обобщенно. БЕЗ выдуманных имен экспертов и компаний.
+6. ОШИБКИ/ПРОВАЛЫ: обязательно 1-2 момента "что пошло не так" - vc.ru любит честность.
+7. ФИНАЛ: P.S. с прямым вопросом аудитории для комментариев ("А вы как делаете X? Расскажите в комментариях").
+8. ДЛИНА: целевая 4500-6500 знаков (можно +-20%). Слишком короткое не попадает в топ, слишком длинное не дочитывают.
+9. ФОРМАТИРОВАНИЕ: markdown с H2, списками, цитатами (>), таблицами где уместно. БЕЗ жирного (**). БЕЗ ё - заменяй на е.
+10. ЗАГОЛОВОК (до 90 символов): цифра + конкретика + интрига.
+11. ТЕГИ: 4-6 коротких тегов через запятую.
+`.trim();
+
+export function ruEReplace(s: string): string {
+  return (s || "").replace(/ё/g, "е").replace(/Ё/g, "Е");
+}
+
+export function stripText(md: string): string {
+  return md.replace(/```[\s\S]*?```/g, " ").replace(/[#>*_`\-\|]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function buildChecklist(md: string, ps: string): Array<{ label: string; ok: boolean; hint: string }> {
+  const text = stripText(md);
+  const chars = text.length;
+  const digitsCount = (text.match(/\b\d+[\d\s.,%]*/g) || []).length;
+  const h2 = (md.match(/^##\s+/gm) || []).length;
+  const hasPS = /P\.?\s*S\.?/i.test(md) || (ps && md.includes(ps));
+  const hasPersonal = /(мы\s|у\s+клиента|на\s+практик|сам\s+столк|попробовал)/i.test(text);
+  const hasMistake = /(ошибк|провал|пошло\s+не\s+так|потеряли|не\s+сработал)/i.test(text);
+  const hasBold = /\*\*[^*]+\*\*/.test(md);
+  const hasYo = /ё|Ё/.test(md);
+  return [
+    { label: "Длина 3500-8000 знаков", ok: chars >= 3500 && chars <= 8000, hint: `сейчас ${chars}` },
+    { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
+    { label: "Минимум 3 подзаголовка H2", ok: h2 >= 3, hint: `${h2} H2` },
+    { label: "Личный опыт", ok: hasPersonal, hint: hasPersonal ? "ок" : "добавь сцену" },
+    { label: "Упомянут провал/ошибка", ok: hasMistake, hint: hasMistake ? "ок" : "vc.ru любит честность" },
+    { label: "Есть P.S. с вопросом", ok: !!hasPS, hint: hasPS ? "ок" : "добавь P.S." },
+    { label: "Нет жирного (**)", ok: !hasBold, hint: hasBold ? "убери **" : "ок" },
+    { label: "Нет буквы ё", ok: !hasYo, hint: hasYo ? "замени на е" : "ок" },
+  ];
+}
+
+async function generateCover(prompt: string): Promise<string | null> {
+  const key = Deno.env.get("LOVABLE_API_KEY");
+  if (!key) return null;
+  try {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "openai/gpt-image-2",
+        prompt: `Editorial cover image for a vc.ru article. ${prompt}. Style: modern minimal, soft gradient, business-tech aesthetic, no text on image, 16:9 composition.`,
+        size: "1536x1024",
+        quality: "low",
+        n: 1,
+      }),
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const b64 = j?.data?.[0]?.b64_json;
+    return b64 ? `data:image/png;base64,${b64}` : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface VcGenInput {
+  apiKey: string;
+  model: string;
+  format: VcFormat;
+  topic: string;
+  thesis?: string;
+  audience?: string;
+  tone?: string;
+  length?: number;
+  wantCover?: boolean;
+  /** Заголовки уже использованных в пачке статей — чтобы не повторяться. */
+  avoidTitles?: string[];
+}
+
+export interface VcGenResult {
+  markdown: string;
+  meta: { title: string; subtitle: string; tags: string[]; ps_question: string };
+  checklist: Array<{ label: string; ok: boolean; hint: string }>;
+  cover_data_url: string | null;
+  stats: { chars: number; model: string };
+}
+
+function buildPrompt(p: VcGenInput): { system: string; user: string } {
+  const system = `Ты - редактор vc.ru с 5-летним опытом. Твоя задача - написать материал, который попадет в топ vc.ru и зайдет в Google/Yandex. Пиши на русском, без буквы ё (заменяй на е).\n\n${VC_PROTOCOL}\n\nФОРМАТ ЭТОГО МАТЕРИАЛА: ${VC_FORMAT_BRIEF[p.format]}`;
+  const avoid = (p.avoidTitles && p.avoidTitles.length)
+    ? `\n\nВ этой пачке уже были заголовки (НЕ повторяй формулировки, найди другой угол):\n- ${p.avoidTitles.slice(0, 20).join("\n- ")}`
+    : "";
+  const user = `Тема: ${p.topic}\nГлавный тезис: ${p.thesis || "сформулируй сам исходя из темы"}\nАудитория vc.ru: ${p.audience || "предприниматели, маркетологи, продактменеджеры"}\nТон: ${p.tone || "экспертно-разговорный с легкой провокацией"}\nЦелевая длина: ${p.length || 5500} знаков (+-20%).${avoid}\n\nВерни строго JSON:\n{\n  "title": "заголовок до 90 символов",\n  "subtitle": "подзаголовок 1-2 предложения, продает клик",\n  "tags": ["тег1","тег2",...],\n  "ps_question": "вопрос аудитории для P.S.",\n  "markdown": "полный текст материала в markdown с H2, списками. Включи в конец строку 'P.S. <ps_question>'"\n}`;
+  return { system, user };
+}
+
+export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult> {
+  const { system, user } = buildPrompt(input);
+
+  const result = await chatJson<{
+    title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
+  }>({
+    apiKey: input.apiKey,
+    model: input.model,
+    system,
+    user,
+    temperature: 0.85,
+    maxTokens: 6000,
+    timeoutMs: 180_000,
+    appTitle: "vc.ru Writer",
+    retries: 1,
+  });
+
+  const data = result.data || ({} as any);
+  let markdown = ruEReplace(String(data.markdown || "")).replace(/\*\*([^*]+)\*\*/g, "$1");
+  const title = ruEReplace(String(data.title || "")).slice(0, 90);
+  const subtitle = ruEReplace(String(data.subtitle || "")).slice(0, 240);
+  const ps_question = ruEReplace(String(data.ps_question || ""));
+  const tags = Array.isArray(data.tags)
+    ? data.tags.slice(0, 6).map((t: any) => ruEReplace(String(t)).slice(0, 30))
+    : [];
+
+  if (ps_question && !/P\.?\s*S\.?/i.test(markdown)) {
+    markdown += `\n\nP.S. ${ps_question}`;
+  }
+
+  let cover_data_url: string | null = null;
+  if (input.wantCover) {
+    cover_data_url = await generateCover(`${title}. ${subtitle}`);
+  }
+
+  const checklist = buildChecklist(markdown, ps_question);
+
+  return {
+    markdown,
+    meta: { title, subtitle, tags, ps_question },
+    checklist,
+    cover_data_url,
+    stats: { chars: stripText(markdown).length, model: result.model },
+  };
+}
+
+export const ALLOWED_VC_MODELS = new Set([
+  "anthropic/claude-sonnet-4.5",
+  "anthropic/claude-opus-4.1",
+  "google/gemini-2.5-pro",
+  "openai/gpt-5",
+  "google/gemini-2.5-flash",
+]);
+
+export const DEFAULT_VC_MODEL = "anthropic/claude-sonnet-4.5";
+
+export function pickVcModel(raw: unknown): string {
+  return ALLOWED_VC_MODELS.has(String(raw)) ? String(raw) : DEFAULT_VC_MODEL;
+}
+
+export function isVcFormat(v: unknown): v is VcFormat {
+  return v === "guide" || v === "rating" || v === "review" || v === "case";
+}
