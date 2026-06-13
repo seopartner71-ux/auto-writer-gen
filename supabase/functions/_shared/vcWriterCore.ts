@@ -227,7 +227,7 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
   const hasLongDash = /[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/.test(md);
   const hasTable = /^\s*\|.*\|\s*$/m.test(md) && /^\s*\|?\s*:?-{2,}.*\|/m.test(md);
   return [
-    { label: "Длина 3500-8000 знаков", ok: chars >= 3500 && chars <= 8000, hint: `сейчас ${chars}` },
+    { label: "Длина 4500-7000 знаков", ok: chars >= 4500 && chars <= 7000, hint: `сейчас ${chars}` },
     { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
     { label: "Минимум 3 подзаголовка H2", ok: h2 >= 3, hint: `${h2} H2` },
     { label: "Личный опыт", ok: hasPersonal, hint: hasPersonal ? "ок" : "добавь сцену" },
@@ -238,6 +238,164 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
     { label: "Только дефис '-' (без — и –)", ok: !hasLongDash, hint: hasLongDash ? "замени тире на -" : "ок" },
     { label: "Без markdown-таблиц (vc.ru их не рендерит)", ok: !hasTable, hint: hasTable ? "переделай в список" : "ок" },
   ];
+}
+
+// ============================================================================
+// Quality validators / post-processors (Story-First, Lead, SEO, openers, H1).
+// ============================================================================
+
+const LEAD_BANALITY_RE = /^[\s#>\-*_]*(в\s+современн\w*\s+(мир|реал|услов)|сегодня\s+(мног|кажд|пра|почт)|в\s+мире\s+(биз|сов|интер)|ни\s+для\s+кого\s+не\s+секрет|давайте\s+(разберемся|поговорим|обсудим)|итак,?\s|на\s+сегодняшний\s+день|в\s+наши\s+дни|с\s+развитием\s+технолог|многие\s+знают|общеизвестно|статистика\s+показывает|введение[:\.]|шаг\s*1[:.\s]|представь(те)?\s+себе|задумывались?\s+ли\s+вы|в\s+эпоху\s+(цифров|информ))/i;
+
+export function detectLeadBanality(md: string): { banal: boolean; matched?: string; lead?: string } {
+  const paras = md.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  for (const p of paras) {
+    if (/^#{1,6}\s/.test(p)) continue;
+    const m = p.match(LEAD_BANALITY_RE);
+    return { banal: !!m, matched: m?.[0]?.trim().slice(0, 60), lead: p.slice(0, 600) };
+  }
+  return { banal: false };
+}
+
+export interface StoryFirstReport {
+  ok: boolean;
+  missing: string[];
+  hasMoney: boolean;
+  hasConsequence: boolean;
+  hasPerson: boolean;
+}
+
+export function validateStoryFirst(md: string): StoryFirstReport {
+  const text = stripText(md);
+  const first500 = text.split(/\s+/).slice(0, 500).join(" ");
+  const hasMoney = /(\d[\d\s.,]*\s?(?:руб|₽|млн|тыс|тысяч|миллион|млрд|долл|евро|\$|€))|(?:потер\w+|сэконом\w+|вложил\w+|оборот\w*|выручк\w+|прибыл\w+|убыт\w+|инвестиц\w+)\s+\w*\s*\d/i.test(first500);
+  const hasConsequence = /(потер\w+|провал\w+|сорвал\w+|разорил\w+|пошл\w+\s+не\s+так|сломал\w+|не\s+сработал\w*|обжегся|облажал\w+|откатил\w+|закрыл\w+\s+проект|слил\w+\s+бюдж|ушел\w*\s+в\s+минус|ошибк\w+\s+стоил)/i.test(first500);
+  const hasPerson = /(клиент\w*\s+(пришел|обратил|попросил|написал)|у\s+нас\s+в\s+(агентств|компани|команд|сервис|проект)|сам\s+столкнул|ко\s+мне\s+пришел|знаком\w+\s+(предпринимат|маркетол|сеошник|владел)|у\s+коллег|на\s+практике\s+у|один\s+из\s+(клиентов|проектов)|был\s+у\s+нас\s+(кейс|случ)|в\s+прошлом\s+(год|месяц|квартал))/i.test(first500);
+  const missing: string[] = [];
+  if (!hasMoney) missing.push("сумма_денег");
+  if (!hasConsequence) missing.push("реальное_последствие");
+  if (!hasPerson) missing.push("конкретный_человек_или_ситуация");
+  return { ok: missing.length === 0, missing, hasMoney, hasConsequence, hasPerson };
+}
+
+export function detectRepeatedOpeners(md: string): { ok: boolean; offenders: Array<{ opener: string; count: number }> } {
+  const paras = md.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p && !/^#{1,6}\s/.test(p) && !/^[->|]/.test(p) && !/^P\.?\s*S\.?/i.test(p));
+  const openers: Record<string, number> = {};
+  for (const p of paras) {
+    const first = p.split(/\s+/)[0]?.toLowerCase().replace(/[^a-zа-я-]/gi, "");
+    if (!first || first.length < 2) continue;
+    openers[first] = (openers[first] || 0) + 1;
+  }
+  const offenders = Object.entries(openers)
+    .filter(([_, n]) => n >= 3)
+    .map(([opener, count]) => ({ opener, count }))
+    .sort((a, b) => b.count - a.count);
+  return { ok: offenders.length === 0, offenders };
+}
+
+export function stripDuplicateH1(md: string, title: string): string {
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const normTitle = norm(title);
+  const out = md.split("\n").filter((line) => {
+    if (!/^#\s+/.test(line)) return true;
+    const h = norm(line.replace(/^#\s+/, ""));
+    return h !== normTitle;
+  }).join("\n");
+  // Demote any remaining single # to ## (vc.ru already рендерит title отдельно)
+  return out.replace(/^#\s+/gm, "## ");
+}
+
+const CLICHE_RE = /\s*(в\s+современных\s+реалиях|на\s+сегодняшний\s+день|не\s+секрет,?\s+что|давайте\s+разберемся|итак,?\s+подведем\s+итоги|стоит\s+отметить,?\s+что|следует\s+подчеркнуть,?\s+что|нельзя\s+не\s+упомянуть|в\s+заключение\s+хочется\s+(сказать|отметить)|подводя\s+итог|как\s+мы\s+уже\s+говорили|важно\s+понимать,?\s+что|в\s+современном\s+мире)\s*[,.]?\s*/gi;
+
+export function stripCliches(md: string): { md: string; removed: number } {
+  let count = 0;
+  const out = md.replace(CLICHE_RE, (m) => { count++; return " "; })
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\s+([.,;:!?])/g, "$1");
+  return { md: out, removed: count };
+}
+
+export interface SeoReport {
+  ok: boolean;
+  issues: string[];
+  inTitle: boolean;
+  inFirstH2: boolean;
+  occurrences: number;
+}
+
+export function validateSeo(md: string, title: string, targetQuery: string): SeoReport {
+  if (!targetQuery) return { ok: true, issues: [], inTitle: true, inFirstH2: true, occurrences: 0 };
+  const q = targetQuery.toLowerCase().trim();
+  const tokens = q.split(/\s+/).filter((t) => t.length > 3);
+  const textLow = md.toLowerCase();
+  const titleLow = title.toLowerCase();
+  const inTitle = titleLow.includes(q) || (tokens.length > 0 && tokens.every((t) => titleLow.includes(t)));
+  const h2s = (md.match(/^##\s+.+$/gm) || []).map((s) => s.toLowerCase());
+  const inFirstH2 = !!h2s[0] && (h2s[0].includes(q) || tokens.some((t) => h2s[0].includes(t)));
+  const head = tokens[0] || q;
+  const occurrences = (textLow.match(new RegExp(head.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+  const issues: string[] = [];
+  if (!inTitle) issues.push("title_no_keyword");
+  if (!inFirstH2) issues.push("first_h2_no_keyword");
+  if (occurrences < 4) issues.push(`low_density:${occurrences}`);
+  return { ok: issues.length === 0, issues, inTitle, inFirstH2, occurrences };
+}
+
+async function rewriteLead(apiKey: string, lead: string, topic: string, thesis: string): Promise<string | null> {
+  try {
+    const r = await chatJson<{ lead: string }>({
+      apiKey,
+      model: "google/gemini-2.5-flash",
+      system: "Ты редактор vc.ru. Перепиши лид (первый абзац) так, чтобы НЕ начинался с банальностей ('В современном мире', 'Сегодня', 'Итак', 'Шаг 1', 'X - это', 'Давайте разберемся', 'Представьте'). Начни со сцены, конкретной цифры потерь/прибыли, конфликта, провала или провокации. Без буквы ё, без длинных тире, без жирного, без markdown-заголовков. 3-5 коротких предложений.",
+      user: `Тема: ${topic}\nТезис: ${thesis || "(не задан)"}\nТекущий банальный лид:\n${lead}\n\nВерни JSON: {"lead": "новый лид одним абзацем"}`,
+      temperature: 0.9,
+      maxTokens: 500,
+      timeoutMs: 30_000,
+      appTitle: "vc.ru Lead Rewrite",
+      retries: 0,
+    });
+    const out = r.data?.lead;
+    if (!out) return null;
+    return normalizeDashes(ruEReplace(String(out))).replace(/\*\*([^*]+)\*\*/g, "$1").trim();
+  } catch (e) {
+    console.warn("[rewriteLead] failed", (e as Error)?.message);
+    return null;
+  }
+}
+
+async function fixTitleForSeo(apiKey: string, title: string, targetQuery: string): Promise<string | null> {
+  try {
+    const r = await chatJson<{ title: string }>({
+      apiKey,
+      model: "google/gemini-2.5-flash",
+      system: "Ты SEO-редактор vc.ru. Перепиши заголовок так, чтобы он содержал ключевой запрос (почти дословно, можно поменять падеж/число), оставался цепким, до 90 символов, без буквы ё, без длинных тире, без жирного.",
+      user: `Запрос: ${targetQuery}\nТекущий заголовок: ${title}\n\nВерни JSON: {"title": "новый заголовок"}`,
+      temperature: 0.5,
+      maxTokens: 200,
+      timeoutMs: 20_000,
+      appTitle: "vc.ru Title Fix",
+      retries: 0,
+    });
+    const out = r.data?.title;
+    if (!out) return null;
+    return normalizeDashes(ruEReplace(String(out))).replace(/\*\*([^*]+)\*\*/g, "$1").slice(0, 90).trim();
+  } catch (e) {
+    console.warn("[fixTitleForSeo] failed", (e as Error)?.message);
+    return null;
+  }
+}
+
+/** Заменяет первый «лид-абзац» в markdown на новый текст, сохраняя H1/H2 сверху. */
+export function replaceLead(md: string, newLead: string): string {
+  const lines = md.split("\n");
+  let i = 0;
+  // пропускаем верхние пустые/заголовки
+  while (i < lines.length && (!lines[i].trim() || /^#{1,6}\s/.test(lines[i].trim()))) i++;
+  if (i >= lines.length) return md;
+  // находим конец первого абзаца (до пустой строки)
+  let j = i;
+  while (j < lines.length && lines[j].trim() && !/^#{1,6}\s/.test(lines[j].trim())) j++;
+  return [...lines.slice(0, i), newLead, ...lines.slice(j)].join("\n");
 }
 
 async function generateCover(prompt: string): Promise<string | null> {
