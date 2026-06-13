@@ -2028,6 +2028,36 @@ export type Database = {
           },
         ]
       }
+      page_visits: {
+        Row: {
+          id: number
+          page: string
+          referrer: string | null
+          session_key: string | null
+          user_agent: string | null
+          user_id: string | null
+          visited_at: string
+        }
+        Insert: {
+          id?: number
+          page: string
+          referrer?: string | null
+          session_key?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          visited_at?: string
+        }
+        Update: {
+          id?: number
+          page?: string
+          referrer?: string | null
+          session_key?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          visited_at?: string
+        }
+        Relationships: []
+      }
       payment_logs: {
         Row: {
           amount_rub: number
@@ -4143,6 +4173,15 @@ export type Database = {
         Returns: number
       }
       get_openrouter_global_health: { Args: never; Returns: Json }
+      get_page_visit_daily: {
+        Args: { p_days?: number; p_page: string }
+        Returns: {
+          day: string
+          uniques: number
+          visits: number
+        }[]
+      }
+      get_page_visit_stats: { Args: { p_page: string }; Returns: Json }
       get_project_github_config: {
         Args: { p_project_id: string }
         Returns: Json
