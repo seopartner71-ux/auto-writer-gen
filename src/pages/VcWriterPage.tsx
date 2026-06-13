@@ -289,6 +289,74 @@ export default function VcWriterPage() {
               <p className="text-[10px] text-muted-foreground">vc.ru-топ обычно 4500-6500 знаков</p>
             </div>
 
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm flex items-center gap-1.5">
+                    <Link2 className="h-3.5 w-3.5" /> Клиентские ссылки ({clientLinks.length}/5)
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Ссылки впишутся в текст естественно, по 1 разу. Если модель не найдет место - добавим блоком «Полезное по теме» перед P.S.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={clientLinks.length >= 5}
+                  onClick={() => setClientLinks([...clientLinks, { url: "", anchor: "", hint: "" }])}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Добавить
+                </Button>
+              </div>
+              {clientLinks.map((l, i) => (
+                <div key={i} className="space-y-1.5 rounded border border-border/60 p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">Ссылка {i + 1}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2"
+                      onClick={() => setClientLinks(clientLinks.filter((_, idx) => idx !== i))}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Input
+                    value={l.url}
+                    onChange={(e) => {
+                      const next = [...clientLinks];
+                      next[i] = { ...next[i], url: e.target.value };
+                      setClientLinks(next);
+                    }}
+                    placeholder="https://client.ru/service"
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    value={l.anchor}
+                    onChange={(e) => {
+                      const next = [...clientLinks];
+                      next[i] = { ...next[i], anchor: e.target.value };
+                      setClientLinks(next);
+                    }}
+                    placeholder="Анкор (как фраза появится в тексте)"
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    value={l.hint}
+                    onChange={(e) => {
+                      const next = [...clientLinks];
+                      next[i] = { ...next[i], hint: e.target.value };
+                      setClientLinks(next);
+                    }}
+                    placeholder="Контекст (необязательно): где уместно упомянуть"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              ))}
+            </div>
+
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <div className="space-y-0.5">
                 <Label className="text-sm">Сгенерировать обложку</Label>
