@@ -283,22 +283,29 @@ export async function runDoubleHumanizePass(
   // Fallback: if Opus failed (timeout/HTTP error), retry pass2 with Sonnet
   // so we still get a polish pass instead of degrading silently.
   if (opusAllowed && !out2 && !useSonnetForPass2) {
-    console.warn("[humanize] Opus failed, falling back to Sonnet for pass2");
-    opusSkipped = true;
-    opusSkipReason = "opus_failed_fallback_sonnet";
-    pass2Model = SONNET_MODEL;
-    out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), sonnetTimeout);
+    const remFb = remaining();
+    if (budgetMs > 0 && remFb < 25_000) {
+      opusSkipReason = (opusSkipReason ? opusSkipReason + "+" : "") + "no_time_for_fallback";
+    } else {
+      console.warn("[humanize] Opus failed, falling back to Sonnet for pass2");
+      opusSkipped = true;
+      opusSkipReason = "opus_failed_fallback_sonnet";
+      pass2Model = SONNET_MODEL;
+      const cap = budgetMs > 0 ? Math.max(20_000, remFb - 5_000) : sonnetTimeout;
+      out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), Math.min(sonnetTimeout, cap));
+    }
   }
 
   // 3rd-tier fallback: if Sonnet also failed (e.g. account 402, region
   // throttling), fall back to Llama 3.3 70B so the article still gets a
   // micro-polish instead of skipping pass2 entirely.
-  if (!out2) {
+  if (!out2 && (budgetMs === 0 || remaining() >= 25_000)) {
     console.warn("[humanize] Sonnet also failed, falling back to Llama 3.3 70B for pass2");
     opusSkipped = true;
     opusSkipReason = (opusSkipReason ? opusSkipReason + "+" : "") + "sonnet_failed_fallback_llama";
     pass2Model = LLAMA_FALLBACK_MODEL;
-    out2 = await callOpenRouter(openRouterKey, LLAMA_FALLBACK_MODEL, system, PASS2_USER(language, current), 90_000);
+    const cap = budgetMs > 0 ? Math.max(20_000, remaining() - 5_000) : 90_000;
+    out2 = await callOpenRouter(openRouterKey, LLAMA_FALLBACK_MODEL, system, PASS2_USER(language, current), Math.min(90_000, cap));
   }
 
   if (out2) {
@@ -327,7 +334,8 @@ export async function runDoubleHumanizePass(
   if (
     language === "ru" &&
     passes > 0 &&
-    (banlistAfter >= 6 || chainsAfter >= 3)
+    (banlistAfter >= 6 || chainsAfter >= 3) &&
+    (budgetMs === 0 || remaining() >= 40_000)
   ) {
     const hits = listBanlistHits(current, language, 10);
     const hintList = hits.length
