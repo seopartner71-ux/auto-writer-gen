@@ -178,6 +178,17 @@ export default function VcWriterPage() {
           target_query: primaryQuery,
           client_links: clientLinks
             .filter((l) => l.url.trim() && l.anchor.trim())
+            .map((l) => {
+              if (!addUtm) return l;
+              try {
+                const u = new URL(l.url.trim());
+                if (!u.searchParams.has("utm_source")) u.searchParams.set("utm_source", "vc");
+                if (!u.searchParams.has("utm_medium")) u.searchParams.set("utm_medium", "article");
+                return { ...l, url: u.toString() };
+              } catch {
+                return l;
+              }
+            })
             .slice(0, 5),
         },
       });
