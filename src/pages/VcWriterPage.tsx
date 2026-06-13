@@ -1267,6 +1267,7 @@ export default function VcWriterPage() {
             </>
           )}
         </div>
+        )}
       </div>
         </TabsContent>
       </Tabs>
