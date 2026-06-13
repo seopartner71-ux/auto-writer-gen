@@ -92,6 +92,58 @@ export function stripText(md: string): string {
 }
 
 /**
+ * Numeric Guard: режет в тексте конкретные числа с "рискованными" единицами
+ * (рубли, %, км, литры, л.с., сСт, клиентов и т.п.), которых нет в списке
+ * verifiedFacts. Заменяет на нейтральные обобщения. Числа, которые встречаются
+ * в verifiedFacts как есть, пропускаются. Годы (1900-2099) тоже пропускаются.
+ */
+export function applyNumericGuard(md: string, verifiedFacts: string): { content: string; replaced: string[] } {
+  const replaced: string[] = [];
+  const facts = (verifiedFacts || "").toLowerCase();
+  const allowed = new Set<string>();
+  for (const m of facts.matchAll(/\d[\d.,]*\d|\d/g)) {
+    allowed.add(m[0].replace(/[.,]+$/, ""));
+  }
+  const isAllowed = (raw: string) => {
+    const n = raw.replace(/\s+/g, "").replace(/[.,]+$/, "");
+    if (/^(19|20)\d{2}$/.test(n)) return true; // годы общеизвестны
+    return allowed.has(n);
+  };
+  const log = (label: string, m: string) => { replaced.push(`${label}:${m.trim().slice(0, 50)}`); };
+
+  const patterns: Array<{ re: RegExp; soft: () => string; label: string }> = [
+    // Цены в рублях / тыс / млн руб
+    { re: /\b(\d[\d\s.,]{0,8})\s?(?:руб(?:лей|\.|ля)?|₽|р\.|тыс\.?\s?руб|млн\s?руб)\b/gi,
+      soft: () => "в среднем по рынку", label: "price" },
+    // Проценты
+    { re: /\b(\d+[.,]?\d*)\s?(?:%|процент(?:а|ов)?)/gi,
+      soft: () => "заметно", label: "percent" },
+    // Единицы измерения: км, литры, л.с., сСт, мощность, моменты, расход
+    { re: /\b(\d+[.,]?\d*)\s?(?:км|л\/100\s?км|литр(?:а|ов)?\b|л\.?с\.?|с[Сс]т|нм|кВт|вт|об\/мин|мпа|бар)\b/gi,
+      soft: () => "ощутимо", label: "measurement" },
+    // Сроки в днях/месяцах/часах с числом
+    { re: /\b(\d+)\s?(?:дн(?:я|ей)?|сут(?:ок|ки)?|мес(?:яц(?:а|ев)?)?|час(?:а|ов)?|мин(?:ут(?:а|ы)?)?)\b/gi,
+      soft: () => "несколько", label: "duration" },
+    // Бизнес-метрики автора: N клиентов / постов / машин / заказов
+    { re: /\b(\d{2,})\s?(?:клиент(?:а|ов)?|машин|заказ(?:а|ов)?|пост(?:а|ов)?|пользоват(?:еля|елей)?|сотрудник(?:а|ов)?|подписчик(?:а|ов)?)\b/gi,
+      soft: () => "десятки", label: "count" },
+    // Деньги в виде "1,2 млн", "120 тыс" (без слова "руб")
+    { re: /\b(\d+[.,]?\d*)\s?(?:млн|млрд|тыс\.?)\b(?!\s?руб)/gi,
+      soft: () => "значительная сумма", label: "money" },
+  ];
+
+  let out = md;
+  for (const { re, soft, label } of patterns) {
+    out = out.replace(re, (m, num) => {
+      if (typeof num === "string" && isAllowed(num)) return m;
+      log(label, m);
+      return soft();
+    });
+  }
+  return { content: out, replaced };
+}
+
+/**
  * Гарантирует, что каждая клиентская ссылка присутствует в markdown.
  * Сначала пытаемся найти анкор в тексте и обернуть его в [anchor](url).
  * Если анкор не найден, добавляем компактный блок "Полезное по теме" перед P.S.
