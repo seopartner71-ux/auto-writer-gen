@@ -434,9 +434,12 @@ export function replaceLead(md: string, newLead: string): string {
 async function generateCover(prompt: string): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12_000);
   try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
+      signal: ctrl.signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "openai/gpt-image-2",
@@ -452,6 +455,8 @@ async function generateCover(prompt: string): Promise<string | null> {
     return b64 ? `data:image/png;base64,${b64}` : null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -563,6 +568,7 @@ export async function factCheckMarkdown(
   apiKey: string,
   markdown: string,
   verifiedFacts: string | undefined,
+  timeoutMs = 30_000,
 ): Promise<RiskReport> {
   const empty: RiskReport = { total: 0, unverified: 0, level: "low", claims: [], summary: "Нет рисков" };
   if (!markdown || markdown.length < 200) return empty;
@@ -579,7 +585,7 @@ export async function factCheckMarkdown(
       user,
       temperature: 0.1,
       maxTokens: 2500,
-      timeoutMs: 60_000,
+      timeoutMs,
       appTitle: "vc.ru Fact-Check",
       retries: 0,
     });
@@ -605,6 +611,8 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   const __startedAt = Date.now();
   const { system, user } = buildPrompt(input);
 
+  const requestedLength = Math.min(6500, Math.max(2500, Number(input.length) || 5500));
+  const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
   const result = await chatJson<{
     title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
   }>({
@@ -613,10 +621,23 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     system,
     user,
     temperature: 0.85,
-    maxTokens: 6000,
-    timeoutMs: 180_000,
+    maxTokens: requestedLength >= 6000 ? 5000 : 4300,
+    timeoutMs: isSlowModel ? 95_000 : 60_000,
     appTitle: "vc.ru Writer",
-    retries: 1,
+    schemaName: "vc_article",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["title", "subtitle", "tags", "ps_question", "markdown"],
+      properties: {
+        title: { type: "string" },
+        subtitle: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
+        ps_question: { type: "string" },
+        markdown: { type: "string" },
+      },
+    },
+    retries: 0,
   });
 
   const data = result.data || ({} as any);
@@ -714,7 +735,8 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   }
 
   let cover_data_url: string | null = null;
-  if (input.wantCover) {
+  const elapsedBeforeCover = Date.now() - __startedAt;
+  if (input.wantCover && elapsedBeforeCover < 128_000) {
     cover_data_url = await generateCover(`${title}. ${subtitle}`);
   }
 
@@ -747,9 +769,11 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   // Fact-Check Guard (по умолчанию ON).
   let risk_report: RiskReport | undefined;
-  if (input.factCheck !== false) {
+  const elapsedBeforeFactCheck = Date.now() - __startedAt;
+  if (input.factCheck !== false && elapsedBeforeFactCheck < 120_000) {
     try {
-      risk_report = await factCheckMarkdown(input.apiKey, markdown, input.verifiedFacts);
+      const factBudget = Math.max(10_000, Math.min(30_000, 140_000 - elapsedBeforeFactCheck));
+      risk_report = await factCheckMarkdown(input.apiKey, markdown, input.verifiedFacts, factBudget);
     } catch (e) {
       console.error("[generateVcArticle] fact-check failed", e);
     }
