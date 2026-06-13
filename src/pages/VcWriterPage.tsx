@@ -31,6 +31,7 @@ interface Result {
   checklist: Array<{ label: string; ok: boolean; hint: string }>;
   cover_data_url: string | null;
   stats?: { chars: number; model: string };
+  seo?: { mode: boolean; target_query: string | null; suggestions: string[] };
 }
 
 const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
@@ -49,6 +50,8 @@ export default function VcWriterPage() {
   const [tone, setTone] = useState("экспертно-разговорный с легкой провокацией");
   const [length, setLength] = useState(5500);
   const [withCover, setWithCover] = useState(true);
+  const [seoMode, setSeoMode] = useState(true);
+  const [targetQuery, setTargetQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
@@ -61,12 +64,18 @@ export default function VcWriterPage() {
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("vc-writer", {
-        body: { format, model, topic, thesis, audience, tone, length, generate_cover: withCover },
+        body: {
+          format, model, topic, thesis, audience, tone, length,
+          generate_cover: withCover,
+          seo_mode: seoMode,
+          target_query: targetQuery.trim() || null,
+        },
       });
       if (error) throw error;
       if (!data?.ok) throw new Error("Не удалось сгенерировать материал");
       setResult(data as Result);
-      toast.success("Материал готов");
+      const tq = (data as Result).seo?.target_query;
+      toast.success(tq ? `Материал готов. SEO-цель: ${tq}` : "Материал готов");
     } catch (e: any) {
       toast.error(e?.message || "Ошибка генерации");
     } finally {
@@ -224,6 +233,32 @@ export default function VcWriterPage() {
               <Input value={tone} onChange={(e) => setTone(e.target.value)} />
             </div>
 
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm">SEO-режим (под поисковые запросы)</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Статья оптимизируется под целевой запрос - ловит трафик из Google/Yandex, идеально для ссылок на клиентов.
+                  </p>
+                </div>
+                <Switch checked={seoMode} onCheckedChange={setSeoMode} />
+              </div>
+              {seoMode && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Целевой поисковый запрос (опционально)</Label>
+                  <Input
+                    value={targetQuery}
+                    onChange={(e) => setTargetQuery(e.target.value)}
+                    placeholder="напр. как продвинуть интернет-магазин в google"
+                    className="h-9"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Пусто - подберём автоматически из реальных запросов Google по теме.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>Длина: {length} знаков</Label>
@@ -295,6 +330,12 @@ export default function VcWriterPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
+                  {result.seo?.target_query && (
+                    <div className="rounded-md bg-primary/10 border border-primary/20 px-2.5 py-1.5 text-xs">
+                      <span className="text-muted-foreground">SEO-цель: </span>
+                      <span className="font-mono">{result.seo.target_query}</span>
+                    </div>
+                  )}
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Заголовок ({result.meta.title.length}/90)</div>
                     <div className="flex items-start gap-2">
