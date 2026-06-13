@@ -672,6 +672,80 @@ export default function VcWriterPage() {
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="Например: как мы вывели интернет-магазин с 0 до 2 млн оборота за полгода"
               />
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  Анализ топ-материалов покажет, какой формат реально работает по теме, и подсветит риск «выбрали рейтинг, а в топе кейсы».
+                </p>
+                <Button
+                  type="button" size="sm" variant="outline"
+                  className="shrink-0 h-8 gap-1.5"
+                  onClick={runTopicResearch}
+                  disabled={researching || topic.trim().length < 5}
+                >
+                  {researching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Telescope className="h-3.5 w-3.5" />}
+                  Анализ темы
+                </Button>
+              </div>
+              {research && (
+                <div className="mt-2 rounded-md border border-border bg-muted/30 p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium">Анализ топ-материалов по теме</div>
+                    <button
+                      type="button"
+                      onClick={() => setResearch(null)}
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                    >сбросить</button>
+                  </div>
+                  {research.format_mismatch && (
+                    <div className="rounded bg-amber-500/10 border border-amber-500/30 px-2 py-1.5 text-amber-600 dark:text-amber-400 leading-snug flex items-start gap-2">
+                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <div className="space-y-1">
+                        <div>В топе доминирует формат «{research.dominant_format}», вы выбрали «{format}».</div>
+                        {research.mismatch_warning && <div className="text-[10px] opacity-90">{research.mismatch_warning}</div>}
+                        <button
+                          type="button"
+                          onClick={() => setFormat(research.recommended_format)}
+                          className="text-[10px] underline hover:no-underline"
+                        >Переключить на «{research.recommended_format}»</button>
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-muted-foreground">Рекомендуем:</span>{" "}
+                    <span className="font-medium">{research.recommended_format}</span>
+                    {research.format_reason && <span className="text-muted-foreground"> - {research.format_reason}</span>}
+                  </div>
+                  {research.title_patterns?.length > 0 && (
+                    <div>
+                      <div className="text-muted-foreground mb-1">Заголовки, которые работают:</div>
+                      <ul className="space-y-0.5 pl-3 list-disc marker:text-muted-foreground/50">
+                        {research.title_patterns.slice(0, 4).map((t, i) => <li key={i}>{t}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {research.audience_signals?.length > 0 && (
+                    <div>
+                      <div className="text-muted-foreground mb-1">Что обсуждают / возражения:</div>
+                      <ul className="space-y-0.5 pl-3 list-disc marker:text-muted-foreground/50">
+                        {research.audience_signals.slice(0, 4).map((t, i) => <li key={i}>{t}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {research.sources?.length > 0 && (
+                    <details className="text-[10px]">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">источники ({research.sources.length})</summary>
+                      <ul className="mt-1 space-y-0.5 pl-3 list-disc marker:text-muted-foreground/40">
+                        {research.sources.slice(0, 10).map((s, i) => (
+                          <li key={i}><a href={s.link} target="_blank" rel="noreferrer" className="hover:underline">{s.title || s.link}</a></li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/50">
+                    Этот анализ автоматически уйдёт в промпт генерации. Модель применит паттерны, но НЕ скопирует цифры/кейсы из найденных статей.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
