@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Copy, Download, Check, X, Sparkles, FileText, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import VcWriterBulk from "@/components/vc-writer/VcWriterBulk";
@@ -33,6 +34,31 @@ interface Result {
   stats?: { chars: number; model: string };
   seo?: { mode: boolean; target_query: string | null; suggestions: string[] };
   links_report?: { injected: string[]; appended: string[] };
+  history_id?: string | null;
+}
+
+interface HistoryRow {
+  id: string;
+  created_at: string;
+  format: string;
+  model: string;
+  topic: string;
+  thesis: string | null;
+  audience: string | null;
+  tone: string | null;
+  length_target: number | null;
+  target_query: string | null;
+  seo_mode: boolean | null;
+  client_links: Array<{ url: string; anchor: string; hint?: string }> | null;
+  title: string | null;
+  subtitle: string | null;
+  tags: string[] | null;
+  ps_question: string | null;
+  markdown: string | null;
+  checklist: Array<{ label: string; ok: boolean; hint: string }> | null;
+  links_report: { injected: string[]; appended: string[] } | null;
+  chars: number | null;
+  is_favorite: boolean | null;
 }
 
 const FORMAT_OPTIONS: Array<{ value: Format; label: string; hint: string }> = [
