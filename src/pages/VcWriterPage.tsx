@@ -26,6 +26,25 @@ const PERSONA_OPTIONS: Array<{ value: AuthorPersona; label: string; hint: string
   { value: "expert", label: "Независимый эксперт", hint: "От первого лица как наблюдатель. Без своего бизнеса/штата/клиентов." },
 ];
 
+/** Эвристика автоподбора персоны по теме. */
+function suggestPersona(topic: string): { persona: AuthorPersona; reason: string } | null {
+  const t = (topic || "").toLowerCase();
+  if (!t || t.length < 8) return null;
+  if (/\b(наш(е|и|у|его)?\s+(продукт|сервис|приложение|бренд|масло|стартап|сайт))|мы\s+(запустили|выпустили|сделали\s+продукт)|наша\s+компания|наш\s+стартап\b/.test(t)) {
+    return { persona: "brand_owner", reason: "тема от первого лица о собственном продукте" };
+  }
+  if (/\b(агентств|подрядчик|клиент(а|у|ы)?\s+привели|для\s+клиента|на\s+проекте\s+клиента)\b/.test(t)) {
+    return { persona: "agency", reason: "тема про работу с клиентами" };
+  }
+  if (/\b(in-?house|внутри\s+компании|внутренн|у\s+нас\s+в\s+команде|маркетолог\s+в\s+штате)\b/.test(t)) {
+    return { persona: "inhouse", reason: "тема про in-house работу" };
+  }
+  if (/\b(обзор|сравнение|тестировал|проверил|разбор\s+продукта|опыт\s+использован|плюсы\s+и\s+минусы)\b/.test(t)) {
+    return { persona: "expert", reason: "обзорно-аналитическая тема" };
+  }
+  return null;
+}
+
 const MODEL_OPTIONS = [
   { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5", hint: "Рекомендуем - живой русский, лучший тон для vc.ru", recommended: true },
   { value: "anthropic/claude-opus-4.1", label: "Claude Opus 4.1", hint: "Премиум - сильнее в нюансах и аргументации, дороже" },
