@@ -1229,6 +1229,24 @@ export default function VcWriterPage() {
               ))}
             </div>
 
+            {format === "rating" && (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <Link2 className="h-3.5 w-3.5" /> Закрепить клиента на 1-м месте (опционально)
+                </Label>
+                <Input
+                  value={pinnedCompany}
+                  onChange={(e) => setPinnedCompany(e.target.value)}
+                  placeholder="Например: РВД Сервис"
+                  className="h-8 text-xs"
+                  maxLength={120}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Если указать имя бренда/клиента - он встанет на позицию 01 в нумерованном списке и в карточках. У него всё равно будут указаны 1-2 реальных минуса в «Потенциальные зоны роста» - иначе текст станет рекламой и упадёт в качестве.
+                </p>
+              </div>
+            )}
+
             {(() => {
               const needSource = format === "case" || format === "review";
               const sourceOk = !needSource || caseSource.trim().length >= 5;
