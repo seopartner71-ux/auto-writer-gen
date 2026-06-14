@@ -936,6 +936,8 @@ export interface VcGenInput {
   skipSeoFix?: boolean;
   /** Опциональный список профессиональных терминов ниши, которые модель ОБЯЗАНА использовать естественно (ТАПУ, DASK, GA4 и т.п.). До 10. */
   nicheTerms?: string[];
+  /** Только для format=rating: имя клиента/бренда, который ставится на позицию 01. */
+  pinnedCompany?: string;
 }
 
 export type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
