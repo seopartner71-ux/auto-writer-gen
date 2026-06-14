@@ -131,6 +131,13 @@ export default function VcWriterPage() {
   const [ratingCity, setRatingCity] = useState("");
   const [ratingManual, setRatingManual] = useState("");
   const [addUtm, setAddUtm] = useState(true);
+  // Конверсионный блок-оффер автора (нативный CTA в стиле vc.ru).
+  const [offerEnabled, setOfferEnabled] = useState(false);
+  const [offerStyle, setOfferStyle] = useState<"soft" | "native" | "leadmagnet">("native");
+  const [offerText, setOfferText] = useState("");
+  const [offerBenefit, setOfferBenefit] = useState("");
+  const [offerCta, setOfferCta] = useState("Оставить заявку");
+  const [offerUrl, setOfferUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
