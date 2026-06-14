@@ -958,6 +958,8 @@ export interface VcGenInput {
   realItemsBlock?: string;
   /** Только для format=rating: строка-атрибуция источников для секции «Примечание». */
   realItemsAttribution?: string;
+  /** Опциональный конверсионный блок-оффер (CTA в стиле vc.ru, нативно). */
+  offerBlock?: OfferBlockInput;
 }
 
 /** Опциональный конверсионный блок-оффер автора (нативная CTA в стиле vc.ru). */
