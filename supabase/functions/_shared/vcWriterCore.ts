@@ -273,8 +273,20 @@ export function ensureClientLinks(md: string, links: Array<{ url: string; anchor
       // (продвинутая замена потребовала бы LLM — это для следующей итерации)
     }
     // Уже есть как markdown-ссылка?
-    const already = new RegExp(`\\]\\(\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\)`).test(out);
+    const urlEsc = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const already = new RegExp(`\\]\\(\\s*${urlEsc}\\s*\\)`).test(out);
     if (already) { injected.push(anchor); continue; }
+    // Голый URL без markdown-обёртки? Оборачиваем в [anchor](url).
+    // Берём первое вхождение url (с возможным завершающим знаком препинания).
+    const bareRe = new RegExp(`(^|[\\s(])${urlEsc}(?=[\\s).,;!?]|$)`, "i");
+    const bareMatch = out.match(bareRe);
+    if (bareMatch && bareMatch.index !== undefined) {
+      const lead = bareMatch[1] || "";
+      const startIdx = bareMatch.index + lead.length;
+      out = out.slice(0, startIdx) + `[${anchor}](${url})` + out.slice(startIdx + url.length);
+      injected.push(anchor);
+      continue;
+    }
     // Попробуем найти анкор в тексте (вне заголовков и P.S.).
     const re = new RegExp(`(^|[^[\\w])(${anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?![\\w\\]])`, "i");
     const psIdx = out.search(/\n+P\.?\s*S\.?/i);
@@ -502,6 +514,40 @@ export function stripCliches(md: string): { md: string; removed: number } {
   return { md: out, removed: count };
 }
 
+/**
+ * Анти-симметрия: если в списке >=3 подряд идущих пункта имеют шаблон
+ * "- Заголовок: одно короткое предложение", меняем двоеточие на " - "
+ * в каждом таком пункте чередуя стиль (через один), чтобы убрать визуальную
+ * однородность. Это убирает паттерн, который ловит symmetry-detector.
+ */
+export function breakListSymmetry(md: string): string {
+  const lines = md.split("\n");
+  const PATTERN = /^(\s*[-*]\s+)([A-ЯЁA-Z][^:\n]{2,40}):\s+(.+)$/;
+  let runStart = -1;
+  const apply = (from: number, to: number) => {
+    // Чередуем: каждый второй пункт превращаем ":" -> " -".
+    let toggle = 0;
+    for (let k = from; k < to; k++) {
+      const m = lines[k].match(PATTERN);
+      if (!m) continue;
+      if (toggle % 2 === 1) {
+        lines[k] = `${m[1]}${m[2]} - ${m[3]}`;
+      }
+      toggle++;
+    }
+  };
+  for (let i = 0; i <= lines.length; i++) {
+    const isItem = i < lines.length && PATTERN.test(lines[i]);
+    if (isItem) {
+      if (runStart === -1) runStart = i;
+    } else {
+      if (runStart !== -1 && i - runStart >= 3) apply(runStart, i);
+      runStart = -1;
+    }
+  }
+  return lines.join("\n");
+}
+
 export interface SeoReport {
   ok: boolean;
   issues: string[];
@@ -694,10 +740,33 @@ function applyVcDeterministicFixes(md: string): string {
   out = out.replace(/\bПо\s+собственному\s+опыту,?\s+сталкивался\b/g, "По собственному опыту бывали случаи");
   out = out.replace(/\bПо\s+опыту,?\s+сталкивался\b/g, "По опыту бывали случаи");
 
-  // 9. Картинки-плейсхолдеры без описания ("![](placeholder)" или "![ ](placeholder)") - удаляем.
-  //    Содержательные ![Скриншот: ...](placeholder) оставляем (так задумано в промте).
-  out = out.replace(/^!\[\s*\]\(placeholder\)\s*$/gim, "");
+  // 9. Картинки-плейсхолдеры (генерация обложек/скриншотов отключена) - вырезаем все.
+  //    Любой вариант ![alt](placeholder), включая содержательный alt, чтобы не светить
+  //    редакторские заглушки в опубликованной статье.
+  out = out.replace(/^!\[[^\]]*\]\(placeholder\)\s*$/gim, "");
+  out = out.replace(/!\[[^\]]*\]\(placeholder\)/g, "");
   out = out.replace(/\n{3,}/g, "\n\n");
+
+  // 10. Анти-штамп: канцелярит и публицистические клише, которые проскакивают
+  //     через CLICHE_RE. Замены, а не удаления - смысл сохраняем.
+  const CLICHE_REPLACE: Array<[RegExp, string]> = [
+    [/\bкраеугольн(ый|ого|ому|ым|ом)\s+камн(я|ю|ем|е|и)\b/gi, "основ"],
+    [/\bкраеугольный\s+камень\b/gi, "основа"],
+    [/\bподводны(е|х|ми)\s+камн(и|ей|ями|ях)\b/gi, "нюансы"],
+    [/\bосадочек\s+остался\b/gi, "впечатление смазалось"],
+    [/\bоставило\s+неприятный\s+осадок\b/gi, "оставило смазанное впечатление"],
+    [/\bне\s+за\s+горами\b/gi, "близко"],
+    [/\bв\s+конечном\s+счете\b/gi, "в итоге"],
+    [/\bв\s+конечном\s+итоге\b/gi, "в итоге"],
+    [/\bкак\s+показывает\s+практика\b/gi, "практика показывает"],
+    [/\bна\s+вес\s+золота\b/gi, "ценится дорого"],
+  ];
+  for (const [re, rep] of CLICHE_REPLACE) out = out.replace(re, rep);
+
+  // 11. Анти-симметрия списков: если >=3 подряд идущих list-item начинаются
+  //     с короткого "Заголовок: одно предложение." - схлопываем двоеточие в тире,
+  //     чтобы убрать визуальный шаблон. Контент сохраняем.
+  out = breakListSymmetry(out);
 
   return out;
 }
