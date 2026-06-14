@@ -1427,23 +1427,6 @@ export default function VcWriterPage() {
                 </CardContent>
               </Card>
 
-              {/* Cover */}
-              {result.cover_data_url && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center justify-between">
-                      <span className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Обложка</span>
-                      <Button size="sm" variant="ghost" onClick={downloadCover}>
-                        <Download className="h-3 w-3 mr-1" /> Скачать PNG
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <img src={result.cover_data_url} alt="Обложка" className="w-full rounded-md border border-border" />
-                  </CardContent>
-                </Card>
-              )}
-
               {/* Checklist */}
               <Card>
                 <CardHeader className="pb-3">
