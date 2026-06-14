@@ -630,6 +630,8 @@ export interface VcGenInput {
   skipLeadFix?: boolean;
   /** Запретить SEO-фикс title. По умолчанию false (фикс включен). */
   skipSeoFix?: boolean;
+  /** Опциональный список профессиональных терминов ниши, которые модель ОБЯЗАНА использовать естественно (ТАПУ, DASK, GA4 и т.п.). До 10. */
+  nicheTerms?: string[];
 }
 
 export type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
