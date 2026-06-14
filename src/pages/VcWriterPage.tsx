@@ -127,6 +127,9 @@ export default function VcWriterPage() {
   const [targetQuery, setTargetQuery] = useState("");
   const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
   const [pinnedCompany, setPinnedCompany] = useState("");
+  const [ratingType, setRatingType] = useState<"services" | "products" | "saas" | "manual">("services");
+  const [ratingCity, setRatingCity] = useState("");
+  const [ratingManual, setRatingManual] = useState("");
   const [addUtm, setAddUtm] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -423,6 +426,9 @@ export default function VcWriterPage() {
             })
             .slice(0, 5),
           pinned_company: format === "rating" ? pinnedCompany.trim() : "",
+          rating_type: format === "rating" ? ratingType : undefined,
+          rating_city: format === "rating" ? ratingCity.trim() : undefined,
+          rating_manual: format === "rating" && ratingType === "manual" ? ratingManual.trim() : undefined,
         },
       });
       if (error) throw error;
@@ -1231,6 +1237,53 @@ export default function VcWriterPage() {
 
             {format === "rating" && (
               <div className="space-y-2 rounded-md border border-border p-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Источник реальных позиций</Label>
+                  <Select value={ratingType} onValueChange={(v) => setRatingType(v as typeof ratingType)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="services">Услуги/компании (Google Maps)</SelectItem>
+                      <SelectItem value="products">Товары (Google Shopping)</SelectItem>
+                      <SelectItem value="saas">Сервисы/SaaS/сайты (Google поиск)</SelectItem>
+                      <SelectItem value="manual">Ручной список</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    Реальные позиции тянутся из выбранного источника. Модель использует ТОЛЬКО их - никаких выдуманных компаний.
+                  </p>
+                </div>
+
+                {ratingType === "services" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Город / регион</Label>
+                    <Input
+                      value={ratingCity}
+                      onChange={(e) => setRatingCity(e.target.value)}
+                      placeholder="Москва, СПб, Екатеринбург..."
+                      className="h-8 text-xs"
+                      maxLength={80}
+                    />
+                  </div>
+                )}
+
+                {ratingType === "manual" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Список позиций (по строкам)</Label>
+                    <Textarea
+                      value={ratingManual}
+                      onChange={(e) => setRatingManual(e.target.value)}
+                      placeholder={"Формат: Название | URL | цена | рейтинг\nПример:\nРВД Сервис | https://rvd-service.ru | 5 000-20 000 руб | 4.8\nГидравлик-М | https://hydraulic-m.ru | | 4.6"}
+                      rows={6}
+                      className="text-xs font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Обязательно только название. Остальные поля - через "|". От 5 до 10 строк.
+                    </p>
+                  </div>
+                )}
+
                 <Label className="text-sm flex items-center gap-1.5">
                   <Link2 className="h-3.5 w-3.5" /> Закрепить клиента на 1-м месте (опционально)
                 </Label>
