@@ -372,6 +372,63 @@ export default function VcWriterPage() {
       toast.error("Укажите тему (минимум 5 символов)");
       return;
     }
+    return doGenerate();
+  };
+
+  /**
+   * Funnel Pack — генерим 3 связанные статьи (TOFU+MOFU+BOFU) под одну исходную
+   * тему через batch-эндпоинт. Темы автодеривируются из текущего topic.
+   */
+  const handleFunnelPack = async () => {
+    const base = topic.trim();
+    if (base.length < 5) {
+      toast.error("Сначала укажите базовую тему");
+      return;
+    }
+    setFunnelPackLoading(true);
+    try {
+      const year = new Date().getFullYear();
+      const items = [
+        {
+          format: "guide",
+          funnel_stage: "tofu",
+          topic: `Что такое ${base}: как работает и где применяется`,
+          thesis: `Информационный разбор темы «${base}» для аудитории, которая впервые с ней сталкивается. Без продаж.`,
+        },
+        {
+          format: "guide",
+          funnel_stage: "mofu",
+          topic: `Как выбрать ${base} в ${year}: сравнение вариантов и типовые ошибки`,
+          thesis: `Сравнение основных вариантов по теме «${base}», ошибки покупателей и чек-лист выбора. Цель — провести читателя к решению.`,
+        },
+        {
+          format: "guide",
+          funnel_stage: "bofu",
+          topic: `Сколько стоит ${base} в ${year} и как не переплатить`,
+          thesis: `Ценовые диапазоны по сегментам, ошибки на которых теряют деньги, чек-лист проверки перед покупкой и блок «как мы помогаем».`,
+        },
+      ];
+      const { data, error } = await supabase.functions.invoke("vc-writer-batch", {
+        body: {
+          items,
+          model,
+          audience,
+          tone,
+          length,
+          default_format: "guide",
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("Не удалось создать Funnel Pack");
+      toast.success("Funnel Pack отправлен в очередь (3 статьи). Прогресс - во вкладке «Массовая генерация».");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось запустить Funnel Pack");
+    } finally {
+      setFunnelPackLoading(false);
+    }
+  };
+
+  const doGenerate = async () => {
     // Hard-stop: для case/review без источника блокируем генерацию.
     if ((format === "case" || format === "review") && caseSource.trim().length < 5) {
       toast.error("Укажите источник кейса: имя клиента/проекта, URL или дату. Без этого модель выдумает героя.");
