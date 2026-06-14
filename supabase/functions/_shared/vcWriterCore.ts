@@ -514,6 +514,40 @@ export function stripCliches(md: string): { md: string; removed: number } {
   return { md: out, removed: count };
 }
 
+/**
+ * Анти-симметрия: если в списке >=3 подряд идущих пункта имеют шаблон
+ * "- Заголовок: одно короткое предложение", меняем двоеточие на " - "
+ * в каждом таком пункте чередуя стиль (через один), чтобы убрать визуальную
+ * однородность. Это убирает паттерн, который ловит symmetry-detector.
+ */
+export function breakListSymmetry(md: string): string {
+  const lines = md.split("\n");
+  const PATTERN = /^(\s*[-*]\s+)([A-ЯЁA-Z][^:\n]{2,40}):\s+(.+)$/;
+  let runStart = -1;
+  const apply = (from: number, to: number) => {
+    // Чередуем: каждый второй пункт превращаем ":" -> " -".
+    let toggle = 0;
+    for (let k = from; k < to; k++) {
+      const m = lines[k].match(PATTERN);
+      if (!m) continue;
+      if (toggle % 2 === 1) {
+        lines[k] = `${m[1]}${m[2]} - ${m[3]}`;
+      }
+      toggle++;
+    }
+  };
+  for (let i = 0; i <= lines.length; i++) {
+    const isItem = i < lines.length && PATTERN.test(lines[i]);
+    if (isItem) {
+      if (runStart === -1) runStart = i;
+    } else {
+      if (runStart !== -1 && i - runStart >= 3) apply(runStart, i);
+      runStart = -1;
+    }
+  }
+  return lines.join("\n");
+}
+
 export interface SeoReport {
   ok: boolean;
   issues: string[];
