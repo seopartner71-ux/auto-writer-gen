@@ -387,6 +387,10 @@ export function detectRepeatedOpeners(md: string): { ok: boolean; offenders: Arr
 }
 
 export function stripDuplicateH1(md: string, title: string): string {
+  return _stripDuplicateH1Impl(md, title);
+}
+
+function _stripDuplicateH1Impl(md: string, title: string): string {
   const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
   const normTitle = norm(title);
   const out = md.split("\n").filter((line) => {
@@ -396,6 +400,46 @@ export function stripDuplicateH1(md: string, title: string): string {
   }).join("\n");
   // Demote any remaining single # to ## (vc.ru already рендерит title отдельно)
   return out.replace(/^#\s+/gm, "## ");
+}
+
+/**
+ * Coherence Guard: проверяет, что именованные сущности из лида (суммы денег,
+ * упомянутые роли вроде "клиент агентства") реально продолжаются в теле статьи.
+ * Если в лиде есть сумма потерь / "у клиента N произошло X", а дальше в тексте
+ * ни эта сумма, ни сцена не появляются — лид «оторван» от тела (классический
+ * фейл LLM при сборке хук+гайд).
+ */
+export function detectIncoherentLead(md: string): { ok: boolean; reason?: string; lead?: string } {
+  const paras = md.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  let lead = "";
+  for (const p of paras) {
+    if (/^#{1,6}\s/.test(p) || /^!\[/.test(p) || /^>\s/.test(p)) continue;
+    lead = p;
+    break;
+  }
+  if (!lead || lead.length < 60) return { ok: true };
+  const body = md.slice(md.indexOf(lead) + lead.length);
+  if (body.length < 500) return { ok: true };
+  // Извлекаем «маркеры» лида: сумма денег и якорная сцена.
+  const moneyMatch = lead.match(/(\d[\d\s.,]{1,9})\s?(?:руб|₽|тыс|млн|долл|евро|\$|€)/i);
+  if (moneyMatch) {
+    const num = moneyMatch[1].replace(/\s+/g, "");
+    const bodyHasNum = new RegExp(num.replace(/[.,]/g, "[.,]")).test(body.replace(/\s+/g, ""));
+    if (!bodyHasNum) {
+      return { ok: false, reason: `сумма из лида (${moneyMatch[0].trim()}) не упоминается в теле`, lead };
+    }
+  }
+  // Сценная привязка лида (агентство/клиент/корпоратив/event) без отражения в теле.
+  const sceneTriggers = /(агентств\w+|корпоратив\w*|event[-\s]?индустри|поставщик\w*|подрядчик\w*|VIP-гост\w*)/i;
+  const leadScene = lead.match(sceneTriggers);
+  if (leadScene) {
+    const word = leadScene[0].toLowerCase().slice(0, 6);
+    const bodyHasScene = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(body);
+    if (!bodyHasScene) {
+      return { ok: false, reason: `сцена лида ("${leadScene[0]}") не развита в статье`, lead };
+    }
+  }
+  return { ok: true };
 }
 
 const CLICHE_RE = /\s*(в\s+современных\s+реалиях|на\s+сегодняшний\s+день|не\s+секрет,?\s+что|давайте\s+(разберемся|разберем|погрузимся|поговорим)|итак,?\s+(подведем\s+итоги|давайте)|стоит\s+отметить,?\s+что|следует\s+(подчеркнуть|отметить),?\s+что|нельзя\s+не\s+упомянуть|в\s+заключение\s+хочется\s+(сказать|отметить|подчеркнуть)|подводя\s+(итог|черту)|как\s+мы\s+уже\s+говорили|важно\s+(понимать|помнить|отметить),?\s+что|в\s+(современном|сегодняшнем)\s+(быстро\s+меняющемся\s+)?мире|безусловно,?\s+|крайне\s+важно,?\s+|хочется\s+(отметить|подчеркнуть|сказать),?\s+что|погрузиться\s+в\s+(тему|мир|вопрос)|динамично\s+развивающа(я|е)ся\s+компания|индивидуальный\s+подход\s+к\s+каждому(\s+клиенту)?|комплексн(ое|ый)\s+(решение|подход))\s*[,.]?\s*/gi;
