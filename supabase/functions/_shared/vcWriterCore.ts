@@ -139,6 +139,7 @@ export function stripText(md: string): string {
 export function applyNumericGuard(md: string, verifiedFacts: string): { content: string; replaced: string[] } {
   const replaced: string[] = [];
   const facts = (verifiedFacts || "").toLowerCase();
+  const factsEmpty = facts.trim().length < 10;
   const allowed = new Set<string>();
   for (const m of facts.matchAll(/\d[\d.,]*\d|\d/g)) {
     allowed.add(m[0].replace(/[.,]+$/, ""));
@@ -177,6 +178,39 @@ export function applyNumericGuard(md: string, verifiedFacts: string): { content:
     });
   }
 
+  // ===== EMPTY-FACTS HARD GUARD: если пользователь не дал ни одного факта,
+  // запрещаем любую конкретную статистику (проценты, "каждый третий", "X из Y",
+  // "более N%", "более N человек/случаев"). LLM любит сочинять такие цифры
+  // ("по статистике 50%", "у каждого третьего") — это главный источник фейка.
+  if (factsEmpty) {
+    out = out.replace(/\b(?:более|свыше|около|примерно)?\s*\d+[.,]?\d*\s?(?:%|процент(?:а|ов)?)/gi, (m) => {
+      log("empty_facts_percent", m);
+      return "в заметной доле случаев";
+    });
+    out = out.replace(/\bу?\s*кажд(?:ый|ого|ому)\s+(?:второй|второго|третий|третьего|четвертый|четвертого|пятый|пятого|десятый|десятого|\d+-?(?:ый|ого|ой))\b/gi, (m) => {
+      log("empty_facts_every_nth", m);
+      return "у части";
+    });
+    out = out.replace(/\b\d+\s+из\s+\d+\b/gi, (m) => {
+      log("empty_facts_x_iz_y", m);
+      return "часть";
+    });
+    out = out.replace(/\b(?:более|свыше|около)\s+\d+\s+(?:человек|случаев|пользоват\w+|опрош\w+|респонден\w+|флористов|магазинов|клиентов|компаний|брендов)\b/gi, (m) => {
+      log("empty_facts_more_than_n", m);
+      return "значительная часть";
+    });
+    // "по данным опроса/статистики/исследования..." без источника
+    out = out.replace(/\bпо\s+данным\s+(?:опроса|статистики|исследовани\w+|аналитики)\s+\w+[,.]?\s*/gi, (m) => {
+      log("empty_facts_fake_source", m);
+      return "";
+    });
+    // "по статистике X, ..." / "по данным X, ..."
+    out = out.replace(/\bпо\s+(?:статистике|данным)\s+[а-яa-z\s]{3,40}?[,.]\s*/gi, (m) => {
+      log("empty_facts_fake_source2", m);
+      return "";
+    });
+  }
+
   // ===== Контекстный percent-guard (отдельно от patterns).
   // Заменяем только "стат-проценты" (выросло на 47%, доля 18%), которые читатель
   // воспримет как точный факт. Качественные ("работает на 70% задач") оставляем,
@@ -201,6 +235,14 @@ export function applyNumericGuard(md: string, verifiedFacts: string): { content:
     [/\bдо\s+заметно\b/gi, "до значительной части"],
     [/\bна\s+ощутимо\b/gi, "ощутимо"],
     [/\bпримерно\s+несколько\b/gi, "несколько"],
+    // Безличный пассив без субъекта — "когда анализировались жалобы..." -> "по анализу жалоб"
+    [/\bкогда\s+анализировались\s+/gi, "по анализу "],
+    [/\bкогда\s+изучались\s+/gi, "по изучению "],
+    [/\bкогда\s+рассматривались\s+/gi, "при разборе "],
+    // "По собственному опыту, сталкивался" — без местоимения коряво
+    [/\bПо\s+собственному\s+опыту,?\s+сталкивался\b/gi, "По собственному опыту бывали случаи"],
+    [/\bПо\s+опыту,?\s+сталкивался\b/gi, "По опыту бывали случаи"],
+    [/\bНа\s+практике,?\s+сталкивался\b/gi, "На практике встречались случаи"],
   ];
   for (const [re, rep] of GRAMMAR_FIX) out = out.replace(re, rep);
 
@@ -217,11 +259,19 @@ export function ensureClientLinks(md: string, links: Array<{ url: string; anchor
   const appended: string[] = [];
   if (!links || !links.length) return { md, injected, appended };
 
+  const BAD_ANCHORS = new Set([
+    "сайт", "сайте", "тут", "здесь", "ссылка", "по ссылке", "ссылке",
+    "посмотреть", "посмотреть здесь", "перейти", "подробнее",
+  ]);
   let out = md;
   for (const l of links) {
     const anchor = (l.anchor || "").trim();
     const url = (l.url || "").trim();
     if (!anchor || !url) continue;
+    if (BAD_ANCHORS.has(anchor.toLowerCase())) {
+      // Анкор-затычка: вставляем как есть, но логируем для UI-предупреждения.
+      // (продвинутая замена потребовала бы LLM — это для следующей итерации)
+    }
     // Уже есть как markdown-ссылка?
     const already = new RegExp(`\\]\\(\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\)`).test(out);
     if (already) { injected.push(anchor); continue; }
@@ -337,6 +387,10 @@ export function detectRepeatedOpeners(md: string): { ok: boolean; offenders: Arr
 }
 
 export function stripDuplicateH1(md: string, title: string): string {
+  return _stripDuplicateH1Impl(md, title);
+}
+
+function _stripDuplicateH1Impl(md: string, title: string): string {
   const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
   const normTitle = norm(title);
   const out = md.split("\n").filter((line) => {
@@ -346,6 +400,46 @@ export function stripDuplicateH1(md: string, title: string): string {
   }).join("\n");
   // Demote any remaining single # to ## (vc.ru already рендерит title отдельно)
   return out.replace(/^#\s+/gm, "## ");
+}
+
+/**
+ * Coherence Guard: проверяет, что именованные сущности из лида (суммы денег,
+ * упомянутые роли вроде "клиент агентства") реально продолжаются в теле статьи.
+ * Если в лиде есть сумма потерь / "у клиента N произошло X", а дальше в тексте
+ * ни эта сумма, ни сцена не появляются — лид «оторван» от тела (классический
+ * фейл LLM при сборке хук+гайд).
+ */
+export function detectIncoherentLead(md: string): { ok: boolean; reason?: string; lead?: string } {
+  const paras = md.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  let lead = "";
+  for (const p of paras) {
+    if (/^#{1,6}\s/.test(p) || /^!\[/.test(p) || /^>\s/.test(p)) continue;
+    lead = p;
+    break;
+  }
+  if (!lead || lead.length < 60) return { ok: true };
+  const body = md.slice(md.indexOf(lead) + lead.length);
+  if (body.length < 500) return { ok: true };
+  // Извлекаем «маркеры» лида: сумма денег и якорная сцена.
+  const moneyMatch = lead.match(/(\d[\d\s.,]{1,9})\s?(?:руб|₽|тыс|млн|долл|евро|\$|€)/i);
+  if (moneyMatch) {
+    const num = moneyMatch[1].replace(/\s+/g, "");
+    const bodyHasNum = new RegExp(num.replace(/[.,]/g, "[.,]")).test(body.replace(/\s+/g, ""));
+    if (!bodyHasNum) {
+      return { ok: false, reason: `сумма из лида (${moneyMatch[0].trim()}) не упоминается в теле`, lead };
+    }
+  }
+  // Сценная привязка лида (агентство/клиент/корпоратив/event) без отражения в теле.
+  const sceneTriggers = /(агентств\w+|корпоратив\w*|event[-\s]?индустри|поставщик\w*|подрядчик\w*|VIP-гост\w*)/i;
+  const leadScene = lead.match(sceneTriggers);
+  if (leadScene) {
+    const word = leadScene[0].toLowerCase().slice(0, 6);
+    const bodyHasScene = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(body);
+    if (!bodyHasScene) {
+      return { ok: false, reason: `сцена лида ("${leadScene[0]}") не развита в статье`, lead };
+    }
+  }
+  return { ok: true };
 }
 
 const CLICHE_RE = /\s*(в\s+современных\s+реалиях|на\s+сегодняшний\s+день|не\s+секрет,?\s+что|давайте\s+(разберемся|разберем|погрузимся|поговорим)|итак,?\s+(подведем\s+итоги|давайте)|стоит\s+отметить,?\s+что|следует\s+(подчеркнуть|отметить),?\s+что|нельзя\s+не\s+упомянуть|в\s+заключение\s+хочется\s+(сказать|отметить|подчеркнуть)|подводя\s+(итог|черту)|как\s+мы\s+уже\s+говорили|важно\s+(понимать|помнить|отметить),?\s+что|в\s+(современном|сегодняшнем)\s+(быстро\s+меняющемся\s+)?мире|безусловно,?\s+|крайне\s+важно,?\s+|хочется\s+(отметить|подчеркнуть|сказать),?\s+что|погрузиться\s+в\s+(тему|мир|вопрос)|динамично\s+развивающа(я|е)ся\s+компания|индивидуальный\s+подход\s+к\s+каждому(\s+клиенту)?|комплексн(ое|ый)\s+(решение|подход))\s*[,.]?\s*/gi;
@@ -594,6 +688,16 @@ function applyVcDeterministicFixes(md: string): string {
   out = out.replace(/Мы\s+-\s*-\s*/g, "Мы - ");
   out = out.replace(/Мы\s+-\s*[,.]\s*/g, "Мы ");
   out = out.replace(/[ \t]{2,}/g, " ");
+
+  // 8. Чиним грамматику безличных оборотов, проскочивших редактора.
+  out = out.replace(/\bкогда\s+анализировались\s+/gi, "по анализу ");
+  out = out.replace(/\bПо\s+собственному\s+опыту,?\s+сталкивался\b/g, "По собственному опыту бывали случаи");
+  out = out.replace(/\bПо\s+опыту,?\s+сталкивался\b/g, "По опыту бывали случаи");
+
+  // 9. Картинки-плейсхолдеры без описания ("![](placeholder)" или "![ ](placeholder)") - удаляем.
+  //    Содержательные ![Скриншот: ...](placeholder) оставляем (так задумано в промте).
+  out = out.replace(/^!\[\s*\]\(placeholder\)\s*$/gim, "");
+  out = out.replace(/\n{3,}/g, "\n\n");
 
   return out;
 }
@@ -899,6 +1003,21 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     }
   }
 
+  // Coherence Guard: если лид содержит цифру или сцену, не отражённые в теле,
+  // переписываем лид под фактическую тему статьи (без оторванной бизнес-сцены).
+  let coherence_report: { ok: boolean; reason?: string; rewritten: boolean } = { ok: true, rewritten: false };
+  if (!input.skipLeadFix && Date.now() - __startedAt < 95_000) {
+    const inc = detectIncoherentLead(markdown);
+    coherence_report = { ok: inc.ok, reason: inc.reason, rewritten: false };
+    if (!inc.ok && inc.lead) {
+      const newLead = await rewriteLead(input.apiKey, inc.lead, input.topic, input.thesis || "");
+      if (newLead && newLead.length > 60) {
+        markdown = replaceLead(markdown, newLead);
+        coherence_report.rewritten = true;
+      }
+    }
+  }
+
   // SEO post-check + title auto-fix.
   let seoReportFull: (SeoReport & { titleFixed?: boolean }) | undefined;
   if (input.targetQuery) {
@@ -987,6 +1106,27 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
         ? "ок"
         : `длинных абзацев: ${paragraphs_report.offenders} (${paragraphs_report.samples.map((s) => `${s.sentences} предл.: "${s.preview}"`).join(" | ")})` },
   );
+  checklist.push({
+    label: "Связность лида с темой",
+    ok: coherence_report.ok || coherence_report.rewritten,
+    hint: coherence_report.ok
+      ? "ок"
+      : (coherence_report.rewritten
+          ? `лид переписан (была проблема: ${coherence_report.reason})`
+          : `лид оторван от тела: ${coherence_report.reason}`),
+  });
+  // Anchor-затычки в клиентских ссылках — предупреждение, не ошибка.
+  if (input.clientLinks && input.clientLinks.length) {
+    const BAD = new Set(["сайт","сайте","тут","здесь","ссылка","ссылке","подробнее","перейти","посмотреть"]);
+    const bad = input.clientLinks.filter((l) => BAD.has((l.anchor || "").trim().toLowerCase())).map((l) => l.anchor);
+    if (bad.length) {
+      checklist.push({
+        label: "Анкоры клиентских ссылок осмысленны",
+        ok: false,
+        hint: `анкор-затычки: ${bad.join(", ")} — замени на 2-4 слова по теме`,
+      });
+    }
+  }
   if (input.targetQuery && seoReportFull) {
     checklist.push({
       label: `SEO: запрос "${input.targetQuery}" в title и H2`,
