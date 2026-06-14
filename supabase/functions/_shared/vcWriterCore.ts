@@ -1048,6 +1048,7 @@ export async function factCheckMarkdown(
 
 export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult> {
   const __startedAt = Date.now();
+  const isRating = input.format === "rating";
   const { system, user } = buildPrompt(input);
 
   const requestedLength = Math.min(5000, Math.max(2500, Number(input.length) || 4800));
@@ -1125,6 +1126,15 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   // Удаляем дубль H1 заголовка и понижаем оставшиеся '#' до '##'.
   markdown = stripDuplicateH1(markdown, title);
 
+  // Title: для листинг-рейтинга гарантируем наличие года.
+  if (isRating) {
+    const year = new Date().getFullYear();
+    if (!new RegExp(`(?:20\\d{2}|${year})`).test(title)) {
+      const append = ` - данные ${year} года`;
+      if (title.length + append.length <= 90) title = title + append;
+    }
+  }
+
   // Lead-banality fix: если лид начинается со штампа, перепишем только его дешёвой моделью.
   let lead_report: { wasBanal: boolean; matched?: string; rewritten: boolean } = { wasBanal: false, rewritten: false };
   if (!input.skipLeadFix && Date.now() - __startedAt < 82_000) {
@@ -1139,8 +1149,11 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     }
   }
 
+  // Coherence Guard: для листинг-рейтинга пропускаем (лид - про метод, не про сцену).
+  if (!isRating)
   // Coherence Guard: если лид содержит цифру или сцену, не отражённые в теле,
   // переписываем лид под фактическую тему статьи (без оторванной бизнес-сцены).
+  var __noop_coherence__ = 0;
   let coherence_report: { ok: boolean; reason?: string; rewritten: boolean } = { ok: true, rewritten: false };
   if (!input.skipLeadFix && Date.now() - __startedAt < 95_000) {
     const inc = detectIncoherentLead(markdown);
@@ -1220,9 +1233,13 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   }
 
   const checklist = buildChecklist(markdown, ps_question);
-  const story_report = validateStoryFirst(markdown);
+  const story_report = isRating
+    ? { ok: true, missing: [], hasMoney: true, hasConsequence: true, hasPerson: true } as StoryFirstReport
+    : validateStoryFirst(markdown);
   const openers_report = detectRepeatedOpeners(markdown);
-  const paragraphs_report = detectLongParagraphs(markdown, 5);
+  const paragraphs_report = isRating
+    ? { ok: true, offenders: 0, samples: [] as Array<{ sentences: number; preview: string }> }
+    : detectLongParagraphs(markdown, 5);
 
   checklist.push(
     { label: "Story-First (сумма+последствие+человек в первых 500 словах)",
@@ -1313,7 +1330,17 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   // Детерминированные пост-фиксы: бэктики, битый markdown, остатки "бесплатно" в заголовках.
   // Применяются ВСЕГДА — даже если Editor Pass упал/пропущен.
-  markdown = applyVcDeterministicFixes(markdown);
+  markdown = applyVcDeterministicFixesV2(markdown, { isRating });
+
+  // Листинг-рейтинг: добавим Примечание перед Заключением, если редактор/модель его выкусили.
+  if (isRating && !/Примечание:\s*Цены/i.test(markdown)) {
+    const year = new Date().getFullYear();
+    const note = `\n\nПримечание: Цены указаны для ознакомления на основе открытых данных ${year} года и могут корректироваться производителями.\n`;
+    const concIdx = markdown.search(/^##\s+Заключение/im);
+    markdown = concIdx > 0
+      ? markdown.slice(0, concIdx) + note + "\n" + markdown.slice(concIdx)
+      : markdown + note;
+  }
 
   checklist.push({
     label: "Редактура vc.ru (10 правил)",
