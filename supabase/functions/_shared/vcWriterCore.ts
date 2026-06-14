@@ -1030,8 +1030,10 @@ async function chatVcDraftJson(params: {
   appTitle: string;
   schema?: Record<string, unknown>;
 }): Promise<{ data: VcDraftJson; model: string }> {
+  const asMarkdown = buildJsonPayloadFromMarkdown(params.user);
+  void asMarkdown;
   try {
-    const result = await chatJson<VcDraftJson>({
+    const result = await chatComplete({
       apiKey: params.apiKey,
       model: params.model,
       system: params.system,
@@ -1040,11 +1042,10 @@ async function chatVcDraftJson(params: {
       maxTokens: params.maxTokens,
       timeoutMs: params.timeoutMs,
       appTitle: params.appTitle,
-      schemaName: params.schema ? "vc_article" : undefined,
-      schema: params.schema,
-      retries: 0,
     });
-    return { data: result.data, model: result.model };
+    const recovered = buildJsonPayloadFromMarkdown(result.content);
+    if (!recovered) throw new AiError("parse_failed", "Model returned empty or unusable markdown", { upstreamBody: result.content.slice(0, 50_000) });
+    return { data: recovered, model: result.model };
   } catch (e) {
     const raw = e instanceof AiError ? e.upstreamBody || "" : "";
     const recovered = buildJsonPayloadFromMarkdown(raw);
