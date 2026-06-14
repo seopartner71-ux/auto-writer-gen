@@ -958,6 +958,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   const checklist = buildChecklist(markdown, ps_question);
   const story_report = validateStoryFirst(markdown);
   const openers_report = detectRepeatedOpeners(markdown);
+  const paragraphs_report = detectLongParagraphs(markdown, 5);
 
   checklist.push(
     { label: "Story-First (сумма+последствие+человек в первых 500 словах)",
