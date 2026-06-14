@@ -422,6 +422,7 @@ export default function VcWriterPage() {
               }
             })
             .slice(0, 5),
+          pinned_company: format === "rating" ? pinnedCompany.trim() : "",
         },
       });
       if (error) throw error;
