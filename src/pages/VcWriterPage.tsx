@@ -470,6 +470,9 @@ export default function VcWriterPage() {
       setResult(data as Result);
       const tq = (data as Result).seo?.target_query;
       toast.success(tq ? `Материал готов. SEO-цель: ${tq}` : "Материал готов");
+      if ((data as any)?.offer_silenced) {
+        toast.warning((data as any).offer_silenced);
+      }
     } catch (e: any) {
       toast.error(e?.message || "Ошибка генерации");
     } finally {
