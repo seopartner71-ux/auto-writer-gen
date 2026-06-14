@@ -416,6 +416,7 @@ export default function VcWriterPage() {
           fact_check: factCheckOn,
           humanize: humanizeOn,
           topic_research: research?.summary_md || null,
+          funnel_stage: funnelStage,
           niche_terms: nicheTerms
             .split(/[,;\n]+/)
             .map((s) => s.trim())
