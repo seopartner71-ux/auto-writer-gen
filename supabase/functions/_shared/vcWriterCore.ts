@@ -637,6 +637,16 @@ function applyVcDeterministicFixes(md: string): string {
   out = out.replace(/Мы\s+-\s*[,.]\s*/g, "Мы ");
   out = out.replace(/[ \t]{2,}/g, " ");
 
+  // 8. Чиним грамматику безличных оборотов, проскочивших редактора.
+  out = out.replace(/\bкогда\s+анализировались\s+/gi, "по анализу ");
+  out = out.replace(/\bПо\s+собственному\s+опыту,?\s+сталкивался\b/g, "По собственному опыту бывали случаи");
+  out = out.replace(/\bПо\s+опыту,?\s+сталкивался\b/g, "По опыту бывали случаи");
+
+  // 9. Картинки-плейсхолдеры без описания ("![](placeholder)" или "![ ](placeholder)") - удаляем.
+  //    Содержательные ![Скриншот: ...](placeholder) оставляем (так задумано в промте).
+  out = out.replace(/^!\[\s*\]\(placeholder\)\s*$/gim, "");
+  out = out.replace(/\n{3,}/g, "\n\n");
+
   return out;
 }
 
