@@ -139,6 +139,7 @@ export function stripText(md: string): string {
 export function applyNumericGuard(md: string, verifiedFacts: string): { content: string; replaced: string[] } {
   const replaced: string[] = [];
   const facts = (verifiedFacts || "").toLowerCase();
+  const factsEmpty = facts.trim().length < 10;
   const allowed = new Set<string>();
   for (const m of facts.matchAll(/\d[\d.,]*\d|\d/g)) {
     allowed.add(m[0].replace(/[.,]+$/, ""));
@@ -174,6 +175,39 @@ export function applyNumericGuard(md: string, verifiedFacts: string): { content:
       if (typeof num === "string" && isAllowed(num)) return m;
       log(label, m);
       return soft();
+    });
+  }
+
+  // ===== EMPTY-FACTS HARD GUARD: если пользователь не дал ни одного факта,
+  // запрещаем любую конкретную статистику (проценты, "каждый третий", "X из Y",
+  // "более N%", "более N человек/случаев"). LLM любит сочинять такие цифры
+  // ("по статистике 50%", "у каждого третьего") — это главный источник фейка.
+  if (factsEmpty) {
+    out = out.replace(/\b(?:более|свыше|около|примерно)?\s*\d+[.,]?\d*\s?(?:%|процент(?:а|ов)?)/gi, (m) => {
+      log("empty_facts_percent", m);
+      return "в заметной доле случаев";
+    });
+    out = out.replace(/\bу?\s*кажд(?:ый|ого|ому)\s+(?:второй|второго|третий|третьего|четвертый|четвертого|пятый|пятого|десятый|десятого|\d+-?(?:ый|ого|ой))\b/gi, (m) => {
+      log("empty_facts_every_nth", m);
+      return "у части";
+    });
+    out = out.replace(/\b\d+\s+из\s+\d+\b/gi, (m) => {
+      log("empty_facts_x_iz_y", m);
+      return "часть";
+    });
+    out = out.replace(/\b(?:более|свыше|около)\s+\d+\s+(?:человек|случаев|пользоват\w+|опрош\w+|респонден\w+|флористов|магазинов|клиентов|компаний|брендов)\b/gi, (m) => {
+      log("empty_facts_more_than_n", m);
+      return "значительная часть";
+    });
+    // "по данным опроса/статистики/исследования..." без источника
+    out = out.replace(/\bпо\s+данным\s+(?:опроса|статистики|исследовани\w+|аналитики)\s+\w+[,.]?\s*/gi, (m) => {
+      log("empty_facts_fake_source", m);
+      return "";
+    });
+    // "по статистике X, ..." / "по данным X, ..."
+    out = out.replace(/\bпо\s+(?:статистике|данным)\s+[а-яa-z\s]{3,40}?[,.]\s*/gi, (m) => {
+      log("empty_facts_fake_source2", m);
+      return "";
     });
   }
 
