@@ -1033,6 +1033,25 @@ export default function VcWriterPage() {
                   Числа из этого списка попадут в текст как есть. Любые другие конкретные цифры будут заменены на обобщения постпроцессором.
                 </p>
               )}
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                Совет: пишите реальные «неровные» числа ($4 150, 2 437 руб, 11,6%, 6 240 км), а не круглые ($5 000, 2 500 руб, 10%). Это даёт +100 к доверию читателя vc.ru.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 rounded-md border border-border p-3">
+              <Label className="text-sm flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" /> Термины ниши (опционально)
+              </Label>
+              <Textarea
+                value={nicheTerms}
+                onChange={(e) => setNicheTerms(e.target.value.slice(0, 500))}
+                placeholder={`Через запятую. Профжаргон, который покажет, что автор в теме.\nПримеры:\n- Недвижка в Турции: ТАПУ, Искан, DASK, Ekspertiz\n- Маркетинг: GA4, Roistat, Calltouch, CR, LTV\n- E-com: SKU, Last-Click, GMV`}
+                rows={3}
+                className="text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Модель обязана естественно использовать каждый термин минимум 1 раз. До 10 терминов.
+              </p>
             </div>
 
             {(format === "case" || format === "review") && (
