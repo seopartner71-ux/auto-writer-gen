@@ -1010,6 +1010,8 @@ export interface VcGenInput {
   realItemsAttribution?: string;
   /** Опциональный конверсионный блок-оффер (CTA в стиле vc.ru, нативно). */
   offerBlock?: OfferBlockInput;
+  /** Уровень контент-воронки. По умолчанию "auto" — старое поведение. */
+  funnelStage?: FunnelStage;
 }
 
 /** Опциональный конверсионный блок-оффер автора (нативная CTA в стиле vc.ru). */
