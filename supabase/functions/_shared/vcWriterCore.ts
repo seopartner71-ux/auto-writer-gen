@@ -354,7 +354,7 @@ export function ensureClientLinks(md: string, links: Array<{ url: string; anchor
   return { md: out, injected, appended };
 }
 
-export function buildChecklist(md: string, ps: string): Array<{ label: string; ok: boolean; hint: string }> {
+export function buildChecklist(md: string, ps: string, opts: { isRating?: boolean } = {}): Array<{ label: string; ok: boolean; hint: string }> {
   const text = stripText(md);
   const chars = text.length;
   const digitsCount = (text.match(/\b\d+[\d\s.,%]*/g) || []).length;
@@ -369,21 +369,31 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
   const hasLongDash = /[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/.test(md);
   const hasTable = /^\s*\|.*\|\s*$/m.test(md) && /^\s*\|?\s*:?-{2,}.*\|/m.test(md);
   const quoteCount = (md.match(/^>\s+\S/gm) || []).length;
-  return [
+  const isRating = !!opts.isRating;
+  const cards = isRating ? (md.match(/^###\s+\d+\.\s+/gm) || []).length : 0;
+  const hasFaq = isRating ? /^##\s+.*FAQ|^##\s+.*Часты\w+\s+вопрос/im.test(md) : true;
+  const hasNote = isRating ? /Примечание:\s*Цены/i.test(md) : true;
+  const base = [
     { label: "Длина 4500-7000 знаков", ok: chars >= 4500 && chars <= 7000, hint: `сейчас ${chars}` },
     { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
     { label: "Минимум 3 подзаголовка H2", ok: h2 >= 3, hint: `${h2} H2` },
     { label: "Минимум 4 подзаголовка H3", ok: h3 >= 4, hint: `${h3} H3` },
-    { label: "Минимум 2 подзаголовка H4", ok: h4 >= 2, hint: `${h4} H4` },
-    { label: "Личный опыт", ok: hasPersonal, hint: hasPersonal ? "ок" : "добавь сцену" },
-    { label: "Упомянут провал/ошибка", ok: hasMistake, hint: hasMistake ? "ок" : "vc.ru любит честность" },
-    { label: "Есть P.S. с вопросом", ok: !!hasPS, hint: hasPS ? "ок" : "добавь P.S." },
+    { label: "Минимум 2 подзаголовка H4", ok: isRating ? true : h4 >= 2, hint: isRating ? "не требуется в листинге" : `${h4} H4` },
+    { label: "Личный опыт", ok: isRating ? true : hasPersonal, hint: isRating ? "не требуется в листинге" : (hasPersonal ? "ок" : "добавь сцену") },
+    { label: "Упомянут провал/ошибка", ok: isRating ? true : hasMistake, hint: isRating ? "не требуется в листинге" : (hasMistake ? "ок" : "vc.ru любит честность") },
+    { label: "Есть P.S. с вопросом", ok: isRating ? true : !!hasPS, hint: isRating ? "не требуется (есть Заключение)" : (hasPS ? "ок" : "добавь P.S.") },
     { label: "Нет жирного (**)", ok: !hasBold, hint: hasBold ? "убери **" : "ок" },
     { label: "Нет буквы ё", ok: !hasYo, hint: hasYo ? "замени на е" : "ок" },
     { label: "Только дефис '-' (без — и –)", ok: !hasLongDash, hint: hasLongDash ? "замени тире на -" : "ок" },
     { label: "Без markdown-таблиц (vc.ru их не рендерит)", ok: !hasTable, hint: hasTable ? "переделай в список" : "ок" },
-    { label: "Цитаты-врезки (2-4 шт)", ok: quoteCount >= 2 && quoteCount <= 4, hint: `найдено ${quoteCount} (нужно 2-4)` },
+    { label: "Цитаты-врезки (2-4 шт)", ok: isRating ? true : (quoteCount >= 2 && quoteCount <= 4), hint: isRating ? "не требуется в листинге" : `найдено ${quoteCount} (нужно 2-4)` },
   ];
+  if (isRating) {
+    base.push({ label: "Карточки компаний (>=5)", ok: cards >= 5, hint: `найдено ${cards}` });
+    base.push({ label: "Блок FAQ", ok: hasFaq, hint: hasFaq ? "ок" : "добавь H2 'Частые вопросы покупателей (FAQ)'" });
+    base.push({ label: "Примечание о ценах с годом", ok: hasNote, hint: hasNote ? "ок" : "добавь 'Примечание: Цены... данные {год}'" });
+  }
+  return base;
 }
 
 // ============================================================================
