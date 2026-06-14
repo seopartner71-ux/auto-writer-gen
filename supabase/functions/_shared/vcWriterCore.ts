@@ -1119,7 +1119,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     ? data.tags.slice(0, 6).map((t: any) => normalizeDashes(ruEReplace(String(t))).slice(0, 30))
     : [];
 
-  if (ps_question && !/P\.?\s*S\.?/i.test(markdown)) {
+  if (!isRating && ps_question && !/P\.?\s*S\.?/i.test(markdown)) {
     markdown += `\n\nP.S. ${ps_question}`;
   }
 
@@ -1338,6 +1338,11 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     markdown = concIdx > 0
       ? markdown.slice(0, concIdx) + note + "\n" + markdown.slice(concIdx)
       : markdown + note;
+  }
+
+  // Листинг-рейтинг: вырезаем любой P.S. (формат закрывается Заключением, не вопросом).
+  if (isRating) {
+    markdown = markdown.replace(/\n+P\.?\s*S\.?[^\n]*(\n[^\n#][^\n]*)*\s*$/i, "").trimEnd() + "\n";
   }
 
   checklist.push({
