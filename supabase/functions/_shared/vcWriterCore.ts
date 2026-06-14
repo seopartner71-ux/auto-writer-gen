@@ -1,6 +1,6 @@
 // Core vc.ru Writer logic: prompt, generation, checklist, cover.
 // Shared by single-shot vc-writer and the batch worker.
-import { AiError, chatJson } from "./aiClient.ts";
+import { AiError, chatComplete, chatJson } from "./aiClient.ts";
 import { runDoubleHumanizePass, type DoubleHumanizeResult } from "./humanizePass.ts";
 
 export type VcFormat = "guide" | "rating" | "review" | "case";
@@ -30,7 +30,7 @@ const VC_RATING_PROTOCOL = `
 ШАБЛОН ЛИСТИНГА (ОБЯЗАТЕЛЬНО, если рейтинг про компании/производителей/сервисы в регионе/городе):
 H1 (ОБЯЗАТЕЛЬНО, первая строка markdown, формат "# <текст>"): "Рейтинг <чего> в <регионе> - данные <год>" (год ОБЯЗАТЕЛЬНО, маркер свежести). Без H1 текст бракуется.
 
-ЛИД (1-3 абзаца, 2500-4500 символов суммарно): структура «риск -> микро-история (необязательно, 1 абзац) -> метод и обещание независимости». БЕЗ "в современном мире", БЕЗ выдуманных процентов. Ссылку на источник-метод (если дана пользователем) вставить ровно в лид.
+ЛИД (1-2 абзаца, 700-1200 символов суммарно): структура «риск -> метод и обещание независимости». БЕЗ "в современном мире", БЕЗ выдуманных процентов. Ссылку на источник-метод (если дана пользователем) вставить ровно в лид. НЕ раздувай лид: длинный лид крадет лимит у карточек рейтинга и приводит к обрыву текста.
 ЗАПРЕЩЕНО дублировать тезис лида в метод-блоке: если в лиде уже сказано "за три года работы практика показывает..." - в метод-блоке этот же абзац НЕ ПОВТОРЯТЬ, иначе фрагмент удаляется как брак сборки.
 
 Затем абзац о критериях (1-2 предложения): по каким параметрам сравнивали (например: качество материалов, соблюдение сроков, клиентский сервис, цена за единицу).
@@ -739,6 +739,7 @@ async function runVcEditorPass(apiKey: string, markdown: string): Promise<string
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         temperature: 0.3,
+        max_tokens: 7000,
         messages: [
           { role: "system", content: VC_EDITOR_PASS_PROMPT },
           { role: "user", content: markdown },
@@ -978,6 +979,130 @@ export interface VcGenResult {
   editor_pass_report?: { applied: boolean; skipped?: string; in?: number; out?: number };
 }
 
+interface VcDraftJson {
+  title: string;
+  subtitle: string;
+  tags: string[];
+  ps_question: string;
+  markdown: string;
+}
+
+function buildJsonPayloadFromMarkdown(raw: string): VcDraftJson | null {
+  if (!raw || raw.trim().length < 200) return null;
+  let md = raw.replace(/^```(?:markdown|md|json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  const firstHeading = md.match(/^#\s+(.+)$/m);
+  let title = firstHeading?.[1]?.trim() || "";
+
+  if (!firstHeading) {
+    const jsonTitle = raw.match(/"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/);
+    if (jsonTitle?.[1]) {
+      try { title = JSON.parse(`"${jsonTitle[1]}"`); } catch { title = jsonTitle[1]; }
+    }
+    const mdMatch = raw.match(/"markdown"\s*:\s*"([\s\S]*)/);
+    if (mdMatch?.[1]) md = mdMatch[1].replace(/"\s*[,}]?\s*$/s, "");
+  }
+
+  md = md
+    .replace(/\\n/g, "\n")
+    .replace(/\\"/g, '"')
+    .replace(/\\\//g, "/")
+    .trim();
+
+  if (!title) title = md.split("\n").find((l) => l.trim().length > 20)?.replace(/^#+\s*/, "").slice(0, 90) || "Материал для vc.ru";
+  const subtitle = md.split("\n").find((l) => l.trim() && !/^#/.test(l.trim()))?.trim().slice(0, 220) || "Практический разбор без выдуманных фактов.";
+  const ps = md.match(/P\.?\s*S\.?:?\s*([^\n]+)/i)?.[1]?.trim() || "А вы как решаете эту задачу?";
+
+  return { title, subtitle, tags: [], ps_question: ps, markdown: md };
+}
+
+function markdownLooksComplete(md: string, isRating: boolean): boolean {
+  const tail = md.slice(-1400).toLowerCase();
+  if (isRating) return /^##\s+заключение/im.test(md) && tail.includes("заключение") && /[.!?]\s*$/.test(md.trim());
+  return /p\.?\s*s\.?/i.test(tail) && /[.!?]\s*$/.test(md.trim());
+}
+
+function mergeContinuation(base: string, continuation: string): string {
+  let add = continuation.replace(/^```(?:markdown|md)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  add = add.replace(/^#\s+.*\n+/, "").trim();
+  if (!add) return base;
+  const tail = base.slice(-500);
+  const addHead = add.slice(0, 180);
+  if (tail.includes(addHead)) return base;
+  return `${base.trimEnd()}\n\n${add}`;
+}
+
+async function continueMarkdownDraft(params: {
+  apiKey: string;
+  model: string;
+  system: string;
+  markdown: string;
+  isRating: boolean;
+  appTitle: string;
+}): Promise<string> {
+  const instruction = params.isRating
+    ? "Продолжи оборванный markdown строго с места обрыва. Не повторяй уже написанное. Заверши оставшиеся карточки, FAQ/примечание при необходимости и обязательно секцию ## Заключение. Верни только продолжение markdown."
+    : "Продолжи оборванный markdown строго с места обрыва. Не повторяй уже написанное. Заверши оставшиеся разделы и обязательно закончи строкой P.S. с конкретным вопросом. Верни только продолжение markdown.";
+  const res = await chatComplete({
+    apiKey: params.apiKey,
+    model: params.model,
+    system: `${params.system}\n\n${instruction}`,
+    user: `ПОСЛЕДНИЙ ФРАГМЕНТ ТЕКСТА:\n${params.markdown.slice(-2500)}\n\nПродолжи дальше:`,
+    temperature: 0.45,
+    maxTokens: params.isRating ? 2800 : 1800,
+    timeoutMs: 25_000,
+    appTitle: params.appTitle,
+  });
+  return mergeContinuation(params.markdown, res.content || "");
+}
+
+async function chatVcDraftJson(params: {
+  apiKey: string;
+  model: string;
+  system: string;
+  user: string;
+  temperature: number;
+  maxTokens: number;
+  timeoutMs: number;
+  appTitle: string;
+  isRating: boolean;
+}): Promise<{ data: VcDraftJson; model: string }> {
+  try {
+    const result = await chatComplete({
+      apiKey: params.apiKey,
+      model: params.model,
+      system: params.system,
+      user: params.user,
+      temperature: params.temperature,
+      maxTokens: params.maxTokens,
+      timeoutMs: params.timeoutMs,
+      appTitle: params.appTitle,
+    });
+    let content = result.content;
+    for (let i = 0; i < 2 && (result.finishReason === "length" || !markdownLooksComplete(content, params.isRating)); i++) {
+      content = await continueMarkdownDraft({
+        apiKey: params.apiKey,
+        model: params.model,
+        system: params.system,
+        markdown: content,
+        isRating: params.isRating,
+        appTitle: `${params.appTitle} Continue`,
+      });
+      if (markdownLooksComplete(content, params.isRating)) break;
+    }
+    const recovered = buildJsonPayloadFromMarkdown(content);
+    if (!recovered) throw new AiError("parse_failed", "Model returned empty or unusable markdown", { upstreamBody: result.content.slice(0, 50_000) });
+    return { data: recovered, model: result.model };
+  } catch (e) {
+    const raw = e instanceof AiError ? e.upstreamBody || "" : "";
+    const recovered = buildJsonPayloadFromMarkdown(raw);
+    if (recovered) {
+      console.warn("[generateVcArticle] recovered truncated draft", { model: params.model, err: (e as Error)?.message });
+      return { data: recovered, model: params.model };
+    }
+    throw e;
+  }
+}
+
 function shouldRetryVcDraft(e: unknown): boolean {
   if (!(e instanceof AiError)) return true;
   return ["timeout", "upstream", "rate_limit", "parse_failed", "network"].includes(e.kind);
@@ -1007,7 +1132,7 @@ function buildPrompt(p: VcGenInput): { system: string; user: string } {
   const facts = p.verifiedFacts && p.verifiedFacts.trim()
     ? `\n\nПРОВЕРЕННЫЕ ФАКТЫ (ИСПОЛЬЗОВАТЬ ТОЛЬКО ИХ):\nНиже список реальных цифр, цен, кейсов и характеристик. Все конкретные цифры, цены, проценты, сроки, лабораторные показатели, технические параметры, количество клиентов и обороты в тексте ДОЛЖНЫ браться отсюда. Если факта нет в списке - НЕ выдумывай число, используй формулировки 'по нашей практике', 'обычно', 'в среднем по рынку' БЕЗ конкретной цифры. Запрещено добавлять цифры, которых нет в списке.\n--- начало списка ---\n${p.verifiedFacts.trim().slice(0, 4000)}\n--- конец списка ---`
     : `\n\nРЕЖИМ "БЕЗ КОНКРЕТНЫХ ЧИСЕЛ" (КРИТИЧНО, нарушение = текст идёт в мусорку):\nПользователь НЕ дал проверенных фактов. Это значит АБСОЛЮТНЫЙ ЗАПРЕТ на любые конкретные числа в следующих категориях:\n- Цены (в рублях, тысячах, миллионах) - ни своих, ни конкурентов. НЕ писать "Shell 4100 руб", "наш сервис 2400 руб", "сэкономили 1800 руб".\n- Проценты (5%, 18%, 0,4 л) - запрещены, кроме широко известных констант (например, НДС 20%).\n- Лабораторные/технические показатели: вязкость, плотность, моторесурс, расход топлива, мощность, крутящий момент, давление, температура.\n- Конкретные пробеги ("за 6000 км"), сроки ("за 8 месяцев"), даты с месяцем ("в январе 2023").\n- Бизнес-метрики автора: количество клиентов, машин, постов, штат, оборот.\n- Названия конкретных моделей техники с результатами ("Camry 2019", "Kia Rio").\n- Сертификации с кодами (API SN, ACEA A3/B4) - только если общеизвестны для категории.\nВместо конкретики ОБЯЗАТЕЛЬНО используй: "по нашей практике", "обычно", "в среднем по рынку", "у коллег видел", диапазоны ("на 15-30% дешевле"), пропорции ("у X из Y клиентов"). Лучше пресный честный текст, чем живой с галлюцинациями - постпроцессор всё равно вырежет конкретику и заменит на обобщения, ты только испортишь читаемость.`;
-  const user = `Тема: ${p.topic}\nГлавный тезис: ${p.thesis || "сформулируй сам исходя из темы"}\nАудитория vc.ru: ${p.audience || "предприниматели, маркетологи, продактменеджеры"}\nТон: ${p.tone || "экспертно-разговорный с легкой провокацией"}\nЦелевая длина: ${p.length || 5500} знаков (+-20%).${persona}${niche}${pinnedBlock}${facts}${seo}${links}${avoid}\n\nВерни строго JSON:\n{\n  "title": "заголовок до 90 символов",\n  "subtitle": "подзаголовок 1-2 предложения, продает клик",\n  "tags": ["тег1","тег2",...],\n  "ps_question": "вопрос аудитории для P.S.",\n  "markdown": "полный текст материала в markdown с многоуровневой иерархией заголовков (минимум 5 H2, минимум 4 H3, минимум 2 H4, не пропуская уровни: H2 -> H3 -> H4), списками. Включи в конец строку 'P.S. <ps_question>' - КРОМЕ format=rating, где вместо P.S. идёт H2 «Заключение»."\n}`;
+  const user = `Тема: ${p.topic}\nГлавный тезис: ${p.thesis || "сформулируй сам исходя из темы"}\nАудитория vc.ru: ${p.audience || "предприниматели, маркетологи, продактменеджеры"}\nТон: ${p.tone || "экспертно-разговорный с легкой провокацией"}\nЦелевая длина: ${p.length || 5500} знаков (+-20%).${persona}${niche}${pinnedBlock}${facts}${seo}${links}${avoid}\n\nВерни ТОЛЬКО чистый markdown, без JSON, без code fences и без пояснений. Первая строка обязательно H1: "# <заголовок>". Материал должен быть законченным: не обрывай последнюю карточку, для rating обязательно закончи секцией "## Заключение", для остальных форматов - строкой "P.S. <конкретный вопрос аудитории>".`;
   const research = p.topicResearch && p.topicResearch.trim()
     ? `\n\nАНАЛИЗ ТЕМЫ (топ-материалы по теме на vc.ru и в рунете - ИСПОЛЬЗОВАТЬ ПАТТЕРНЫ, НЕ КОПИРОВАТЬ):\nПрименяй выявленные паттерны (типы заголовков, структуру, что обсуждают, какие возражения). КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО копировать конкретные цифры, кейсы, имена, расчёты и формулировки из этих статей - только закономерности.\n--- начало анализа ---\n${p.topicResearch.trim().slice(0, 5000)}\n--- конец анализа ---`
     : "";
@@ -1085,52 +1210,36 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   const requestedLength = isRating
     ? Math.min(8000, Math.max(4500, Number(input.length) || 6500))
     : Math.min(5000, Math.max(2500, Number(input.length) || 4800));
-  const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
-  let effectiveModel = input.model;
+  const requestedSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
+  const isSlowModel = requestedSlowModel && !isRating;
+  let effectiveModel = isRating && requestedSlowModel ? "google/gemini-2.5-flash" : input.model;
   let result;
   try {
-    result = await chatJson<{
-    title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
-    }>({
-    apiKey: input.apiKey,
-    model: effectiveModel,
-    system,
-    user,
-    temperature: isRating ? 0.65 : 0.85,
-    maxTokens: isRating ? 4800 : (requestedLength >= 5000 ? 3600 : 3200),
-    timeoutMs: isSlowModel ? 55_000 : 50_000,
-    appTitle: "vc.ru Writer",
-    schemaName: "vc_article",
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["title", "subtitle", "tags", "ps_question", "markdown"],
-      properties: {
-        title: { type: "string" },
-        subtitle: { type: "string" },
-        tags: { type: "array", items: { type: "string" } },
-        ps_question: { type: "string" },
-        markdown: { type: "string" },
-      },
-    },
-    retries: 0,
+    result = await chatVcDraftJson({
+      apiKey: input.apiKey,
+      model: effectiveModel,
+      system,
+      user,
+      temperature: isRating ? 0.65 : 0.85,
+      maxTokens: isRating ? 8200 : (requestedLength >= 5000 ? 6200 : 5200),
+      timeoutMs: isSlowModel ? 60_000 : 58_000,
+      appTitle: "vc.ru Writer",
+      isRating,
     });
   } catch (e) {
     if (!isSlowModel || !shouldRetryVcDraft(e)) throw e;
     console.warn("[generateVcArticle] slow model failed, retrying with flash", { model: input.model, err: (e as Error)?.message });
     effectiveModel = "google/gemini-2.5-flash";
-    result = await chatJson<{
-      title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
-    }>({
+    result = await chatVcDraftJson({
       apiKey: input.apiKey,
       model: effectiveModel,
       system,
       user,
       temperature: 0.8,
-      maxTokens: 3400,
-      timeoutMs: 38_000,
+      maxTokens: isRating ? 7600 : 5200,
+      timeoutMs: 48_000,
       appTitle: "vc.ru Writer Fallback",
-      retries: 0,
+      isRating,
     });
   }
 
