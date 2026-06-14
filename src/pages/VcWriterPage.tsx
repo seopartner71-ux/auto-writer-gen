@@ -436,6 +436,29 @@ export default function VcWriterPage() {
           rating_type: format === "rating" ? ratingType : undefined,
           rating_city: format === "rating" ? ratingCity.trim() : undefined,
           rating_manual: format === "rating" && ratingType === "manual" ? ratingManual.trim() : undefined,
+          offer_block: (() => {
+            if (!offerEnabled) return undefined;
+            const o = offerText.trim();
+            const c = offerCta.trim();
+            let u = offerUrl.trim();
+            if (!o || !c || !/^https?:\/\/\S+$/i.test(u)) return undefined;
+            if (addUtm) {
+              try {
+                const url = new URL(u);
+                if (!url.searchParams.has("utm_source")) url.searchParams.set("utm_source", "vc");
+                if (!url.searchParams.has("utm_medium")) url.searchParams.set("utm_medium", "article");
+                if (!url.searchParams.has("utm_campaign")) url.searchParams.set("utm_campaign", "offer");
+                u = url.toString();
+              } catch { /* ignore */ }
+            }
+            return {
+              style: offerStyle,
+              offer: o,
+              benefit: offerBenefit.trim() || undefined,
+              cta: c,
+              url: u,
+            };
+          })(),
         },
       });
       if (error) throw error;
