@@ -960,6 +960,22 @@ export interface VcGenInput {
   realItemsAttribution?: string;
 }
 
+/** Опциональный конверсионный блок-оффер автора (нативная CTA в стиле vc.ru). */
+export interface OfferBlockInput {
+  /** Стиль вставки: soft (мягко в P.S.), native (отдельный H2 в конце), leadmagnet (бесплатный обмен на контакт). */
+  style: "soft" | "native" | "leadmagnet";
+  /** Что предлагаете (напр. "бесплатный аудит РВД с выездом"). */
+  offer: string;
+  /** Выгода/крючок (напр. "найдем 2-3 точки экономии за 30 минут"). */
+  benefit?: string;
+  /** Текст ссылки/CTA (напр. "Оставить заявку"). */
+  cta: string;
+  /** URL клиента (рекомендуется передавать уже с UTM). */
+  url: string;
+  /** Для rating: явно помечаем раскрытие — оффер от закрепленного клиента. */
+  disclosure?: boolean;
+}
+
 export type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
 
 export const AUTHOR_PERSONA_BRIEF: Record<AuthorPersona, string> = {
