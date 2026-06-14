@@ -789,6 +789,65 @@ export default function VcWriterPage() {
             </div>
 
             <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                Уровень воронки
+                <Badge variant="outline" className="h-4 text-[9px] px-1.5">новое</Badge>
+              </Label>
+              <Select value={funnelStage} onValueChange={(v) => setFunnelStage(v as typeof funnelStage)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">
+                    <div className="flex flex-col">
+                      <span>Авто</span>
+                      <span className="text-xs text-muted-foreground">Без жёстких правил воронки (старое поведение)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="tofu">
+                    <div className="flex flex-col">
+                      <span>TOFU - трафик / охват</span>
+                      <span className="text-xs text-muted-foreground">Информационная статья под Яндекс. Без оффера и клиентских ссылок.</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="mofu">
+                    <div className="flex flex-col">
+                      <span>MOFU - выбор и сравнение</span>
+                      <span className="text-xs text-muted-foreground">Главный деньговый уровень: сравнение + ошибки + чек-лист + мягкий CTA.</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="bofu">
+                    <div className="flex flex-col">
+                      <span>BOFU - прямые заявки</span>
+                      <span className="text-xs text-muted-foreground">Цены, ошибки, чек-лист проверки, блок «как мы помогаем», нативный CTA.</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {funnelStage === "tofu" && offerEnabled && (
+                <p className="text-[10px] text-amber-500">
+                  На TOFU оффер автоматически отключается — это информационный уровень, не для заявок. Для CTA переключите воронку на MOFU/BOFU.
+                </p>
+              )}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-[10px] text-muted-foreground">
+                  Funnel Pack: 3 статьи под одну тему (TOFU + MOFU + BOFU) одной кнопкой.
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  disabled={funnelPackLoading || topic.trim().length < 5}
+                  onClick={() => handleFunnelPack()}
+                >
+                  {funnelPackLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Funnel Pack
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
               <Label>Модель</Label>
               <Select value={model} onValueChange={setModel}>
                 <SelectTrigger>
