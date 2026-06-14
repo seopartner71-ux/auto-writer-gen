@@ -82,13 +82,30 @@ serve(async (req) => {
     const rawOffer = body.offer_block;
     if (rawOffer && typeof rawOffer === "object") {
       const styleRaw = String(rawOffer.style || "native").toLowerCase();
-      const style: OfferBlockInput["style"] =
+      let style: OfferBlockInput["style"] =
         styleRaw === "soft" || styleRaw === "leadmagnet" ? (styleRaw as any) : "native";
       const offerText = ruEReplace(normalizeDashes(String(rawOffer.offer || ""))).trim().slice(0, 240);
       const benefitText = ruEReplace(normalizeDashes(String(rawOffer.benefit || ""))).trim().slice(0, 240);
       const ctaText = ruEReplace(normalizeDashes(String(rawOffer.cta || ""))).trim().slice(0, 80);
-      const urlText = String(rawOffer.url || "").trim().slice(0, 500);
+      let urlText = String(rawOffer.url || "").trim().slice(0, 500);
       if (offerText.length >= 3 && ctaText.length >= 2 && /^https?:\/\/\S+$/i.test(urlText)) {
+        // Auto-pick style by content of the offer (lead-magnet heuristic).
+        // If user explicitly chose soft/leadmagnet, keep their pick.
+        if (styleRaw === "native" || !["soft", "leadmagnet"].includes(styleRaw)) {
+          const lower = `${offerText} ${ctaText}`.toLowerCase();
+          if (/чек-?лист|шаблон|калькулятор|расч[её]т|подбор|гайд|инструкци|pdf|таблиц|разбор бесплатн/.test(lower)) {
+            style = "leadmagnet";
+          }
+        }
+        // Auto-UTM (mandatory, hidden from user). Adds only missing keys.
+        try {
+          const u = new URL(urlText);
+          if (!u.searchParams.has("utm_source")) u.searchParams.set("utm_source", "vc");
+          if (!u.searchParams.has("utm_medium")) u.searchParams.set("utm_medium", "article");
+          if (!u.searchParams.has("utm_campaign")) u.searchParams.set("utm_campaign", "offer");
+          if (!u.searchParams.has("utm_content")) u.searchParams.set("utm_content", style);
+          urlText = u.toString();
+        } catch { /* keep urlText as is */ }
         offerBlock = {
           style,
           offer: offerText,
