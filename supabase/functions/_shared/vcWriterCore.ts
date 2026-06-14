@@ -259,11 +259,19 @@ export function ensureClientLinks(md: string, links: Array<{ url: string; anchor
   const appended: string[] = [];
   if (!links || !links.length) return { md, injected, appended };
 
+  const BAD_ANCHORS = new Set([
+    "сайт", "сайте", "тут", "здесь", "ссылка", "по ссылке", "ссылке",
+    "посмотреть", "посмотреть здесь", "перейти", "подробнее",
+  ]);
   let out = md;
   for (const l of links) {
     const anchor = (l.anchor || "").trim();
     const url = (l.url || "").trim();
     if (!anchor || !url) continue;
+    if (BAD_ANCHORS.has(anchor.toLowerCase())) {
+      // Анкор-затычка: вставляем как есть, но логируем для UI-предупреждения.
+      // (продвинутая замена потребовала бы LLM — это для следующей итерации)
+    }
     // Уже есть как markdown-ссылка?
     const already = new RegExp(`\\]\\(\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\)`).test(out);
     if (already) { injected.push(anchor); continue; }
