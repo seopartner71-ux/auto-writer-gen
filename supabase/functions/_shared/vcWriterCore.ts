@@ -1063,7 +1063,9 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   const isRating = input.format === "rating";
   const { system, user } = buildPrompt(input);
 
-  const requestedLength = Math.min(5000, Math.max(2500, Number(input.length) || 4800));
+  const requestedLength = isRating
+    ? Math.min(8000, Math.max(4500, Number(input.length) || 6500))
+    : Math.min(5000, Math.max(2500, Number(input.length) || 4800));
   const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
   let effectiveModel = input.model;
   let result;
