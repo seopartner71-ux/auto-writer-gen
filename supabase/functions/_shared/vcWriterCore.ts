@@ -859,9 +859,10 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   let humanize_report: VcGenResult["humanize_report"] | undefined;
   if (input.humanize) {
     try {
-      // Edge-function wall clock ~150s. Leave 8s for fact-check/cover/response.
+      // Edge-function wall clock ~150s. Reserve time for cover (если запрошена) и финальные шаги.
       const elapsed = Date.now() - __startedAt;
-      const budget = Math.max(0, 145_000 - elapsed - 8_000);
+      const reserveForCover = input.wantCover ? 70_000 : 8_000;
+      const budget = Math.max(0, 145_000 - elapsed - reserveForCover);
       const h: DoubleHumanizeResult = await runDoubleHumanizePass(
         markdown,
         "ru",
