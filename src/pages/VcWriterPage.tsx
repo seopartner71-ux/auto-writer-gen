@@ -1302,7 +1302,7 @@ export default function VcWriterPage() {
               );
             })()}
             <p className="text-[10px] text-muted-foreground text-center">
-              Занимает 30-90 секунд. Обложка добавляет ~15 сек.
+              Занимает 30-90 секунд.
             </p>
           </CardContent>
         </Card>
