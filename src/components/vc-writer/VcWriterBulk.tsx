@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Sparkles, Plus, Trash2, Wand2, Copy, Download, Check, X, FileText, Image as ImageIcon } from "lucide-react";
+import { Loader2, Sparkles, Plus, Trash2, Wand2, Copy, Download, Check, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,7 +68,6 @@ const newRow = (format: Format = "guide"): FormRow => ({
 
 export default function VcWriterBulk({ model, modelLabel }: Props) {
   const [rows, setRows] = useState<FormRow[]>([newRow(), newRow(), newRow()]);
-  const [generateCover, setGenerateCover] = useState(false);
   const [defaultAudience, setDefaultAudience] = useState("");
   const [defaultTone, setDefaultTone] = useState("экспертно-разговорный с легкой провокацией");
   const [defaultLength, setDefaultLength] = useState(5500);
