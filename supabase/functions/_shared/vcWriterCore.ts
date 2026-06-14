@@ -972,6 +972,11 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     { label: "Без повторяющихся зачинов абзацев",
       ok: openers_report.ok,
       hint: openers_report.ok ? "ок" : openers_report.offenders.map((o) => `"${o.opener}" x${o.count}`).join(", ") },
+    { label: "Длина абзацев <= 5 предложений",
+      ok: paragraphs_report.ok,
+      hint: paragraphs_report.ok
+        ? "ок"
+        : `длинных абзацев: ${paragraphs_report.offenders} (${paragraphs_report.samples.map((s) => `${s.sentences} предл.: "${s.preview}"`).join(" | ")})` },
   );
   if (input.targetQuery && seoReportFull) {
     checklist.push({
