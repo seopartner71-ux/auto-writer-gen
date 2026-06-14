@@ -979,6 +979,83 @@ export interface VcGenResult {
   editor_pass_report?: { applied: boolean; skipped?: string; in?: number; out?: number };
 }
 
+interface VcDraftJson {
+  title: string;
+  subtitle: string;
+  tags: string[];
+  ps_question: string;
+  markdown: string;
+}
+
+function safeJsonString(value: unknown): string {
+  return JSON.stringify(String(value ?? ""));
+}
+
+function buildJsonPayloadFromMarkdown(raw: string): VcDraftJson | null {
+  if (!raw || raw.trim().length < 200) return null;
+  let md = raw.replace(/^```(?:markdown|md|json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  const firstHeading = md.match(/^#\s+(.+)$/m);
+  let title = firstHeading?.[1]?.trim() || "";
+
+  if (!firstHeading) {
+    const jsonTitle = raw.match(/"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/);
+    if (jsonTitle?.[1]) {
+      try { title = JSON.parse(`"${jsonTitle[1]}"`); } catch { title = jsonTitle[1]; }
+    }
+    const mdMatch = raw.match(/"markdown"\s*:\s*"([\s\S]*)/);
+    if (mdMatch?.[1]) md = mdMatch[1].replace(/"\s*[,}]?\s*$/s, "");
+  }
+
+  md = md
+    .replace(/\\n/g, "\n")
+    .replace(/\\"/g, '"')
+    .replace(/\\\//g, "/")
+    .trim();
+
+  if (!title) title = md.split("\n").find((l) => l.trim().length > 20)?.replace(/^#+\s*/, "").slice(0, 90) || "Материал для vc.ru";
+  const subtitle = md.split("\n").find((l) => l.trim() && !/^#/.test(l.trim()))?.trim().slice(0, 220) || "Практический разбор без выдуманных фактов.";
+  const ps = md.match(/P\.?\s*S\.?:?\s*([^\n]+)/i)?.[1]?.trim() || "А вы как решаете эту задачу?";
+
+  return { title, subtitle, tags: [], ps_question: ps, markdown: md };
+}
+
+async function chatVcDraftJson(params: {
+  apiKey: string;
+  model: string;
+  system: string;
+  user: string;
+  temperature: number;
+  maxTokens: number;
+  timeoutMs: number;
+  appTitle: string;
+  schema?: Record<string, unknown>;
+}): Promise<{ data: VcDraftJson; model: string }> {
+  try {
+    const result = await chatJson<VcDraftJson>({
+      apiKey: params.apiKey,
+      model: params.model,
+      system: params.system,
+      user: params.user,
+      temperature: params.temperature,
+      maxTokens: params.maxTokens,
+      timeoutMs: params.timeoutMs,
+      appTitle: params.appTitle,
+      schemaName: params.schema ? "vc_article" : undefined,
+      schema: params.schema,
+      retries: 0,
+    });
+    return { data: result.data, model: result.model };
+  } catch (e) {
+    const raw = e instanceof AiError ? e.upstreamBody || "" : "";
+    const recovered = buildJsonPayloadFromMarkdown(raw);
+    if (recovered) {
+      console.warn("[generateVcArticle] recovered truncated draft", { model: params.model, err: (e as Error)?.message });
+      return { data: recovered, model: params.model };
+    }
+    throw e;
+  }
+}
+
 function shouldRetryVcDraft(e: unknown): boolean {
   if (!(e instanceof AiError)) return true;
   return ["timeout", "upstream", "rate_limit", "parse_failed", "network"].includes(e.kind);
