@@ -97,7 +97,7 @@ serve(async (req) => {
         audience: item.audience || "",
         tone: item.tone || "",
         length: item.length || 5500,
-        wantCover: !!batch.generate_cover,
+        wantCover: false,
         avoidTitles,
       });
 
