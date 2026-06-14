@@ -25,6 +25,46 @@ const VC_RATING_PROTOCOL = `
    - Все ли позиции - реальные бренды (не категории)? Если нет - переделать.
 7. FALLBACK. Если для честного рейтинга недостаточно данных (нет 5+ реальных конкурентов с фактами), НЕ пиши рейтинг - перестрой материал в формат "личный опыт / кейс / разбор рынка / обзор одного продукта с упоминанием альтернатив". Лучше честный кейс, чем фейковый рейтинг.
 8. ТОН: независимое исследование рынка, а не продвижение одного участника.
+
+ШАБЛОН ЛИСТИНГА (ОБЯЗАТЕЛЬНО, если рейтинг про компании/производителей/сервисы в регионе/городе):
+H1: "Рейтинг <чего> в <регионе> - данные <год>" (год ОБЯЗАТЕЛЬНО, маркер свежести).
+
+ЛИД (3-4 предложения, без цифр): риск ошибки -> метод отбора (откуда брали данные: Яндекс Карты / 2ГИС / отраслевые отзывы) -> обещание независимости. БЕЗ "в современном мире", БЕЗ выдуманных процентов. Ссылку на источник-метод (если дана пользователем) вставить ровно в этот абзац.
+
+Затем абзац о критериях (1-2 предложения): по каким параметрам сравнивали (например: качество материалов, соблюдение сроков, клиентский сервис, цена за единицу).
+
+H2 "Обзор компаний: оценки и факты"
+Микро-фраза одной строкой ("Выбрали лучших по оценкам, ниже распишем почему:") и нумерованный список 01.-10. с ссылками на каждую компанию (двузначная нумерация: 01., 02., ..., 10.). Один пункт = одна ссылка [Название](url).
+
+Затем H3 на каждую компанию строго по шаблону, в фиксированном порядке полей:
+### N. Название
+Адрес: <город, улица>
+⭐ <оценка> на <источник> (<N> отзывов)
+👉 [Перейти](<url>)
+- Цена за <единицу>: от <сумма> руб.
+- Качество <предмета>: <одно предложение>.
+- Соблюдение сроков: <одно предложение>.
+- Клиентский сервис: <одно предложение>.
+
+Правила карточки:
+- Поля Адрес, рейтинг и Перейти - плоским текстом отдельными строками (НЕ буллетами).
+- Эмодзи ⭐ и 👉 в карточках разрешены и обязательны (это узнаваемый код формата). Других эмодзи в карточках быть не должно.
+- 4 буллета строго в одном порядке (Цена, Качество, Сроки, Сервис), каждое - ОДНО законченное предложение, без второго предложения после точки. Без шаблона "Заголовок: предложение. Второе предложение".
+- Если у компании нет данных по какому-то полю - пиши коротко "данные не раскрываются", но 4 буллета должны присутствовать.
+
+H2 "Частые вопросы покупателей (FAQ)"
+4-6 вопросов. Каждый вопрос и ответ - ОДНИМ абзацем (вопрос с "?" -> сразу ответ в том же абзаце). НЕ "Q:/A:", НЕ блок-цитата.
+
+После FAQ строкой:
+Примечание: Цены указаны для ознакомления на основе открытых данных <год> и могут корректироваться производителями.
+
+H2 "Заключение"
+1-2 предложения. Без P.S.-вопроса (в листинг-рейтинге P.S. запрещён - закрывает рейтинг "Заключение", не вопрос).
+
+ОСОБЫЕ СНЯТИЯ ОГРАНИЧЕНИЙ для листинг-рейтинга:
+- "Story-First" (потеря денег + конкретный человек в первых 500 словах) НЕ ТРЕБУЕТСЯ.
+- Цитат-врезок (> ...) и плейсхолдеров скриншотов НЕ ДОБАВЛЯТЬ - формат сам по себе скан-формат.
+- Длинные абзацы и "капитан-очевидность" - не применять, текст по природе справочный.
 `.trim();
 
 const VC_PROTOCOL = `
@@ -314,7 +354,7 @@ export function ensureClientLinks(md: string, links: Array<{ url: string; anchor
   return { md: out, injected, appended };
 }
 
-export function buildChecklist(md: string, ps: string): Array<{ label: string; ok: boolean; hint: string }> {
+export function buildChecklist(md: string, ps: string, opts: { isRating?: boolean } = {}): Array<{ label: string; ok: boolean; hint: string }> {
   const text = stripText(md);
   const chars = text.length;
   const digitsCount = (text.match(/\b\d+[\d\s.,%]*/g) || []).length;
@@ -329,21 +369,33 @@ export function buildChecklist(md: string, ps: string): Array<{ label: string; o
   const hasLongDash = /[\u2010-\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/.test(md);
   const hasTable = /^\s*\|.*\|\s*$/m.test(md) && /^\s*\|?\s*:?-{2,}.*\|/m.test(md);
   const quoteCount = (md.match(/^>\s+\S/gm) || []).length;
-  return [
-    { label: "Длина 4500-7000 знаков", ok: chars >= 4500 && chars <= 7000, hint: `сейчас ${chars}` },
+  const isRating = !!opts.isRating;
+  const cards = isRating ? (md.match(/^###\s+\d+\.\s+/gm) || []).length : 0;
+  const hasFaq = isRating ? /^##\s+.*FAQ|^##\s+.*Часты\w+\s+вопрос/im.test(md) : true;
+  const hasNote = isRating ? /Примечание:\s*Цены/i.test(md) : true;
+  const minLen = isRating ? 3500 : 4500;
+  const maxLen = isRating ? 9000 : 7000;
+  const base = [
+    { label: `Длина ${minLen}-${maxLen} знаков`, ok: chars >= minLen && chars <= maxLen, hint: `сейчас ${chars}` },
     { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
     { label: "Минимум 3 подзаголовка H2", ok: h2 >= 3, hint: `${h2} H2` },
     { label: "Минимум 4 подзаголовка H3", ok: h3 >= 4, hint: `${h3} H3` },
-    { label: "Минимум 2 подзаголовка H4", ok: h4 >= 2, hint: `${h4} H4` },
-    { label: "Личный опыт", ok: hasPersonal, hint: hasPersonal ? "ок" : "добавь сцену" },
-    { label: "Упомянут провал/ошибка", ok: hasMistake, hint: hasMistake ? "ок" : "vc.ru любит честность" },
-    { label: "Есть P.S. с вопросом", ok: !!hasPS, hint: hasPS ? "ок" : "добавь P.S." },
+    { label: "Минимум 2 подзаголовка H4", ok: isRating ? true : h4 >= 2, hint: isRating ? "не требуется в листинге" : `${h4} H4` },
+    { label: "Личный опыт", ok: isRating ? true : hasPersonal, hint: isRating ? "не требуется в листинге" : (hasPersonal ? "ок" : "добавь сцену") },
+    { label: "Упомянут провал/ошибка", ok: isRating ? true : hasMistake, hint: isRating ? "не требуется в листинге" : (hasMistake ? "ок" : "vc.ru любит честность") },
+    { label: "Есть P.S. с вопросом", ok: isRating ? true : !!hasPS, hint: isRating ? "не требуется (есть Заключение)" : (hasPS ? "ок" : "добавь P.S.") },
     { label: "Нет жирного (**)", ok: !hasBold, hint: hasBold ? "убери **" : "ок" },
     { label: "Нет буквы ё", ok: !hasYo, hint: hasYo ? "замени на е" : "ок" },
     { label: "Только дефис '-' (без — и –)", ok: !hasLongDash, hint: hasLongDash ? "замени тире на -" : "ок" },
     { label: "Без markdown-таблиц (vc.ru их не рендерит)", ok: !hasTable, hint: hasTable ? "переделай в список" : "ок" },
-    { label: "Цитаты-врезки (2-4 шт)", ok: quoteCount >= 2 && quoteCount <= 4, hint: `найдено ${quoteCount} (нужно 2-4)` },
+    { label: "Цитаты-врезки (2-4 шт)", ok: isRating ? true : (quoteCount >= 2 && quoteCount <= 4), hint: isRating ? "не требуется в листинге" : `найдено ${quoteCount} (нужно 2-4)` },
   ];
+  if (isRating) {
+    base.push({ label: "Карточки компаний (>=5)", ok: cards >= 5, hint: `найдено ${cards}` });
+    base.push({ label: "Блок FAQ", ok: hasFaq, hint: hasFaq ? "ок" : "добавь H2 'Частые вопросы покупателей (FAQ)'" });
+    base.push({ label: "Примечание о ценах с годом", ok: hasNote, hint: hasNote ? "ок" : "добавь 'Примечание: Цены... данные {год}'" });
+  }
+  return base;
 }
 
 // ============================================================================
@@ -706,6 +758,10 @@ async function runVcEditorPass(apiKey: string, markdown: string): Promise<string
  * Гарантированно безопасны: regex-замены без потери контента.
  */
 function applyVcDeterministicFixes(md: string): string {
+  return applyVcDeterministicFixesV2(md, {});
+}
+
+function applyVcDeterministicFixesV2(md: string, opts: { isRating?: boolean }): string {
   let out = md;
 
   // 1. Разрываем картинку, приклеенную к концу строки: "текст.![alt](url)" -> "текст.\n\n![alt](url)"
@@ -715,7 +771,12 @@ function applyVcDeterministicFixes(md: string): string {
   out = out.replace(/`([^`\n]{1,80})`/g, '"$1"');
 
   // 3. Убираем "бесплатно/онлайн/лучший" рядом с "генератор/инструмент/сервис" в заголовках H2/H3/H4.
-  out = out.replace(/^(#{2,4}\s.*?)\s+(бесплатно|онлайн|лучший)(\?|\.|:|\s|$)/gim, "$1$3");
+  //    В формате rating слово "лучший" допустимо ("Рейтинг лучших..."), оставляем.
+  if (opts.isRating) {
+    out = out.replace(/^(#{2,4}\s.*?)\s+(бесплатно|онлайн)(\?|\.|:|\s|$)/gim, "$1$3");
+  } else {
+    out = out.replace(/^(#{2,4}\s.*?)\s+(бесплатно|онлайн|лучший)(\?|\.|:|\s|$)/gim, "$1$3");
+  }
 
   // 4. Убираем "X бесплатно позволил/обеспечил/помог" -> "X позволил/обеспечил/помог"
   out = out.replace(/\s+бесплатно(\s+(позволил|позволяет|обеспечил|обеспечивает|помог|помогает))/gi, "$1");
@@ -723,8 +784,8 @@ function applyVcDeterministicFixes(md: string): string {
   // 5. Чистим тройные переносы строк, которые могли появиться после правки.
   out = out.replace(/\n{3,}/g, "\n\n");
 
-  // 6. Ограничиваем эмодзи: максимум 2 на статью.
-  out = limitEmojis(out, 2).md;
+  // 6. Ограничиваем эмодзи: 2 на обычную статью, до 30 для листинг-рейтинга (⭐ и 👉 - часть формата).
+  out = limitEmojis(out, opts.isRating ? 30 : 2).md;
 
   // 7. Срезаем placeholder-заглушки из редакторской правки: [ТИП КОМПАНИИ], [МАСШТАБ],
   //    [НАЗВАНИЕ КОМПАНИИ], [X], [Y] и т.п. — модель иногда вставляет их вопреки запрету.
@@ -999,9 +1060,12 @@ export async function factCheckMarkdown(
 
 export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult> {
   const __startedAt = Date.now();
+  const isRating = input.format === "rating";
   const { system, user } = buildPrompt(input);
 
-  const requestedLength = Math.min(5000, Math.max(2500, Number(input.length) || 4800));
+  const requestedLength = isRating
+    ? Math.min(8000, Math.max(4500, Number(input.length) || 6500))
+    : Math.min(5000, Math.max(2500, Number(input.length) || 4800));
   const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
   let effectiveModel = input.model;
   let result;
@@ -1013,8 +1077,8 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     model: effectiveModel,
     system,
     user,
-    temperature: 0.85,
-    maxTokens: requestedLength >= 5000 ? 3600 : 3200,
+    temperature: isRating ? 0.65 : 0.85,
+    maxTokens: isRating ? 4800 : (requestedLength >= 5000 ? 3600 : 3200),
     timeoutMs: isSlowModel ? 55_000 : 50_000,
     appTitle: "vc.ru Writer",
     schemaName: "vc_article",
@@ -1069,12 +1133,21 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     ? data.tags.slice(0, 6).map((t: any) => normalizeDashes(ruEReplace(String(t))).slice(0, 30))
     : [];
 
-  if (ps_question && !/P\.?\s*S\.?/i.test(markdown)) {
+  if (!isRating && ps_question && !/P\.?\s*S\.?/i.test(markdown)) {
     markdown += `\n\nP.S. ${ps_question}`;
   }
 
   // Удаляем дубль H1 заголовка и понижаем оставшиеся '#' до '##'.
   markdown = stripDuplicateH1(markdown, title);
+
+  // Title: для листинг-рейтинга гарантируем наличие года.
+  if (isRating) {
+    const year = new Date().getFullYear();
+    if (!new RegExp(`(?:20\\d{2}|${year})`).test(title)) {
+      const append = ` - данные ${year} года`;
+      if (title.length + append.length <= 90) title = title + append;
+    }
+  }
 
   // Lead-banality fix: если лид начинается со штампа, перепишем только его дешёвой моделью.
   let lead_report: { wasBanal: boolean; matched?: string; rewritten: boolean } = { wasBanal: false, rewritten: false };
@@ -1092,8 +1165,9 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   // Coherence Guard: если лид содержит цифру или сцену, не отражённые в теле,
   // переписываем лид под фактическую тему статьи (без оторванной бизнес-сцены).
+  // Для листинг-рейтинга пропускаем - там лид про метод, не про сцену.
   let coherence_report: { ok: boolean; reason?: string; rewritten: boolean } = { ok: true, rewritten: false };
-  if (!input.skipLeadFix && Date.now() - __startedAt < 95_000) {
+  if (!isRating && !input.skipLeadFix && Date.now() - __startedAt < 95_000) {
     const inc = detectIncoherentLead(markdown);
     coherence_report = { ok: inc.ok, reason: inc.reason, rewritten: false };
     if (!inc.ok && inc.lead) {
@@ -1170,10 +1244,14 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     console.warn(`[vc-cover] skipped (elapsed=${elapsedBeforeCover}ms exceeds budget)`);
   }
 
-  const checklist = buildChecklist(markdown, ps_question);
-  const story_report = validateStoryFirst(markdown);
+  const checklist = buildChecklist(markdown, ps_question, { isRating });
+  const story_report = isRating
+    ? { ok: true, missing: [], hasMoney: true, hasConsequence: true, hasPerson: true } as StoryFirstReport
+    : validateStoryFirst(markdown);
   const openers_report = detectRepeatedOpeners(markdown);
-  const paragraphs_report = detectLongParagraphs(markdown, 5);
+  const paragraphs_report = isRating
+    ? { ok: true, offenders: 0, samples: [] as Array<{ sentences: number; preview: string }> }
+    : detectLongParagraphs(markdown, 5);
 
   checklist.push(
     { label: "Story-First (сумма+последствие+человек в первых 500 словах)",
@@ -1264,7 +1342,22 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   // Детерминированные пост-фиксы: бэктики, битый markdown, остатки "бесплатно" в заголовках.
   // Применяются ВСЕГДА — даже если Editor Pass упал/пропущен.
-  markdown = applyVcDeterministicFixes(markdown);
+  markdown = applyVcDeterministicFixesV2(markdown, { isRating });
+
+  // Листинг-рейтинг: добавим Примечание перед Заключением, если редактор/модель его выкусили.
+  if (isRating && !/Примечание:\s*Цены/i.test(markdown)) {
+    const year = new Date().getFullYear();
+    const note = `\n\nПримечание: Цены указаны для ознакомления на основе открытых данных ${year} года и могут корректироваться производителями.\n`;
+    const concIdx = markdown.search(/^##\s+Заключение/im);
+    markdown = concIdx > 0
+      ? markdown.slice(0, concIdx) + note + "\n" + markdown.slice(concIdx)
+      : markdown + note;
+  }
+
+  // Листинг-рейтинг: вырезаем любой P.S. (формат закрывается Заключением, не вопросом).
+  if (isRating) {
+    markdown = markdown.replace(/\n+P\.?\s*S\.?[^\n]*(\n[^\n#][^\n]*)*\s*$/i, "").trimEnd() + "\n";
+  }
 
   checklist.push({
     label: "Редактура vc.ru (10 правил)",
