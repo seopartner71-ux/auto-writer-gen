@@ -1106,6 +1106,27 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
         ? "ок"
         : `длинных абзацев: ${paragraphs_report.offenders} (${paragraphs_report.samples.map((s) => `${s.sentences} предл.: "${s.preview}"`).join(" | ")})` },
   );
+  checklist.push({
+    label: "Связность лида с темой",
+    ok: coherence_report.ok || coherence_report.rewritten,
+    hint: coherence_report.ok
+      ? "ок"
+      : (coherence_report.rewritten
+          ? `лид переписан (была проблема: ${coherence_report.reason})`
+          : `лид оторван от тела: ${coherence_report.reason}`),
+  });
+  // Anchor-затычки в клиентских ссылках — предупреждение, не ошибка.
+  if (input.clientLinks && input.clientLinks.length) {
+    const BAD = new Set(["сайт","сайте","тут","здесь","ссылка","ссылке","подробнее","перейти","посмотреть"]);
+    const bad = input.clientLinks.filter((l) => BAD.has((l.anchor || "").trim().toLowerCase())).map((l) => l.anchor);
+    if (bad.length) {
+      checklist.push({
+        label: "Анкоры клиентских ссылок осмысленны",
+        ok: false,
+        hint: `анкор-затычки: ${bad.join(", ")} — замени на 2-4 слова по теме`,
+      });
+    }
+  }
   if (input.targetQuery && seoReportFull) {
     checklist.push({
       label: `SEO: запрос "${input.targetQuery}" в title и H2`,
