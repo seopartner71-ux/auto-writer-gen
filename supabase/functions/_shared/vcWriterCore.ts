@@ -1166,50 +1166,45 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     : Math.min(5000, Math.max(2500, Number(input.length) || 4800));
   const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
   let effectiveModel = input.model;
+  const vcDraftSchema = {
+    type: "object",
+    additionalProperties: false,
+    required: ["title", "subtitle", "tags", "ps_question", "markdown"],
+    properties: {
+      title: { type: "string" },
+      subtitle: { type: "string" },
+      tags: { type: "array", items: { type: "string" } },
+      ps_question: { type: "string" },
+      markdown: { type: "string" },
+    },
+  };
   let result;
   try {
-    result = await chatJson<{
-    title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
-    }>({
-    apiKey: input.apiKey,
-    model: effectiveModel,
-    system,
-    user,
-    temperature: isRating ? 0.65 : 0.85,
-    maxTokens: isRating ? 4800 : (requestedLength >= 5000 ? 3600 : 3200),
-    timeoutMs: isSlowModel ? 55_000 : 50_000,
-    appTitle: "vc.ru Writer",
-    schemaName: "vc_article",
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["title", "subtitle", "tags", "ps_question", "markdown"],
-      properties: {
-        title: { type: "string" },
-        subtitle: { type: "string" },
-        tags: { type: "array", items: { type: "string" } },
-        ps_question: { type: "string" },
-        markdown: { type: "string" },
-      },
-    },
-    retries: 0,
+    result = await chatVcDraftJson({
+      apiKey: input.apiKey,
+      model: effectiveModel,
+      system,
+      user,
+      temperature: isRating ? 0.65 : 0.85,
+      maxTokens: isRating ? 8200 : (requestedLength >= 5000 ? 6200 : 5200),
+      timeoutMs: isSlowModel ? 60_000 : 58_000,
+      appTitle: "vc.ru Writer",
+      schema: vcDraftSchema,
     });
   } catch (e) {
     if (!isSlowModel || !shouldRetryVcDraft(e)) throw e;
     console.warn("[generateVcArticle] slow model failed, retrying with flash", { model: input.model, err: (e as Error)?.message });
     effectiveModel = "google/gemini-2.5-flash";
-    result = await chatJson<{
-      title: string; subtitle: string; tags: string[]; ps_question: string; markdown: string;
-    }>({
+    result = await chatVcDraftJson({
       apiKey: input.apiKey,
       model: effectiveModel,
       system,
       user,
       temperature: 0.8,
-      maxTokens: 3400,
-      timeoutMs: 38_000,
+      maxTokens: isRating ? 7600 : 5200,
+      timeoutMs: 48_000,
       appTitle: "vc.ru Writer Fallback",
-      retries: 0,
+      schema: vcDraftSchema,
     });
   }
 
