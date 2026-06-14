@@ -888,8 +888,11 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
 
   let cover_data_url: string | null = null;
   const elapsedBeforeCover = Date.now() - __startedAt;
-  if (input.wantCover && elapsedBeforeCover < 105_000) {
+  if (input.wantCover && elapsedBeforeCover < 90_000) {
+    console.log(`[vc-cover] start, elapsed=${elapsedBeforeCover}ms`);
     cover_data_url = await generateCover(`${title}. ${subtitle}`);
+  } else if (input.wantCover) {
+    console.warn(`[vc-cover] skipped (elapsed=${elapsedBeforeCover}ms exceeds budget)`);
   }
 
   const checklist = buildChecklist(markdown, ps_question);
