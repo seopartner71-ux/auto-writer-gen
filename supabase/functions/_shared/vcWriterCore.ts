@@ -1240,7 +1240,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     console.warn(`[vc-cover] skipped (elapsed=${elapsedBeforeCover}ms exceeds budget)`);
   }
 
-  const checklist = buildChecklist(markdown, ps_question);
+  const checklist = buildChecklist(markdown, ps_question, { isRating });
   const story_report = isRating
     ? { ok: true, missing: [], hasMoney: true, hasConsequence: true, hasPerson: true } as StoryFirstReport
     : validateStoryFirst(markdown);
