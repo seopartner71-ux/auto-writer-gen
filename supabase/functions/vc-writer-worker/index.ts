@@ -5,6 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { adminClient } from "../_shared/auth.ts";
 import { generateVcArticle, isVcFormat, pickVcModel } from "../_shared/vcWriterCore.ts";
+import { validateVcArticle } from "../_shared/vcQualityGuard.ts";
 
 function isServiceRole(req: Request): boolean {
   const auth = req.headers.get("Authorization") || "";
@@ -100,6 +101,11 @@ serve(async (req) => {
         wantCover: false,
         avoidTitles,
       });
+
+      // Quality guard before persisting batch result.
+      const guard = validateVcArticle(out.markdown || "", format);
+      if (guard.repaired) out.markdown = guard.markdown;
+      (out as any).risk_report = { ...((out as any).risk_report ?? {}), quality_guard: guard.report };
 
       await admin.from("vc_writer_batch_items").update({
         status: "done",
