@@ -439,14 +439,6 @@ export default function VcWriterPage() {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} скопировано`));
   };
 
-  const downloadCover = () => {
-    if (!result?.cover_data_url) return;
-    const a = document.createElement("a");
-    a.href = result.cover_data_url;
-    a.download = `vc-cover-${Date.now()}.png`;
-    a.click();
-  };
-
   const runHumanize = async () => {
     if (!result?.markdown) return;
     setHumanizing(true);
