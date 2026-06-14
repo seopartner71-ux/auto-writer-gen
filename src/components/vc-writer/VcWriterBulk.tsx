@@ -206,13 +206,6 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} скопировано`));
   };
 
-  const downloadCover = (dataUrl: string, idx: number) => {
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `vc-cover-${idx + 1}-${Date.now()}.png`;
-    a.click();
-  };
-
   const statusBadge = (s: BatchItem["status"]) => {
     const map: Record<string, { label: string; cls: string }> = {
       queued: { label: "в очереди", cls: "bg-muted text-muted-foreground" },
