@@ -6,6 +6,11 @@ import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { generateVcArticle, isVcFormat, pickVcModel, ruEReplace, normalizeDashes } from "../_shared/vcWriterCore.ts";
 import type { AuthorPersona } from "../_shared/vcWriterCore.ts";
+import {
+  fetchMapsItems, fetchShoppingItems, fetchOrganicItems,
+  parseManualList, pinToFront, renderItemsBlock, attributionLine,
+  type RatingItem, type RatingSourceType,
+} from "../_shared/ratingSources.ts";
 
 const ALLOWED_PERSONAS: ReadonlySet<AuthorPersona> = new Set([
   "agency", "inhouse", "brand_owner", "expert", "freeform",
@@ -71,6 +76,15 @@ serve(async (req) => {
     // Закрепить клиента на 1-м месте в рейтинге (только для format=rating).
     const pinnedCompany = ruEReplace(normalizeDashes(String(body.pinned_company || ""))).trim().slice(0, 120);
 
+    // Источник реальных позиций для рейтинга. По умолчанию services (Maps).
+    const ratingTypeRaw = String(body.rating_type || "services").toLowerCase();
+    const ratingType: RatingSourceType =
+      ratingTypeRaw === "products" || ratingTypeRaw === "saas" || ratingTypeRaw === "manual"
+        ? (ratingTypeRaw as RatingSourceType)
+        : "services";
+    const ratingCity = ruEReplace(normalizeDashes(String(body.rating_city || ""))).trim().slice(0, 80);
+    const ratingManual = ruEReplace(normalizeDashes(String(body.rating_manual || ""))).slice(0, 4000);
+
     // Клиентские ссылки: до 5 шт, валидируем url+anchor.
     const rawLinks = Array.isArray(body.client_links) ? body.client_links : [];
     const clientLinks = rawLinks
@@ -92,19 +106,57 @@ serve(async (req) => {
     const apiKey = orRow?.api_key || Deno.env.get("OPENROUTER_API_KEY");
     if (!apiKey) return errorResponse("OpenRouter key not configured", 500);
 
-    // SEO mode без явного target_query: вытаскиваем подсказки из Serper и берём топовую.
-    let serperSuggestions: string[] = [];
-    if (seoMode && !targetQuery) {
+    // Resolve Serper key (used for both SEO suggestions and rating sources).
+    let serperKey = "";
+    if ((seoMode && !targetQuery) || format === "rating") {
       const { data: serperRow } = await admin
         .from("api_keys").select("api_key")
         .eq("provider", "serper").eq("is_valid", true).maybeSingle();
-      const serperKey = serperRow?.api_key || Deno.env.get("SERPER_API_KEY");
-      if (serperKey) {
-        serperSuggestions = await serperSuggest(serperKey, topic);
-        if (serperSuggestions.length) {
-          // Берём первый PAA-вариант как target_query, в нижнем регистре.
-          targetQuery = serperSuggestions[0].toLowerCase().slice(0, 120);
+      serperKey = serperRow?.api_key || Deno.env.get("SERPER_API_KEY") || "";
+    }
+
+    // SEO mode без явного target_query: вытаскиваем подсказки из Serper и берём топовую.
+    let serperSuggestions: string[] = [];
+    if (seoMode && !targetQuery && serperKey) {
+      serperSuggestions = await serperSuggest(serperKey, topic);
+      if (serperSuggestions.length) {
+        targetQuery = serperSuggestions[0].toLowerCase().slice(0, 120);
+      }
+    }
+
+    // Для рейтинга: тянем реальные позиции из выбранного источника, пинним клиента.
+    let realItems: RatingItem[] = [];
+    let realItemsBlock = "";
+    let realItemsAttribution = "";
+    let realItemsError = "";
+    if (format === "rating") {
+      try {
+        if (ratingType === "manual") {
+          realItems = parseManualList(ratingManual);
+        } else if (serperKey) {
+          if (ratingType === "services") {
+            realItems = await fetchMapsItems(serperKey, topic, ratingCity);
+          } else if (ratingType === "products") {
+            realItems = await fetchShoppingItems(serperKey, topic);
+          } else if (ratingType === "saas") {
+            realItems = await fetchOrganicItems(serperKey, topic);
+          }
+        } else {
+          realItemsError = "Serper API key не настроен - источник реальных позиций недоступен";
         }
+        realItems = pinToFront(realItems, pinnedCompany);
+        // Cap to 10 items (DTF/VC standard).
+        realItems = realItems.slice(0, 10);
+        if (realItems.length >= 5) {
+          realItemsBlock = renderItemsBlock(realItems);
+          realItemsAttribution = attributionLine(realItems);
+        } else if (realItems.length > 0) {
+          realItemsError = `Найдено только ${realItems.length} позиций (минимум 5). Уточните запрос/город или вставьте список вручную.`;
+        } else if (!realItemsError) {
+          realItemsError = "Источник не вернул ни одной позиции. Уточните запрос или используйте ручной список.";
+        }
+      } catch (e: any) {
+        realItemsError = `Не удалось получить реальные позиции: ${e?.message || "unknown"}`;
       }
     }
 
@@ -119,6 +171,8 @@ serve(async (req) => {
       humanize: humanizeOn,
       nicheTerms: nicheTerms.length ? nicheTerms : undefined,
       pinnedCompany: (format === "rating" && pinnedCompany) ? pinnedCompany : undefined,
+      realItemsBlock: realItemsBlock || undefined,
+      realItemsAttribution: realItemsAttribution || undefined,
     });
 
     // Сохраняем в историю (без cover_data_url - тяжёлый base64).
@@ -157,6 +211,12 @@ serve(async (req) => {
       ...out,
       history_id: historyId,
       seo: { mode: seoMode, target_query: targetQuery || null, suggestions: serperSuggestions },
+      rating_sources: format === "rating" ? {
+        type: ratingType,
+        city: ratingCity || null,
+        items: realItems,
+        error: realItemsError || null,
+      } : null,
     });
   } catch (e: any) {
     console.error("[vc-writer] error", e?.message || e);
