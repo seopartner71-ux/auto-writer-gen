@@ -48,6 +48,7 @@ EDITORIAL PROTOCOL vc.ru (ОБЯЗАТЕЛЬНО):
 13. БЕЗ ТАБЛИЦ: vc.ru-редактор не поддерживает markdown-таблицы. Никогда не используй символ | для построения таблиц и не пиши строки вида |---|---|. Любое сравнение оформляй как маркированный список или серию H3-блоков "Название -> 3 строки текста".
 14. ЭМОДЗИ: максимум 2 эмодзи на ВСЮ статью, лучше 0. Категорически запрещено сыпать смайлы в заголовках, списках и P.S. - аудитория vc.ru воспринимает это как дешёвый ИИ-текст.
 15. БЕЗ ИИ-ШТАМПОВ (КРИТИЧНО): запрещены фразы "Безусловно", "Крайне важно", "Давайте разберём/погрузимся/поговорим", "Итак, давайте", "Подводя итог", "В заключение хочется сказать/отметить", "В современном/сегодняшнем (быстро меняющемся) мире", "динамично развивающаяся компания", "индивидуальный подход к каждому клиенту", "комплексное решение/подход", "хочется отметить/подчеркнуть, что", "погрузиться в тему/вопрос". Начинай абзацы сразу с факта или сцены.
+16. ДЛИНА АБЗАЦА (КРИТИЧНО): каждый абзац - от 1 до 5 предложений, в среднем 2-3. ЗАПРЕЩЕНО писать «кирпичи» по 6+ предложений - они убивают ритм vc.ru-материала. Если мысль большая - разбивай её на несколько коротких абзацев или вынеси часть в маркированный список. Это касается лида, тела и блоков под цитатами/скриншотами.
 `.trim();
 
 const VC_STORY_PROTOCOL = `
@@ -361,6 +362,41 @@ export function limitEmojis(md: string, max = 2): { md: string; removed: number 
     return "";
   });
   return { md: out.replace(/[ \t]{2,}/g, " "), removed };
+}
+
+/**
+ * Считает абзацы с количеством предложений > maxSentences.
+ * Игнорирует заголовки, списки, цитаты, картинки и P.S.
+ * Возвращает количество нарушителей и их сэмплы (для подсказки в checklist).
+ */
+export function detectLongParagraphs(
+  md: string,
+  maxSentences = 5,
+): { ok: boolean; offenders: number; samples: Array<{ sentences: number; preview: string }> } {
+  const blocks = (md || "").split(/\n{2,}/);
+  const samples: Array<{ sentences: number; preview: string }> = [];
+  let offenders = 0;
+  for (const raw of blocks) {
+    const b = raw.trim();
+    if (!b) continue;
+    // пропускаем нетекстовые блоки
+    if (/^#{1,6}\s/.test(b)) continue;
+    if (/^[-*+]\s/m.test(b) && !/\n[^\-\*\+\s]/.test(b)) continue;
+    if (/^>\s/.test(b)) continue;
+    if (/^!\[/.test(b)) continue;
+    if (/^P\.?S\.?[\s:]/i.test(b)) continue;
+    // считаем предложения: .!? с пробелом/концом, плюс минимальная длина блока
+    if (b.length < 80) continue;
+    const matches = b.match(/[.!?…]+(?=\s|$)/g) || [];
+    const sentences = matches.length;
+    if (sentences > maxSentences) {
+      offenders++;
+      if (samples.length < 3) {
+        samples.push({ sentences, preview: b.slice(0, 120).replace(/\s+/g, " ") + (b.length > 120 ? "…" : "") });
+      }
+    }
+  }
+  return { ok: offenders === 0, offenders, samples };
 }
 
 export function stripCliches(md: string): { md: string; removed: number } {
@@ -922,6 +958,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
   const checklist = buildChecklist(markdown, ps_question);
   const story_report = validateStoryFirst(markdown);
   const openers_report = detectRepeatedOpeners(markdown);
+  const paragraphs_report = detectLongParagraphs(markdown, 5);
 
   checklist.push(
     { label: "Story-First (сумма+последствие+человек в первых 500 словах)",
@@ -935,6 +972,11 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     { label: "Без повторяющихся зачинов абзацев",
       ok: openers_report.ok,
       hint: openers_report.ok ? "ок" : openers_report.offenders.map((o) => `"${o.opener}" x${o.count}`).join(", ") },
+    { label: "Длина абзацев <= 5 предложений",
+      ok: paragraphs_report.ok,
+      hint: paragraphs_report.ok
+        ? "ок"
+        : `длинных абзацев: ${paragraphs_report.offenders} (${paragraphs_report.samples.map((s) => `${s.sentences} предл.: "${s.preview}"`).join(" | ")})` },
   );
   if (input.targetQuery && seoReportFull) {
     checklist.push({
