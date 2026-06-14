@@ -126,6 +126,7 @@ export default function VcWriterPage() {
   const [seoMode, setSeoMode] = useState(true);
   const [targetQuery, setTargetQuery] = useState("");
   const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
+  const [pinnedCompany, setPinnedCompany] = useState("");
   const [addUtm, setAddUtm] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
