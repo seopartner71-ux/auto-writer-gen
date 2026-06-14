@@ -547,6 +547,9 @@ function applyVcDeterministicFixes(md: string): string {
   // 5. Чистим тройные переносы строк, которые могли появиться после правки.
   out = out.replace(/\n{3,}/g, "\n\n");
 
+  // 6. Ограничиваем эмодзи: максимум 2 на статью.
+  out = limitEmojis(out, 2).md;
+
   return out;
 }
 
