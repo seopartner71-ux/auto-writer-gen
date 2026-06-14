@@ -48,7 +48,8 @@ serve(async (req) => {
     const audience = String(body.audience || "").slice(0, 200);
     const tone = String(body.tone || "").slice(0, 100);
     const length = Math.min(8000, Math.max(2500, Number(body.length) || 5500));
-    const wantCover = !!body.generate_cover;
+    // Cover generation disabled for vc-writer.
+    const wantCover = false;
     const model = pickVcModel(body.model);
     const seoMode = !!body.seo_mode;
     let targetQuery = ruEReplace(normalizeDashes(String(body.target_query || ""))).trim().slice(0, 120);

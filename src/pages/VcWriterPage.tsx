@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Copy, Download, Check, X, Sparkles, Image as ImageIcon, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert, Telescope, Globe } from "lucide-react";
+import { Loader2, Copy, Download, Check, X, Sparkles, Link2, Plus, Trash2, History, RotateCcw, Wand2, Search, Wrench, ExternalLink, ShieldCheck, AlertTriangle, ShieldAlert, Telescope, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -123,7 +123,6 @@ export default function VcWriterPage() {
   const [audience, setAudience] = useState("");
   const [tone, setTone] = useState("экспертно-разговорный с легкой провокацией");
   const [length, setLength] = useState(5500);
-  const [withCover, setWithCover] = useState(true);
   const [seoMode, setSeoMode] = useState(true);
   const [targetQuery, setTargetQuery] = useState("");
   const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
@@ -395,7 +394,7 @@ export default function VcWriterPage() {
       const { data, error } = await supabase.functions.invoke("vc-writer", {
         body: {
           format, model, topic, thesis: thesisWithExtras, audience, tone, length,
-          generate_cover: withCover,
+          generate_cover: false,
           seo_mode: seoMode,
           target_query: primaryQuery,
           author_persona: authorPersona,
@@ -438,14 +437,6 @@ export default function VcWriterPage() {
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} скопировано`));
-  };
-
-  const downloadCover = () => {
-    if (!result?.cover_data_url) return;
-    const a = document.createElement("a");
-    a.href = result.cover_data_url;
-    a.download = `vc-cover-${Date.now()}.png`;
-    a.click();
   };
 
   const runHumanize = async () => {
@@ -1236,14 +1227,6 @@ export default function VcWriterPage() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between rounded-md border border-border p-3">
-              <div className="space-y-0.5">
-                <Label className="text-sm">Сгенерировать обложку</Label>
-                <p className="text-xs text-muted-foreground">AI-картинка 1536x1024 для шапки</p>
-              </div>
-              <Switch checked={withCover} onCheckedChange={setWithCover} />
-            </div>
-
             {(() => {
               const needSource = format === "case" || format === "review";
               const sourceOk = !needSource || caseSource.trim().length >= 5;
@@ -1311,7 +1294,7 @@ export default function VcWriterPage() {
               );
             })()}
             <p className="text-[10px] text-muted-foreground text-center">
-              Занимает 30-90 секунд. Обложка добавляет ~15 сек.
+              Занимает 30-90 секунд.
             </p>
           </CardContent>
         </Card>
@@ -1435,23 +1418,6 @@ export default function VcWriterPage() {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Cover */}
-              {result.cover_data_url && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center justify-between">
-                      <span className="flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Обложка</span>
-                      <Button size="sm" variant="ghost" onClick={downloadCover}>
-                        <Download className="h-3 w-3 mr-1" /> Скачать PNG
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <img src={result.cover_data_url} alt="Обложка" className="w-full rounded-md border border-border" />
-                  </CardContent>
-                </Card>
-              )}
 
               {/* Checklist */}
               <Card>

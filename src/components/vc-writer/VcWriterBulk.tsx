@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Sparkles, Plus, Trash2, Wand2, Copy, Download, Check, X, FileText, Image as ImageIcon } from "lucide-react";
+import { Loader2, Sparkles, Plus, Trash2, Wand2, Copy, Download, Check, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,7 +68,6 @@ const newRow = (format: Format = "guide"): FormRow => ({
 
 export default function VcWriterBulk({ model, modelLabel }: Props) {
   const [rows, setRows] = useState<FormRow[]>([newRow(), newRow(), newRow()]);
-  const [generateCover, setGenerateCover] = useState(false);
   const [defaultAudience, setDefaultAudience] = useState("");
   const [defaultTone, setDefaultTone] = useState("экспертно-разговорный с легкой провокацией");
   const [defaultLength, setDefaultLength] = useState(5500);
@@ -148,7 +147,7 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
       const { data, error } = await supabase.functions.invoke("vc-writer-batch", {
         body: {
           model,
-          generate_cover: generateCover,
+          generate_cover: false,
           audience: defaultAudience,
           tone: defaultTone,
           length: defaultLength,
@@ -205,13 +204,6 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`${label} скопировано`));
-  };
-
-  const downloadCover = (dataUrl: string, idx: number) => {
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `vc-cover-${idx + 1}-${Date.now()}.png`;
-    a.click();
   };
 
   const statusBadge = (s: BatchItem["status"]) => {
@@ -351,16 +343,9 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
             <Label className="text-xs">Длина: {defaultLength} знаков</Label>
             <Slider value={[defaultLength]} onValueChange={(v) => setDefaultLength(v[0])} min={3000} max={8000} step={500} />
           </div>
-          <div className="flex items-center justify-between rounded-md border border-border p-3 sm:col-span-2">
-            <div className="space-y-0.5">
-              <Label className="text-sm">Генерировать обложку для каждой статьи</Label>
-              <p className="text-xs text-muted-foreground">+15-20 сек на каждую статью</p>
-            </div>
-            <Switch checked={generateCover} onCheckedChange={setGenerateCover} />
-          </div>
           <div className="sm:col-span-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>Модель: <span className="text-foreground font-medium">{modelLabel}</span></span>
-            <span>Время: ~{Math.ceil(validRows.length * (generateCover ? 1.0 : 0.7))} мин</span>
+            <span>Время: ~{Math.ceil(validRows.length * 0.7)} мин</span>
           </div>
           <Button onClick={handleSubmit} disabled={submitting || validRows.length < 1} size="lg" className="sm:col-span-2">
             {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
@@ -422,18 +407,6 @@ export default function VcWriterBulk({ model, modelLabel }: Props) {
                 <div className="flex flex-wrap gap-1.5">
                   {(openItem.result.meta?.tags || []).map((t: string) => <Badge key={t} variant="secondary">{t}</Badge>)}
                 </div>
-
-                {openItem.result.cover_data_url && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Обложка</span>
-                      <Button size="sm" variant="ghost" onClick={() => downloadCover(openItem.result.cover_data_url, openItem.position)}>
-                        <Download className="h-3 w-3 mr-1" /> PNG
-                      </Button>
-                    </div>
-                    <img src={openItem.result.cover_data_url} alt="" className="w-full rounded-md border border-border" />
-                  </div>
-                )}
 
                 <div className="grid sm:grid-cols-2 gap-2">
                   {(openItem.result.checklist || []).map((c: any, i: number) => (
