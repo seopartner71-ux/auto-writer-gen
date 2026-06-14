@@ -1003,6 +1003,21 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     }
   }
 
+  // Coherence Guard: если лид содержит цифру или сцену, не отражённые в теле,
+  // переписываем лид под фактическую тему статьи (без оторванной бизнес-сцены).
+  let coherence_report: { ok: boolean; reason?: string; rewritten: boolean } = { ok: true, rewritten: false };
+  if (!input.skipLeadFix && Date.now() - __startedAt < 95_000) {
+    const inc = detectIncoherentLead(markdown);
+    coherence_report = { ok: inc.ok, reason: inc.reason, rewritten: false };
+    if (!inc.ok && inc.lead) {
+      const newLead = await rewriteLead(input.apiKey, inc.lead, input.topic, input.thesis || "");
+      if (newLead && newLead.length > 60) {
+        markdown = replaceLead(markdown, newLead);
+        coherence_report.rewritten = true;
+      }
+    }
+  }
+
   // SEO post-check + title auto-fix.
   let seoReportFull: (SeoReport & { titleFixed?: boolean }) | undefined;
   if (input.targetQuery) {
