@@ -987,10 +987,6 @@ interface VcDraftJson {
   markdown: string;
 }
 
-function safeJsonString(value: unknown): string {
-  return JSON.stringify(String(value ?? ""));
-}
-
 function buildJsonPayloadFromMarkdown(raw: string): VcDraftJson | null {
   if (!raw || raw.trim().length < 200) return null;
   let md = raw.replace(/^```(?:markdown|md|json)?\s*/i, "").replace(/```\s*$/i, "").trim();
@@ -1030,8 +1026,6 @@ async function chatVcDraftJson(params: {
   appTitle: string;
   schema?: Record<string, unknown>;
 }): Promise<{ data: VcDraftJson; model: string }> {
-  const asMarkdown = buildJsonPayloadFromMarkdown(params.user);
-  void asMarkdown;
   try {
     const result = await chatComplete({
       apiKey: params.apiKey,
