@@ -1287,9 +1287,9 @@ export default function VcWriterPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="soft">Soft - вшить в P.S. (мягко, в конце вопроса)</SelectItem>
-                        <SelectItem value="native">Native CTA - отдельный H2 «Что делать дальше»</SelectItem>
-                        <SelectItem value="leadmagnet">Lead-magnet - обмен на бесплатный чек-лист/расчёт</SelectItem>
+                        <SelectItem value="native">Авто / Native CTA - отдельный H2 «Что делать дальше» (рекомендуется)</SelectItem>
+                        <SelectItem value="soft">Soft - вшить в P.S. (для слабого коммерческого интента)</SelectItem>
+                        <SelectItem value="leadmagnet">Lead-magnet - обмен на бесплатный чек-лист/расчёт (макс. конверсия)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1336,7 +1336,7 @@ export default function VcWriterPage() {
                     </div>
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    UTM-метки {addUtm ? "будут добавлены" : "отключены"} (общий тогл UTM из блока «Клиентские ссылки»). Для рейтинга с закреплённым клиентом будет автоматически добавлено раскрытие («автор работает с компанией»).
+                    UTM-метки добавляются автоматически (utm_source=vc, utm_medium=article, utm_campaign=offer, utm_content=стиль) - если в URL уже есть метки, ваши не перетрутся. При выборе «Авто/Native» система сама переключится на Lead-magnet, если в оффере упомянуты чек-лист / расчёт / шаблон / калькулятор / гайд. Для рейтинга с закреплённым клиентом добавляется раскрытие («автор работает с компанией»). Блок контекстно привязывается к боли из тела статьи - это не баннер, а консалтинг-CTA.
                   </p>
                 </div>
               )}
