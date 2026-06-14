@@ -403,6 +403,11 @@ export default function VcWriterPage() {
           fact_check: factCheckOn,
           humanize: humanizeOn,
           topic_research: research?.summary_md || null,
+          niche_terms: nicheTerms
+            .split(/[,;\n]+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length >= 2)
+            .slice(0, 10),
           client_links: clientLinks
             .filter((l) => l.url.trim() && l.anchor.trim())
             .map((l) => {
