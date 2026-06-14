@@ -1149,13 +1149,11 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     }
   }
 
-  // Coherence Guard: для листинг-рейтинга пропускаем (лид - про метод, не про сцену).
-  if (!isRating)
   // Coherence Guard: если лид содержит цифру или сцену, не отражённые в теле,
   // переписываем лид под фактическую тему статьи (без оторванной бизнес-сцены).
-  var __noop_coherence__ = 0;
+  // Для листинг-рейтинга пропускаем - там лид про метод, не про сцену.
   let coherence_report: { ok: boolean; reason?: string; rewritten: boolean } = { ok: true, rewritten: false };
-  if (!input.skipLeadFix && Date.now() - __startedAt < 95_000) {
+  if (!isRating && !input.skipLeadFix && Date.now() - __startedAt < 95_000) {
     const inc = detectIncoherentLead(markdown);
     coherence_report = { ok: inc.ok, reason: inc.reason, rewritten: false };
     if (!inc.ok && inc.lead) {
