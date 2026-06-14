@@ -725,14 +725,19 @@ async function generateCover(prompt: string): Promise<string | null> {
   const timer = setTimeout(() => ctrl.abort(), 60_000);
   const t0 = Date.now();
   try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+    // Lovable AI Gateway: image generation goes through chat/completions
+    // with modalities=["image","text"] for google/gemini-2.5-flash-image.
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       signal: ctrl.signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-image",
-        prompt: `Editorial cover image for a vc.ru article. ${prompt}. Style: modern minimal, soft gradient, business-tech aesthetic, no text on image, 16:9 composition.`,
-        n: 1,
+        messages: [{
+          role: "user",
+          content: `Editorial cover image for a vc.ru article. ${prompt}. Style: modern minimal, soft gradient, business-tech aesthetic, no text on image, 16:9 composition.`,
+        }],
+        modalities: ["image", "text"],
       }),
     });
     if (!r.ok) {
@@ -741,9 +746,22 @@ async function generateCover(prompt: string): Promise<string | null> {
       return null;
     }
     const j = await r.json();
-    const b64 = j?.data?.[0]?.b64_json;
-    console.log(`[vc-cover] done in ${Date.now() - t0}ms, b64=${b64 ? b64.length : 0}`);
-    return b64 ? `data:image/png;base64,${b64}` : null;
+    // Ответ: choices[0].message.images[0].image_url.url — обычно data:image/png;base64,...
+    const url: string | undefined =
+      j?.choices?.[0]?.message?.images?.[0]?.image_url?.url
+      ?? j?.choices?.[0]?.message?.images?.[0]?.url
+      ?? j?.data?.[0]?.url;
+    const b64Direct: string | undefined = j?.data?.[0]?.b64_json;
+    let dataUrl: string | null = null;
+    if (url && url.startsWith("data:image")) dataUrl = url;
+    else if (url && /^https?:\/\//i.test(url)) {
+      // На случай, если шлюз вернёт http(s)-ссылку — отдаём как есть.
+      dataUrl = url;
+    } else if (b64Direct) {
+      dataUrl = `data:image/png;base64,${b64Direct}`;
+    }
+    console.log(`[vc-cover] done in ${Date.now() - t0}ms, src=${dataUrl ? dataUrl.slice(0, 32) : "empty"}, raw=${JSON.stringify(j).slice(0, 200)}`);
+    return dataUrl;
   } catch (e) {
     console.error(`[vc-cover] exception after ${Date.now() - t0}ms:`, (e as Error).message);
     return null;
