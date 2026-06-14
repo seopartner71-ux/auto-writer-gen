@@ -68,6 +68,9 @@ serve(async (req) => {
       .filter((t: string) => t.length >= 2)
       .slice(0, 10);
 
+    // Закрепить клиента на 1-м месте в рейтинге (только для format=rating).
+    const pinnedCompany = ruEReplace(normalizeDashes(String(body.pinned_company || ""))).trim().slice(0, 120);
+
     // Клиентские ссылки: до 5 шт, валидируем url+anchor.
     const rawLinks = Array.isArray(body.client_links) ? body.client_links : [];
     const clientLinks = rawLinks
@@ -115,6 +118,7 @@ serve(async (req) => {
       topicResearch: topicResearch || undefined,
       humanize: humanizeOn,
       nicheTerms: nicheTerms.length ? nicheTerms : undefined,
+      pinnedCompany: (format === "rating" && pinnedCompany) ? pinnedCompany : undefined,
     });
 
     // Сохраняем в историю (без cover_data_url - тяжёлый base64).
