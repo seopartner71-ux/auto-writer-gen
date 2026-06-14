@@ -1065,7 +1065,6 @@ async function chatVcDraftJson(params: {
   timeoutMs: number;
   appTitle: string;
   isRating: boolean;
-  schema?: Record<string, unknown>;
 }): Promise<{ data: VcDraftJson; model: string }> {
   try {
     const result = await chatComplete({
@@ -1213,18 +1212,6 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
     : Math.min(5000, Math.max(2500, Number(input.length) || 4800));
   const isSlowModel = /opus|sonnet|gpt-5|gemini-2\.5-pro/i.test(input.model);
   let effectiveModel = input.model;
-  const vcDraftSchema = {
-    type: "object",
-    additionalProperties: false,
-    required: ["title", "subtitle", "tags", "ps_question", "markdown"],
-    properties: {
-      title: { type: "string" },
-      subtitle: { type: "string" },
-      tags: { type: "array", items: { type: "string" } },
-      ps_question: { type: "string" },
-      markdown: { type: "string" },
-    },
-  };
   let result;
   try {
     result = await chatVcDraftJson({
@@ -1237,7 +1224,6 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
       timeoutMs: isSlowModel ? 60_000 : 58_000,
       appTitle: "vc.ru Writer",
       isRating,
-      schema: vcDraftSchema,
     });
   } catch (e) {
     if (!isSlowModel || !shouldRetryVcDraft(e)) throw e;
@@ -1253,7 +1239,6 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
       timeoutMs: 48_000,
       appTitle: "vc.ru Writer Fallback",
       isRating,
-      schema: vcDraftSchema,
     });
   }
 
