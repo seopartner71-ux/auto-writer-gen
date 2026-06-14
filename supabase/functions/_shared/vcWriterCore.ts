@@ -1188,8 +1188,16 @@ function shouldRetryVcDraft(e: unknown): boolean {
 }
 
 function buildPrompt(p: VcGenInput): { system: string; user: string } {
+  // TOFU воронка — это информационный материал. Жёстко глушим оффер и клиентские
+  // ссылки даже если пользователь их передал: тут они идут вразрез с интентом
+  // и ломают цель уровня (трафик/охват, а не заявка).
+  const stage: FunnelStage = isFunnelStage(p.funnelStage) ? p.funnelStage : "auto";
+  if (stage === "tofu") {
+    p = { ...p, offerBlock: undefined, clientLinks: undefined };
+  }
   const ratingBlock = p.format === "rating" ? `\n\n${VC_RATING_PROTOCOL}` : "";
-  const system = `Ты - редактор vc.ru с 5-летним опытом. Твоя задача - написать материал, который попадет в топ vc.ru и зайдет в Google/Yandex. Пиши на русском, без буквы ё (заменяй на е).\n\n${VC_PROTOCOL}\n\n${VC_STORY_PROTOCOL}\n\nФОРМАТ ЭТОГО МАТЕРИАЛА: ${VC_FORMAT_BRIEF[p.format]}${ratingBlock}`;
+  const funnelBlock = stage !== "auto" ? `\n\n${FUNNEL_STAGE_RULES[stage]}` : "";
+  const system = `Ты - редактор vc.ru с 5-летним опытом. Твоя задача - написать материал, который попадет в топ vc.ru и зайдет в Google/Yandex. Пиши на русском, без буквы ё (заменяй на е).\n\n${VC_PROTOCOL}\n\n${VC_STORY_PROTOCOL}\n\nФОРМАТ ЭТОГО МАТЕРИАЛА: ${VC_FORMAT_BRIEF[p.format]}${ratingBlock}${funnelBlock}`;
   const pinnedBlock = (p.format === "rating" && p.pinnedCompany && p.pinnedCompany.trim())
     ? `\n\nPINNED_COMPANY (КРИТИЧНО): "${p.pinnedCompany.trim()}". Этот бренд ОБЯЗАН быть на позиции 01 в нумерованном списке и в карточках. У него обязательно есть H4 "Сильные стороны" (3 буллета) и H4 "Потенциальные зоны роста" (2 буллета - реальные минусы, не вода). В заключении его можно рекомендовать «по совокупности критериев», но НЕ "лидер рынка / лучший / номер один".`
     : "";
