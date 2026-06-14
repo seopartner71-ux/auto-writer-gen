@@ -938,6 +938,10 @@ export interface VcGenInput {
   nicheTerms?: string[];
   /** Только для format=rating: имя клиента/бренда, который ставится на позицию 01. */
   pinnedCompany?: string;
+  /** Только для format=rating: готовый markdown-блок с реальными позициями (из Maps/Shopping/Organic/manual). */
+  realItemsBlock?: string;
+  /** Только для format=rating: строка-атрибуция источников для секции «Примечание». */
+  realItemsAttribution?: string;
 }
 
 export type AuthorPersona = "agency" | "inhouse" | "brand_owner" | "expert" | "freeform";
