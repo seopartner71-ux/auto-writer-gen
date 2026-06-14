@@ -746,6 +746,10 @@ async function runVcEditorPass(apiKey: string, markdown: string): Promise<string
  * Гарантированно безопасны: regex-замены без потери контента.
  */
 function applyVcDeterministicFixes(md: string): string {
+  return applyVcDeterministicFixesV2(md, {});
+}
+
+function applyVcDeterministicFixesV2(md: string, opts: { isRating?: boolean }): string {
   let out = md;
 
   // 1. Разрываем картинку, приклеенную к концу строки: "текст.![alt](url)" -> "текст.\n\n![alt](url)"
@@ -755,7 +759,12 @@ function applyVcDeterministicFixes(md: string): string {
   out = out.replace(/`([^`\n]{1,80})`/g, '"$1"');
 
   // 3. Убираем "бесплатно/онлайн/лучший" рядом с "генератор/инструмент/сервис" в заголовках H2/H3/H4.
-  out = out.replace(/^(#{2,4}\s.*?)\s+(бесплатно|онлайн|лучший)(\?|\.|:|\s|$)/gim, "$1$3");
+  //    В формате rating слово "лучший" допустимо ("Рейтинг лучших..."), оставляем.
+  if (opts.isRating) {
+    out = out.replace(/^(#{2,4}\s.*?)\s+(бесплатно|онлайн)(\?|\.|:|\s|$)/gim, "$1$3");
+  } else {
+    out = out.replace(/^(#{2,4}\s.*?)\s+(бесплатно|онлайн|лучший)(\?|\.|:|\s|$)/gim, "$1$3");
+  }
 
   // 4. Убираем "X бесплатно позволил/обеспечил/помог" -> "X позволил/обеспечил/помог"
   out = out.replace(/\s+бесплатно(\s+(позволил|позволяет|обеспечил|обеспечивает|помог|помогает))/gi, "$1");
@@ -763,8 +772,8 @@ function applyVcDeterministicFixes(md: string): string {
   // 5. Чистим тройные переносы строк, которые могли появиться после правки.
   out = out.replace(/\n{3,}/g, "\n\n");
 
-  // 6. Ограничиваем эмодзи: максимум 2 на статью.
-  out = limitEmojis(out, 2).md;
+  // 6. Ограничиваем эмодзи: 2 на обычную статью, до 30 для листинг-рейтинга (⭐ и 👉 - часть формата).
+  out = limitEmojis(out, opts.isRating ? 30 : 2).md;
 
   // 7. Срезаем placeholder-заглушки из редакторской правки: [ТИП КОМПАНИИ], [МАСШТАБ],
   //    [НАЗВАНИЕ КОМПАНИИ], [X], [Y] и т.п. — модель иногда вставляет их вопреки запрету.
