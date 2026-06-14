@@ -1015,6 +1015,46 @@ function buildJsonPayloadFromMarkdown(raw: string): VcDraftJson | null {
   return { title, subtitle, tags: [], ps_question: ps, markdown: md };
 }
 
+function markdownLooksComplete(md: string, isRating: boolean): boolean {
+  const tail = md.slice(-1400).toLowerCase();
+  if (isRating) return /^##\s+заключение/im.test(md) && tail.includes("заключение") && /[.!?]\s*$/.test(md.trim());
+  return /p\.?\s*s\.?/i.test(tail) && /[.!?]\s*$/.test(md.trim());
+}
+
+function mergeContinuation(base: string, continuation: string): string {
+  let add = continuation.replace(/^```(?:markdown|md)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  add = add.replace(/^#\s+.*\n+/, "").trim();
+  if (!add) return base;
+  const tail = base.slice(-500);
+  const addHead = add.slice(0, 180);
+  if (tail.includes(addHead)) return base;
+  return `${base.trimEnd()}\n\n${add}`;
+}
+
+async function continueMarkdownDraft(params: {
+  apiKey: string;
+  model: string;
+  system: string;
+  markdown: string;
+  isRating: boolean;
+  appTitle: string;
+}): Promise<string> {
+  const instruction = params.isRating
+    ? "Продолжи оборванный markdown строго с места обрыва. Не повторяй уже написанное. Заверши оставшиеся карточки, FAQ/примечание при необходимости и обязательно секцию ## Заключение. Верни только продолжение markdown."
+    : "Продолжи оборванный markdown строго с места обрыва. Не повторяй уже написанное. Заверши оставшиеся разделы и обязательно закончи строкой P.S. с конкретным вопросом. Верни только продолжение markdown.";
+  const res = await chatComplete({
+    apiKey: params.apiKey,
+    model: params.model,
+    system: `${params.system}\n\n${instruction}`,
+    user: `ПОСЛЕДНИЙ ФРАГМЕНТ ТЕКСТА:\n${params.markdown.slice(-2500)}\n\nПродолжи дальше:`,
+    temperature: 0.45,
+    maxTokens: params.isRating ? 2800 : 1800,
+    timeoutMs: 25_000,
+    appTitle: params.appTitle,
+  });
+  return mergeContinuation(params.markdown, res.content || "");
+}
+
 async function chatVcDraftJson(params: {
   apiKey: string;
   model: string;
@@ -1024,6 +1064,7 @@ async function chatVcDraftJson(params: {
   maxTokens: number;
   timeoutMs: number;
   appTitle: string;
+  isRating: boolean;
   schema?: Record<string, unknown>;
 }): Promise<{ data: VcDraftJson; model: string }> {
   try {
@@ -1037,7 +1078,19 @@ async function chatVcDraftJson(params: {
       timeoutMs: params.timeoutMs,
       appTitle: params.appTitle,
     });
-    const recovered = buildJsonPayloadFromMarkdown(result.content);
+    let content = result.content;
+    for (let i = 0; i < 2 && (result.finishReason === "length" || !markdownLooksComplete(content, params.isRating)); i++) {
+      content = await continueMarkdownDraft({
+        apiKey: params.apiKey,
+        model: params.model,
+        system: params.system,
+        markdown: content,
+        isRating: params.isRating,
+        appTitle: `${params.appTitle} Continue`,
+      });
+      if (markdownLooksComplete(content, params.isRating)) break;
+    }
+    const recovered = buildJsonPayloadFromMarkdown(content);
     if (!recovered) throw new AiError("parse_failed", "Model returned empty or unusable markdown", { upstreamBody: result.content.slice(0, 50_000) });
     return { data: recovered, model: result.model };
   } catch (e) {
