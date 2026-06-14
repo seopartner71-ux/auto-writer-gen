@@ -364,6 +364,41 @@ export function limitEmojis(md: string, max = 2): { md: string; removed: number 
   return { md: out.replace(/[ \t]{2,}/g, " "), removed };
 }
 
+/**
+ * Считает абзацы с количеством предложений > maxSentences.
+ * Игнорирует заголовки, списки, цитаты, картинки и P.S.
+ * Возвращает количество нарушителей и их сэмплы (для подсказки в checklist).
+ */
+export function detectLongParagraphs(
+  md: string,
+  maxSentences = 5,
+): { ok: boolean; offenders: number; samples: Array<{ sentences: number; preview: string }> } {
+  const blocks = (md || "").split(/\n{2,}/);
+  const samples: Array<{ sentences: number; preview: string }> = [];
+  let offenders = 0;
+  for (const raw of blocks) {
+    const b = raw.trim();
+    if (!b) continue;
+    // пропускаем нетекстовые блоки
+    if (/^#{1,6}\s/.test(b)) continue;
+    if (/^[-*+]\s/m.test(b) && !/\n[^\-\*\+\s]/.test(b)) continue;
+    if (/^>\s/.test(b)) continue;
+    if (/^!\[/.test(b)) continue;
+    if (/^P\.?S\.?[\s:]/i.test(b)) continue;
+    // считаем предложения: .!? с пробелом/концом, плюс минимальная длина блока
+    if (b.length < 80) continue;
+    const matches = b.match(/[.!?…]+(?=\s|$)/g) || [];
+    const sentences = matches.length;
+    if (sentences > maxSentences) {
+      offenders++;
+      if (samples.length < 3) {
+        samples.push({ sentences, preview: b.slice(0, 120).replace(/\s+/g, " ") + (b.length > 120 ? "…" : "") });
+      }
+    }
+  }
+  return { ok: offenders === 0, offenders, samples };
+}
+
 export function stripCliches(md: string): { md: string; removed: number } {
   let count = 0;
   const out = md.replace(CLICHE_RE, (m) => { count++; return " "; })
