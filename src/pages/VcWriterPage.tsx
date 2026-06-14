@@ -138,6 +138,9 @@ export default function VcWriterPage() {
   const [offerBenefit, setOfferBenefit] = useState("");
   const [offerCta, setOfferCta] = useState("Оставить заявку");
   const [offerUrl, setOfferUrl] = useState("");
+  // Уровень контент-воронки (TOFU / MOFU / BOFU / auto).
+  const [funnelStage, setFunnelStage] = useState<"auto" | "tofu" | "mofu" | "bofu">("auto");
+  const [funnelPackLoading, setFunnelPackLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
