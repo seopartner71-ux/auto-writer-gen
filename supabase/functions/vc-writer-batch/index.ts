@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
-import { pickVcModel, isVcFormat } from "../_shared/vcWriterCore.ts";
+import { pickVcModel, isVcFormat, isFunnelStage } from "../_shared/vcWriterCore.ts";
 
 interface BatchItemInput {
   format?: string;
@@ -11,6 +11,7 @@ interface BatchItemInput {
   audience?: string;
   tone?: string;
   length?: number;
+  funnel_stage?: string;
 }
 
 serve(async (req) => {
@@ -33,10 +34,12 @@ serve(async (req) => {
     const defTone = String(body.tone || "").slice(0, 100);
     const defLength = Math.min(8000, Math.max(2500, Number(body.length) || 5500));
     const defFormat = isVcFormat(body.default_format) ? body.default_format : "guide";
+    const defFunnel = isFunnelStage(body.default_funnel_stage) ? body.default_funnel_stage : "auto";
 
     const normalized = items.map((it, idx) => {
       const topic = String(it.topic || "").trim();
       if (topic.length < 5) throw new Error(`item ${idx + 1}: topic too short`);
+      const stage = isFunnelStage(it.funnel_stage) ? it.funnel_stage : defFunnel;
       return {
         position: idx,
         format: isVcFormat(it.format) ? it.format : defFormat,
@@ -45,6 +48,7 @@ serve(async (req) => {
         audience: (String(it.audience || "") || defAudience).slice(0, 200) || null,
         tone: (String(it.tone || "") || defTone).slice(0, 100) || null,
         length: Math.min(8000, Math.max(2500, Number(it.length) || defLength)),
+        funnel_stage: stage,
       };
     });
 

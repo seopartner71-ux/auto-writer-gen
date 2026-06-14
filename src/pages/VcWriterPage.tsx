@@ -138,6 +138,9 @@ export default function VcWriterPage() {
   const [offerBenefit, setOfferBenefit] = useState("");
   const [offerCta, setOfferCta] = useState("Оставить заявку");
   const [offerUrl, setOfferUrl] = useState("");
+  // Уровень контент-воронки (TOFU / MOFU / BOFU / auto).
+  const [funnelStage, setFunnelStage] = useState<"auto" | "tofu" | "mofu" | "bofu">("auto");
+  const [funnelPackLoading, setFunnelPackLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
@@ -369,6 +372,63 @@ export default function VcWriterPage() {
       toast.error("Укажите тему (минимум 5 символов)");
       return;
     }
+    return doGenerate();
+  };
+
+  /**
+   * Funnel Pack — генерим 3 связанные статьи (TOFU+MOFU+BOFU) под одну исходную
+   * тему через batch-эндпоинт. Темы автодеривируются из текущего topic.
+   */
+  const handleFunnelPack = async () => {
+    const base = topic.trim();
+    if (base.length < 5) {
+      toast.error("Сначала укажите базовую тему");
+      return;
+    }
+    setFunnelPackLoading(true);
+    try {
+      const year = new Date().getFullYear();
+      const items = [
+        {
+          format: "guide",
+          funnel_stage: "tofu",
+          topic: `Что такое ${base}: как работает и где применяется`,
+          thesis: `Информационный разбор темы «${base}» для аудитории, которая впервые с ней сталкивается. Без продаж.`,
+        },
+        {
+          format: "guide",
+          funnel_stage: "mofu",
+          topic: `Как выбрать ${base} в ${year}: сравнение вариантов и типовые ошибки`,
+          thesis: `Сравнение основных вариантов по теме «${base}», ошибки покупателей и чек-лист выбора. Цель — провести читателя к решению.`,
+        },
+        {
+          format: "guide",
+          funnel_stage: "bofu",
+          topic: `Сколько стоит ${base} в ${year} и как не переплатить`,
+          thesis: `Ценовые диапазоны по сегментам, ошибки на которых теряют деньги, чек-лист проверки перед покупкой и блок «как мы помогаем».`,
+        },
+      ];
+      const { data, error } = await supabase.functions.invoke("vc-writer-batch", {
+        body: {
+          items,
+          model,
+          audience,
+          tone,
+          length,
+          default_format: "guide",
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error("Не удалось создать Funnel Pack");
+      toast.success("Funnel Pack отправлен в очередь (3 статьи). Прогресс - во вкладке «Массовая генерация».");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось запустить Funnel Pack");
+    } finally {
+      setFunnelPackLoading(false);
+    }
+  };
+
+  const doGenerate = async () => {
     // Hard-stop: для case/review без источника блокируем генерацию.
     if ((format === "case" || format === "review") && caseSource.trim().length < 5) {
       toast.error("Укажите источник кейса: имя клиента/проекта, URL или дату. Без этого модель выдумает героя.");
@@ -413,6 +473,7 @@ export default function VcWriterPage() {
           fact_check: factCheckOn,
           humanize: humanizeOn,
           topic_research: research?.summary_md || null,
+          funnel_stage: funnelStage,
           niche_terms: nicheTerms
             .split(/[,;\n]+/)
             .map((s) => s.trim())
@@ -466,6 +527,9 @@ export default function VcWriterPage() {
       setResult(data as Result);
       const tq = (data as Result).seo?.target_query;
       toast.success(tq ? `Материал готов. SEO-цель: ${tq}` : "Материал готов");
+      if ((data as any)?.offer_silenced) {
+        toast.warning((data as any).offer_silenced);
+      }
     } catch (e: any) {
       toast.error(e?.message || "Ошибка генерации");
     } finally {
@@ -779,6 +843,65 @@ export default function VcWriterPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                Уровень воронки
+                <Badge variant="outline" className="h-4 text-[9px] px-1.5">новое</Badge>
+              </Label>
+              <Select value={funnelStage} onValueChange={(v) => setFunnelStage(v as typeof funnelStage)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">
+                    <div className="flex flex-col">
+                      <span>Авто</span>
+                      <span className="text-xs text-muted-foreground">Без жёстких правил воронки (старое поведение)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="tofu">
+                    <div className="flex flex-col">
+                      <span>TOFU - трафик / охват</span>
+                      <span className="text-xs text-muted-foreground">Информационная статья под Яндекс. Без оффера и клиентских ссылок.</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="mofu">
+                    <div className="flex flex-col">
+                      <span>MOFU - выбор и сравнение</span>
+                      <span className="text-xs text-muted-foreground">Главный деньговый уровень: сравнение + ошибки + чек-лист + мягкий CTA.</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="bofu">
+                    <div className="flex flex-col">
+                      <span>BOFU - прямые заявки</span>
+                      <span className="text-xs text-muted-foreground">Цены, ошибки, чек-лист проверки, блок «как мы помогаем», нативный CTA.</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {funnelStage === "tofu" && offerEnabled && (
+                <p className="text-[10px] text-amber-500">
+                  На TOFU оффер автоматически отключается — это информационный уровень, не для заявок. Для CTA переключите воронку на MOFU/BOFU.
+                </p>
+              )}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-[10px] text-muted-foreground">
+                  Funnel Pack: 3 статьи под одну тему (TOFU + MOFU + BOFU) одной кнопкой.
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  disabled={funnelPackLoading || topic.trim().length < 5}
+                  onClick={() => handleFunnelPack()}
+                >
+                  {funnelPackLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Funnel Pack
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-1.5">

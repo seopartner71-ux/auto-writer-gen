@@ -5,7 +5,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { generateVcArticle, isVcFormat, pickVcModel, ruEReplace, normalizeDashes } from "../_shared/vcWriterCore.ts";
-import type { AuthorPersona, OfferBlockInput } from "../_shared/vcWriterCore.ts";
+import type { AuthorPersona, OfferBlockInput, FunnelStage } from "../_shared/vcWriterCore.ts";
+import { isFunnelStage } from "../_shared/vcWriterCore.ts";
 import { validateVcArticle } from "../_shared/vcQualityGuard.ts";
 import {
   fetchMapsItems, fetchShoppingItems, fetchOrganicItems,
@@ -67,6 +68,11 @@ serve(async (req) => {
     const topicResearch = ruEReplace(normalizeDashes(String(body.topic_research || ""))).slice(0, 5000);
     const humanizeOn = !!body.humanize;
 
+    // Уровень контент-воронки (TOFU/MOFU/BOFU/auto).
+    const funnelStageRaw = String(body.funnel_stage || "auto").toLowerCase();
+    const funnelStage: FunnelStage = isFunnelStage(funnelStageRaw) ? funnelStageRaw : "auto";
+    let offerSilencedReason: string | null = null;
+
     // Профессиональные термины ниши (опционально): до 10 коротких токенов.
     const rawNiche = Array.isArray(body.niche_terms) ? body.niche_terms : [];
     const nicheTerms = rawNiche
@@ -115,6 +121,12 @@ serve(async (req) => {
           disclosure: format === "rating" && !!pinnedCompany,
         };
       }
+    }
+
+    // На TOFU оффер игнорируется (это информационный уровень — не для продаж).
+    if (funnelStage === "tofu" && offerBlock) {
+      offerBlock = undefined;
+      offerSilencedReason = "TOFU уровень — оффер автоматически отключён (информационный материал, не для заявок). Переключите воронку на MOFU/BOFU.";
     }
 
     // Источник реальных позиций для рейтинга. По умолчанию services (Maps).
@@ -204,7 +216,7 @@ serve(async (req) => {
     const out = await generateVcArticle({
       apiKey, model, format, topic, thesis, audience, tone, length, wantCover,
       targetQuery: targetQuery || undefined,
-      clientLinks: clientLinks.length ? clientLinks : undefined,
+      clientLinks: (funnelStage === "tofu" ? undefined : (clientLinks.length ? clientLinks : undefined)),
       authorPersona,
       verifiedFacts: verifiedFacts || undefined,
       factCheck: factCheckOn,
@@ -215,6 +227,7 @@ serve(async (req) => {
       realItemsBlock: realItemsBlock || undefined,
       realItemsAttribution: realItemsAttribution || undefined,
       offerBlock,
+      funnelStage,
     });
 
     // Quality guard: catches broken H3 splits, duplicated lead/conclusion and
@@ -255,6 +268,7 @@ serve(async (req) => {
           author_persona: authorPersona,
           verified_facts: verifiedFacts || null,
           risk_report: mergedRiskReport,
+          funnel_stage: funnelStage,
         })
         .select("id")
         .maybeSingle();
@@ -270,6 +284,8 @@ serve(async (req) => {
       quality_guard: guard.report,
       history_id: historyId,
       seo: { mode: seoMode, target_query: targetQuery || null, suggestions: serperSuggestions },
+      funnel_stage: funnelStage,
+      offer_silenced: offerSilencedReason,
       rating_sources: format === "rating" ? {
         type: ratingType,
         city: ratingCity || null,

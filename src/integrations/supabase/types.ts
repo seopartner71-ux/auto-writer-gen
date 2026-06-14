@@ -3665,6 +3665,7 @@ export type Database = {
           created_at: string
           error: string | null
           format: string
+          funnel_stage: string | null
           id: string
           length: number
           position: number
@@ -3682,6 +3683,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           format: string
+          funnel_stage?: string | null
           id?: string
           length?: number
           position: number
@@ -3699,6 +3701,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           format?: string
+          funnel_stage?: string | null
           id?: string
           length?: number
           position?: number
@@ -3769,6 +3772,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           format: string
+          funnel_stage: string | null
           id: string
           is_favorite: boolean | null
           length_target: number | null
@@ -3798,6 +3802,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           format: string
+          funnel_stage?: string | null
           id?: string
           is_favorite?: boolean | null
           length_target?: number | null
@@ -3827,6 +3832,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           format?: string
+          funnel_stage?: string | null
           id?: string
           is_favorite?: boolean | null
           length_target?: number | null
@@ -4131,6 +4137,7 @@ export type Database = {
           created_at: string
           error: string | null
           format: string
+          funnel_stage: string | null
           id: string
           length: number
           position: number
