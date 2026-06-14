@@ -6,6 +6,7 @@ import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { generateVcArticle, isVcFormat, pickVcModel, ruEReplace, normalizeDashes } from "../_shared/vcWriterCore.ts";
 import type { AuthorPersona } from "../_shared/vcWriterCore.ts";
+import { validateVcArticle } from "../_shared/vcQualityGuard.ts";
 import {
   fetchMapsItems, fetchShoppingItems, fetchOrganicItems,
   parseManualList, pinToFront, renderItemsBlock, attributionLine,
@@ -175,6 +176,21 @@ serve(async (req) => {
       realItemsAttribution: realItemsAttribution || undefined,
     });
 
+    // Quality guard: catches broken H3 splits, duplicated lead/conclusion and
+    // template bullet repetition BEFORE we persist the article. Broken
+    // headings are auto-repaired; the rest is attached to risk_report.
+    const guard = validateVcArticle(out.markdown || "", format);
+    if (guard.repaired) {
+      out.markdown = guard.markdown;
+    }
+    const mergedRiskReport = {
+      ...(out.risk_report ?? {}),
+      quality_guard: guard.report,
+    };
+    if (guard.report.issues.length) {
+      console.log("[vc-writer] quality_guard issues", JSON.stringify(guard.report.issues));
+    }
+
     // Сохраняем в историю (без cover_data_url - тяжёлый base64).
     let historyId: string | null = null;
     try {
@@ -197,7 +213,7 @@ serve(async (req) => {
           chars: out.stats?.chars ?? 0,
           author_persona: authorPersona,
           verified_facts: verifiedFacts || null,
-          risk_report: out.risk_report ?? null,
+          risk_report: mergedRiskReport,
         })
         .select("id")
         .maybeSingle();
@@ -209,6 +225,8 @@ serve(async (req) => {
     return jsonResponse({
       ok: true,
       ...out,
+      risk_report: mergedRiskReport,
+      quality_guard: guard.report,
       history_id: historyId,
       seo: { mode: seoMode, target_query: targetQuery || null, suggestions: serperSuggestions },
       rating_sources: format === "rating" ? {
