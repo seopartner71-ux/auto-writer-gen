@@ -373,8 +373,10 @@ export function buildChecklist(md: string, ps: string, opts: { isRating?: boolea
   const cards = isRating ? (md.match(/^###\s+\d+\.\s+/gm) || []).length : 0;
   const hasFaq = isRating ? /^##\s+.*FAQ|^##\s+.*Часты\w+\s+вопрос/im.test(md) : true;
   const hasNote = isRating ? /Примечание:\s*Цены/i.test(md) : true;
+  const minLen = isRating ? 3500 : 4500;
+  const maxLen = isRating ? 9000 : 7000;
   const base = [
-    { label: "Длина 4500-7000 знаков", ok: chars >= 4500 && chars <= 7000, hint: `сейчас ${chars}` },
+    { label: `Длина ${minLen}-${maxLen} знаков`, ok: chars >= minLen && chars <= maxLen, hint: `сейчас ${chars}` },
     { label: "Минимум 4 цифры/факта", ok: digitsCount >= 4, hint: `нашли ${digitsCount}` },
     { label: "Минимум 3 подзаголовка H2", ok: h2 >= 3, hint: `${h2} H2` },
     { label: "Минимум 4 подзаголовка H3", ok: h3 >= 4, hint: `${h3} H3` },
