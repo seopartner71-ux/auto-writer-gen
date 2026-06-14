@@ -4,7 +4,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { adminClient } from "../_shared/auth.ts";
-import { generateVcArticle, isVcFormat, pickVcModel } from "../_shared/vcWriterCore.ts";
+import { generateVcArticle, isVcFormat, pickVcModel, isFunnelStage } from "../_shared/vcWriterCore.ts";
 import { validateVcArticle } from "../_shared/vcQualityGuard.ts";
 
 function isServiceRole(req: Request): boolean {
@@ -89,6 +89,7 @@ serve(async (req) => {
 
     const model = pickVcModel(batch.model);
     const format = isVcFormat(item.format) ? item.format : "guide";
+    const funnelStage = isFunnelStage(item.funnel_stage) ? item.funnel_stage : "auto";
 
     try {
       const out = await generateVcArticle({
@@ -100,6 +101,7 @@ serve(async (req) => {
         length: item.length || 5500,
         wantCover: false,
         avoidTitles,
+        funnelStage,
       });
 
       // Quality guard before persisting batch result.
