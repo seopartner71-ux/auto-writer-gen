@@ -549,27 +549,35 @@ export function replaceLead(md: string, newLead: string): string {
 
 async function generateCover(prompt: string): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) return null;
+  if (!key) {
+    console.warn("[vc-cover] LOVABLE_API_KEY missing — skip cover");
+    return null;
+  }
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 12_000);
+  const timer = setTimeout(() => ctrl.abort(), 60_000);
+  const t0 = Date.now();
   try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
       signal: ctrl.signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "openai/gpt-image-2",
+        model: "google/gemini-2.5-flash-image",
         prompt: `Editorial cover image for a vc.ru article. ${prompt}. Style: modern minimal, soft gradient, business-tech aesthetic, no text on image, 16:9 composition.`,
-        size: "1536x1024",
-        quality: "low",
         n: 1,
       }),
     });
-    if (!r.ok) return null;
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      console.error(`[vc-cover] gateway ${r.status}: ${txt.slice(0, 300)}`);
+      return null;
+    }
     const j = await r.json();
     const b64 = j?.data?.[0]?.b64_json;
+    console.log(`[vc-cover] done in ${Date.now() - t0}ms, b64=${b64 ? b64.length : 0}`);
     return b64 ? `data:image/png;base64,${b64}` : null;
-  } catch {
+  } catch (e) {
+    console.error(`[vc-cover] exception after ${Date.now() - t0}ms:`, (e as Error).message);
     return null;
   } finally {
     clearTimeout(timer);
