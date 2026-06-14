@@ -127,6 +127,9 @@ export default function VcWriterPage() {
   const [targetQuery, setTargetQuery] = useState("");
   const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
   const [pinnedCompany, setPinnedCompany] = useState("");
+  const [ratingType, setRatingType] = useState<"services" | "products" | "saas" | "manual">("services");
+  const [ratingCity, setRatingCity] = useState("");
+  const [ratingManual, setRatingManual] = useState("");
   const [addUtm, setAddUtm] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -423,6 +426,9 @@ export default function VcWriterPage() {
             })
             .slice(0, 5),
           pinned_company: format === "rating" ? pinnedCompany.trim() : "",
+          rating_type: format === "rating" ? ratingType : undefined,
+          rating_city: format === "rating" ? ratingCity.trim() : undefined,
+          rating_manual: format === "rating" && ratingType === "manual" ? ratingManual.trim() : undefined,
         },
       });
       if (error) throw error;
