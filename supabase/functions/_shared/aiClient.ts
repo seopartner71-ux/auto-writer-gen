@@ -204,7 +204,7 @@ export async function chatJson<T = unknown>(opts: ChatJsonOptions<T>): Promise<C
       extra = baseExtraJsonObject;
     }
   }
-  throw new AiError("parse_failed", `Failed to parse JSON after ${retries + 1} attempts: ${lastErr?.message || "unknown"}`, { upstreamBody: lastRaw.slice(0, 1000) });
+  throw new AiError("parse_failed", `Failed to parse JSON after ${retries + 1} attempts: ${lastErr?.message || "unknown"}`, { upstreamBody: lastRaw.slice(0, 50_000) });
 }
 
 
