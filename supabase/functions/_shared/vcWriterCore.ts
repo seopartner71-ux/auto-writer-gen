@@ -273,8 +273,20 @@ export function ensureClientLinks(md: string, links: Array<{ url: string; anchor
       // (продвинутая замена потребовала бы LLM — это для следующей итерации)
     }
     // Уже есть как markdown-ссылка?
-    const already = new RegExp(`\\]\\(\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\)`).test(out);
+    const urlEsc = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const already = new RegExp(`\\]\\(\\s*${urlEsc}\\s*\\)`).test(out);
     if (already) { injected.push(anchor); continue; }
+    // Голый URL без markdown-обёртки? Оборачиваем в [anchor](url).
+    // Берём первое вхождение url (с возможным завершающим знаком препинания).
+    const bareRe = new RegExp(`(^|[\\s(])${urlEsc}(?=[\\s).,;!?]|$)`, "i");
+    const bareMatch = out.match(bareRe);
+    if (bareMatch && bareMatch.index !== undefined) {
+      const lead = bareMatch[1] || "";
+      const startIdx = bareMatch.index + lead.length;
+      out = out.slice(0, startIdx) + `[${anchor}](${url})` + out.slice(startIdx + url.length);
+      injected.push(anchor);
+      continue;
+    }
     // Попробуем найти анкор в тексте (вне заголовков и P.S.).
     const re = new RegExp(`(^|[^[\\w])(${anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?![\\w\\]])`, "i");
     const psIdx = out.search(/\n+P\.?\s*S\.?/i);
