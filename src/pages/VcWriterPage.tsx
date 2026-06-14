@@ -123,7 +123,6 @@ export default function VcWriterPage() {
   const [audience, setAudience] = useState("");
   const [tone, setTone] = useState("экспертно-разговорный с легкой провокацией");
   const [length, setLength] = useState(5500);
-  const [withCover, setWithCover] = useState(true);
   const [seoMode, setSeoMode] = useState(true);
   const [targetQuery, setTargetQuery] = useState("");
   const [clientLinks, setClientLinks] = useState<Array<{ url: string; anchor: string; hint: string }>>([]);
