@@ -60,6 +60,13 @@ serve(async (req) => {
     const topicResearch = ruEReplace(normalizeDashes(String(body.topic_research || ""))).slice(0, 5000);
     const humanizeOn = !!body.humanize;
 
+    // Профессиональные термины ниши (опционально): до 10 коротких токенов.
+    const rawNiche = Array.isArray(body.niche_terms) ? body.niche_terms : [];
+    const nicheTerms = rawNiche
+      .map((t: any) => ruEReplace(normalizeDashes(String(t || ""))).trim().slice(0, 40))
+      .filter((t: string) => t.length >= 2)
+      .slice(0, 10);
+
     // Клиентские ссылки: до 5 шт, валидируем url+anchor.
     const rawLinks = Array.isArray(body.client_links) ? body.client_links : [];
     const clientLinks = rawLinks
@@ -106,6 +113,7 @@ serve(async (req) => {
       factCheck: factCheckOn,
       topicResearch: topicResearch || undefined,
       humanize: humanizeOn,
+      nicheTerms: nicheTerms.length ? nicheTerms : undefined,
     });
 
     // Сохраняем в историю (без cover_data_url - тяжёлый base64).
