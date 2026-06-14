@@ -5,7 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { generateVcArticle, isVcFormat, pickVcModel, ruEReplace, normalizeDashes } from "../_shared/vcWriterCore.ts";
-import type { AuthorPersona } from "../_shared/vcWriterCore.ts";
+import type { AuthorPersona, OfferBlockInput } from "../_shared/vcWriterCore.ts";
 import { validateVcArticle } from "../_shared/vcQualityGuard.ts";
 import {
   fetchMapsItems, fetchShoppingItems, fetchOrganicItems,
@@ -76,6 +76,29 @@ serve(async (req) => {
 
     // Закрепить клиента на 1-м месте в рейтинге (только для format=rating).
     const pinnedCompany = ruEReplace(normalizeDashes(String(body.pinned_company || ""))).trim().slice(0, 120);
+
+    // Опциональный конверсионный блок-оффер автора (нативный CTA).
+    let offerBlock: OfferBlockInput | undefined;
+    const rawOffer = body.offer_block;
+    if (rawOffer && typeof rawOffer === "object") {
+      const styleRaw = String(rawOffer.style || "native").toLowerCase();
+      const style: OfferBlockInput["style"] =
+        styleRaw === "soft" || styleRaw === "leadmagnet" ? (styleRaw as any) : "native";
+      const offerText = ruEReplace(normalizeDashes(String(rawOffer.offer || ""))).trim().slice(0, 240);
+      const benefitText = ruEReplace(normalizeDashes(String(rawOffer.benefit || ""))).trim().slice(0, 240);
+      const ctaText = ruEReplace(normalizeDashes(String(rawOffer.cta || ""))).trim().slice(0, 80);
+      const urlText = String(rawOffer.url || "").trim().slice(0, 500);
+      if (offerText.length >= 3 && ctaText.length >= 2 && /^https?:\/\/\S+$/i.test(urlText)) {
+        offerBlock = {
+          style,
+          offer: offerText,
+          benefit: benefitText || undefined,
+          cta: ctaText,
+          url: urlText,
+          disclosure: format === "rating" && !!pinnedCompany,
+        };
+      }
+    }
 
     // Источник реальных позиций для рейтинга. По умолчанию services (Maps).
     const ratingTypeRaw = String(body.rating_type || "services").toLowerCase();
@@ -174,6 +197,7 @@ serve(async (req) => {
       pinnedCompany: (format === "rating" && pinnedCompany) ? pinnedCompany : undefined,
       realItemsBlock: realItemsBlock || undefined,
       realItemsAttribution: realItemsAttribution || undefined,
+      offerBlock,
     });
 
     // Quality guard: catches broken H3 splits, duplicated lead/conclusion and

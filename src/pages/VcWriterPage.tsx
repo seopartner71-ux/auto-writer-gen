@@ -131,6 +131,13 @@ export default function VcWriterPage() {
   const [ratingCity, setRatingCity] = useState("");
   const [ratingManual, setRatingManual] = useState("");
   const [addUtm, setAddUtm] = useState(true);
+  // Конверсионный блок-оффер автора (нативный CTA в стиле vc.ru).
+  const [offerEnabled, setOfferEnabled] = useState(false);
+  const [offerStyle, setOfferStyle] = useState<"soft" | "native" | "leadmagnet">("native");
+  const [offerText, setOfferText] = useState("");
+  const [offerBenefit, setOfferBenefit] = useState("");
+  const [offerCta, setOfferCta] = useState("Оставить заявку");
+  const [offerUrl, setOfferUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [authorPersona, setAuthorPersona] = useState<AuthorPersona>("freeform");
@@ -429,6 +436,29 @@ export default function VcWriterPage() {
           rating_type: format === "rating" ? ratingType : undefined,
           rating_city: format === "rating" ? ratingCity.trim() : undefined,
           rating_manual: format === "rating" && ratingType === "manual" ? ratingManual.trim() : undefined,
+          offer_block: (() => {
+            if (!offerEnabled) return undefined;
+            const o = offerText.trim();
+            const c = offerCta.trim();
+            let u = offerUrl.trim();
+            if (!o || !c || !/^https?:\/\/\S+$/i.test(u)) return undefined;
+            if (addUtm) {
+              try {
+                const url = new URL(u);
+                if (!url.searchParams.has("utm_source")) url.searchParams.set("utm_source", "vc");
+                if (!url.searchParams.has("utm_medium")) url.searchParams.set("utm_medium", "article");
+                if (!url.searchParams.has("utm_campaign")) url.searchParams.set("utm_campaign", "offer");
+                u = url.toString();
+              } catch { /* ignore */ }
+            }
+            return {
+              style: offerStyle,
+              offer: o,
+              benefit: offerBenefit.trim() || undefined,
+              cta: c,
+              url: u,
+            };
+          })(),
         },
       });
       if (error) throw error;
@@ -1233,6 +1263,83 @@ export default function VcWriterPage() {
                   />
                 </div>
               ))}
+            </div>
+
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" /> Блок-оффер автора (нативный CTA)
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Превращает «экспертный пост» в материал «под заявку». Вшивается ровно 1 раз в конце, без агрессивной рекламы.
+                  </p>
+                </div>
+                <Switch checked={offerEnabled} onCheckedChange={setOfferEnabled} />
+              </div>
+
+              {offerEnabled && (
+                <div className="space-y-2 pt-1">
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Формат блока</Label>
+                    <Select value={offerStyle} onValueChange={(v) => setOfferStyle(v as typeof offerStyle)}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="soft">Soft - вшить в P.S. (мягко, в конце вопроса)</SelectItem>
+                        <SelectItem value="native">Native CTA - отдельный H2 «Что делать дальше»</SelectItem>
+                        <SelectItem value="leadmagnet">Lead-magnet - обмен на бесплатный чек-лист/расчёт</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Что предлагаете</Label>
+                    <Input
+                      value={offerText}
+                      onChange={(e) => setOfferText(e.target.value)}
+                      placeholder="бесплатный аудит РВД с выездом"
+                      className="h-8 text-xs"
+                      maxLength={240}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Выгода / крючок (опционально)</Label>
+                    <Input
+                      value={offerBenefit}
+                      onChange={(e) => setOfferBenefit(e.target.value)}
+                      placeholder="найдём 2-3 точки экономии за 30 минут"
+                      className="h-8 text-xs"
+                      maxLength={240}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">CTA-текст</Label>
+                      <Input
+                        value={offerCta}
+                        onChange={(e) => setOfferCta(e.target.value)}
+                        placeholder="Оставить заявку"
+                        className="h-8 text-xs"
+                        maxLength={80}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">URL клиента</Label>
+                      <Input
+                        value={offerUrl}
+                        onChange={(e) => setOfferUrl(e.target.value)}
+                        placeholder="https://client.ru/audit"
+                        className="h-8 text-xs"
+                        maxLength={500}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    UTM-метки {addUtm ? "будут добавлены" : "отключены"} (общий тогл UTM из блока «Клиентские ссылки»). Для рейтинга с закреплённым клиентом будет автоматически добавлено раскрытие («автор работает с компанией»).
+                  </p>
+                </div>
+              )}
             </div>
 
             {format === "rating" && (
