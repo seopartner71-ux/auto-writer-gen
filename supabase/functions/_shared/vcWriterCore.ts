@@ -1236,6 +1236,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
       maxTokens: isRating ? 8200 : (requestedLength >= 5000 ? 6200 : 5200),
       timeoutMs: isSlowModel ? 60_000 : 58_000,
       appTitle: "vc.ru Writer",
+      isRating,
       schema: vcDraftSchema,
     });
   } catch (e) {
@@ -1251,6 +1252,7 @@ export async function generateVcArticle(input: VcGenInput): Promise<VcGenResult>
       maxTokens: isRating ? 7600 : 5200,
       timeoutMs: 48_000,
       appTitle: "vc.ru Writer Fallback",
+      isRating,
       schema: vcDraftSchema,
     });
   }
