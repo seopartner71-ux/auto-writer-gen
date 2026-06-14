@@ -394,7 +394,7 @@ export default function VcWriterPage() {
       const { data, error } = await supabase.functions.invoke("vc-writer", {
         body: {
           format, model, topic, thesis: thesisWithExtras, audience, tone, length,
-          generate_cover: withCover,
+          generate_cover: false,
           seo_mode: seoMode,
           target_query: primaryQuery,
           author_persona: authorPersona,
@@ -1233,14 +1233,6 @@ export default function VcWriterPage() {
                   />
                 </div>
               ))}
-            </div>
-
-            <div className="flex items-center justify-between rounded-md border border-border p-3">
-              <div className="space-y-0.5">
-                <Label className="text-sm">Сгенерировать обложку</Label>
-                <p className="text-xs text-muted-foreground">AI-картинка 1536x1024 для шапки</p>
-              </div>
-              <Switch checked={withCover} onCheckedChange={setWithCover} />
             </div>
 
             {(() => {
