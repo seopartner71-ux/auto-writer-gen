@@ -195,8 +195,21 @@ export default function ArticlesPage() {
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>(() => {
-    if (typeof window === "undefined") return "google/gemini-2.5-flash";
-    return localStorage.getItem("writer_model") || "google/gemini-2.5-flash";
+    // Cheapest default for all plans/users (1 credit). Premium models opt-in.
+    const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
+    if (typeof window === "undefined") return DEFAULT_MODEL;
+    // One-time reset: clear stale expensive defaults (Opus/Sonnet/GPT-5/Pro)
+    // selected before we lowered the default cost.
+    const RESET_FLAG = "writer_model_reset_v2";
+    const saved = localStorage.getItem("writer_model");
+    if (!localStorage.getItem(RESET_FLAG)) {
+      localStorage.setItem(RESET_FLAG, "1");
+      if (saved && /opus|sonnet|gpt-5(?!-nano)|gemini-2\.5-pro/i.test(saved)) {
+        localStorage.setItem("writer_model", DEFAULT_MODEL);
+        return DEFAULT_MODEL;
+      }
+    }
+    return saved || DEFAULT_MODEL;
   });
   useEffect(() => {
     if (selectedModel) {
@@ -984,7 +997,7 @@ export default function ArticlesPage() {
         // Deduct credit for new article (skip for admins)
         if (!isAdmin) {
           // V2: dynamic cost based on model + length
-          const modelKey = (payload as any)?.generation_model || selectedModel || "google/gemini-2.5-flash";
+          const modelKey = (payload as any)?.generation_model || selectedModel || "google/gemini-2.5-flash-lite";
           const articleLength = (content || "").length;
           const { data: costData } = await supabase.rpc("calculate_generation_cost", {
             p_model_key: modelKey,
