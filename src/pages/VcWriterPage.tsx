@@ -205,6 +205,67 @@ export default function VcWriterPage() {
     valid_count: number;
   }>(null);
 
+  // Topics by SEO query: подбор тем под поисковый запрос без анализа сайта клиента.
+  const [seoNiche, setSeoNiche] = useState("");
+  const [seoKeywords, setSeoKeywords] = useState("");
+  const [seoTopicsLoading, setSeoTopicsLoading] = useState(false);
+  const [seoTopicsResult, setSeoTopicsResult] = useState<null | {
+    serper_used: boolean;
+    real_queries_count: number;
+    topics: Array<{
+      topic: string; format: Format; thesis: string;
+      target_query: string; intent: string; search_volume_guess: string;
+    }>;
+  }>(null);
+
+  const runTopicsBySeo = async () => {
+    const niche = seoNiche.trim();
+    if (niche.length < 3) {
+      toast.error("Укажите нишу или основной запрос (минимум 3 символа)");
+      return;
+    }
+    setSeoTopicsLoading(true);
+    setSeoTopicsResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-topics", {
+        body: {
+          niche,
+          keywords: seoKeywords.trim() || undefined,
+          count: 10,
+          seo_mode: true,
+          model,
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Не удалось подобрать темы");
+      setSeoTopicsResult({
+        serper_used: !!data.serper_used,
+        real_queries_count: Number(data.real_queries_count) || 0,
+        topics: Array.isArray(data.topics) ? data.topics : [],
+      });
+      toast.success(
+        data.serper_used
+          ? `Подобрано ${data.topics?.length || 0} тем (учтено ${data.real_queries_count} реальных запросов)`
+          : `Подобрано ${data.topics?.length || 0} тем`,
+      );
+    } catch (e: any) {
+      toast.error(e?.message || "Подбор тем не удался");
+    } finally {
+      setSeoTopicsLoading(false);
+    }
+  };
+
+  const applySeoTopic = (t: NonNullable<typeof seoTopicsResult>["topics"][number]) => {
+    setTopic(t.topic);
+    if (t.format) setFormat(t.format);
+    if (t.thesis) setThesis(t.thesis);
+    if (t.target_query) {
+      setSeoMode(true);
+      setTargetQuery(t.target_query);
+    }
+    toast.success("SEO-тема применена. Можно сразу запускать генерацию.");
+  };
+
   const runTopicsBySite = async () => {
     const u = siteUrl.trim();
     if (!/^https?:\/\/\S+\.\S+/i.test(u)) {
@@ -1021,6 +1082,82 @@ export default function VcWriterPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Topics by SEO query: подбор тем под поисковый запрос без сайта клиента */}
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <Label className="text-sm flex items-center gap-1.5">
+                <Search className="h-3.5 w-3.5" /> Темы под SEO-запрос
+              </Label>
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                Без анализа сайта клиента. Укажите нишу или основной поисковый запрос - подберём 10 тем, заточенных под реальные запросы Google (PAA, related, топ-10). Для каждой темы вернём target_query, формат и тезис.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  value={seoNiche}
+                  onChange={(e) => setSeoNiche(e.target.value)}
+                  placeholder="Ниша или основной запрос (например: купить минитрактор)"
+                  className="h-9 text-xs"
+                />
+                <Button
+                  type="button" size="sm" variant="outline"
+                  className="shrink-0 h-9 gap-1.5"
+                  onClick={runTopicsBySeo}
+                  disabled={seoTopicsLoading || seoNiche.trim().length < 3}
+                >
+                  {seoTopicsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Подобрать темы
+                </Button>
+              </div>
+              <Input
+                value={seoKeywords}
+                onChange={(e) => setSeoKeywords(e.target.value.slice(0, 400))}
+                placeholder="Доп. ключи через запятую (необязательно)"
+                className="h-8 text-xs"
+              />
+
+              {seoTopicsResult && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="text-[10px] text-muted-foreground">
+                    {seoTopicsResult.serper_used
+                      ? `Учтено ${seoTopicsResult.real_queries_count} реальных запросов из Google`
+                      : "SERP недоступен - темы подобраны эвристически"}
+                  </div>
+                  {seoTopicsResult.topics.map((t, i) => (
+                    <div key={i} className="rounded border border-border bg-muted/30 p-2 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium leading-snug">{t.topic}</div>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <Badge variant="outline" className="h-4 px-1.5 text-[9px]">{t.format}</Badge>
+                            {t.intent && <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">{t.intent}</Badge>}
+                            {t.search_volume_guess && (
+                              <Badge variant="outline" className="h-4 px-1.5 text-[9px]">vol: {t.search_volume_guess}</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm" variant="default"
+                          className="h-7 shrink-0 text-[10px]"
+                          onClick={() => applySeoTopic(t)}
+                        >
+                          Применить
+                        </Button>
+                      </div>
+                      {t.target_query && (
+                        <div className="text-[10px] text-muted-foreground">
+                          <span className="opacity-70">SEO-запрос:</span> {t.target_query}
+                        </div>
+                      )}
+                      {t.thesis && (
+                        <div className="text-[10px] text-muted-foreground">
+                          <span className="opacity-70">Тезис:</span> {t.thesis}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
