@@ -205,6 +205,67 @@ export default function VcWriterPage() {
     valid_count: number;
   }>(null);
 
+  // Topics by SEO query: подбор тем под поисковый запрос без анализа сайта клиента.
+  const [seoNiche, setSeoNiche] = useState("");
+  const [seoKeywords, setSeoKeywords] = useState("");
+  const [seoTopicsLoading, setSeoTopicsLoading] = useState(false);
+  const [seoTopicsResult, setSeoTopicsResult] = useState<null | {
+    serper_used: boolean;
+    real_queries_count: number;
+    topics: Array<{
+      topic: string; format: Format; thesis: string;
+      target_query: string; intent: string; search_volume_guess: string;
+    }>;
+  }>(null);
+
+  const runTopicsBySeo = async () => {
+    const niche = seoNiche.trim();
+    if (niche.length < 3) {
+      toast.error("Укажите нишу или основной запрос (минимум 3 символа)");
+      return;
+    }
+    setSeoTopicsLoading(true);
+    setSeoTopicsResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("vc-writer-topics", {
+        body: {
+          niche,
+          keywords: seoKeywords.trim() || undefined,
+          count: 10,
+          seo_mode: true,
+          model,
+        },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Не удалось подобрать темы");
+      setSeoTopicsResult({
+        serper_used: !!data.serper_used,
+        real_queries_count: Number(data.real_queries_count) || 0,
+        topics: Array.isArray(data.topics) ? data.topics : [],
+      });
+      toast.success(
+        data.serper_used
+          ? `Подобрано ${data.topics?.length || 0} тем (учтено ${data.real_queries_count} реальных запросов)`
+          : `Подобрано ${data.topics?.length || 0} тем`,
+      );
+    } catch (e: any) {
+      toast.error(e?.message || "Подбор тем не удался");
+    } finally {
+      setSeoTopicsLoading(false);
+    }
+  };
+
+  const applySeoTopic = (t: NonNullable<typeof seoTopicsResult>["topics"][number]) => {
+    setTopic(t.topic);
+    if (t.format) setFormat(t.format);
+    if (t.thesis) setThesis(t.thesis);
+    if (t.target_query) {
+      setSeoMode(true);
+      setTargetQuery(t.target_query);
+    }
+    toast.success("SEO-тема применена. Можно сразу запускать генерацию.");
+  };
+
   const runTopicsBySite = async () => {
     const u = siteUrl.trim();
     if (!/^https?:\/\/\S+\.\S+/i.test(u)) {
