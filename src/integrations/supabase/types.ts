@@ -1296,44 +1296,87 @@ export type Database = {
           },
         ]
       }
+      content_clients: {
+        Row: {
+          contact_email: string | null
+          created_at: string
+          created_by: string | null
+          domain: string
+          id: string
+          name: string
+          niche: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          domain: string
+          id?: string
+          name: string
+          niche?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          domain?: string
+          id?: string
+          name?: string
+          niche?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       content_plans: {
         Row: {
+          client_id: string | null
           client_responded_at: string | null
           created_at: string
           created_by: string
           id: string
           month: number
-          project_id: string
+          project_id: string | null
           public_uuid: string
           status: string
           updated_at: string
           year: number
         }
         Insert: {
+          client_id?: string | null
           client_responded_at?: string | null
           created_at?: string
           created_by: string
           id?: string
           month: number
-          project_id: string
+          project_id?: string | null
           public_uuid?: string
           status?: string
           updated_at?: string
           year: number
         }
         Update: {
+          client_id?: string | null
           client_responded_at?: string | null
           created_at?: string
           created_by?: string
           id?: string
           month?: number
-          project_id?: string
+          project_id?: string | null
           public_uuid?: string
           status?: string
           updated_at?: string
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "content_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "content_clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_plans_project_id_fkey"
             columns: ["project_id"]
@@ -1345,8 +1388,14 @@ export type Database = {
       }
       content_topics: {
         Row: {
+          article_markdown: string | null
+          article_meta: Json | null
+          article_title: string | null
           comment: string | null
           created_at: string
+          gen_error: string | null
+          gen_status: string
+          generated_at: string | null
           id: string
           plan_id: string
           position: number
@@ -1357,8 +1406,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          article_markdown?: string | null
+          article_meta?: Json | null
+          article_title?: string | null
           comment?: string | null
           created_at?: string
+          gen_error?: string | null
+          gen_status?: string
+          generated_at?: string | null
           id?: string
           plan_id: string
           position?: number
@@ -1369,8 +1424,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          article_markdown?: string | null
+          article_meta?: Json | null
+          article_title?: string | null
           comment?: string | null
           created_at?: string
+          gen_error?: string | null
+          gen_status?: string
+          generated_at?: string | null
           id?: string
           plan_id?: string
           position?: number

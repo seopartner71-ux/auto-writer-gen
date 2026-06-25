@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Copy, Link as LinkIcon, ClipboardCheck, Loader2, ArrowLeft, UserCheck } from "lucide-react";
+import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle } from "lucide-react";
 
 type Tab = "blog" | "links" | "trust";
 const TABS: { id: Tab; label: string }[] = [
@@ -40,19 +41,26 @@ const TOPIC_BADGE: Record<string, string> = {
   no: "Не подходит",
 };
 
-interface ProjectLite { id: string; name: string; domain: string }
+interface ClientLite { id: string; name: string; domain: string; niche: string | null }
 interface Plan {
-  id: string; project_id: string; month: number; year: number;
+  id: string; client_id: string | null; project_id: string | null; month: number; year: number;
   status: string; public_uuid: string; created_at: string; client_responded_at: string | null;
 }
-interface Topic { id: string; plan_id: string; tab: Tab; title: string; position: number; status: string | null; comment: string | null; }
+interface Topic {
+  id: string; plan_id: string; tab: Tab; title: string; position: number;
+  status: string | null; comment: string | null;
+  gen_status?: string | null; article_markdown?: string | null;
+  article_title?: string | null; gen_error?: string | null;
+}
 
 export default function ContentPlanPage() {
   const { role } = useAuth();
   const allowed = role === "admin" || role === "staff";
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [creatorOpen, setCreatorOpen] = useState<{ projectId?: string } | null>(null);
+  const [creatorOpen, setCreatorOpen] = useState<{ clientId?: string } | null>(null);
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [writingPlanId, setWritingPlanId] = useState<string | null>(null);
 
   if (!allowed) {
     return (
@@ -62,37 +70,43 @@ export default function ContentPlanPage() {
     );
   }
 
+  if (writingPlanId) {
+    return <WritingScreen planId={writingPlanId} onBack={() => setWritingPlanId(null)} />;
+  }
+
   if (selectedPlanId) {
-    return <PlanDetail planId={selectedPlanId} onBack={() => setSelectedPlanId(null)} />;
+    return <PlanDetail planId={selectedPlanId} onBack={() => setSelectedPlanId(null)} onOpenWriting={(id) => { setSelectedPlanId(null); setWritingPlanId(id); }} />;
   }
 
   return (
     <>
-      <ProjectsList
-        onCreate={(pid) => setCreatorOpen({ projectId: pid })}
+      <ClientsList
+        onCreate={(cid) => setCreatorOpen({ clientId: cid })}
         onOpenPlan={(plan) => setSelectedPlanId(plan.id)}
+        onNewClient={() => setNewClientOpen(true)}
       />
       {creatorOpen && (
         <PlanCreatorDialog
-          initialProjectId={creatorOpen.projectId}
+          initialClientId={creatorOpen.clientId}
           onClose={() => setCreatorOpen(null)}
           onCreated={(planId) => { setCreatorOpen(null); setSelectedPlanId(planId); }}
         />
       )}
+      {newClientOpen && <NewClientDialog onClose={() => setNewClientOpen(false)} />}
     </>
   );
 }
 
-function ProjectsList({ onCreate, onOpenPlan }: { onCreate: (projectId: string) => void; onOpenPlan: (p: Plan) => void }) {
-  const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["cp-projects"],
+function ClientsList({ onCreate, onOpenPlan, onNewClient }: { onCreate: (clientId: string) => void; onOpenPlan: (p: Plan) => void; onNewClient: () => void }) {
+  const { data: clients = [], isLoading } = useQuery({
+    queryKey: ["cp-clients"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("projects")
-        .select("id, name, domain, user_id, created_at")
+        .from("content_clients")
+        .select("id, name, domain, niche, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Array<ProjectLite & { user_id: string }>;
+      return (data ?? []) as ClientLite[];
     },
   });
 
@@ -101,18 +115,18 @@ function ProjectsList({ onCreate, onOpenPlan }: { onCreate: (projectId: string) 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_plans")
-        .select("id, project_id, month, year, status, public_uuid, created_at, client_responded_at")
+        .select("id, client_id, project_id, month, year, status, public_uuid, created_at, client_responded_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Plan[];
     },
   });
 
-  const now = new Date();
-  const currentPlanByProject = useMemo(() => {
+  const currentPlanByClient = useMemo(() => {
     const map = new Map<string, Plan>();
     for (const p of plans) {
-      if (!map.has(p.project_id)) map.set(p.project_id, p);
+      const key = p.client_id || p.project_id;
+      if (key && !map.has(key)) map.set(key, p);
     }
     return map;
   }, [plans]);
@@ -122,18 +136,21 @@ function ProjectsList({ onCreate, onOpenPlan }: { onCreate: (projectId: string) 
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Контент-план</h1>
-          <p className="text-sm text-muted-foreground">Планы публикаций по проектам клиентов с согласованием через публичную ссылку.</p>
+          <p className="text-sm text-muted-foreground">Клиенты, контент-планы и написание статей.</p>
         </div>
+        <Button onClick={onNewClient} size="sm">
+          <Plus className="h-4 w-4 mr-1" /> Новый клиент
+        </Button>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-      ) : projects.length === 0 ? (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">Нет проектов</CardContent></Card>
+      ) : clients.length === 0 ? (
+        <Card><CardContent className="py-10 text-center text-muted-foreground">Пока нет клиентов. Создайте первого через кнопку «Новый клиент».</CardContent></Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p) => {
-            const plan = currentPlanByProject.get(p.id);
+          {clients.map((p) => {
+            const plan = currentPlanByClient.get(p.id);
             const st = plan ? STATUS_LABEL[plan.status] : STATUS_LABEL.awaiting;
             return (
               <Card key={p.id} className="bg-card border-border">
@@ -147,6 +164,7 @@ function ProjectsList({ onCreate, onOpenPlan }: { onCreate: (projectId: string) 
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-2">
+                  {p.niche && <div className="text-xs text-muted-foreground line-clamp-2">{p.niche}</div>}
                   {plan && (
                     <div className="text-xs text-muted-foreground">
                       Текущий план: {String(plan.month).padStart(2, "0")}/{plan.year}
@@ -170,23 +188,69 @@ function ProjectsList({ onCreate, onOpenPlan }: { onCreate: (projectId: string) 
   );
 }
 
-function PlanCreatorDialog({ initialProjectId, onClose, onCreated }: { initialProjectId?: string; onClose: () => void; onCreated: (id: string) => void }) {
+function NewClientDialog({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
+  const [niche, setNiche] = useState("");
+  const [email, setEmail] = useState("");
+  const m = useMutation({
+    mutationFn: async () => {
+      if (name.trim().length < 2 || domain.trim().length < 3) throw new Error("Заполните название и домен");
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("content_clients").insert({
+        name: name.trim(), domain: domain.trim(), niche: niche.trim() || null,
+        contact_email: email.trim() || null, created_by: user?.id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cp-clients"] });
+      toast.success("Клиент добавлен");
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Новый клиент</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1"><Label>Название компании</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Домен</Label><Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="example.ru" /></div>
+          <div className="space-y-1"><Label>Ниша / тематика</Label><Textarea value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="Кратко: чем занимается клиент, для кого" /></div>
+          <div className="space-y-1"><Label>Email клиента (для отправки ссылки согласования)</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Отмена</Button>
+          <Button onClick={() => m.mutate()} disabled={m.isPending}>
+            {m.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Создать
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialClientId?: string; onClose: () => void; onCreated: (id: string) => void }) {
   const queryClient = useQueryClient();
   const now = new Date();
-  const [projectId, setProjectId] = useState<string>(initialProjectId ?? "");
+  const [clientId, setClientId] = useState<string>(initialClientId ?? "");
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [year, setYear] = useState<number>(now.getFullYear());
   const [tab, setTab] = useState<Tab>("blog");
   const [byTab, setByTab] = useState<Record<Tab, string[]>>({ blog: [""], links: [""], trust: [""] });
+  const [aiLoading, setAiLoading] = useState<Tab | null>(null);
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ["cp-projects-mini"],
+  const { data: clients = [] } = useQuery({
+    queryKey: ["cp-clients-mini"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("projects").select("id, name, domain").order("name");
+      const { data, error } = await supabase.from("content_clients").select("id, name, domain, niche").order("name");
       if (error) throw error;
-      return (data ?? []) as ProjectLite[];
+      return (data ?? []) as ClientLite[];
     },
   });
+  const currentClient = clients.find((c) => c.id === clientId);
 
   const setTitle = (t: Tab, idx: number, val: string) =>
     setByTab((s) => ({ ...s, [t]: s[t].map((v, i) => (i === idx ? val : v)) }));
@@ -194,14 +258,34 @@ function PlanCreatorDialog({ initialProjectId, onClose, onCreated }: { initialPr
   const delRow = (t: Tab, idx: number) =>
     setByTab((s) => ({ ...s, [t]: s[t].filter((_, i) => i !== idx).concat(s[t].length === 1 ? [""] : []) }));
 
+  const suggestAi = async (t: Tab) => {
+    if (!currentClient) { toast.error("Выберите клиента"); return; }
+    if (!currentClient.niche) { toast.error("У клиента не заполнена ниша"); return; }
+    setAiLoading(t);
+    try {
+      const { data, error } = await supabase.functions.invoke("content-plan-suggest-topics", {
+        body: { kind: t, domain: currentClient.domain, niche: currentClient.niche, count: 8 },
+      });
+      if (error) throw new Error(error.message);
+      const topics: string[] = (data as any)?.topics ?? [];
+      if (!topics.length) throw new Error("AI не вернул темы, попробуйте еще раз");
+      setByTab((s) => ({ ...s, [t]: topics }));
+      toast.success(`Подобрано ${topics.length} тем`);
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось подобрать темы");
+    } finally {
+      setAiLoading(null);
+    }
+  };
+
   const create = useMutation({
     mutationFn: async () => {
-      if (!projectId) throw new Error("Выберите проект");
+      if (!clientId) throw new Error("Выберите клиента");
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Нет авторизации");
       const { data: plan, error } = await supabase
         .from("content_plans")
-        .insert({ project_id: projectId, month, year, status: "review", created_by: user.id })
+        .insert({ client_id: clientId, month, year, status: "review", created_by: user.id })
         .select("id")
         .single();
       if (error) throw error;
@@ -236,11 +320,11 @@ function PlanCreatorDialog({ initialProjectId, onClose, onCreated }: { initialPr
         <div className="space-y-4">
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1 space-y-1">
-              <Label>Клиент / проект</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger><SelectValue placeholder="Выберите проект" /></SelectTrigger>
+              <Label>Клиент</Label>
+              <Select value={clientId} onValueChange={setClientId}>
+                <SelectTrigger><SelectValue placeholder="Выберите клиента" /></SelectTrigger>
                 <SelectContent>
-                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} — {p.domain}</SelectItem>)}
+                  {clients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} — {p.domain}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -266,6 +350,12 @@ function PlanCreatorDialog({ initialProjectId, onClose, onCreated }: { initialPr
             </TabsList>
             {TABS.map((t) => (
               <TabsContent key={t.id} value={t.id} className="space-y-2 pt-3">
+                <div className="flex justify-end">
+                  <Button type="button" size="sm" variant="outline" disabled={!!aiLoading} onClick={() => suggestAi(t.id)}>
+                    {aiLoading === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                    Подобрать темы через AI
+                  </Button>
+                </div>
                 {byTab[t.id].map((val, idx) => (
                   <div key={idx} className="flex gap-2 items-start">
                     <Textarea
@@ -298,20 +388,20 @@ function PlanCreatorDialog({ initialProjectId, onClose, onCreated }: { initialPr
   );
 }
 
-function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) {
+function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack: () => void; onOpenWriting: (planId: string) => void }) {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["cp-plan", planId],
     queryFn: async () => {
       const { data: plan, error } = await supabase
         .from("content_plans")
-        .select("id, project_id, month, year, status, public_uuid, client_responded_at, projects(name, domain)")
+        .select("id, client_id, project_id, month, year, status, public_uuid, client_responded_at, content_clients(name, domain), projects(name, domain)")
         .eq("id", planId)
         .single();
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status")
         .eq("plan_id", planId)
         .order("position");
       if (e2) throw e2;
@@ -324,7 +414,11 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
       const { error } = await supabase.from("content_plans").update({ status: "in_progress" }).eq("id", planId);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["cp-plan", planId] }); toast.success("План передан в работу"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cp-plan", planId] });
+      toast.success("План передан в работу");
+      onOpenWriting(planId);
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -333,6 +427,7 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
   }
 
   const { plan, topics } = data as any;
+  const owner = plan.content_clients ?? plan.projects ?? { name: "-", domain: "-" };
   const publicUrl = `${window.location.origin}/approval/${plan.public_uuid}`;
   const groupedTopics: Record<Tab, Topic[]> = { blog: [], links: [], trust: [] };
   for (const t of topics) groupedTopics[t.tab as Tab].push(t);
@@ -347,8 +442,8 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
         <CardHeader>
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle className="text-lg">{plan.projects?.name} — {String(plan.month).padStart(2, "0")}/{plan.year}</CardTitle>
-              <CardDescription>{plan.projects?.domain}</CardDescription>
+              <CardTitle className="text-lg">{owner.name} — {String(plan.month).padStart(2, "0")}/{plan.year}</CardTitle>
+              <CardDescription>{owner.domain}</CardDescription>
             </div>
             <Badge variant="outline" className={`text-xs ${st.cls}`}>{st.label}</Badge>
           </div>
@@ -368,6 +463,11 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
             {plan.status === "responded" && (
               <Button size="sm" onClick={() => setInProgress.mutate()}>
                 <UserCheck className="h-3.5 w-3.5 mr-1" /> Передать копирайтеру
+              </Button>
+            )}
+            {plan.status === "in_progress" && (
+              <Button size="sm" onClick={() => onOpenWriting(planId)}>
+                <FileText className="h-3.5 w-3.5 mr-1" /> Открыть написание статей
               </Button>
             )}
           </div>
@@ -400,6 +500,198 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
           </Tabs>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ===================== Writing screen =====================
+
+const GEN_LABEL: Record<string, { label: string; cls: string }> = {
+  waiting: { label: "Ожидает",  cls: "bg-muted text-muted-foreground" },
+  working: { label: "В работе", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  done:    { label: "Готово",   cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  failed:  { label: "Ошибка",   cls: "bg-red-500/15 text-red-400 border-red-500/30" },
+};
+
+function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void }) {
+  const qc = useQueryClient();
+  const [openTopic, setOpenTopic] = useState<Topic | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["cp-writing", planId],
+    queryFn: async () => {
+      const { data: plan, error } = await supabase
+        .from("content_plans")
+        .select("id, client_id, month, year, status, content_clients(name, domain, niche), projects(name, domain)")
+        .eq("id", planId).single();
+      if (error) throw error;
+      const { data: topics, error: e2 } = await supabase
+        .from("content_topics")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error")
+        .eq("plan_id", planId).eq("status", "ok")
+        .order("tab").order("position");
+      if (e2) throw e2;
+      return { plan, topics: (topics ?? []) as Topic[] };
+    },
+    refetchInterval: bulkRunning ? 2500 : false,
+  });
+
+  const plan = data?.plan as any;
+  const topics = data?.topics ?? [];
+  const owner = plan?.content_clients ?? plan?.projects ?? { name: "-", domain: "-", niche: "" };
+  const total = topics.length;
+  const done = topics.filter((t) => t.gen_status === "done").length;
+  const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const writeOne = async (topic: Topic) => {
+    if (!plan) return;
+    await supabase.from("content_topics").update({ gen_status: "working", gen_error: null }).eq("id", topic.id);
+    qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    try {
+      const { data: res, error } = await supabase.functions.invoke("vc-writer", {
+        body: {
+          format: "guide",
+          topic: topic.title,
+          audience: owner.niche || "",
+          length: 5500,
+          fact_check: true,
+          humanize: true,
+        },
+      });
+      if (error) throw new Error(error.message);
+      const md: string = (res as any)?.markdown ?? "";
+      const meta = (res as any)?.meta ?? null;
+      if (!md) throw new Error("Пустой ответ от движка");
+      await supabase.from("content_topics").update({
+        gen_status: "done",
+        article_markdown: md,
+        article_title: meta?.title ?? topic.title,
+        article_meta: meta,
+        generated_at: new Date().toISOString(),
+        gen_error: null,
+      }).eq("id", topic.id);
+    } catch (e: any) {
+      await supabase.from("content_topics").update({
+        gen_status: "failed",
+        gen_error: e?.message?.slice(0, 500) ?? "Ошибка",
+      }).eq("id", topic.id);
+      throw e;
+    } finally {
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    }
+  };
+
+  const writeAll = async () => {
+    setBulkRunning(true);
+    try {
+      const pending = topics.filter((t) => t.gen_status !== "done");
+      for (const t of pending) {
+        try { await writeOne(t); } catch (e: any) { toast.error(`«${t.title}» — ${e?.message ?? "ошибка"}`); }
+      }
+      toast.success("Готово");
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
+  if (isLoading || !plan) {
+    return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  }
+
+  return (
+    <div className="container max-w-5xl py-6 space-y-5">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-1" /> Назад</Button>
+      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="text-lg">Написание статей — {owner.name}</CardTitle>
+              <CardDescription>{owner.domain} · {String(plan.month).padStart(2, "0")}/{plan.year}</CardDescription>
+            </div>
+            <Button size="sm" onClick={writeAll} disabled={bulkRunning || total === 0 || done === total}>
+              {bulkRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+              Написать все
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Написано {done} из {total}</span>
+              <span>{progressPct}%</span>
+            </div>
+            <Progress value={progressPct} className="h-2" />
+          </div>
+
+          {total === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6">Нет согласованных тем</div>
+          ) : (
+            <div className="space-y-2">
+              {topics.map((t) => {
+                const gs = GEN_LABEL[t.gen_status ?? "waiting"] ?? GEN_LABEL.waiting;
+                const tabLabel = TABS.find((x) => x.id === t.tab)?.label ?? t.tab;
+                return (
+                  <div key={t.id} className="rounded-md border border-border bg-card p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs text-muted-foreground mb-0.5">{tabLabel}</div>
+                        <div className="text-sm">{t.title}</div>
+                      </div>
+                      <Badge variant="outline" className={`text-[10px] shrink-0 ${gs.cls}`}>{gs.label}</Badge>
+                    </div>
+                    {t.gen_error && (
+                      <div className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {t.gen_error}</div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {t.gen_status !== "done" && (
+                        <Button size="sm" variant="outline" disabled={t.gen_status === "working" || bulkRunning} onClick={() => writeOne(t).catch((e) => toast.error(e?.message ?? "Ошибка"))}>
+                          {t.gen_status === "working" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
+                          {t.gen_status === "failed" ? "Повторить" : "Написать"}
+                        </Button>
+                      )}
+                      {t.gen_status === "done" && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setOpenTopic(t)}>
+                            <FileText className="h-3.5 w-3.5 mr-1" /> Открыть
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            navigator.clipboard.writeText(t.article_markdown ?? "");
+                            toast.success("Скопировано");
+                          }}>
+                            <Copy className="h-3.5 w-3.5 mr-1" /> Скопировать
+                          </Button>
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 self-center" />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {openTopic && (
+        <Dialog open onOpenChange={(o) => !o && setOpenTopic(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{openTopic.article_title ?? openTopic.title}</DialogTitle>
+            </DialogHeader>
+            <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">{openTopic.article_markdown}</pre>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                navigator.clipboard.writeText(openTopic.article_markdown ?? "");
+                toast.success("Скопировано");
+              }}><Copy className="h-3.5 w-3.5 mr-1" /> Скопировать</Button>
+              <Button onClick={() => setOpenTopic(null)}>Закрыть</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
