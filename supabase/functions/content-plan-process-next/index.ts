@@ -118,7 +118,7 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     let articleId: string | null = null;
     if (ownerUserId) {
       const lang = String(settings.language || "ru").toLowerCase() === "en" ? "en" : "ru";
-      const { data: art, error: artErr } = await a.from("articles").insert({
+      const insertPayload = {
         user_id: ownerUserId,
         title: json?.meta?.title ?? claimed.title,
         content: md,
@@ -127,8 +127,31 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
         geo: lang === "ru" ? "ru" : "us",
         source: "content_plan",
         content_topic_id: claimed.id,
-      }).select("id").single();
-      if (!artErr) articleId = art?.id ?? null;
+      };
+      console.log("[content-plan] inserting article", {
+        topic_id: claimed.id,
+        plan_id: claimed.plan_id,
+        user_id: ownerUserId,
+        source: "content_plan",
+        title_len: insertPayload.title?.length ?? 0,
+        content_len: md.length,
+      });
+      const { data: art, error: artErr } = await a.from("articles")
+        .insert(insertPayload).select("id").single();
+      if (artErr) {
+        console.error("[content-plan] article insert FAILED", {
+          topic_id: claimed.id,
+          error: artErr.message,
+          code: (artErr as any).code,
+          details: (artErr as any).details,
+          hint: (artErr as any).hint,
+        });
+      } else {
+        articleId = art?.id ?? null;
+        console.log("[content-plan] article inserted", { article_id: articleId, topic_id: claimed.id });
+      }
+    } else {
+      console.warn("[content-plan] skipping article insert - no ownerUserId", { topic_id: claimed.id, plan_id: claimed.plan_id });
     }
 
     await a.from("content_topics").update({

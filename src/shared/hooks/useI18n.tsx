@@ -206,16 +206,16 @@ const translations: Record<string, Record<Lang, string>> = {
   "planBuilder.elements": { ru: "элементов", en: "elements" },
   "planBuilder.addHeading": { ru: "Добавить заголовок", en: "Add heading" },
   "planBuilder.headingPlaceholder": { ru: "Введите заголовок...", en: "Enter heading..." },
-  "planBuilder.goToWriter": { ru: "Перейти в AI Writer →", en: "Go to AI Writer →" },
+  "planBuilder.goToWriter": { ru: "Перейти в Копирайтер →", en: "Go to Copywriter →" },
   "planBuilder.topicType": { ru: "Тема", en: "Topic" },
   "planBuilder.gapType": { ru: "Gap", en: "Gap" },
   "planBuilder.questionType": { ru: "Вопрос", en: "Question" },
   "planBuilder.headingType": { ru: "Заголовок", en: "Heading" },
   "planBuilder.aiGenerated": { ru: "AI сгенерировал план статьи", en: "AI generated article plan" },
 
-  // Articles / AI Writer
-  "articles.title": { ru: "AI Writer", en: "AI Writer" },
-  "articles.subtitle": { ru: "Генератор SEO-контента с динамическим выбором модели", en: "SEO content generator with dynamic model selection" },
+  // Articles / Copywriter
+  "articles.title": { ru: "Копирайтер", en: "Copywriter" },
+  "articles.subtitle": { ru: "Написание SEO-контента с динамическим выбором модели", en: "SEO content writing with dynamic model selection" },
   "articles.keyword": { ru: "Ключевое слово", en: "Keyword" },
   "articles.authorProfile": { ru: "Профиль автора", en: "Author Profile" },
   "articles.noStyle": { ru: "Без стиля", en: "No style" },
@@ -1178,7 +1178,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // MyArticlesPage
   "myArticles.title": { ru: "Мои статьи", en: "My Articles" },
-  "myArticles.subtitleCount": { ru: "Все сгенерированные статьи", en: "All generated articles" },
+  "myArticles.subtitleCount": { ru: "Все написанные статьи", en: "All written articles" },
   "myArticles.pcs": { ru: "шт.", en: "pcs." },
   "myArticles.deleteAll": { ru: "Удалить все", en: "Delete all" },
   "myArticles.deleteAllTitle": { ru: "Удалить все статьи?", en: "Delete all articles?" },
@@ -1188,9 +1188,9 @@ const translations: Record<string, Record<Lang, string>> = {
   "myArticles.deleteError": { ru: "Ошибка удаления", en: "Delete error" },
   "myArticles.copied": { ru: "Скопировано в буфер обмена", en: "Copied to clipboard" },
   "myArticles.noArticles": { ru: "Нет статей", en: "No articles" },
-  "myArticles.generateFirst": { ru: "Сгенерируйте первую статью в разделе «Статьи»", en: "Generate your first article in the Articles section" },
+  "myArticles.generateFirst": { ru: "Напишите первую статью в разделе «Статьи»", en: "Write your first article in the Articles section" },
   "myArticles.heading": { ru: "Заголовок", en: "Title" },
-  "myArticles.dateGen": { ru: "Дата генерации", en: "Date" },
+  "myArticles.dateGen": { ru: "Дата написания", en: "Date" },
   "myArticles.actions": { ru: "Действия", en: "Actions" },
   "myArticles.noTitle": { ru: "Без заголовка", en: "Untitled" },
   "myArticles.deleteTitle": { ru: "Удалить статью?", en: "Delete article?" },
