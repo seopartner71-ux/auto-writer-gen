@@ -6,6 +6,7 @@ import { ModelAbTestTab } from "@/components/admin/ModelAbTestTab";
 import { AuthorPromptImproverTab } from "@/components/admin/AuthorPromptImproverTab";
 import { HealthCheckTab } from "@/components/admin/HealthCheckTab";
 import { UserManagementTab } from "@/components/admin/UserManagementTab";
+import { RegistrationSettingsTab } from "@/components/admin/RegistrationSettingsTab";
 import { UserContentTab } from "@/components/admin/UserContentTab";
 import { FaqManagementTab } from "@/components/admin/FaqManagementTab";
 import { PolarSettingsTab } from "@/components/admin/PolarSettingsTab";
@@ -57,6 +58,7 @@ export default function AdminPage() {
           <TabsTrigger value="health">Health Check</TabsTrigger>
           <TabsTrigger value="errors">{t("admin.tabErrors")}</TabsTrigger>
           <TabsTrigger value="users">{t("admin.users")}</TabsTrigger>
+          <TabsTrigger value="registration">Регистрация</TabsTrigger>
           <TabsTrigger value="content">{t("admin.content")}</TabsTrigger>
           <TabsTrigger value="wiki">Wiki / FAQ</TabsTrigger>
           <TabsTrigger value="plans">{t("admin.tabPlans")}</TabsTrigger>
@@ -84,6 +86,7 @@ export default function AdminPage() {
         <TabsContent value="health" className="mt-4"><HealthCheckTab /></TabsContent>
         <TabsContent value="errors" className="mt-4"><ErrorLogsTab /></TabsContent>
         <TabsContent value="users" className="mt-4"><UserManagementTab /></TabsContent>
+        <TabsContent value="registration" className="mt-4"><RegistrationSettingsTab /></TabsContent>
         <TabsContent value="content" className="mt-4"><UserContentTab /></TabsContent>
         <TabsContent value="wiki" className="mt-4"><FaqManagementTab /></TabsContent>
         <TabsContent value="plans" className="mt-4"><PlanManagementTab /></TabsContent>
