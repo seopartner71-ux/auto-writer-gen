@@ -51,8 +51,31 @@ interface Topic {
   id: string; plan_id: string; tab: Tab; title: string; position: number;
   status: string | null; comment: string | null;
   gen_status?: string | null; article_markdown?: string | null;
-  article_title?: string | null; gen_error?: string | null;
+  article_title?: string | null; gen_error?: string | null; attempts?: number | null;
 }
+
+interface TemplateSettings {
+  persona_id: string;
+  length: "short" | "medium" | "long";
+  language: "ru" | "en";
+  stealth: boolean;
+  extra_instructions: string;
+}
+const DEFAULT_SETTINGS: TemplateSettings = {
+  persona_id: "freeform", length: "medium", language: "ru", stealth: false, extra_instructions: "",
+};
+const PERSONA_OPTIONS = [
+  { value: "freeform",    label: "Свободный стиль" },
+  { value: "agency",      label: "Агентство" },
+  { value: "inhouse",     label: "Inhouse-маркетолог" },
+  { value: "brand_owner", label: "Владелец бренда" },
+  { value: "expert",      label: "Эксперт ниши" },
+];
+const LENGTH_OPTIONS = [
+  { value: "short",  label: "Короткая (~800)" },
+  { value: "medium", label: "Средняя (~1500)" },
+  { value: "long",   label: "Длинная (~2500)" },
+];
 
 export default function ContentPlanPage() {
   const { role } = useAuth();
