@@ -305,6 +305,172 @@ function NewClientDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ===================== History (other plans of the same client) =====================
+
+const MONTH_LABELS_RU = [
+  "январь", "февраль", "март", "апрель", "май", "июнь",
+  "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+];
+
+function HistorySection({ currentPlanId, clientId, onOpen }: { currentPlanId: string; clientId: string | null; onOpen: (id: string) => void }) {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["cp-history", clientId],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const { data: plans, error } = await supabase
+        .from("content_plans")
+        .select("id, month, year, status, created_at")
+        .eq("client_id", clientId!)
+        .order("year", { ascending: false })
+        .order("month", { ascending: false });
+      if (error) throw error;
+      const ids = (plans ?? []).map((p) => p.id);
+      if (!ids.length) return [];
+      const { data: topics, error: e2 } = await supabase
+        .from("content_topics")
+        .select("plan_id, gen_status")
+        .in("plan_id", ids);
+      if (e2) throw e2;
+      const totals = new Map<string, { total: number; done: number }>();
+      for (const id of ids) totals.set(id, { total: 0, done: 0 });
+      for (const t of topics ?? []) {
+        const s = totals.get(t.plan_id)!;
+        s.total += 1;
+        if (t.gen_status === "done") s.done += 1;
+      }
+      return (plans ?? []).map((p) => ({ ...p, ...totals.get(p.id)! }));
+    },
+  });
+
+  if (!clientId) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-base">История планов клиента</CardTitle>
+        </div>
+        <CardDescription>Все планы по месяцам. Активный план выделен.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+        ) : rows.length <= 1 ? (
+          <div className="text-sm text-muted-foreground py-2">Других планов у клиента пока нет.</div>
+        ) : (
+          <div className="divide-y divide-border/60 border border-border rounded-md">
+            {rows.map((r: any) => {
+              const isCurrent = r.id === currentPlanId;
+              const st = STATUS_LABEL[r.status] ?? STATUS_LABEL.awaiting;
+              const label = `${MONTH_LABELS_RU[r.month - 1] ?? r.month} ${r.year}`;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => !isCurrent && onOpen(r.id)}
+                  className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-left transition-colors ${isCurrent ? "bg-primary/5 cursor-default" : "hover:bg-muted/40"}`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm capitalize truncate">{label}</span>
+                    {isCurrent && <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">активный</Badge>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">{r.done}/{r.total} тем</span>
+                    <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
+                    {!isCurrent && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ===================== Export (txt / md / clipboard) =====================
+
+function buildExportName(domain: string, month: number, year: number, ext: "txt" | "md") {
+  const safe = (domain || "articles").toLowerCase().replace(/[^a-z0-9.-]+/g, "-").replace(/^-+|-+$/g, "") || "articles";
+  const mm = String(month).padStart(2, "0");
+  return `${safe}_${mm}-${year}.${ext}`;
+}
+
+function buildArticlesPayload(topics: Topic[], format: "txt" | "md"): string {
+  const done = topics.filter((t) => t.gen_status === "done" && (t.article_markdown ?? "").trim().length > 0);
+  if (format === "md") {
+    return done.map((t) => {
+      const title = (t.article_title || t.title || "Без названия").trim();
+      const body = (t.article_markdown ?? "").trim();
+      const stripped = body.replace(/^#\s.+\n+/, "");
+      return `# ${title}\n\n${stripped}`;
+    }).join("\n\n---\n\n");
+  }
+  // txt
+  const sep = "\n\n" + "=".repeat(60) + "\n\n";
+  return done.map((t) => {
+    const title = (t.article_title || t.title || "Без названия").trim();
+    const body = (t.article_markdown ?? "").replace(/[#*_`>]/g, "").trim();
+    return `${title}\n${"-".repeat(title.length)}\n\n${body}`;
+  }).join(sep);
+}
+
+function downloadFile(name: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function ExportArticlesMenu({ topics, domain, month, year }: { topics: Topic[]; domain: string; month: number; year: number }) {
+  const doneCount = topics.filter((t) => t.gen_status === "done" && (t.article_markdown ?? "").trim().length > 0).length;
+  const disabled = doneCount === 0;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="outline" disabled={disabled}>
+          <Download className="h-4 w-4 mr-1" /> Выгрузить все ({doneCount})
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => {
+          const payload = buildArticlesPayload(topics, "txt");
+          downloadFile(buildExportName(domain, month, year, "txt"), payload, "text/plain");
+          toast.success("Файл .txt скачан");
+        }}>
+          <FileText className="h-3.5 w-3.5 mr-2" /> Скачать всё как .txt
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => {
+          const payload = buildArticlesPayload(topics, "md");
+          downloadFile(buildExportName(domain, month, year, "md"), payload, "text/markdown");
+          toast.success("Файл .md скачан");
+        }}>
+          <FileText className="h-3.5 w-3.5 mr-2" /> Скачать всё как .md
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={async () => {
+          const payload = buildArticlesPayload(topics, "md");
+          try {
+            await navigator.clipboard.writeText(payload);
+            toast.success("Все статьи скопированы");
+          } catch {
+            toast.error("Не удалось скопировать");
+          }
+        }}>
+          <Copy className="h-3.5 w-3.5 mr-2" /> Скопировать всё
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function EditClientDialog({ client, onClose }: { client: ClientLite; onClose: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState(client.name);
