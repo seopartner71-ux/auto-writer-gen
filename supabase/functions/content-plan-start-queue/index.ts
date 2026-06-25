@@ -9,13 +9,21 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const ALLOWED_PERSONAS = new Set(["agency", "inhouse", "brand_owner", "expert", "freeform"]);
 const ALLOWED_LENGTH = new Set(["short", "medium", "long"]);
 const ALLOWED_LANG = new Set(["ru", "en"]);
+const ALLOWED_PERSONAS = new Set(["agency", "inhouse", "brand_owner", "expert", "freeform"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function sanitizePersona(val: unknown): string {
+  const v = String(val ?? "").trim();
+  if (ALLOWED_PERSONAS.has(v)) return v;
+  if (UUID_RE.test(v)) return v; // author_profiles.id
+  return "freeform";
+}
 
 function sanitizeSettings(s: any) {
   return {
-    persona_id: ALLOWED_PERSONAS.has(String(s?.persona_id)) ? String(s.persona_id) : "freeform",
+    persona_id: sanitizePersona(s?.persona_id),
     length: ALLOWED_LENGTH.has(String(s?.length)) ? String(s.length) : "medium",
     language: ALLOWED_LANG.has(String(s?.language)) ? String(s.language) : "ru",
     stealth: !!s?.stealth,
