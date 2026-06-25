@@ -1016,6 +1016,8 @@ export interface VcGenInput {
   offerBlock?: OfferBlockInput;
   /** Уровень контент-воронки. По умолчанию "auto" — старое поведение. */
   funnelStage?: FunnelStage;
+  /** Полный авторский профиль (system_prompt + тон + примеры + стоп-слова). Перебивает authorPersona-бриф. */
+  customAuthor?: CustomAuthorInput;
 }
 
 /**
