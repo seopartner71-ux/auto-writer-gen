@@ -555,7 +555,7 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts, article_id")
         .eq("plan_id", planId).eq("status", "ok")
         .order("tab").order("position");
       if (e2) throw e2;
