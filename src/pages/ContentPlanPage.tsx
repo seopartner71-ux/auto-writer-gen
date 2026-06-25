@@ -468,7 +468,7 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment")
+        .select("id, plan_id, tab, title, position, status, comment, description")
         .eq("plan_id", planId!)
         .order("tab").order("position");
       if (error) throw error;
@@ -505,6 +505,16 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
     const trimmed = title.trim();
     if (!trimmed) return;
     const { error } = await supabase.from("content_topics").update({ title: trimmed }).eq("id", id);
+    if (error) toast.error(error.message);
+    refreshTopics();
+  };
+
+  const updateTopicDescription = async (id: string, description: string) => {
+    const value = description.trim();
+    const { error } = await supabase
+      .from("content_topics")
+      .update({ description: value || null })
+      .eq("id", id);
     if (error) toast.error(error.message);
     refreshTopics();
   };
@@ -614,16 +624,28 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
                   <div className="text-xs text-muted-foreground text-center py-2">Тем нет — добавьте первую ниже</div>
                 )}
                 {topicsByTab[t.id].map((topic, idx) => (
-                  <div key={topic.id} className="flex gap-2 items-start">
+                  <div key={topic.id} className="rounded-md border border-border bg-card/40 p-2 space-y-2">
+                    <div className="flex gap-2 items-start">
+                      <Textarea
+                        defaultValue={topic.title}
+                        onBlur={(e) => { if (e.target.value.trim() !== topic.title) updateTopic(topic.id, e.target.value); }}
+                        placeholder={`Тема ${idx + 1}`}
+                        className="min-h-[44px]"
+                      />
+                      <Button type="button" size="icon" variant="ghost" onClick={() => deleteTopic(topic.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <Textarea
-                      defaultValue={topic.title}
-                      onBlur={(e) => { if (e.target.value.trim() !== topic.title) updateTopic(topic.id, e.target.value); }}
-                      placeholder={`Тема ${idx + 1}`}
-                      className="min-h-[48px]"
+                      defaultValue={topic.description ?? ""}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim();
+                        const prev = (topic.description ?? "").trim();
+                        if (next !== prev) updateTopicDescription(topic.id, e.target.value);
+                      }}
+                      placeholder="Описание (необязательно): что должно быть в статье, ключевые моменты, требования клиента"
+                      className="min-h-[60px] text-xs bg-background/40"
                     />
-                    <Button type="button" size="icon" variant="ghost" onClick={() => deleteTopic(topic.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 ))}
                 <div className="flex gap-2 items-start pt-2 border-t border-border/40">
