@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { ShieldCheck, Sparkles, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/shared/hooks/useI18n";
 import turgenev from "@/assets/proof/turgenev.webp";
 import textru from "@/assets/proof/textru.webp";
 import glvrd94 from "@/assets/proof/glvrd-94.webp";
@@ -15,35 +16,17 @@ type Proof = {
   tone: "emerald" | "sky" | "violet" | "amber";
 };
 
-const PROOFS: Proof[] = [
-  {
-    src: turgenev,
-    service: "Тургенев",
-    metric: "0 баллов риска",
-    caption: "Характеристики не превышают допустимые значения",
-    tone: "emerald",
-  },
-  {
-    src: textru,
-    service: "Text.ru - AI-детектор",
-    metric: "1.90%",
-    caption: "Текст распознан как написанный человеком",
-    tone: "emerald",
-  },
-  {
-    src: glvrd94,
-    service: "Главред",
-    metric: "9.4 / 10",
-    caption: "1691 слово, 169 предложений - чистый редакторский стиль",
-    tone: "sky",
-  },
-  {
-    src: glvrd81,
-    service: "Главред",
-    metric: "8.1 / 10",
-    caption: "Высокая плотность смысла на длинной статье",
-    tone: "violet",
-  },
+const PROOFS_RU: Proof[] = [
+  { src: turgenev, service: "Тургенев", metric: "0 баллов риска", caption: "Характеристики не превышают допустимые значения", tone: "emerald" },
+  { src: textru, service: "Text.ru - AI-детектор", metric: "1.90%", caption: "Текст распознан как написанный человеком", tone: "emerald" },
+  { src: glvrd94, service: "Главред", metric: "9.4 / 10", caption: "1691 слово, 169 предложений - чистый редакторский стиль", tone: "sky" },
+  { src: glvrd81, service: "Главред", metric: "8.1 / 10", caption: "Высокая плотность смысла на длинной статье", tone: "violet" },
+];
+const PROOFS_EN: Proof[] = [
+  { src: turgenev, service: "Turgenev", metric: "0 risk points", caption: "All metrics within safe limits", tone: "emerald" },
+  { src: textru, service: "Text.ru - AI detector", metric: "1.90%", caption: "Text detected as human-written", tone: "emerald" },
+  { src: glvrd94, service: "Glavred", metric: "9.4 / 10", caption: "1,691 words, 169 sentences - clean editorial style", tone: "sky" },
+  { src: glvrd81, service: "Glavred", metric: "8.1 / 10", caption: "High meaning density on a long-form article", tone: "violet" },
 ];
 
 const TONE_CLASSES: Record<Proof["tone"], { border: string; glow: string; text: string; bg: string }> = {
@@ -74,6 +57,9 @@ const TONE_CLASSES: Record<Proof["tone"], { border: string; glow: string; text: 
 };
 
 export function SectionQualityProof() {
+  const { lang } = useI18n();
+  const isEn = lang === "en";
+  const PROOFS = isEn ? PROOFS_EN : PROOFS_RU;
   const [zoom, setZoom] = useState<Proof | null>(null);
 
   return (
@@ -82,13 +68,17 @@ export function SectionQualityProof() {
         <div className="text-center mb-10">
           <Badge variant="outline" className="mb-3 border-emerald-500/30 text-emerald-400">
             <ShieldCheck className="w-3 h-3 mr-1" />
-            Доказательства качества
+            {isEn ? "Quality proof" : "Доказательства качества"}
           </Badge>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Тексты, которые проходят <span className="text-emerald-400">все ключевые проверки</span>
+            {isEn
+              ? <>Articles that pass <span className="text-emerald-400">every key check</span></>
+              : <>Тексты, которые проходят <span className="text-emerald-400">все ключевые проверки</span></>}
           </h2>
           <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
-            Скриншоты из независимых сервисов оценки контента - реальные статьи, сгенерированные в СЕО-Модуле. Кликните, чтобы увеличить.
+            {isEn
+              ? "Screenshots from independent content scoring services - real articles generated in SEO-Module. Click to enlarge."
+              : "Скриншоты из независимых сервисов оценки контента - реальные статьи, сгенерированные в СЕО-Модуле. Кликните, чтобы увеличить."}
           </p>
         </div>
 
@@ -135,7 +125,9 @@ export function SectionQualityProof() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground/70 mt-6">
-          Тургенев - text.ru - Главред. Сервисы проверки русскоязычного контента.
+          {isEn
+            ? "Turgenev, text.ru and Glavred are quality-check services for Russian-language content."
+            : "Тургенев - text.ru - Главред. Сервисы проверки русскоязычного контента."}
         </p>
       </div>
 
@@ -149,7 +141,7 @@ export function SectionQualityProof() {
           <button
             type="button"
             onClick={() => setZoom(null)}
-            aria-label="Закрыть"
+            aria-label={isEn ? "Close" : "Закрыть"}
             className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white"
           >
             <X className="w-5 h-5" />

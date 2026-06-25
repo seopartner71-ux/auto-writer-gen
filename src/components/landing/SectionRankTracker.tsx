@@ -146,7 +146,7 @@ export function SectionRankTracker() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#fc3f1d] shadow-[0_0_8px_rgba(252,63,29,0.6)]" />
-                  <span className="text-[11px] font-tech text-muted-foreground">Яндекс</span>
+                  <span className="text-[11px] font-tech text-muted-foreground">{isEn ? "Yandex" : "Яндекс"}</span>
                 </div>
               </div>
             </div>
@@ -224,7 +224,7 @@ export function SectionRankTracker() {
               </div>
               <div className="rounded-xl border border-white/[0.05] bg-black/30 px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-tech text-muted-foreground uppercase tracking-wider">Яндекс</span>
+                  <span className="text-[10px] font-tech text-muted-foreground uppercase tracking-wider">{isEn ? "Yandex" : "Яндекс"}</span>
                   <span className="inline-flex items-center gap-1 text-[10px] font-tech text-emerald-400">
                     <ArrowUpRight className="h-3 w-3" />
                     +{firstYandex - lastYandex}

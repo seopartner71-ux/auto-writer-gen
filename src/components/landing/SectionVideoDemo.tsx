@@ -2,15 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2, Sparkles, Trophy, Zap, ShieldCheck, Timer } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
 
-const KEYWORDS = [
+const KEYWORDS_RU = [
   "как выбрать ноутбук",
   "продвижение сайта",
   "SEO оптимизация",
   "контент маркетинг",
 ];
+const KEYWORDS_EN = [
+  "how to choose a laptop",
+  "website promotion",
+  "SEO optimization",
+  "content marketing",
+];
 
-const ARTICLE_VARIANTS: Record<string, string[]> = {
+const ARTICLE_VARIANTS_RU: Record<string, string[]> = {
   "как выбрать ноутбук": [
     "# Как выбрать ноутбук в 2026 году",
     "",
@@ -48,18 +55,68 @@ const ARTICLE_VARIANTS: Record<string, string[]> = {
     "Один материал - одна задача аудитории. Информационный, коммерческий и удерживающий контент работают вместе.",
   ],
 };
+const ARTICLE_VARIANTS_EN: Record<string, string[]> = {
+  "how to choose a laptop": [
+    "# How to choose a laptop in 2026",
+    "",
+    "Pick a laptop for the job, not the brand. Otherwise you overpay 30-50% for features you never touch.",
+    "",
+    "## Key specs",
+    "",
+    "CPU drives speed, RAM drives multitasking, SSD drives responsiveness. 16 GB and 512 GB is plenty for office work.",
+  ],
+  "website promotion": [
+    "# Website promotion in 2026: a strategy that actually works",
+    "",
+    "SEO in 2026 isn't backlinks or keyword density. It's behavioral signals, E-E-A-T and presence in AI Overviews.",
+    "",
+    "## Where to start",
+    "",
+    "Technical audit, keyword research, a 3-month content plan. Skip these three and any budget burns out fast.",
+  ],
+  "SEO optimization": [
+    "# SEO optimization: what works in 2026",
+    "",
+    "Google and Yandex now grade pages by user benefit. The algorithms see whether people finished the article or bounced back to SERP.",
+    "",
+    "## Main ranking factors",
+    "",
+    "Topic depth, page speed, mobile adaptation and structured data deliver 80% of the result.",
+  ],
+  "content marketing": [
+    "# Content marketing: from strategy to sales",
+    "",
+    "Content without a strategy is a blog for the sake of a blog. Each article should move the reader to the next funnel step.",
+    "",
+    "## Principles of working content",
+    "",
+    "One piece - one job for the reader. Top-of-funnel, commercial and retention content work as a system.",
+  ],
+};
 
-const STAGES = [
+const STAGES_RU = [
   { label: "Анализируем конкурентов в Google", duration: 1400 },
   { label: "Извлекаем LSI и семантику", duration: 1200 },
   { label: "Создаем структуру H1-H2-H3", duration: 1300 },
   { label: "Пишем статью с учетом GEO/AI Overviews", duration: 1800 },
   { label: "Гуманизируем текст (Stealth Engine)", duration: 1200 },
 ];
+const STAGES_EN = [
+  { label: "Analyzing Google competitors", duration: 1400 },
+  { label: "Extracting LSI and semantics", duration: 1200 },
+  { label: "Building H1-H2-H3 structure", duration: 1300 },
+  { label: "Writing for GEO / AI Overviews", duration: 1800 },
+  { label: "Humanizing the text (Stealth Engine)", duration: 1200 },
+];
 
 type Step = "idle" | "typing" | "click" | "stages" | "writing" | "scores" | "cta" | "celebrate";
 
 export function SectionVideoDemo() {
+  const { lang } = useI18n();
+  const isEn = lang === "en";
+  const KEYWORDS = isEn ? KEYWORDS_EN : KEYWORDS_RU;
+  const ARTICLE_VARIANTS = isEn ? ARTICLE_VARIANTS_EN : ARTICLE_VARIANTS_RU;
+  const STAGES = isEn ? STAGES_EN : STAGES_RU;
   const [step, setStep] = useState<Step>("idle");
   const [keywordIdx, setKeywordIdx] = useState(0);
   const [typed, setTyped] = useState("");
@@ -168,7 +225,8 @@ export function SectionVideoDemo() {
     setStageIdx(STAGES.length);
 
     setStep("writing");
-    const fullText = (ARTICLE_VARIANTS[kw] ?? ARTICLE_VARIANTS["как выбрать ноутбук"]).join("\n");
+    const fallbackKey = isEn ? "how to choose a laptop" : "как выбрать ноутбук";
+    const fullText = (ARTICLE_VARIANTS[kw] ?? ARTICLE_VARIANTS[fallbackKey]).join("\n");
     for (let i = 1; i <= fullText.length; i += 2) {
       if (!visibleRef.current) return;
       setArticleText(fullText.slice(0, i));
@@ -237,10 +295,12 @@ export function SectionVideoDemo() {
             id="video-demo-title"
             className="text-3xl md:text-5xl font-bold tracking-tight mb-3"
           >
-            Смотрите как это работает
+            {isEn ? "See how it works" : "Смотрите как это работает"}
           </h2>
           <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
-            От ключевого слова до готовой статьи за 60 секунд - без редактирования и доработок
+            {isEn
+              ? "From keyword to a finished article in 60 seconds - no editing, no rewrites"
+              : "От ключевого слова до готовой статьи за 60 секунд - без редактирования и доработок"}
           </p>
         </div>
 
@@ -265,14 +325,14 @@ export function SectionVideoDemo() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Zap className="size-4 text-primary" />
-                  <span className="text-sm font-medium">Quick Start - первая статья</span>
+                  <span className="text-sm font-medium">{isEn ? "Quick Start - first article" : "Quick Start - первая статья"}</span>
                 </div>
               </div>
 
               {/* Input field */}
               <div className="mb-4">
                 <label className="text-xs text-muted-foreground block mb-1.5">
-                  Введите ключевое слово
+                  {isEn ? "Enter a keyword" : "Введите ключевое слово"}
                 </label>
                 <div className="relative h-11 rounded-lg bg-black/50 border border-border/60 px-3 flex items-center text-sm font-mono">
                   <span className={`text-foreground transition-opacity duration-300 ${keywordFade ? "opacity-0" : "opacity-100"}`}>
@@ -298,7 +358,9 @@ export function SectionVideoDemo() {
                     ) : (
                       <Sparkles className="size-4" />
                     )}
-                    {step === "stages" || step === "writing" ? "Генерируем..." : "Создать статью"}
+                    {step === "stages" || step === "writing"
+                      ? (isEn ? "Generating..." : "Генерируем...")
+                      : (isEn ? "Create article" : "Создать статью")}
                   </span>
                   {step === "click" && (
                     <span className="absolute inset-0 rounded-lg ring-2 ring-primary/60 animate-ping" />
@@ -350,8 +412,8 @@ export function SectionVideoDemo() {
               {showScores && (
                 <div className="flex flex-wrap gap-2 animate-fade-in">
                   <Badge color="amber" icon={<Trophy className="size-3" />} label={`SEO Score: ${seoCount}/100`} />
-                  <Badge color="emerald" icon={<Check className="size-3" />} label={`Уникальность: ${uniqCount}%`} />
-                  <Badge color="emerald" icon={<ShieldCheck className="size-3" />} label="AI-детектор: 92% человек" />
+                  <Badge color="emerald" icon={<Check className="size-3" />} label={`${isEn ? "Uniqueness" : "Уникальность"}: ${uniqCount}%`} />
+                  <Badge color="emerald" icon={<ShieldCheck className="size-3" />} label={isEn ? "AI detector: 92% human" : "AI-детектор: 92% человек"} />
                 </div>
               )}
             </div>
@@ -361,21 +423,21 @@ export function SectionVideoDemo() {
           <div className="space-y-4">
             <FactCard
               icon={<Timer className="size-5" />}
-              value={`${secondsLeft} сек`}
-              label="осталось до готовой статьи"
+              value={`${secondsLeft} ${isEn ? "s" : "сек"}`}
+              label={isEn ? "left until the article is ready" : "осталось до готовой статьи"}
               accent="primary"
               live
             />
             <FactCard
               icon={<Trophy className="size-5" />}
               value={`${seoCount}/100`}
-              label="средний SEO Score"
+              label={isEn ? "average SEO Score" : "средний SEO Score"}
               accent="amber"
             />
             <FactCard
               icon={<ShieldCheck className="size-5" />}
               value={`${uniqCount}%`}
-              label="средняя уникальность текста"
+              label={isEn ? "average text uniqueness" : "средняя уникальность текста"}
               accent="emerald"
             />
           </div>
@@ -390,13 +452,13 @@ export function SectionVideoDemo() {
               className="h-14 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 transition-colors relative"
             >
             <Link to="/register">
-                Создать первую статью бесплатно
+                {isEn ? "Create your first article for free" : "Создать первую статью бесплатно"}
                 <span className="ml-1">-&gt;</span>
               </Link>
             </Button>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Без карты. 3 статьи в подарок при регистрации.
+            {isEn ? "No card. 3 articles on the house when you sign up." : "Без карты. 3 статьи в подарок при регистрации."}
           </p>
         </div>
       </div>

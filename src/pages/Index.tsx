@@ -30,7 +30,7 @@ export default function Index() {
   useEffect(() => {
     document.title = lang === "ru"
       ? "СЕО-Модуль — AI-экосистема для SEO-контента"
-      : "СЕО-Модуль — AI-Powered SEO Content Ecosystem";
+      : "SEO-Module — AI-Powered SEO Content Ecosystem";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute("content", lang === "ru"

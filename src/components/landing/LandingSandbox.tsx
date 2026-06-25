@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface SandboxResult {
   intent: string;
@@ -28,13 +29,17 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export function LandingSandbox() {
+  const { lang } = useI18n();
+  const isEn = lang === "en";
   const [keyword, setKeyword] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SandboxResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
 
-  const examples = ["купить ноутбук", "как похудеть", "лучшие CRM 2026"];
+  const examples = isEn
+    ? ["buy a laptop", "how to lose weight", "best CRM 2026"]
+    : ["купить ноутбук", "как похудеть", "лучшие CRM 2026"];
 
   const run = async (kw?: string) => {
     const target = (kw ?? keyword).trim();
@@ -53,7 +58,7 @@ export function LandingSandbox() {
         body: JSON.stringify({ keyword: target }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || "Ошибка анализа");
+      if (!resp.ok) throw new Error(data.error || (isEn ? "Analysis error" : "Ошибка анализа"));
       setResult(data.result);
       if (typeof data.remaining === "number") setRemaining(data.remaining);
     } catch (e: any) {
@@ -73,13 +78,15 @@ export function LandingSandbox() {
         <div className="text-center mb-12">
           <Badge variant="outline" className="mb-4 border-emerald-500/30 text-emerald-400">
             <Zap className="w-3 h-3 mr-1" />
-            Без регистрации - реальная статья за 10 секунд
+            {isEn ? "No signup - a real article in 10 seconds" : "Без регистрации - реальная статья за 10 секунд"}
           </Badge>
           <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">
-            Сгенерируйте статью <span className="text-primary">прямо сейчас</span>
+            {isEn ? <>Generate an article <span className="text-primary">right now</span></> : <>Сгенерируйте статью <span className="text-primary">прямо сейчас</span></>}
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Введите ключевик - получите H1, meta description, Direct Answer и реальное вступление статьи. Без email, без пароля.
+            {isEn
+              ? "Enter a keyword - get H1, meta description, Direct Answer and a real article intro. No email, no password."
+              : "Введите ключевик - получите H1, meta description, Direct Answer и реальное вступление статьи. Без email, без пароля."}
           </p>
         </div>
 
@@ -88,7 +95,7 @@ export function LandingSandbox() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Например: купить кроссовки nike"
+                placeholder={isEn ? "For example: buy nike sneakers" : "Например: купить кроссовки nike"}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && run()}
@@ -100,19 +107,19 @@ export function LandingSandbox() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Генерирую превью...
+                  {isEn ? "Generating preview..." : "Генерирую превью..."}
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Сгенерировать
+                  {isEn ? "Generate" : "Сгенерировать"}
                 </>
               )}
             </Button>
           </div>
 
           <div className="flex flex-wrap gap-2 mt-3">
-            <span className="text-xs text-muted-foreground self-center">Примеры:</span>
+            <span className="text-xs text-muted-foreground self-center">{isEn ? "Examples:" : "Примеры:"}</span>
             {examples.map((ex) => (
               <button
                 key={ex}
@@ -125,7 +132,7 @@ export function LandingSandbox() {
             ))}
             {remaining !== null && (
               <span className="text-xs text-muted-foreground self-center ml-auto">
-                Осталось попыток в этот час: <span className="text-emerald-400 font-semibold">{remaining}</span>
+                {isEn ? "Tries left this hour:" : "Осталось попыток в этот час:"} <span className="text-emerald-400 font-semibold">{remaining}</span>
               </span>
             )}
           </div>
@@ -154,11 +161,11 @@ export function LandingSandbox() {
                   <TabsList className="grid w-full grid-cols-2 bg-background/40">
                     <TabsTrigger value="article" className="data-[state=active]:bg-primary/20">
                       <FileText className="w-4 h-4 mr-2" />
-                      Превью статьи
+                      {isEn ? "Article preview" : "Превью статьи"}
                     </TabsTrigger>
                     <TabsTrigger value="analysis" className="data-[state=active]:bg-primary/20">
                       <Brain className="w-4 h-4 mr-2" />
-                      SEO-анализ
+                      {isEn ? "SEO analysis" : "SEO-анализ"}
                     </TabsTrigger>
                   </TabsList>
 
@@ -181,7 +188,7 @@ export function LandingSandbox() {
                           {result.direct_answer && (
                             <div className="my-4 p-4 rounded-md bg-emerald-500/10 border border-emerald-500/20">
                               <div className="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold mb-1">
-                                Direct Answer (для AI Overviews)
+                                {isEn ? "Direct Answer (for AI Overviews)" : "Direct Answer (для AI Overviews)"}
                               </div>
                               <p className="text-sm text-foreground/90 m-0">{result.direct_answer}</p>
                             </div>
@@ -220,7 +227,7 @@ export function LandingSandbox() {
                       </div>
                     ) : (
                       <div className="p-6 text-center text-sm text-muted-foreground">
-                        Превью не сгенерировано. Попробуйте другой запрос.
+                        {isEn ? "No preview generated. Try a different query." : "Превью не сгенерировано. Попробуйте другой запрос."}
                       </div>
                     )}
                   </TabsContent>
@@ -229,11 +236,11 @@ export function LandingSandbox() {
                   <TabsContent value="analysis" className="mt-4 space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div className="p-4 rounded-lg bg-background/60 border border-border/40">
-                        <div className="text-xs text-muted-foreground mb-1">Интент</div>
+                        <div className="text-xs text-muted-foreground mb-1">{isEn ? "Intent" : "Интент"}</div>
                         <div className="font-semibold text-sm">{result.intent}</div>
                       </div>
                       <div className="p-4 rounded-lg bg-background/60 border border-border/40">
-                        <div className="text-xs text-muted-foreground mb-1">Конкуренция</div>
+                        <div className="text-xs text-muted-foreground mb-1">{isEn ? "Competition" : "Конкуренция"}</div>
                         <div className="font-semibold text-sm">{result.competition}</div>
                       </div>
                       <div className="p-4 rounded-lg bg-background/60 border border-border/40">
@@ -257,7 +264,7 @@ export function LandingSandbox() {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="p-4 rounded-lg bg-background/60 border border-border/40">
                         <div className="flex items-center gap-2 text-sm font-semibold mb-3">
-                          <TrendingUp className="w-4 h-4 text-primary" /> Структура статьи
+                          <TrendingUp className="w-4 h-4 text-primary" /> {isEn ? "Article structure" : "Структура статьи"}
                         </div>
                         <ol className="space-y-2 text-sm">
                           {result.outline.map((h, i) => (
@@ -270,7 +277,7 @@ export function LandingSandbox() {
                       </div>
                       <div className="p-4 rounded-lg bg-background/60 border border-border/40">
                         <div className="flex items-center gap-2 text-sm font-semibold mb-3">
-                          <Sparkles className="w-4 h-4 text-primary" /> LSI-ключи
+                          <Sparkles className="w-4 h-4 text-primary" /> {isEn ? "LSI keywords" : "LSI-ключи"}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {result.lsi_keywords.map((k) => (
@@ -290,15 +297,17 @@ export function LandingSandbox() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <Lock className="w-4 h-4 text-primary" />
-                        <span className="font-semibold text-base">Дочитать всю статью + получить .docx</span>
+                        <span className="font-semibold text-base">{isEn ? "Read the full article + get the .docx" : "Дочитать всю статью + получить .docx"}</span>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        Регистрация за 30 секунд - и СЕО-Модуль допишет полную статью на 2500+ слов с конкурентным анализом, fact-check и Stealth Engine. <span className="text-emerald-400 font-medium">3 кредита бесплатно.</span>
+                        {isEn
+                          ? <>Sign up in 30 seconds and SEO-Module will finish the full 2,500+ word article with competitor analysis, fact-check and Stealth Engine. <span className="text-emerald-400 font-medium">3 credits on the house.</span></>
+                          : <>Регистрация за 30 секунд - и СЕО-Модуль допишет полную статью на 2500+ слов с конкурентным анализом, fact-check и Stealth Engine. <span className="text-emerald-400 font-medium">3 кредита бесплатно.</span></>}
                       </div>
                     </div>
                     <Link to="/register" className="w-full md:w-auto">
                       <Button size="lg" className="w-full md:w-auto whitespace-nowrap shadow-lg shadow-primary/20">
-                        Дописать бесплатно
+                        {isEn ? "Finish for free" : "Дописать бесплатно"}
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </Link>

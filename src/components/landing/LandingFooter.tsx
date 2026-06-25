@@ -51,7 +51,9 @@ export function LandingFooter() {
             <div className="flex items-center gap-2">
               <Hexagon className="h-5 w-5 text-primary" />
               <span className="text-lg font-brand tracking-tight">
-                СЕО-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">Модуль</span>
+                {lang === "ru"
+                  ? <>СЕО-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">Модуль</span></>
+                  : <>SEO-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">Module</span></>}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -72,7 +74,7 @@ export function LandingFooter() {
             >
               <img
                 src={systemSeoLogo}
-                alt="Системное SEO"
+                alt={lang === "ru" ? "Системное SEO" : "Systemic SEO"}
                 className="h-11 w-11 rounded-lg object-cover shrink-0"
                 loading="lazy" decoding="async"
               />
@@ -81,7 +83,7 @@ export function LandingFooter() {
                   Telegram
                 </span>
                 <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                  Системное SEO
+                  {lang === "ru" ? "Системное SEO" : "Systemic SEO"}
                 </span>
               </div>
             </a>
@@ -144,7 +146,7 @@ export function LandingFooter() {
         {/* Legal */}
         <div className="mt-4 pt-4 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-[10px] font-mono text-gray-500 tracking-wide">
-            © {new Date().getFullYear()} СЕО-Модуль — {t("landing.copyright")}
+            © {new Date().getFullYear()} {lang === "ru" ? "СЕО-Модуль" : "SEO-Module"} — {t("landing.copyright")}
           </p>
           <p className="text-[9px] font-mono text-gray-500 tracking-wider max-w-md text-center sm:text-right leading-relaxed">
             {t("lp.footerLegal")}
