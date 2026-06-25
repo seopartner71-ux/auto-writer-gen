@@ -761,6 +761,19 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
     }
   };
 
+  const resumeQueue = async () => {
+    try {
+      const { error } = await supabase.functions.invoke("content-plan-process-next", {
+        body: { plan_id: planId },
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Очередь возобновлена");
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось возобновить");
+    }
+  };
+
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
     return () => window.clearInterval(timer);
@@ -796,6 +809,11 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
               {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
               Настроить и запустить все
             </Button>
+            {inFlight ? null : (done < total && topics.some((t) => (t.gen_status === "queued" || t.gen_status === "processing"))) || topics.some((t) => t.gen_status === "queued") ? (
+              <Button size="sm" variant="outline" onClick={resumeQueue}>
+                <RotateCcw className="h-4 w-4 mr-1" /> Возобновить очередь
+              </Button>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
