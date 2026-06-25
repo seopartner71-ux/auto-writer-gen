@@ -541,25 +541,25 @@ const GEN_LABEL: Record<string, { label: string; cls: string }> = {
 function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void }) {
   const qc = useQueryClient();
   const [openTopic, setOpenTopic] = useState<Topic | null>(null);
-  const [bulkRunning, setBulkRunning] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState<{ topicIds?: string[] } | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["cp-writing", planId],
     queryFn: async () => {
       const { data: plan, error } = await supabase
         .from("content_plans")
-        .select("id, client_id, month, year, status, content_clients(name, domain, niche), projects(name, domain)")
+        .select("id, client_id, month, year, status, template_settings, content_clients(name, domain, niche), projects(name, domain)")
         .eq("id", planId).single();
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts")
         .eq("plan_id", planId).eq("status", "ok")
         .order("tab").order("position");
       if (e2) throw e2;
       return { plan, topics: (topics ?? []) as Topic[] };
     },
-    refetchInterval: bulkRunning ? 2500 : false,
   });
 
   const plan = data?.plan as any;
@@ -567,58 +567,35 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const owner = plan?.content_clients ?? plan?.projects ?? { name: "-", domain: "-", niche: "" };
   const total = topics.length;
   const done = topics.filter((t) => t.gen_status === "done").length;
+  const inFlight = topics.some((t) => t.gen_status === "queued" || t.gen_status === "processing");
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  const writeOne = async (topic: Topic) => {
-    if (!plan) return;
-    await supabase.from("content_topics").update({ gen_status: "working", gen_error: null }).eq("id", topic.id);
-    qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+  const startQueue = async (settings: TemplateSettings, topicIds?: string[]) => {
+    setStarting(true);
     try {
-      const { data: res, error } = await supabase.functions.invoke("vc-writer", {
-        body: {
-          format: "guide",
-          topic: topic.title,
-          audience: owner.niche || "",
-          length: 5500,
-          fact_check: true,
-          humanize: true,
-        },
+      const { error } = await supabase.functions.invoke("content-plan-start-queue", {
+        body: { plan_id: planId, settings, topic_ids: topicIds },
       });
       if (error) throw new Error(error.message);
-      const md: string = (res as any)?.markdown ?? "";
-      const meta = (res as any)?.meta ?? null;
-      if (!md) throw new Error("Пустой ответ от движка");
-      await supabase.from("content_topics").update({
-        gen_status: "done",
-        article_markdown: md,
-        article_title: meta?.title ?? topic.title,
-        article_meta: meta,
-        generated_at: new Date().toISOString(),
-        gen_error: null,
-      }).eq("id", topic.id);
-    } catch (e: any) {
-      await supabase.from("content_topics").update({
-        gen_status: "failed",
-        gen_error: e?.message?.slice(0, 500) ?? "Ошибка",
-      }).eq("id", topic.id);
-      throw e;
-    } finally {
+      toast.success(topicIds?.length ? "Тема поставлена в очередь" : "Очередь запущена");
       qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось запустить");
+    } finally {
+      setStarting(false);
+      setSettingsOpen(null);
     }
   };
 
-  const writeAll = async () => {
-    setBulkRunning(true);
-    try {
-      const pending = topics.filter((t) => t.gen_status !== "done");
-      for (const t of pending) {
-        try { await writeOne(t); } catch (e: any) { toast.error(`«${t.title}» — ${e?.message ?? "ошибка"}`); }
-      }
-      toast.success("Готово");
-    } finally {
-      setBulkRunning(false);
-    }
-  };
+  useEffect(() => {
+    const channel = supabase
+      .channel(`content_topics:${planId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "content_topics", filter: `plan_id=eq.${planId}` }, () => {
+        qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [planId, qc]);
 
   if (isLoading || !plan) {
     return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
