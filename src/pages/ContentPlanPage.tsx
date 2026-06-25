@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2, RotateCcw, MoreVertical, Pencil, Square } from "lucide-react";
+import { Download, History, ChevronRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -74,6 +75,7 @@ interface Plan {
 interface Topic {
   id: string; plan_id: string; tab: Tab; title: string; position: number;
   status: string | null; comment: string | null;
+  description?: string | null;
   gen_status?: string | null; article_markdown?: string | null;
   article_title?: string | null; gen_error?: string | null; attempts?: number | null;
   article_id?: string | null; updated_at?: string | null;
