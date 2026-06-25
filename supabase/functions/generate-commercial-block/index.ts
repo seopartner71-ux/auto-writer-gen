@@ -713,23 +713,7 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Quality monitor: sample 1/8 calls, fire-and-forget alert if last-hour rates spike.
-    if (Math.random() < 0.125) {
-      try {
-        const supaUrl = Deno.env.get("SUPABASE_URL");
-        const supaKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-        if (supaUrl && supaKey) {
-          void fetch(`${supaUrl}/functions/v1/commercial-quality-alert`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${supaKey}`,
-            },
-            body: "{}",
-          }).catch(() => {});
-        }
-      } catch { /* ignore */ }
-    }
+    // Технические алерты качества убраны — уведомления теперь только по списку.
 
     return jsonResponse({
       content,
