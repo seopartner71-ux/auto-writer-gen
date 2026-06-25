@@ -155,16 +155,52 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     const lengthMap: Record<string, number> = { short: 2800, medium: 4500, long: 6500 };
     const lengthKey = String(settings.length || "medium");
     const length = lengthMap[lengthKey] ?? 4500;
-    const persona = String(settings.persona_id || "freeform");
+    const personaRaw = String(settings.persona_id || "freeform");
     const stealth = !!settings.stealth;
     const extra = String(settings.extra_instructions || "").slice(0, 1500);
     const audience = [client.niche, settings.language === "en" ? "EN" : "RU", extra].filter(Boolean).join(" · ").slice(0, 1000);
+
+    // Load FULL author profile from author_profiles when persona_id is a UUID.
+    // Mirrors how /articles -> generate-article loads author by author_profile_id.
+    // Five legacy persona codes (agency/inhouse/brand_owner/expert/freeform) still pass through.
+    const LEGACY_PERSONAS = new Set(["agency", "inhouse", "brand_owner", "expert", "freeform"]);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personaRaw);
+    let authorProfilePayload: any = null;
+    let personaCode = LEGACY_PERSONAS.has(personaRaw) ? personaRaw : "freeform";
+    if (isUuid) {
+      const { data: author, error: authorErr } = await a.from("author_profiles").select("*").eq("id", personaRaw).maybeSingle();
+      if (authorErr) {
+        console.warn("[content-plan-process-next] author_load:failed", { persona_id: personaRaw, message: authorErr.message });
+      } else if (author) {
+        // system_prompt = full author voice + per-project extra_instructions appended (not replaced).
+        const baseSystem = String(author.system_prompt_override || author.system_instruction || "").trim();
+        const merged = extra
+          ? (baseSystem ? `${baseSystem}\n\nДополнительно для этого проекта: ${extra}` : `Дополнительно для этого проекта: ${extra}`)
+          : baseSystem;
+        authorProfilePayload = {
+          id: author.id,
+          name: author.name,
+          system_prompt: merged || undefined,
+          voice_tone: author.voice_tone || undefined,
+          style_examples: author.style_examples || undefined,
+          stop_words: Array.isArray(author.stop_words) ? author.stop_words : undefined,
+          negative_instructions: (author as any).negative_instructions || undefined,
+        };
+        console.log("[content-plan-process-next] author_load:done", {
+          author_id: author.id,
+          author_name: author.name,
+          has_system_prompt: !!merged,
+          stop_words_count: Array.isArray(author.stop_words) ? author.stop_words.length : 0,
+        });
+      }
+    }
 
     console.log("[content-plan-process-next] vc_writer:start", {
       topic_id: claimed.id,
       title: claimed.title,
       length,
-      persona,
+      persona: personaCode,
+      author_profile_id: authorProfilePayload?.id || null,
       stealth,
       timeout_ms: VC_WRITER_TIMEOUT_MS,
     });
@@ -182,9 +218,10 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
           topic: claimed.title,
           audience,
           length,
-          humanize: true,
+          humanize: stealth || true,
           fact_check: true,
-          author_persona: persona,
+          author_persona: personaCode,
+          author_profile: authorProfilePayload || undefined,
           stealth,
         }),
         signal: controller.signal,
