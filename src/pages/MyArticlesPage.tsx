@@ -243,11 +243,20 @@ ${a.content || ""}
 
       <Card className="bg-card border-border">
         <CardContent className="p-0">
+          <div className="px-4 pt-4">
+            <Tabs value={sourceTab} onValueChange={(v) => { setSourceTab(v as any); clearSelection(); }}>
+              <TabsList>
+                <TabsTrigger value="all">Все статьи ({articles.length})</TabsTrigger>
+                <TabsTrigger value="manual">Обычные ({(articles as any[]).filter((a) => (a.source ?? "manual") === "manual").length})</TabsTrigger>
+                <TabsTrigger value="content_plan">Контент-план ({(articles as any[]).filter((a) => a.source === "content_plan").length})</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : articles.length === 0 ? (
+          ) : filteredArticles.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <FileText className="h-12 w-12 mb-3 opacity-40" />
               <p className="text-lg font-medium">{t("myArticles.noArticles")}</p>
@@ -272,7 +281,7 @@ ${a.content || ""}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {articles.map((article, index) => (
+                {filteredArticles.map((article: any, index: number) => (
                   <TableRow
                     key={article.id}
                     className={`border-border cursor-pointer hover:bg-muted/40 transition-colors group ${selected.has(article.id) ? "bg-primary/5" : ""}`}
@@ -312,9 +321,16 @@ ${a.content || ""}
                       </TooltipProvider>
                     </TableCell>
                     <TableCell className="font-medium max-w-[400px]">
-                      <span className="line-clamp-2">
-                        {article.title || t("myArticles.noTitle")}
-                      </span>
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <span className="line-clamp-2">
+                          {article.title || t("myArticles.noTitle")}
+                        </span>
+                        {article.source === "content_plan" && (
+                          <Badge variant="secondary" className="text-[10px] shrink-0">
+                            Контент-план{clientNameOf(article) ? ` · ${clientNameOf(article)}` : ""}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {article.created_at
