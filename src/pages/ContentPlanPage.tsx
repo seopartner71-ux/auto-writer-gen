@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
@@ -40,6 +40,13 @@ const TOPIC_BADGE: Record<string, string> = {
   ok: "Согласовано",
   rev: "На доработке",
   no: "Не подходит",
+};
+
+const GEN_MINI: Record<string, { label: string; cls: string; icon: "spin" | "ok" | "err" | null }> = {
+  processing: { label: "Пишется", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30", icon: "spin" },
+  queued:     { label: "В очереди", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30", icon: "spin" },
+  done:       { label: "Готово",   cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: "ok" },
+  error:      { label: "Ошибка",   cls: "bg-red-500/15 text-red-400 border-red-500/30", icon: "err" },
 };
 
 const TAB_BADGE_CLS: Record<Tab, string> = {
@@ -295,32 +302,53 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
 
   // Ensure draft plan exists for current client/month/year. Reuses any
   // existing 'awaiting' plan or creates a new one. Returns plan id.
-  const ensurePlan = async (): Promise<string> => {
-    if (planId) return planId;
-    if (!clientId) throw new Error("Выберите клиента");
-    const { data: existing } = await supabase
-      .from("content_plans")
-      .select("id")
-      .eq("client_id", clientId).eq("month", month).eq("year", year)
-      .eq("status", "awaiting")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existing?.id) { setPlanId(existing.id); return existing.id; }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Нет авторизации");
-    const { data: plan, error } = await supabase
-      .from("content_plans")
-      .insert({ client_id: clientId, month, year, status: "awaiting", created_by: user.id })
-      .select("id").single();
-    if (error) throw error;
-    setPlanId(plan.id);
-    queryClient.invalidateQueries({ queryKey: ["cp-plans-all"] });
-    return plan.id;
+  // Serialized via ensureInFlight to avoid duplicate inserts from rapid calls.
+  const ensureInFlight = useRef<Promise<string> | null>(null);
+  const ensurePlan = (): Promise<string> => {
+    if (planId) return Promise.resolve(planId);
+    if (ensureInFlight.current) return ensureInFlight.current;
+    if (!clientId) return Promise.reject(new Error("Выберите клиента"));
+    const run = (async () => {
+      const { data: existing } = await supabase
+        .from("content_plans")
+        .select("id")
+        .eq("client_id", clientId).eq("month", month).eq("year", year)
+        .eq("status", "awaiting")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existing?.id) { setPlanId(existing.id); return existing.id; }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Нет авторизации");
+      const { data: plan, error } = await supabase
+        .from("content_plans")
+        .insert({ client_id: clientId, month, year, status: "awaiting", created_by: user.id })
+        .select("id").single();
+      if (error) {
+        // Race against the partial unique index: re-read.
+        const { data: again } = await supabase
+          .from("content_plans").select("id")
+          .eq("client_id", clientId).eq("month", month).eq("year", year)
+          .eq("status", "awaiting").maybeSingle();
+        if (again?.id) { setPlanId(again.id); return again.id; }
+        throw error;
+      }
+      setPlanId(plan.id);
+      queryClient.invalidateQueries({ queryKey: ["cp-plans-all"] });
+      return plan.id;
+    })();
+    ensureInFlight.current = run.finally(() => { ensureInFlight.current = null; });
+    return ensureInFlight.current;
   };
 
-  // Reset plan reference when client/month/year change (different plan target)
-  useEffect(() => { setPlanId(null); }, [clientId, month, year]);
+  // When client/month/year change, drop the cached plan id and immediately
+  // resolve (load existing or create) so saved topics appear right away.
+  useEffect(() => {
+    setPlanId(null);
+    if (!clientId) return;
+    ensurePlan().catch(() => { /* surfaced on next user action */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, month, year]);
 
   // Live topics from DB for current draft plan
   const { data: topics = [] } = useQuery({
@@ -613,9 +641,19 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
                   <div key={topic.id} className={`rounded-md border p-3 ${topic.status ? TOPIC_COLOR[topic.status] : "border-border bg-card"}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="text-sm whitespace-pre-wrap">{topic.title}</div>
-                      {topic.status && (
-                        <Badge variant="outline" className="text-[10px] shrink-0">{TOPIC_BADGE[topic.status]}</Badge>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {topic.gen_status && GEN_MINI[topic.gen_status] && (
+                          <Badge variant="outline" className={`text-[10px] inline-flex items-center gap-1 ${GEN_MINI[topic.gen_status].cls}`}>
+                            {GEN_MINI[topic.gen_status].icon === "spin" && <Loader2 className="h-3 w-3 animate-spin" />}
+                            {GEN_MINI[topic.gen_status].icon === "ok" && <CheckCircle2 className="h-3 w-3" />}
+                            {GEN_MINI[topic.gen_status].icon === "err" && <AlertCircle className="h-3 w-3" />}
+                            {GEN_MINI[topic.gen_status].label}
+                          </Badge>
+                        )}
+                        {topic.status && (
+                          <Badge variant="outline" className="text-[10px]">{TOPIC_BADGE[topic.status]}</Badge>
+                        )}
+                      </div>
                     </div>
                     {topic.comment && (
                       <div className="mt-2 text-xs text-muted-foreground border-t border-border/40 pt-2 whitespace-pre-wrap">
@@ -723,6 +761,19 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
     }
   };
 
+  const resumeQueue = async () => {
+    try {
+      const { error } = await supabase.functions.invoke("content-plan-process-next", {
+        body: { plan_id: planId },
+      });
+      if (error) throw new Error(error.message);
+      toast.success("Очередь возобновлена");
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось возобновить");
+    }
+  };
+
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
     return () => window.clearInterval(timer);
@@ -758,6 +809,11 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
               {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
               Настроить и запустить все
             </Button>
+            {inFlight ? null : (done < total && topics.some((t) => (t.gen_status === "queued" || t.gen_status === "processing"))) || topics.some((t) => t.gen_status === "queued") ? (
+              <Button size="sm" variant="outline" onClick={resumeQueue}>
+                <RotateCcw className="h-4 w-4 mr-1" /> Возобновить очередь
+              </Button>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
