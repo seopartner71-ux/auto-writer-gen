@@ -712,3 +712,71 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
     </div>
   );
 }
+
+function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submitting }: {
+  initial: TemplateSettings; singleTopic: boolean; onClose: () => void;
+  onSubmit: (s: TemplateSettings) => void; submitting: boolean;
+}) {
+  const [s, setS] = useState<TemplateSettings>({ ...DEFAULT_SETTINGS, ...(initial ?? {}) });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{singleTopic ? "Параметры для темы" : "Параметры написания"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Автор</Label>
+            <Select value={s.persona_id} onValueChange={(v) => setS({ ...s, persona_id: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PERSONA_OPTIONS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Длина</Label>
+              <Select value={s.length} onValueChange={(v) => setS({ ...s, length: v as any })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LENGTH_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Язык</Label>
+              <Select value={s.language} onValueChange={(v) => setS({ ...s, language: v as any })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ru">Русский</SelectItem>
+                  <SelectItem value="en">English</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+            <div>
+              <div className="text-sm">Stealth Engine</div>
+              <div className="text-xs text-muted-foreground">Маскировка под человеческий стиль</div>
+            </div>
+            <Switch checked={s.stealth} onCheckedChange={(v) => setS({ ...s, stealth: !!v })} />
+          </div>
+          <div className="space-y-1">
+            <Label>Дополнительные инструкции</Label>
+            <Textarea value={s.extra_instructions} onChange={(e) => setS({ ...s, extra_instructions: e.target.value })}
+              placeholder="Тон, акценты, что упомянуть или избегать"
+              className="min-h-[90px]" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Отмена</Button>
+          <Button onClick={() => onSubmit(s)} disabled={submitting}>
+            {submitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            Запустить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
