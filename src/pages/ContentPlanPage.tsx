@@ -42,6 +42,20 @@ const TOPIC_BADGE: Record<string, string> = {
   no: "Не подходит",
 };
 
+const TAB_BADGE_CLS: Record<Tab, string> = {
+  blog:  "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  links: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  trust: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+};
+
+interface AuthorProfileLite {
+  id: string;
+  name: string;
+  type: string | null;
+  avatar_icon: string | null;
+  description: string | null;
+}
+
 interface ClientLite { id: string; name: string; domain: string; niche: string | null }
 interface Plan {
   id: string; client_id: string | null; project_id: string | null; month: number; year: number;
@@ -264,8 +278,10 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [year, setYear] = useState<number>(now.getFullYear());
   const [tab, setTab] = useState<Tab>("blog");
-  const [byTab, setByTab] = useState<Record<Tab, string[]>>({ blog: [""], links: [""], trust: [""] });
+  const [planId, setPlanId] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState<Tab | null>(null);
+  const [drafts, setDrafts] = useState<Record<Tab, string>>({ blog: "", links: "", trust: "" });
+  const [submitting, setSubmitting] = useState(false);
 
   const { data: clients = [] } = useQuery({
     queryKey: ["cp-clients-mini"],
@@ -277,11 +293,88 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
   });
   const currentClient = clients.find((c) => c.id === clientId);
 
-  const setTitle = (t: Tab, idx: number, val: string) =>
-    setByTab((s) => ({ ...s, [t]: s[t].map((v, i) => (i === idx ? val : v)) }));
-  const addRow = (t: Tab) => setByTab((s) => ({ ...s, [t]: [...s[t], ""] }));
-  const delRow = (t: Tab, idx: number) =>
-    setByTab((s) => ({ ...s, [t]: s[t].filter((_, i) => i !== idx).concat(s[t].length === 1 ? [""] : []) }));
+  // Ensure draft plan exists for current client/month/year. Reuses any
+  // existing 'awaiting' plan or creates a new one. Returns plan id.
+  const ensurePlan = async (): Promise<string> => {
+    if (planId) return planId;
+    if (!clientId) throw new Error("Выберите клиента");
+    const { data: existing } = await supabase
+      .from("content_plans")
+      .select("id")
+      .eq("client_id", clientId).eq("month", month).eq("year", year)
+      .eq("status", "awaiting")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing?.id) { setPlanId(existing.id); return existing.id; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Нет авторизации");
+    const { data: plan, error } = await supabase
+      .from("content_plans")
+      .insert({ client_id: clientId, month, year, status: "awaiting", created_by: user.id })
+      .select("id").single();
+    if (error) throw error;
+    setPlanId(plan.id);
+    queryClient.invalidateQueries({ queryKey: ["cp-plans-all"] });
+    return plan.id;
+  };
+
+  // Reset plan reference when client/month/year change (different plan target)
+  useEffect(() => { setPlanId(null); }, [clientId, month, year]);
+
+  // Live topics from DB for current draft plan
+  const { data: topics = [] } = useQuery({
+    queryKey: ["cp-creator-topics", planId],
+    enabled: !!planId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("content_topics")
+        .select("id, plan_id, tab, title, position, status, comment")
+        .eq("plan_id", planId!)
+        .order("tab").order("position");
+      if (error) throw error;
+      return (data ?? []) as Topic[];
+    },
+  });
+
+  const topicsByTab: Record<Tab, Topic[]> = useMemo(() => {
+    const g: Record<Tab, Topic[]> = { blog: [], links: [], trust: [] };
+    for (const t of topics) g[t.tab as Tab].push(t);
+    return g;
+  }, [topics]);
+
+  const refreshTopics = () => queryClient.invalidateQueries({ queryKey: ["cp-creator-topics", planId] });
+
+  const addTopic = async (t: Tab, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    try {
+      const pid = await ensurePlan();
+      const pos = (topicsByTab[t]?.length ?? 0);
+      const { error } = await supabase
+        .from("content_topics")
+        .insert({ plan_id: pid, tab: t, title: trimmed, position: pos });
+      if (error) throw error;
+      setDrafts((s) => ({ ...s, [t]: "" }));
+      refreshTopics();
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось добавить");
+    }
+  };
+
+  const updateTopic = async (id: string, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const { error } = await supabase.from("content_topics").update({ title: trimmed }).eq("id", id);
+    if (error) toast.error(error.message);
+    refreshTopics();
+  };
+
+  const deleteTopic = async (id: string) => {
+    const { error } = await supabase.from("content_topics").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    refreshTopics();
+  };
 
   const suggestAi = async (t: Tab) => {
     if (!currentClient) { toast.error("Выберите клиента"); return; }
@@ -292,10 +385,17 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
         body: { kind: t, domain: currentClient.domain, niche: currentClient.niche, count: 8 },
       });
       if (error) throw new Error(error.message);
-      const topics: string[] = (data as any)?.topics ?? [];
-      if (!topics.length) throw new Error("AI не вернул темы, попробуйте еще раз");
-      setByTab((s) => ({ ...s, [t]: topics }));
-      toast.success(`Подобрано ${topics.length} тем`);
+      const suggestions: string[] = (data as any)?.topics ?? [];
+      if (!suggestions.length) throw new Error("AI не вернул темы, попробуйте еще раз");
+      const pid = await ensurePlan();
+      const baseLen = topicsByTab[t]?.length ?? 0;
+      const rows = suggestions.map((title, i) => ({ plan_id: pid, tab: t, title: title.trim(), position: baseLen + i })).filter(r => r.title);
+      if (rows.length) {
+        const { error: insErr } = await supabase.from("content_topics").insert(rows);
+        if (insErr) throw insErr;
+      }
+      refreshTopics();
+      toast.success(`Подобрано ${rows.length} тем`);
     } catch (e: any) {
       toast.error(e.message || "Не удалось подобрать темы");
     } finally {
@@ -303,35 +403,21 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
     }
   };
 
-  const create = useMutation({
-    mutationFn: async () => {
-      if (!clientId) throw new Error("Выберите клиента");
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Нет авторизации");
-      const { data: plan, error } = await supabase
-        .from("content_plans")
-        .insert({ client_id: clientId, month, year, status: "review", created_by: user.id })
-        .select("id")
-        .single();
+  const submitForReview = async () => {
+    setSubmitting(true);
+    try {
+      if (!planId || topics.length === 0) throw new Error("Добавьте хотя бы одну тему");
+      const { error } = await supabase.from("content_plans").update({ status: "review" }).eq("id", planId);
       if (error) throw error;
-      const rows: Array<{ plan_id: string; tab: Tab; title: string; position: number }> = [];
-      (Object.keys(byTab) as Tab[]).forEach((t) => {
-        byTab[t].map((title) => title.trim()).filter(Boolean).forEach((title, i) => {
-          rows.push({ plan_id: plan.id, tab: t, title, position: i });
-        });
-      });
-      if (rows.length === 0) throw new Error("Добавьте хотя бы одну тему");
-      const { error: e2 } = await supabase.from("content_topics").insert(rows);
-      if (e2) throw e2;
-      return plan.id as string;
-    },
-    onSuccess: (id) => {
       queryClient.invalidateQueries({ queryKey: ["cp-plans-all"] });
-      toast.success("План создан и отправлен на согласование");
-      onCreated(id);
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
+      toast.success("План отправлен на согласование");
+      onCreated(planId);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const years = Array.from({ length: 4 }, (_, i) => now.getFullYear() - 1 + i);
@@ -371,7 +457,11 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
             <TabsList className="grid grid-cols-3 w-full">
-              {TABS.map((t) => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}
+              {TABS.map((t) => (
+                <TabsTrigger key={t.id} value={t.id}>
+                  {t.label} {topicsByTab[t.id]?.length ? `(${topicsByTab[t.id].length})` : ""}
+                </TabsTrigger>
+              ))}
             </TabsList>
             {TABS.map((t) => (
               <TabsContent key={t.id} value={t.id} className="space-y-2 pt-3">
@@ -381,30 +471,44 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
                     Подобрать темы через AI
                   </Button>
                 </div>
-                {byTab[t.id].map((val, idx) => (
-                  <div key={idx} className="flex gap-2 items-start">
+                {topicsByTab[t.id].length === 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-2">Тем нет — добавьте первую ниже</div>
+                )}
+                {topicsByTab[t.id].map((topic, idx) => (
+                  <div key={topic.id} className="flex gap-2 items-start">
                     <Textarea
-                      value={val}
-                      onChange={(e) => setTitle(t.id, idx, e.target.value)}
+                      defaultValue={topic.title}
+                      onBlur={(e) => { if (e.target.value.trim() !== topic.title) updateTopic(topic.id, e.target.value); }}
                       placeholder={`Тема ${idx + 1}`}
                       className="min-h-[48px]"
                     />
-                    <Button type="button" size="icon" variant="ghost" onClick={() => delRow(t.id, idx)}>
+                    <Button type="button" size="icon" variant="ghost" onClick={() => deleteTopic(topic.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
-                <Button type="button" size="sm" variant="outline" onClick={() => addRow(t.id)}>
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Добавить тему
-                </Button>
+                <div className="flex gap-2 items-start pt-2 border-t border-border/40">
+                  <Textarea
+                    value={drafts[t.id]}
+                    onChange={(e) => setDrafts((s) => ({ ...s, [t.id]: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addTopic(t.id, drafts[t.id]); }
+                    }}
+                    placeholder="Новая тема — введите и нажмите «Добавить»"
+                    className="min-h-[48px]"
+                  />
+                  <Button type="button" size="sm" onClick={() => addTopic(t.id, drafts[t.id])} disabled={!drafts[t.id].trim() || !clientId}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Добавить
+                  </Button>
+                </div>
               </TabsContent>
             ))}
           </Tabs>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Отмена</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
-            {create.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+          <Button variant="ghost" onClick={onClose}>Закрыть</Button>
+          <Button onClick={submitForReview} disabled={submitting || !planId || topics.length === 0}>
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
             Отправить на согласование
           </Button>
         </DialogFooter>
@@ -680,7 +784,9 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                   <div key={t.id} className="rounded-md border border-border bg-card p-3 space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-xs text-muted-foreground mb-0.5">{tabLabel}</div>
+                        <div className="mb-1">
+                          <Badge variant="outline" className={`text-[10px] ${TAB_BADGE_CLS[t.tab as Tab]}`}>{tabLabel}</Badge>
+                        </div>
                         <div className="text-sm">{t.title}</div>
                       </div>
                       <Badge variant="outline" className={`text-[10px] shrink-0 inline-flex items-center gap-1 ${gs.cls}`}>
@@ -766,6 +872,33 @@ function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submit
   onSubmit: (s: TemplateSettings) => void; submitting: boolean;
 }) {
   const [s, setS] = useState<TemplateSettings>({ ...DEFAULT_SETTINGS, ...(initial ?? {}) });
+
+  // Live authors from author_profiles (same source as /articles).
+  // Falls back to legacy persona presets if the table is empty.
+  const { data: authors = [], isLoading: authorsLoading } = useQuery({
+    queryKey: ["cp-author-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("author_profiles")
+        .select("id, name, type, avatar_icon, description")
+        .order("type", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as AuthorProfileLite[];
+    },
+  });
+
+  // On first load: if persona_id is still the legacy default and we have real authors,
+  // auto-select the first one so users don't accidentally submit with "freeform".
+  useEffect(() => {
+    if (authorsLoading) return;
+    const isLegacy = ["freeform", "agency", "inhouse", "brand_owner", "expert"].includes(s.persona_id);
+    if (isLegacy && authors.length > 0) {
+      setS((cur) => ({ ...cur, persona_id: authors[0].id }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorsLoading, authors.length]);
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
@@ -776,11 +909,27 @@ function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submit
           <div className="space-y-1">
             <Label>Автор</Label>
             <Select value={s.persona_id} onValueChange={(v) => setS({ ...s, persona_id: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder={authorsLoading ? "Загрузка авторов…" : "Выберите автора"} />
+              </SelectTrigger>
               <SelectContent>
-                {PERSONA_OPTIONS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                {authors.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    <span className="inline-flex items-center gap-2">
+                      {a.avatar_icon && <span className="text-base leading-none">{a.avatar_icon}</span>}
+                      <span>{a.name}</span>
+                      {a.type === "preset" && <span className="text-[10px] text-muted-foreground">пресет</span>}
+                    </span>
+                  </SelectItem>
+                ))}
+                {authors.length === 0 && !authorsLoading && (
+                  PERSONA_OPTIONS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)
+                )}
               </SelectContent>
             </Select>
+            {!authorsLoading && authors.length === 0 && (
+              <p className="text-[11px] text-muted-foreground">Нет сохранённых авторов — создайте их в разделе «Авторы».</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
