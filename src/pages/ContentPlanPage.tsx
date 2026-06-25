@@ -1270,9 +1270,28 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
               <CardDescription>{owner.domain} · {String(plan.month).padStart(2, "0")}/{plan.year}</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Button size="sm" onClick={() => setSettingsOpen({})} disabled={starting || total === 0 || done === total}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (scope === "all") {
+                    setSettingsOpen({});
+                  } else {
+                    const ids = scopedTopics
+                      .filter((t) => (t.gen_status ?? "pending") === "pending" || t.gen_status === "error")
+                      .map((t) => t.id);
+                    setSettingsOpen({ topicIds: ids, scopeLabel });
+                  }
+                }}
+                disabled={
+                  starting || total === 0 || done === total ||
+                  (scope !== "all" && scopedTopics.every((t) => {
+                    const st = t.gen_status ?? "pending";
+                    return st !== "pending" && st !== "error";
+                  }))
+                }
+              >
                 {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
-                Настроить и запустить все
+                {scope === "all" ? "Настроить и запустить все" : `Настроить и запустить «${scopeLabel}»`}
               </Button>
               {done > 0 && (
                 <ExportArticlesMenu
@@ -1297,19 +1316,34 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
+          <Tabs value={scope} onValueChange={(v) => setScope(v as Tab | "all")}>
+            <TabsList>
+              <TabsTrigger value="all">Все ({doneAll}/{totalAll})</TabsTrigger>
+              {TABS.map((t) => (
+                <TabsTrigger key={t.id} value={t.id}>
+                  {t.label} ({tabCounts[t.id].done}/{tabCounts[t.id].total})
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Написано {done} из {total}{inFlight ? " · в работе" : ""}</span>
               <span>{progressPct}%</span>
             </div>
             <Progress value={progressPct} className="h-2" />
+            {scope !== "all" && (
+              <div className="text-[11px] text-muted-foreground">Всего написано: {doneAll} из {totalAll}</div>
+            )}
           </div>
 
           {total === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-6">Нет согласованных тем</div>
+            <div className="text-sm text-muted-foreground text-center py-6">
+              {scope === "all" ? "Нет согласованных тем" : "В этой вкладке нет согласованных тем"}
+            </div>
           ) : (
             <div className="space-y-2">
-              {topics.map((t) => {
+              {scopedTopics.map((t) => {
                 const status = t.gen_status ?? "pending";
                 const gs = GEN_LABEL[status] ?? GEN_LABEL.pending;
                 const tabLabel = TABS.find((x) => x.id === t.tab)?.label ?? t.tab;
