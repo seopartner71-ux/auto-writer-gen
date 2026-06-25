@@ -316,7 +316,25 @@ serve(async (req) => {
   const planId = String(body.plan_id || "");
   const topicId = body.topic_id ? String(body.topic_id) : undefined;
   console.log("[content-plan-process-next] request:body", { plan_id: planId || null, topic_id: topicId || null });
-  if (!planId && !topicId) return errorResponse("plan_id or topic_id required", 400);
+  // No params = global drain: pick any queued topic from any plan (cron/recovery).
+  if (!planId && !topicId) {
+    const a = admin();
+    await resetStuckProcessing();
+    const { data: anyQueued } = await a.from("content_topics")
+      .select("plan_id").eq("gen_status", "queued").limit(1).maybeSingle();
+    if (!anyQueued?.plan_id) {
+      return jsonResponse({ ok: true, processed: false, drained: true });
+    }
+    const { processed: p2, planId: pid2 } = await processOne(anyQueued.plan_id, undefined);
+    if (p2 && pid2) {
+      // @ts-ignore
+      if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(fireSelf(pid2));
+      } else { await fireSelf(pid2); }
+    }
+    return jsonResponse({ ok: true, processed: p2, drained: true });
+  }
 
   await resetStuckProcessing(planId || undefined, topicId);
 
