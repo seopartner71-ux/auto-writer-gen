@@ -2,19 +2,22 @@ import { motion } from "framer-motion";
 import { TrendingUp, MapPin, Link2, Clock, CheckCircle2, Quote, ArrowRight, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import gscScreenshot from "@/assets/case-pbn-gsc.webp";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 export function SectionRealCase() {
+  const { lang } = useI18n();
+  const isEn = lang === "en";
   const metrics = [
-    { icon: TrendingUp, label: "Показов в Google", value: "5 170", color: "text-emerald-400" },
-    { icon: MapPin, label: "Средняя позиция", value: "17.4", color: "text-emerald-400" },
-    { icon: Link2, label: "Внешних ссылок", value: "0", color: "text-emerald-400" },
-    { icon: Clock, label: "Срок", value: "3 месяца", color: "text-emerald-400" },
+    { icon: TrendingUp, label: isEn ? "Google impressions" : "Показов в Google", value: "5 170", color: "text-emerald-400" },
+    { icon: MapPin, label: isEn ? "Average position" : "Средняя позиция", value: "17.4", color: "text-emerald-400" },
+    { icon: Link2, label: isEn ? "External backlinks" : "Внешних ссылок", value: "0", color: "text-emerald-400" },
+    { icon: Clock, label: isEn ? "Timeline" : "Срок", value: isEn ? "3 months" : "3 месяца", color: "text-emerald-400" },
   ];
 
   const checks = [
-    { label: "Тургенев", value: "0 баллов" },
-    { label: "AI-детектор", value: "11%" },
-    { label: "Песочница Google", value: "обошли" },
+    { label: isEn ? "Turgenev" : "Тургенев", value: isEn ? "0 risk points" : "0 баллов" },
+    { label: isEn ? "AI detector" : "AI-детектор", value: "11%" },
+    { label: isEn ? "Google sandbox" : "Песочница Google", value: isEn ? "bypassed" : "обошли" },
   ];
 
   return (
@@ -23,13 +26,15 @@ export function SectionRealCase() {
         <div className="text-center mb-10">
           <Badge variant="outline" className="mb-3 border-emerald-500/30 text-emerald-400">
             <TrendingUp className="w-3 h-3 mr-1" />
-            Кейс из практики
+            {isEn ? "Case study" : "Кейс из практики"}
           </Badge>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Реальные результаты, <span className="text-emerald-400">не обещания</span>
+            {isEn ? <>Real results, <span className="text-emerald-400">not promises</span></> : <>Реальные результаты, <span className="text-emerald-400">не обещания</span></>}
           </h2>
           <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
-            PBN-сайт на автогенерации. Запустили и не трогали 3 месяца. Вот что получилось.
+            {isEn
+              ? "An auto-generated PBN site. Launched and left untouched for 3 months. Here is what happened."
+              : "PBN-сайт на автогенерации. Запустили и не трогали 3 месяца. Вот что получилось."}
           </p>
         </div>
 
@@ -52,13 +57,15 @@ export function SectionRealCase() {
                   <TrendingUp className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-emerald-400/80">Кейс</div>
-                  <div className="text-lg font-semibold">PBN-сайт с нуля</div>
+                  <div className="text-xs uppercase tracking-wider text-emerald-400/80">{isEn ? "Case" : "Кейс"}</div>
+                  <div className="text-lg font-semibold">{isEn ? "PBN site from scratch" : "PBN-сайт с нуля"}</div>
                 </div>
               </div>
 
               <p className="text-muted-foreground leading-relaxed">
-                Запустили сайт на автогенерации. Не трогали 3 месяца. Без ссылок, без ручной правки.
+                {isEn
+                  ? "Launched a fully auto-generated site. Left it untouched for 3 months. No backlinks, no manual edits."
+                  : "Запустили сайт на автогенерации. Не трогали 3 месяца. Без ссылок, без ручной правки."}
               </p>
 
               {/* Big metrics */}
@@ -90,7 +97,9 @@ export function SectionRealCase() {
               <div className="relative p-4 rounded-2xl bg-background/30 border-l-2 border-emerald-500/60">
                 <Quote className="w-4 h-4 text-emerald-400/60 mb-2" />
                 <p className="text-sm text-foreground/90 italic leading-relaxed">
-                  Большинство новых сайтов сидят в песочнице 6-12 месяцев. Этот сайт в индексе с первого месяца.
+                  {isEn
+                    ? "Most new sites stay in the sandbox for 6-12 months. This one was indexed within the first month."
+                    : "Большинство новых сайтов сидят в песочнице 6-12 месяцев. Этот сайт в индексе с первого месяца."}
                 </p>
               </div>
 
@@ -98,8 +107,8 @@ export function SectionRealCase() {
               <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
                 <ArrowRight className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
                 <div className="text-sm">
-                  <div className="font-semibold text-foreground">Следующая точка: 6 месяцев</div>
-                  <div className="text-muted-foreground mt-0.5">Добавим ссылки - ждите результатов.</div>
+                  <div className="font-semibold text-foreground">{isEn ? "Next checkpoint: 6 months" : "Следующая точка: 6 месяцев"}</div>
+                  <div className="text-muted-foreground mt-0.5">{isEn ? "Add backlinks - expect a step-change in results." : "Добавим ссылки - ждите результатов."}</div>
                 </div>
               </div>
             </div>
@@ -107,18 +116,20 @@ export function SectionRealCase() {
             {/* Right: GSC screenshot */}
             <div className="relative p-6 md:p-10 flex flex-col justify-center bg-background/20 border-t lg:border-t-0 lg:border-l border-emerald-500/15">
               <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-                Google Search Console - живые данные
+                {isEn ? "Google Search Console - live data" : "Google Search Console - живые данные"}
               </div>
               <div className="rounded-xl overflow-hidden border border-border/40 shadow-2xl">
                 <img
                   src={gscScreenshot}
-                  alt="График показов в Google Search Console: рост с 0 до 150 показов в день за 3 месяца"
+                  alt={isEn ? "Google Search Console impressions chart: growth from 0 to 150 impressions per day in 3 months" : "График показов в Google Search Console: рост с 0 до 150 показов в день за 3 месяца"}
                   loading="lazy" decoding="async"
                   className="w-full h-auto block"
                 />
               </div>
               <div className="mt-4 text-xs text-muted-foreground">
-                Январь - апрель 2026. Органический трафик без единой внешней ссылки.
+                {isEn
+                  ? "January - April 2026. Organic traffic without a single external backlink."
+                  : "Январь - апрель 2026. Органический трафик без единой внешней ссылки."}
               </div>
             </div>
           </div>
@@ -140,7 +151,7 @@ export function SectionRealCase() {
           >
             <Send className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
             <span className="text-sm font-medium">
-              Следим за результатами в Telegram-канале
+              {isEn ? "Follow the results in our Telegram channel" : "Следим за результатами в Telegram-канале"}
             </span>
             <span className="text-emerald-400 font-semibold">@system_seo</span>
             <ArrowRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-1 transition-transform" />
