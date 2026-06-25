@@ -295,32 +295,53 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
 
   // Ensure draft plan exists for current client/month/year. Reuses any
   // existing 'awaiting' plan or creates a new one. Returns plan id.
-  const ensurePlan = async (): Promise<string> => {
-    if (planId) return planId;
-    if (!clientId) throw new Error("Выберите клиента");
-    const { data: existing } = await supabase
-      .from("content_plans")
-      .select("id")
-      .eq("client_id", clientId).eq("month", month).eq("year", year)
-      .eq("status", "awaiting")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existing?.id) { setPlanId(existing.id); return existing.id; }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Нет авторизации");
-    const { data: plan, error } = await supabase
-      .from("content_plans")
-      .insert({ client_id: clientId, month, year, status: "awaiting", created_by: user.id })
-      .select("id").single();
-    if (error) throw error;
-    setPlanId(plan.id);
-    queryClient.invalidateQueries({ queryKey: ["cp-plans-all"] });
-    return plan.id;
+  // Serialized via ensureInFlight to avoid duplicate inserts from rapid calls.
+  const ensureInFlight = useRef<Promise<string> | null>(null);
+  const ensurePlan = (): Promise<string> => {
+    if (planId) return Promise.resolve(planId);
+    if (ensureInFlight.current) return ensureInFlight.current;
+    if (!clientId) return Promise.reject(new Error("Выберите клиента"));
+    const run = (async () => {
+      const { data: existing } = await supabase
+        .from("content_plans")
+        .select("id")
+        .eq("client_id", clientId).eq("month", month).eq("year", year)
+        .eq("status", "awaiting")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existing?.id) { setPlanId(existing.id); return existing.id; }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Нет авторизации");
+      const { data: plan, error } = await supabase
+        .from("content_plans")
+        .insert({ client_id: clientId, month, year, status: "awaiting", created_by: user.id })
+        .select("id").single();
+      if (error) {
+        // Race against the partial unique index: re-read.
+        const { data: again } = await supabase
+          .from("content_plans").select("id")
+          .eq("client_id", clientId).eq("month", month).eq("year", year)
+          .eq("status", "awaiting").maybeSingle();
+        if (again?.id) { setPlanId(again.id); return again.id; }
+        throw error;
+      }
+      setPlanId(plan.id);
+      queryClient.invalidateQueries({ queryKey: ["cp-plans-all"] });
+      return plan.id;
+    })();
+    ensureInFlight.current = run.finally(() => { ensureInFlight.current = null; });
+    return ensureInFlight.current;
   };
 
-  // Reset plan reference when client/month/year change (different plan target)
-  useEffect(() => { setPlanId(null); }, [clientId, month, year]);
+  // When client/month/year change, drop the cached plan id and immediately
+  // resolve (load existing or create) so saved topics appear right away.
+  useEffect(() => {
+    setPlanId(null);
+    if (!clientId) return;
+    ensurePlan().catch(() => { /* surfaced on next user action */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, month, year]);
 
   // Live topics from DB for current draft plan
   const { data: topics = [] } = useQuery({
