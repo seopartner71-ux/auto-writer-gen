@@ -52,6 +52,7 @@ interface Topic {
   status: string | null; comment: string | null;
   gen_status?: string | null; article_markdown?: string | null;
   article_title?: string | null; gen_error?: string | null; attempts?: number | null;
+  article_id?: string | null;
 }
 
 interface TemplateSettings {
