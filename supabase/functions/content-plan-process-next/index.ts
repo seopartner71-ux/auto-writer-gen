@@ -10,8 +10,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const MAX_ATTEMPTS = 2;
-const STUCK_PROCESSING_MS = 5 * 60 * 1000;
-const VC_WRITER_TIMEOUT_MS = 135 * 1000;
+const STUCK_PROCESSING_MS = 2 * 60 * 1000;
+const VC_WRITER_TIMEOUT_MS = 120 * 1000;
 
 function admin() {
   return createClient(SUPABASE_URL, SERVICE_KEY);
@@ -78,7 +78,7 @@ async function resetStuckProcessing(planId?: string, topicId?: string) {
   console.log("[content-plan-process-next] stuck_guard:start", { plan_id: planId || null, topic_id: topicId || null, cutoff });
 
   let toErrorQuery = a.from("content_topics")
-    .update({ gen_status: "error", gen_error: "Timeout: задача зависла в processing больше 5 минут" })
+    .update({ gen_status: "error", gen_error: "Timeout: задача зависла в processing больше 2 минут" })
     .eq("gen_status", "processing")
     .lt("updated_at", cutoff)
     .gte("attempts", MAX_ATTEMPTS);
@@ -296,9 +296,20 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     }
     console.log("[content-plan-process-next] topic_update_done:success", { topic_id: claimed.id, article_id: articleId });
   } catch (e: any) {
-    const msg = String(e?.message ?? "error").slice(0, 500);
-    const next = (claimed.attempts ?? 0) + 1 < MAX_ATTEMPTS ? "queued" : "error";
-    console.error("[content-plan-process-next] processOne:failed", { topic_id: claimed.id, plan_id: claimed.plan_id, next_status: next, error: msg });
+    const isAbort = e?.name === "AbortError" || /aborted|timeout/i.test(String(e?.message ?? ""));
+    const msg = isAbort
+      ? "Timeout: превышено время ожидания"
+      : String(e?.message ?? "error").slice(0, 500);
+    const attemptsUsed = claimed.attempts ?? 0;
+    const next = attemptsUsed < MAX_ATTEMPTS ? "queued" : "error";
+    console.error("[content-plan-process-next] processOne:failed", {
+      topic_id: claimed.id,
+      plan_id: claimed.plan_id,
+      next_status: next,
+      attempts_used: attemptsUsed,
+      is_abort: isAbort,
+      error: msg,
+    });
     const { error: failUpdateError } = await a.from("content_topics").update({ gen_status: next, gen_error: msg }).eq("id", claimed.id);
     if (failUpdateError) {
       console.error("[content-plan-process-next] processOne:fail_status_update_failed", { topic_id: claimed.id, message: failUpdateError.message, code: (failUpdateError as any).code });
