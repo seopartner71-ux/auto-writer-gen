@@ -66,7 +66,7 @@ interface AuthorProfileLite {
   description: string | null;
 }
 
-interface ClientLite { id: string; name: string; domain: string; niche: string | null }
+interface ClientLite { id: string; name: string; domain: string; niche: string | null; contact_email?: string | null }
 interface Plan {
   id: string; client_id: string | null; project_id: string | null; month: number; year: number;
   status: string; public_uuid: string; created_at: string; client_responded_at: string | null;
@@ -109,6 +109,8 @@ export default function ContentPlanPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [creatorOpen, setCreatorOpen] = useState<{ clientId?: string } | null>(null);
   const [newClientOpen, setNewClientOpen] = useState(false);
+  const [editClient, setEditClient] = useState<ClientLite | null>(null);
+  const [deleteClient, setDeleteClient] = useState<ClientLite | null>(null);
   const [writingPlanId, setWritingPlanId] = useState<string | null>(null);
 
   if (!allowed) {
@@ -133,6 +135,8 @@ export default function ContentPlanPage() {
         onCreate={(cid) => setCreatorOpen({ clientId: cid })}
         onOpenPlan={(plan) => setSelectedPlanId(plan.id)}
         onNewClient={() => setNewClientOpen(true)}
+        onEditClient={(c) => setEditClient(c)}
+        onDeleteClient={(c) => setDeleteClient(c)}
       />
       {creatorOpen && (
         <PlanCreatorDialog
@@ -142,17 +146,19 @@ export default function ContentPlanPage() {
         />
       )}
       {newClientOpen && <NewClientDialog onClose={() => setNewClientOpen(false)} />}
+      {editClient && <EditClientDialog client={editClient} onClose={() => setEditClient(null)} />}
+      {deleteClient && <DeleteClientDialog client={deleteClient} onClose={() => setDeleteClient(null)} />}
     </>
   );
 }
 
-function ClientsList({ onCreate, onOpenPlan, onNewClient }: { onCreate: (clientId: string) => void; onOpenPlan: (p: Plan) => void; onNewClient: () => void }) {
+function ClientsList({ onCreate, onOpenPlan, onNewClient, onEditClient, onDeleteClient }: { onCreate: (clientId: string) => void; onOpenPlan: (p: Plan) => void; onNewClient: () => void; onEditClient: (c: ClientLite) => void; onDeleteClient: (c: ClientLite) => void }) {
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["cp-clients"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_clients")
-        .select("id, name, domain, niche, created_at")
+        .select("id, name, domain, niche, contact_email, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ClientLite[];
@@ -209,7 +215,23 @@ function ClientsList({ onCreate, onOpenPlan, onNewClient }: { onCreate: (clientI
                       <CardTitle className="text-base truncate">{p.name}</CardTitle>
                       <CardDescription className="truncate">{p.domain}</CardDescription>
                     </div>
-                    <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-7 w-7"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEditClient(p)}>
+                            <Pencil className="h-3.5 w-3.5 mr-2" /> Редактировать
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-400 focus:text-red-400" onClick={() => onDeleteClient(p)}>
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Удалить клиента
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-2">
