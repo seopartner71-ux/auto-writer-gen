@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Copy, Trash2, Check, FileText, Loader2, Download, FileSpreadsheet, X } from "lucide-react";
 import { format } from "date-fns";
@@ -38,6 +40,7 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [sourceTab, setSourceTab] = useState<"all" | "manual" | "content_plan">("all");
 
   const { data: articles = [], isLoading } = useQuery({
     queryKey: ["my-articles-list"],
@@ -46,13 +49,21 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
       if (!user) return [];
       const { data, error } = await supabase
         .from("articles")
-        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description")
+        .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description, source, content_topic_id, content_topics:content_topic_id(plan_id, content_plans:plan_id(content_clients:client_id(name)))")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
   });
+
+  const filteredArticles = useMemo(() => {
+    if (sourceTab === "all") return articles;
+    return (articles as any[]).filter((a) => (a.source ?? "manual") === sourceTab);
+  }, [articles, sourceTab]);
+
+  const clientNameOf = (a: any): string | null =>
+    a?.content_topics?.content_plans?.content_clients?.name ?? null;
 
   const toggleOne = (id: string) => {
     setSelected(prev => {
@@ -61,10 +72,10 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
       return next;
     });
   };
-  const allSelected = articles.length > 0 && selected.size === articles.length;
+  const allSelected = filteredArticles.length > 0 && selected.size === filteredArticles.length;
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
-    else setSelected(new Set(articles.map((a: any) => a.id)));
+    else setSelected(new Set(filteredArticles.map((a: any) => a.id)));
   };
   const clearSelection = () => setSelected(new Set());
 
@@ -78,8 +89,8 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
       .slice(0, 80) || "article";
 
   const selectedArticles = useMemo(
-    () => articles.filter((a: any) => selected.has(a.id)),
-    [articles, selected]
+    () => (filteredArticles as any[]).filter((a: any) => selected.has(a.id)),
+    [filteredArticles, selected]
   );
 
   const handleZipExport = async () => {
@@ -232,11 +243,20 @@ ${a.content || ""}
 
       <Card className="bg-card border-border">
         <CardContent className="p-0">
+          <div className="px-4 pt-4">
+            <Tabs value={sourceTab} onValueChange={(v) => { setSourceTab(v as any); clearSelection(); }}>
+              <TabsList>
+                <TabsTrigger value="all">Все статьи ({articles.length})</TabsTrigger>
+                <TabsTrigger value="manual">Обычные ({(articles as any[]).filter((a) => (a.source ?? "manual") === "manual").length})</TabsTrigger>
+                <TabsTrigger value="content_plan">Контент-план ({(articles as any[]).filter((a) => a.source === "content_plan").length})</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : articles.length === 0 ? (
+          ) : filteredArticles.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <FileText className="h-12 w-12 mb-3 opacity-40" />
               <p className="text-lg font-medium">{t("myArticles.noArticles")}</p>
@@ -261,7 +281,7 @@ ${a.content || ""}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {articles.map((article, index) => (
+                {filteredArticles.map((article: any, index: number) => (
                   <TableRow
                     key={article.id}
                     className={`border-border cursor-pointer hover:bg-muted/40 transition-colors group ${selected.has(article.id) ? "bg-primary/5" : ""}`}
@@ -301,9 +321,16 @@ ${a.content || ""}
                       </TooltipProvider>
                     </TableCell>
                     <TableCell className="font-medium max-w-[400px]">
-                      <span className="line-clamp-2">
-                        {article.title || t("myArticles.noTitle")}
-                      </span>
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <span className="line-clamp-2">
+                          {article.title || t("myArticles.noTitle")}
+                        </span>
+                        {article.source === "content_plan" && (
+                          <Badge variant="secondary" className="text-[10px] shrink-0">
+                            Контент-план{clientNameOf(article) ? ` · ${clientNameOf(article)}` : ""}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {article.created_at

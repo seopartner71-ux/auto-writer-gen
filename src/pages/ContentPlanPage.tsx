@@ -52,6 +52,7 @@ interface Topic {
   status: string | null; comment: string | null;
   gen_status?: string | null; article_markdown?: string | null;
   article_title?: string | null; gen_error?: string | null; attempts?: number | null;
+  article_id?: string | null;
 }
 
 interface TemplateSettings {
@@ -554,7 +555,7 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts, article_id")
         .eq("plan_id", planId).eq("status", "ok")
         .order("tab").order("position");
       if (e2) throw e2;
@@ -661,7 +662,10 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                       )}
                       {status === "done" && (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => setOpenTopic(t)}>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            if (t.article_id) window.open(`/articles?edit=${t.article_id}`, "_blank");
+                            else setOpenTopic(t);
+                          }}>
                             <FileText className="h-3.5 w-3.5 mr-1" /> Открыть
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => {
