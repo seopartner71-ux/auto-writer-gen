@@ -22,7 +22,7 @@ const STATUS_BORDER: Record<string, string> = {
   no: "border-red-500/60 bg-red-500/10",
 };
 
-interface Topic { id: string; tab: Tab; position: number; title: string; status: "ok" | "rev" | "no" | null; comment: string | null }
+interface Topic { id: string; tab: Tab; position: number; title: string; status: "ok" | "rev" | "no" | null; comment: string | null; description?: string | null }
 interface ApprovalData {
   plan: { id: string; month: number; year: number; status: string; public_uuid: string; client_responded_at: string | null };
   project: { id: string; name: string; domain: string };
@@ -128,7 +128,12 @@ export default function ApprovalPage() {
                 const cls = cur.status ? STATUS_BORDER[cur.status] : "border-border bg-card";
                 return (
                   <div key={topic.id} className={`rounded-lg border p-4 transition-colors ${cls}`}>
-                    <div className="text-sm whitespace-pre-wrap mb-3">{topic.title}</div>
+                    <div className="mb-3">
+                      <div className="text-sm whitespace-pre-wrap">{topic.title}</div>
+                      {topic.description && (
+                        <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">{topic.description}</div>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
