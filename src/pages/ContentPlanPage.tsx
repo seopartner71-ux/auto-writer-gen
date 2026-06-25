@@ -128,7 +128,7 @@ export default function ContentPlanPage() {
   }
 
   if (selectedPlanId) {
-    return <PlanDetail planId={selectedPlanId} onBack={() => setSelectedPlanId(null)} onOpenWriting={(id) => { setSelectedPlanId(null); setWritingPlanId(id); }} />;
+    return <PlanDetail planId={selectedPlanId} onBack={() => setSelectedPlanId(null)} onOpenWriting={(id) => { setSelectedPlanId(null); setWritingPlanId(id); }} onSwitchPlan={(id) => setSelectedPlanId(id)} />;
   }
 
   return (
@@ -678,7 +678,7 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
   );
 }
 
-function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack: () => void; onOpenWriting: (planId: string) => void }) {
+function PlanDetail({ planId, onBack, onOpenWriting, onSwitchPlan }: { planId: string; onBack: () => void; onOpenWriting: (planId: string) => void; onSwitchPlan: (planId: string) => void }) {
   const queryClient = useQueryClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const deletePlan = useMutation({
