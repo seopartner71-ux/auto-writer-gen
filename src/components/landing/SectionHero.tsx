@@ -179,7 +179,7 @@ export function SectionHero() {
 
                   {/* Compatibility notice */}
                   <p className="mt-4 text-[8px] font-tech text-muted-foreground/40 tracking-wider text-center">
-                    Тексты проходят проверку Originality, GPTZero, Copyleaks
+                    {lang === "ru" ? "Тексты проходят проверку Originality, GPTZero, Copyleaks" : "Texts pass Originality, GPTZero and Copyleaks checks"}
                   </p>
                 </div>
               </div>
