@@ -1132,6 +1132,9 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                           <Badge variant="outline" className={`text-[10px] ${TAB_BADGE_CLS[t.tab as Tab]}`}>{tabLabel}</Badge>
                         </div>
                         <div className="text-sm">{t.title}</div>
+                        {t.description && (
+                          <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">{t.description}</div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Badge variant="outline" className={`text-[10px] inline-flex items-center gap-1 ${gs.cls}`}>
