@@ -63,6 +63,31 @@ serve(async (req) => {
 
     const personaRaw = String(body.author_persona || "freeform") as AuthorPersona;
     const authorPersona: AuthorPersona = ALLOWED_PERSONAS.has(personaRaw) ? personaRaw : "freeform";
+    // Полный авторский профиль из таблицы author_profiles (system_prompt + тон + стоп-слова).
+    // Приходит из content-plan и /articles. Безопасно подрезаем длины.
+    let customAuthor: {
+      name?: string;
+      systemPrompt?: string;
+      voiceTone?: string;
+      styleExamples?: string;
+      stopWords?: string[];
+      negativeInstructions?: string;
+    } | undefined;
+    const ap = body.author_profile;
+    if (ap && typeof ap === "object") {
+      const sp = String(ap.system_prompt || ap.systemPrompt || "").slice(0, 8000);
+      const sw = Array.isArray(ap.stop_words || ap.stopWords)
+        ? (ap.stop_words || ap.stopWords).map((w: any) => String(w || "")).filter(Boolean).slice(0, 80)
+        : [];
+      customAuthor = {
+        name: String(ap.name || "").slice(0, 120) || undefined,
+        systemPrompt: sp || undefined,
+        voiceTone: String(ap.voice_tone || ap.voiceTone || "").slice(0, 600) || undefined,
+        styleExamples: String(ap.style_examples || ap.styleExamples || "").slice(0, 2500) || undefined,
+        stopWords: sw.length ? sw : undefined,
+        negativeInstructions: String(ap.negative_instructions || ap.negativeInstructions || "").slice(0, 2000) || undefined,
+      };
+    }
     const verifiedFacts = ruEReplace(normalizeDashes(String(body.verified_facts || ""))).slice(0, 4000);
     const factCheckOn = body.fact_check !== false;
     const topicResearch = ruEReplace(normalizeDashes(String(body.topic_research || ""))).slice(0, 5000);
@@ -228,6 +253,7 @@ serve(async (req) => {
       realItemsAttribution: realItemsAttribution || undefined,
       offerBlock,
       funnelStage,
+      customAuthor,
     });
 
     // Quality guard: catches broken H3 splits, duplicated lead/conclusion and
