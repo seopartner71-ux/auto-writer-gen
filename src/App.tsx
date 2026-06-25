@@ -98,6 +98,8 @@ const ImageGeneratorPage = lazyWithRetry(() => import("@/pages/ImageGeneratorPag
 const CommercialPage = lazyWithRetry(() => import("@/pages/CommercialPage"));
 const VcWriterPage = lazyWithRetry(() => import("@/pages/VcWriterPage"));
 const UtmGeneratorPage = lazyWithRetry(() => import("@/pages/UtmGeneratorPage"));
+const ContentPlanPage = lazyWithRetry(() => import("@/pages/ContentPlanPage"));
+const ApprovalPage = lazyWithRetry(() => import("@/pages/ApprovalPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -167,6 +169,7 @@ const App = () => (
                 <Route path="/consent" element={<Suspense fallback={<PageLoader />}><ConsentPage /></Suspense>} />
                 <Route path="/payment-success" element={<Suspense fallback={<PageLoader />}><PaymentSuccessPage /></Suspense>} />
                 <Route path="/utm-generator" element={<Suspense fallback={<PageLoader />}><UtmGeneratorPage /></Suspense>} />
+                <Route path="/approval/:uuid" element={<Suspense fallback={<PageLoader />}><ApprovalPage /></Suspense>} />
                 {/* All protected pages share one layout instance */}
                 <Route element={<ProtectedAppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
@@ -198,6 +201,7 @@ const App = () => (
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
                   <Route path="/domain-hunter" element={<DomainHunterPage />} />
                   <Route path="/changelog" element={<ChangelogPage />} />
+                  <Route path="/content-plan" element={<ProtectedRoute allowedRoles={["admin","staff"]}><ContentPlanPage /></ProtectedRoute>} />
                 </Route>
 
                 <Route element={<AdminLayout />}>
