@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
     // Fetch user profile and admins
     const { data: userProfile } = await supabase
       .from("profiles")
-      .select("email")
+      .select("email, full_name")
       .eq("id", userId)
       .single();
 
