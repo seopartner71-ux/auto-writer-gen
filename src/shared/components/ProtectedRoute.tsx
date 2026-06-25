@@ -15,7 +15,12 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
   const { session, role, profile, loading } = useAuth();
   const { t } = useI18n();
 
-  if (loading) {
+  // Wait not only for the session bootstrap (`loading`) but also for the role
+  // to be resolved when we have a session. Otherwise on F5 there is a window
+  // where `loading` is already false but `role` is still null — and the
+  // `allowedRoles` branch below would redirect the user to /dashboard.
+  const roleNotReady = !!session && role === null;
+  if (loading || roleNotReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -86,12 +91,23 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
     );
   }
 
-  if (requiredRole && role !== requiredRole) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  if (allowedRoles && allowedRoles.length > 0 && (!role || !allowedRoles.includes(role))) {
-    return <Navigate to="/dashboard" replace />;
+  const hasRequired = !requiredRole || role === requiredRole;
+  const hasAllowed =
+    !allowedRoles || allowedRoles.length === 0 || (!!role && allowedRoles.includes(role));
+  if (!hasRequired || !hasAllowed) {
+    // Do NOT force-redirect to /dashboard on refresh — that ejects the user
+    // from the URL they were on. Render an inline 403 instead so the route
+    // stays the same and they can navigate back manually.
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center space-y-4 max-w-md px-6">
+          <h2 className="text-2xl font-bold text-foreground">403</h2>
+          <p className="text-sm text-muted-foreground">
+            {t("protected.forbidden") || "У вас нет доступа к этому разделу."}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
