@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 type Tab = "blog" | "links" | "trust";
 const TABS: { id: Tab; label: string }[] = [
@@ -50,8 +51,31 @@ interface Topic {
   id: string; plan_id: string; tab: Tab; title: string; position: number;
   status: string | null; comment: string | null;
   gen_status?: string | null; article_markdown?: string | null;
-  article_title?: string | null; gen_error?: string | null;
+  article_title?: string | null; gen_error?: string | null; attempts?: number | null;
 }
+
+interface TemplateSettings {
+  persona_id: string;
+  length: "short" | "medium" | "long";
+  language: "ru" | "en";
+  stealth: boolean;
+  extra_instructions: string;
+}
+const DEFAULT_SETTINGS: TemplateSettings = {
+  persona_id: "freeform", length: "medium", language: "ru", stealth: false, extra_instructions: "",
+};
+const PERSONA_OPTIONS = [
+  { value: "freeform",    label: "Свободный стиль" },
+  { value: "agency",      label: "Агентство" },
+  { value: "inhouse",     label: "Inhouse-маркетолог" },
+  { value: "brand_owner", label: "Владелец бренда" },
+  { value: "expert",      label: "Эксперт ниши" },
+];
+const LENGTH_OPTIONS = [
+  { value: "short",  label: "Короткая (~800)" },
+  { value: "medium", label: "Средняя (~1500)" },
+  { value: "long",   label: "Длинная (~2500)" },
+];
 
 export default function ContentPlanPage() {
   const { role } = useAuth();
@@ -507,34 +531,35 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
 // ===================== Writing screen =====================
 
 const GEN_LABEL: Record<string, { label: string; cls: string }> = {
-  waiting: { label: "Ожидает",  cls: "bg-muted text-muted-foreground" },
-  working: { label: "В работе", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  done:    { label: "Готово",   cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  failed:  { label: "Ошибка",   cls: "bg-red-500/15 text-red-400 border-red-500/30" },
+  pending:    { label: "Ожидает",   cls: "bg-muted text-muted-foreground" },
+  queued:     { label: "В очереди", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+  processing: { label: "В работе",  cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  done:       { label: "Готово",    cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  error:      { label: "Ошибка",    cls: "bg-red-500/15 text-red-400 border-red-500/30" },
 };
 
 function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void }) {
   const qc = useQueryClient();
   const [openTopic, setOpenTopic] = useState<Topic | null>(null);
-  const [bulkRunning, setBulkRunning] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState<{ topicIds?: string[] } | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["cp-writing", planId],
     queryFn: async () => {
       const { data: plan, error } = await supabase
         .from("content_plans")
-        .select("id, client_id, month, year, status, content_clients(name, domain, niche), projects(name, domain)")
+        .select("id, client_id, month, year, status, template_settings, content_clients(name, domain, niche), projects(name, domain)")
         .eq("id", planId).single();
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts")
         .eq("plan_id", planId).eq("status", "ok")
         .order("tab").order("position");
       if (e2) throw e2;
       return { plan, topics: (topics ?? []) as Topic[] };
     },
-    refetchInterval: bulkRunning ? 2500 : false,
   });
 
   const plan = data?.plan as any;
@@ -542,58 +567,35 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const owner = plan?.content_clients ?? plan?.projects ?? { name: "-", domain: "-", niche: "" };
   const total = topics.length;
   const done = topics.filter((t) => t.gen_status === "done").length;
+  const inFlight = topics.some((t) => t.gen_status === "queued" || t.gen_status === "processing");
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  const writeOne = async (topic: Topic) => {
-    if (!plan) return;
-    await supabase.from("content_topics").update({ gen_status: "working", gen_error: null }).eq("id", topic.id);
-    qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+  const startQueue = async (settings: TemplateSettings, topicIds?: string[]) => {
+    setStarting(true);
     try {
-      const { data: res, error } = await supabase.functions.invoke("vc-writer", {
-        body: {
-          format: "guide",
-          topic: topic.title,
-          audience: owner.niche || "",
-          length: 5500,
-          fact_check: true,
-          humanize: true,
-        },
+      const { error } = await supabase.functions.invoke("content-plan-start-queue", {
+        body: { plan_id: planId, settings, topic_ids: topicIds },
       });
       if (error) throw new Error(error.message);
-      const md: string = (res as any)?.markdown ?? "";
-      const meta = (res as any)?.meta ?? null;
-      if (!md) throw new Error("Пустой ответ от движка");
-      await supabase.from("content_topics").update({
-        gen_status: "done",
-        article_markdown: md,
-        article_title: meta?.title ?? topic.title,
-        article_meta: meta,
-        generated_at: new Date().toISOString(),
-        gen_error: null,
-      }).eq("id", topic.id);
-    } catch (e: any) {
-      await supabase.from("content_topics").update({
-        gen_status: "failed",
-        gen_error: e?.message?.slice(0, 500) ?? "Ошибка",
-      }).eq("id", topic.id);
-      throw e;
-    } finally {
+      toast.success(topicIds?.length ? "Тема поставлена в очередь" : "Очередь запущена");
       qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось запустить");
+    } finally {
+      setStarting(false);
+      setSettingsOpen(null);
     }
   };
 
-  const writeAll = async () => {
-    setBulkRunning(true);
-    try {
-      const pending = topics.filter((t) => t.gen_status !== "done");
-      for (const t of pending) {
-        try { await writeOne(t); } catch (e: any) { toast.error(`«${t.title}» — ${e?.message ?? "ошибка"}`); }
-      }
-      toast.success("Готово");
-    } finally {
-      setBulkRunning(false);
-    }
-  };
+  useEffect(() => {
+    const channel = supabase
+      .channel(`content_topics:${planId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "content_topics", filter: `plan_id=eq.${planId}` }, () => {
+        qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [planId, qc]);
 
   if (isLoading || !plan) {
     return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
@@ -611,16 +613,16 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
               <CardTitle className="text-lg">Написание статей — {owner.name}</CardTitle>
               <CardDescription>{owner.domain} · {String(plan.month).padStart(2, "0")}/{plan.year}</CardDescription>
             </div>
-            <Button size="sm" onClick={writeAll} disabled={bulkRunning || total === 0 || done === total}>
-              {bulkRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
-              Написать все
+            <Button size="sm" onClick={() => setSettingsOpen({})} disabled={starting || total === 0 || done === total}>
+              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
+              Настроить и запустить все
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Написано {done} из {total}</span>
+              <span>Написано {done} из {total}{inFlight ? " · в работе" : ""}</span>
               <span>{progressPct}%</span>
             </div>
             <Progress value={progressPct} className="h-2" />
@@ -631,8 +633,10 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
           ) : (
             <div className="space-y-2">
               {topics.map((t) => {
-                const gs = GEN_LABEL[t.gen_status ?? "waiting"] ?? GEN_LABEL.waiting;
+                const status = t.gen_status ?? "pending";
+                const gs = GEN_LABEL[status] ?? GEN_LABEL.pending;
                 const tabLabel = TABS.find((x) => x.id === t.tab)?.label ?? t.tab;
+                const busy = status === "queued" || status === "processing";
                 return (
                   <div key={t.id} className="rounded-md border border-border bg-card p-3 space-y-2">
                     <div className="flex items-start justify-between gap-3">
@@ -640,19 +644,22 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                         <div className="text-xs text-muted-foreground mb-0.5">{tabLabel}</div>
                         <div className="text-sm">{t.title}</div>
                       </div>
-                      <Badge variant="outline" className={`text-[10px] shrink-0 ${gs.cls}`}>{gs.label}</Badge>
+                      <Badge variant="outline" className={`text-[10px] shrink-0 inline-flex items-center gap-1 ${gs.cls}`}>
+                        {status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {gs.label}
+                      </Badge>
                     </div>
                     {t.gen_error && (
                       <div className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {t.gen_error}</div>
                     )}
                     <div className="flex flex-wrap gap-2">
-                      {t.gen_status !== "done" && (
-                        <Button size="sm" variant="outline" disabled={t.gen_status === "working" || bulkRunning} onClick={() => writeOne(t).catch((e) => toast.error(e?.message ?? "Ошибка"))}>
-                          {t.gen_status === "working" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
-                          {t.gen_status === "failed" ? "Повторить" : "Написать"}
+                      {status !== "done" && (
+                        <Button size="sm" variant="outline" disabled={busy || starting} onClick={() => setSettingsOpen({ topicIds: [t.id] })}>
+                          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
+                          {status === "error" ? "Повторить" : "Написать"}
                         </Button>
                       )}
-                      {t.gen_status === "done" && (
+                      {status === "done" && (
                         <>
                           <Button size="sm" variant="outline" onClick={() => setOpenTopic(t)}>
                             <FileText className="h-3.5 w-3.5 mr-1" /> Открыть
@@ -675,6 +682,16 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
         </CardContent>
       </Card>
 
+      {settingsOpen && (
+        <WritingSettingsDialog
+          initial={(plan?.template_settings as TemplateSettings) ?? DEFAULT_SETTINGS}
+          singleTopic={!!settingsOpen.topicIds?.length}
+          onClose={() => setSettingsOpen(null)}
+          onSubmit={(s) => startQueue(s, settingsOpen.topicIds)}
+          submitting={starting}
+        />
+      )}
+
       {openTopic && (
         <Dialog open onOpenChange={(o) => !o && setOpenTopic(null)}>
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -693,5 +710,73 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
         </Dialog>
       )}
     </div>
+  );
+}
+
+function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submitting }: {
+  initial: TemplateSettings; singleTopic: boolean; onClose: () => void;
+  onSubmit: (s: TemplateSettings) => void; submitting: boolean;
+}) {
+  const [s, setS] = useState<TemplateSettings>({ ...DEFAULT_SETTINGS, ...(initial ?? {}) });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{singleTopic ? "Параметры для темы" : "Параметры написания"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Автор</Label>
+            <Select value={s.persona_id} onValueChange={(v) => setS({ ...s, persona_id: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PERSONA_OPTIONS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Длина</Label>
+              <Select value={s.length} onValueChange={(v) => setS({ ...s, length: v as any })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LENGTH_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Язык</Label>
+              <Select value={s.language} onValueChange={(v) => setS({ ...s, language: v as any })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ru">Русский</SelectItem>
+                  <SelectItem value="en">English</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+            <div>
+              <div className="text-sm">Stealth Engine</div>
+              <div className="text-xs text-muted-foreground">Маскировка под человеческий стиль</div>
+            </div>
+            <Switch checked={s.stealth} onCheckedChange={(v) => setS({ ...s, stealth: !!v })} />
+          </div>
+          <div className="space-y-1">
+            <Label>Дополнительные инструкции</Label>
+            <Textarea value={s.extra_instructions} onChange={(e) => setS({ ...s, extra_instructions: e.target.value })}
+              placeholder="Тон, акценты, что упомянуть или избегать"
+              className="min-h-[90px]" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Отмена</Button>
+          <Button onClick={() => onSubmit(s)} disabled={submitting}>
+            {submitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            Запустить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

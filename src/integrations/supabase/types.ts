@@ -1340,6 +1340,7 @@ export type Database = {
           project_id: string | null
           public_uuid: string
           status: string
+          template_settings: Json | null
           updated_at: string
           year: number
         }
@@ -1353,6 +1354,7 @@ export type Database = {
           project_id?: string | null
           public_uuid?: string
           status?: string
+          template_settings?: Json | null
           updated_at?: string
           year: number
         }
@@ -1366,6 +1368,7 @@ export type Database = {
           project_id?: string | null
           public_uuid?: string
           status?: string
+          template_settings?: Json | null
           updated_at?: string
           year?: number
         }
@@ -1391,6 +1394,7 @@ export type Database = {
           article_markdown: string | null
           article_meta: Json | null
           article_title: string | null
+          attempts: number
           comment: string | null
           created_at: string
           gen_error: string | null
@@ -1409,6 +1413,7 @@ export type Database = {
           article_markdown?: string | null
           article_meta?: Json | null
           article_title?: string | null
+          attempts?: number
           comment?: string | null
           created_at?: string
           gen_error?: string | null
@@ -1427,6 +1432,7 @@ export type Database = {
           article_markdown?: string | null
           article_meta?: Json | null
           article_title?: string | null
+          attempts?: number
           comment?: string | null
           created_at?: string
           gen_error?: string | null
