@@ -303,6 +303,90 @@ function NewClientDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+function EditClientDialog({ client, onClose }: { client: ClientLite; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState(client.name);
+  const [domain, setDomain] = useState(client.domain);
+  const [niche, setNiche] = useState(client.niche ?? "");
+  const [email, setEmail] = useState(client.contact_email ?? "");
+  const m = useMutation({
+    mutationFn: async () => {
+      if (name.trim().length < 2 || domain.trim().length < 3) throw new Error("Заполните название и домен");
+      const { error } = await supabase.from("content_clients").update({
+        name: name.trim(), domain: domain.trim(), niche: niche.trim() || null,
+        contact_email: email.trim() || null,
+      }).eq("id", client.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cp-clients"] });
+      qc.invalidateQueries({ queryKey: ["cp-clients-mini"] });
+      toast.success("Клиент обновлён");
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Редактировать клиента</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1"><Label>Название компании</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Домен</Label><Input value={domain} onChange={(e) => setDomain(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Ниша / тематика</Label><Textarea value={niche} onChange={(e) => setNiche(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Email клиента</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Отмена</Button>
+          <Button onClick={() => m.mutate()} disabled={m.isPending}>
+            {m.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Сохранить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteClientDialog({ client, onClose }: { client: ClientLite; onClose: () => void }) {
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: async () => {
+      // Cascade FK handles content_plans → content_topics. Articles unlink via SET NULL.
+      const { error } = await supabase.from("content_clients").delete().eq("id", client.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cp-clients"] });
+      qc.invalidateQueries({ queryKey: ["cp-plans-all"] });
+      toast.success("Клиент удалён");
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Удалить клиента?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Будут удалены клиент «{client.name}», все его планы и темы. Действие необратимо.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={m.isPending}>Отмена</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-red-500 hover:bg-red-600 text-white"
+            disabled={m.isPending}
+            onClick={(e) => { e.preventDefault(); m.mutate(); }}
+          >
+            {m.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Удалить
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialClientId?: string; onClose: () => void; onCreated: (id: string) => void }) {
   const queryClient = useQueryClient();
   const now = new Date();
