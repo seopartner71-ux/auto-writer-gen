@@ -690,6 +690,25 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
 
   const setInProgress = useMutation({
     mutationFn: async () => {
+      // Получаем план чтобы понять client_id/month/year
+      const { data: cur, error: e0 } = await supabase
+        .from("content_plans")
+        .select("id, client_id, month, year")
+        .eq("id", planId)
+        .maybeSingle();
+      if (e0) throw e0;
+      if (!cur) throw new Error("План не найден");
+      // Снимаем in_progress с других планов того же клиента за тот же месяц,
+      // чтобы не нарушить partial UNIQUE индекс.
+      const { error: e1 } = await supabase
+        .from("content_plans")
+        .update({ status: "paused" })
+        .eq("client_id", cur.client_id)
+        .eq("month", cur.month)
+        .eq("year", cur.year)
+        .eq("status", "in_progress")
+        .neq("id", planId);
+      if (e1) throw e1;
       const { error } = await supabase.from("content_plans").update({ status: "in_progress" }).eq("id", planId);
       if (error) throw error;
     },
