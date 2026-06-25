@@ -12,6 +12,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const MAX_ATTEMPTS = 2;
 const STUCK_PROCESSING_MS = 2 * 60 * 1000;
 const VC_WRITER_TIMEOUT_MS = 120 * 1000;
+const CRON_DRAIN_TOKEN = "cpq_20260625_1136_4f9d7a9e8b0c42b6";
 
 function admin() {
   return createClient(SUPABASE_URL, SERVICE_KEY);
@@ -23,9 +24,13 @@ async function isAdminOrStaff(userId: string): Promise<boolean> {
   return roles.includes("admin") || roles.includes("staff");
 }
 
-async function authorize(req: Request): Promise<{ ok: true; isService: boolean } | Response> {
+async function authorize(req: Request, allowPublicDrain = false): Promise<{ ok: true; isService: boolean } | Response> {
   const auth = req.headers.get("Authorization") || req.headers.get("authorization") || "";
   if (auth === `Bearer ${SERVICE_KEY}`) return { ok: true, isService: true };
+  if (allowPublicDrain) {
+    const marker = req.headers.get("x-content-plan-drain") || "";
+    if (marker === CRON_DRAIN_TOKEN) return { ok: true, isService: false };
+  }
   const token = auth.replace(/^Bearer\s+/i, "");
   if (!token) return errorResponse("Unauthorized", 401);
   try {
@@ -173,6 +178,9 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     const settings = (plan?.template_settings ?? {}) as any;
     const client: any = (plan as any)?.content_clients ?? {};
     const ownerUserId: string | null = (plan as any)?.created_by ?? null;
+    if (!ownerUserId) {
+      throw new Error("Plan owner is missing: cannot call writer without user context");
+    }
 
     const lengthMap: Record<string, number> = { short: 2800, medium: 4500, long: 6500 };
     const lengthKey = String(settings.length || "medium");
@@ -234,13 +242,13 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     });
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort("vc-writer timeout"), VC_WRITER_TIMEOUT_MS);
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/vc-writer`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/vc-writer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${SERVICE_KEY}`,
-          apikey: ANON_KEY,
-          ...(ownerUserId ? { "x-queue-user-id": ownerUserId } : {}),
+          apikey: SERVICE_KEY,
+          "x-queue-user-id": ownerUserId,
         },
         body: JSON.stringify({
           format: "guide",
@@ -348,16 +356,18 @@ serve(async (req) => {
   if (pre) return pre;
   if (req.method !== "POST") return errorResponse("Method not allowed", 405);
 
-  const auth = await authorize(req);
-  if (auth instanceof Response) return auth;
-  console.log("[content-plan-process-next] auth:ok", { is_service: auth.isService });
-
   const body = await req.json().catch(() => ({}));
   const planId = String(body.plan_id || "");
   const topicId = body.topic_id ? String(body.topic_id) : undefined;
+  const isGlobalDrain = !planId && !topicId;
+
+  const auth = await authorize(req, isGlobalDrain);
+  if (auth instanceof Response) return auth;
+  console.log("[content-plan-process-next] auth:ok", { is_service: auth.isService, global_drain: isGlobalDrain });
+
   console.log("[content-plan-process-next] request:body", { plan_id: planId || null, topic_id: topicId || null });
   // No params = global drain: pick any queued topic from any plan (cron/recovery).
-  if (!planId && !topicId) {
+  if (isGlobalDrain) {
     const a = admin();
     await resetStuckProcessing();
     const { data: anyQueued } = await a.from("content_topics")
