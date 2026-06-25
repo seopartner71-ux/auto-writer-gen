@@ -1053,13 +1053,14 @@ const GEN_LABEL: Record<string, { label: string; cls: string }> = {
 function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void }) {
   const qc = useQueryClient();
   const [openTopic, setOpenTopic] = useState<Topic | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState<{ topicIds?: string[] } | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState<{ topicIds?: string[]; scopeLabel?: string } | null>(null);
   const [starting, setStarting] = useState(false);
   const [retryingTopicId, setRetryingTopicId] = useState<string | null>(null);
   const [stopping, setStopping] = useState(false);
   const [deleteTopic, setDeleteTopic] = useState<Topic | null>(null);
   const [deletingTopicId, setDeletingTopicId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [scope, setScope] = useState<Tab | "all">("all");
 
   const { data, isLoading } = useQuery({
     queryKey: ["cp-writing", planId],
@@ -1082,15 +1083,28 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const plan = data?.plan as any;
   const topics = data?.topics ?? [];
   const owner = plan?.content_clients ?? plan?.projects ?? { name: "-", domain: "-", niche: "" };
-  const total = topics.length;
-  const done = topics.filter((t) => t.gen_status === "done").length;
-  const inFlight = topics.some((t) => t.gen_status === "queued" || t.gen_status === "processing");
+  const totalAll = topics.length;
+  const doneAll = topics.filter((t) => t.gen_status === "done").length;
+  const scopedTopics = scope === "all" ? topics : topics.filter((t) => t.tab === scope);
+  const total = scopedTopics.length;
+  const done = scopedTopics.filter((t) => t.gen_status === "done").length;
+  const inFlight = scopedTopics.some((t) => t.gen_status === "queued" || t.gen_status === "processing");
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const hasQueued = topics.some((t) => t.gen_status === "queued");
-  const hasProcessing = topics.some((t) => t.gen_status === "processing");
+  const hasQueued = scopedTopics.some((t) => t.gen_status === "queued");
+  const hasProcessing = scopedTopics.some((t) => t.gen_status === "processing");
   const isPaused = plan?.status === "paused";
   const canStop = hasQueued || hasProcessing;
-  const canResume = isPaused || (!inFlight && topics.some((t) => t.gen_status === "queued"));
+  const canResume = isPaused || (!inFlight && scopedTopics.some((t) => t.gen_status === "queued"));
+  const scopeLabel = scope === "all" ? "все" : (TABS.find((x) => x.id === scope)?.label ?? scope);
+  const tabCounts: Record<Tab, { total: number; done: number }> = {
+    blog: { total: 0, done: 0 }, links: { total: 0, done: 0 }, trust: { total: 0, done: 0 },
+  };
+  for (const t of topics) {
+    const k = t.tab as Tab;
+    if (!tabCounts[k]) continue;
+    tabCounts[k].total += 1;
+    if (t.gen_status === "done") tabCounts[k].done += 1;
+  }
   const isStuck = (t: Topic) => {
     const status = t.gen_status ?? "pending";
     if (status !== "queued" && status !== "processing") return false;
@@ -1118,17 +1132,21 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const stopQueue = async () => {
     setStopping(true);
     try {
-      const { error: upd } = await supabase
+      let q = supabase
         .from("content_topics")
         .update({ gen_status: "pending" })
         .eq("plan_id", planId)
         .eq("gen_status", "queued");
+      if (scope !== "all") q = q.eq("tab", scope);
+      const { error: upd } = await q;
       if (upd) throw upd;
-      const { error: planErr } = await supabase
-        .from("content_plans")
-        .update({ status: "paused" })
-        .eq("id", planId);
-      if (planErr) throw planErr;
+      if (scope === "all") {
+        const { error: planErr } = await supabase
+          .from("content_plans")
+          .update({ status: "paused" })
+          .eq("id", planId);
+        if (planErr) throw planErr;
+      }
       toast.success("Очередь остановлена. Текущая тема допишется.");
       qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
       qc.invalidateQueries({ queryKey: ["cp-plans-all"] });
