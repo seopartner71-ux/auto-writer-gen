@@ -1296,6 +1296,100 @@ export type Database = {
           },
         ]
       }
+      content_plans: {
+        Row: {
+          client_responded_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          month: number
+          project_id: string
+          public_uuid: string
+          status: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          client_responded_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          month: number
+          project_id: string
+          public_uuid?: string
+          status?: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          client_responded_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          month?: number
+          project_id?: string
+          public_uuid?: string
+          status?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_topics: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          plan_id: string
+          position: number
+          responded_at: string | null
+          status: string | null
+          tab: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          plan_id: string
+          position?: number
+          responded_at?: string | null
+          status?: string | null
+          tab: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          plan_id?: string
+          position?: number
+          responded_at?: string | null
+          status?: string | null
+          tab?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_topics_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "content_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       copilot_conversations: {
         Row: {
           created_at: string
@@ -4182,6 +4276,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_content_plan_by_uuid: { Args: { p_uuid: string }; Returns: Json }
       get_openrouter_global_health: { Args: never; Returns: Json }
       get_page_visit_daily: {
         Args: { p_days?: number; p_page: string }
@@ -4262,6 +4357,10 @@ export type Database = {
           p_reason: string
           p_user_id: string
         }
+        Returns: Json
+      }
+      submit_content_plan_response: {
+        Args: { p_responses: Json; p_uuid: string }
         Returns: Json
       }
     }
