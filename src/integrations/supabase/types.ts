@@ -4470,6 +4470,9 @@ export type Database = {
         Args: { p_responses: Json; p_uuid: string }
         Returns: Json
       }
+      tg_check_stuck_queue: { Args: never; Returns: undefined }
+      tg_notify: { Args: { _data: Json; _type: string }; Returns: undefined }
+      tg_send_daily_summary: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user" | "staff"

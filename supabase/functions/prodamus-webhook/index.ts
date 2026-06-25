@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
     // Fetch user profile and admins
     const { data: userProfile } = await supabase
       .from("profiles")
-      .select("email")
+      .select("email, full_name")
       .eq("id", userId)
       .single();
 
@@ -249,7 +249,9 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           type: "payment_received",
           data: {
+            user_id: userId,
             email: userProfile?.email || "unknown",
+            full_name: (userProfile as any)?.full_name || null,
             plan: matchedPlan.name,
             sum: paymentSum,
           },

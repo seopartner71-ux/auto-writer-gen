@@ -141,25 +141,7 @@ serve(async (req) => {
               title: "AI-бюджет: израсходовано 80%",
               message: msg,
             });
-            // Telegram alert to admin chat (best-effort, non-blocking).
-            const tgUrl = Deno.env.get("SUPABASE_URL");
-            const tgKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-            if (tgUrl && tgKey) {
-              fetch(`${tgUrl}/functions/v1/telegram-notify`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${tgKey}` },
-                body: JSON.stringify({
-                  type: "budget_warning",
-                  data: {
-                    user_id: user.id,
-                    email: user.email,
-                    cost: cost.toFixed(2),
-                    cap: cap.toFixed(2),
-                    percent: pct,
-                  },
-                }),
-              }).catch(() => {});
-            }
+            // Технический TG-алерт по AI-бюджету убран по политике уведомлений.
           }
         }
       } catch (e) {

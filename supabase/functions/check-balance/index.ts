@@ -68,31 +68,7 @@ serve(async (req) => {
               raw: d,
             };
 
-            // Send Telegram alert if balance < $2 (only for limited keys)
-            if (!isUnlimited && remaining !== null && remaining < 2) {
-              try {
-                const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-                const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-                await fetch(`${supabaseUrl}/functions/v1/telegram-notify`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${serviceKey}`,
-                  },
-                  body: JSON.stringify({
-                    type: "low_balance_alert",
-                    data: {
-                      provider: "OpenRouter",
-                      balance: `$${remaining.toFixed(2)}`,
-                      usage: `$${usage.toFixed(2)}`,
-                      limit: `$${limit!.toFixed(2)}`,
-                    },
-                  }),
-                });
-              } catch (tgErr) {
-                console.error("Failed to send low balance Telegram alert:", tgErr);
-              }
-            }
+            // Технический TG-алерт о низком балансе провайдера убран по политике уведомлений.
           } else {
             const errText = await res.text();
             console.error("OpenRouter balance check failed:", res.status, errText);
