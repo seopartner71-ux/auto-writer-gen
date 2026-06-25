@@ -42,6 +42,20 @@ const TOPIC_BADGE: Record<string, string> = {
   no: "Не подходит",
 };
 
+const TAB_BADGE_CLS: Record<Tab, string> = {
+  blog:  "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  links: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  trust: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+};
+
+interface AuthorProfileLite {
+  id: string;
+  name: string;
+  type: string | null;
+  avatar_icon: string | null;
+  description: string | null;
+}
+
 interface ClientLite { id: string; name: string; domain: string; niche: string | null }
 interface Plan {
   id: string; client_id: string | null; project_id: string | null; month: number; year: number;
