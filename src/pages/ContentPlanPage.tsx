@@ -872,6 +872,33 @@ function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submit
   onSubmit: (s: TemplateSettings) => void; submitting: boolean;
 }) {
   const [s, setS] = useState<TemplateSettings>({ ...DEFAULT_SETTINGS, ...(initial ?? {}) });
+
+  // Live authors from author_profiles (same source as /articles).
+  // Falls back to legacy persona presets if the table is empty.
+  const { data: authors = [], isLoading: authorsLoading } = useQuery({
+    queryKey: ["cp-author-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("author_profiles")
+        .select("id, name, type, avatar_icon, description")
+        .order("type", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as AuthorProfileLite[];
+    },
+  });
+
+  // On first load: if persona_id is still the legacy default and we have real authors,
+  // auto-select the first one so users don't accidentally submit with "freeform".
+  useEffect(() => {
+    if (authorsLoading) return;
+    const isLegacy = ["freeform", "agency", "inhouse", "brand_owner", "expert"].includes(s.persona_id);
+    if (isLegacy && authors.length > 0) {
+      setS((cur) => ({ ...cur, persona_id: authors[0].id }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorsLoading, authors.length]);
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
@@ -882,11 +909,27 @@ function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submit
           <div className="space-y-1">
             <Label>Автор</Label>
             <Select value={s.persona_id} onValueChange={(v) => setS({ ...s, persona_id: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder={authorsLoading ? "Загрузка авторов…" : "Выберите автора"} />
+              </SelectTrigger>
               <SelectContent>
-                {PERSONA_OPTIONS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                {authors.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    <span className="inline-flex items-center gap-2">
+                      {a.avatar_icon && <span className="text-base leading-none">{a.avatar_icon}</span>}
+                      <span>{a.name}</span>
+                      {a.type === "preset" && <span className="text-[10px] text-muted-foreground">пресет</span>}
+                    </span>
+                  </SelectItem>
+                ))}
+                {authors.length === 0 && !authorsLoading && (
+                  PERSONA_OPTIONS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)
+                )}
               </SelectContent>
             </Select>
+            {!authorsLoading && authors.length === 0 && (
+              <p className="text-[11px] text-muted-foreground">Нет сохранённых авторов — создайте их в разделе «Авторы».</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
