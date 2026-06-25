@@ -15,20 +15,51 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
       toast.error(error.message);
-    } else {
+      return;
+    }
+
+    // Closed registration: check approval status before letting the user in.
+    const userId = signInData?.user?.id;
+    if (userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("status")
+        .eq("id", userId)
+        .maybeSingle();
+      const status = (profile as any)?.status as "pending" | "active" | "blocked" | undefined;
+      if (status && status !== "active") {
+        await supabase.auth.signOut();
+        if (status === "blocked") {
+          toast.error(
+            lang === "ru"
+              ? "Ваш аккаунт заблокирован. Свяжитесь с поддержкой."
+              : "Your account is blocked. Please contact support.",
+            { duration: 8000 }
+          );
+        } else {
+          toast.info(
+            lang === "ru"
+              ? "Ваш аккаунт ожидает активации. Мы пришлём письмо, как только откроем доступ."
+              : "Your account is awaiting activation. We'll email you once access is granted.",
+            { duration: 8000 }
+          );
+        }
+        return;
+      }
+    }
+
       const isWelcome = searchParams.get("welcome") === "1";
       const wizardShown = localStorage.getItem("first_article_wizard_shown") === "true";
       navigate(isWelcome && !wizardShown ? "/welcome" : "/dashboard");
-    }
   };
 
   return (
