@@ -641,9 +641,19 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
                   <div key={topic.id} className={`rounded-md border p-3 ${topic.status ? TOPIC_COLOR[topic.status] : "border-border bg-card"}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="text-sm whitespace-pre-wrap">{topic.title}</div>
-                      {topic.status && (
-                        <Badge variant="outline" className="text-[10px] shrink-0">{TOPIC_BADGE[topic.status]}</Badge>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {topic.gen_status && GEN_MINI[topic.gen_status] && (
+                          <Badge variant="outline" className={`text-[10px] inline-flex items-center gap-1 ${GEN_MINI[topic.gen_status].cls}`}>
+                            {GEN_MINI[topic.gen_status].icon === "spin" && <Loader2 className="h-3 w-3 animate-spin" />}
+                            {GEN_MINI[topic.gen_status].icon === "ok" && <CheckCircle2 className="h-3 w-3" />}
+                            {GEN_MINI[topic.gen_status].icon === "err" && <AlertCircle className="h-3 w-3" />}
+                            {GEN_MINI[topic.gen_status].label}
+                          </Badge>
+                        )}
+                        {topic.status && (
+                          <Badge variant="outline" className="text-[10px]">{TOPIC_BADGE[topic.status]}</Badge>
+                        )}
+                      </div>
                     </div>
                     {topic.comment && (
                       <div className="mt-2 text-xs text-muted-foreground border-t border-border/40 pt-2 whitespace-pre-wrap">
