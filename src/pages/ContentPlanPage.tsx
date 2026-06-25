@@ -1090,6 +1090,14 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                 {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
                 Настроить и запустить все
               </Button>
+              {done > 0 && (
+                <ExportArticlesMenu
+                  topics={topics}
+                  domain={owner.domain}
+                  month={plan.month}
+                  year={plan.year}
+                />
+              )}
               {canStop && (
                 <Button size="sm" variant="outline" onClick={stopQueue} disabled={stopping}>
                   {stopping ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Square className="h-4 w-4 mr-1" />}
