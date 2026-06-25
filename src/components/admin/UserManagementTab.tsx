@@ -30,6 +30,7 @@ interface UserProfile {
   plan: string;
   monthly_limit: number;
   is_active: boolean;
+  status?: "pending" | "active" | "blocked";
   credits_amount: number;
   created_at: string;
   last_ip: string | null;
@@ -194,18 +195,20 @@ export function UserManagementTab() {
     onError: (e) => toast.error(e.message),
   });
 
-  const toggleActive = useMutation({
-    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+  const setUserStatus = useMutation({
+    mutationFn: async (vars: { userId: string; status: "pending" | "active" | "blocked"; reason?: string; notify?: boolean }) => {
+      const { userId, status, reason, notify = true } = vars;
       const user = profiles.find((p) => p.id === userId);
       const wasInactive = user && !user.is_active;
 
       const { error } = await supabase
         .from("profiles")
-        .update({ is_active: isActive })
+        .update({ status })
         .eq("id", userId);
       if (error) throw error;
 
-      if (isActive && wasInactive && user && user.credits_amount === 0) {
+      // Welcome credits on first activation
+      if (status === "active" && wasInactive && user && user.credits_amount === 0) {
         await supabase.rpc("admin_add_credits", {
           p_user_id: userId,
           p_amount: 10,
@@ -213,13 +216,50 @@ export function UserManagementTab() {
           p_comment: "Приветственные кредиты — добро пожаловать в СЕО-Модуль! 🎉",
         });
       }
+
+      // Notify the user by email
+      if (notify && user?.email) {
+        const loginUrl = `${window.location.origin}/login`;
+        try {
+          if (status === "active") {
+            await supabase.functions.invoke("send-transactional-email", {
+              body: {
+                templateName: "user-activation-approved",
+                recipientEmail: user.email,
+                templateData: { fullName: user.full_name || "", loginUrl },
+              },
+            });
+          } else if (status === "blocked") {
+            await supabase.functions.invoke("send-transactional-email", {
+              body: {
+                templateName: "user-activation-rejected",
+                recipientEmail: user.email,
+                templateData: { fullName: user.full_name || "", reason: reason || "" },
+              },
+            });
+          }
+        } catch (mailErr) {
+          console.warn("[admin] activation email failed", mailErr);
+        }
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
-      toast.success("Статус обновлён");
+      toast.success(
+        vars.status === "active" ? "Пользователь активирован"
+          : vars.status === "blocked" ? "Заявка отклонена"
+          : "Статус обновлён"
+      );
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
+
+  // Backwards-compatible wrapper for the Switch (active ↔ pending)
+  const toggleActive = {
+    mutate: (vars: { userId: string; isActive: boolean }) =>
+      setUserStatus.mutate({ userId: vars.userId, status: vars.isActive ? "active" : "pending" }),
+    isPending: setUserStatus.isPending,
+  };
 
   const deleteUser = useMutation({
     mutationFn: async (userId: string) => {
@@ -339,12 +379,23 @@ export function UserManagementTab() {
                       <TableCell className="font-mono text-xs">
                         <div className="flex items-center gap-1.5">
                           {p.email}
-                          {!p.is_active && (
-                            <Badge variant="outline" className="text-[10px] border-yellow-500/50 text-yellow-500 gap-1 px-1.5 py-0">
-                              <Clock className="h-2.5 w-2.5" />
-                              Ожидает
-                            </Badge>
-                          )}
+                          {(() => {
+                            const st = p.status ?? (p.is_active ? "active" : "pending");
+                            if (st === "active") return null;
+                            if (st === "blocked") {
+                              return (
+                                <Badge variant="outline" className="text-[10px] border-red-500/60 text-red-400 gap-1 px-1.5 py-0">
+                                  Заблокирован
+                                </Badge>
+                              );
+                            }
+                            return (
+                              <Badge variant="outline" className="text-[10px] border-yellow-500/50 text-yellow-500 gap-1 px-1.5 py-0">
+                                <Clock className="h-2.5 w-2.5" />
+                                Ожидает
+                              </Badge>
+                            );
+                          })()}
                           {rolesByUser.get(p.id) === "admin" && (
                             <Badge variant="outline" className="text-[10px] border-primary/60 text-primary gap-1 px-1.5 py-0">
                               <Shield className="h-2.5 w-2.5" />
@@ -388,12 +439,39 @@ export function UserManagementTab() {
                         )}
                       </TableCell>
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        <Switch
-                          checked={p.is_active}
-                          onCheckedChange={(checked) =>
-                            toggleActive.mutate({ userId: p.id, isActive: checked })
-                          }
-                        />
+                        {(p.status ?? (p.is_active ? "active" : "pending")) === "pending" ? (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-[11px]"
+                              onClick={() =>
+                                setUserStatus.mutate({ userId: p.id, status: "active" })
+                              }
+                            >
+                              Активировать
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-[11px] border-red-500/40 text-red-400 hover:bg-red-500/10"
+                              onClick={() => {
+                                const reason = window.prompt(
+                                  "Причина отказа (необязательно — отправится письмом)"
+                                ) || "";
+                                setUserStatus.mutate({ userId: p.id, status: "blocked", reason });
+                              }}
+                            >
+                              Отклонить
+                            </Button>
+                          </div>
+                        ) : (
+                          <Switch
+                            checked={p.is_active}
+                            onCheckedChange={(checked) =>
+                              toggleActive.mutate({ userId: p.id, isActive: checked })
+                            }
+                          />
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
                         {tokens.toLocaleString()}
