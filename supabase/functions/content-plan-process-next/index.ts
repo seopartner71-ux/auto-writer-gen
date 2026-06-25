@@ -137,29 +137,29 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     return { processed: false, planId: null };
   }
 
-  // Load plan + client
-  console.log("[content-plan-process-next] plan_load:start", { plan_id: claimed.plan_id, topic_id: claimed.id });
-  const { data: plan, error: planError } = await a.from("content_plans")
-    .select("id, template_settings, client_id, created_by, content_clients(name, domain, niche)")
-    .eq("id", claimed.plan_id).maybeSingle();
-  if (planError) {
-    console.error("[content-plan-process-next] plan_load:failed", { plan_id: claimed.plan_id, message: planError.message, code: (planError as any).code });
-    throw planError;
-  }
-  console.log("[content-plan-process-next] plan_load:done", { plan_id: claimed.plan_id, has_plan: !!plan, owner_user_id: (plan as any)?.created_by ?? null });
-  const settings = (plan?.template_settings ?? {}) as any;
-  const client: any = (plan as any)?.content_clients ?? {};
-  const ownerUserId: string | null = (plan as any)?.created_by ?? null;
-
-  const lengthMap: Record<string, number> = { short: 2800, medium: 4500, long: 6500 };
-  const lengthKey = String(settings.length || "medium");
-  const length = lengthMap[lengthKey] ?? 4500;
-  const persona = String(settings.persona_id || "freeform");
-  const stealth = !!settings.stealth;
-  const extra = String(settings.extra_instructions || "").slice(0, 1500);
-  const audience = [client.niche, settings.language === "en" ? "EN" : "RU", extra].filter(Boolean).join(" · ").slice(0, 1000);
-
   try {
+    // Load plan + client
+    console.log("[content-plan-process-next] plan_load:start", { plan_id: claimed.plan_id, topic_id: claimed.id });
+    const { data: plan, error: planError } = await a.from("content_plans")
+      .select("id, template_settings, client_id, created_by, content_clients(name, domain, niche)")
+      .eq("id", claimed.plan_id).maybeSingle();
+    if (planError) {
+      console.error("[content-plan-process-next] plan_load:failed", { plan_id: claimed.plan_id, message: planError.message, code: (planError as any).code });
+      throw planError;
+    }
+    console.log("[content-plan-process-next] plan_load:done", { plan_id: claimed.plan_id, has_plan: !!plan, owner_user_id: (plan as any)?.created_by ?? null });
+    const settings = (plan?.template_settings ?? {}) as any;
+    const client: any = (plan as any)?.content_clients ?? {};
+    const ownerUserId: string | null = (plan as any)?.created_by ?? null;
+
+    const lengthMap: Record<string, number> = { short: 2800, medium: 4500, long: 6500 };
+    const lengthKey = String(settings.length || "medium");
+    const length = lengthMap[lengthKey] ?? 4500;
+    const persona = String(settings.persona_id || "freeform");
+    const stealth = !!settings.stealth;
+    const extra = String(settings.extra_instructions || "").slice(0, 1500);
+    const audience = [client.niche, settings.language === "en" ? "EN" : "RU", extra].filter(Boolean).join(" · ").slice(0, 1000);
+
     console.log("[content-plan-process-next] vc_writer:start", {
       topic_id: claimed.id,
       title: claimed.title,
@@ -171,25 +171,24 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort("vc-writer timeout"), VC_WRITER_TIMEOUT_MS);
     const res = await fetch(`${SUPABASE_URL}/functions/v1/vc-writer`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SERVICE_KEY}`,
-        apikey: ANON_KEY,
-      },
-      body: JSON.stringify({
-        format: "guide",
-        topic: claimed.title,
-        audience,
-        length,
-        humanize: true,
-        fact_check: true,
-        author_persona: persona,
-        stealth,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          apikey: ANON_KEY,
+        },
+        body: JSON.stringify({
+          format: "guide",
+          topic: claimed.title,
+          audience,
+          length,
+          humanize: true,
+          fact_check: true,
+          author_persona: persona,
+          stealth,
+        }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
     console.log("[content-plan-process-next] vc_writer:response", { topic_id: claimed.id, status: res.status, ok: res.ok });
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.error || `vc-writer ${res.status}`);
