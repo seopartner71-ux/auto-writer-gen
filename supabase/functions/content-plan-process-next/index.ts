@@ -128,6 +128,28 @@ async function fireSelf(planId: string) {
   }
 }
 
+function runInBackground(task: Promise<unknown>) {
+  const guarded = task.catch((e: any) => {
+    console.error("[content-plan-process-next] background:failed", { message: String(e?.message ?? e) });
+  });
+  // @ts-ignore EdgeRuntime is available in Supabase Edge Functions
+  if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(guarded);
+  }
+}
+
+async function drainOnce(planId: string, topicId?: string) {
+  await resetStuckProcessing(planId || undefined, topicId);
+  const { processed, planId: pid } = await processOne(planId, topicId);
+
+  if (processed && !topicId && pid) {
+    await fireSelf(pid);
+  }
+
+  console.log("[content-plan-process-next] drainOnce:finish", { processed, plan_id: pid, topic_id: topicId || null });
+}
+
 async function processOne(planId: string, topicId: string | undefined): Promise<{ processed: boolean; planId: string | null }> {
   const a = admin();
   console.log("[content-plan-process-next] processOne:start", { plan_id: planId || null, topic_id: topicId || null });
@@ -218,6 +240,7 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
           "Content-Type": "application/json",
           Authorization: `Bearer ${SERVICE_KEY}`,
           apikey: ANON_KEY,
+          ...(ownerUserId ? { "x-queue-user-id": ownerUserId } : {}),
         },
         body: JSON.stringify({
           format: "guide",
@@ -300,7 +323,7 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     const msg = isAbort
       ? "Timeout: превышено время ожидания"
       : String(e?.message ?? "error").slice(0, 500);
-    const attemptsUsed = claimed.attempts ?? 0;
+    const attemptsUsed = (claimed.attempts ?? 0) + 1;
     const next = attemptsUsed < MAX_ATTEMPTS ? "queued" : "error";
     console.error("[content-plan-process-next] processOne:failed", {
       topic_id: claimed.id,
@@ -342,34 +365,12 @@ serve(async (req) => {
     if (!anyQueued?.plan_id) {
       return jsonResponse({ ok: true, processed: false, drained: true });
     }
-    const { processed: p2, planId: pid2 } = await processOne(anyQueued.plan_id, undefined);
-    if (p2 && pid2) {
-      // @ts-ignore
-      if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
-        // @ts-ignore
-        EdgeRuntime.waitUntil(fireSelf(pid2));
-      } else { await fireSelf(pid2); }
-    }
-    return jsonResponse({ ok: true, processed: p2, drained: true });
+    runInBackground(drainOnce(anyQueued.plan_id, undefined));
+    return jsonResponse({ ok: true, accepted: true, drained: true, plan_id: anyQueued.plan_id }, 202);
   }
 
-  await resetStuckProcessing(planId || undefined, topicId);
+  runInBackground(drainOnce(planId, topicId));
 
-  // Run synchronously so single-topic callers can wait. For chained calls,
-  // we immediately fire-and-forget the next one so each invocation stays short.
-  const { processed, planId: pid } = await processOne(planId, topicId);
-
-  if (processed && !topicId && pid) {
-    // Chain to next queued in the plan without blocking response.
-    // @ts-ignore EdgeRuntime is available in Supabase Edge Functions
-    if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
-      // @ts-ignore
-      EdgeRuntime.waitUntil(fireSelf(pid));
-    } else {
-      await fireSelf(pid);
-    }
-  }
-
-  console.log("[content-plan-process-next] request:finish", { processed, plan_id: pid });
-  return jsonResponse({ ok: true, processed });
+  console.log("[content-plan-process-next] request:accepted", { plan_id: planId || null, topic_id: topicId || null });
+  return jsonResponse({ ok: true, accepted: true }, 202);
 });
