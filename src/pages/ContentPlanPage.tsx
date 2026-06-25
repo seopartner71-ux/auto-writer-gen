@@ -613,16 +613,16 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
               <CardTitle className="text-lg">Написание статей — {owner.name}</CardTitle>
               <CardDescription>{owner.domain} · {String(plan.month).padStart(2, "0")}/{plan.year}</CardDescription>
             </div>
-            <Button size="sm" onClick={writeAll} disabled={bulkRunning || total === 0 || done === total}>
-              {bulkRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
-              Написать все
+            <Button size="sm" onClick={() => setSettingsOpen({})} disabled={starting || total === 0 || done === total}>
+              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
+              Настроить и запустить все
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Написано {done} из {total}</span>
+              <span>Написано {done} из {total}{inFlight ? " · в работе" : ""}</span>
               <span>{progressPct}%</span>
             </div>
             <Progress value={progressPct} className="h-2" />
@@ -633,8 +633,10 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
           ) : (
             <div className="space-y-2">
               {topics.map((t) => {
-                const gs = GEN_LABEL[t.gen_status ?? "waiting"] ?? GEN_LABEL.waiting;
+                const status = t.gen_status ?? "pending";
+                const gs = GEN_LABEL[status] ?? GEN_LABEL.pending;
                 const tabLabel = TABS.find((x) => x.id === t.tab)?.label ?? t.tab;
+                const busy = status === "queued" || status === "processing";
                 return (
                   <div key={t.id} className="rounded-md border border-border bg-card p-3 space-y-2">
                     <div className="flex items-start justify-between gap-3">
@@ -642,19 +644,22 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                         <div className="text-xs text-muted-foreground mb-0.5">{tabLabel}</div>
                         <div className="text-sm">{t.title}</div>
                       </div>
-                      <Badge variant="outline" className={`text-[10px] shrink-0 ${gs.cls}`}>{gs.label}</Badge>
+                      <Badge variant="outline" className={`text-[10px] shrink-0 inline-flex items-center gap-1 ${gs.cls}`}>
+                        {status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {gs.label}
+                      </Badge>
                     </div>
                     {t.gen_error && (
                       <div className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {t.gen_error}</div>
                     )}
                     <div className="flex flex-wrap gap-2">
-                      {t.gen_status !== "done" && (
-                        <Button size="sm" variant="outline" disabled={t.gen_status === "working" || bulkRunning} onClick={() => writeOne(t).catch((e) => toast.error(e?.message ?? "Ошибка"))}>
-                          {t.gen_status === "working" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
-                          {t.gen_status === "failed" ? "Повторить" : "Написать"}
+                      {status !== "done" && (
+                        <Button size="sm" variant="outline" disabled={busy || starting} onClick={() => setSettingsOpen({ topicIds: [t.id] })}>
+                          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
+                          {status === "error" ? "Повторить" : "Написать"}
                         </Button>
                       )}
-                      {t.gen_status === "done" && (
+                      {status === "done" && (
                         <>
                           <Button size="sm" variant="outline" onClick={() => setOpenTopic(t)}>
                             <FileText className="h-3.5 w-3.5 mr-1" /> Открыть
@@ -676,6 +681,16 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
           )}
         </CardContent>
       </Card>
+
+      {settingsOpen && (
+        <WritingSettingsDialog
+          initial={(plan?.template_settings as TemplateSettings) ?? DEFAULT_SETTINGS}
+          singleTopic={!!settingsOpen.topicIds?.length}
+          onClose={() => setSettingsOpen(null)}
+          onSubmit={(s) => startQueue(s, settingsOpen.topicIds)}
+          submitting={starting}
+        />
+      )}
 
       {openTopic && (
         <Dialog open onOpenChange={(o) => !o && setOpenTopic(null)}>
