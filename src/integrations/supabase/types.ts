@@ -621,6 +621,7 @@ export type Database = {
           cluster_id: string | null
           commercial_brief: Json | null
           content: string | null
+          content_topic_id: string | null
           created_at: string | null
           data_nuggets_coverage: number | null
           embedding: string | null
@@ -654,6 +655,7 @@ export type Database = {
           seo_score: Json | null
           serp_cluster_pipeline: boolean | null
           share_token: string | null
+          source: string
           status: string | null
           suggested_outline: Json | null
           telegraph_path: string | null
@@ -689,6 +691,7 @@ export type Database = {
           cluster_id?: string | null
           commercial_brief?: Json | null
           content?: string | null
+          content_topic_id?: string | null
           created_at?: string | null
           data_nuggets_coverage?: number | null
           embedding?: string | null
@@ -722,6 +725,7 @@ export type Database = {
           seo_score?: Json | null
           serp_cluster_pipeline?: boolean | null
           share_token?: string | null
+          source?: string
           status?: string | null
           suggested_outline?: Json | null
           telegraph_path?: string | null
@@ -757,6 +761,7 @@ export type Database = {
           cluster_id?: string | null
           commercial_brief?: Json | null
           content?: string | null
+          content_topic_id?: string | null
           created_at?: string | null
           data_nuggets_coverage?: number | null
           embedding?: string | null
@@ -790,6 +795,7 @@ export type Database = {
           seo_score?: Json | null
           serp_cluster_pipeline?: boolean | null
           share_token?: string | null
+          source?: string
           status?: string | null
           suggested_outline?: Json | null
           telegraph_path?: string | null
@@ -819,6 +825,13 @@ export type Database = {
             columns: ["cluster_id"]
             isOneToOne: false
             referencedRelation: "clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "articles_content_topic_id_fkey"
+            columns: ["content_topic_id"]
+            isOneToOne: false
+            referencedRelation: "content_topics"
             referencedColumns: ["id"]
           },
           {
@@ -1391,6 +1404,7 @@ export type Database = {
       }
       content_topics: {
         Row: {
+          article_id: string | null
           article_markdown: string | null
           article_meta: Json | null
           article_title: string | null
@@ -1410,6 +1424,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          article_id?: string | null
           article_markdown?: string | null
           article_meta?: Json | null
           article_title?: string | null
@@ -1429,6 +1444,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          article_id?: string | null
           article_markdown?: string | null
           article_meta?: Json | null
           article_title?: string | null
@@ -1448,6 +1464,27 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "content_topics_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "content_topics_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_topics_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_topics_plan_id_fkey"
             columns: ["plan_id"]
