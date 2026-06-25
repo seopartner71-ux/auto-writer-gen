@@ -27,8 +27,19 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
     return <Navigate to="/login" replace />;
   }
 
-  // Block inactive users (admins always pass)
+  // Block inactive users (admins always pass). With closed registration the
+  // `status` field carries the precise state (pending / blocked); fall back to
+  // legacy `is_active` for safety on any profile that wasn't backfilled yet.
+  const status = (profile as any)?.status as "pending" | "active" | "blocked" | undefined;
+  const isBlocked = status === "blocked";
+  const isPending = !profile?.is_active && !isBlocked;
   if (profile && !profile.is_active && role !== "admin") {
+    const title = isBlocked
+      ? (t("protected.blockedTitle") || "Доступ заблокирован")
+      : t("protected.queueTitle");
+    const intro = isBlocked
+      ? (t("protected.blockedIntro") || "Ваш аккаунт заблокирован администратором. Свяжитесь с поддержкой, чтобы уточнить причину.")
+      : (t("protected.pendingIntro") || "Ваша заявка отправлена и ожидает ручной проверки. Мы пришлём письмо, как только активируем аккаунт.");
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center space-y-6 max-w-lg px-6">
@@ -47,16 +58,14 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
             </span>
           </div>
           <h2 className="text-2xl font-black text-foreground" style={{ letterSpacing: "-0.03em" }}>
-            {t("protected.queueTitle")}
+            {title}
           </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {t("protected.queueIntro")}{" "}
-            <span className="text-primary font-semibold">{t("protected.welcomeCredits")}</span>{" "}
-            {t("protected.queueOnTest")}
-          </p>
-          <p className="text-xs text-destructive/80 leading-relaxed">
-            {t("protected.warning")}
-          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed">{intro}</p>
+          {isPending && (
+            <p className="text-xs text-muted-foreground/70 leading-relaxed">
+              {t("protected.warning")}
+            </p>
+          )}
           <div className="flex flex-col items-center gap-3 pt-2">
             <a
               href="https://t.me/sin0ptick"
@@ -68,7 +77,9 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
                 {t("protected.contactSupportTg")}
               </Button>
             </a>
-            <p className="text-[11px] text-muted-foreground/50">{t("protected.speedUp")}</p>
+            {isPending && (
+              <p className="text-[11px] text-muted-foreground/50">{t("protected.speedUp")}</p>
+            )}
           </div>
         </div>
       </div>
