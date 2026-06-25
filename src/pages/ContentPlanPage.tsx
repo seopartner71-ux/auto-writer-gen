@@ -13,8 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2, RotateCcw } from "lucide-react";
+import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2, RotateCcw, MoreVertical, Pencil, Square } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type Tab = "blog" | "links" | "trust";
 const TABS: { id: Tab; label: string }[] = [
@@ -28,6 +30,7 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   review:      { label: "На согласовании", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   responded:   { label: "Получен ответ",   cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
   in_progress: { label: "В работе",        cls: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
+  paused:      { label: "Приостановлен",   cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
   done:        { label: "Завершён",        cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
 };
 
@@ -63,7 +66,7 @@ interface AuthorProfileLite {
   description: string | null;
 }
 
-interface ClientLite { id: string; name: string; domain: string; niche: string | null }
+interface ClientLite { id: string; name: string; domain: string; niche: string | null; contact_email?: string | null }
 interface Plan {
   id: string; client_id: string | null; project_id: string | null; month: number; year: number;
   status: string; public_uuid: string; created_at: string; client_responded_at: string | null;
@@ -106,6 +109,8 @@ export default function ContentPlanPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [creatorOpen, setCreatorOpen] = useState<{ clientId?: string } | null>(null);
   const [newClientOpen, setNewClientOpen] = useState(false);
+  const [editClient, setEditClient] = useState<ClientLite | null>(null);
+  const [deleteClient, setDeleteClient] = useState<ClientLite | null>(null);
   const [writingPlanId, setWritingPlanId] = useState<string | null>(null);
 
   if (!allowed) {
@@ -130,6 +135,8 @@ export default function ContentPlanPage() {
         onCreate={(cid) => setCreatorOpen({ clientId: cid })}
         onOpenPlan={(plan) => setSelectedPlanId(plan.id)}
         onNewClient={() => setNewClientOpen(true)}
+        onEditClient={(c) => setEditClient(c)}
+        onDeleteClient={(c) => setDeleteClient(c)}
       />
       {creatorOpen && (
         <PlanCreatorDialog
@@ -139,17 +146,19 @@ export default function ContentPlanPage() {
         />
       )}
       {newClientOpen && <NewClientDialog onClose={() => setNewClientOpen(false)} />}
+      {editClient && <EditClientDialog client={editClient} onClose={() => setEditClient(null)} />}
+      {deleteClient && <DeleteClientDialog client={deleteClient} onClose={() => setDeleteClient(null)} />}
     </>
   );
 }
 
-function ClientsList({ onCreate, onOpenPlan, onNewClient }: { onCreate: (clientId: string) => void; onOpenPlan: (p: Plan) => void; onNewClient: () => void }) {
+function ClientsList({ onCreate, onOpenPlan, onNewClient, onEditClient, onDeleteClient }: { onCreate: (clientId: string) => void; onOpenPlan: (p: Plan) => void; onNewClient: () => void; onEditClient: (c: ClientLite) => void; onDeleteClient: (c: ClientLite) => void }) {
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["cp-clients"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_clients")
-        .select("id, name, domain, niche, created_at")
+        .select("id, name, domain, niche, contact_email, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ClientLite[];
@@ -206,7 +215,23 @@ function ClientsList({ onCreate, onOpenPlan, onNewClient }: { onCreate: (clientI
                       <CardTitle className="text-base truncate">{p.name}</CardTitle>
                       <CardDescription className="truncate">{p.domain}</CardDescription>
                     </div>
-                    <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-7 w-7"><MoreVertical className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEditClient(p)}>
+                            <Pencil className="h-3.5 w-3.5 mr-2" /> Редактировать
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-400 focus:text-red-400" onClick={() => onDeleteClient(p)}>
+                            <Trash2 className="h-3.5 w-3.5 mr-2" /> Удалить клиента
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-2">
@@ -275,6 +300,90 @@ function NewClientDialog({ onClose }: { onClose: () => void }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function EditClientDialog({ client, onClose }: { client: ClientLite; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState(client.name);
+  const [domain, setDomain] = useState(client.domain);
+  const [niche, setNiche] = useState(client.niche ?? "");
+  const [email, setEmail] = useState(client.contact_email ?? "");
+  const m = useMutation({
+    mutationFn: async () => {
+      if (name.trim().length < 2 || domain.trim().length < 3) throw new Error("Заполните название и домен");
+      const { error } = await supabase.from("content_clients").update({
+        name: name.trim(), domain: domain.trim(), niche: niche.trim() || null,
+        contact_email: email.trim() || null,
+      }).eq("id", client.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cp-clients"] });
+      qc.invalidateQueries({ queryKey: ["cp-clients-mini"] });
+      toast.success("Клиент обновлён");
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Редактировать клиента</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1"><Label>Название компании</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Домен</Label><Input value={domain} onChange={(e) => setDomain(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Ниша / тематика</Label><Textarea value={niche} onChange={(e) => setNiche(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Email клиента</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Отмена</Button>
+          <Button onClick={() => m.mutate()} disabled={m.isPending}>
+            {m.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Сохранить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteClientDialog({ client, onClose }: { client: ClientLite; onClose: () => void }) {
+  const qc = useQueryClient();
+  const m = useMutation({
+    mutationFn: async () => {
+      // Cascade FK handles content_plans → content_topics. Articles unlink via SET NULL.
+      const { error } = await supabase.from("content_clients").delete().eq("id", client.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cp-clients"] });
+      qc.invalidateQueries({ queryKey: ["cp-plans-all"] });
+      toast.success("Клиент удалён");
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Удалить клиента?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Будут удалены клиент «{client.name}», все его планы и темы. Действие необратимо.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={m.isPending}>Отмена</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-red-500 hover:bg-red-600 text-white"
+            disabled={m.isPending}
+            onClick={(e) => { e.preventDefault(); m.mutate(); }}
+          >
+            {m.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Удалить
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -547,6 +656,19 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
 
 function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack: () => void; onOpenWriting: (planId: string) => void }) {
   const queryClient = useQueryClient();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const deletePlan = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("content_plans").delete().eq("id", planId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cp-plans-all"] });
+      toast.success("План удалён");
+      onBack();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
   const { data, isLoading } = useQuery({
     queryKey: ["cp-plan", planId],
     queryFn: async () => {
@@ -667,6 +789,33 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
           </Tabs>
         </CardContent>
       </Card>
+
+      <div className="pt-8 flex justify-end">
+        <Button size="sm" variant="ghost" className="text-xs text-muted-foreground hover:text-red-400" onClick={() => setDeleteOpen(true)}>
+          <Trash2 className="h-3 w-3 mr-1" /> Удалить план
+        </Button>
+      </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить план?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Будут удалены план и все его темы. Действие необратимо.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePlan.isPending}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-500 hover:bg-red-600 text-white"
+              disabled={deletePlan.isPending}
+              onClick={(e) => { e.preventDefault(); deletePlan.mutate(); }}
+            >
+              {deletePlan.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -687,6 +836,9 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const [settingsOpen, setSettingsOpen] = useState<{ topicIds?: string[] } | null>(null);
   const [starting, setStarting] = useState(false);
   const [retryingTopicId, setRetryingTopicId] = useState<string | null>(null);
+  const [stopping, setStopping] = useState(false);
+  const [deleteTopic, setDeleteTopic] = useState<Topic | null>(null);
+  const [deletingTopicId, setDeletingTopicId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   const { data, isLoading } = useQuery({
@@ -714,6 +866,11 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const done = topics.filter((t) => t.gen_status === "done").length;
   const inFlight = topics.some((t) => t.gen_status === "queued" || t.gen_status === "processing");
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const hasQueued = topics.some((t) => t.gen_status === "queued");
+  const hasProcessing = topics.some((t) => t.gen_status === "processing");
+  const isPaused = plan?.status === "paused";
+  const canStop = hasQueued || hasProcessing;
+  const canResume = isPaused || (!inFlight && topics.some((t) => t.gen_status === "queued"));
   const isStuck = (t: Topic) => {
     const status = t.gen_status ?? "pending";
     if (status !== "queued" && status !== "processing") return false;
@@ -735,6 +892,49 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
     } finally {
       setStarting(false);
       setSettingsOpen(null);
+    }
+  };
+
+  const stopQueue = async () => {
+    setStopping(true);
+    try {
+      const { error: upd } = await supabase
+        .from("content_topics")
+        .update({ gen_status: "pending" })
+        .eq("plan_id", planId)
+        .eq("gen_status", "queued");
+      if (upd) throw upd;
+      const { error: planErr } = await supabase
+        .from("content_plans")
+        .update({ status: "paused" })
+        .eq("id", planId);
+      if (planErr) throw planErr;
+      toast.success("Очередь остановлена. Текущая тема допишется.");
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+      qc.invalidateQueries({ queryKey: ["cp-plans-all"] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось остановить");
+    } finally {
+      setStopping(false);
+    }
+  };
+
+  const removeTopic = async (topic: Topic, alsoArticle: boolean) => {
+    setDeletingTopicId(topic.id);
+    try {
+      if (alsoArticle && topic.article_id) {
+        const { error: artErr } = await supabase.from("articles").delete().eq("id", topic.article_id);
+        if (artErr) throw artErr;
+      }
+      const { error } = await supabase.from("content_topics").delete().eq("id", topic.id);
+      if (error) throw error;
+      toast.success("Тема удалена");
+      setDeleteTopic(null);
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось удалить");
+    } finally {
+      setDeletingTopicId(null);
     }
   };
 
@@ -763,12 +963,23 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
 
   const resumeQueue = async () => {
     try {
+      if (isPaused) {
+        await supabase.from("content_plans").update({ status: "in_progress" }).eq("id", planId);
+      }
+      // Перевести pending обратно в queued, чтобы воркер их подхватил
+      await supabase
+        .from("content_topics")
+        .update({ gen_status: "queued" })
+        .eq("plan_id", planId)
+        .eq("gen_status", "pending")
+        .eq("status", "ok");
       const { error } = await supabase.functions.invoke("content-plan-process-next", {
         body: { plan_id: planId },
       });
       if (error) throw new Error(error.message);
       toast.success("Очередь возобновлена");
       qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+      qc.invalidateQueries({ queryKey: ["cp-plans-all"] });
     } catch (e: any) {
       toast.error(e.message || "Не удалось возобновить");
     }
@@ -805,15 +1016,23 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
               <CardTitle className="text-lg">Написание статей — {owner.name}</CardTitle>
               <CardDescription>{owner.domain} · {String(plan.month).padStart(2, "0")}/{plan.year}</CardDescription>
             </div>
-            <Button size="sm" onClick={() => setSettingsOpen({})} disabled={starting || total === 0 || done === total}>
-              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
-              Настроить и запустить все
-            </Button>
-            {inFlight ? null : (done < total && topics.some((t) => (t.gen_status === "queued" || t.gen_status === "processing"))) || topics.some((t) => t.gen_status === "queued") ? (
-              <Button size="sm" variant="outline" onClick={resumeQueue}>
-                <RotateCcw className="h-4 w-4 mr-1" /> Возобновить очередь
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" onClick={() => setSettingsOpen({})} disabled={starting || total === 0 || done === total}>
+                {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
+                Настроить и запустить все
               </Button>
-            ) : null}
+              {canStop && (
+                <Button size="sm" variant="outline" onClick={stopQueue} disabled={stopping}>
+                  {stopping ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Square className="h-4 w-4 mr-1" />}
+                  Остановить
+                </Button>
+              )}
+              {!canStop && canResume && (
+                <Button size="sm" variant="outline" onClick={resumeQueue}>
+                  <RotateCcw className="h-4 w-4 mr-1" /> Возобновить
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -845,10 +1064,32 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                         </div>
                         <div className="text-sm">{t.title}</div>
                       </div>
-                      <Badge variant="outline" className={`text-[10px] shrink-0 inline-flex items-center gap-1 ${gs.cls}`}>
-                        {status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
-                        {gs.label}
-                      </Badge>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge variant="outline" className={`text-[10px] inline-flex items-center gap-1 ${gs.cls}`}>
+                          {status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {gs.label}
+                        </Badge>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                          disabled={deletingTopicId === t.id}
+                          onClick={() => {
+                            if (status === "processing") {
+                              toast.error("Нельзя удалить пока идёт написание");
+                              return;
+                            }
+                            if (status === "done") {
+                              setDeleteTopic(t);
+                              return;
+                            }
+                            // pending / queued / error → delete directly
+                            removeTopic(t, false);
+                          }}
+                        >
+                          {deletingTopicId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
                     </div>
                     {t.gen_error && (
                       <div className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {t.gen_error}</div>
@@ -918,6 +1159,29 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {deleteTopic && (
+        <AlertDialog open onOpenChange={(o) => !o && setDeleteTopic(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Удалить тему и статью?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Тема «{deleteTopic.title}» и связанная статья будут удалены. Действие необратимо.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingTopicId === deleteTopic.id}>Отмена</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-500 hover:bg-red-600 text-white"
+                disabled={deletingTopicId === deleteTopic.id}
+                onClick={(e) => { e.preventDefault(); removeTopic(deleteTopic, true); }}
+              >
+                {deletingTopicId === deleteTopic.id && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Удалить
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );
