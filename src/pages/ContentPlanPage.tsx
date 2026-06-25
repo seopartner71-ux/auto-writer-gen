@@ -13,8 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2, RotateCcw } from "lucide-react";
+import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2, RotateCcw, MoreVertical, Pencil, Square } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type Tab = "blog" | "links" | "trust";
 const TABS: { id: Tab; label: string }[] = [
@@ -28,6 +30,7 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   review:      { label: "На согласовании", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   responded:   { label: "Получен ответ",   cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
   in_progress: { label: "В работе",        cls: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
+  paused:      { label: "Приостановлен",   cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" },
   done:        { label: "Завершён",        cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
 };
 
