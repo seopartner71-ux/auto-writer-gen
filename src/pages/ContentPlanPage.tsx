@@ -75,7 +75,7 @@ export default function ContentPlanPage() {
   }
 
   if (selectedPlanId) {
-    return <PlanDetail planId={selectedPlanId} onBack={() => setSelectedPlanId(null)} />;
+    return <PlanDetail planId={selectedPlanId} onBack={() => setSelectedPlanId(null)} onOpenWriting={(id) => { setSelectedPlanId(null); setWritingPlanId(id); }} />;
   }
 
   return (
@@ -388,20 +388,20 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
   );
 }
 
-function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) {
+function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack: () => void; onOpenWriting: (planId: string) => void }) {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["cp-plan", planId],
     queryFn: async () => {
       const { data: plan, error } = await supabase
         .from("content_plans")
-        .select("id, project_id, month, year, status, public_uuid, client_responded_at, projects(name, domain)")
+        .select("id, client_id, project_id, month, year, status, public_uuid, client_responded_at, content_clients(name, domain), projects(name, domain)")
         .eq("id", planId)
         .single();
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status")
         .eq("plan_id", planId)
         .order("position");
       if (e2) throw e2;
@@ -414,7 +414,11 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
       const { error } = await supabase.from("content_plans").update({ status: "in_progress" }).eq("id", planId);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["cp-plan", planId] }); toast.success("План передан в работу"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cp-plan", planId] });
+      toast.success("План передан в работу");
+      onOpenWriting(planId);
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -423,6 +427,7 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
   }
 
   const { plan, topics } = data as any;
+  const owner = plan.content_clients ?? plan.projects ?? { name: "-", domain: "-" };
   const publicUrl = `${window.location.origin}/approval/${plan.public_uuid}`;
   const groupedTopics: Record<Tab, Topic[]> = { blog: [], links: [], trust: [] };
   for (const t of topics) groupedTopics[t.tab as Tab].push(t);
@@ -437,8 +442,8 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
         <CardHeader>
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle className="text-lg">{plan.projects?.name} — {String(plan.month).padStart(2, "0")}/{plan.year}</CardTitle>
-              <CardDescription>{plan.projects?.domain}</CardDescription>
+              <CardTitle className="text-lg">{owner.name} — {String(plan.month).padStart(2, "0")}/{plan.year}</CardTitle>
+              <CardDescription>{owner.domain}</CardDescription>
             </div>
             <Badge variant="outline" className={`text-xs ${st.cls}`}>{st.label}</Badge>
           </div>
@@ -458,6 +463,11 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
             {plan.status === "responded" && (
               <Button size="sm" onClick={() => setInProgress.mutate()}>
                 <UserCheck className="h-3.5 w-3.5 mr-1" /> Передать копирайтеру
+              </Button>
+            )}
+            {plan.status === "in_progress" && (
+              <Button size="sm" onClick={() => onOpenWriting(planId)}>
+                <FileText className="h-3.5 w-3.5 mr-1" /> Открыть написание статей
               </Button>
             )}
           </div>
@@ -490,6 +500,198 @@ function PlanDetail({ planId, onBack }: { planId: string; onBack: () => void }) 
           </Tabs>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ===================== Writing screen =====================
+
+const GEN_LABEL: Record<string, { label: string; cls: string }> = {
+  waiting: { label: "Ожидает",  cls: "bg-muted text-muted-foreground" },
+  working: { label: "В работе", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  done:    { label: "Готово",   cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  failed:  { label: "Ошибка",   cls: "bg-red-500/15 text-red-400 border-red-500/30" },
+};
+
+function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void }) {
+  const qc = useQueryClient();
+  const [openTopic, setOpenTopic] = useState<Topic | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["cp-writing", planId],
+    queryFn: async () => {
+      const { data: plan, error } = await supabase
+        .from("content_plans")
+        .select("id, client_id, month, year, status, content_clients(name, domain, niche), projects(name, domain)")
+        .eq("id", planId).single();
+      if (error) throw error;
+      const { data: topics, error: e2 } = await supabase
+        .from("content_topics")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error")
+        .eq("plan_id", planId).eq("status", "ok")
+        .order("tab").order("position");
+      if (e2) throw e2;
+      return { plan, topics: (topics ?? []) as Topic[] };
+    },
+    refetchInterval: bulkRunning ? 2500 : false,
+  });
+
+  const plan = data?.plan as any;
+  const topics = data?.topics ?? [];
+  const owner = plan?.content_clients ?? plan?.projects ?? { name: "-", domain: "-", niche: "" };
+  const total = topics.length;
+  const done = topics.filter((t) => t.gen_status === "done").length;
+  const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const writeOne = async (topic: Topic) => {
+    if (!plan) return;
+    await supabase.from("content_topics").update({ gen_status: "working", gen_error: null }).eq("id", topic.id);
+    qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    try {
+      const { data: res, error } = await supabase.functions.invoke("vc-writer", {
+        body: {
+          format: "guide",
+          topic: topic.title,
+          audience: owner.niche || "",
+          length: 5500,
+          fact_check: true,
+          humanize: true,
+        },
+      });
+      if (error) throw new Error(error.message);
+      const md: string = (res as any)?.markdown ?? "";
+      const meta = (res as any)?.meta ?? null;
+      if (!md) throw new Error("Пустой ответ от движка");
+      await supabase.from("content_topics").update({
+        gen_status: "done",
+        article_markdown: md,
+        article_title: meta?.title ?? topic.title,
+        article_meta: meta,
+        generated_at: new Date().toISOString(),
+        gen_error: null,
+      }).eq("id", topic.id);
+    } catch (e: any) {
+      await supabase.from("content_topics").update({
+        gen_status: "failed",
+        gen_error: e?.message?.slice(0, 500) ?? "Ошибка",
+      }).eq("id", topic.id);
+      throw e;
+    } finally {
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    }
+  };
+
+  const writeAll = async () => {
+    setBulkRunning(true);
+    try {
+      const pending = topics.filter((t) => t.gen_status !== "done");
+      for (const t of pending) {
+        try { await writeOne(t); } catch (e: any) { toast.error(`«${t.title}» — ${e?.message ?? "ошибка"}`); }
+      }
+      toast.success("Готово");
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
+  if (isLoading || !plan) {
+    return <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  }
+
+  return (
+    <div className="container max-w-5xl py-6 space-y-5">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-1" /> Назад</Button>
+      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="text-lg">Написание статей — {owner.name}</CardTitle>
+              <CardDescription>{owner.domain} · {String(plan.month).padStart(2, "0")}/{plan.year}</CardDescription>
+            </div>
+            <Button size="sm" onClick={writeAll} disabled={bulkRunning || total === 0 || done === total}>
+              {bulkRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+              Написать все
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Написано {done} из {total}</span>
+              <span>{progressPct}%</span>
+            </div>
+            <Progress value={progressPct} className="h-2" />
+          </div>
+
+          {total === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6">Нет согласованных тем</div>
+          ) : (
+            <div className="space-y-2">
+              {topics.map((t) => {
+                const gs = GEN_LABEL[t.gen_status ?? "waiting"] ?? GEN_LABEL.waiting;
+                const tabLabel = TABS.find((x) => x.id === t.tab)?.label ?? t.tab;
+                return (
+                  <div key={t.id} className="rounded-md border border-border bg-card p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs text-muted-foreground mb-0.5">{tabLabel}</div>
+                        <div className="text-sm">{t.title}</div>
+                      </div>
+                      <Badge variant="outline" className={`text-[10px] shrink-0 ${gs.cls}`}>{gs.label}</Badge>
+                    </div>
+                    {t.gen_error && (
+                      <div className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {t.gen_error}</div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {t.gen_status !== "done" && (
+                        <Button size="sm" variant="outline" disabled={t.gen_status === "working" || bulkRunning} onClick={() => writeOne(t).catch((e) => toast.error(e?.message ?? "Ошибка"))}>
+                          {t.gen_status === "working" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
+                          {t.gen_status === "failed" ? "Повторить" : "Написать"}
+                        </Button>
+                      )}
+                      {t.gen_status === "done" && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setOpenTopic(t)}>
+                            <FileText className="h-3.5 w-3.5 mr-1" /> Открыть
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            navigator.clipboard.writeText(t.article_markdown ?? "");
+                            toast.success("Скопировано");
+                          }}>
+                            <Copy className="h-3.5 w-3.5 mr-1" /> Скопировать
+                          </Button>
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 self-center" />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {openTopic && (
+        <Dialog open onOpenChange={(o) => !o && setOpenTopic(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{openTopic.article_title ?? openTopic.title}</DialogTitle>
+            </DialogHeader>
+            <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">{openTopic.article_markdown}</pre>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                navigator.clipboard.writeText(openTopic.article_markdown ?? "");
+                toast.success("Скопировано");
+              }}><Copy className="h-3.5 w-3.5 mr-1" /> Скопировать</Button>
+              <Button onClick={() => setOpenTopic(null)}>Закрыть</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
