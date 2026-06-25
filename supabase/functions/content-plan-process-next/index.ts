@@ -10,6 +10,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const MAX_ATTEMPTS = 2;
+const STUCK_PROCESSING_MS = 5 * 60 * 1000;
+const VC_WRITER_TIMEOUT_MS = 135 * 1000;
 
 function admin() {
   return createClient(SUPABASE_URL, SERVICE_KEY);
@@ -38,24 +40,79 @@ async function authorize(req: Request): Promise<{ ok: true; isService: boolean }
 
 async function claimNext(planId: string, topicId?: string) {
   const a = admin();
+  console.log("[content-plan-process-next] claimNext:start", { plan_id: planId || null, topic_id: topicId || null });
   // Find one queued topic
   let q = a.from("content_topics").select("id, plan_id, title, attempts").eq("gen_status", "queued").limit(1);
   if (topicId) q = q.eq("id", topicId);
   else q = q.eq("plan_id", planId).order("position");
-  const { data: rows } = await q;
+  const { data: rows, error: selectError } = await q;
+  if (selectError) {
+    console.error("[content-plan-process-next] claimNext:select_error", { message: selectError.message, code: (selectError as any).code });
+    throw selectError;
+  }
   const row = (rows ?? [])[0];
-  if (!row) return null;
+  if (!row) {
+    console.log("[content-plan-process-next] claimNext:no_queued_topic", { plan_id: planId || null, topic_id: topicId || null });
+    return null;
+  }
+  console.log("[content-plan-process-next] claimNext:found", { topic_id: row.id, plan_id: row.plan_id, attempts: row.attempts ?? 0 });
   // Mark processing
-  const { data: upd } = await a.from("content_topics")
+  const { data: upd, error: updateError } = await a.from("content_topics")
     .update({ gen_status: "processing", attempts: (row.attempts ?? 0) + 1, gen_error: null })
     .eq("id", row.id).eq("gen_status", "queued").select("id").maybeSingle();
-  if (!upd) return null; // lost race
+  if (updateError) {
+    console.error("[content-plan-process-next] claimNext:update_error", { topic_id: row.id, message: updateError.message, code: (updateError as any).code });
+    throw updateError;
+  }
+  if (!upd) {
+    console.warn("[content-plan-process-next] claimNext:lost_race", { topic_id: row.id });
+    return null;
+  }
+  console.log("[content-plan-process-next] claimNext:processing", { topic_id: row.id, attempts_next: (row.attempts ?? 0) + 1 });
   return row;
+}
+
+async function resetStuckProcessing(planId?: string, topicId?: string) {
+  const a = admin();
+  const cutoff = new Date(Date.now() - STUCK_PROCESSING_MS).toISOString();
+  console.log("[content-plan-process-next] stuck_guard:start", { plan_id: planId || null, topic_id: topicId || null, cutoff });
+
+  let toErrorQuery = a.from("content_topics")
+    .update({ gen_status: "error", gen_error: "Timeout: задача зависла в processing больше 5 минут" })
+    .eq("gen_status", "processing")
+    .lt("updated_at", cutoff)
+    .gte("attempts", MAX_ATTEMPTS);
+  if (topicId) toErrorQuery = toErrorQuery.eq("id", topicId);
+  else if (planId) toErrorQuery = toErrorQuery.eq("plan_id", planId);
+  const { data: errored, error: errorUpdateError } = await toErrorQuery.select("id, attempts");
+  if (errorUpdateError) {
+    console.error("[content-plan-process-next] stuck_guard:error_update_failed", { message: errorUpdateError.message, code: (errorUpdateError as any).code });
+  }
+
+  let toQueuedQuery = a.from("content_topics")
+    .update({ gen_status: "queued", gen_error: "Автоповтор после зависания processing" })
+    .eq("gen_status", "processing")
+    .lt("updated_at", cutoff)
+    .or(`attempts.is.null,attempts.lt.${MAX_ATTEMPTS}`);
+  if (topicId) toQueuedQuery = toQueuedQuery.eq("id", topicId);
+  else if (planId) toQueuedQuery = toQueuedQuery.eq("plan_id", planId);
+  const { data: requeued, error: requeueError } = await toQueuedQuery.select("id, attempts");
+  if (requeueError) {
+    console.error("[content-plan-process-next] stuck_guard:requeue_failed", { message: requeueError.message, code: (requeueError as any).code });
+  }
+
+  console.log("[content-plan-process-next] stuck_guard:done", {
+    requeued: (requeued ?? []).length,
+    errored: (errored ?? []).length,
+    requeued_ids: (requeued ?? []).map((x: any) => x.id),
+    errored_ids: (errored ?? []).map((x: any) => x.id),
+  });
 }
 
 async function fireSelf(planId: string) {
   // fire-and-forget chain
   try {
+    console.log("[content-plan-process-next] fireSelf:start", { plan_id: planId });
     await fetch(`${SUPABASE_URL}/functions/v1/content-plan-process-next`, {
       method: "POST",
       headers: {
@@ -65,53 +122,79 @@ async function fireSelf(planId: string) {
       },
       body: JSON.stringify({ plan_id: planId }),
     });
-  } catch (_) { /* ignore */ }
+    console.log("[content-plan-process-next] fireSelf:sent", { plan_id: planId });
+  } catch (e: any) {
+    console.error("[content-plan-process-next] fireSelf:failed", { plan_id: planId, message: String(e?.message ?? e) });
+  }
 }
 
 async function processOne(planId: string, topicId: string | undefined): Promise<{ processed: boolean; planId: string | null }> {
   const a = admin();
+  console.log("[content-plan-process-next] processOne:start", { plan_id: planId || null, topic_id: topicId || null });
   const claimed = await claimNext(planId, topicId);
-  if (!claimed) return { processed: false, planId: null };
-
-  // Load plan + client
-  const { data: plan } = await a.from("content_plans")
-    .select("id, template_settings, client_id, created_by, content_clients(name, domain, niche)")
-    .eq("id", claimed.plan_id).maybeSingle();
-  const settings = (plan?.template_settings ?? {}) as any;
-  const client: any = (plan as any)?.content_clients ?? {};
-  const ownerUserId: string | null = (plan as any)?.created_by ?? null;
-
-  const lengthMap: Record<string, number> = { short: 2800, medium: 4500, long: 6500 };
-  const lengthKey = String(settings.length || "medium");
-  const length = lengthMap[lengthKey] ?? 4500;
-  const persona = String(settings.persona_id || "freeform");
-  const stealth = !!settings.stealth;
-  const extra = String(settings.extra_instructions || "").slice(0, 1500);
-  const audience = [client.niche, settings.language === "en" ? "EN" : "RU", extra].filter(Boolean).join(" · ").slice(0, 1000);
+  if (!claimed) {
+    console.log("[content-plan-process-next] processOne:nothing_to_process", { plan_id: planId || null, topic_id: topicId || null });
+    return { processed: false, planId: null };
+  }
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/vc-writer`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SERVICE_KEY}`,
-        apikey: ANON_KEY,
-      },
-      body: JSON.stringify({
-        format: "guide",
-        topic: claimed.title,
-        audience,
-        length,
-        humanize: true,
-        fact_check: true,
-        author_persona: persona,
-        stealth,
-      }),
+    // Load plan + client
+    console.log("[content-plan-process-next] plan_load:start", { plan_id: claimed.plan_id, topic_id: claimed.id });
+    const { data: plan, error: planError } = await a.from("content_plans")
+      .select("id, template_settings, client_id, created_by, content_clients(name, domain, niche)")
+      .eq("id", claimed.plan_id).maybeSingle();
+    if (planError) {
+      console.error("[content-plan-process-next] plan_load:failed", { plan_id: claimed.plan_id, message: planError.message, code: (planError as any).code });
+      throw planError;
+    }
+    console.log("[content-plan-process-next] plan_load:done", { plan_id: claimed.plan_id, has_plan: !!plan, owner_user_id: (plan as any)?.created_by ?? null });
+    const settings = (plan?.template_settings ?? {}) as any;
+    const client: any = (plan as any)?.content_clients ?? {};
+    const ownerUserId: string | null = (plan as any)?.created_by ?? null;
+
+    const lengthMap: Record<string, number> = { short: 2800, medium: 4500, long: 6500 };
+    const lengthKey = String(settings.length || "medium");
+    const length = lengthMap[lengthKey] ?? 4500;
+    const persona = String(settings.persona_id || "freeform");
+    const stealth = !!settings.stealth;
+    const extra = String(settings.extra_instructions || "").slice(0, 1500);
+    const audience = [client.niche, settings.language === "en" ? "EN" : "RU", extra].filter(Boolean).join(" · ").slice(0, 1000);
+
+    console.log("[content-plan-process-next] vc_writer:start", {
+      topic_id: claimed.id,
+      title: claimed.title,
+      length,
+      persona,
+      stealth,
+      timeout_ms: VC_WRITER_TIMEOUT_MS,
     });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort("vc-writer timeout"), VC_WRITER_TIMEOUT_MS);
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/vc-writer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          apikey: ANON_KEY,
+        },
+        body: JSON.stringify({
+          format: "guide",
+          topic: claimed.title,
+          audience,
+          length,
+          humanize: true,
+          fact_check: true,
+          author_persona: persona,
+          stealth,
+        }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
+    console.log("[content-plan-process-next] vc_writer:response", { topic_id: claimed.id, status: res.status, ok: res.ok });
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json?.error || `vc-writer ${res.status}`);
     const md: string = String(json?.markdown ?? "");
     if (!md) throw new Error("Empty markdown");
+    console.log("[content-plan-process-next] vc_writer:markdown_ready", { topic_id: claimed.id, content_len: md.length });
 
     // Persist into central articles table so the topic is available in /articles
     // and the standard pipeline (quality, export, publish) treats it as a regular article.
@@ -154,7 +237,8 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
       console.warn("[content-plan] skipping article insert - no ownerUserId", { topic_id: claimed.id, plan_id: claimed.plan_id });
     }
 
-    await a.from("content_topics").update({
+    console.log("[content-plan-process-next] topic_update_done:start", { topic_id: claimed.id, article_id: articleId });
+    const { error: doneError } = await a.from("content_topics").update({
       gen_status: "done",
       article_markdown: md,
       article_title: json?.meta?.title ?? claimed.title,
@@ -163,25 +247,41 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
       generated_at: new Date().toISOString(),
       gen_error: null,
     }).eq("id", claimed.id);
+    if (doneError) {
+      console.error("[content-plan-process-next] topic_update_done:failed", { topic_id: claimed.id, message: doneError.message, code: (doneError as any).code });
+      throw doneError;
+    }
+    console.log("[content-plan-process-next] topic_update_done:success", { topic_id: claimed.id, article_id: articleId });
   } catch (e: any) {
     const msg = String(e?.message ?? "error").slice(0, 500);
     const next = (claimed.attempts ?? 0) + 1 < MAX_ATTEMPTS ? "queued" : "error";
-    await a.from("content_topics").update({ gen_status: next, gen_error: msg }).eq("id", claimed.id);
+    console.error("[content-plan-process-next] processOne:failed", { topic_id: claimed.id, plan_id: claimed.plan_id, next_status: next, error: msg });
+    const { error: failUpdateError } = await a.from("content_topics").update({ gen_status: next, gen_error: msg }).eq("id", claimed.id);
+    if (failUpdateError) {
+      console.error("[content-plan-process-next] processOne:fail_status_update_failed", { topic_id: claimed.id, message: failUpdateError.message, code: (failUpdateError as any).code });
+    }
   }
+  console.log("[content-plan-process-next] processOne:finish", { topic_id: claimed.id, plan_id: claimed.plan_id });
   return { processed: true, planId: claimed.plan_id };
 }
 
 serve(async (req) => {
+  console.log("[content-plan-process-next] request:start", { method: req.method });
   const pre = handlePreflight(req);
   if (pre) return pre;
   if (req.method !== "POST") return errorResponse("Method not allowed", 405);
 
   const auth = await authorize(req);
   if (auth instanceof Response) return auth;
+  console.log("[content-plan-process-next] auth:ok", { is_service: auth.isService });
 
   const body = await req.json().catch(() => ({}));
   const planId = String(body.plan_id || "");
   const topicId = body.topic_id ? String(body.topic_id) : undefined;
+  console.log("[content-plan-process-next] request:body", { plan_id: planId || null, topic_id: topicId || null });
+  if (!planId && !topicId) return errorResponse("plan_id or topic_id required", 400);
+
+  await resetStuckProcessing(planId || undefined, topicId);
 
   // Run synchronously so single-topic callers can wait. For chained calls,
   // we immediately fire-and-forget the next one so each invocation stays short.
@@ -198,5 +298,6 @@ serve(async (req) => {
     }
   }
 
+  console.log("[content-plan-process-next] request:finish", { processed, plan_id: pid });
   return jsonResponse({ ok: true, processed });
 });
