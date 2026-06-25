@@ -21,7 +21,7 @@ serve(async (req) => {
   try {
     const auth = await verifyAuth(req);
     if (auth instanceof Response) return auth;
-    const userId = (auth as any).user?.id || (auth as any).userId || (auth as any).id;
+    const userId = auth.userId;
 
     const admin = adminClient();
     const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", userId);
