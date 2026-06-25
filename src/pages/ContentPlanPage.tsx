@@ -983,6 +983,21 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const resumeQueue = async () => {
     try {
       if (isPaused) {
+        const { data: cur } = await supabase
+          .from("content_plans")
+          .select("client_id, month, year")
+          .eq("id", planId)
+          .maybeSingle();
+        if (cur) {
+          await supabase
+            .from("content_plans")
+            .update({ status: "paused" })
+            .eq("client_id", cur.client_id)
+            .eq("month", cur.month)
+            .eq("year", cur.year)
+            .eq("status", "in_progress")
+            .neq("id", planId);
+        }
         await supabase.from("content_plans").update({ status: "in_progress" }).eq("id", planId);
       }
       // Перевести pending обратно в queued, чтобы воркер их подхватил
