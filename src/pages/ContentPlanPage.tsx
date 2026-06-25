@@ -1061,6 +1061,7 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const [deletingTopicId, setDeletingTopicId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [scope, setScope] = useState<Tab | "all">("all");
+  const lastWorkerKickRef = useRef(0);
 
   const { data, isLoading } = useQuery({
     queryKey: ["cp-writing", planId],
@@ -1109,8 +1110,10 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
     const status = t.gen_status ?? "pending";
     if (status !== "queued" && status !== "processing") return false;
     const updatedAt = t.updated_at ? new Date(t.updated_at).getTime() : 0;
-    return updatedAt > 0 && nowMs - updatedAt > 10 * 60 * 1000;
+    const limit = status === "queued" ? 60 * 1000 : 2 * 60 * 1000;
+    return updatedAt > 0 && nowMs - updatedAt > limit;
   };
+  const needsWorkerKick = topics.some((t) => t.gen_status === "queued" || isStuck(t));
 
   const startQueue = async (settings: TemplateSettings, topicIds?: string[]) => {
     setStarting(true);
@@ -1242,6 +1245,18 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
     const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!needsWorkerKick) return;
+    const now = Date.now();
+    if (now - lastWorkerKickRef.current < 45_000) return;
+    lastWorkerKickRef.current = now;
+    supabase.functions.invoke("content-plan-process-next", {
+      body: { plan_id: planId },
+    }).then(({ error }) => {
+      if (!error) qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    });
+  }, [needsWorkerKick, nowMs, planId, qc]);
 
   useEffect(() => {
     const channel = supabase

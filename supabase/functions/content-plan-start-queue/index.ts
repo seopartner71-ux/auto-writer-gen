@@ -38,7 +38,7 @@ async function fireProcessNext(planId: string) {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${SERVICE_KEY}`,
-        apikey: ANON_KEY,
+        apikey: SERVICE_KEY,
       },
       body: JSON.stringify({ plan_id: planId }),
     });
@@ -69,6 +69,10 @@ serve(async (req) => {
     const { error: e1 } = await a.from("content_plans").update({ template_settings: settings }).eq("id", planId);
     if (e1) return errorResponse(`settings: ${e1.message}`, 500);
   }
+
+  // Old plans may have no owner. The writer needs a real user id for history
+  // and for the internal x-queue-user-id auth header.
+  await a.from("content_plans").update({ created_by: auth.userId }).eq("id", planId).is("created_by", null);
 
   // Mark ok-status topics as queued
   let q = a.from("content_topics").update({ gen_status: "queued", gen_error: null, attempts: 0 })
