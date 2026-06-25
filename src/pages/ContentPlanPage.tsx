@@ -784,7 +784,9 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                   <div key={t.id} className="rounded-md border border-border bg-card p-3 space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-xs text-muted-foreground mb-0.5">{tabLabel}</div>
+                        <div className="mb-1">
+                          <Badge variant="outline" className={`text-[10px] ${TAB_BADGE_CLS[t.tab as Tab]}`}>{tabLabel}</Badge>
+                        </div>
                         <div className="text-sm">{t.title}</div>
                       </div>
                       <Badge variant="outline" className={`text-[10px] shrink-0 inline-flex items-center gap-1 ${gs.cls}`}>
