@@ -75,10 +75,11 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
 
   // Load plan + client
   const { data: plan } = await a.from("content_plans")
-    .select("id, template_settings, client_id, content_clients(name, domain, niche)")
+    .select("id, template_settings, client_id, created_by, content_clients(name, domain, niche)")
     .eq("id", claimed.plan_id).maybeSingle();
   const settings = (plan?.template_settings ?? {}) as any;
   const client: any = (plan as any)?.content_clients ?? {};
+  const ownerUserId: string | null = (plan as any)?.created_by ?? null;
 
   const lengthMap: Record<string, number> = { short: 2800, medium: 4500, long: 6500 };
   const lengthKey = String(settings.length || "medium");
@@ -111,11 +112,31 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     if (!res.ok) throw new Error(json?.error || `vc-writer ${res.status}`);
     const md: string = String(json?.markdown ?? "");
     if (!md) throw new Error("Empty markdown");
+
+    // Persist into central articles table so the topic is available in /articles
+    // and the standard pipeline (quality, export, publish) treats it as a regular article.
+    let articleId: string | null = null;
+    if (ownerUserId) {
+      const lang = String(settings.language || "ru").toLowerCase() === "en" ? "en" : "ru";
+      const { data: art, error: artErr } = await a.from("articles").insert({
+        user_id: ownerUserId,
+        title: json?.meta?.title ?? claimed.title,
+        content: md,
+        status: "completed",
+        language: lang,
+        geo: lang === "ru" ? "ru" : "us",
+        source: "content_plan",
+        content_topic_id: claimed.id,
+      }).select("id").single();
+      if (!artErr) articleId = art?.id ?? null;
+    }
+
     await a.from("content_topics").update({
       gen_status: "done",
       article_markdown: md,
       article_title: json?.meta?.title ?? claimed.title,
       article_meta: json?.meta ?? null,
+      article_id: articleId,
       generated_at: new Date().toISOString(),
       gen_error: null,
     }).eq("id", claimed.id);
