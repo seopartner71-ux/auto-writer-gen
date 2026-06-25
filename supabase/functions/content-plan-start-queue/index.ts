@@ -38,7 +38,7 @@ async function fireProcessNext(planId: string) {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${SERVICE_KEY}`,
-        apikey: ANON_KEY,
+        apikey: SERVICE_KEY,
       },
       body: JSON.stringify({ plan_id: planId }),
     });
