@@ -279,6 +279,7 @@ serve(async (req) => {
   const planId = String(body.plan_id || "");
   const topicId = body.topic_id ? String(body.topic_id) : undefined;
   console.log("[content-plan-process-next] request:body", { plan_id: planId || null, topic_id: topicId || null });
+  if (!planId && !topicId) return errorResponse("plan_id or topic_id required", 400);
 
   await resetStuckProcessing(planId || undefined, topicId);
 
