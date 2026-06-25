@@ -836,6 +836,9 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const [settingsOpen, setSettingsOpen] = useState<{ topicIds?: string[] } | null>(null);
   const [starting, setStarting] = useState(false);
   const [retryingTopicId, setRetryingTopicId] = useState<string | null>(null);
+  const [stopping, setStopping] = useState(false);
+  const [deleteTopic, setDeleteTopic] = useState<Topic | null>(null);
+  const [deletingTopicId, setDeletingTopicId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   const { data, isLoading } = useQuery({
@@ -863,6 +866,11 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const done = topics.filter((t) => t.gen_status === "done").length;
   const inFlight = topics.some((t) => t.gen_status === "queued" || t.gen_status === "processing");
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const hasQueued = topics.some((t) => t.gen_status === "queued");
+  const hasProcessing = topics.some((t) => t.gen_status === "processing");
+  const isPaused = plan?.status === "paused";
+  const canStop = hasQueued || hasProcessing;
+  const canResume = isPaused || (!inFlight && topics.some((t) => t.gen_status === "queued"));
   const isStuck = (t: Topic) => {
     const status = t.gen_status ?? "pending";
     if (status !== "queued" && status !== "processing") return false;
@@ -884,6 +892,49 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
     } finally {
       setStarting(false);
       setSettingsOpen(null);
+    }
+  };
+
+  const stopQueue = async () => {
+    setStopping(true);
+    try {
+      const { error: upd } = await supabase
+        .from("content_topics")
+        .update({ gen_status: "pending" })
+        .eq("plan_id", planId)
+        .eq("gen_status", "queued");
+      if (upd) throw upd;
+      const { error: planErr } = await supabase
+        .from("content_plans")
+        .update({ status: "paused" })
+        .eq("id", planId);
+      if (planErr) throw planErr;
+      toast.success("Очередь остановлена. Текущая тема допишется.");
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+      qc.invalidateQueries({ queryKey: ["cp-plans-all"] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось остановить");
+    } finally {
+      setStopping(false);
+    }
+  };
+
+  const removeTopic = async (topic: Topic, alsoArticle: boolean) => {
+    setDeletingTopicId(topic.id);
+    try {
+      if (alsoArticle && topic.article_id) {
+        const { error: artErr } = await supabase.from("articles").delete().eq("id", topic.article_id);
+        if (artErr) throw artErr;
+      }
+      const { error } = await supabase.from("content_topics").delete().eq("id", topic.id);
+      if (error) throw error;
+      toast.success("Тема удалена");
+      setDeleteTopic(null);
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось удалить");
+    } finally {
+      setDeletingTopicId(null);
     }
   };
 
@@ -912,12 +963,23 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
 
   const resumeQueue = async () => {
     try {
+      if (isPaused) {
+        await supabase.from("content_plans").update({ status: "in_progress" }).eq("id", planId);
+      }
+      // Перевести pending обратно в queued, чтобы воркер их подхватил
+      await supabase
+        .from("content_topics")
+        .update({ gen_status: "queued" })
+        .eq("plan_id", planId)
+        .eq("gen_status", "pending")
+        .eq("status", "ok");
       const { error } = await supabase.functions.invoke("content-plan-process-next", {
         body: { plan_id: planId },
       });
       if (error) throw new Error(error.message);
       toast.success("Очередь возобновлена");
       qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+      qc.invalidateQueries({ queryKey: ["cp-plans-all"] });
     } catch (e: any) {
       toast.error(e.message || "Не удалось возобновить");
     }
@@ -954,15 +1016,23 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
               <CardTitle className="text-lg">Написание статей — {owner.name}</CardTitle>
               <CardDescription>{owner.domain} · {String(plan.month).padStart(2, "0")}/{plan.year}</CardDescription>
             </div>
-            <Button size="sm" onClick={() => setSettingsOpen({})} disabled={starting || total === 0 || done === total}>
-              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
-              Настроить и запустить все
-            </Button>
-            {inFlight ? null : (done < total && topics.some((t) => (t.gen_status === "queued" || t.gen_status === "processing"))) || topics.some((t) => t.gen_status === "queued") ? (
-              <Button size="sm" variant="outline" onClick={resumeQueue}>
-                <RotateCcw className="h-4 w-4 mr-1" /> Возобновить очередь
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" onClick={() => setSettingsOpen({})} disabled={starting || total === 0 || done === total}>
+                {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
+                Настроить и запустить все
               </Button>
-            ) : null}
+              {canStop && (
+                <Button size="sm" variant="outline" onClick={stopQueue} disabled={stopping}>
+                  {stopping ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Square className="h-4 w-4 mr-1" />}
+                  Остановить
+                </Button>
+              )}
+              {!canStop && canResume && (
+                <Button size="sm" variant="outline" onClick={resumeQueue}>
+                  <RotateCcw className="h-4 w-4 mr-1" /> Возобновить
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -994,10 +1064,32 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                         </div>
                         <div className="text-sm">{t.title}</div>
                       </div>
-                      <Badge variant="outline" className={`text-[10px] shrink-0 inline-flex items-center gap-1 ${gs.cls}`}>
-                        {status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
-                        {gs.label}
-                      </Badge>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge variant="outline" className={`text-[10px] inline-flex items-center gap-1 ${gs.cls}`}>
+                          {status === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {gs.label}
+                        </Badge>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                          disabled={deletingTopicId === t.id}
+                          onClick={() => {
+                            if (status === "processing") {
+                              toast.error("Нельзя удалить пока идёт написание");
+                              return;
+                            }
+                            if (status === "done") {
+                              setDeleteTopic(t);
+                              return;
+                            }
+                            // pending / queued / error → delete directly
+                            removeTopic(t, false);
+                          }}
+                        >
+                          {deletingTopicId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
                     </div>
                     {t.gen_error && (
                       <div className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {t.gen_error}</div>
