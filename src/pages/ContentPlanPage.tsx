@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2 } from "lucide-react";
+import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2, RotateCcw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 type Tab = "blog" | "links" | "trust";
@@ -52,7 +52,7 @@ interface Topic {
   status: string | null; comment: string | null;
   gen_status?: string | null; article_markdown?: string | null;
   article_title?: string | null; gen_error?: string | null; attempts?: number | null;
-  article_id?: string | null;
+  article_id?: string | null; updated_at?: string | null;
 }
 
 interface TemplateSettings {
@@ -544,6 +544,8 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const [openTopic, setOpenTopic] = useState<Topic | null>(null);
   const [settingsOpen, setSettingsOpen] = useState<{ topicIds?: string[] } | null>(null);
   const [starting, setStarting] = useState(false);
+  const [retryingTopicId, setRetryingTopicId] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const { data, isLoading } = useQuery({
     queryKey: ["cp-writing", planId],
@@ -555,7 +557,7 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts, article_id")
+        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts, article_id, updated_at")
         .eq("plan_id", planId).eq("status", "ok")
         .order("tab").order("position");
       if (e2) throw e2;
@@ -570,6 +572,12 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
   const done = topics.filter((t) => t.gen_status === "done").length;
   const inFlight = topics.some((t) => t.gen_status === "queued" || t.gen_status === "processing");
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const isStuck = (t: Topic) => {
+    const status = t.gen_status ?? "pending";
+    if (status !== "queued" && status !== "processing") return false;
+    const updatedAt = t.updated_at ? new Date(t.updated_at).getTime() : 0;
+    return updatedAt > 0 && nowMs - updatedAt > 10 * 60 * 1000;
+  };
 
   const startQueue = async (settings: TemplateSettings, topicIds?: string[]) => {
     setStarting(true);
@@ -587,6 +595,34 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
       setSettingsOpen(null);
     }
   };
+
+  const retryTopic = async (topic: Topic) => {
+    setRetryingTopicId(topic.id);
+    try {
+      const { error: updateError } = await supabase
+        .from("content_topics")
+        .update({ gen_status: "queued", gen_error: null })
+        .eq("id", topic.id);
+      if (updateError) throw updateError;
+
+      const { error: invokeError } = await supabase.functions.invoke("content-plan-process-next", {
+        body: { plan_id: planId, topic_id: topic.id },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+
+      toast.success("Тема повторно отправлена в очередь");
+      qc.invalidateQueries({ queryKey: ["cp-writing", planId] });
+    } catch (e: any) {
+      toast.error(e.message || "Не удалось повторить");
+    } finally {
+      setRetryingTopicId(null);
+    }
+  };
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -638,6 +674,8 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                 const gs = GEN_LABEL[status] ?? GEN_LABEL.pending;
                 const tabLabel = TABS.find((x) => x.id === t.tab)?.label ?? t.tab;
                 const busy = status === "queued" || status === "processing";
+                const stuck = isStuck(t);
+                const retrying = retryingTopicId === t.id;
                 return (
                   <div key={t.id} className="rounded-md border border-border bg-card p-3 space-y-2">
                     <div className="flex items-start justify-between gap-3">
@@ -658,6 +696,12 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                         <Button size="sm" variant="outline" disabled={busy || starting} onClick={() => setSettingsOpen({ topicIds: [t.id] })}>
                           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
                           {status === "error" ? "Повторить" : "Написать"}
+                        </Button>
+                      )}
+                      {stuck && (
+                        <Button size="sm" variant="outline" disabled={retrying || starting} onClick={() => retryTopic(t)}>
+                          {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RotateCcw className="h-3.5 w-3.5 mr-1" />}
+                          Повторить
                         </Button>
                       )}
                       {status === "done" && (
