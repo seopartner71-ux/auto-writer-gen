@@ -42,7 +42,7 @@ async function claimNext(planId: string, topicId?: string) {
   const a = admin();
   console.log("[content-plan-process-next] claimNext:start", { plan_id: planId || null, topic_id: topicId || null });
   // Find one queued topic
-  let q = a.from("content_topics").select("id, plan_id, title, attempts").eq("gen_status", "queued").limit(1);
+  let q = a.from("content_topics").select("id, plan_id, title, attempts, description").eq("gen_status", "queued").limit(1);
   if (topicId) q = q.eq("id", topicId);
   else q = q.eq("plan_id", planId).order("position");
   const { data: rows, error: selectError } = await q;
@@ -157,7 +157,13 @@ async function processOne(planId: string, topicId: string | undefined): Promise<
     const length = lengthMap[lengthKey] ?? 4500;
     const personaRaw = String(settings.persona_id || "freeform");
     const stealth = !!settings.stealth;
-    const extra = String(settings.extra_instructions || "").slice(0, 1500);
+    let extra = String(settings.extra_instructions || "").slice(0, 1500);
+    const topicDescription = String((claimed as any).description || "").trim();
+    if (topicDescription) {
+      const topicTitle = String(claimed.title || "").trim();
+      const block = `\n\nТребования к статье «${topicTitle}»: ${topicDescription}`.slice(0, 2000);
+      extra = (extra + block).slice(0, 3500);
+    }
     const audience = [client.niche, settings.language === "en" ? "EN" : "RU", extra].filter(Boolean).join(" · ").slice(0, 1000);
 
     // Load FULL author profile from author_profiles when persona_id is a UUID.

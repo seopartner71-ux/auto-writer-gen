@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Plus, Trash2, Send, Copy, Link as LinkIcon, Loader2, ArrowLeft, UserCheck, Sparkles, FileText, Play, CheckCircle2, AlertCircle, Settings2, RotateCcw, MoreVertical, Pencil, Square } from "lucide-react";
+import { Download, History, ChevronRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -74,6 +75,7 @@ interface Plan {
 interface Topic {
   id: string; plan_id: string; tab: Tab; title: string; position: number;
   status: string | null; comment: string | null;
+  description?: string | null;
   gen_status?: string | null; article_markdown?: string | null;
   article_title?: string | null; gen_error?: string | null; attempts?: number | null;
   article_id?: string | null; updated_at?: string | null;
@@ -126,7 +128,7 @@ export default function ContentPlanPage() {
   }
 
   if (selectedPlanId) {
-    return <PlanDetail planId={selectedPlanId} onBack={() => setSelectedPlanId(null)} onOpenWriting={(id) => { setSelectedPlanId(null); setWritingPlanId(id); }} />;
+    return <PlanDetail planId={selectedPlanId} onBack={() => setSelectedPlanId(null)} onOpenWriting={(id) => { setSelectedPlanId(null); setWritingPlanId(id); }} onSwitchPlan={(id) => setSelectedPlanId(id)} />;
   }
 
   return (
@@ -303,6 +305,172 @@ function NewClientDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ===================== History (other plans of the same client) =====================
+
+const MONTH_LABELS_RU = [
+  "январь", "февраль", "март", "апрель", "май", "июнь",
+  "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+];
+
+function HistorySection({ currentPlanId, clientId, onOpen }: { currentPlanId: string; clientId: string | null; onOpen: (id: string) => void }) {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["cp-history", clientId],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const { data: plans, error } = await supabase
+        .from("content_plans")
+        .select("id, month, year, status, created_at")
+        .eq("client_id", clientId!)
+        .order("year", { ascending: false })
+        .order("month", { ascending: false });
+      if (error) throw error;
+      const ids = (plans ?? []).map((p) => p.id);
+      if (!ids.length) return [];
+      const { data: topics, error: e2 } = await supabase
+        .from("content_topics")
+        .select("plan_id, gen_status")
+        .in("plan_id", ids);
+      if (e2) throw e2;
+      const totals = new Map<string, { total: number; done: number }>();
+      for (const id of ids) totals.set(id, { total: 0, done: 0 });
+      for (const t of topics ?? []) {
+        const s = totals.get(t.plan_id)!;
+        s.total += 1;
+        if (t.gen_status === "done") s.done += 1;
+      }
+      return (plans ?? []).map((p) => ({ ...p, ...totals.get(p.id)! }));
+    },
+  });
+
+  if (!clientId) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-base">История планов клиента</CardTitle>
+        </div>
+        <CardDescription>Все планы по месяцам. Активный план выделен.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+        ) : rows.length <= 1 ? (
+          <div className="text-sm text-muted-foreground py-2">Других планов у клиента пока нет.</div>
+        ) : (
+          <div className="divide-y divide-border/60 border border-border rounded-md">
+            {rows.map((r: any) => {
+              const isCurrent = r.id === currentPlanId;
+              const st = STATUS_LABEL[r.status] ?? STATUS_LABEL.awaiting;
+              const label = `${MONTH_LABELS_RU[r.month - 1] ?? r.month} ${r.year}`;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => !isCurrent && onOpen(r.id)}
+                  className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-left transition-colors ${isCurrent ? "bg-primary/5 cursor-default" : "hover:bg-muted/40"}`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm capitalize truncate">{label}</span>
+                    {isCurrent && <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">активный</Badge>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">{r.done}/{r.total} тем</span>
+                    <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
+                    {!isCurrent && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ===================== Export (txt / md / clipboard) =====================
+
+function buildExportName(domain: string, month: number, year: number, ext: "txt" | "md") {
+  const safe = (domain || "articles").toLowerCase().replace(/[^a-z0-9.-]+/g, "-").replace(/^-+|-+$/g, "") || "articles";
+  const mm = String(month).padStart(2, "0");
+  return `${safe}_${mm}-${year}.${ext}`;
+}
+
+function buildArticlesPayload(topics: Topic[], format: "txt" | "md"): string {
+  const done = topics.filter((t) => t.gen_status === "done" && (t.article_markdown ?? "").trim().length > 0);
+  if (format === "md") {
+    return done.map((t) => {
+      const title = (t.article_title || t.title || "Без названия").trim();
+      const body = (t.article_markdown ?? "").trim();
+      const stripped = body.replace(/^#\s.+\n+/, "");
+      return `# ${title}\n\n${stripped}`;
+    }).join("\n\n---\n\n");
+  }
+  // txt
+  const sep = "\n\n" + "=".repeat(60) + "\n\n";
+  return done.map((t) => {
+    const title = (t.article_title || t.title || "Без названия").trim();
+    const body = (t.article_markdown ?? "").replace(/[#*_`>]/g, "").trim();
+    return `${title}\n${"-".repeat(title.length)}\n\n${body}`;
+  }).join(sep);
+}
+
+function downloadFile(name: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function ExportArticlesMenu({ topics, domain, month, year }: { topics: Topic[]; domain: string; month: number; year: number }) {
+  const doneCount = topics.filter((t) => t.gen_status === "done" && (t.article_markdown ?? "").trim().length > 0).length;
+  const disabled = doneCount === 0;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="outline" disabled={disabled}>
+          <Download className="h-4 w-4 mr-1" /> Выгрузить все ({doneCount})
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => {
+          const payload = buildArticlesPayload(topics, "txt");
+          downloadFile(buildExportName(domain, month, year, "txt"), payload, "text/plain");
+          toast.success("Файл .txt скачан");
+        }}>
+          <FileText className="h-3.5 w-3.5 mr-2" /> Скачать всё как .txt
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => {
+          const payload = buildArticlesPayload(topics, "md");
+          downloadFile(buildExportName(domain, month, year, "md"), payload, "text/markdown");
+          toast.success("Файл .md скачан");
+        }}>
+          <FileText className="h-3.5 w-3.5 mr-2" /> Скачать всё как .md
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={async () => {
+          const payload = buildArticlesPayload(topics, "md");
+          try {
+            await navigator.clipboard.writeText(payload);
+            toast.success("Все статьи скопированы");
+          } catch {
+            toast.error("Не удалось скопировать");
+          }
+        }}>
+          <Copy className="h-3.5 w-3.5 mr-2" /> Скопировать всё
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function EditClientDialog({ client, onClose }: { client: ClientLite; onClose: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState(client.name);
@@ -466,7 +634,7 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment")
+        .select("id, plan_id, tab, title, position, status, comment, description")
         .eq("plan_id", planId!)
         .order("tab").order("position");
       if (error) throw error;
@@ -503,6 +671,16 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
     const trimmed = title.trim();
     if (!trimmed) return;
     const { error } = await supabase.from("content_topics").update({ title: trimmed }).eq("id", id);
+    if (error) toast.error(error.message);
+    refreshTopics();
+  };
+
+  const updateTopicDescription = async (id: string, description: string) => {
+    const value = description.trim();
+    const { error } = await supabase
+      .from("content_topics")
+      .update({ description: value || null })
+      .eq("id", id);
     if (error) toast.error(error.message);
     refreshTopics();
   };
@@ -612,16 +790,28 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
                   <div className="text-xs text-muted-foreground text-center py-2">Тем нет — добавьте первую ниже</div>
                 )}
                 {topicsByTab[t.id].map((topic, idx) => (
-                  <div key={topic.id} className="flex gap-2 items-start">
+                  <div key={topic.id} className="rounded-md border border-border bg-card/40 p-2 space-y-2">
+                    <div className="flex gap-2 items-start">
+                      <Textarea
+                        defaultValue={topic.title}
+                        onBlur={(e) => { if (e.target.value.trim() !== topic.title) updateTopic(topic.id, e.target.value); }}
+                        placeholder={`Тема ${idx + 1}`}
+                        className="min-h-[44px]"
+                      />
+                      <Button type="button" size="icon" variant="ghost" onClick={() => deleteTopic(topic.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <Textarea
-                      defaultValue={topic.title}
-                      onBlur={(e) => { if (e.target.value.trim() !== topic.title) updateTopic(topic.id, e.target.value); }}
-                      placeholder={`Тема ${idx + 1}`}
-                      className="min-h-[48px]"
+                      defaultValue={topic.description ?? ""}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim();
+                        const prev = (topic.description ?? "").trim();
+                        if (next !== prev) updateTopicDescription(topic.id, e.target.value);
+                      }}
+                      placeholder="Описание (необязательно): что должно быть в статье, ключевые моменты, требования клиента"
+                      className="min-h-[60px] text-xs bg-background/40"
                     />
-                    <Button type="button" size="icon" variant="ghost" onClick={() => deleteTopic(topic.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 ))}
                 <div className="flex gap-2 items-start pt-2 border-t border-border/40">
@@ -654,7 +844,7 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
   );
 }
 
-function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack: () => void; onOpenWriting: (planId: string) => void }) {
+function PlanDetail({ planId, onBack, onOpenWriting, onSwitchPlan }: { planId: string; onBack: () => void; onOpenWriting: (planId: string) => void; onSwitchPlan: (planId: string) => void }) {
   const queryClient = useQueryClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const deletePlan = useMutation({
@@ -680,7 +870,7 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment, gen_status")
+        .select("id, plan_id, tab, title, position, status, comment, description, gen_status")
         .eq("plan_id", planId)
         .order("position");
       if (e2) throw e2;
@@ -781,7 +971,12 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
                 ) : groupedTopics[t.id].map((topic) => (
                   <div key={topic.id} className={`rounded-md border p-3 ${topic.status ? TOPIC_COLOR[topic.status] : "border-border bg-card"}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm whitespace-pre-wrap">{topic.title}</div>
+                      <div className="min-w-0">
+                        <div className="text-sm whitespace-pre-wrap">{topic.title}</div>
+                        {topic.description && (
+                          <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">{topic.description}</div>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {topic.gen_status && GEN_MINI[topic.gen_status] && (
                           <Badge variant="outline" className={`text-[10px] inline-flex items-center gap-1 ${GEN_MINI[topic.gen_status].cls}`}>
@@ -808,6 +1003,12 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
           </Tabs>
         </CardContent>
       </Card>
+
+      <HistorySection
+        currentPlanId={planId}
+        clientId={plan.client_id ?? null}
+        onOpen={(id) => onSwitchPlan(id)}
+      />
 
       <div className="pt-8 flex justify-end">
         <Button size="sm" variant="ghost" className="text-xs text-muted-foreground hover:text-red-400" onClick={() => setDeleteOpen(true)}>
@@ -870,7 +1071,7 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment, gen_status, article_title, article_markdown, gen_error, attempts, article_id, updated_at")
+        .select("id, plan_id, tab, title, position, status, comment, description, gen_status, article_title, article_markdown, gen_error, attempts, article_id, updated_at")
         .eq("plan_id", planId).eq("status", "ok")
         .order("tab").order("position");
       if (e2) throw e2;
@@ -1055,6 +1256,14 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                 {starting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Settings2 className="h-4 w-4 mr-1" />}
                 Настроить и запустить все
               </Button>
+              {done > 0 && (
+                <ExportArticlesMenu
+                  topics={topics}
+                  domain={owner.domain}
+                  month={plan.month}
+                  year={plan.year}
+                />
+              )}
               {canStop && (
                 <Button size="sm" variant="outline" onClick={stopQueue} disabled={stopping}>
                   {stopping ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Square className="h-4 w-4 mr-1" />}
@@ -1097,6 +1306,9 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                           <Badge variant="outline" className={`text-[10px] ${TAB_BADGE_CLS[t.tab as Tab]}`}>{tabLabel}</Badge>
                         </div>
                         <div className="text-sm">{t.title}</div>
+                        {t.description && (
+                          <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">{t.description}</div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Badge variant="outline" className={`text-[10px] inline-flex items-center gap-1 ${gs.cls}`}>
