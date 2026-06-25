@@ -662,7 +662,10 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
                       )}
                       {status === "done" && (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => setOpenTopic(t)}>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            if (t.article_id) window.open(`/articles?edit=${t.article_id}`, "_blank");
+                            else setOpenTopic(t);
+                          }}>
                             <FileText className="h-3.5 w-3.5 mr-1" /> Открыть
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => {
