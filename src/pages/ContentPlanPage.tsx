@@ -1160,6 +1160,29 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
           </DialogContent>
         </Dialog>
       )}
+
+      {deleteTopic && (
+        <AlertDialog open onOpenChange={(o) => !o && setDeleteTopic(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Удалить тему и статью?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Тема «{deleteTopic.title}» и связанная статья будут удалены. Действие необратимо.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingTopicId === deleteTopic.id}>Отмена</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-500 hover:bg-red-600 text-white"
+                disabled={deletingTopicId === deleteTopic.id}
+                onClick={(e) => { e.preventDefault(); removeTopic(deleteTopic, true); }}
+              >
+                {deletingTopicId === deleteTopic.id && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Удалить
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
