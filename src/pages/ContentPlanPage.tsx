@@ -805,7 +805,12 @@ function PlanDetail({ planId, onBack, onOpenWriting, onSwitchPlan }: { planId: s
                 ) : groupedTopics[t.id].map((topic) => (
                   <div key={topic.id} className={`rounded-md border p-3 ${topic.status ? TOPIC_COLOR[topic.status] : "border-border bg-card"}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm whitespace-pre-wrap">{topic.title}</div>
+                      <div className="min-w-0">
+                        <div className="text-sm whitespace-pre-wrap">{topic.title}</div>
+                        {topic.description && (
+                          <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">{topic.description}</div>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {topic.gen_status && GEN_MINI[topic.gen_status] && (
                           <Badge variant="outline" className={`text-[10px] inline-flex items-center gap-1 ${GEN_MINI[topic.gen_status].cls}`}>
@@ -832,6 +837,12 @@ function PlanDetail({ planId, onBack, onOpenWriting, onSwitchPlan }: { planId: s
           </Tabs>
         </CardContent>
       </Card>
+
+      <HistorySection
+        currentPlanId={planId}
+        clientId={plan.client_id ?? null}
+        onOpen={(id) => onSwitchPlan(id)}
+      />
 
       <div className="pt-8 flex justify-end">
         <Button size="sm" variant="ghost" className="text-xs text-muted-foreground hover:text-red-400" onClick={() => setDeleteOpen(true)}>
