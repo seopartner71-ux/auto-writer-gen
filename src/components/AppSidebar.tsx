@@ -28,6 +28,7 @@ import {
   Store,
   MoreHorizontal,
   Link2,
+  ClipboardList,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -74,6 +75,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/domain-hunter": () => import("@/pages/DomainHunterPage"),
   "/rank-tracker": () => import("@/pages/RankTrackerPage"),
   "/vc-writer": () => import("@/pages/VcWriterPage"),
+  "/content-plan": () => import("@/pages/ContentPlanPage"),
 };
 
 export function AppSidebar() {
@@ -106,6 +108,7 @@ export function AppSidebar() {
     ...(isStaffOrAdmin ? [
       { title: lang === "ru" ? "Изображения" : "Images", url: "/images", icon: ImageIcon },
       { title: lang === "ru" ? "Коммерческие страницы" : "Commercial Pages", url: "/commercial", icon: Store },
+      { title: lang === "ru" ? "Контент-план" : "Content Plan", url: "/content-plan", icon: ClipboardList },
     ] : []),
   ];
   const publishItems = isFactory ? [
