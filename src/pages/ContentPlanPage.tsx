@@ -704,7 +704,7 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
       if (error) throw error;
       const { data: topics, error: e2 } = await supabase
         .from("content_topics")
-        .select("id, plan_id, tab, title, position, status, comment, gen_status")
+        .select("id, plan_id, tab, title, position, status, comment, description, gen_status")
         .eq("plan_id", planId)
         .order("position");
       if (e2) throw e2;
