@@ -1018,6 +1018,21 @@ export interface VcGenInput {
   funnelStage?: FunnelStage;
 }
 
+/**
+ * Полный авторский профиль из таблицы author_profiles. Если передан -
+ * его system_prompt/тон/примеры стиля/стоп-слова применяются ПОВЕРХ
+ * стандартных правил vc.ru. Используется content-plan и /articles,
+ * чтобы пайплайн не терял голос автора.
+ */
+export interface CustomAuthorInput {
+  name?: string;
+  systemPrompt?: string;
+  voiceTone?: string;
+  styleExamples?: string;
+  stopWords?: string[];
+  negativeInstructions?: string;
+}
+
 /** Опциональный конверсионный блок-оффер автора (нативная CTA в стиле vc.ru). */
 export interface OfferBlockInput {
   /** Стиль вставки: soft (мягко в P.S.), native (отдельный H2 в конце), leadmagnet (бесплатный обмен на контакт). */
