@@ -23,13 +23,36 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { t, lang } = useI18n();
 
+  // Check whether public registration is enabled (admin toggle in app_settings)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc("is_registration_enabled");
+        if (cancelled) return;
+        if (error) {
+          // Fail open on RPC error — admin can still disable via UI later
+          setRegistrationOpen(true);
+        } else {
+          setRegistrationOpen(data !== false);
+        }
+      } catch {
+        if (!cancelled) setRegistrationOpen(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const renderTurnstile = useCallback(() => {
     if (!turnstileRef.current || !(window as any).turnstile) return;
+    if (registrationOpen === false) return;
     // Clear previous widget
     if (widgetIdRef.current) {
       try { (window as any).turnstile.remove(widgetIdRef.current); } catch {}
@@ -46,6 +69,7 @@ export default function RegisterPage() {
   }, [lang]);
 
   useEffect(() => {
+    if (registrationOpen !== true) return;
     // Load Turnstile script if not already loaded
     if ((window as any).turnstile) {
       renderTurnstile();
@@ -61,7 +85,7 @@ export default function RegisterPage() {
         try { (window as any).turnstile?.remove(widgetIdRef.current); } catch {}
       }
     };
-  }, [renderTurnstile]);
+  }, [renderTurnstile, registrationOpen]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,8 +175,8 @@ export default function RegisterPage() {
         (window as any).turnstile.reset(widgetIdRef.current);
       }
     } else {
-      toast.success(t("auth.registerSuccess"), { duration: 8000 });
-      navigate("/login?welcome=1");
+      // Closed registration: user lands in `pending` status, admin reviews manually.
+      setSubmitted(true);
     }
   };
 
@@ -166,17 +190,57 @@ export default function RegisterPage() {
             </div>
           </div>
           <CardTitle className="text-2xl font-brand tracking-tight">СЕО-<span className="gradient-text">Модуль</span></CardTitle>
-          <CardDescription>{t("auth.registerTitle")}</CardDescription>
+          <CardDescription>
+            {submitted
+              ? (lang === "ru" ? "Заявка принята" : "Application received")
+              : registrationOpen === false
+                ? (lang === "ru" ? "Регистрация закрыта" : "Registration closed")
+                : t("auth.registerTitle")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          {submitted ? (
+            <div className="space-y-4 text-center">
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-4 py-4 text-sm text-emerald-300/90">
+                {lang === "ru"
+                  ? "Заявка отправлена. Мы свяжемся с вами после проверки — на указанный email придёт письмо об активации."
+                  : "Application sent. We'll get back to you after the review — you'll receive an activation email on the address you provided."}
+              </div>
+              <Link to="/login" className="inline-block text-sm text-primary hover:underline">
+                {lang === "ru" ? "Вернуться к входу" : "Back to login"}
+              </Link>
+            </div>
+          ) : registrationOpen === false ? (
+            <div className="space-y-4 text-center">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-amber-300/90">
+                {lang === "ru"
+                  ? "Регистрация временно закрыта. Свяжитесь с нами для получения доступа."
+                  : "Registration is temporarily closed. Contact us to request access."}
+              </div>
+              <a
+                href="https://t.me/sin0ptick"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-sm text-primary hover:underline"
+              >
+                {lang === "ru" ? "Написать в Telegram" : "Message us on Telegram"}
+              </a>
+              <div className="text-xs text-muted-foreground">
+                <Link to="/login" className="hover:text-primary">
+                  {lang === "ru" ? "У меня уже есть аккаунт" : "I already have an account"}
+                </Link>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2.5 text-[12px] leading-relaxed text-emerald-300/90">
             <div className="font-tech font-semibold mb-0.5">
-              {lang === "ru" ? "Доступ открывается автоматически за 1 минуту" : "Access opens automatically within 1 minute"}
+              {lang === "ru" ? "Доступ открывается после ручной проверки" : "Access is granted after manual review"}
             </div>
             <div className="text-emerald-300/70 text-[11px]">
               {lang === "ru"
-                ? "Без ручной модерации. 2 кредита на счет сразу после активации - хватит проверить Smart Research и сгенерировать статью."
-                : "No manual moderation. 2 credits land on your account right after activation - enough to test Smart Research and generate one article."}
+                ? "Мы рассматриваем заявки вручную и сообщаем об активации письмом на ваш email. 2 кредита на счет сразу после активации — хватит проверить Smart Research и сгенерировать статью."
+                : "We review applications manually and email you once your account is activated. 2 credits land on your account right after activation — enough to test Smart Research and generate one article."}
             </div>
           </div>
           <form onSubmit={handleRegister} className="space-y-4">
@@ -297,6 +361,8 @@ export default function RegisterPage() {
               {t("auth.login")}
             </Link>
           </div>
+          </>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -2220,6 +2220,7 @@ export type Database = {
           preferred_language: string | null
           referral_source: string | null
           registration_ip: string | null
+          status: string
           theme_preference: string | null
         }
         Insert: {
@@ -2248,6 +2249,7 @@ export type Database = {
           preferred_language?: string | null
           referral_source?: string | null
           registration_ip?: string | null
+          status?: string
           theme_preference?: string | null
         }
         Update: {
@@ -2276,6 +2278,7 @@ export type Database = {
           preferred_language?: string | null
           referral_source?: string | null
           registration_ip?: string | null
+          status?: string
           theme_preference?: string | null
         }
         Relationships: []
@@ -4204,6 +4207,7 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: undefined
       }
+      is_registration_enabled: { Args: never; Returns: boolean }
       match_project_articles: {
         Args: {
           p_exclude_id: string
