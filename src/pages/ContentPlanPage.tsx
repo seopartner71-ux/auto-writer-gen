@@ -656,6 +656,19 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
 
 function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack: () => void; onOpenWriting: (planId: string) => void }) {
   const queryClient = useQueryClient();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const deletePlan = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("content_plans").delete().eq("id", planId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cp-plans-all"] });
+      toast.success("План удалён");
+      onBack();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
   const { data, isLoading } = useQuery({
     queryKey: ["cp-plan", planId],
     queryFn: async () => {
@@ -776,6 +789,33 @@ function PlanDetail({ planId, onBack, onOpenWriting }: { planId: string; onBack:
           </Tabs>
         </CardContent>
       </Card>
+
+      <div className="pt-8 flex justify-end">
+        <Button size="sm" variant="ghost" className="text-xs text-muted-foreground hover:text-red-400" onClick={() => setDeleteOpen(true)}>
+          <Trash2 className="h-3 w-3 mr-1" /> Удалить план
+        </Button>
+      </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить план?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Будут удалены план и все его темы. Действие необратимо.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePlan.isPending}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-500 hover:bg-red-600 text-white"
+              disabled={deletePlan.isPending}
+              onClick={(e) => { e.preventDefault(); deletePlan.mutate(); }}
+            >
+              {deletePlan.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
