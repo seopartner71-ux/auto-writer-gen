@@ -8,6 +8,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+function nowMsk(): string {
+  return new Date().toLocaleString('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function esc(s: unknown): string {
+  return String(s ?? '-')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -37,58 +52,143 @@ serve(async (req) => {
     }
 
     const chatId = setting.value;
+    const d = data || {};
+    const ts = nowMsk();
     let text = '';
 
-    if (type === 'new_registration') {
-      const { email, full_name } = data;
-      text = `🆕 <b>Новый юзер ждет апрува в СЕО-Модуле!</b>\n\n` +
-        `👤 Имя: ${full_name || 'Не указано'}\n` +
-        `📧 Email: ${email}\n` +
-        `⏳ Статус: Ожидает активации\n` +
-        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
-    } else if (type === 'new_support_ticket') {
-      const { email, subject, message } = data;
-      text = `🎫 <b>Новый запрос в поддержку</b>\n\n` +
-        `📧 От: ${email || 'Не указано'}\n` +
-        `📋 Тема: ${subject}\n` +
-        `💬 ${(message || '').substring(0, 500)}\n` +
-        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
-    } else if (type === 'support_user_reply') {
-      const { email, subject, message } = data;
-      text = `💬 <b>Ответ пользователя в тикете</b>\n\n` +
-        `📧 От: ${email || 'Не указано'}\n` +
-        `📋 Тема: ${subject}\n` +
-        `💬 ${(message || '').substring(0, 500)}\n` +
-        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
-    } else if (type === 'low_balance_alert') {
-      const { provider, balance, usage, limit } = data;
-      text = `⚠️ <b>Низкий баланс ${provider}!</b>\n\n` +
-        `💰 Остаток: ${balance}\n` +
-        `📊 Использовано: ${usage}\n` +
-        `🔒 Лимит: ${limit}\n` +
-        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
-    } else if (type === 'payment_received') {
-      const { email, plan, sum } = data;
-      text = `💰 <b>Новая оплата!</b>\n\n` +
-        `📧 Email: ${email}\n` +
-        `📦 Тариф: ${plan}\n` +
-        `💵 Сумма: ${sum} ₽\n` +
-        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
-    } else if (type === 'openrouter_cascade_failed') {
-      const { label, status_402, last_error } = data;
-      text = `🚨 <b>OpenRouter cascade failed</b>\n\n` +
-        `📍 Этап: <code>${label || '-'}</code>\n` +
-        `💳 Был 402 (нет средств): ${status_402 ? 'да' : 'нет'}\n` +
-        `⚠️ Последняя ошибка: <code>${String(last_error || '-').slice(0, 200)}</code>\n` +
-        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}\n\n` +
-        `Проверь баланс OpenRouter и Lovable AI Gateway.`;
-    } else if (type === 'commercial_quality_alert' || type === 'quality_alert') {
-      const { text: msg } = data || {};
-      text = `📉 <b>Алерт качества генерации</b>\n\n` +
-        `${String(msg || '').slice(0, 1500)}\n\n` +
-        `📅 ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}`;
-    } else {
-      text = `ℹ️ ${type}: ${JSON.stringify(data)}`;
+    switch (type) {
+      case 'article_done': {
+        text =
+          `✅ <b>Написана статья</b>\n\n` +
+          `👤 ${esc(d.user_name || d.email)}\n` +
+          `📝 ${esc(d.title)}\n` +
+          `🌐 ${esc(d.domain)}\n` +
+          `📂 Источник: ${esc(d.source)}\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'new_registration': {
+        text =
+          `🆕 <b>Новая заявка на доступ</b>\n\n` +
+          `👤 ${esc(d.full_name)}\n` +
+          `📧 ${esc(d.email)}\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'user_activated': {
+        text =
+          `✅ <b>Пользователь активирован</b>\n\n` +
+          `👤 ${esc(d.full_name)}\n` +
+          `📧 ${esc(d.email)}\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'payment_received': {
+        let userName = d.full_name as string | undefined;
+        if (!userName && d.email) {
+          const { data: p } = await supabase
+            .from('profiles').select('full_name').eq('email', d.email).maybeSingle();
+          userName = p?.full_name || undefined;
+        }
+        text =
+          `💳 <b>Оплата тарифа</b>\n\n` +
+          `👤 ${esc(userName || d.email)}\n` +
+          `📧 ${esc(d.email)}\n` +
+          `💰 Тариф: ${esc(d.plan)}\n` +
+          `💵 Сумма: ${esc(d.sum)} руб.\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'low_credits': {
+        text =
+          `⚠️ <b>Мало кредитов</b>\n\n` +
+          `👤 ${esc(d.full_name || d.email)}\n` +
+          `📧 ${esc(d.email)}\n` +
+          `💳 Остаток: ${esc(d.balance)} кредитов\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'no_credits': {
+        text =
+          `🚨 <b>Кредиты закончились</b>\n\n` +
+          `👤 ${esc(d.full_name || d.email)}\n` +
+          `📧 ${esc(d.email)}\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'article_error': {
+        text =
+          `❌ <b>Ошибка написания</b>\n\n` +
+          `👤 ${esc(d.user_name || d.email)}\n` +
+          `📝 ${esc(d.title)}\n` +
+          `⚠️ ${esc(String(d.error || '').slice(0, 300))}\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'plan_responded': {
+        text =
+          `✅ <b>Клиент согласовал темы</b>\n\n` +
+          `🏢 Клиент: ${esc(d.client_name)}\n` +
+          `🌐 Сайт: ${esc(d.domain)}\n` +
+          `📅 План: ${esc(d.month)}/${esc(d.year)}\n` +
+          `✅ Согласовано: ${esc(d.ok ?? 0)}\n` +
+          `🔄 На доработке: ${esc(d.rev ?? 0)}\n` +
+          `❌ Отклонено: ${esc(d.no ?? 0)}\n` +
+          `🕐 ${ts}\n\n` +
+          `👉 Можно запускать написание статей`;
+        break;
+      }
+      case 'stuck_queue': {
+        const mins = Math.round(Number(d.minutes ?? 0));
+        text =
+          `🚨 <b>Зависшая очередь</b>\n\n` +
+          `📝 Тема: ${esc(d.title)}\n` +
+          `🏢 Клиент: ${esc(d.client_name)}\n` +
+          `⏱ Висит: ${mins} минут\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'daily_summary': {
+        const dateStr = new Date().toLocaleDateString('ru-RU', {
+          timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric',
+        });
+        text =
+          `📊 <b>Сводка за ${dateStr}</b>\n\n` +
+          `✅ Написано статей: ${esc(d.articles_today ?? 0)}\n` +
+          `👥 Новых заявок: ${esc(d.new_pending ?? 0)}\n` +
+          `✅ Активировано пользователей: ${esc(d.activated ?? 0)}\n` +
+          `💳 Потрачено кредитов: ${esc(d.credits_spent ?? 0)}\n` +
+          `💰 Оплат тарифов: ${esc(d.payments_count ?? 0)} на ${esc(d.payments_sum ?? 0)} руб.\n` +
+          `❌ Ошибок написания: ${esc(d.errors ?? 0)}\n\n` +
+          `📈 Всего активных пользователей: ${esc(d.total_active ?? 0)}\n` +
+          `📝 Всего написано статей: ${esc(d.total_articles ?? 0)}`;
+        break;
+      }
+      // Поддержка — не технический алерт, оставляем доступным.
+      case 'new_support_ticket': {
+        text =
+          `🎫 <b>Новый запрос в поддержку</b>\n\n` +
+          `📧 От: ${esc(d.email)}\n` +
+          `📋 Тема: ${esc(d.subject)}\n` +
+          `💬 ${esc(String(d.message || '').slice(0, 500))}\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      case 'support_user_reply': {
+        text =
+          `💬 <b>Ответ пользователя в тикете</b>\n\n` +
+          `📧 От: ${esc(d.email)}\n` +
+          `📋 Тема: ${esc(d.subject)}\n` +
+          `💬 ${esc(String(d.message || '').slice(0, 500))}\n` +
+          `🕐 ${ts}`;
+        break;
+      }
+      default: {
+        // Неизвестный/устаревший тип — игнорируем, не шлём в чат.
+        return new Response(JSON.stringify({ success: true, ignored: type }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     const response = await fetch(`${GATEWAY_URL}/sendMessage`, {
