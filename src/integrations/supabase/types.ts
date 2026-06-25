@@ -1411,6 +1411,7 @@ export type Database = {
           attempts: number
           comment: string | null
           created_at: string
+          description: string | null
           gen_error: string | null
           gen_status: string
           generated_at: string | null
@@ -1431,6 +1432,7 @@ export type Database = {
           attempts?: number
           comment?: string | null
           created_at?: string
+          description?: string | null
           gen_error?: string | null
           gen_status?: string
           generated_at?: string | null
@@ -1451,6 +1453,7 @@ export type Database = {
           attempts?: number
           comment?: string | null
           created_at?: string
+          description?: string | null
           gen_error?: string | null
           gen_status?: string
           generated_at?: string | null
