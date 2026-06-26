@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { LandingNav } from "@/components/landing/LandingNav";
+import { AnnouncementBar } from "@/components/landing/AnnouncementBar";
 import { SectionHero } from "@/components/landing/SectionHero";
 import { SectionFaq } from "@/components/landing/SectionFaq";
 import { LandingFooter } from "@/components/landing/LandingFooter";
@@ -115,6 +116,7 @@ export default function Index() {
 
   return (
     <div className="landing-shell min-h-screen bg-background text-foreground relative">
+      <AnnouncementBar />
       <div className="relative z-[3]">
         <LandingNav />
       </div>
