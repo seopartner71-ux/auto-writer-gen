@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+
 import { ArrowRight, Sparkles, Shield, PlayCircle } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function SectionHero() {
-  const navigate = useNavigate();
   const { t, lang } = useI18n();
   const [aiPercent, setAiPercent] = useState(98);
   const [phase, setPhase] = useState<"dropping" | "done">("dropping");

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+
 import { Check, X, Star, Radar, Zap, Crown, Sparkles } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSubscriptionPlansRealtime } from "@/shared/hooks/useSubscriptionPlansRealtime";
 
 export function LandingPricing() {
-  const navigate = useNavigate();
   const { t, lang } = useI18n();
   const isEn = lang === "en";
   const [yearly, setYearly] = useState(false);

@@ -1,10 +1,9 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+
 import { ArrowRight, ShieldCheck, Zap, CreditCard } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function SectionFinalCta() {
-  const navigate = useNavigate();
   const { lang } = useI18n();
   const isRu = lang === "ru";
 
