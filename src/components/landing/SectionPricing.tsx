@@ -224,7 +224,7 @@ export function SectionPricing() {
                         ? "bg-primary text-primary-foreground hover:bg-primary/90"
                         : "border border-border bg-transparent text-foreground hover:bg-accent/50"
                     } inline-flex items-center justify-center`}>
-                    {t("landing.contactSupport") /* fallback */ || plan.cta}
+                    {isEn ? "Contact Support" : "Написать в поддержку"}
                   </a>
                 </div>
               </motion.div>
