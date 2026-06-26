@@ -1,9 +1,7 @@
-import { useNavigate } from "react-router-dom";
 import { Hexagon, Globe } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 
 export function LandingNav() {
-  const navigate = useNavigate();
   const { lang, setLang, t } = useI18n();
 
   const scrollTo = (id: string) => {
@@ -17,7 +15,7 @@ export function LandingNav() {
       style={{ top: "var(--announcement-h, 0px)" }}
     >
       <div className="container mx-auto flex items-center justify-between px-3 sm:px-4 h-14">
-        <div className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0" onClick={() => navigate("/")}>
+        <div className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0" onClick={() => { window.location.href = "/"; }}>
           <Hexagon className="h-5 w-5 text-primary" />
           <span className="text-base sm:text-xl font-brand tracking-tight whitespace-nowrap">{lang === "ru" ? <>СЕО-<span className="gradient-text">Модуль</span></> : <>SEO-<span className="gradient-text">Module</span></>}</span>
         </div>
