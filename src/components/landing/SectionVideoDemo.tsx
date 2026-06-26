@@ -451,10 +451,10 @@ export function SectionVideoDemo() {
               size="lg"
               className="h-14 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 transition-colors relative"
             >
-            <Link to="/register">
-                {isEn ? "Create your first article for free" : "Создать первую статью бесплатно"}
+              <a href="https://t.me/sin0ptick" target="_blank" rel="noopener noreferrer">
+                {isEn ? "Contact Support" : "Написать в поддержку"}
                 <span className="ml-1">-&gt;</span>
-              </Link>
+              </a>
             </Button>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">

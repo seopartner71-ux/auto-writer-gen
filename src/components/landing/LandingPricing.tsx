@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+
 import { Check, X, Star, Radar, Zap, Crown, Sparkles } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSubscriptionPlansRealtime } from "@/shared/hooks/useSubscriptionPlansRealtime";
 
 export function LandingPricing() {
-  const navigate = useNavigate();
   const { t, lang } = useI18n();
   const isEn = lang === "en";
   const [yearly, setYearly] = useState(false);
@@ -247,16 +246,18 @@ export function LandingPricing() {
                   )}
                 </ul>
 
-                <button
-                  onClick={() => navigate("/register")}
+                <a
+                  href="https://t.me/sin0ptick"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className={`w-full py-3.5 rounded-xl text-sm font-tech font-semibold transition-all ${
                     plan.popular
                       ? "bg-gradient-to-r from-primary to-[#3b82f6] text-white hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
                       : "border border-white/[0.1] bg-white/[0.03] text-foreground hover:bg-white/[0.06]"
-                  }`}
+                  } inline-flex items-center justify-center`}
                 >
-                  {plan.cta}
-                </button>
+                  {isEn ? "Contact Support" : "Написать в поддержку"}
+                </a>
               </motion.div>
             );
           })}

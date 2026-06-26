@@ -305,12 +305,17 @@ export function LandingSandbox() {
                           : <>Регистрация за 30 секунд - и СЕО-Модуль допишет полную статью на 2500+ слов с конкурентным анализом, fact-check и Stealth Engine. <span className="text-emerald-400 font-medium">3 кредита бесплатно.</span></>}
                       </div>
                     </div>
-                    <Link to="/register" className="w-full md:w-auto">
+                    <a
+                      href="https://t.me/sin0ptick"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full md:w-auto"
+                    >
                       <Button size="lg" className="w-full md:w-auto whitespace-nowrap shadow-lg shadow-primary/20">
-                        {isEn ? "Finish for free" : "Дописать бесплатно"}
+                        {isEn ? "Contact Support" : "Написать в поддержку"}
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
-                    </Link>
+                    </a>
                   </div>
                 </div>
               </motion.div>
