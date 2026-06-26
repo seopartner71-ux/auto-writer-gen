@@ -12,7 +12,10 @@ export function LandingNav() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#050505]/80 backdrop-blur-xl">
+    <nav
+      className="fixed left-0 right-0 z-50 border-b border-white/[0.06] bg-[#050505]/80 backdrop-blur-xl"
+      style={{ top: "var(--announcement-h, 0px)" }}
+    >
       <div className="container mx-auto flex items-center justify-between px-3 sm:px-4 h-14">
         <div className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0" onClick={() => navigate("/")}>
           <Hexagon className="h-5 w-5 text-primary" />
@@ -61,18 +64,14 @@ export function LandingNav() {
             {lang}
           </button>
 
-          <button
-            onClick={() => navigate("/login")}
-            className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-2 sm:px-3 py-1.5 whitespace-nowrap"
-          >
-            {t("auth.login")}
-          </button>
-          <button
-            onClick={() => navigate("/register")}
+          <a
+            href="https://t.me/sin0ptick"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-xs sm:text-sm font-semibold rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] px-3 sm:px-5 py-1.5 text-white hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all whitespace-nowrap"
           >
-            {t("landing.getStarted")}
-          </button>
+            {lang === "ru" ? "Написать в поддержку" : "Contact Support"}
+          </a>
         </div>
       </div>
     </nav>
