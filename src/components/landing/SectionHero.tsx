@@ -68,13 +68,16 @@ export function SectionHero() {
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.35 }}
               className="mt-10 flex flex-wrap gap-4 justify-center lg:justify-start">
-              <button onClick={() => navigate("/register")}
+              <a
+                href="https://t.me/sin0ptick"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-4 text-sm font-tech font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90">
                 <span className="flex items-center gap-2">
-                  {t("lp.cta")}
+                  {lang === "ru" ? "Написать в поддержку" : "Contact Support"}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
-              </button>
+              </a>
               <button
                 onClick={() => {
                   const el = document.getElementById("video-demo");
