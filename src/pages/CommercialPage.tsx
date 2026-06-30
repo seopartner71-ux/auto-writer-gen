@@ -545,7 +545,7 @@ export default function CommercialPage() {
       .from("articles")
       .select("id, title, page_type, updated_at")
       .eq("user_id", profile.id)
-      .not("page_type", "is", null)
+      .eq("source", "commercial")
       .order("updated_at", { ascending: false })
       .limit(20);
     setHistory((data as any) || []);
@@ -619,8 +619,8 @@ export default function CommercialPage() {
       const userId = authData.user?.id || profile?.id;
       if (!userId) throw new Error("Не удалось определить пользователя");
 
-    const titleMatch = fullHtml.match(/<h1[^>]*>(.*?)<\/h1>/i);
-    const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "") : `${selectedType?.title}: ${brief.keyword}`;
+      const titleMatch = fullHtml.match(/<h1[^>]*>(.*?)<\/h1>/i);
+      const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "") : `${selectedType?.title}: ${brief.keyword}`;
       const payload = {
         user_id: userId,
         title,
