@@ -441,7 +441,12 @@ async function qualityRetry(opts: {
   if (lsiLow) issues.push(`органично вплети недостающие LSI-термины: ${lsi.missing.slice(0, 10).join(", ")}`);
 
   const sys = `${opts.buildPromptArgs.system}\n\nЭто РЕРАЙТ. Текущий вариант нарушает требования:\n- ${issues.join("\n- ")}\nИсправь только эти проблемы, сохрани структуру и смысл. Верни чистый HTML.`;
-  const usr = `${opts.buildPromptArgs.user}\n\nТЕКУЩИЙ ВАРИАНТ (исправь):\n${opts.html}`;
+  const narrativeMatch = opts.buildPromptArgs.user.match(/\n(КРИТИЧЕСКИ ВАЖНО: пиши[\s\S]*)$/);
+  const userWithoutNarrative = narrativeMatch?.index !== undefined
+    ? opts.buildPromptArgs.user.slice(0, narrativeMatch.index).trimEnd()
+    : opts.buildPromptArgs.user;
+  const narrativeTail = narrativeMatch ? `\n${narrativeMatch[1]}` : "";
+  const usr = `${userWithoutNarrative}\n\nТЕКУЩИЙ ВАРИАНТ (исправь):\n${opts.html}${narrativeTail}`;
   try {
     const out = await chatComplete({
       apiKey: opts.apiKey,
