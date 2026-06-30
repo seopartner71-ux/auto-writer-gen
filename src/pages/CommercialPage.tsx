@@ -1124,8 +1124,8 @@ export default function CommercialPage() {
                         {analysis.recommended_blocks.map((rb, i) => {
                           const exists = blocks.some((b) => b.type === rb.type);
                           return (
-                            <div key={i} className="flex items-center justify-between rounded border bg-background p-2">
-                              <div className="min-w-0 pr-2">
+                            <div key={i} className="flex items-center justify-between gap-2 rounded border bg-background p-2">
+                              <div className="min-w-0 flex-1 pr-2">
                                 <div className="text-xs font-medium truncate">H{rb.h_level} · {rb.title}</div>
                                 <div className="text-xs text-muted-foreground truncate">{rb.desc} · ~{rb.words} сл.</div>
                               </div>
