@@ -1187,8 +1187,8 @@ export default function CommercialPage() {
               return (
                 <Card key={b.type}>
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
                         <span className="font-medium text-sm">{b.title}</span>
                         {b.status === "generating" && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
                         {b.status === "done" && <Check className="h-3 w-3 text-green-500" />}
@@ -1214,7 +1214,7 @@ export default function CommercialPage() {
                         )}
                       </div>
                       {b.status !== "generating" && genIdx < 0 && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-1 shrink-0">
                           {b.content && (
                             <>
                               <Button size="sm" variant="ghost" onClick={() => toggleBlockEdit(idx)} title={b.editing ? "Закрыть" : "Редактировать"}>
