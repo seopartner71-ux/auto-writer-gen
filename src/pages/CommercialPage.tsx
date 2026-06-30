@@ -458,7 +458,7 @@ export default function CommercialPage() {
     if (t.page_type !== pageType) {
       setPageType(t.page_type as PageType);
     }
-    setBrief({ ...t.brief, tone: t.brief?.tone || TONES[t.page_type as PageType][0] });
+    setBrief({ ...t.brief, tone: t.brief?.tone || TONES[t.page_type as PageType][0], narrative_person: t.brief?.narrative_person || "we" });
     toast.success(`Загружен шаблон "${t.name}"`);
   };
 
@@ -502,7 +502,7 @@ export default function CommercialPage() {
       if (raw) {
         const d = JSON.parse(raw);
         if (d.pageType) setPageType(d.pageType);
-        if (d.brief) setBrief(d.brief);
+        if (d.brief) setBrief({ ...d.brief, narrative_person: d.brief.narrative_person || "we" });
         if (Array.isArray(d.blocks)) setBlocks(d.blocks);
         if (d.step) setStep(d.step);
         if (d.parseSummary) setParseSummary(d.parseSummary);
@@ -921,6 +921,27 @@ export default function CommercialPage() {
               </div>
             </div>
 
+            <div className="space-y-1.5 rounded-md border p-3">
+              <Label>Лицо повествования</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "we", label: "Мы" },
+                  { id: "i", label: "Я" },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setBrief({ ...brief, narrative_person: option.id })}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition ${
+                      (brief.narrative_person || "we") === option.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-accent"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {pageType === "service" && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center justify-between rounded-md border p-3">
@@ -1247,8 +1268,9 @@ export default function CommercialPage() {
             <Button variant="outline" className="w-full" disabled={!fullHtml} onClick={() => setShowPreview(true)}>
               <Eye className="h-4 w-4 mr-2" /> Превью всей страницы
             </Button>
-            <Button className="w-full" disabled={genIdx >= 0 || !fullHtml || !!savedArticleId} onClick={saveAsArticle}>
-              <Save className="h-4 w-4 mr-2" /> Сохранить как статью
+            <Button className="w-full" disabled={genIdx >= 0 || !fullHtml || savingArticle} onClick={saveAsArticle}>
+              {savingArticle ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              {savedArticleId ? "Обновить статью" : "Сохранить как статью"}
             </Button>
             {savedArticleId && (
               <Button
