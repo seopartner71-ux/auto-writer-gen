@@ -50,6 +50,10 @@ interface Brief {
   parsed_services?: string[];
   existing_h2?: string[];
   existing_blocks?: string[];
+  /** Plain-text summaries of already generated blocks above the current one. */
+  generated_content_above?: string;
+  /** Narration person requested by UI: company/team voice or first-person expert voice. */
+  narrative_person?: "we" | "i" | string;
   [k: string]: unknown;
 }
 
@@ -213,6 +217,9 @@ function buildPrompt(body: ReqBody): { system: string; user: string } {
   if (brief.stop_words && String(brief.stop_words).trim()) {
     briefLines.push(`СТОП-СЛОВА И ЗАПРЕТЫ (не упоминать ни в каком виде): ${brief.stop_words}`);
   }
+  if (brief.narrative_person) {
+    briefLines.push(`Лицо повествования: ${brief.narrative_person === "i" ? "Я (эксперт/автор)" : "Мы (компания/команда)"}`);
+  }
 
   // ── URL Parser grounding block (only if source_url present) ──
   const hasParsed = !!brief.source_url || !!brief.parsed_phone || !!brief.parsed_address
@@ -244,6 +251,25 @@ ${brief.existing_h2?.length ? brief.existing_h2.map((h) => `- ${h}`).join("\n") 
 - Если данных нет - не упоминай эту информацию вообще.`.trim();
   }
 
+  const generatedAbove = typeof brief.generated_content_above === "string" ? brief.generated_content_above.trim() : "";
+  const antiDupAddon = generatedAbove ? `
+
+УЖЕ СГЕНЕРИРОВАННЫЕ ТЕКСТЫ ВЫШЕ НА ЭТОЙ ЖЕ СТРАНИЦЕ (прочитай и НЕ повторяй):
+${generatedAbove.slice(0, 7000)}
+
+КРИТИЧЕСКИ ВАЖНО ПО АНТИДУБЛЯМ:
+- Не повторяй информацию, которая уже есть в текстах выше, дополняй новым.
+- Не перефразируй те же выгоды, этапы, гарантии, материалы, сроки и аргументы другими словами.
+- Текущий блок должен закрывать только свою задачу: ${instruction}
+- Если важный факт уже был сказан выше, можно сослаться на него одним коротким предложением, но не раскрывать заново.`.trim() : "";
+
+  const narrativeAddon = brief.narrative_person === "i" ? `
+
+КРИТИЧЕСКИ ВАЖНО: пиши от лица "я" (эксперт/автор), а не "мы". Используй: я делаю, мой опыт, я проверяю. Не превращай текст в обезличенную речь компании. Это абсолютный приоритет в вопросе лица повествования, при этом стиль и тон сохраняй.` : `
+
+КРИТИЧЕСКИ ВАЖНО: пиши ИСКЛЮЧИТЕЛЬНО от лица "мы" (компания/команда), а не "я".
+Используй: мы делаем, наша команда, у нас есть опыт. НИКОГДА не используй "я", "мой опыт", "я считаю". Это абсолютный приоритет выше характера автора.`;
+
   const system = `Ты профессиональный SEO-копирайтер и маркетолог. Пишешь коммерческий текст для сайта на русском языке.
 Тип страницы: ${page_type}. Тип блока: ${block_type}.
 
@@ -267,9 +293,9 @@ ANTI-FAKE GUARD (zero tolerance):
 Инструкция для этого блока:
 ${instruction}
 
-${parsedAddon ? parsedAddon + "\n\n" : ""}${(() => { const k = detectYmyl(brief); return k ? buildEeatAddon(k) + "\n\n" : ""; })()}${buildStealthSystemAddon("ru")}`;
+${parsedAddon ? parsedAddon + "\n\n" : ""}${antiDupAddon ? antiDupAddon + "\n\n" : ""}${(() => { const k = detectYmyl(brief); return k ? buildEeatAddon(k) + "\n\n" : ""; })()}${buildStealthSystemAddon("ru")}`;
 
-  const user = `Бриф:\n${briefLines.join("\n") || "(данных нет)"}\n\nСгенерируй блок.`;
+  const user = `Бриф:\n${briefLines.join("\n") || "(данных нет)"}\n\nСгенерируй блок.\n${narrativeAddon}`;
   return { system, user };
 }
 
@@ -415,7 +441,12 @@ async function qualityRetry(opts: {
   if (lsiLow) issues.push(`органично вплети недостающие LSI-термины: ${lsi.missing.slice(0, 10).join(", ")}`);
 
   const sys = `${opts.buildPromptArgs.system}\n\nЭто РЕРАЙТ. Текущий вариант нарушает требования:\n- ${issues.join("\n- ")}\nИсправь только эти проблемы, сохрани структуру и смысл. Верни чистый HTML.`;
-  const usr = `${opts.buildPromptArgs.user}\n\nТЕКУЩИЙ ВАРИАНТ (исправь):\n${opts.html}`;
+  const narrativeMatch = opts.buildPromptArgs.user.match(/\n(КРИТИЧЕСКИ ВАЖНО: пиши[\s\S]*)$/);
+  const userWithoutNarrative = narrativeMatch?.index !== undefined
+    ? opts.buildPromptArgs.user.slice(0, narrativeMatch.index).trimEnd()
+    : opts.buildPromptArgs.user;
+  const narrativeTail = narrativeMatch ? `\n${narrativeMatch[1]}` : "";
+  const usr = `${userWithoutNarrative}\n\nТЕКУЩИЙ ВАРИАНТ (исправь):\n${opts.html}${narrativeTail}`;
   try {
     const out = await chatComplete({
       apiKey: opts.apiKey,
