@@ -83,7 +83,7 @@ export default function CommercialPage() {
 
   const [step, setStep] = useState<Step>(1);
   const [pageType, setPageType] = useState<PageType | null>(null);
-  const [brief, setBrief] = useState<Record<string, any>>({ tone: "" });
+  const [brief, setBrief] = useState<Record<string, any>>({ tone: "", narrative_person: "we" });
   const [blocks, setBlocks] = useState<BlockState[]>([]);
   const [genIdx, setGenIdx] = useState<number>(-1);
   const [aiBusy, setAiBusy] = useState<string | null>(null);
@@ -95,6 +95,7 @@ export default function CommercialPage() {
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; page_type: string; brief: any }>>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [savingArticle, setSavingArticle] = useState(false);
   const [regenConfirmIdx, setRegenConfirmIdx] = useState<number | null>(null);
 
   // URL Parser state
@@ -304,32 +305,48 @@ export default function CommercialPage() {
     toast.success("Структура заменена на AI-рекомендации");
   };
 
-  const generateBlock = async (idx: number) => {
-    const b = blocks[idx];
+  const buildAntiDupBrief = (idx: number, sourceBlocks: BlockState[] = blocks) => {
+    // Передаем в модель не только заголовки, но и уже готовый текст предыдущих блоков.
+    // Это особенно важно для ниш вроде строительства, где выгоды/этапы/УТП легко склеиваются.
+    const headingRe = /<h[12][^>]*>([\s\S]*?)<\/h[12]>/gi;
+    const generatedHeadings: string[] = [];
+    const generatedSummaries: string[] = [];
+    const generatedContentAbove: string[] = [];
+
+    sourceBlocks.forEach((bx, i) => {
+      if (i >= idx || !bx.content) return;
+      let m: RegExpExecArray | null;
+      const re = new RegExp(headingRe.source, headingRe.flags);
+      while ((m = re.exec(bx.content)) !== null) {
+        const txt = m[1].replace(/<[^>]+>/g, "").trim();
+        if (txt) generatedHeadings.push(txt);
+      }
+      generatedSummaries.push(bx.customTitle || bx.title);
+      const plain = bx.content
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (plain) generatedContentAbove.push(`${bx.customTitle || bx.title}: ${plain.slice(0, 1400)}`);
+    });
+
+    const parsedH2 = Array.isArray((brief as any).existing_h2) ? (brief as any).existing_h2 : [];
+    const parsedBlocks = Array.isArray((brief as any).existing_blocks) ? (brief as any).existing_blocks : [];
+    return {
+      ...brief,
+      narrative_person: brief.narrative_person || "we",
+      existing_h2: Array.from(new Set([...parsedH2, ...generatedHeadings])),
+      existing_blocks: Array.from(new Set([...parsedBlocks, ...generatedSummaries])),
+      generated_content_above: generatedContentAbove.join("\n\n").slice(0, 7000),
+    };
+  };
+
+  const generateBlock = async (idx: number, sourceBlocks: BlockState[] = blocks) => {
+    const b = sourceBlocks[idx] || blocks[idx];
     setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "generating" } : x)));
     try {
-      // Anti-dup: collect H1/H2 already produced by earlier blocks (and parser),
-      // so the model doesn't repeat the same headings across blocks of one page.
-      const headingRe = /<h[12][^>]*>([\s\S]*?)<\/h[12]>/gi;
-      const generatedHeadings: string[] = [];
-      const generatedSummaries: string[] = [];
-      blocks.forEach((bx, i) => {
-        if (i === idx || !bx.content) return;
-        let m: RegExpExecArray | null;
-        const re = new RegExp(headingRe.source, headingRe.flags);
-        while ((m = re.exec(bx.content)) !== null) {
-          const txt = m[1].replace(/<[^>]+>/g, "").trim();
-          if (txt) generatedHeadings.push(txt);
-        }
-        generatedSummaries.push(bx.title);
-      });
-      const parsedH2 = Array.isArray((brief as any).existing_h2) ? (brief as any).existing_h2 : [];
-      const parsedBlocks = Array.isArray((brief as any).existing_blocks) ? (brief as any).existing_blocks : [];
-      const mergedBrief = {
-        ...brief,
-        existing_h2: Array.from(new Set([...parsedH2, ...generatedHeadings])),
-        existing_blocks: Array.from(new Set([...parsedBlocks, ...generatedSummaries])),
-      };
+      const mergedBrief = buildAntiDupBrief(idx, sourceBlocks);
 
       const { data, error } = await supabase.functions.invoke("generate-commercial-block", {
         body: {
@@ -349,29 +366,24 @@ export default function CommercialPage() {
         fact_check_flags?: string[];
         retried?: boolean;
       };
-      setBlocks((arr) =>
-        arr.map((x, i) =>
-          i === idx
-            ? {
-                ...x,
-                status: "done",
-                content: res.content,
-                wordCount: res.word_count,
-                regenCount: (x.regenCount || 0) + (x.content ? 1 : 0),
-                quality: {
-                  retried: !!res.retried,
-                  antiFake: res.anti_fake_flags?.length || 0,
-                  factCheck: res.fact_check_flags?.length || 0,
-                },
-              }
-            : x,
-        ),
-      );
-      return true;
+      const updatedBlock: BlockState = {
+        ...b,
+        status: "done",
+        content: res.content,
+        wordCount: res.word_count,
+        regenCount: (b.regenCount || 0) + (b.content ? 1 : 0),
+        quality: {
+          retried: !!res.retried,
+          antiFake: res.anti_fake_flags?.length || 0,
+          factCheck: res.fact_check_flags?.length || 0,
+        },
+      };
+      setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, ...updatedBlock } : x)));
+      return updatedBlock;
     } catch (e: any) {
       toast.error(`Блок "${b.title}": ${e?.message || "ошибка"}`);
       setBlocks((arr) => arr.map((x, i) => (i === idx ? { ...x, status: "error" } : x)));
-      return false;
+      return null;
     }
   };
 
@@ -564,7 +576,7 @@ export default function CommercialPage() {
     if (!(await confirm({ title: "Сбросить черновик?", confirmText: "Сбросить", destructive: true }))) return;
     if (draftKey) localStorage.removeItem(draftKey);
     setPageType(null);
-    setBrief({ tone: "" });
+    setBrief({ tone: "", narrative_person: "we" });
     setBlocks([]);
     setStep(1);
     setParseSummary(null);
@@ -576,12 +588,14 @@ export default function CommercialPage() {
 
   const startGeneration = async () => {
     setStep(4);
-    const indices = blocks.map((b, i) => (b.enabled ? i : -1)).filter((i) => i >= 0);
+    const workingBlocks = blocks.map((b) => ({ ...b }));
+    const indices = workingBlocks.map((b, i) => (b.enabled ? i : -1)).filter((i) => i >= 0);
     let failed = 0;
     for (const i of indices) {
       setGenIdx(i);
-      const ok = await generateBlock(i);
-      if (!ok) failed += 1;
+      const generated = await generateBlock(i, workingBlocks);
+      if (generated) workingBlocks[i] = generated;
+      else failed += 1;
     }
     setGenIdx(-1);
     if (failed) {
@@ -597,26 +611,60 @@ export default function CommercialPage() {
   );
 
   const saveAsArticle = async () => {
-    if (!profile?.id || !fullHtml) return;
+    if (!fullHtml || savingArticle) return;
+    setSavingArticle(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const userId = authData.user?.id || profile?.id;
+      if (!userId) throw new Error("Не удалось определить пользователя");
+
     const titleMatch = fullHtml.match(/<h1[^>]*>(.*?)<\/h1>/i);
     const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "") : `${selectedType?.title}: ${brief.keyword}`;
-    const { data, error } = await supabase
-      .from("articles")
-      .insert({
-        user_id: profile.id,
+      const payload = {
+        user_id: userId,
         title,
         content: fullHtml,
         status: "draft",
         page_type: pageType,
-        commercial_brief: brief,
+        commercial_brief: { ...brief, narrative_person: brief.narrative_person || "we" },
         keywords: brief.keyword ? [brief.keyword] : [],
-      })
-      .select("id")
-      .single();
-    if (error) return toast.error(error.message);
-    setSavedArticleId(data.id);
-    toast.success("Сохранено в Статьи");
-    loadHistory();
+        source: "commercial",
+        language: "ru",
+        updated_at: new Date().toISOString(),
+      } as any;
+
+      let articleId = savedArticleId;
+      if (articleId) {
+        const { data, error } = await supabase
+          .from("articles")
+          .update(payload)
+          .eq("id", articleId)
+          .eq("user_id", userId)
+          .select("id")
+          .maybeSingle();
+        if (error) throw error;
+        articleId = data?.id || null;
+      }
+
+      if (!articleId) {
+        const { data, error } = await supabase
+          .from("articles")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error) throw error;
+        articleId = data.id;
+      }
+
+      setSavedArticleId(articleId);
+      toast.success(savedArticleId ? "Статья обновлена" : "Сохранено в Статьи");
+      loadHistory();
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось сохранить статью");
+    } finally {
+      setSavingArticle(false);
+    }
   };
 
   return (
