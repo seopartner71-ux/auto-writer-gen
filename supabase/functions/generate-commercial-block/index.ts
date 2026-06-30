@@ -293,9 +293,9 @@ ANTI-FAKE GUARD (zero tolerance):
 Инструкция для этого блока:
 ${instruction}
 
-${parsedAddon ? parsedAddon + "\n\n" : ""}${antiDupAddon ? antiDupAddon + "\n\n" : ""}${(() => { const k = detectYmyl(brief); return k ? buildEeatAddon(k) + "\n\n" : ""; })()}${buildStealthSystemAddon("ru")}${narrativeAddon}`;
+${parsedAddon ? parsedAddon + "\n\n" : ""}${antiDupAddon ? antiDupAddon + "\n\n" : ""}${(() => { const k = detectYmyl(brief); return k ? buildEeatAddon(k) + "\n\n" : ""; })()}${buildStealthSystemAddon("ru")}`;
 
-  const user = `Бриф:\n${briefLines.join("\n") || "(данных нет)"}\n\nСгенерируй блок.`;
+  const user = `Бриф:\n${briefLines.join("\n") || "(данных нет)"}\n\nСгенерируй блок.\n${narrativeAddon}`;
   return { system, user };
 }
 
