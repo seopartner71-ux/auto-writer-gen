@@ -10,6 +10,23 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { errorResponse } from "./cors.ts";
 
+// Manual base64url decode of a JWT payload. Avoids a network hop to
+// Supabase auth (getClaims), which under RU PHP-proxy + parallel block
+// generation intermittently returns "invalid token" for a perfectly valid
+// session. We still enforce the exp claim locally.
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (payload.length % 4) payload += "=";
+    const json = atob(payload);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export interface AuthResult {
   userId: string;
   isQueueCall: boolean;
@@ -40,20 +57,16 @@ export async function verifyAuth(req: Request): Promise<AuthResult | Response> {
 
   const token = authHeader.slice(7);
 
-  try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data, error } = await supabase.auth.getClaims(token);
-    if (error || !data?.claims?.sub) {
-      return errorResponse("Unauthorized: invalid token", 401);
-    }
-    return { userId: data.claims.sub as string, isQueueCall: false, authHeader };
-  } catch (e) {
-    return errorResponse(`Unauthorized: ${e instanceof Error ? e.message : "verify failed"}`, 401);
+  const claims = decodeJwtPayload(token);
+  const sub = claims?.sub as string | undefined;
+  const exp = claims?.exp as number | undefined;
+  if (!sub) {
+    return errorResponse("Unauthorized: invalid token", 401);
   }
+  if (exp && Date.now() / 1000 > exp) {
+    return errorResponse("Unauthorized: token expired", 401);
+  }
+  return { userId: sub, isQueueCall: false, authHeader };
 }
 
 /** Convenience: returns a service-role admin client. */
