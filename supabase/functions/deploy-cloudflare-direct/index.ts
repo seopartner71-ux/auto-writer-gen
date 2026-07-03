@@ -1621,6 +1621,19 @@ serve(async (req) => {
       }
       files[`${inKey}.txt`] = inKey;
     }
+    // Inject Google Search Console verification HTML file (if configured).
+    // Must live at site root (not /blog) and must NOT be listed in sitemap.
+    // File is re-injected on every deploy because Cloudflare Pages deploys
+    // are atomic — otherwise the file disappears on the next deploy and
+    // Google revokes the verification.
+    let gscFileInjected = false;
+    {
+      const gvFile = (project as any).google_verification_file as string | undefined;
+      if (gvFile && /^google[a-f0-9]+\.html$/i.test(gvFile)) {
+        files[gvFile] = `google-site-verification: ${gvFile}`;
+        gscFileInjected = true;
+      }
+    }
     // Short-circuit for build_only callers (e.g. deploy-github-pages).
     if (buildOnly) {
       console.log("[deploy-cloudflare-direct] build_only: returning", Object.keys(files).length, "files");
