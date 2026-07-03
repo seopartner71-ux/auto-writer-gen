@@ -2509,6 +2509,9 @@ export type Database = {
           github_repo: string | null
           github_token: string | null
           google_verification: string | null
+          google_verification_file: string | null
+          google_verification_file_deployed_at: string | null
+          gsc_account_note: string | null
           has_github_token: boolean
           hashnode_publication_id: string | null
           homepage_style: string
@@ -2577,6 +2580,9 @@ export type Database = {
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
+          google_verification_file?: string | null
+          google_verification_file_deployed_at?: string | null
+          gsc_account_note?: string | null
           has_github_token?: boolean
           hashnode_publication_id?: string | null
           homepage_style?: string
@@ -2645,6 +2651,9 @@ export type Database = {
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
+          google_verification_file?: string | null
+          google_verification_file_deployed_at?: string | null
+          gsc_account_note?: string | null
           has_github_token?: boolean
           hashnode_publication_id?: string | null
           homepage_style?: string
