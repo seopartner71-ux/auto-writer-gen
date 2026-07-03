@@ -56,6 +56,10 @@ interface ProjectRow {
   footer_link: { url: string; text: string } | null;
   google_verification: string | null;
   template_type: string | null;
+  google_verification_file: string | null;
+  gsc_account_note: string | null;
+  google_verification_file_deployed_at: string | null;
+  last_deploy_at: string | null;
 }
 
 type DeployStatus = "idle" | "publishing" | "success" | "error";
