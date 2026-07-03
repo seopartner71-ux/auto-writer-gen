@@ -2324,6 +2324,157 @@ export default function SiteFactoryPage() {
               </div>
             )}
 
+            {/* Google Search Console verification */}
+            {selectedProjectId && (
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">
+                    {lang === "ru" ? "Верификация Google" : "Google verification"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowGscHelp((v) => !v)}
+                    className="ml-auto text-muted-foreground hover:text-primary transition-colors"
+                    title={lang === "ru"
+                      ? 'Search Console → Добавить ресурс → "Ресурс с префиксом в URL" → способ "HTML-файл". Скопируйте имя файла, вставьте сюда, сохраните и обновите сайт. Затем нажмите "Подтвердить" в Search Console.'
+                      : 'Search Console → Add property → URL-prefix → HTML file method. Copy the file name, paste it here, save and redeploy the site. Then click "Verify" in Search Console.'}
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {showGscHelp && (
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground leading-relaxed">
+                    {lang === "ru"
+                      ? 'Search Console → Добавить ресурс → "Ресурс с префиксом в URL" → способ "HTML-файл". Скопируйте имя файла, вставьте сюда, сохраните и обновите сайт. Затем нажмите "Подтвердить" в Search Console.'
+                      : 'Search Console → Add property → URL-prefix → HTML file method. Copy the file name, paste it here, save and redeploy the site. Then click "Verify" in Search Console.'}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">
+                    {lang === "ru" ? "Имя файла верификации" : "Verification file name"}
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={gscFile}
+                      onChange={(e) => setGscFile(e.target.value)}
+                      placeholder="google1234abcd.html"
+                      className="flex-1 font-mono text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={savingGsc}
+                      onClick={async () => {
+                        setSavingGsc(true);
+                        try {
+                          const raw = gscFile.trim();
+                          let normalized: string | null = null;
+                          if (raw) {
+                            // Extract filename if a full URL was pasted
+                            const fromUrl = raw.match(/google[a-f0-9]+\.html/i)?.[0];
+                            const candidate = (fromUrl || raw).replace(/^\/+/, "").split(/[?#]/)[0];
+                            if (!/^google[a-f0-9]+\.html$/i.test(candidate)) {
+                              throw new Error(
+                                lang === "ru"
+                                  ? "Имя файла должно быть вида googleXXXX.html"
+                                  : "File name must look like googleXXXX.html",
+                              );
+                            }
+                            normalized = candidate.toLowerCase();
+                          }
+                          const { error } = await supabase
+                            .from("projects")
+                            .update({
+                              google_verification_file: normalized,
+                              gsc_account_note: gscNote.trim() || null,
+                              // Reset deployed marker so status shows "pending redeploy"
+                              google_verification_file_deployed_at: null,
+                            })
+                            .eq("id", selectedProjectId);
+                          if (error) throw error;
+                          setGscFile(normalized || "");
+                          const { data: updated } = await supabase.from("projects").select(PROJECT_SELECT).eq("user_id", user!.id);
+                          if (updated) setProjects(updated as ProjectRow[]);
+                          toast({
+                            title: lang === "ru" ? "Сохранено" : "Saved",
+                            description: normalized
+                              ? (lang === "ru" ? "Файл появится после следующего деплоя" : "File will appear after next deploy")
+                              : (lang === "ru" ? "Верификация отключена" : "Verification disabled"),
+                          });
+                        } catch (err: any) {
+                          toast({
+                            title: lang === "ru" ? "Ошибка" : "Error",
+                            description: err?.message,
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setSavingGsc(false);
+                        }
+                      }}
+                    >
+                      {savingGsc ? <Loader2 className="h-4 w-4 animate-spin" /> : (lang === "ru" ? "Сохранить" : "Save")}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">
+                    {lang === "ru" ? "GSC-аккаунт (заметка)" : "GSC account (note)"}
+                  </label>
+                  <Input
+                    value={gscNote}
+                    onChange={(e) => setGscNote(e.target.value)}
+                    placeholder={lang === "ru" ? "например: gsc-owner@gmail.com" : "e.g. gsc-owner@gmail.com"}
+                  />
+                </div>
+
+                {(() => {
+                  const saved = selectedProject?.google_verification_file || null;
+                  const deployedAt = selectedProject?.google_verification_file_deployed_at || null;
+                  if (!saved) return null;
+                  const siteUrl = selectedProject?.custom_domain
+                    ? `https://${selectedProject.custom_domain}`
+                    : selectedProject?.domain
+                      ? (selectedProject.domain.startsWith("http") ? selectedProject.domain : `https://${selectedProject.domain}`)
+                      : "";
+                  if (deployedAt) {
+                    return (
+                      <div className="flex items-center gap-2 text-xs">
+                        <CheckCircle className="h-3.5 w-3.5 text-green-400" />
+                        <span className="text-green-400 font-medium">
+                          {lang === "ru" ? "Файл включён в последний деплой" : "File included in latest deploy"}
+                        </span>
+                        {siteUrl && (
+                          <a
+                            href={`${siteUrl.replace(/\/+$/, "")}/${saved}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline inline-flex items-center gap-1 ml-1"
+                          >
+                            {lang === "ru" ? "Открыть файл" : "Open file"}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="flex items-center gap-2 text-xs">
+                      <AlertCircle className="h-3.5 w-3.5 text-yellow-400" />
+                      <span className="text-yellow-400">
+                        {lang === "ru"
+                          ? "Сохранено. Файл появится после обновления сайта"
+                          : "Saved. File will appear after the next site update"}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium mb-1.5 block">
                 {lang === "ru" ? "Ключевые слова (по одному на строку)" : "Keywords (one per line)"}
