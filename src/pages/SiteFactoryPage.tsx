@@ -233,6 +233,8 @@ export default function SiteFactoryPage() {
           google_verification: normalizeGoogleVerification(selectedProject.google_verification || ""),
       });
       setCustomDomain(selectedProject.custom_domain || "");
+      setGscFile(selectedProject.google_verification_file || "");
+      setGscNote(selectedProject.gsc_account_note || "");
       setVerificationDeployed(false);
       const detected = detectPlatformFromDomain(selectedProject.domain);
       // Migrate legacy "vercel"/"netlify" projects to "cloudflare"
