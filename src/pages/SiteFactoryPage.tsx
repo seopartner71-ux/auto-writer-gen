@@ -167,6 +167,10 @@ export default function SiteFactoryPage() {
   const [savingDomain, setSavingDomain] = useState(false);
   const [nsServers, setNsServers] = useState<string[]>([]);
   const [cnameTarget, setCnameTarget] = useState<string>("");
+  const [gscFile, setGscFile] = useState("");
+  const [gscNote, setGscNote] = useState("");
+  const [savingGsc, setSavingGsc] = useState(false);
+  const [showGscHelp, setShowGscHelp] = useState(false);
   const [editingArticle, setEditingArticle] = useState<QueueArticle | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
