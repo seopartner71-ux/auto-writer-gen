@@ -208,7 +208,7 @@ export default function SiteFactoryPage() {
   );
 
   // Note: github_token is server-only. Use has_github_token flag for UI checks.
-  const PROJECT_SELECT = "id, name, domain, language, github_repo, has_github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link, google_verification, template_type";
+  const PROJECT_SELECT = "id, name, domain, language, github_repo, has_github_token, site_name, site_copyright, site_about, site_contacts, site_privacy, custom_domain, author_name, author_bio, author_avatar, primary_color, font_pair, hosting_platform, injection_links, footer_link, google_verification, template_type, google_verification_file, gsc_account_note, google_verification_file_deployed_at, last_deploy_at";
 
   // Sync siteConfig when project changes
   useEffect(() => {
