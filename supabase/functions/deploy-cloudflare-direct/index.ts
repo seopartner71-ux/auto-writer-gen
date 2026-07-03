@@ -1752,6 +1752,9 @@ serve(async (req) => {
       last_deploy_at: new Date().toISOString(),
       last_ping_status: "online",
       last_ping_at: new Date().toISOString(),
+      ...(gscFileInjected
+        ? { google_verification_file_deployed_at: new Date().toISOString() }
+        : {}),
     }).eq("id", projectId);
     console.log("[deploy-cloudflare-direct] success ->", pagesDevUrl);
 
