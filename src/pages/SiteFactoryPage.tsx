@@ -2374,16 +2374,16 @@ export default function SiteFactoryPage() {
                           let normalized: string | null = null;
                           if (raw) {
                             // Extract filename if a full URL was pasted
-                            const fromUrl = raw.match(/google[a-f0-9]+\.html/i)?.[0];
+                            const fromUrl = raw.match(/google[A-Za-z0-9_-]+\.html/i)?.[0];
                             const candidate = (fromUrl || raw).replace(/^\/+/, "").split(/[?#]/)[0];
-                            if (!/^google[a-f0-9]+\.html$/i.test(candidate)) {
+                            if (!/^google[A-Za-z0-9_-]+\.html$/.test(candidate)) {
                               throw new Error(
                                 lang === "ru"
                                   ? "Имя файла должно быть вида googleXXXX.html"
                                   : "File name must look like googleXXXX.html",
                               );
                             }
-                            normalized = candidate.toLowerCase();
+                            normalized = candidate;
                           }
                           const { error } = await supabase
                             .from("projects")
@@ -2440,6 +2440,7 @@ export default function SiteFactoryPage() {
                     : selectedProject?.domain
                       ? (selectedProject.domain.startsWith("http") ? selectedProject.domain : `https://${selectedProject.domain}`)
                       : "";
+                  const siteRootUrl = siteUrl.replace(/\/blog\/?$/, "").replace(/\/+$/, "");
                   if (deployedAt) {
                     return (
                       <div className="flex items-center gap-2 text-xs">
@@ -2449,7 +2450,7 @@ export default function SiteFactoryPage() {
                         </span>
                         {siteUrl && (
                           <a
-                            href={`${siteUrl.replace(/\/+$/, "")}/${saved}`}
+                            href={`${siteRootUrl}/${saved}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary hover:underline inline-flex items-center gap-1 ml-1"
