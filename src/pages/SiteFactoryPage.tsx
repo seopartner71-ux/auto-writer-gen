@@ -2374,16 +2374,16 @@ export default function SiteFactoryPage() {
                           let normalized: string | null = null;
                           if (raw) {
                             // Extract filename if a full URL was pasted
-                            const fromUrl = raw.match(/google[a-f0-9]+\.html/i)?.[0];
+                            const fromUrl = raw.match(/google[A-Za-z0-9_-]+\.html/i)?.[0];
                             const candidate = (fromUrl || raw).replace(/^\/+/, "").split(/[?#]/)[0];
-                            if (!/^google[a-f0-9]+\.html$/i.test(candidate)) {
+                            if (!/^google[A-Za-z0-9_-]+\.html$/.test(candidate)) {
                               throw new Error(
                                 lang === "ru"
                                   ? "Имя файла должно быть вида googleXXXX.html"
                                   : "File name must look like googleXXXX.html",
                               );
                             }
-                            normalized = candidate.toLowerCase();
+                            normalized = candidate;
                           }
                           const { error } = await supabase
                             .from("projects")
