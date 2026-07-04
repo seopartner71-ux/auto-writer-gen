@@ -2440,6 +2440,7 @@ export default function SiteFactoryPage() {
                     : selectedProject?.domain
                       ? (selectedProject.domain.startsWith("http") ? selectedProject.domain : `https://${selectedProject.domain}`)
                       : "";
+                  const siteRootUrl = siteUrl.replace(/\/blog\/?$/, "").replace(/\/+$/, "");
                   if (deployedAt) {
                     return (
                       <div className="flex items-center gap-2 text-xs">
@@ -2449,7 +2450,7 @@ export default function SiteFactoryPage() {
                         </span>
                         {siteUrl && (
                           <a
-                            href={`${siteUrl.replace(/\/+$/, "")}/${saved}`}
+                            href={`${siteRootUrl}/${saved}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary hover:underline inline-flex items-center gap-1 ml-1"
