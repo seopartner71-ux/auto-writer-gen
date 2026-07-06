@@ -87,18 +87,36 @@ function splitLongSentences(text: string): string {
   });
 }
 
-async function callOpenRouter(model: string, system: string, user: string, key: string, maxTokens = 8000): Promise<string | null> {
+async function callOpenRouterEx(
+  model: string, system: string, user: string, key: string, maxTokens = 8000, timeoutMs = 120_000,
+): Promise<{ content: string | null; error?: string; duration_ms: number }> {
+  const t0 = Date.now();
   try {
     const r = await chatComplete({
       apiKey: key, model, system, user,
-      maxTokens, temperature: 0.85, timeoutMs: 120_000,
+      maxTokens, temperature: 0.85, timeoutMs,
       appTitle: "SEO-Modul improve-article",
     });
-    return r.content || null;
+    const content = r.content || null;
+    const duration_ms = Date.now() - t0;
+    if (!content) return { content: null, error: "empty_content", duration_ms };
+    return { content, duration_ms };
   } catch (e) {
-    console.error("[improve-article] OR exception", (e as Error)?.message);
-    return null;
+    const duration_ms = Date.now() - t0;
+    const msg = (e as Error)?.message || String(e);
+    console.error("[improve-article] OR exception", model, msg);
+    let kind = "exception";
+    if (/timeout|timed out|aborted/i.test(msg)) kind = "timeout";
+    else if (/402/.test(msg)) kind = "http_402_credits";
+    else if (/429/.test(msg)) kind = "http_429_rate_limit";
+    else if (/5\d\d/.test(msg)) kind = "http_5xx";
+    else if (/4\d\d/.test(msg)) kind = "http_4xx";
+    return { content: null, error: `${kind}: ${msg.slice(0, 200)}`, duration_ms };
   }
+}
+async function callOpenRouter(model: string, system: string, user: string, key: string, maxTokens = 8000): Promise<string | null> {
+  const r = await callOpenRouterEx(model, system, user, key, maxTokens);
+  return r.content;
 }
 
 async function callGateway(model: string, system: string, user: string, key: string): Promise<string | null> {
