@@ -155,7 +155,8 @@ export function UserManagementTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("articles")
-        .select("user_id, keywords, created_at");
+        .select("user_id, keywords, created_at")
+        .eq("is_ab_test", false);
       if (error) throw error;
       return data as { user_id: string; keywords: string[] | null; created_at: string | null }[];
     },

@@ -85,6 +85,7 @@ export default function WordPressPage() {
       const { data, error } = await supabase
         .from("articles")
         .select("id, title, content, meta_description")
+        .eq("is_ab_test", false)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;

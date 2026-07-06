@@ -41,7 +41,8 @@ export default function WelcomePage() {
     (async () => {
       const { count } = await supabase
         .from("articles")
-        .select("id", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true })
+        .eq("is_ab_test", false);
       if ((count ?? 0) > 0) {
         localStorage.setItem(LS_KEY, "true");
         navigate("/dashboard", { replace: true });

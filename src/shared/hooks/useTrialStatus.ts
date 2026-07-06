@@ -21,7 +21,8 @@ export function useTrialStatus() {
       const { count, error } = await supabase
         .from("articles")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", profile.id);
+        .eq("user_id", profile.id)
+        .eq("is_ab_test", false);
       if (error) return 0;
       return count ?? 0;
     },
