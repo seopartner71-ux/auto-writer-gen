@@ -838,10 +838,32 @@ ${content}`;
     try {
       const prevDetails = (art as any).quality_details && typeof (art as any).quality_details === "object"
         ? (art as any).quality_details : {};
+      const metricsFinal = metricsOf(content);
+      const appliedSteps = trace.filter((t) => t.applied).map((t) => t.step);
+      const traceSummary = trace.map((t) => ({
+        step: t.step,
+        model: t.model,
+        blocks: t.blocks || null,
+        metrics_before: t.metrics_before,
+        metrics_llm: t.metrics_llm,
+        integrity: t.integrity,
+        applied: t.applied,
+        llm_bytes: t.llm_bytes,
+        llm_null: t.llm_null,
+      }));
       await admin.from("articles").update({
         quality_details: {
           ...prevDetails,
-          improve_last: { status: "ok", phase, at: new Date().toISOString() },
+          improve_last: {
+            status: "ok",
+            phase,
+            at: new Date().toISOString(),
+            metrics_before: metricsInitial,
+            metrics_after: metricsFinal,
+            applied_steps: appliedSteps,
+            integrity_rejections: integrityRejections,
+            trace: traceSummary,
+          },
           improve_error: null,
         },
       }).eq("id", article_id);
@@ -870,7 +892,18 @@ ${content}`;
       article_id,
       verdict: "pass",
       duration_ms: elapsed(),
-      meta: { phase, source: source ?? null, auto: bypassLimits },
+      meta: {
+        phase,
+        source: source ?? null,
+        auto: bypassLimits,
+        metrics_before: metricsInitial,
+        metrics_after: metricsOf(content),
+        applied_steps: trace.filter((t) => t.applied).map((t) => t.step),
+        integrity_rejections: integrityRejections,
+        // Full prompts of every LLM pass — including system + user (with article
+        // body). Kept so we can verify exactly what went to the model.
+        prompt_trace: trace,
+      },
     });
   } catch (e: any) {
     console.error("[improve-article][bg] error", e);
