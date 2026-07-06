@@ -967,6 +967,20 @@ export default function ArticlesPage() {
       }
       const safeProjectId = projectExists ? selectedProjectId : null;
 
+      // Language autodetect: if the article content is ≥30% Cyrillic — treat as RU.
+      // Falls back to the selected keyword's language, then to explicit UI lang.
+      // Without this the DB default 'en' silently applies to russian articles and
+      // disables downstream RU-only checks (Turgenev).
+      const detectLang = (txt: string): "ru" | "en" => {
+        const letters = (txt || "").match(/[A-Za-zА-Яа-яЁё]/g) || [];
+        if (!letters.length) return lang === "ru" ? "ru" : "en";
+        const cyr = (txt.match(/[А-Яа-яЁё]/g) || []).length;
+        return cyr / letters.length >= 0.3 ? "ru" : "en";
+      };
+      const detectedLanguage =
+        (selectedKeyword as any)?.language ||
+        detectLang(content || title || "");
+
       const payload = {
         user_id: userId,
         keyword_id: selectedKeywordId || null,
@@ -977,6 +991,7 @@ export default function ArticlesPage() {
         anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
         published_url: publishedUrl.trim() || null,
         project_id: safeProjectId,
+        language: detectedLanguage,
         seo_score: {
           readability,
           wordCount,
