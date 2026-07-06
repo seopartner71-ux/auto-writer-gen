@@ -217,6 +217,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
 
       let cur = { ai: origSnap.ai, turg: origSnap.turg, content: origSnap.content };
       let stoppedReason = "";
+      let noProgressStreak = 0;
 
       for (let pass = 1; pass <= MAX_PASSES; pass++) {
         setStep(pass);
@@ -226,7 +227,17 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         cur = res.scores;
         if (aiOk(cur.ai) && turgOk(cur.turg)) { stoppedReason = "targets-met"; log("✅ Оба показателя в норме."); break; }
         if (res.rolledBack) { stoppedReason = "balanced"; log("⚖ Достигнут баланс - дальнейшее улучшение ухудшает другой показатель."); break; }
-        if (!res.improved) { stoppedReason = "no-progress"; log("· Прогресса нет - останавливаем."); break; }
+        if (!res.improved) {
+          noProgressStreak++;
+          if (noProgressStreak >= 2) {
+            stoppedReason = "no-progress";
+            log("· Прогресса нет два прохода подряд - останавливаем.");
+            break;
+          }
+          log("· Прогресса нет - пробуем ещё один проход.");
+        } else {
+          noProgressStreak = 0;
+        }
       }
       if (!stoppedReason) { stoppedReason = "max-passes"; log(`⏹ Достигнут лимит в ${MAX_PASSES} прохода.`); }
 
@@ -237,10 +248,21 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
 
       const finalAiOk = aiOk(cur.ai);
       const finalTurgOk = turgOk(cur.turg);
+      const articleLang: "ru" | "en" = await (async () => {
+        const { data } = await supabase.from("articles").select("language").eq("id", articleId!).maybeSingle();
+        return ((data as any)?.language === "ru" ? "ru" : "en");
+      })();
       if (finalAiOk && finalTurgOk) {
         toast.success("Готово ✓ Оба показателя в норме");
       } else if (stoppedReason === "balanced" || stoppedReason === "no-progress" || stoppedReason === "max-passes") {
-        const msg = `Достигнут оптимальный баланс. AI ${fmtAi(cur.ai)}, Тургенев ${fmtTurg(cur.turg)}. Дальнейшее улучшение одного будет ухудшать другой.`;
+        let msg: string;
+        if (articleLang === "ru" && cur.turg == null) {
+          msg = `AI ${fmtAi(cur.ai)}. Проверка Тургенева не выполнена - повторите проверку качества.`;
+        } else if (articleLang !== "ru") {
+          msg = `Достигнут оптимальный баланс. AI ${fmtAi(cur.ai)}. Дальнейшее улучшение может ухудшить читаемость.`;
+        } else {
+          msg = `Достигнут оптимальный баланс. AI ${fmtAi(cur.ai)}, Тургенев ${fmtTurg(cur.turg)}. Дальнейшее улучшение одного будет ухудшать другой.`;
+        }
         setWarning(msg);
         toast.warning("Достигнут баланс");
       }
