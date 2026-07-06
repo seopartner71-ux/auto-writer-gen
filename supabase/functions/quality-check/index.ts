@@ -589,6 +589,7 @@ function localUniquenessFallback(plain: string): { score: number; details: Recor
 
 async function runAutoQuality(
   admin: any, articleId: string, userId: string, content: string, apiKey: string,
+  opts: { skipAutoFixes?: boolean } = {},
 ) {
   const plain = stripHtml(content);
   if (plain.length < 200) {
@@ -887,7 +888,10 @@ async function runAutoQuality(
       if (typeof t === "number") humanizeThreshold = t;
     } catch (_) { /* keep default */ }
 
-    if (humanizeThreshold > 0 && typeof aiCombined === "number" && aiCombined < humanizeThreshold && orKey) {
+    if (
+      !opts.skipAutoFixes &&
+      humanizeThreshold > 0 && typeof aiCombined === "number" && aiCombined < humanizeThreshold && orKey
+    ) {
       const { data: artFlag2 } = await admin
         .from("articles").select("rewritten").eq("id", articleId).maybeSingle();
       if (artFlag2 && artFlag2.rewritten !== true) {
