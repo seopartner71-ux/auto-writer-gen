@@ -247,7 +247,7 @@ async function invokeQualityCheck(articleId: string): Promise<QualityCheckResult
     // Fire auto quality-check (background on the server side).
     try {
       await supabase.functions.invoke("quality-check", {
-        body: { article_id: articleId, content, mode: "auto" },
+        body: { article_id: articleId, content, mode: "auto", dispatched_by: "stealth" },
       });
     } catch (e) {
       console.warn("[stealth] quality-check invoke failed:", errMessage(e));
