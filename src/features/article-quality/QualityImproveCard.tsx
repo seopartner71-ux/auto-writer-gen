@@ -333,7 +333,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const turg = row.turgenev_score ?? null;
   const isOk = aiOk(ai) && turgOk(turg);
   const hasAny = ai != null || turg != null;
-  const checking = row.quality_status === "checking" || running;
+  const checking = row.quality_status === "checking" || row.quality_status === "improving" || running;
   const statusBlock = (() => {
     if (checking) return { dot: "🟡", text: "Проверяется...", cls: "text-amber-300" };
     if (!hasAny) return { dot: "⚪", text: "Нет данных", cls: "text-muted-foreground" };
