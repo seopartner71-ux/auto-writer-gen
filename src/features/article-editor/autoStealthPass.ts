@@ -278,6 +278,44 @@ async function waitForQualityIdle(articleId: string): Promise<void> {
   }
 }
 
+/**
+ * Invokes improve-article and transparently retries once on the server-side
+ * 60s cooldown. Returns:
+ *  - "ok"                — improvement applied
+ *  - "error"             — transport/edge error (already logged); caller breaks
+ *  - "cooldown_persist"  — cooldown still active after one retry (logged);
+ *                          caller continues to the next step instead of silently
+ *                          treating no-op as success.
+ */
+async function invokeImproveWithCooldown(
+  articleId: string,
+  fixType: "humanize" | "turgenev",
+  label: string,
+): Promise<"ok" | "error" | "cooldown_persist"> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await supabase.functions.invoke("improve-article", {
+      body: { article_id: articleId, fix_type: fixType },
+    });
+    if (error) {
+      console.warn(`[stealth] improve-article ${label} failed`, error);
+      return "error";
+    }
+    const d = (data ?? null) as { ok?: boolean; cooldown?: boolean; retry_after?: number } | null;
+    if (d?.cooldown) {
+      if (attempt === 0) {
+        const waitMs = Math.max(1_000, Math.min(65_000, (Number(d.retry_after) || 60) * 1000 + 500));
+        logger.debug(`[stealth] improve-article ${label} cooldown, retry in ${waitMs}ms`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      console.warn(`[stealth] improve-article ${label} cooldown persisted after retry, skipping`);
+      return "cooldown_persist";
+    }
+    return "ok";
+  }
+  return "cooldown_persist";
+}
+
 function numberOr(v: unknown, fallback: number): number {
   return typeof v === "number" && !Number.isNaN(v) ? v : fallback;
 }
