@@ -589,6 +589,7 @@ function localUniquenessFallback(plain: string): { score: number; details: Recor
 
 async function runAutoQuality(
   admin: any, articleId: string, userId: string, content: string, apiKey: string,
+  opts: { skipAutoFixes?: boolean } = {},
 ) {
   const plain = stripHtml(content);
   if (plain.length < 200) {
@@ -887,7 +888,10 @@ async function runAutoQuality(
       if (typeof t === "number") humanizeThreshold = t;
     } catch (_) { /* keep default */ }
 
-    if (humanizeThreshold > 0 && typeof aiCombined === "number" && aiCombined < humanizeThreshold && orKey) {
+    if (
+      !opts.skipAutoFixes &&
+      humanizeThreshold > 0 && typeof aiCombined === "number" && aiCombined < humanizeThreshold && orKey
+    ) {
       const { data: artFlag2 } = await admin
         .from("articles").select("rewritten").eq("id", articleId).maybeSingle();
       if (artFlag2 && artFlag2.rewritten !== true) {
@@ -927,6 +931,7 @@ async function runAutoQuality(
   try {
     const turgScore = turgenevFinal?.score ?? null;
     if (
+      !opts.skipAutoFixes &&
       isRu &&
       typeof turgScore === "number" &&
       turgScore >= 8 &&
@@ -1130,8 +1135,9 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: "OPENROUTER_API_KEY not configured" }, 500);
 
     const body = await req.json().catch(() => ({}));
-    const { article_id, content, checks, mode } = body as {
+    const { article_id, content, checks, mode, dispatched_by } = body as {
       article_id?: string; content?: string; checks?: string[]; mode?: string;
+      dispatched_by?: string;
     };
     if (!article_id) return json({ error: "article_id required" }, 400);
     if (!content || typeof content !== "string") return json({ error: "content required" }, 400);
@@ -1159,7 +1165,13 @@ Deno.serve(async (req) => {
       if (!ownCheck || ownCheck.user_id !== user.id) return json({ error: "Article not found" }, 404);
       // Mark immediately so polling sees "checking"
       await admin.from("articles").update({ quality_status: "checking" }).eq("id", article_id);
-      const bg = runAutoQuality(admin, article_id, user.id, content, apiKey).catch(async (e) => {
+      // Когда quality-check вызывается из клиентского оркестратора autoStealthPass,
+      // серверные fallback-автозапуски (auto_humanize / auto_turgenev) пропускаем,
+      // чтобы не гонять improve-article параллельно с клиентским циклом.
+      const skipAutoFixes = dispatched_by === "stealth";
+      const bg = runAutoQuality(
+        admin, article_id, user.id, content, apiKey, { skipAutoFixes },
+      ).catch(async (e) => {
         console.error("[quality-check] auto bg error", e);
         try {
           await admin.from("articles").update({ quality_status: "idle" }).eq("id", article_id);

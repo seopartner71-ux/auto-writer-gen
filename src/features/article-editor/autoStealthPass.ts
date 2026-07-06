@@ -141,11 +141,10 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       );
 
       try {
-        const { error } = await supabase.functions.invoke("improve-article", {
-          body: { article_id: articleId, fix_type: "humanize" },
-        });
-        if (error) {
-          console.warn(`[stealth] humanize pass ${passCount} failed`, error);
+        const res = await invokeImproveWithCooldown(articleId, "humanize", `pass ${passCount}`);
+        if (res === "error") break;
+        if (res === "cooldown_persist") {
+          // Cooldown не ушёл после ретрая — не молча ломаем цикл, идём к Turgenev/финалу.
           break;
         }
         await waitForQualityIdle(articleId);
@@ -183,11 +182,8 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         duration: timeLeft(),
       });
       try {
-        const { error } = await supabase.functions.invoke("improve-article", {
-          body: { article_id: articleId, fix_type: "turgenev" },
-        });
-        if (error) console.warn("[stealth] turgenev fix failed", error);
-        else await waitForQualityIdle(articleId);
+        const res = await invokeImproveWithCooldown(articleId, "turgenev", "turgenev");
+        if (res === "ok") await waitForQualityIdle(articleId);
         logger.debug("[stealth] turgenev check done");
       } catch (e) {
         console.warn("[stealth] turgenev step threw:", errMessage(e));
@@ -247,7 +243,7 @@ async function invokeQualityCheck(articleId: string): Promise<QualityCheckResult
     // Fire auto quality-check (background on the server side).
     try {
       await supabase.functions.invoke("quality-check", {
-        body: { article_id: articleId, content, mode: "auto" },
+        body: { article_id: articleId, content, mode: "auto", dispatched_by: "stealth" },
       });
     } catch (e) {
       console.warn("[stealth] quality-check invoke failed:", errMessage(e));
@@ -280,6 +276,44 @@ async function waitForQualityIdle(articleId: string): Promise<void> {
     if ((data as { quality_status?: string | null } | null)?.quality_status !== "checking") return;
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
+}
+
+/**
+ * Invokes improve-article and transparently retries once on the server-side
+ * 60s cooldown. Returns:
+ *  - "ok"                — improvement applied
+ *  - "error"             — transport/edge error (already logged); caller breaks
+ *  - "cooldown_persist"  — cooldown still active after one retry (logged);
+ *                          caller continues to the next step instead of silently
+ *                          treating no-op as success.
+ */
+async function invokeImproveWithCooldown(
+  articleId: string,
+  fixType: "humanize" | "turgenev",
+  label: string,
+): Promise<"ok" | "error" | "cooldown_persist"> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await supabase.functions.invoke("improve-article", {
+      body: { article_id: articleId, fix_type: fixType },
+    });
+    if (error) {
+      console.warn(`[stealth] improve-article ${label} failed`, error);
+      return "error";
+    }
+    const d = (data ?? null) as { ok?: boolean; cooldown?: boolean; retry_after?: number } | null;
+    if (d?.cooldown) {
+      if (attempt === 0) {
+        const waitMs = Math.max(1_000, Math.min(65_000, (Number(d.retry_after) || 60) * 1000 + 500));
+        logger.debug(`[stealth] improve-article ${label} cooldown, retry in ${waitMs}ms`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      console.warn(`[stealth] improve-article ${label} cooldown persisted after retry, skipping`);
+      return "cooldown_persist";
+    }
+    return "ok";
+  }
+  return "cooldown_persist";
 }
 
 function numberOr(v: unknown, fallback: number): number {
