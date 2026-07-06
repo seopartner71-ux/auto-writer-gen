@@ -411,7 +411,7 @@ function densityStatus(density: number, median: number): "ok" | "overuse" | "und
   if (density < median - 0.5) return "underuse";
   return "ok";
 }
-async function runClaudeAiScore(plain: string, key: string): Promise<number | null> {
+async function runClaudeAiScore(plain: string, key: string): Promise<{ score: number; reasons: string[] } | null> {
   try {
     const sample = plain.slice(0, 2000);
     const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
@@ -419,11 +419,11 @@ async function runClaudeAiScore(plain: string, key: string): Promise<number | nu
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4",
-        max_tokens: 10,
+        max_tokens: 150,
         temperature: 0,
         messages: [
-          { role: "system", content: "Ты - детектор ИИ-текста. Отвечай только числом." },
-          { role: "user", content: `Оцени текст по шкале 0-100.\n100 = написан живым человеком, естественный стиль.\n0 = явный ИИ, шаблонные фразы, предсказуемый ритм.\nВерни ТОЛЬКО целое число, ничего больше.\n\nТекст:\n${sample}` },
+          { role: "system", content: "Ты - детектор ИИ-текста. Формат ответа СТРОГО: первая строка - целое число 0-100, далее 2-3 короткие причины, каждая с новой строки, по 5-12 слов." },
+          { role: "user", content: `Оцени текст по шкале 0-100.\n100 = написан живым человеком, естественный стиль.\n0 = явный ИИ, шаблонные фразы, предсказуемый ритм.\n\nОтветь так:\n<число>\n- <причина 1>\n- <причина 2>\n- <причина 3, если есть>\n\nТекст:\n${sample}` },
         ],
       }),
     }, 30000);
@@ -434,10 +434,18 @@ async function runClaudeAiScore(plain: string, key: string): Promise<number | nu
     const data = await res.json();
     const raw = String(data?.choices?.[0]?.message?.content || "").trim();
     const m = raw.match(/\d{1,3}/);
-    if (!m) return 50;
-    const n = parseInt(m[0], 10);
-    if (Number.isNaN(n)) return 50;
-    return Math.max(0, Math.min(100, n));
+    const n = m ? parseInt(m[0], 10) : NaN;
+    const score = Number.isNaN(n) ? 50 : Math.max(0, Math.min(100, n));
+    // Parse reasons: lines after the first number line, stripping bullets/dashes.
+    const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    const reasons: string[] = [];
+    for (const line of lines) {
+      if (/^\d{1,3}\b/.test(line) && reasons.length === 0) continue; // skip the number line
+      const cleaned = line.replace(/^[-*•\d.)\s]+/, "").trim();
+      if (cleaned.length >= 3) reasons.push(cleaned);
+      if (reasons.length >= 3) break;
+    }
+    return { score, reasons };
   } catch (e) {
     console.error("[quality-check] claude ai-score exception", e);
     return null;
