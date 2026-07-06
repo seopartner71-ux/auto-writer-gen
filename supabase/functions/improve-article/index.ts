@@ -290,6 +290,64 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
     const burstStatus = String(art.burstiness_status || "ok");
     const dStatus = String(art.keyword_density_status || "ok");
 
+    // ── Validator context: read prior quality-check verdicts so the humanize
+    // pass gets CONCRETE tasks (e.g. "lengthen sentences") instead of blindly
+    // chopping. Prevents the improve-loop from making the same defect worse.
+    const validators = ((art as any).quality_details?.validators ?? {}) as Record<string, any>;
+    const vSentence = validators.sentence_structure ?? null;
+    const vCancellary = validators.cancellary ?? null;
+    const vDangling = validators.dangling_thoughts ?? null;
+    const vKwFreq = validators.keyword_frequency ?? null;
+
+    // Detect "sentences too short" specifically — the exact failure mode that
+    // triggers over-chopping. Signals:  avg_words < 10 OR max_short_run >= 4
+    // OR any issue text mentions "коротк" / "short" / "ниже нормы".
+    const sentenceIssuesText = Array.isArray(vSentence?.issues) ? vSentence.issues.join(" | ") : "";
+    const sentenceTooShort =
+      vSentence?.verdict === "fail" &&
+      (
+        (typeof vSentence?.avg_words === "number" && vSentence.avg_words < 10) ||
+        (typeof vSentence?.max_short_run === "number" && vSentence.max_short_run >= 4) ||
+        /коротк|ниже нормы|short/i.test(sentenceIssuesText)
+      );
+
+    // Build a plain-text "прошлые проверки нашли" block for the LLM.
+    const validatorTasks: string[] = [];
+    if (vSentence?.verdict === "fail" && Array.isArray(vSentence.issues) && vSentence.issues.length) {
+      const action = sentenceTooShort
+        ? "УДЛИНЯЙ и СКЛЕИВАЙ короткие предложения через связки (поскольку, при этом, хотя, однако, так как). НЕ дроби ещё сильнее."
+        : "Выровняй ритм — избегай серий одинаковой длины.";
+      validatorTasks.push(`Структура предложений (${action})\n  - ${vSentence.issues.join("\n  - ")}`);
+    }
+    if (vCancellary?.verdict === "fail" && Array.isArray(vCancellary.issues) && vCancellary.issues.length) {
+      validatorTasks.push(`Канцелярит и штампы (заменяй конкретикой, не выкидывай слова механически)\n  - ${vCancellary.issues.slice(0, 8).join("\n  - ")}`);
+    }
+    if (vDangling?.verdict === "fail" && Array.isArray(vDangling.issues) && vDangling.issues.length) {
+      validatorTasks.push(`Оборванные мысли (допиши логическое завершение, не обрывай на "и", "но", "поэтому")\n  - ${vDangling.issues.slice(0, 6).join("\n  - ")}`);
+    }
+    if (vKwFreq?.verdict === "fail" && Array.isArray(vKwFreq.issues) && vKwFreq.issues.length) {
+      validatorTasks.push(`Частотность слов (используй синонимы, местоимения, перестройку фразы)\n  - ${vKwFreq.issues.slice(0, 6).join("\n  - ")}`);
+    }
+    const validatorContextBlock = validatorTasks.length
+      ? `\n\nПРОШЛАЯ ПРОВЕРКА КАЧЕСТВА НАШЛА КОНКРЕТНЫЕ ПРОБЛЕМЫ — ИСПРАВЬ ИХ ПРИЦЕЛЬНО:\n${validatorTasks.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nЭто приоритетные задачи текущего прохода. Не создавай новых дефектов того же класса.\n`
+      : "";
+
+    // Rhythm block for the humanize pass. If sentenceTooShort — instruct to
+    // LENGTHEN, not chop; otherwise use the standard cadence rules.
+    const rhythmBlock = sentenceTooShort
+      ? `РИТМ (текст уже перерублен — СКЛЕИВАЙ, НЕ ДРОБИ):
+- Средняя длина предложения строго 14-18 слов.
+- Соединяй смежные короткие предложения через "поскольку", "при этом", "хотя", "однако", "так как", ", а", ", и" — там где это логично.
+- Короткие (до 8 слов) — редкий акцент, не более 1 подряд, не чаще чем 1 на 4-5 предложений.
+- Категорически запрещено 2+ коротких предложения подряд.
+- Каждая мысль должна быть развёрнута до законченного суждения (подлежащее + сказуемое + пояснение/причина/следствие).`
+      : `РИТМ (жёсткие рамки):
+- Средняя длина предложения 12-16 слов.
+- Короткие предложения (до 8 слов) — инструмент акцента, а не основной ритм.
+- После 1-2 коротких предложений подряд ОБЯЗАТЕЛЬНО идёт длинное (18+ слов).
+- Запрет более 2 коротких предложений подряд.
+- Ни одно предложение не длиннее 30 слов.`;
+
     // Resolve StyleProfile for this article (same source-of-truth as quality-check).
     let styleProfile: StyleProfile = getStyleProfile(null);
     if ((art as any).author_profile_id) {
@@ -305,14 +363,15 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
     if ((phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
+${validatorContextBlock}
+${rhythmBlock}
 
 ЦЕЛЬ AI-детектор:
-- Чередуй короткие предложения (3-6 слов) с длинными (15-25 слов, НЕ длиннее 30).
-- Живой ритм, разговорные вставки: "на практике", "вот что важно", "и тут начинается интересное".
+- Живой ритм в рамках правил выше — НЕ телеграфный стиль.
+- Разговорные вставки: "на практике", "вот что важно", "и тут начинается интересное" — точечно, а не в каждом абзаце.
 - Разнообразие начал абзацев.
 
 ЦЕЛЬ Тургенев (НЕ нарушать при гуманизации):
-- НИ ОДНО предложение не должно быть длиннее 30 слов.
 - Не использовать канцелярит: "является", "осуществляет", "в целях", "в рамках", "на сегодняшний день", "в настоящее время".
 - Не использовать воду: "следует отметить", "стоит сказать", "как известно", "не секрет что".
 - Если фраза длиннее 4 слов повторяется более 2 раз - перефразируй.
@@ -344,6 +403,10 @@ ${content}`;
       if (aiScore < 40 && orKey) {
         const sysOpus = "Ты редактор-человек. Делаешь микро-проход по HTML: убираешь монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
         const usrOpus = `Микро-проход: убери оставшиеся "ИИ-подписи" — монотонность синтаксиса, одинаковые зачины абзацев, лексические всплески. Цель: AI-детектор <30%. НЕ трогай факты, цифры, ссылки, теги (<h2>,<h3>,<p>,<ul>,<table>,<a>).
+${validatorContextBlock}
+${rhythmBlock}
+
+ВАЖНО: не превращай текст в набор коротких рубленых фраз ради «живости» — соблюдай рамки ритма выше.
 
 HTML:
 ${content}`;
