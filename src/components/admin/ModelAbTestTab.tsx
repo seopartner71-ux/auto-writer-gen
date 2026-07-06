@@ -16,7 +16,7 @@ const CANDIDATE_MODELS = [
   { key: "openai/gpt-5-mini", label: "GPT-5 mini" },
   { key: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
   { key: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  { key: "mistralai/mistral-large-2411", label: "Mistral Large 2411" },
+  { key: "mistralai/mistral-large-2512", label: "Mistral Large 3" },
   { key: "meta-llama/llama-3.3-70b-instruct", label: "Llama 3.3 70B" },
   { key: "deepseek/deepseek-chat", label: "DeepSeek Chat" },
   { key: "qwen/qwen-2.5-72b-instruct", label: "Qwen 2.5 72B" },
@@ -94,7 +94,7 @@ export function ModelAbTestTab() {
   const [selected, setSelected] = useState<string[]>([
     "anthropic/claude-sonnet-4",
     "openai/gpt-5",
-    "mistralai/mistral-large-2411",
+    "mistralai/mistral-large-2512",
     "meta-llama/llama-3.3-70b-instruct",
   ]);
   const [runsPerModel, setRunsPerModel] = useState<number>(3);
