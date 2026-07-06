@@ -43,15 +43,16 @@ export function TodayKpiCard() {
       const d30 = new Date(now - 30 * 24 * 3600 * 1000).toISOString();
 
       const [{ count: c24 }, { count: c7 }, { count: c30 }] = await Promise.all([
-        supabase.from("articles").select("id", { count: "exact", head: true }).gte("created_at", d24),
-        supabase.from("articles").select("id", { count: "exact", head: true }).gte("created_at", d7),
-        supabase.from("articles").select("id", { count: "exact", head: true }).gte("created_at", d30),
+        supabase.from("articles").select("id", { count: "exact", head: true }).gte("created_at", d24).eq("is_ab_test", false),
+        supabase.from("articles").select("id", { count: "exact", head: true }).gte("created_at", d7).eq("is_ab_test", false),
+        supabase.from("articles").select("id", { count: "exact", head: true }).gte("created_at", d30).eq("is_ab_test", false),
       ]);
 
       const { data: recent } = await supabase
         .from("articles")
         .select("ai_score,turgenev_score,uniqueness_percent,rewritten")
         .gte("created_at", d7)
+        .eq("is_ab_test", false)
         .limit(1000);
 
       let avgAi: number | null = null, avgTurg: number | null = null, humanizePct: number | null = null, uniqNullPct = 0;

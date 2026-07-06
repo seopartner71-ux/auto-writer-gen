@@ -14,6 +14,7 @@ export function UserContentTab() {
       const { data: arts, error } = await supabase
         .from("articles")
         .select("*")
+        .eq("is_ab_test", false)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;

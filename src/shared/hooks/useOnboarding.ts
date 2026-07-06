@@ -47,7 +47,7 @@ export function useOnboarding() {
     if (!user) return;
     const fetchCounts = async () => {
       const [artRes, kwRes] = await Promise.all([
-        supabase.from("articles").select("id", { count: "exact", head: true }),
+        supabase.from("articles").select("id", { count: "exact", head: true }).eq("is_ab_test", false),
         supabase.from("keywords").select("id", { count: "exact", head: true }).not("intent", "is", null),
       ]);
       setArticleCount(artRes.count ?? 0);

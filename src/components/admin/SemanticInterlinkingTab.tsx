@@ -19,12 +19,14 @@ export function SemanticInterlinkingTab() {
       const { count: totalCount } = await supabase
         .from("articles")
         .select("id", { count: "exact", head: true })
-        .in("status", ["completed", "published"]);
+        .in("status", ["completed", "published"])
+        .eq("is_ab_test", false);
       const { count: missingCount } = await supabase
         .from("articles")
         .select("id", { count: "exact", head: true })
         .in("status", ["completed", "published"])
-        .is("embedding", null);
+        .is("embedding", null)
+        .eq("is_ab_test", false);
       const total = totalCount ?? 0;
       const missing = missingCount ?? 0;
       return {

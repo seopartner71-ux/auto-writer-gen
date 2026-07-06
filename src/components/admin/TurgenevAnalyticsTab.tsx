@@ -47,6 +47,7 @@ export function TurgenevAnalyticsTab() {
         .select("id,user_id,turgenev_score,turgenev_auto_fixed,language,created_at")
         .not("turgenev_score", "is", null)
         .eq("language", "ru")
+        .eq("is_ab_test", false)
         .order("created_at", { ascending: false })
         .limit(2000);
       if (e1) throw e1;
