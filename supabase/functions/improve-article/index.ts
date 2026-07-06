@@ -293,6 +293,63 @@ interface PipelineArgs {
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits } = args;
   let content = args.initialContent;
+  // ── Best-candidate tracking. Every state (initial + after each successful
+  // LLM step) is scored with the same blended judge stack as quality-check;
+  // at the end we write the state with the HIGHEST score, not the last one.
+  let bestContent = args.initialContent;
+  let bestScore = Number(art.ai_score ?? 0);
+  let bestLabel = "initial";
+  const scoreHistory: Array<{ label: string; score: number | null; parts: { claude: number | null; gemini: number | null } }> = [];
+  async function scoreClaudeInline(plain: string, key: string): Promise<number | null> {
+    try {
+      const raw = plain.slice(0, 2000);
+      const lastEnd = Math.max(raw.lastIndexOf("."), raw.lastIndexOf("!"), raw.lastIndexOf("?"), raw.lastIndexOf("…"));
+      const sample = lastEnd > 800 ? raw.slice(0, lastEnd + 1) : raw;
+      const r = await chatComplete({
+        apiKey: key, model: "anthropic/claude-sonnet-4",
+        system: "Ты - детектор ИИ-текста. Ответь ОДНИМ целым числом 0-100. 100 = живой человек, 0 = явный ИИ.",
+        user: `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100:\n\n${sample}`,
+        maxTokens: 10, temperature: 0, timeoutMs: 20_000,
+        appTitle: "SEO-Modul improve-article score",
+      });
+      const m = String(r.content || "").match(/\d{1,3}/);
+      if (!m) return null;
+      return Math.max(0, Math.min(100, parseInt(m[0], 10)));
+    } catch { return null; }
+  }
+  async function scoreGeminiInline(plain: string, key: string): Promise<number | null> {
+    try {
+      const sample = plain.slice(0, 5000);
+      const r = await chatComplete({
+        apiKey: key, model: "google/gemini-2.5-flash",
+        system: 'Ты - детектор AI-текста. Верни JSON {"score":<0-100>}.',
+        user: `Оцени: 100 = написан человеком, 0 = ИИ. Ответь только JSON.\n\n${sample}`,
+        maxTokens: 60, temperature: 0, timeoutMs: 20_000,
+        appTitle: "SEO-Modul improve-article score",
+      });
+      const raw = String(r.content || "");
+      const m = raw.match(/"score"\s*:\s*(\d{1,3})/);
+      const n = m ? parseInt(m[1], 10) : (raw.match(/\d{1,3}/)?.[0] ? parseInt(raw.match(/\d{1,3}/)![0], 10) : NaN);
+      if (Number.isNaN(n)) return null;
+      return Math.max(0, Math.min(100, n));
+    } catch { return null; }
+  }
+  async function scoreCandidate(html: string, label: string): Promise<number | null> {
+    const plain = stripHtml(html);
+    const [c, g] = await Promise.all([
+      orKey ? scoreClaudeInline(plain, orKey) : Promise.resolve(null),
+      lovableKey ? scoreGeminiInline(plain, lovableKey) : Promise.resolve(null),
+    ]);
+    const parts = [c, g].filter((x): x is number => typeof x === "number");
+    const blended = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
+    scoreHistory.push({ label, score: blended, parts: { claude: c, gemini: g } });
+    if (typeof blended === "number" && blended > bestScore) {
+      bestScore = blended;
+      bestContent = html;
+      bestLabel = label;
+    }
+    return blended;
+  }
   // ── Observability trace: per-pass metrics, prompt blocks, integrity verdicts.
   // Written to pipeline_events.meta.prompt_trace at the end and mirrored in
   // articles.quality_details.improve_last. Does NOT influence any decision.
@@ -418,6 +475,32 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       ? `\n\nПРОШЛАЯ ПРОВЕРКА КАЧЕСТВА НАШЛА КОНКРЕТНЫЕ ПРОБЛЕМЫ — ИСПРАВЬ ИХ ПРИЦЕЛЬНО:\n${validatorTasks.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nЭто приоритетные задачи текущего прохода. Не создавай новых дефектов того же класса.\n`
       : "";
 
+    // ── Judge feedback loop. quality-check saves reasons from Claude + Gemini
+    // into quality_details.ai_*_reasons; feed them back so the next humanize
+    // pass fixes EXACTLY what dropped the score (not just structural metrics).
+    const priorClaudeReasons: string[] = Array.isArray((art as any).quality_details?.ai_claude_reasons)
+      ? (art as any).quality_details.ai_claude_reasons.map((s: any) => String(s)).filter(Boolean)
+      : [];
+    const priorInternalReasons: string[] = Array.isArray((art as any).quality_details?.ai_internal_reasons)
+      ? (art as any).quality_details.ai_internal_reasons.map((s: any) => String(s)).filter(Boolean)
+      : [];
+    const judgeReasonsAll = [...priorClaudeReasons, ...priorInternalReasons];
+    const judgeReasonsBlock = judgeReasonsAll.length
+      ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, не воспроизводи эти же дефекты):\n${judgeReasonsAll.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+      : "";
+
+    // ── Постоянный лексический запрет. Эти клише срабатывают у обоих судей
+    // независимо от ритма и метрик, поэтому висят всегда, а не только когда
+    // валидатор их поймал в прошлом прогоне.
+    const lexicalBanBlock = `
+ЗАПРЕЩЁННЫЕ КЛИШЕ (полностью убрать, заменить конкретикой из ТЕКСТА статьи — цифрой, сценарием, примером, наблюдением):
+- "практика показывает"
+- "ключевой момент"
+- "стоит отметить"
+- "зависит от конкретных задач"
+- "важно понимать"
+Конструкция "чем больше ... тем ..." — не более 1 раза на весь текст. Второе повторение переформулируй через конкретный сценарий ("если объем перевалок > 40 м³ / день — колесный универсал окупается быстрее").`;
+
     // Rhythm block for the humanize pass. If sentenceTooShort — instruct to
     // LENGTHEN, not chop; otherwise use the standard cadence rules.
     // Shared rules for BOTH modes: cap connectors, vary joins, vary paragraph openings.
@@ -478,6 +561,8 @@ ${rhythmSharedRules}`;
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
 ${validatorContextBlock}
+${judgeReasonsBlock}
+${lexicalBanBlock}
 ${rhythmBlock}
 
 ЦЕЛЬ AI-детектор:
@@ -503,6 +588,8 @@ ${content}`;
         opus_micro_pass_planned: aiScore < 40 && !!orKey,
         sentence_too_short: sentenceTooShort,
         ai_score_at_entry: aiScore,
+        judge_reasons_count: judgeReasonsAll.length,
+        lexical_ban: true,
       };
       let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-pro";
       let humanizeLlmError: string | undefined;
@@ -534,6 +621,9 @@ ${content}`;
           console.warn("[improve-article] rewrite rejected:", integrity.reason);
         }
       }
+      if (humanizeApplied) {
+        await scoreCandidate(content, "humanize.sonnet");
+      }
       recordPass({
         step: "humanize.sonnet",
         model: humanizeModel,
@@ -555,6 +645,8 @@ ${content}`;
         const sysOpus = "Ты редактор-человек. Делаешь микро-проход по HTML: убираешь монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
         const usrOpus = `Микро-проход: убери оставшиеся "ИИ-подписи" — монотонность синтаксиса, одинаковые зачины абзацев, лексические всплески. Цель: AI-детектор <30%. НЕ трогай факты, цифры, ссылки, теги (<h2>,<h3>,<p>,<ul>,<table>,<a>).
 ${validatorContextBlock}
+${judgeReasonsBlock}
+${lexicalBanBlock}
 ${rhythmBlock}
 
 ВАЖНО: не превращай текст в набор коротких рубленых фраз ради «живости» — соблюдай рамки ритма выше.
@@ -562,8 +654,10 @@ ${rhythmBlock}
 HTML:
 ${content}`;
         const opusBefore = metricsOf(content);
-        // Opus can take 40-90s. Give it real head-room; log the exact reason on failure.
-        const opusRes = await callOpenRouterEx("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 6000, 90_000);
+        // Opus regularly takes 60-100s. 90s hit timeout in both real runs today;
+        // bump to 120s. If this still times out consistently, the step should
+        // be removed entirely (see improve_last.score_history).
+        const opusRes = await callOpenRouterEx("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 6000, 120_000);
         const polished = opusRes.content;
         const opusLlmError = opusRes.error;
         const opusDurationMs = opusRes.duration_ms;
@@ -599,6 +693,9 @@ ${content}`;
           } else {
             opusFallbackUsed = fb.error || "sonnet_fallback_empty";
           }
+        }
+        if (opusApplied) {
+          await scoreCandidate(content, "humanize.opus");
         }
         recordPass({
           step: "humanize.opus",
@@ -908,8 +1005,14 @@ ${content}`;
     const nextImproveCount = bypassLimits
       ? Number((art as any).seo_improve_count || 0)
       : Number((art as any).seo_improve_count || 0) + 1;
+    // Score the FINAL post-pipeline state (structural steps 2-8 run after
+    // humanize and may have moved the needle); pick the best-scoring version.
+    if (content !== bestContent) {
+      try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
+    }
+    const contentToPersist = bestContent;
     await admin.from("articles").update({
-      content,
+      content: contentToPersist,
       quality_status: "checking",
       seo_improve_count: nextImproveCount,
       updated_at: new Date().toISOString(),
@@ -919,7 +1022,7 @@ ${content}`;
     try {
       const prevDetails = (art as any).quality_details && typeof (art as any).quality_details === "object"
         ? (art as any).quality_details : {};
-      const metricsFinal = metricsOf(content);
+      const metricsFinal = metricsOf(contentToPersist);
       const appliedSteps = trace.filter((t) => t.applied).map((t) => t.step);
       const traceSummary = trace.map((t) => ({
         step: t.step,
@@ -944,6 +1047,12 @@ ${content}`;
             applied_steps: appliedSteps,
             integrity_rejections: integrityRejections,
             trace: traceSummary,
+            best_pick: {
+              label: bestLabel,
+              score: bestScore,
+              entry_score: Number(art.ai_score ?? 0),
+            },
+            score_history: scoreHistory,
           },
           improve_error: null,
         },
@@ -959,7 +1068,7 @@ ${content}`;
             "Content-Type": "application/json",
             "Authorization": authHeader,
           },
-          body: JSON.stringify({ article_id, content, mode: "auto" }),
+          body: JSON.stringify({ article_id, content: contentToPersist, mode: "auto" }),
         });
       } catch (e) {
         console.error("[improve-article] re-check failed", e);
@@ -978,9 +1087,11 @@ ${content}`;
         source: source ?? null,
         auto: bypassLimits,
         metrics_before: metricsInitial,
-        metrics_after: metricsOf(content),
+        metrics_after: metricsOf(contentToPersist),
         applied_steps: trace.filter((t) => t.applied).map((t) => t.step),
         integrity_rejections: integrityRejections,
+        best_pick: { label: bestLabel, score: bestScore, entry_score: Number(art.ai_score ?? 0) },
+        score_history: scoreHistory,
         // Full prompts of every LLM pass — including system + user (with article
         // body). Kept so we can verify exactly what went to the model.
         prompt_trace: trace,
