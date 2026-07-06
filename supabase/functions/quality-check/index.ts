@@ -931,6 +931,7 @@ async function runAutoQuality(
   try {
     const turgScore = turgenevFinal?.score ?? null;
     if (
+      !opts.skipAutoFixes &&
       isRu &&
       typeof turgScore === "number" &&
       turgScore >= 8 &&
