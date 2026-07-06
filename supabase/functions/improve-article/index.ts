@@ -447,22 +447,51 @@ ${rhythmBlock}
 HTML:
 ${content}`;
       let rewritten: string | null = null;
+      const humanizeBefore = metricsOf(content);
+      const humanizeBlocks = {
+        validators: validatorTasks.length > 0,
+        validator_task_count: validatorTasks.length,
+        rhythm: sentenceTooShort ? "lengthen" : "normal",
+        opus_micro_pass_planned: aiScore < 40 && !!orKey,
+        sentence_too_short: sentenceTooShort,
+        ai_score_at_entry: aiScore,
+      };
+      let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-pro";
       if (orKey) {
         rewritten = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
       }
       if (!rewritten && lovableKey) {
+        humanizeModel = "google/gemini-2.5-pro";
         rewritten = await callGateway("google/gemini-2.5-pro", sys, usr, lovableKey);
       }
+      let humanizeApplied = false;
+      let humanizeIntegrity: { ok: boolean; reason?: string } | null = null;
+      let humanizeCandidateMetrics: ReturnType<typeof metricsOf> | null = null;
       if (rewritten && rewritten.length > 200) {
         // Strip stray markdown code fences
         const candidate = rewritten.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        humanizeCandidateMetrics = metricsOf(candidate);
         const integrity = htmlIntegrityOk(content, candidate);
+        humanizeIntegrity = integrity;
         if (integrity.ok) {
           content = candidate;
+          humanizeApplied = true;
         } else {
           console.warn("[improve-article] rewrite rejected:", integrity.reason);
         }
       }
+      recordPass({
+        step: "humanize.sonnet",
+        model: humanizeModel,
+        blocks: humanizeBlocks,
+        metrics_before: humanizeBefore,
+        metrics_llm: humanizeCandidateMetrics,
+        integrity: humanizeIntegrity,
+        applied: humanizeApplied,
+        llm_bytes: rewritten ? rewritten.length : 0,
+        llm_null: !rewritten,
+        prompt: { system: sys, user: usr, user_bytes: usr.length },
+      });
 
       // 1b) Severe AI-detected (ai_score < 40) → run a second Opus micro-pass
       // for "AI fingerprints" removal. Best-effort with HTML integrity guard.
@@ -476,16 +505,39 @@ ${rhythmBlock}
 
 HTML:
 ${content}`;
+        const opusBefore = metricsOf(content);
         const polished = await callOpenRouter("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 12000);
+        let opusApplied = false;
+        let opusIntegrity: { ok: boolean; reason?: string } | null = null;
+        let opusCandidateMetrics: ReturnType<typeof metricsOf> | null = null;
         if (polished && polished.length > 200) {
           const cand2 = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          opusCandidateMetrics = metricsOf(cand2);
           const integrity2 = htmlIntegrityOk(content, cand2);
+          opusIntegrity = integrity2;
           if (integrity2.ok) {
             content = cand2;
+            opusApplied = true;
           } else {
             console.warn("[improve-article] opus pass rejected:", integrity2.reason);
           }
         }
+        recordPass({
+          step: "humanize.opus",
+          model: "anthropic/claude-opus-4",
+          blocks: {
+            validators: validatorTasks.length > 0,
+            rhythm: sentenceTooShort ? "lengthen" : "normal",
+            opus_micro_pass: true,
+          },
+          metrics_before: opusBefore,
+          metrics_llm: opusCandidateMetrics,
+          integrity: opusIntegrity,
+          applied: opusApplied,
+          llm_bytes: polished ? polished.length : 0,
+          llm_null: !polished,
+          prompt: { system: sysOpus, user: usrOpus, user_bytes: usrOpus.length },
+        });
       }
     }
 
