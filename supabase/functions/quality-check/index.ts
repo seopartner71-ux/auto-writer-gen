@@ -413,7 +413,11 @@ function densityStatus(density: number, median: number): "ok" | "overuse" | "und
 }
 async function runClaudeAiScore(plain: string, key: string): Promise<{ score: number; reasons: string[] } | null> {
   try {
-    const sample = plain.slice(0, 2000);
+    // Truncate on a sentence boundary within 2000 chars so the judge doesn't
+    // penalise an artificial cut-off. Fall back to hard slice if no terminator.
+    const raw = plain.slice(0, 2000);
+    const lastEnd = Math.max(raw.lastIndexOf("."), raw.lastIndexOf("!"), raw.lastIndexOf("?"), raw.lastIndexOf("…"));
+    const sample = lastEnd > 800 ? raw.slice(0, lastEnd + 1) : raw;
     const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
@@ -423,7 +427,7 @@ async function runClaudeAiScore(plain: string, key: string): Promise<{ score: nu
         temperature: 0,
         messages: [
           { role: "system", content: "Ты - детектор ИИ-текста. Формат ответа СТРОГО: первая строка - целое число 0-100, далее 2-3 короткие причины, каждая с новой строки, по 5-12 слов." },
-          { role: "user", content: `Оцени текст по шкале 0-100.\n100 = написан живым человеком, естественный стиль.\n0 = явный ИИ, шаблонные фразы, предсказуемый ритм.\n\nОтветь так:\n<число>\n- <причина 1>\n- <причина 2>\n- <причина 3, если есть>\n\nТекст:\n${sample}` },
+          { role: "user", content: `Оцени текст по шкале 0-100.\n100 = написан живым человеком, естественный стиль.\n0 = явный ИИ, шаблонные фразы, предсказуемый ритм.\n\nВАЖНО: это фрагмент длинного текста, обрыв в конце не учитывай.\n\nОтветь так:\n<число>\n- <причина 1>\n- <причина 2>\n- <причина 3, если есть>\n\nТекст:\n${sample}` },
         ],
       }),
     }, 30000);
