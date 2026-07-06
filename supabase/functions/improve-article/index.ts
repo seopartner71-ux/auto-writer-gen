@@ -87,18 +87,36 @@ function splitLongSentences(text: string): string {
   });
 }
 
-async function callOpenRouter(model: string, system: string, user: string, key: string, maxTokens = 8000): Promise<string | null> {
+async function callOpenRouterEx(
+  model: string, system: string, user: string, key: string, maxTokens = 8000, timeoutMs = 120_000,
+): Promise<{ content: string | null; error?: string; duration_ms: number }> {
+  const t0 = Date.now();
   try {
     const r = await chatComplete({
       apiKey: key, model, system, user,
-      maxTokens, temperature: 0.85, timeoutMs: 120_000,
+      maxTokens, temperature: 0.85, timeoutMs,
       appTitle: "SEO-Modul improve-article",
     });
-    return r.content || null;
+    const content = r.content || null;
+    const duration_ms = Date.now() - t0;
+    if (!content) return { content: null, error: "empty_content", duration_ms };
+    return { content, duration_ms };
   } catch (e) {
-    console.error("[improve-article] OR exception", (e as Error)?.message);
-    return null;
+    const duration_ms = Date.now() - t0;
+    const msg = (e as Error)?.message || String(e);
+    console.error("[improve-article] OR exception", model, msg);
+    let kind = "exception";
+    if (/timeout|timed out|aborted/i.test(msg)) kind = "timeout";
+    else if (/402/.test(msg)) kind = "http_402_credits";
+    else if (/429/.test(msg)) kind = "http_429_rate_limit";
+    else if (/5\d\d/.test(msg)) kind = "http_5xx";
+    else if (/4\d\d/.test(msg)) kind = "http_4xx";
+    return { content: null, error: `${kind}: ${msg.slice(0, 200)}`, duration_ms };
   }
+}
+async function callOpenRouter(model: string, system: string, user: string, key: string, maxTokens = 8000): Promise<string | null> {
+  const r = await callOpenRouterEx(model, system, user, key, maxTokens);
+  return r.content;
 }
 
 async function callGateway(model: string, system: string, user: string, key: string): Promise<string | null> {
@@ -288,6 +306,8 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
     applied: boolean;
     llm_bytes: number;
     llm_null: boolean;
+    llm_null_reason?: string | null;
+    llm_duration_ms?: number;
     prompt: { system: string; user: string; user_bytes: number } | null;
   };
   const trace: PassTrace[] = [];
@@ -485,12 +505,18 @@ ${content}`;
         ai_score_at_entry: aiScore,
       };
       let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-pro";
+      let humanizeLlmError: string | undefined;
+      let humanizeDurationMs = 0;
       if (orKey) {
-        rewritten = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000);
+        rewritten = r.content;
+        humanizeLlmError = r.error;
+        humanizeDurationMs = r.duration_ms;
       }
       if (!rewritten && lovableKey) {
         humanizeModel = "google/gemini-2.5-pro";
         rewritten = await callGateway("google/gemini-2.5-pro", sys, usr, lovableKey);
+        if (!rewritten && !humanizeLlmError) humanizeLlmError = "gemini_fallback_empty";
       }
       let humanizeApplied = false;
       let humanizeIntegrity: { ok: boolean; reason?: string } | null = null;
@@ -518,6 +544,8 @@ ${content}`;
         applied: humanizeApplied,
         llm_bytes: rewritten ? rewritten.length : 0,
         llm_null: !rewritten,
+        llm_null_reason: !rewritten ? (humanizeLlmError || "unknown") : null,
+        llm_duration_ms: humanizeDurationMs,
         prompt: { system: sys, user: usr, user_bytes: usr.length },
       });
 
@@ -534,7 +562,11 @@ ${rhythmBlock}
 HTML:
 ${content}`;
         const opusBefore = metricsOf(content);
-        const polished = await callOpenRouter("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 12000);
+        // Opus can take 40-90s. Give it real head-room; log the exact reason on failure.
+        const opusRes = await callOpenRouterEx("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 6000, 90_000);
+        const polished = opusRes.content;
+        const opusLlmError = opusRes.error;
+        const opusDurationMs = opusRes.duration_ms;
         let opusApplied = false;
         let opusIntegrity: { ok: boolean; reason?: string } | null = null;
         let opusCandidateMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -550,6 +582,24 @@ ${content}`;
             console.warn("[improve-article] opus pass rejected:", integrity2.reason);
           }
         }
+        // Fallback to Sonnet if Opus returned nothing — micro-polish is still valuable.
+        let opusFallbackUsed: string | undefined;
+        if (!polished) {
+          const fb = await callOpenRouterEx("anthropic/claude-sonnet-4", sysOpus, usrOpus, orKey, 6000, 60_000);
+          if (fb.content && fb.content.length > 200) {
+            const cand3 = fb.content.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+            const int3 = htmlIntegrityOk(content, cand3);
+            opusCandidateMetrics = metricsOf(cand3);
+            opusIntegrity = int3;
+            if (int3.ok) {
+              content = cand3;
+              opusApplied = true;
+              opusFallbackUsed = "sonnet_fallback";
+            }
+          } else {
+            opusFallbackUsed = fb.error || "sonnet_fallback_empty";
+          }
+        }
         recordPass({
           step: "humanize.opus",
           model: "anthropic/claude-opus-4",
@@ -557,6 +607,7 @@ ${content}`;
             validators: validatorTasks.length > 0,
             rhythm: sentenceTooShort ? "lengthen" : "normal",
             opus_micro_pass: true,
+            fallback: opusFallbackUsed || null,
           },
           metrics_before: opusBefore,
           metrics_llm: opusCandidateMetrics,
@@ -564,6 +615,8 @@ ${content}`;
           applied: opusApplied,
           llm_bytes: polished ? polished.length : 0,
           llm_null: !polished,
+          llm_null_reason: !polished ? (opusLlmError || "unknown") : null,
+          llm_duration_ms: opusDurationMs,
           prompt: { system: sysOpus, user: usrOpus, user_bytes: usrOpus.length },
         });
       }
