@@ -45,7 +45,7 @@ const PROFILES: Record<SyntaxPreset, StyleProfile> = {
   },
   practitioner: {
     preset: "practitioner",
-    sentence_avg_min: 10, sentence_avg_max: 16,
+    sentence_avg_min: 10, sentence_avg_max: 18,
     short_word_max: 6, long_word_min: 22,
     max_short_ratio: 0.40, max_short_run: 3,
     allow_fragments: false, cliche_strictness: "hard",
