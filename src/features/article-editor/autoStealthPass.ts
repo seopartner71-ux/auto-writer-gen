@@ -141,11 +141,10 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       );
 
       try {
-        const { error } = await supabase.functions.invoke("improve-article", {
-          body: { article_id: articleId, fix_type: "humanize" },
-        });
-        if (error) {
-          console.warn(`[stealth] humanize pass ${passCount} failed`, error);
+        const res = await invokeImproveWithCooldown(articleId, "humanize", `pass ${passCount}`);
+        if (res === "error") break;
+        if (res === "cooldown_persist") {
+          // Cooldown не ушёл после ретрая — не молча ломаем цикл, идём к Turgenev/финалу.
           break;
         }
         await waitForQualityIdle(articleId);
@@ -183,11 +182,8 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         duration: timeLeft(),
       });
       try {
-        const { error } = await supabase.functions.invoke("improve-article", {
-          body: { article_id: articleId, fix_type: "turgenev" },
-        });
-        if (error) console.warn("[stealth] turgenev fix failed", error);
-        else await waitForQualityIdle(articleId);
+        const res = await invokeImproveWithCooldown(articleId, "turgenev", "turgenev");
+        if (res === "ok") await waitForQualityIdle(articleId);
         logger.debug("[stealth] turgenev check done");
       } catch (e) {
         console.warn("[stealth] turgenev step threw:", errMessage(e));
