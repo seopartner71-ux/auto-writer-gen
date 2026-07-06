@@ -772,6 +772,8 @@ async function runAutoQuality(
     const { data: prevDet } = await admin.from("articles").select("quality_details").eq("id", articleId).maybeSingle();
     updatePatch.quality_details = {
       ...((prevDet?.quality_details as any) || {}),
+      ai_internal_reasons: aiInternalReasons,
+      ai_claude_reasons: aiClaudeReasons,
       sentence_structure: {
         verdict: sentStruct.verdict,
         status: sentStatus,
