@@ -275,6 +275,72 @@ interface PipelineArgs {
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits } = args;
   let content = args.initialContent;
+  // ── Observability trace: per-pass metrics, prompt blocks, integrity verdicts.
+  // Written to pipeline_events.meta.prompt_trace at the end and mirrored in
+  // articles.quality_details.improve_last. Does NOT influence any decision.
+  type PassTrace = {
+    step: string;
+    model: string;
+    blocks?: Record<string, unknown>;
+    metrics_before: ReturnType<typeof metricsOf>;
+    metrics_llm: ReturnType<typeof metricsOf> | null;
+    integrity: { ok: boolean; reason?: string } | null;
+    applied: boolean;
+    llm_bytes: number;
+    llm_null: boolean;
+    prompt: { system: string; user: string; user_bytes: number } | null;
+  };
+  const trace: PassTrace[] = [];
+  const integrityRejections: Array<{ step: string; reason: string; metrics_llm: any; metrics_before: any }> = [];
+
+  function metricsOf(html: string) {
+    try {
+      const m = analyzeSentenceStructure(stripHtml(html));
+      return {
+        sents: m.sentenceCount,
+        avg: m.avgWords,
+        max_short_run: m.maxShortRun,
+        short_ratio: m.shortRatio,
+        bytes: html.length,
+      };
+    } catch {
+      return { sents: 0, avg: 0, max_short_run: 0, short_ratio: 0, bytes: html.length };
+    }
+  }
+
+  // Wraps trace push + integrity-rejection pipeline event. Called AFTER the
+  // caller has already made its accept/reject decision (behaviour untouched).
+  function recordPass(entry: PassTrace) {
+    trace.push(entry);
+    if (entry.integrity && !entry.integrity.ok) {
+      integrityRejections.push({
+        step: entry.step,
+        reason: entry.integrity.reason || "unknown",
+        metrics_llm: entry.metrics_llm,
+        metrics_before: entry.metrics_before,
+      });
+      logPipelineEvent({
+        stage: "improve",
+        user_id: user.id,
+        article_id,
+        verdict: "warning",
+        duration_ms: elapsed(),
+        meta: {
+          event: "integrity_rejected",
+          step: entry.step,
+          model: entry.model,
+          reason: entry.integrity.reason,
+          metrics_before: entry.metrics_before,
+          metrics_llm: entry.metrics_llm,
+          phase,
+          source: source ?? null,
+        },
+      });
+    }
+  }
+
+  const metricsInitial = metricsOf(content);
+
   try {
     // Determine primary keyword
     let primaryKeyword = "";
@@ -381,22 +447,51 @@ ${rhythmBlock}
 HTML:
 ${content}`;
       let rewritten: string | null = null;
+      const humanizeBefore = metricsOf(content);
+      const humanizeBlocks = {
+        validators: validatorTasks.length > 0,
+        validator_task_count: validatorTasks.length,
+        rhythm: sentenceTooShort ? "lengthen" : "normal",
+        opus_micro_pass_planned: aiScore < 40 && !!orKey,
+        sentence_too_short: sentenceTooShort,
+        ai_score_at_entry: aiScore,
+      };
+      let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-pro";
       if (orKey) {
         rewritten = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
       }
       if (!rewritten && lovableKey) {
+        humanizeModel = "google/gemini-2.5-pro";
         rewritten = await callGateway("google/gemini-2.5-pro", sys, usr, lovableKey);
       }
+      let humanizeApplied = false;
+      let humanizeIntegrity: { ok: boolean; reason?: string } | null = null;
+      let humanizeCandidateMetrics: ReturnType<typeof metricsOf> | null = null;
       if (rewritten && rewritten.length > 200) {
         // Strip stray markdown code fences
         const candidate = rewritten.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        humanizeCandidateMetrics = metricsOf(candidate);
         const integrity = htmlIntegrityOk(content, candidate);
+        humanizeIntegrity = integrity;
         if (integrity.ok) {
           content = candidate;
+          humanizeApplied = true;
         } else {
           console.warn("[improve-article] rewrite rejected:", integrity.reason);
         }
       }
+      recordPass({
+        step: "humanize.sonnet",
+        model: humanizeModel,
+        blocks: humanizeBlocks,
+        metrics_before: humanizeBefore,
+        metrics_llm: humanizeCandidateMetrics,
+        integrity: humanizeIntegrity,
+        applied: humanizeApplied,
+        llm_bytes: rewritten ? rewritten.length : 0,
+        llm_null: !rewritten,
+        prompt: { system: sys, user: usr, user_bytes: usr.length },
+      });
 
       // 1b) Severe AI-detected (ai_score < 40) → run a second Opus micro-pass
       // for "AI fingerprints" removal. Best-effort with HTML integrity guard.
@@ -410,16 +505,39 @@ ${rhythmBlock}
 
 HTML:
 ${content}`;
+        const opusBefore = metricsOf(content);
         const polished = await callOpenRouter("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 12000);
+        let opusApplied = false;
+        let opusIntegrity: { ok: boolean; reason?: string } | null = null;
+        let opusCandidateMetrics: ReturnType<typeof metricsOf> | null = null;
         if (polished && polished.length > 200) {
           const cand2 = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          opusCandidateMetrics = metricsOf(cand2);
           const integrity2 = htmlIntegrityOk(content, cand2);
+          opusIntegrity = integrity2;
           if (integrity2.ok) {
             content = cand2;
+            opusApplied = true;
           } else {
             console.warn("[improve-article] opus pass rejected:", integrity2.reason);
           }
         }
+        recordPass({
+          step: "humanize.opus",
+          model: "anthropic/claude-opus-4",
+          blocks: {
+            validators: validatorTasks.length > 0,
+            rhythm: sentenceTooShort ? "lengthen" : "normal",
+            opus_micro_pass: true,
+          },
+          metrics_before: opusBefore,
+          metrics_llm: opusCandidateMetrics,
+          integrity: opusIntegrity,
+          applied: opusApplied,
+          llm_bytes: polished ? polished.length : 0,
+          llm_null: !polished,
+          prompt: { system: sysOpus, user: usrOpus, user_bytes: usrOpus.length },
+        });
       }
     }
 
@@ -432,15 +550,34 @@ ${content}`;
 
 HTML:
 ${content}`;
+      const before = metricsOf(content);
       let added: string | null = null;
+      let usedModel = "google/gemini-2.5-flash";
       if (lovableKey) added = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey);
       if (!added && orKey) added = await callOpenRouter("google/gemini-2.5-flash", sys, usr, orKey);
+      let applied = false;
+      let integrityRes: { ok: boolean; reason?: string } | null = null;
+      let candMetrics: ReturnType<typeof metricsOf> | null = null;
       if (added && added.length > 200) {
         const candidate = added.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        candMetrics = metricsOf(candidate);
         const integrity = htmlIntegrityOk(content, candidate);
-        if (integrity.ok) content = candidate;
+        integrityRes = integrity;
+        if (integrity.ok) { content = candidate; applied = true; }
         else console.warn("[improve-article] density-fix rejected:", integrity.reason);
       }
+      recordPass({
+        step: "keyword_density.underuse",
+        model: usedModel,
+        blocks: { primary_keyword: primaryKeyword, density_status: dStatus },
+        metrics_before: before,
+        metrics_llm: candMetrics,
+        integrity: integrityRes,
+        applied,
+        llm_bytes: added ? added.length : 0,
+        llm_null: !added,
+        prompt: { system: sys, user: usr, user_bytes: usr.length },
+      });
     }
 
     // 3) Burstiness fix: split long sentences (JS post-processor)
@@ -474,13 +611,31 @@ ${content}`;
 
 Текст:
 ${content}`;
+      const before = metricsOf(content);
       const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+      let applied = false;
+      let integrityRes: { ok: boolean; reason?: string } | null = null;
+      let candMetrics: ReturnType<typeof metricsOf> | null = null;
       if (fixed && fixed.length > 200) {
         const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        candMetrics = metricsOf(candidate);
         const integrity = htmlIntegrityOk(content, candidate);
-        if (integrity.ok) content = candidate;
+        integrityRes = integrity;
+        if (integrity.ok) { content = candidate; applied = true; }
         else console.warn("[improve-article] turgenev-fix rejected:", integrity.reason);
       }
+      recordPass({
+        step: "turgenev",
+        model: "anthropic/claude-sonnet-4",
+        blocks: { turgenev_status: turgStatus },
+        metrics_before: before,
+        metrics_llm: candMetrics,
+        integrity: integrityRes,
+        applied,
+        llm_bytes: fixed ? fixed.length : 0,
+        llm_null: !fixed,
+        prompt: { system: sys, user: usr, user_bytes: usr.length },
+      });
     }
 
     // 5) Sentence-structure fix: чиним «телеграфный» стиль —
@@ -504,13 +659,31 @@ ${hint}
 
 HTML:
 ${content}`;
+        const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        let applied = false;
+        let integrityRes: { ok: boolean; reason?: string } | null = null;
+        let candMetrics: ReturnType<typeof metricsOf> | null = null;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          candMetrics = metricsOf(candidate);
           const integrity = htmlIntegrityOk(content, candidate);
-          if (integrity.ok) content = candidate;
+          integrityRes = integrity;
+          if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] sentence-fix rejected:", integrity.reason);
         }
+        recordPass({
+          step: "sentence",
+          model: "anthropic/claude-sonnet-4",
+          blocks: { verdict_before: metrics.verdict, avg_before: metrics.avgWords, max_short_run_before: metrics.maxShortRun },
+          metrics_before: before,
+          metrics_llm: candMetrics,
+          integrity: integrityRes,
+          applied,
+          llm_bytes: fixed ? fixed.length : 0,
+          llm_null: !fixed,
+          prompt: { system: sys, user: usr, user_bytes: usr.length },
+        });
       }
     }
 
@@ -532,13 +705,31 @@ ${hint}
 
 HTML:
 ${content}`;
+        const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        let applied = false;
+        let integrityRes: { ok: boolean; reason?: string } | null = null;
+        let candMetrics: ReturnType<typeof metricsOf> | null = null;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          candMetrics = metricsOf(candidate);
           const integrity = htmlIntegrityOk(content, candidate);
-          if (integrity.ok) content = candidate;
+          integrityRes = integrity;
+          if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] dangling-fix rejected:", integrity.reason);
         }
+        recordPass({
+          step: "dangling",
+          model: "anthropic/claude-sonnet-4",
+          blocks: { verdict_before: metrics.verdict },
+          metrics_before: before,
+          metrics_llm: candMetrics,
+          integrity: integrityRes,
+          applied,
+          llm_bytes: fixed ? fixed.length : 0,
+          llm_null: !fixed,
+          prompt: { system: sys, user: usr, user_bytes: usr.length },
+        });
       }
     }
 
@@ -559,13 +750,31 @@ ${hint}
 
 HTML:
 ${content}`;
+        const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        let applied = false;
+        let integrityRes: { ok: boolean; reason?: string } | null = null;
+        let candMetrics: ReturnType<typeof metricsOf> | null = null;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          candMetrics = metricsOf(candidate);
           const integrity = htmlIntegrityOk(content, candidate);
-          if (integrity.ok) content = candidate;
+          integrityRes = integrity;
+          if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] cancellary-fix rejected:", integrity.reason);
         }
+        recordPass({
+          step: "cancellary",
+          model: "anthropic/claude-sonnet-4",
+          blocks: { verdict_before: metrics.verdict },
+          metrics_before: before,
+          metrics_llm: candMetrics,
+          integrity: integrityRes,
+          applied,
+          llm_bytes: fixed ? fixed.length : 0,
+          llm_null: !fixed,
+          prompt: { system: sys, user: usr, user_bytes: usr.length },
+        });
       }
     }
 
@@ -586,13 +795,31 @@ ${hint}
 
 HTML:
 ${content}`;
+        const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        let applied = false;
+        let integrityRes: { ok: boolean; reason?: string } | null = null;
+        let candMetrics: ReturnType<typeof metricsOf> | null = null;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          candMetrics = metricsOf(candidate);
           const integrity = htmlIntegrityOk(content, candidate);
-          if (integrity.ok) content = candidate;
+          integrityRes = integrity;
+          if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] keyword-freq-fix rejected:", integrity.reason);
         }
+        recordPass({
+          step: "keyword_freq",
+          model: "anthropic/claude-sonnet-4",
+          blocks: { verdict_before: metrics.verdict, primary_keyword: primaryKeyword },
+          metrics_before: before,
+          metrics_llm: candMetrics,
+          integrity: integrityRes,
+          applied,
+          llm_bytes: fixed ? fixed.length : 0,
+          llm_null: !fixed,
+          prompt: { system: sys, user: usr, user_bytes: usr.length },
+        });
       }
     }
 
@@ -611,10 +838,32 @@ ${content}`;
     try {
       const prevDetails = (art as any).quality_details && typeof (art as any).quality_details === "object"
         ? (art as any).quality_details : {};
+      const metricsFinal = metricsOf(content);
+      const appliedSteps = trace.filter((t) => t.applied).map((t) => t.step);
+      const traceSummary = trace.map((t) => ({
+        step: t.step,
+        model: t.model,
+        blocks: t.blocks || null,
+        metrics_before: t.metrics_before,
+        metrics_llm: t.metrics_llm,
+        integrity: t.integrity,
+        applied: t.applied,
+        llm_bytes: t.llm_bytes,
+        llm_null: t.llm_null,
+      }));
       await admin.from("articles").update({
         quality_details: {
           ...prevDetails,
-          improve_last: { status: "ok", phase, at: new Date().toISOString() },
+          improve_last: {
+            status: "ok",
+            phase,
+            at: new Date().toISOString(),
+            metrics_before: metricsInitial,
+            metrics_after: metricsFinal,
+            applied_steps: appliedSteps,
+            integrity_rejections: integrityRejections,
+            trace: traceSummary,
+          },
           improve_error: null,
         },
       }).eq("id", article_id);
@@ -643,7 +892,18 @@ ${content}`;
       article_id,
       verdict: "pass",
       duration_ms: elapsed(),
-      meta: { phase, source: source ?? null, auto: bypassLimits },
+      meta: {
+        phase,
+        source: source ?? null,
+        auto: bypassLimits,
+        metrics_before: metricsInitial,
+        metrics_after: metricsOf(content),
+        applied_steps: trace.filter((t) => t.applied).map((t) => t.step),
+        integrity_rejections: integrityRejections,
+        // Full prompts of every LLM pass — including system + user (with article
+        // body). Kept so we can verify exactly what went to the model.
+        prompt_trace: trace,
+      },
     });
   } catch (e: any) {
     console.error("[improve-article][bg] error", e);
