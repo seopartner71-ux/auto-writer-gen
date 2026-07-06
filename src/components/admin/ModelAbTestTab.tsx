@@ -19,7 +19,7 @@ const CANDIDATE_MODELS = [
   { key: "mistralai/mistral-large-2512", label: "Mistral Large 3" },
   { key: "meta-llama/llama-3.3-70b-instruct", label: "Llama 3.3 70B" },
   { key: "deepseek/deepseek-chat", label: "DeepSeek Chat" },
-  { key: "qwen/qwen-2.5-72b-instruct", label: "Qwen 2.5 72B" },
+  { key: "qwen/qwen3-max", label: "Qwen3.7 Max" },
 ];
 
 const DEFAULT_PROMPT = `Напиши SEO-статью на 400-500 слов на тему "Как выбрать беспроводные наушники для бега в 2026 году". Чистый HTML с <h2>, <p>, <ul>. Живой человеческий стиль, чередуй короткие и длинные предложения, без канцелярита.`;
@@ -37,6 +37,7 @@ interface RunResult {
   verdict?: string | null;
   reasons?: string[];
   preview?: string;
+  volumeFail?: boolean;
 }
 
 interface ModelAggregate {
@@ -46,6 +47,7 @@ interface ModelAggregate {
   total: number;
   apiErrors: number;
   unscored: number;
+  volumeFails: number;
   avgScore: number | null;
   minScore: number | null;
   maxScore: number | null;
@@ -60,8 +62,19 @@ function scoreColor(score: number | null | undefined) {
   return "text-red-400";
 }
 
+// Parses "400-500 слов" / "от 400 до 500 слов" from prompt. Returns { min, max } or null.
+function parseWordRange(prompt: string): { min: number; max: number } | null {
+  const m = prompt.match(/(\d{2,5})\s*[-–—]\s*(\d{2,5})\s*слов/i)
+    || prompt.match(/от\s+(\d{2,5})\s+до\s+(\d{2,5})\s+слов/i);
+  if (!m) return null;
+  const min = parseInt(m[1], 10);
+  const max = parseInt(m[2], 10);
+  if (!isFinite(min) || !isFinite(max) || min <= 0 || max < min) return null;
+  return { min, max };
+}
+
 function aggregate(model: string, runs: RunResult[], total: number): ModelAggregate {
-  const scored = runs.filter((r) => r.ok && typeof r.ai_score === "number") as (RunResult & { ai_score: number })[];
+  const scored = runs.filter((r) => r.ok && !r.volumeFail && typeof r.ai_score === "number") as (RunResult & { ai_score: number })[];
   const scores = scored.map((r) => r.ai_score);
   const avgScore = scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null;
   const minScore = scores.length ? Math.min(...scores) : null;
@@ -70,8 +83,9 @@ function aggregate(model: string, runs: RunResult[], total: number): ModelAggreg
   const avgMs = okRuns.length ? Math.round(okRuns.reduce((s, r) => s + r.elapsedMs, 0) / okRuns.length) : 0;
   const avgWords = okRuns.length ? Math.round(okRuns.reduce((s, r) => s + (r.word_count || 0), 0) / okRuns.length) : 0;
   const apiErrors = runs.filter((r) => !r.ok).length;
-  const unscored = runs.filter((r) => r.ok && (r.ai_score == null)).length;
-  return { model, runs: runs.sort((a, b) => a.runIdx - b.runIdx), counted: scored.length, total, apiErrors, unscored, avgScore, minScore, maxScore, avgMs, avgWords };
+  const unscored = runs.filter((r) => r.ok && !r.volumeFail && (r.ai_score == null)).length;
+  const volumeFails = runs.filter((r) => r.ok && r.volumeFail).length;
+  return { model, runs: runs.sort((a, b) => a.runIdx - b.runIdx), counted: scored.length, total, apiErrors, unscored, volumeFails, avgScore, minScore, maxScore, avgMs, avgWords };
 }
 
 async function runPool<T>(tasks: (() => Promise<T>)[], concurrency: number, onDone: () => void): Promise<T[]> {
@@ -103,6 +117,9 @@ export function ModelAbTestTab() {
   const [aggregates, setAggregates] = useState<ModelAggregate[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  const wordRange = parseWordRange(prompt);
+  const minThreshold = wordRange ? Math.floor(wordRange.min * 0.6) : null;
+
   const toggle = (key: string) =>
     setSelected((s) => s.includes(key) ? s.filter((k) => k !== key) : [...s, key]);
 
@@ -116,6 +133,7 @@ export function ModelAbTestTab() {
     setProgress({ done: 0, total });
 
     const perModelRuns: Record<string, RunResult[]> = Object.fromEntries(selected.map((m) => [m, []]));
+    const localMinThreshold = minThreshold;
 
     const tasks: (() => Promise<void>)[] = [];
     for (const model of selected) {
@@ -131,7 +149,9 @@ export function ModelAbTestTab() {
             if ((data as any)?.error) throw new Error((data as any).error);
             const r = ((data as any).results || [])[0];
             if (!r) throw new Error("empty result");
-            perModelRuns[model].push({ ...r, runIdx: idx });
+            const volumeFail =
+              r.ok && localMinThreshold != null && typeof r.word_count === "number" && r.word_count < localMinThreshold;
+            perModelRuns[model].push({ ...r, runIdx: idx, volumeFail });
           } catch (e: any) {
             perModelRuns[model].push({
               model, runIdx: idx, ok: false,
@@ -242,6 +262,9 @@ export function ModelAbTestTab() {
                       {a.unscored > 0 && (
                         <span className="text-amber-400" title="Ответ детектора пустой/невалидный">без оценки ×{a.unscored}</span>
                       )}
+                      {a.volumeFails > 0 && (
+                        <span className="text-amber-400" title="Объём меньше 60% нижней границы">объём ×{a.volumeFails}</span>
+                      )}
                       <span className="text-muted-foreground">{(a.avgMs / 1000).toFixed(1)}s</span>
                       <span className="text-muted-foreground">{a.avgWords} слов</span>
                       <span className="text-muted-foreground">
@@ -273,7 +296,12 @@ export function ModelAbTestTab() {
                               {r.reasons && r.reasons.length > 0 && (
                                 <div className="text-[11px] text-muted-foreground mb-1">Причины: {r.reasons.join("; ")}</div>
                               )}
-                              {r.ai_score == null && (
+                              {r.volumeFail && (
+                                <div className="text-[11px] text-amber-400 mb-1">
+                                  Не засчитан: неполный ответ ({r.word_count} слов, минимум {minThreshold ?? "—"})
+                                </div>
+                              )}
+                              {!r.volumeFail && r.ai_score == null && (
                                 <div className="text-[11px] text-amber-400 mb-1">Не засчитан: неполный ответ детектора</div>
                               )}
                               <details className="text-[11px]">
