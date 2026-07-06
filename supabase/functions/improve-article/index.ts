@@ -550,15 +550,34 @@ ${content}`;
 
 HTML:
 ${content}`;
+      const before = metricsOf(content);
       let added: string | null = null;
+      let usedModel = "google/gemini-2.5-flash";
       if (lovableKey) added = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey);
       if (!added && orKey) added = await callOpenRouter("google/gemini-2.5-flash", sys, usr, orKey);
+      let applied = false;
+      let integrityRes: { ok: boolean; reason?: string } | null = null;
+      let candMetrics: ReturnType<typeof metricsOf> | null = null;
       if (added && added.length > 200) {
         const candidate = added.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        candMetrics = metricsOf(candidate);
         const integrity = htmlIntegrityOk(content, candidate);
-        if (integrity.ok) content = candidate;
+        integrityRes = integrity;
+        if (integrity.ok) { content = candidate; applied = true; }
         else console.warn("[improve-article] density-fix rejected:", integrity.reason);
       }
+      recordPass({
+        step: "keyword_density.underuse",
+        model: usedModel,
+        blocks: { primary_keyword: primaryKeyword, density_status: dStatus },
+        metrics_before: before,
+        metrics_llm: candMetrics,
+        integrity: integrityRes,
+        applied,
+        llm_bytes: added ? added.length : 0,
+        llm_null: !added,
+        prompt: { system: sys, user: usr, user_bytes: usr.length },
+      });
     }
 
     // 3) Burstiness fix: split long sentences (JS post-processor)
@@ -592,13 +611,31 @@ ${content}`;
 
 Текст:
 ${content}`;
+      const before = metricsOf(content);
       const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+      let applied = false;
+      let integrityRes: { ok: boolean; reason?: string } | null = null;
+      let candMetrics: ReturnType<typeof metricsOf> | null = null;
       if (fixed && fixed.length > 200) {
         const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        candMetrics = metricsOf(candidate);
         const integrity = htmlIntegrityOk(content, candidate);
-        if (integrity.ok) content = candidate;
+        integrityRes = integrity;
+        if (integrity.ok) { content = candidate; applied = true; }
         else console.warn("[improve-article] turgenev-fix rejected:", integrity.reason);
       }
+      recordPass({
+        step: "turgenev",
+        model: "anthropic/claude-sonnet-4",
+        blocks: { turgenev_status: turgStatus },
+        metrics_before: before,
+        metrics_llm: candMetrics,
+        integrity: integrityRes,
+        applied,
+        llm_bytes: fixed ? fixed.length : 0,
+        llm_null: !fixed,
+        prompt: { system: sys, user: usr, user_bytes: usr.length },
+      });
     }
 
     // 5) Sentence-structure fix: чиним «телеграфный» стиль —
@@ -622,13 +659,31 @@ ${hint}
 
 HTML:
 ${content}`;
+        const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        let applied = false;
+        let integrityRes: { ok: boolean; reason?: string } | null = null;
+        let candMetrics: ReturnType<typeof metricsOf> | null = null;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          candMetrics = metricsOf(candidate);
           const integrity = htmlIntegrityOk(content, candidate);
-          if (integrity.ok) content = candidate;
+          integrityRes = integrity;
+          if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] sentence-fix rejected:", integrity.reason);
         }
+        recordPass({
+          step: "sentence",
+          model: "anthropic/claude-sonnet-4",
+          blocks: { verdict_before: metrics.verdict, avg_before: metrics.avgWords, max_short_run_before: metrics.maxShortRun },
+          metrics_before: before,
+          metrics_llm: candMetrics,
+          integrity: integrityRes,
+          applied,
+          llm_bytes: fixed ? fixed.length : 0,
+          llm_null: !fixed,
+          prompt: { system: sys, user: usr, user_bytes: usr.length },
+        });
       }
     }
 
@@ -650,13 +705,31 @@ ${hint}
 
 HTML:
 ${content}`;
+        const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        let applied = false;
+        let integrityRes: { ok: boolean; reason?: string } | null = null;
+        let candMetrics: ReturnType<typeof metricsOf> | null = null;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          candMetrics = metricsOf(candidate);
           const integrity = htmlIntegrityOk(content, candidate);
-          if (integrity.ok) content = candidate;
+          integrityRes = integrity;
+          if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] dangling-fix rejected:", integrity.reason);
         }
+        recordPass({
+          step: "dangling",
+          model: "anthropic/claude-sonnet-4",
+          blocks: { verdict_before: metrics.verdict },
+          metrics_before: before,
+          metrics_llm: candMetrics,
+          integrity: integrityRes,
+          applied,
+          llm_bytes: fixed ? fixed.length : 0,
+          llm_null: !fixed,
+          prompt: { system: sys, user: usr, user_bytes: usr.length },
+        });
       }
     }
 
@@ -677,13 +750,31 @@ ${hint}
 
 HTML:
 ${content}`;
+        const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        let applied = false;
+        let integrityRes: { ok: boolean; reason?: string } | null = null;
+        let candMetrics: ReturnType<typeof metricsOf> | null = null;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          candMetrics = metricsOf(candidate);
           const integrity = htmlIntegrityOk(content, candidate);
-          if (integrity.ok) content = candidate;
+          integrityRes = integrity;
+          if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] cancellary-fix rejected:", integrity.reason);
         }
+        recordPass({
+          step: "cancellary",
+          model: "anthropic/claude-sonnet-4",
+          blocks: { verdict_before: metrics.verdict },
+          metrics_before: before,
+          metrics_llm: candMetrics,
+          integrity: integrityRes,
+          applied,
+          llm_bytes: fixed ? fixed.length : 0,
+          llm_null: !fixed,
+          prompt: { system: sys, user: usr, user_bytes: usr.length },
+        });
       }
     }
 
@@ -704,13 +795,31 @@ ${hint}
 
 HTML:
 ${content}`;
+        const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        let applied = false;
+        let integrityRes: { ok: boolean; reason?: string } | null = null;
+        let candMetrics: ReturnType<typeof metricsOf> | null = null;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+          candMetrics = metricsOf(candidate);
           const integrity = htmlIntegrityOk(content, candidate);
-          if (integrity.ok) content = candidate;
+          integrityRes = integrity;
+          if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] keyword-freq-fix rejected:", integrity.reason);
         }
+        recordPass({
+          step: "keyword_freq",
+          model: "anthropic/claude-sonnet-4",
+          blocks: { verdict_before: metrics.verdict, primary_keyword: primaryKeyword },
+          metrics_before: before,
+          metrics_llm: candMetrics,
+          integrity: integrityRes,
+          applied,
+          llm_bytes: fixed ? fixed.length : 0,
+          llm_null: !fixed,
+          prompt: { system: sys, user: usr, user_bytes: usr.length },
+        });
       }
     }
 
