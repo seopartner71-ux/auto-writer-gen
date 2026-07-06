@@ -44,6 +44,8 @@ interface ModelAggregate {
   runs: RunResult[];
   counted: number;
   total: number;
+  apiErrors: number;
+  unscored: number;
   avgScore: number | null;
   minScore: number | null;
   maxScore: number | null;
@@ -67,7 +69,9 @@ function aggregate(model: string, runs: RunResult[], total: number): ModelAggreg
   const okRuns = runs.filter((r) => r.ok);
   const avgMs = okRuns.length ? Math.round(okRuns.reduce((s, r) => s + r.elapsedMs, 0) / okRuns.length) : 0;
   const avgWords = okRuns.length ? Math.round(okRuns.reduce((s, r) => s + (r.word_count || 0), 0) / okRuns.length) : 0;
-  return { model, runs: runs.sort((a, b) => a.runIdx - b.runIdx), counted: scored.length, total, avgScore, minScore, maxScore, avgMs, avgWords };
+  const apiErrors = runs.filter((r) => !r.ok).length;
+  const unscored = runs.filter((r) => r.ok && (r.ai_score == null)).length;
+  return { model, runs: runs.sort((a, b) => a.runIdx - b.runIdx), counted: scored.length, total, apiErrors, unscored, avgScore, minScore, maxScore, avgMs, avgWords };
 }
 
 async function runPool<T>(tasks: (() => Promise<T>)[], concurrency: number, onDone: () => void): Promise<T[]> {
@@ -232,6 +236,12 @@ export function ModelAbTestTab() {
                     </div>
                     <div className="flex items-center gap-3 text-xs shrink-0">
                       <span className="text-muted-foreground">{a.counted}/{a.total} засч.</span>
+                      {a.apiErrors > 0 && (
+                        <span className="text-red-400" title="Ошибки API">API ×{a.apiErrors}</span>
+                      )}
+                      {a.unscored > 0 && (
+                        <span className="text-amber-400" title="Ответ детектора пустой/невалидный">без оценки ×{a.unscored}</span>
+                      )}
                       <span className="text-muted-foreground">{(a.avgMs / 1000).toFixed(1)}s</span>
                       <span className="text-muted-foreground">{a.avgWords} слов</span>
                       <span className="text-muted-foreground">
@@ -263,13 +273,18 @@ export function ModelAbTestTab() {
                               {r.reasons && r.reasons.length > 0 && (
                                 <div className="text-[11px] text-muted-foreground mb-1">Причины: {r.reasons.join("; ")}</div>
                               )}
+                              {r.ai_score == null && (
+                                <div className="text-[11px] text-amber-400 mb-1">Не засчитан: неполный ответ детектора</div>
+                              )}
                               <details className="text-[11px]">
                                 <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Превью текста</summary>
                                 <div className="mt-1 p-2 bg-background/50 rounded max-h-40 overflow-y-auto whitespace-pre-wrap">{r.preview}</div>
                               </details>
                             </>
                           ) : (
-                            <div className="text-xs text-red-400">Ошибка: {r.error}</div>
+                            <div className="text-xs text-red-400 break-words">
+                              Ошибка API: {r.error || "неизвестная ошибка запроса"}
+                            </div>
                           )}
                         </div>
                       ))}
