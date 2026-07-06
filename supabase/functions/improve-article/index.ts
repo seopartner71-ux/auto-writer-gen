@@ -1005,8 +1005,14 @@ ${content}`;
     const nextImproveCount = bypassLimits
       ? Number((art as any).seo_improve_count || 0)
       : Number((art as any).seo_improve_count || 0) + 1;
+    // Score the FINAL post-pipeline state (structural steps 2-8 run after
+    // humanize and may have moved the needle); pick the best-scoring version.
+    if (content !== bestContent) {
+      try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
+    }
+    const contentToPersist = bestContent;
     await admin.from("articles").update({
-      content,
+      content: contentToPersist,
       quality_status: "checking",
       seo_improve_count: nextImproveCount,
       updated_at: new Date().toISOString(),
@@ -1016,7 +1022,7 @@ ${content}`;
     try {
       const prevDetails = (art as any).quality_details && typeof (art as any).quality_details === "object"
         ? (art as any).quality_details : {};
-      const metricsFinal = metricsOf(content);
+      const metricsFinal = metricsOf(contentToPersist);
       const appliedSteps = trace.filter((t) => t.applied).map((t) => t.step);
       const traceSummary = trace.map((t) => ({
         step: t.step,
@@ -1041,6 +1047,12 @@ ${content}`;
             applied_steps: appliedSteps,
             integrity_rejections: integrityRejections,
             trace: traceSummary,
+            best_pick: {
+              label: bestLabel,
+              score: bestScore,
+              entry_score: Number(art.ai_score ?? 0),
+            },
+            score_history: scoreHistory,
           },
           improve_error: null,
         },
@@ -1056,7 +1068,7 @@ ${content}`;
             "Content-Type": "application/json",
             "Authorization": authHeader,
           },
-          body: JSON.stringify({ article_id, content, mode: "auto" }),
+          body: JSON.stringify({ article_id, content: contentToPersist, mode: "auto" }),
         });
       } catch (e) {
         console.error("[improve-article] re-check failed", e);
@@ -1075,9 +1087,11 @@ ${content}`;
         source: source ?? null,
         auto: bypassLimits,
         metrics_before: metricsInitial,
-        metrics_after: metricsOf(content),
+        metrics_after: metricsOf(contentToPersist),
         applied_steps: trace.filter((t) => t.applied).map((t) => t.step),
         integrity_rejections: integrityRejections,
+        best_pick: { label: bestLabel, score: bestScore, entry_score: Number(art.ai_score ?? 0) },
+        score_history: scoreHistory,
         // Full prompts of every LLM pass — including system + user (with article
         // body). Kept so we can verify exactly what went to the model.
         prompt_trace: trace,
