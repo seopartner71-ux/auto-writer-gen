@@ -523,7 +523,7 @@ function AdminDashboard() {
   const { data: allArticles = [] } = useQuery({
     queryKey: ["admin-dashboard-articles"],
     queryFn: async () => {
-      const { data } = await supabase.from("articles").select("id, user_id, status, created_at").limit(1000);
+      const { data } = await supabase.from("articles").select("id, user_id, status, created_at").eq("is_ab_test", false).limit(1000);
       return data || [];
     },
     staleTime: 60000,
@@ -859,6 +859,7 @@ export default function DashboardPage() {
       const { data } = await supabase
         .from("articles")
         .select("id, title, status, seo_score, keyword_id, created_at, updated_at")
+        .eq("is_ab_test", false)
         .order("created_at", { ascending: false })
         .limit(100);
       return data || [];

@@ -109,6 +109,7 @@ export default function AnalyticsPage() {
       const { data, error } = await supabase
         .from("articles")
         .select("id, title, content, meta_description, keyword_id, seo_score, status, created_at")
+        .eq("is_ab_test", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
