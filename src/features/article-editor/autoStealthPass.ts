@@ -7,7 +7,12 @@ import { HumanizeProgress, type HumanizeStage, type HumanizeMetricsReport } from
 const HUMANIZE_THRESHOLD = 70;
 const FIRST_PASS_THRESHOLD = 60;
 const MAX_PASSES = 2;
-const TOTAL_BUDGET_MS = 90_000;
+// Полный конвейер: humanize (до 150с) + до 2× improve с 60с cooldown между ними
+// + turgenev + финальный quality-check. Прежний бюджет 90с обнулялся ещё
+// на Step 0, из-за чего improve/turgenev полностью пропускались (см. AB-тест).
+// Значение — верхняя граница, не задержка: короткие прогоны завершаются раньше.
+const TOTAL_BUDGET_MS = 600_000;
+const IMPROVE_COOLDOWN_MS = 65_000;
 const POLL_INTERVAL_MS = 2_500;
 const MAX_POLL_MS = 30_000;
 
@@ -151,6 +156,17 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         }
         currentAiScore = numberOr(qc?.ai_score, currentAiScore);
         logger.debug(`[stealth] humanize pass ${passCount} done, ai_score:`, currentAiScore);
+
+        // Между улучшающими вызовами improve-article стоит 60с cooldown на
+        // сервере. Если планируем ещё один pass — переждём его, иначе второй
+        // вызов вернёт 200 {cooldown:true} и превратится в no-op.
+        const willRunAnother =
+          passCount < MAX_PASSES &&
+          currentAiScore < HUMANIZE_THRESHOLD &&
+          timeLeft() > IMPROVE_COOLDOWN_MS + 15_000;
+        if (willRunAnother) {
+          await new Promise((r) => setTimeout(r, IMPROVE_COOLDOWN_MS));
+        }
       } catch (e) {
         console.warn(`[stealth] humanize pass ${passCount} threw:`, errMessage(e));
         break;
