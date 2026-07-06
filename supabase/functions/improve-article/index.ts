@@ -129,7 +129,6 @@ Deno.serve(async (req) => {
     const { article_id, fix_type, user_id: bodyUserId, source } = body || {};
 
     // Internal service-role invocation (e.g. quality-check auto-turgenev-fix).
-    // Trust user_id from body only when caller presents the service-role token.
     const isServiceCall =
       authHeader === `Bearer ${serviceKey}` && typeof bodyUserId === "string" && bodyUserId.length > 0;
     const isAutoTurgenev = isServiceCall && source === "auto_turgenev";
@@ -160,22 +159,28 @@ Deno.serve(async (req) => {
     logCtx = { user_id: user.id, article_id, phase };
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id")
+      .select("id,user_id,content,title,keyword_id,keywords,ai_score,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
-    let content: string = art.content || "";
-    if (!content) return json({ error: "Article has no content" }, 400);
-    const originalContent = content;
+    const initialContent: string = art.content || "";
+    if (!initialContent) return json({ error: "Article has no content" }, 400);
     const originalAiScore = art.ai_score;
+
+    // Prevent overlapping runs on the same article.
+    if ((art as any).quality_status === "improving") {
+      return json({
+        ok: false,
+        already_running: true,
+        message: "Улучшение уже выполняется, дождитесь завершения",
+      }, 202);
+    }
 
     const { data: pProfile } = await admin.from("profiles").select("plan").eq("id", user.id).maybeSingle();
     const planRaw = (pProfile as any)?.plan ?? null;
     const improveLimit = getPlanLimit(planRaw, IMPROVE_LIMITS);
     const usedImprove = Number((art as any).seo_improve_count || 0);
     console.log("[improve-article][plan-check] user:", user.id, "plan:", planRaw, "key:", normalizePlanKey(planRaw), "limit:", improveLimit, "used:", usedImprove);
-    // Auto-Turgenev fix bypasses the plan limit and cooldown — это автоматическая правка качества,
-    // которая не должна расходовать пользовательский лимит улучшений.
     if (!bypassLimits && usedImprove >= improveLimit) {
       return json({
         ok: false,
@@ -186,13 +191,13 @@ Deno.serve(async (req) => {
 
     // ── Cooldown: 60s between improve calls per article ──
     if (!bypassLimits && art.last_improve_at) {
-      const elapsed = Date.now() - new Date(art.last_improve_at as string).getTime();
-      if (elapsed < 60_000) {
+      const elapsedCd = Date.now() - new Date(art.last_improve_at as string).getTime();
+      if (elapsedCd < 60_000) {
         return json({
           ok: false,
           cooldown: true,
-          retry_after: Math.ceil((60_000 - elapsed) / 1000),
-          message: `Подождите ${Math.ceil((60_000 - elapsed) / 1000)} сек. перед повторной доработкой`,
+          retry_after: Math.ceil((60_000 - elapsedCd) / 1000),
+          message: `Подождите ${Math.ceil((60_000 - elapsedCd) / 1000)} сек. перед повторной доработкой`,
         });
       }
     }
@@ -203,19 +208,74 @@ Deno.serve(async (req) => {
         article_id,
         user_id: user.id,
         title: art.title ?? null,
-        content: originalContent,
+        content: initialContent,
         reason: "auto_improve_before",
-        word_count: stripHtml(originalContent).split(/\s+/).filter(Boolean).length,
+        word_count: stripHtml(initialContent).split(/\s+/).filter(Boolean).length,
         metadata: { ai_score_before: originalAiScore },
       } as any);
     } catch (e) {
       console.warn("[improve-article] snapshot failed", e);
     }
-    await admin.from("articles").update({ last_improve_at: new Date().toISOString() }).eq("id", article_id);
+    // Mark as "improving" and record cooldown timestamp synchronously so the
+    // client can start polling immediately and the cooldown gate holds.
+    await admin.from("articles").update({
+      last_improve_at: new Date().toISOString(),
+      quality_status: "improving",
+    }).eq("id", article_id);
 
-    // Mark as checking
-    await admin.from("articles").update({ quality_status: "checking" }).eq("id", article_id);
+    // Kick off all LLM work in the background — LLM passes are far longer than
+    // the edge-function response deadline. Client polls quality_status.
+    const bg = runImprovePipeline({
+      admin, supabaseUrl, article_id, user, phase, art,
+      initialContent, primaryKeywordSeed: null, orKey, lovableKey,
+      authHeader, elapsed, source, bypassLimits,
+    });
+    try { (globalThis as any).EdgeRuntime?.waitUntil?.(bg); } catch { void bg; }
 
+    return json({ ok: true, accepted: true, async: true }, 202);
+  } catch (e: any) {
+    console.error("[improve-article] fatal", e);
+    logPipelineEvent({
+      stage: "improve",
+      user_id: logCtx.user_id,
+      article_id: logCtx.article_id,
+      verdict: "fail",
+      duration_ms: elapsed(),
+      error_kind: e instanceof AiError ? e.kind : "upstream",
+      error_message: e?.message,
+      meta: { phase: logCtx.phase },
+    });
+    return json({ error: e?.message || "Unknown error" }, 500);
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// Background pipeline — runs the actual LLM passes and writes the result.
+// Mirrors the previous synchronous body; on completion clears
+// quality_status='improving' and either kicks off quality-check ("checking")
+// or records an error in quality_details.improve_error.
+// ──────────────────────────────────────────────────────────────────────
+interface PipelineArgs {
+  admin: ReturnType<typeof createClient>;
+  supabaseUrl: string;
+  article_id: string;
+  user: { id: string };
+  phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "all";
+  art: any;
+  initialContent: string;
+  primaryKeywordSeed: string | null;
+  orKey: string | undefined;
+  lovableKey: string | undefined;
+  authHeader: string;
+  elapsed: () => number;
+  source: string | undefined;
+  bypassLimits: boolean;
+}
+
+async function runImprovePipeline(args: PipelineArgs): Promise<void> {
+  const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits } = args;
+  let content = args.initialContent;
+  try {
     // Determine primary keyword
     let primaryKeyword = "";
     if (art.keyword_id) {
@@ -473,14 +533,31 @@ ${content}`;
       }
     }
 
-    // Save improved content
+    // Save improved content + bump seo_improve_count for user-facing runs
+    const nextImproveCount = bypassLimits
+      ? Number((art as any).seo_improve_count || 0)
+      : Number((art as any).seo_improve_count || 0) + 1;
     await admin.from("articles").update({
       content,
       quality_status: "checking",
+      seo_improve_count: nextImproveCount,
       updated_at: new Date().toISOString(),
     }).eq("id", article_id);
 
-    // Re-trigger auto quality check in background
+    // Record success in quality_details.improve_last (best-effort JSON merge)
+    try {
+      const prevDetails = (art as any).quality_details && typeof (art as any).quality_details === "object"
+        ? (art as any).quality_details : {};
+      await admin.from("articles").update({
+        quality_details: {
+          ...prevDetails,
+          improve_last: { status: "ok", phase, at: new Date().toISOString() },
+          improve_error: null,
+        },
+      }).eq("id", article_id);
+    } catch (_) { /* non-critical */ }
+
+    // Re-trigger auto quality check (fire-and-forget)
     const reCheck = (async () => {
       try {
         await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
@@ -505,19 +582,31 @@ ${content}`;
       duration_ms: elapsed(),
       meta: { phase, source: source ?? null, auto: bypassLimits },
     });
-    return json({ ok: true });
   } catch (e: any) {
-    console.error("[improve-article] fatal", e);
+    console.error("[improve-article][bg] error", e);
+    const errMsg = e?.message || "Unknown error";
+    // Clear "improving" flag so client polling unblocks, record error.
+    try {
+      const prevDetails = (args.art as any).quality_details && typeof (args.art as any).quality_details === "object"
+        ? (args.art as any).quality_details : {};
+      await admin.from("articles").update({
+        quality_status: null,
+        quality_details: {
+          ...prevDetails,
+          improve_last: { status: "error", phase, at: new Date().toISOString(), error: errMsg },
+          improve_error: errMsg,
+        },
+      }).eq("id", article_id);
+    } catch (_) { /* noop */ }
     logPipelineEvent({
       stage: "improve",
-      user_id: logCtx.user_id,
-      article_id: logCtx.article_id,
+      user_id: user.id,
+      article_id,
       verdict: "fail",
       duration_ms: elapsed(),
       error_kind: e instanceof AiError ? e.kind : "upstream",
-      error_message: e?.message,
-      meta: { phase: logCtx.phase },
+      error_message: errMsg,
+      meta: { phase, source: source ?? null, auto: bypassLimits },
     });
-    return json({ error: e?.message || "Unknown error" }, 500);
   }
-});
+}
