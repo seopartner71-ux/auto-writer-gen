@@ -306,6 +306,8 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
     applied: boolean;
     llm_bytes: number;
     llm_null: boolean;
+    llm_null_reason?: string | null;
+    llm_duration_ms?: number;
     prompt: { system: string; user: string; user_bytes: number } | null;
   };
   const trace: PassTrace[] = [];
