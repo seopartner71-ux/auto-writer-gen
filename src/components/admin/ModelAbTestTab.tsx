@@ -19,7 +19,7 @@ const CANDIDATE_MODELS = [
   { key: "mistralai/mistral-large-2512", label: "Mistral Large 3" },
   { key: "meta-llama/llama-3.3-70b-instruct", label: "Llama 3.3 70B" },
   { key: "deepseek/deepseek-chat", label: "DeepSeek Chat" },
-  { key: "qwen/qwen3-max", label: "Qwen3.7 Max" },
+  { key: "qwen/qwen3.7-max", label: "Qwen3.7 Max" },
 ];
 
 const DEFAULT_PROMPT = `Напиши SEO-статью на 400-500 слов на тему "Как выбрать беспроводные наушники для бега в 2026 году". Чистый HTML с <h2>, <p>, <ul>. Живой человеческий стиль, чередуй короткие и длинные предложения, без канцелярита.`;
