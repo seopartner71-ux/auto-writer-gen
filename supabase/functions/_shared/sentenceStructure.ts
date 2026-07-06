@@ -150,16 +150,22 @@ export function analyzeSentenceStructure(
   if (runStart !== -1) finalize(shortFlags.length);
 
   const issues: string[] = [];
+  // Мягкий допуск: не жалуемся, если avg отклоняется от границы <= 1.5 слова.
+  // Это убирает пинг-понг между humanize (дробит) и валидатором (жалуется на короткие).
+  const AVG_TOLERANCE = 1.5;
   if (sentenceCount === 0) {
     issues.push("Не удалось разобрать ни одного предложения.");
   } else {
-    if (avgWords < opts.avgMin) issues.push(`Средняя длина предложения ${avgWords} слов - ниже нормы (${opts.avgMin}-${opts.avgMax}).`);
-    if (avgWords > opts.avgMax) issues.push(`Средняя длина предложения ${avgWords} слов - выше нормы (${opts.avgMin}-${opts.avgMax}).`);
+    if (avgWords < opts.avgMin - AVG_TOLERANCE) issues.push(`Средняя длина предложения ${avgWords} слов - ниже нормы (${opts.avgMin}-${opts.avgMax}, допуск ${AVG_TOLERANCE}).`);
+    if (avgWords > opts.avgMax + AVG_TOLERANCE) issues.push(`Средняя длина предложения ${avgWords} слов - выше нормы (${opts.avgMin}-${opts.avgMax}, допуск ${AVG_TOLERANCE}).`);
     if (shortRatio > opts.maxShortRatio) issues.push(`Доля коротких предложений ${(shortRatio * 100).toFixed(0)}% - выше допустимых ${(opts.maxShortRatio * 100).toFixed(0)}%.`);
     if (maxShortRun > opts.maxShortRun) issues.push(`Найдены серии из ${maxShortRun} коротких предложений подряд (норма не более ${opts.maxShortRun}).`);
   }
 
-  const fail = maxShortRun >= 3 || shortRatio > opts.maxShortRatio + 0.15 || avgWords < opts.avgMin - 4;
+  // Fail только при серьёзном отклонении avg (>1.5 слова за границей), либо явных
+  // проблемах со структурой (серии коротких/зашкал доли коротких).
+  const avgFail = sentenceCount > 0 && (avgWords < opts.avgMin - AVG_TOLERANCE || avgWords > opts.avgMax + AVG_TOLERANCE);
+  const fail = maxShortRun >= 4 || shortRatio > opts.maxShortRatio + 0.20 || avgFail;
   const warning = issues.length > 0;
   const verdict: "pass" | "warning" | "fail" = fail ? "fail" : warning ? "warning" : "pass";
 
