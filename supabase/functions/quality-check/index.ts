@@ -690,7 +690,9 @@ async function runAutoQuality(
 
   const heuristicAi = aiInternalRes?.score == null && claudeRes == null ? fallbackAiScore(plain) : null;
   const aiInternal = aiInternalRes?.score ?? heuristicAi?.score ?? null;
-  const aiClaude = claudeRes ?? null;
+  const aiClaude = claudeRes?.score ?? null;
+  const aiClaudeReasons: string[] = claudeRes?.reasons ?? [];
+  const aiInternalReasons: string[] = aiInternalRes?.reasons ?? [];
   if (aiInternalRes?.score == null && claudeRes == null) {
     console.warn("[quality-check] AI checks unavailable, used local fallback", { articleId });
   }
