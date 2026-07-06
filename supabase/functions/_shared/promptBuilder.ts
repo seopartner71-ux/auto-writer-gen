@@ -740,7 +740,9 @@ ${isRussian
 
 ### [CONCLUSION LOGIC] (Обязательное заключение)
 - После завершения ВСЕХ пунктов плана ОБЯЗАТЕЛЬНО напиши финальный раздел-заключение.
-- ${isRussian ? 'Заголовок: "## Итого" или "## Что в сухом остатке" (НЕ "В заключение")' : 'Heading: "## The Bottom Line" or "## Key Takeaways" (NOT "In conclusion")'}
+- ${isRussian
+    ? 'Заголовок финала ОБЯЗАН быть уникальным и по смыслу темы статьи - сформулируй сам, коротко (2-5 слов), без клише. ЗАПРЕЩЕНО использовать шаблоны: "В сухом остатке", "Что в сухом остатке", "Итого", "Итоги", "Заключение", "В заключение", "Подведем итоги", "Выводы", "Резюме", "Коротко о главном". Заголовок должен звучать как авторская мысль под конкретную тему, а не как рубрика.'
+    : 'The final heading MUST be unique and tied to the article topic - invent it yourself (2-5 words), no clichés. FORBIDDEN templates: "The Bottom Line", "Key Takeaways", "Conclusion", "In Conclusion", "Summary", "To Sum Up", "Wrapping Up", "Final Thoughts". It must read as an authorial line for this specific topic, not a rubric.'}
 - Заключение ОБЯЗАНО содержать:
   1. Резюме из 3-4 предложений (ключевые выводы статьи).
   2. Один главный экспертный вывод - авторская позиция или неочевидный инсайт.
