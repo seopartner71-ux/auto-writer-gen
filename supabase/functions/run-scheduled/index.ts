@@ -228,6 +228,13 @@ Write the full article now.`;
           : "";
 
         // Save article
+        // Language: prefer explicit keyword.language; else autodetect Cyrillic in
+        // seed_keyword + first 500 chars of content (mirrors process-queue).
+        const rawLang = String((keyword as any).language || "").toLowerCase();
+        const articleLang =
+          rawLang === "en" || rawLang === "ru"
+            ? rawLang
+            : (/[а-яё]/i.test(`${keyword.seed_keyword || ""} ${String(content).slice(0, 500)}`) ? "ru" : "en");
         const { data: article, error: artErr } = await supabase
           .from("articles")
           .insert({
@@ -238,6 +245,7 @@ Write the full article now.`;
             content,
             meta_description: metaDesc,
             status: "published",
+            language: articleLang,
           })
           .select("id")
           .single();
