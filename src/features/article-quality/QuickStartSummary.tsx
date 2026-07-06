@@ -121,13 +121,15 @@ export function QuickStartSummary({ articleId, hasContent, onSave, saveDisabled,
         body: JSON.stringify({ article_id: articleId }),
       });
       const payload = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(payload?.error || "Не удалось улучшить");
+      const httpOk = resp.ok || resp.status === 202;
+      if (!httpOk) throw new Error(payload?.error || "Не удалось улучшить");
       if (payload?.cooldown) {
         toast.warning(payload.message || "Подождите перед повторной доработкой");
         return;
       }
-      toast.success("Готово ✓ Статья улучшена");
-      setData((d: any) => ({ ...d, quality_status: "checking" }));
+      // Async: 202 accepted. Result will arrive via realtime on quality_status.
+      toast.info("Улучшение запущено — обработка займёт до пары минут");
+      setData((d: any) => ({ ...d, quality_status: "improving" }));
     } catch (e: any) {
       toast.error(e?.message || "Не удалось выполнить запрос");
     } finally {

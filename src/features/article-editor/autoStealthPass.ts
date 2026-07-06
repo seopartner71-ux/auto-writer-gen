@@ -15,6 +15,12 @@ const TOTAL_BUDGET_MS = 600_000;
 const IMPROVE_COOLDOWN_MS = 65_000;
 const POLL_INTERVAL_MS = 2_500;
 const MAX_POLL_MS = 30_000;
+// improve-article is now async: it returns 202 immediately and does the LLM
+// work in the background. We poll `quality_status !== "improving"` for up to
+// 240s (per-pass budget) at 5s cadence — matches the stack-overflow reference
+// pattern shipped with the async improve-article rewrite.
+const IMPROVE_POLL_INTERVAL_MS = 5_000;
+const IMPROVE_MAX_POLL_MS = 240_000;
 
 /** Shape of the quality-check row returned from articles after auto checks. */
 export interface QualityCheckResult {
@@ -311,9 +317,31 @@ async function invokeImproveWithCooldown(
       console.warn(`[stealth] improve-article ${label} cooldown persisted after retry, skipping`);
       return "cooldown_persist";
     }
+    // Async contract: wait for the background pipeline to clear quality_status.
+    await waitForImproveFinished(articleId);
     return "ok";
   }
   return "cooldown_persist";
+}
+
+/**
+ * Polls `articles.quality_status` until it is no longer "improving" (i.e. the
+ * background LLM pipeline in improve-article has finished — success or error).
+ * Bounded by IMPROVE_MAX_POLL_MS (240s) to avoid hanging.
+ */
+async function waitForImproveFinished(articleId: string): Promise<void> {
+  const started = Date.now();
+  while (Date.now() - started < IMPROVE_MAX_POLL_MS) {
+    const { data } = await supabase
+      .from("articles")
+      .select("quality_status")
+      .eq("id", articleId)
+      .maybeSingle();
+    const s = (data as { quality_status?: string | null } | null)?.quality_status;
+    if (s !== "improving") return;
+    await new Promise((r) => setTimeout(r, IMPROVE_POLL_INTERVAL_MS));
+  }
+  console.warn("[stealth] waitForImproveFinished timeout", articleId);
 }
 
 function numberOr(v: unknown, fallback: number): number {

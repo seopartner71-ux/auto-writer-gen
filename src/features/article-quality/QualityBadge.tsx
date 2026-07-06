@@ -212,8 +212,10 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
         toast.warning(res.message || "Подождите перед повторной доработкой");
         return;
       }
-      toast.success("Готово ✓ Статья улучшена");
-      setData((d: any) => ({ ...d, quality_status: "checking" }));
+      // improve-article теперь асинхронна: 202 accepted → фоновая обработка.
+      // Итог придёт по realtime через quality_status ('improving' → 'checking' → готово).
+      toast.info("Улучшение запущено — обработка займёт до пары минут");
+      setData((d: any) => ({ ...d, quality_status: "improving" }));
       stoppedRef.current = false;
       startRealtime();
     } catch (e: any) {
