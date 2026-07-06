@@ -70,6 +70,7 @@ async function scoreAI(plain: string, lovableKey: string): Promise<{ score: numb
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [{ role: "system", content: sys }, { role: "user", content: user }],
+        temperature: 0,
         tools: [{
           type: "function",
           function: {
