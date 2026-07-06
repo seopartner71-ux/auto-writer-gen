@@ -107,6 +107,19 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     }
   }
 
+  // improve-article is now async (202 accepted): the LLM pipeline runs in the
+  // background and clears quality_status='improving' when done. Poll at 5s /
+  // 240s to match the async contract.
+  async function waitForImproveFinished(maxMs = 240_000): Promise<void> {
+    const t0 = Date.now();
+    while (Date.now() - t0 < maxMs) {
+      const { data } = await supabase.from("articles")
+        .select("quality_status").eq("id", articleId!).maybeSingle();
+      if ((data as any)?.quality_status !== "improving") return;
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
+
   async function runQualityCheck(): Promise<void> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -139,8 +152,13 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       body: JSON.stringify({ article_id: articleId, fix_type: fixType }),
     });
     const payload = await resp.json().catch(() => null);
-    if (!resp.ok) return { ok: false, error: payload?.error || `Ошибка ${resp.status}` };
+    // 202 Accepted = async contract; treat as ok for the caller.
+    const httpOk = resp.ok || resp.status === 202;
+    if (!httpOk) return { ok: false, error: payload?.error || `Ошибка ${resp.status}` };
     if (payload?.cooldown) return { ok: false, cooldown: true, error: payload?.message };
+    // Wait for the background pipeline to finish before returning to the caller,
+    // so scores read after this call reflect the improved content.
+    await waitForImproveFinished();
     return { ok: true };
   }
 
