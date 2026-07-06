@@ -277,7 +277,7 @@ export default function QuickStartPage() {
         if (uid) {
           const { data: ins } = await supabase
             .from("articles")
-            .insert({ user_id: uid, keyword_id: keywordId, content: full, status: "draft" })
+            .insert({ user_id: uid, keyword_id: keywordId, content: full, status: "draft", language: lng })
             .select("id")
             .single();
           articleId = ins?.id || null;
