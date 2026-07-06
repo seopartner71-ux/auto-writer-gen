@@ -117,6 +117,9 @@ export function ModelAbTestTab() {
   const [aggregates, setAggregates] = useState<ModelAggregate[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  const wordRange = parseWordRange(prompt);
+  const minThreshold = wordRange ? Math.floor(wordRange.min * 0.6) : null;
+
   const toggle = (key: string) =>
     setSelected((s) => s.includes(key) ? s.filter((k) => k !== key) : [...s, key]);
 
@@ -130,8 +133,7 @@ export function ModelAbTestTab() {
     setProgress({ done: 0, total });
 
     const perModelRuns: Record<string, RunResult[]> = Object.fromEntries(selected.map((m) => [m, []]));
-    const wordRange = parseWordRange(prompt);
-    const minThreshold = wordRange ? Math.floor(wordRange.min * 0.6) : null;
+    const localMinThreshold = minThreshold;
 
     const tasks: (() => Promise<void>)[] = [];
     for (const model of selected) {
@@ -148,7 +150,7 @@ export function ModelAbTestTab() {
             const r = ((data as any).results || [])[0];
             if (!r) throw new Error("empty result");
             const volumeFail =
-              r.ok && minThreshold != null && typeof r.word_count === "number" && r.word_count < minThreshold;
+              r.ok && localMinThreshold != null && typeof r.word_count === "number" && r.word_count < localMinThreshold;
             perModelRuns[model].push({ ...r, runIdx: idx, volumeFail });
           } catch (e: any) {
             perModelRuns[model].push({
