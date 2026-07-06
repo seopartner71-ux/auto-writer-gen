@@ -51,6 +51,7 @@ export default function MyArticlesPage({ onArticleSelect }: MyArticlesPageProps 
         .from("articles")
         .select("id, title, content, created_at, status, quality_badge, quality_status, ai_score, burstiness_score, burstiness_status, keyword_density, keyword_density_status, meta_description, source, content_topic_id, content_topics:content_topic_id(plan_id, content_plans:plan_id(content_clients:client_id(name)))")
         .eq("user_id", user.id)
+        .eq("is_ab_test", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
