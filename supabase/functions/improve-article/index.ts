@@ -275,6 +275,72 @@ interface PipelineArgs {
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits } = args;
   let content = args.initialContent;
+  // ── Observability trace: per-pass metrics, prompt blocks, integrity verdicts.
+  // Written to pipeline_events.meta.prompt_trace at the end and mirrored in
+  // articles.quality_details.improve_last. Does NOT influence any decision.
+  type PassTrace = {
+    step: string;
+    model: string;
+    blocks?: Record<string, unknown>;
+    metrics_before: ReturnType<typeof metricsOf>;
+    metrics_llm: ReturnType<typeof metricsOf> | null;
+    integrity: { ok: boolean; reason?: string } | null;
+    applied: boolean;
+    llm_bytes: number;
+    llm_null: boolean;
+    prompt: { system: string; user: string; user_bytes: number } | null;
+  };
+  const trace: PassTrace[] = [];
+  const integrityRejections: Array<{ step: string; reason: string; metrics_llm: any; metrics_before: any }> = [];
+
+  function metricsOf(html: string) {
+    try {
+      const m = analyzeSentenceStructure(stripHtml(html));
+      return {
+        sents: m.sentenceCount,
+        avg: m.avgWords,
+        max_short_run: m.maxShortRun,
+        short_ratio: m.shortRatio,
+        bytes: html.length,
+      };
+    } catch {
+      return { sents: 0, avg: 0, max_short_run: 0, short_ratio: 0, bytes: html.length };
+    }
+  }
+
+  // Wraps trace push + integrity-rejection pipeline event. Called AFTER the
+  // caller has already made its accept/reject decision (behaviour untouched).
+  function recordPass(entry: PassTrace) {
+    trace.push(entry);
+    if (entry.integrity && !entry.integrity.ok) {
+      integrityRejections.push({
+        step: entry.step,
+        reason: entry.integrity.reason || "unknown",
+        metrics_llm: entry.metrics_llm,
+        metrics_before: entry.metrics_before,
+      });
+      logPipelineEvent({
+        stage: "improve",
+        user_id: user.id,
+        article_id,
+        verdict: "warning",
+        duration_ms: elapsed(),
+        meta: {
+          event: "integrity_rejected",
+          step: entry.step,
+          model: entry.model,
+          reason: entry.integrity.reason,
+          metrics_before: entry.metrics_before,
+          metrics_llm: entry.metrics_llm,
+          phase,
+          source: source ?? null,
+        },
+      });
+    }
+  }
+
+  const metricsInitial = metricsOf(content);
+
   try {
     // Determine primary keyword
     let primaryKeyword = "";
