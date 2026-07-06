@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_test_runs: {
+        Row: {
+          created_at: string
+          id: string
+          mode: string
+          prompt: string
+          results: Json
+          runs_per_model: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mode: string
+          prompt: string
+          results?: Json
+          runs_per_model?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mode?: string
+          prompt?: string
+          results?: Json
+          runs_per_model?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_assistant_usage: {
         Row: {
           count: number
@@ -631,6 +661,7 @@ export type Database = {
           h2_warnings: Json | null
           humanize_meta: Json | null
           id: string
+          is_ab_test: boolean
           is_public: boolean | null
           keyword_density: number | null
           keyword_density_status: string | null
@@ -701,6 +732,7 @@ export type Database = {
           h2_warnings?: Json | null
           humanize_meta?: Json | null
           id?: string
+          is_ab_test?: boolean
           is_public?: boolean | null
           keyword_density?: number | null
           keyword_density_status?: string | null
@@ -771,6 +803,7 @@ export type Database = {
           h2_warnings?: Json | null
           humanize_meta?: Json | null
           id?: string
+          is_ab_test?: boolean
           is_public?: boolean | null
           keyword_density?: number | null
           keyword_density_status?: string | null
