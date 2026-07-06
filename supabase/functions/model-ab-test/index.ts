@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const prompt: string = String(body?.prompt || "").trim();
     const models: string[] = Array.isArray(body?.models) ? body.models.slice(0, 6) : [];
+    const includeFull: boolean = body?.include_full === true;
     if (!prompt || prompt.length < 20) return json({ error: "prompt required (min 20 chars)" }, 400);
     if (models.length === 0) return json({ error: "models[] required" }, 400);
 
@@ -149,6 +150,7 @@ Deno.serve(async (req) => {
         verdict: score?.verdict ?? null,
         reasons: score?.reasons ?? [],
         preview: plain.slice(0, 400),
+        html: includeFull ? gen.text : undefined,
         tokens_in: gen.tokens_in,
         tokens_out: gen.tokens_out,
       };
