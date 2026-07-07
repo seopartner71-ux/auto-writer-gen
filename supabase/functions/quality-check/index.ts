@@ -924,33 +924,17 @@ async function runAutoQuality(
       });
     }
     if (humanizeTriggered) {
-      const { data: artFlag2 } = await admin
-        .from("articles").select("rewritten").eq("id", articleId).maybeSingle();
-      if (artFlag2 && artFlag2.rewritten !== true) {
-        await admin.from("articles").update({ rewritten: true }).eq("id", articleId);
-        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const humanizeTask = (async () => {
-          try {
-            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${serviceKey2}`,
-              },
-              body: JSON.stringify({
-                article_id: articleId,
-                fix_type: "humanize",
-                user_id: userId,
-                source: "auto_humanize",
-              }),
-            });
-          } catch (e) {
-            await logErr(admin, "quality-check", "auto_humanize_dispatch_failed", { article_id: articleId, error: String(e) });
-          }
-        })();
-        try { (globalThis as any).EdgeRuntime?.waitUntil?.(humanizeTask); } catch (_) { void humanizeTask; }
-      }
+      // Suppressed: server-side auto_humanize was creating zombie runs that
+      // bypassed cycle_progress. The user-driven relay cycle in improve-article
+      // is the single orchestrator now.
+      logPipelineEvent({
+        stage: "quality-check",
+        article_id: articleId,
+        user_id: userId,
+        verdict: "warning",
+        duration_ms: 0,
+        meta: { event: "auto_fix_suppressed", kind: "auto_humanize", ai_combined: aiCombined },
+      });
     }
   } catch (e) {
     await logErr(admin, "quality-check", "auto_humanize_gate_error", { article_id: articleId, error: String(e) });
