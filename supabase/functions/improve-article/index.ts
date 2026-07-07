@@ -783,24 +783,11 @@ ${content}`;
             console.warn("[improve-article] opus pass rejected:", integrity2.reason);
           }
         }
-        // Fallback to Sonnet if Opus returned nothing — micro-polish is still valuable.
-        let opusFallbackUsed: string | undefined;
-        if (!polished) {
-          const fb = await callOpenRouterEx("anthropic/claude-sonnet-4", sysOpus, usrOpus, orKey, 6000, 60_000);
-          if (fb.content && fb.content.length > 200) {
-            const cand3 = fb.content.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
-            const int3 = htmlIntegrityOk(content, cand3);
-            opusCandidateMetrics = metricsOf(cand3);
-            opusIntegrity = int3;
-            if (int3.ok) {
-              content = cand3;
-              opusApplied = true;
-              opusFallbackUsed = "sonnet_fallback";
-            }
-          } else {
-            opusFallbackUsed = fb.error || "sonnet_fallback_empty";
-          }
-        }
+        // NOTE: Sonnet fallback removed — real telemetry shows the fallback
+        // was the actual 60s timeout culprit ("timeout: Timed out after
+        // 60000ms" in trace) and Sonnet redoing Sonnet-work adds no value.
+        // If Opus itself fails, we skip the micro-pass and log the reason;
+        // the humanize.sonnet pass already ran above.
         if (opusApplied) {
           await scoreCandidate(content, "humanize.opus");
         }
@@ -811,7 +798,7 @@ ${content}`;
             validators: validatorTasks.length > 0,
             rhythm: sentenceTooShort ? "lengthen" : "normal",
             opus_micro_pass: true,
-            fallback: opusFallbackUsed || null,
+            fallback: null,
           },
           metrics_before: opusBefore,
           metrics_llm: opusCandidateMetrics,
