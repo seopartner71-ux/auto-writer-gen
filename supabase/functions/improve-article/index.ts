@@ -1784,6 +1784,7 @@ async function finalizeCycle(
   bestSnapshot: { content: string; ai: number | null; turg: number | null },
   initialSnap: { ai: number | null; turg: number | null; content: string },
   extra: Record<string, unknown> = {},
+  dispatch?: { supabaseUrl: string; serviceKey: string },
 ): Promise<void> {
   // Restore best content if a later pass regressed.
   const finalArt = await refreshCycleArt(admin, article_id);
@@ -1822,6 +1823,44 @@ async function finalizeCycle(
       priority,
     },
   });
+
+  // ── Populate turgenev_score if the cycle never got a real judge on it ──
+  // In cycle mode the standard quality-check dispatch is skipped (to avoid
+  // zombie improve loops), so no_progress / balanced / max_passes / error
+  // exits used to leave `turgenev_score = NULL` in the DB even when the
+  // final content is fine. Fire one score-only quality-check now with a
+  // dedicated dispatched_by tag so it does NOT trigger any auto-fixes.
+  if (dispatch && bestSnapshot.content && bestSnapshot.turg == null) {
+    try {
+      await admin.from("articles").update({ quality_status: "checking" }).eq("id", article_id);
+    } catch (_) { /* non-fatal */ }
+    const bg = (async () => {
+      try {
+        const resp = await fetch(`${dispatch.supabaseUrl}/functions/v1/quality-check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${dispatch.serviceKey}`,
+            apikey: dispatch.serviceKey,
+          },
+          body: JSON.stringify({
+            article_id,
+            content: bestSnapshot.content,
+            mode: "auto",
+            dispatched_by: "cycle_finalize",
+          }),
+        });
+        if (!resp.ok) {
+          console.warn("[finalizeCycle] cycle_finalize quality-check HTTP", resp.status);
+          try { await admin.from("articles").update({ quality_status: null }).eq("id", article_id); } catch (_) {}
+        }
+      } catch (e) {
+        console.warn("[finalizeCycle] cycle_finalize quality-check dispatch failed", e);
+        try { await admin.from("articles").update({ quality_status: null }).eq("id", article_id); } catch (_) {}
+      }
+    })();
+    try { (globalThis as any).EdgeRuntime?.waitUntil?.(bg); } catch (_) { void bg; }
+  }
 }
 
 async function runImproveCycleStep(args: CycleArgs): Promise<void> {
@@ -1878,14 +1917,14 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
   try {
     // ── Stop flag between workers ────────────────────────────────────
     if (art.improve_stop_requested) {
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "stopped", bestSnapshot, initialSnap);
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "stopped", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
     }
 
     // ── Decide what to fix this pass ─────────────────────────────────
     const curScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
     const fix = decideCycleFix(curScores, priority);
     if (!fix) {
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap);
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
     }
 
     const preContent = (art.content as string) || "";
@@ -1925,7 +1964,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     }
 
     art = await refreshCycleArt(admin, article_id);
-    if (!art) return finalizeCycle(admin, article_id, user, priority, elapsed, "error", bestSnapshot, initialSnap);
+    if (!art) return finalizeCycle(admin, article_id, user, priority, elapsed, "error", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
 
     const postScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
 
@@ -1942,7 +1981,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         pass: passIndex, action: fix, rolled_back: true,
         rollback_reason: turgWorseBig ? "turgenev_rose" : "ai_dropped",
       });
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "balanced", bestSnapshot, initialSnap);
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "balanced", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
     }
 
     // Update best snapshot.
@@ -1961,7 +2000,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
 
     // Targets met?
     if (cycleAiOk(postScores.ai) && cycleTurgOk(postScores.turg)) {
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap);
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
     }
 
     // Progress tracking.
@@ -1971,7 +2010,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     if (!targetImproved) {
       noProgressStreak++;
       if (noProgressStreak >= 2) {
-        return finalizeCycle(admin, article_id, user, priority, elapsed, "no_progress", bestSnapshot, initialSnap);
+        return finalizeCycle(admin, article_id, user, priority, elapsed, "no_progress", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
       }
     } else {
       noProgressStreak = 0;
@@ -1980,7 +2019,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
 
     // Max passes reached?
     if (passIndex >= CYCLE_MAX_PASSES) {
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "max_passes", bestSnapshot, initialSnap);
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "max_passes", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
     }
 
     // ── Hand off to the next relay worker ────────────────────────────
@@ -2008,6 +2047,6 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
   } catch (e: any) {
     console.error("[improve-cycle] fatal", e);
     const msg = (e?.message || String(e)).slice(0, 400);
-    return finalizeCycle(admin, article_id, user, priority, elapsed, "error", bestSnapshot, initialSnap, { error: msg });
+    return finalizeCycle(admin, article_id, user, priority, elapsed, "error", bestSnapshot, initialSnap, { error: msg }, { supabaseUrl, serviceKey });
   }
 }
