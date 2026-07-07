@@ -76,7 +76,7 @@ export function ArticleQualityHints({
           <span className="text-base">🤖</span>
           <div className="flex-1 min-w-0">
             <div className="text-xs text-orange-100">
-              Текст похож на ИИ (AI Score: {aiScore}%). Запустить Stealth Pass для улучшения?
+              Человечность: {aiScore}/100 (цель ≥70). Похожесть на AI: {Math.max(0, Math.min(100, 100 - (aiScore ?? 0)))}% - запустить Stealth Pass?
             </div>
           </div>
           <Button
