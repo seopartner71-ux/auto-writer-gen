@@ -183,6 +183,16 @@ serve(async (req) => {
           `🕐 ${ts}`;
         break;
       }
+      case 'articles_digest': {
+        // Digest text is fully pre-built by tg-daily-digest.
+        text = String(d.text || '').slice(0, 3800);
+        if (!text) {
+          return new Response(JSON.stringify({ success: true, ignored: 'empty digest' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        break;
+      }
       default: {
         // Неизвестный/устаревший тип — игнорируем, не шлём в чат.
         return new Response(JSON.stringify({ success: true, ignored: type }), {
