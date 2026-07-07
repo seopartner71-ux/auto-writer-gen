@@ -15,6 +15,7 @@ import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_sha
 import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
+import { analyzeSanity } from "../_shared/contentSanity.ts";
 import {
   getStyleProfile,
   sentenceOptionsFromStyleProfile,
