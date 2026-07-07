@@ -1160,6 +1160,46 @@ Deno.serve(async (req) => {
     if (!content || typeof content !== "string") return json({ error: "content required" }, 400);
     articleIdForLog = article_id;
 
+    // Guarantee HTML for the whole check pipeline. If we converted, persist so
+    // downstream (editor + improve-cycle) sees the canonical HTML form.
+    let normalizedContent = content;
+    {
+      const norm = ensureHtml(content);
+      if (norm.converted) {
+        normalizedContent = norm.html;
+        try {
+          await admin.from("articles").update({ content: normalizedContent }).eq("id", article_id);
+        } catch (_) { /* non-fatal */ }
+        logPipelineEvent({
+          stage: "quality-check",
+          article_id,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "md_to_html_conversion", reason: norm.reason, before_bytes: content.length, after_bytes: normalizedContent.length },
+        });
+      }
+    }
+
+    // Stale-status auto-reset: if article is stuck in 'checking'/'improving'
+    // with no pipeline_events for 10+ minutes, unblock it before we start.
+    try {
+      const { data: st0 } = await admin.from("articles").select("quality_status").eq("id", article_id).maybeSingle();
+      const qs = (st0 as any)?.quality_status;
+      if ((qs === "checking" || qs === "improving") && await isStaleStatus(admin, article_id, 10 * 60 * 1000)) {
+        await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
+        logPipelineEvent({
+          stage: "quality-check",
+          article_id,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "stale_status_reset", was: qs, reason: "no_events_>10min" },
+        });
+      }
+    } catch (_) { /* non-fatal */ }
+    // From here on, use normalizedContent for all downstream logic.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    (content as any) = normalizedContent; // shadow the outer const via assignment ban — use the new var below.
+
     // Resolve user: try service-role bypass first (auto mode from bulk), then user JWT.
     const serviceToken = authHeader.replace(/^Bearer\s+/i, "") === serviceKey;
     let user: { id: string } | null = null;
