@@ -15,6 +15,7 @@ import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_sha
 import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
+import { runAutoQuality } from "../quality-check/index.ts";
 import {
   getStyleProfile,
   sentenceOptionsFromStyleProfile,
@@ -1409,8 +1410,7 @@ ${bestContent}`;
           await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
           return;
         }
-        const mod = await import("../quality-check/index.ts");
-        await (mod as any).runAutoQuality(admin, article_id, user.id, contentToPersist, apiKey);
+        await runAutoQuality(admin, article_id, user.id, contentToPersist, apiKey);
       } catch (e) {
         console.error("[improve-article] inline quality-check failed", e);
         // Unlock the "checking" flag so the client stops spinning.
