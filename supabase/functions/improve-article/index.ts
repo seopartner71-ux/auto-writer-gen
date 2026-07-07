@@ -505,7 +505,7 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         apiKey: key, model: "anthropic/claude-sonnet-4",
         system: "Ты - детектор ИИ-текста. Верни JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = живой человек, 0 = явный ИИ.",
         user: `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100 и дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
-        maxTokens: 180, temperature: 0, timeoutMs: 20_000,
+        maxTokens: 180, temperature: 0, timeoutMs: 60_000,
         appTitle: "SEO-Modul improve-article score",
       });
       return parseScoreAndReasons(r.content);
