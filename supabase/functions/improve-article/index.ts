@@ -1583,11 +1583,18 @@ ${bestContent}`;
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Server-side improve CYCLE — orchestrates up to MAX_PASSES=2 sequential
-// improve passes with decide-fix, best-snapshot, rollback and stop-flag
-// checks. Replaces the previous client-tab loop so F5 never breaks a run.
-// Progress is written to articles.quality_details.cycle_progress; the
-// client just polls / listens to the realtime UPDATE.
+// Server-side improve CYCLE — RELAY architecture. Each worker executes
+// exactly ONE pass (humanize OR turgenev, plus candidate judges) — this
+// keeps a single worker to ~1.5-2.5min, well below the ~400s waitUntil
+// ceiling. If more passes are needed, the worker fire-and-forget POSTs
+// to itself with an incremented pass_index and exits. The full cycle
+// state lives in articles.quality_details.cycle_progress:
+//   { status, pass, of, action, sub_step, started_at, pass_started_at,
+//     updated_at, finished_at, initial:{ai,turg,content},
+//     best:{ai,turg,content}, priority, no_progress_streak, final_status,
+//     error }
+// Any worker on start reads state, checks improve_stop_requested and the
+// 3-min stuck-guard, then runs its pass or finalizes.
 // ──────────────────────────────────────────────────────────────────────
 interface CycleArgs {
   admin: ReturnType<typeof createClient>;
@@ -1603,233 +1610,312 @@ interface CycleArgs {
   source: string | undefined;
   bypassLimits: boolean;
   priority: "auto" | "ai" | "turgenev";
+  /** 1 = first pass (or new cycle); 2+ = relay from a previous worker. */
+  passIndex: number;
+  /** Needed to fire the next relay POST as a service-role internal call. */
+  serviceKey: string;
 }
 
-async function runImproveCycle(args: CycleArgs): Promise<void> {
-  const { admin, supabaseUrl, article_id, user, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, priority } = args;
-  const AI_TARGET = 70;
-  const TURG_TARGET = 5;
-  const MAX_PASSES = 2;
+const CYCLE_AI_TARGET = 70;
+const CYCLE_TURG_TARGET = 5;
+const CYCLE_MAX_PASSES = 2;
+const cycleAiOk = (v: number | null) => v != null && v >= CYCLE_AI_TARGET;
+const cycleTurgOk = (v: number | null) => v != null && v <= CYCLE_TURG_TARGET;
 
-  const aiOk = (v: number | null) => v != null && v >= AI_TARGET;
-  const turgOk = (v: number | null) => v != null && v <= TURG_TARGET;
+async function refreshCycleArt(admin: ReturnType<typeof createClient>, article_id: string): Promise<any> {
+  const { data } = await admin.from("articles")
+    .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,turgenev_score,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
+    .eq("id", article_id).maybeSingle();
+  return data as any;
+}
 
-  async function refreshArt(): Promise<any> {
-    const { data } = await admin.from("articles")
-      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,turgenev_score,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
-      .eq("id", article_id).maybeSingle();
-    return data as any;
+async function writeCycleProgress(
+  admin: ReturnType<typeof createClient>,
+  article_id: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const cur = await refreshCycleArt(admin, article_id);
+    const prevDetails = (cur?.quality_details && typeof cur.quality_details === "object") ? cur.quality_details : {};
+    const prevProgress = (prevDetails.cycle_progress && typeof prevDetails.cycle_progress === "object") ? prevDetails.cycle_progress : {};
+    await admin.from("articles").update({
+      quality_details: {
+        ...prevDetails,
+        cycle_progress: { ...prevProgress, ...patch, updated_at: new Date().toISOString() },
+      },
+    }).eq("id", article_id);
+  } catch (e) {
+    console.warn("[improve-cycle] progress write failed", e);
   }
+}
 
-  async function writeCycleProgress(patch: Record<string, unknown>): Promise<void> {
+function decideCycleFix(
+  scores: { ai: number | null; turg: number | null },
+  priority: "auto" | "ai" | "turgenev",
+): "humanize" | "turgenev" | null {
+  const aiBad = !cycleAiOk(scores.ai);
+  const turgBad = !cycleTurgOk(scores.turg);
+  if (!aiBad && !turgBad) return null;
+  if (priority === "ai") return aiBad ? "humanize" : null;
+  if (priority === "turgenev") return turgBad ? "turgenev" : null;
+  if (aiBad && !turgBad) return "humanize";
+  if (turgBad && !aiBad) return "turgenev";
+  return "humanize";
+}
+
+/** Fire-and-forget POST to self for the next relay pass. Never awaited. */
+function relayNextPass(
+  supabaseUrl: string,
+  serviceKey: string,
+  body: Record<string, unknown>,
+): void {
+  try {
+    void fetch(`${supabaseUrl}/functions/v1/improve-article`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify(body),
+    }).catch((e) => console.warn("[improve-cycle] relay POST failed", (e as Error)?.message));
+  } catch (e) {
+    console.warn("[improve-cycle] relay throw", (e as Error)?.message);
+  }
+}
+
+async function finalizeCycle(
+  admin: ReturnType<typeof createClient>,
+  article_id: string,
+  user: { id: string },
+  priority: "auto" | "ai" | "turgenev",
+  elapsed: () => number,
+  finalStatus: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" | "timed_out",
+  bestSnapshot: { content: string; ai: number | null; turg: number | null },
+  initialSnap: { ai: number | null; turg: number | null; content: string },
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  // Restore best content if a later pass regressed.
+  const finalArt = await refreshCycleArt(admin, article_id);
+  if (finalArt && bestSnapshot.content && finalArt.content !== bestSnapshot.content) {
     try {
-      const cur = await refreshArt();
-      const prevDetails = (cur?.quality_details && typeof cur.quality_details === "object") ? cur.quality_details : {};
-      const prevProgress = (prevDetails.cycle_progress && typeof prevDetails.cycle_progress === "object") ? prevDetails.cycle_progress : {};
-      await admin.from("articles").update({
-        quality_details: {
-          ...prevDetails,
-          cycle_progress: { ...prevProgress, ...patch, updated_at: new Date().toISOString() },
-        },
-      }).eq("id", article_id);
-    } catch (e) {
-      console.warn("[improve-cycle] progress write failed", e);
-    }
+      await admin.from("articles")
+        .update({ content: bestSnapshot.content, updated_at: new Date().toISOString() })
+        .eq("id", article_id);
+    } catch (_) {}
   }
-
-  function decideFix(scores: { ai: number | null; turg: number | null }): "humanize" | "turgenev" | null {
-    const aiBad = !aiOk(scores.ai);
-    const turgBad = !turgOk(scores.turg);
-    if (!aiBad && !turgBad) return null;
-    if (priority === "ai") return aiBad ? "humanize" : null;
-    if (priority === "turgenev") return turgBad ? "turgenev" : null;
-    if (aiBad && !turgBad) return "humanize";
-    if (turgBad && !aiBad) return "turgenev";
-    return "humanize";
-  }
-
-  let art = args.art;
-  let bestSnapshot = {
-    content: (art.content as string) || args.initialContent,
-    ai: (art.ai_score as number | null) ?? null,
-    turg: (art.turgenev_score as number | null) ?? null,
-  };
-  const cycleInitialContent = bestSnapshot.content;
-  const initialSnap = {
-    ai: bestSnapshot.ai,
-    turg: bestSnapshot.turg,
-    // Full content so the client can offer "Откатить все" without a separate query.
-    content: cycleInitialContent,
-  };
-  let finalStatus: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" = "max_passes";
-  let noProgressStreak = 0;
-
-  await writeCycleProgress({
-    status: "running",
-    pass: 0,
-    of: MAX_PASSES,
-    action: null,
-    started_at: new Date().toISOString(),
+  await writeCycleProgress(admin, article_id, {
+    status: finalStatus === "stopped" ? "stopped" : (finalStatus === "error" || finalStatus === "timed_out" ? "error" : "done"),
+    final_status: finalStatus,
+    best: bestSnapshot,
     initial: initialSnap,
-    priority,
+    sub_step: null,
+    finished_at: new Date().toISOString(),
+    ...extra,
+  });
+  try {
+    await admin.from("articles")
+      .update({ quality_status: null, improve_stop_requested: false })
+      .eq("id", article_id);
+  } catch (_) {}
+  logPipelineEvent({
+    stage: "improve",
+    user_id: user.id,
+    article_id,
+    verdict: finalStatus === "error" || finalStatus === "timed_out" ? "fail" : "pass",
+    duration_ms: elapsed(),
+    meta: {
+      event: "cycle_summary",
+      final_status: finalStatus,
+      initial: { ai: initialSnap.ai, turg: initialSnap.turg },
+      best: { ai: bestSnapshot.ai, turg: bestSnapshot.turg },
+      priority,
+    },
+  });
+}
+
+async function runImproveCycleStep(args: CycleArgs): Promise<void> {
+  const { admin, supabaseUrl, article_id, user, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, priority, passIndex, serviceKey } = args;
+
+  // ── Load / initialize cycle state ─────────────────────────────────
+  let art = await refreshCycleArt(admin, article_id);
+  if (!art) return;
+  const prevDetails = (art.quality_details && typeof art.quality_details === "object") ? art.quality_details : {};
+  const prevProgress = (prevDetails.cycle_progress && typeof prevDetails.cycle_progress === "object") ? prevDetails.cycle_progress : {};
+
+  const isFirstPass = passIndex <= 1;
+
+  // Initial snapshot: for pass 1 we take it from the current article; for
+  // pass 2+ we read it back from cycle_progress so we don't lose the true
+  // starting point across workers.
+  const initialSnap: { ai: number | null; turg: number | null; content: string } = isFirstPass
+    ? {
+        ai: (art.ai_score as number | null) ?? null,
+        turg: (art.turgenev_score as number | null) ?? null,
+        content: (art.content as string) || args.initialContent,
+      }
+    : {
+        ai: (prevProgress.initial?.ai ?? null) as number | null,
+        turg: (prevProgress.initial?.turg ?? null) as number | null,
+        content: (prevProgress.initial?.content ?? (art.content as string) ?? args.initialContent) as string,
+      };
+
+  let bestSnapshot: { content: string; ai: number | null; turg: number | null } = isFirstPass
+    ? {
+        content: (art.content as string) || args.initialContent,
+        ai: (art.ai_score as number | null) ?? null,
+        turg: (art.turgenev_score as number | null) ?? null,
+      }
+    : {
+        content: (prevProgress.best?.content ?? (art.content as string) ?? args.initialContent) as string,
+        ai: (prevProgress.best?.ai ?? null) as number | null,
+        turg: (prevProgress.best?.turg ?? null) as number | null,
+      };
+
+  let noProgressStreak = Number(prevProgress.no_progress_streak ?? 0);
+
+  // Write "we're alive, starting pass N" progress up front.
+  await writeCycleProgress(admin, article_id, {
+    status: "running",
+    pass: passIndex,
+    of: CYCLE_MAX_PASSES,
+    action: null,
+    sub_step: "Оценка состояния",
+    ...(isFirstPass ? { started_at: new Date().toISOString(), initial: initialSnap, priority, best: bestSnapshot, no_progress_streak: 0 } : {}),
+    pass_started_at: new Date().toISOString(),
   });
 
   try {
-    for (let pass = 1; pass <= MAX_PASSES; pass++) {
-      art = await refreshArt();
-      if (!art) { finalStatus = "error"; break; }
-      if (art.improve_stop_requested) { finalStatus = "stopped"; break; }
-
-      const curScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
-      const fix = decideFix(curScores);
-      if (!fix) { finalStatus = "targets_met"; break; }
-
-      const preContent = (art.content as string) || "";
-      const preScores = { ...curScores };
-
-      await writeCycleProgress({
-        status: "running",
-        pass,
-        of: MAX_PASSES,
-        action: fix,
-        pass_started_at: new Date().toISOString(),
-      });
-
-      // The single-pass pipeline sets quality_status='checking' on completion;
-      // reset to 'improving' so the client keeps the running UI between passes.
-      if (pass > 1) {
-        try { await admin.from("articles").update({ quality_status: "improving" }).eq("id", article_id); } catch (_) {}
-      }
-
-      try {
-        await runImprovePipeline({
-          admin, supabaseUrl, article_id, user,
-          phase: fix,
-          art,
-          initialContent: preContent,
-          primaryKeywordSeed: null,
-          orKey, lovableKey,
-          authHeader,
-          elapsed,
-          source: `cycle:${source ?? "ui"}`,
-          bypassLimits,
-        });
-      } catch (e) {
-        console.error("[improve-cycle] pass exception", pass, e);
-        // runImprovePipeline logs its own failure and clears status.
-        // Try the next pass — a single-pass hiccup shouldn't abort the cycle.
-      }
-
-      art = await refreshArt();
-      if (!art) { finalStatus = "error"; break; }
-      const postScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
-
-      // Rollback rule (mirrors the previous client heuristic).
-      const turgWorseBig = fix === "humanize" && postScores.turg != null && preScores.turg != null && postScores.turg > preScores.turg + 2;
-      const aiWorseBig = fix === "turgenev" && postScores.ai != null && preScores.ai != null && postScores.ai < preScores.ai - 3;
-      if (turgWorseBig || aiWorseBig) {
-        try {
-          await admin.from("articles")
-            .update({ content: preContent, updated_at: new Date().toISOString() })
-            .eq("id", article_id);
-        } catch (_) {}
-        await writeCycleProgress({
-          pass,
-          action: fix,
-          rolled_back: true,
-          rollback_reason: turgWorseBig ? "turgenev_rose" : "ai_dropped",
-        });
-        finalStatus = "balanced";
-        break;
-      }
-
-      const currentIsBetter =
-        (postScores.ai ?? 0) > (bestSnapshot.ai ?? 0) ||
-        ((postScores.ai ?? 0) === (bestSnapshot.ai ?? 0) && (postScores.turg ?? 999) < (bestSnapshot.turg ?? 999));
-      if (currentIsBetter) {
-        bestSnapshot = { content: (art.content as string) || preContent, ai: postScores.ai, turg: postScores.turg };
-      }
-
-      if (aiOk(postScores.ai) && turgOk(postScores.turg)) { finalStatus = "targets_met"; break; }
-
-      const targetImproved = fix === "humanize"
-        ? (postScores.ai != null && preScores.ai != null && postScores.ai > preScores.ai)
-        : (postScores.turg != null && preScores.turg != null && postScores.turg < preScores.turg);
-      if (!targetImproved) {
-        noProgressStreak++;
-        if (noProgressStreak >= 2) { finalStatus = "no_progress"; break; }
-      } else {
-        noProgressStreak = 0;
-      }
+    // ── Stop flag between workers ────────────────────────────────────
+    if (art.improve_stop_requested) {
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "stopped", bestSnapshot, initialSnap);
     }
 
-    // If a later pass regressed vs bestSnapshot, restore best content.
-    const finalArt = await refreshArt();
-    if (finalArt && bestSnapshot.content && finalArt.content !== bestSnapshot.content) {
-      try {
-        await admin.from("articles")
-          .update({ content: bestSnapshot.content, updated_at: new Date().toISOString() })
-          .eq("id", article_id);
-      } catch (_) {}
+    // ── Decide what to fix this pass ─────────────────────────────────
+    const curScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
+    const fix = decideCycleFix(curScores, priority);
+    if (!fix) {
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap);
     }
 
-    await writeCycleProgress({
-      status: finalStatus === "stopped" ? "stopped" : "done",
-      final_status: finalStatus,
-      best: bestSnapshot,
-      initial: initialSnap,
-      finished_at: new Date().toISOString(),
+    const preContent = (art.content as string) || "";
+    const preScores = { ...curScores };
+
+    await writeCycleProgress(admin, article_id, {
+      status: "running",
+      pass: passIndex,
+      of: CYCLE_MAX_PASSES,
+      action: fix,
+      sub_step: fix === "humanize" ? "Гуманизация (Sonnet)" : "Тургенев-фикс",
     });
 
-    if (finalStatus === "stopped") {
-      try {
-        await admin.from("articles")
-          .update({ quality_status: null, improve_stop_requested: false })
-          .eq("id", article_id);
-      } catch (_) {}
-    } else {
-      // runImprovePipeline may have left quality_status='checking' (background
-      // quality re-check dispatched). Just clear the stop flag.
-      try { await admin.from("articles").update({ improve_stop_requested: false }).eq("id", article_id); } catch (_) {}
+    // ── ONE pass ─────────────────────────────────────────────────────
+    try {
+      await runImprovePipeline({
+        admin, supabaseUrl, article_id, user,
+        phase: fix,
+        art,
+        initialContent: preContent,
+        primaryKeywordSeed: null,
+        orKey, lovableKey,
+        authHeader,
+        elapsed,
+        source: `cycle:${source ?? "ui"}`,
+        bypassLimits,
+        cycleMode: true,
+        reportSubStep: async (label) => {
+          await writeCycleProgress(admin, article_id, { sub_step: label });
+        },
+      });
+    } catch (e) {
+      console.error("[improve-cycle] pass exception", passIndex, e);
+      // fall through — the pipeline logs its own failure; we still try to
+      // read post-scores and either continue or finalize with best.
     }
 
-    logPipelineEvent({
-      stage: "improve",
-      user_id: user.id,
+    art = await refreshCycleArt(admin, article_id);
+    if (!art) return finalizeCycle(admin, article_id, user, priority, elapsed, "error", bestSnapshot, initialSnap);
+
+    const postScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
+
+    // Rollback rule (mirrors the previous heuristic).
+    const turgWorseBig = fix === "humanize" && postScores.turg != null && preScores.turg != null && postScores.turg > preScores.turg + 2;
+    const aiWorseBig = fix === "turgenev" && postScores.ai != null && preScores.ai != null && postScores.ai < preScores.ai - 3;
+    if (turgWorseBig || aiWorseBig) {
+      try {
+        await admin.from("articles")
+          .update({ content: preContent, updated_at: new Date().toISOString() })
+          .eq("id", article_id);
+      } catch (_) {}
+      await writeCycleProgress(admin, article_id, {
+        pass: passIndex, action: fix, rolled_back: true,
+        rollback_reason: turgWorseBig ? "turgenev_rose" : "ai_dropped",
+      });
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "balanced", bestSnapshot, initialSnap);
+    }
+
+    // Update best snapshot.
+    const currentIsBetter =
+      (postScores.ai ?? 0) > (bestSnapshot.ai ?? 0) ||
+      ((postScores.ai ?? 0) === (bestSnapshot.ai ?? 0) && (postScores.turg ?? 999) < (bestSnapshot.turg ?? 999));
+    if (currentIsBetter) {
+      bestSnapshot = { content: (art.content as string) || preContent, ai: postScores.ai, turg: postScores.turg };
+    }
+
+    // Persist bestSnapshot BEFORE any relay so the next worker can read it.
+    await writeCycleProgress(admin, article_id, {
+      best: bestSnapshot,
+      initial: initialSnap,
+    });
+
+    // Targets met?
+    if (cycleAiOk(postScores.ai) && cycleTurgOk(postScores.turg)) {
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap);
+    }
+
+    // Progress tracking.
+    const targetImproved = fix === "humanize"
+      ? (postScores.ai != null && preScores.ai != null && postScores.ai > preScores.ai)
+      : (postScores.turg != null && preScores.turg != null && postScores.turg < preScores.turg);
+    if (!targetImproved) {
+      noProgressStreak++;
+      if (noProgressStreak >= 2) {
+        return finalizeCycle(admin, article_id, user, priority, elapsed, "no_progress", bestSnapshot, initialSnap);
+      }
+    } else {
+      noProgressStreak = 0;
+    }
+    await writeCycleProgress(admin, article_id, { no_progress_streak: noProgressStreak });
+
+    // Max passes reached?
+    if (passIndex >= CYCLE_MAX_PASSES) {
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "max_passes", bestSnapshot, initialSnap);
+    }
+
+    // ── Hand off to the next relay worker ────────────────────────────
+    // Keep quality_status='improving' so the UI stays in "running" mode
+    // through the tiny gap between workers.
+    try { await admin.from("articles").update({ quality_status: "improving" }).eq("id", article_id); } catch (_) {}
+    await writeCycleProgress(admin, article_id, {
+      status: "running",
+      pass: passIndex,
+      sub_step: "Передача следующему воркеру",
+    });
+    relayNextPass(supabaseUrl, serviceKey, {
       article_id,
-      verdict: "pass",
+      cycle: true,
+      pass_index: passIndex + 1,
+      user_id: user.id,
+      source: "cycle_relay",
+      priority,
+    });
+    logPipelineEvent({
+      stage: "improve", user_id: user.id, article_id, verdict: "pass",
       duration_ms: elapsed(),
-      meta: {
-        event: "cycle_summary",
-        final_status: finalStatus,
-        initial: { ai: initialSnap.ai, turg: initialSnap.turg },
-        best: { ai: bestSnapshot.ai, turg: bestSnapshot.turg },
-        priority,
-      },
+      meta: { event: "cycle_relay_dispatched", from_pass: passIndex, to_pass: passIndex + 1, best: { ai: bestSnapshot.ai, turg: bestSnapshot.turg } },
     });
   } catch (e: any) {
     console.error("[improve-cycle] fatal", e);
     const msg = (e?.message || String(e)).slice(0, 400);
-    await writeCycleProgress({
-      status: "error",
-      final_status: "error",
-      error: msg,
-      finished_at: new Date().toISOString(),
-    });
-    try {
-      await admin.from("articles")
-        .update({ quality_status: null, improve_stop_requested: false })
-        .eq("id", article_id);
-    } catch (_) {}
-    logPipelineEvent({
-      stage: "improve",
-      user_id: user.id,
-      article_id,
-      verdict: "fail",
-      duration_ms: elapsed(),
-      error_kind: "cycle_exception",
-      error_message: msg,
-      meta: { event: "cycle_error", priority },
-    });
+    return finalizeCycle(admin, article_id, user, priority, elapsed, "error", bestSnapshot, initialSnap, { error: msg });
   }
 }
