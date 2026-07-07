@@ -389,6 +389,9 @@ Deno.serve(async (req) => {
     await admin.from("articles").update({
       last_improve_at: new Date().toISOString(),
       quality_status: "improving",
+      // Reset the stop-request flag on every new cycle — flag from a previous
+      // run must not short-circuit the new one.
+      improve_stop_requested: false,
     }).eq("id", article_id);
 
     // Kick off all LLM work in the background — LLM passes are far longer than
