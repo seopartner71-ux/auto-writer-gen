@@ -455,11 +455,13 @@ serve(async (req) => {
             ],
             stream: true,
             temperature: authorTemperature,
-            // Hard cap output length: prevents runaway generations where the
-            // model drifts into token-salad ("плуминиума", mixed scripts) after
-            // ~5-6k tokens on long-form Opus runs. 8000 tokens ≈ 25-30k chars
-            // which covers any legitimate SEO article.
-            max_tokens: 8000,
+            // Hard cap output length: prevents runaway Opus generations that
+            // drift into token-salad ("плуминиума", mixed scripts) past
+            // ~8-10k tokens. RU tokenizes ~2x denser than EN, so a full
+            // PRO article (1700-2100 words + FAQ) ≈ 8-10k RU tokens.
+            // 12000 leaves a safety cushion above legitimate length; anything
+            // beyond that is almost always the runaway tail.
+            max_tokens: 12000,
           }),
           signal: openCtrl.signal,
         });
