@@ -36,6 +36,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";
 import { useUnseenChangelog } from "@/shared/hooks/useChangelogNotifier";
+import { LATEST_VERSION } from "@/data/changelog";
 import {
   Sidebar,
   SidebarContent,
