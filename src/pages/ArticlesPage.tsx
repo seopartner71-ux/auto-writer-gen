@@ -829,6 +829,23 @@ export default function ArticlesPage() {
 
       // Fact-check analysis: detect suspicious hallucination patterns
       // Post-generation validator: detect & auto-fix fake experts/stats
+      // ── Sanity gate (deterministic, no LLM) ─────────────────────
+      // Scans the full generated text for token-salad degradation
+      // (foreign scripts, vowelless Cyrillic words, 5+ consonant runs).
+      // If tripped: DO NOT save silently, DO NOT run polish / fact-check /
+      // improve — surface the failure and let the user regenerate.
+      {
+        const sanity = analyzeSanity(fullContent.replace(/<[^>]+>/g, " "));
+        if (sanity.corrupted) {
+          setFactCheckStatus("warning");
+          try { localStorage.setItem("aiwriter_partial_draft", JSON.stringify({ content: fullContent, keyword_id: selectedKeywordId, ts: Date.now() })); } catch { /* ignore */ }
+          toast.error("Содержимое статьи повреждено — модель ушла в токен-салат.", {
+            description: `Причины: ${sanity.reasons.join(", ")}. Черновик сохранен локально, но не записан в базу. Нажмите «Сгенерировать» заново.`,
+            duration: 12000,
+          });
+          return;
+        }
+      }
       const validation = validateContent(fullContent);
       if (validation.issues.length > 0) {
         fullContent = validation.fixedContent;
