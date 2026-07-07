@@ -437,12 +437,12 @@ async function runClaudeAiScore(plain: string, key: string): Promise<{ score: nu
       return null;
     }
     const data = await res.json();
-    const raw = String(data?.choices?.[0]?.message?.content || "").trim();
-    const m = raw.match(/\d{1,3}/);
+    const respText = String(data?.choices?.[0]?.message?.content || "").trim();
+    const m = respText.match(/\d{1,3}/);
     const n = m ? parseInt(m[0], 10) : NaN;
     const score = Number.isNaN(n) ? 50 : Math.max(0, Math.min(100, n));
     // Parse reasons: lines after the first number line, stripping bullets/dashes.
-    const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    const lines = respText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     const reasons: string[] = [];
     for (const line of lines) {
       if (/^\d{1,3}\b/.test(line) && reasons.length === 0) continue; // skip the number line
