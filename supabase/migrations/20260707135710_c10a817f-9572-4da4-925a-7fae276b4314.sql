@@ -1,0 +1,1 @@
+UPDATE articles SET content = quality_details->'cycle_progress'->'best'->>'content', updated_at = now() WHERE id='777dd012-91ad-453b-b0b0-2870a0add984' AND length(content) < 100 AND length(quality_details->'cycle_progress'->'best'->>'content') > 1000;
