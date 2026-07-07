@@ -319,6 +319,45 @@ Deno.serve(async (req) => {
     if (!initialContent) return json({ error: "Article has no content" }, 400);
     const originalAiScore = art.ai_score;
 
+    // ── Corruption gate ──────────────────────────────────────────────
+    // Refuse to run any improve pass on token-salad content. The improve
+    // cycle would just amplify the mess and burn credits. User must
+    // regenerate the article first.
+    {
+      const sanity = analyzeSanity(stripHtml(initialContent));
+      if (sanity.corrupted) {
+        logPipelineEvent({
+          stage: "improve",
+          user_id: user.id,
+          article_id,
+          verdict: "fail",
+          duration_ms: 0,
+          error_kind: "content_corrupted",
+          error_message: sanity.reasons.join(","),
+          meta: { event: "blocked_content_corrupted", reasons: sanity.reasons },
+        });
+        try {
+          const prevDet = (art as any).quality_details || {};
+          await admin.from("articles").update({
+            quality_status: "fail",
+            quality_badge: "needs_work",
+            quality_details: {
+              ...prevDet,
+              sanity: { ...sanity, checked_at: new Date().toISOString() },
+              corrupted: true,
+              corrupted_reason: sanity.reasons.join(", "),
+            },
+          }).eq("id", article_id);
+        } catch (_) { /* ignore */ }
+        return json({
+          ok: false,
+          blocked: "content_corrupted",
+          reasons: sanity.reasons,
+          message: "Содержимое статьи повреждено (token-salad). Сгенерируйте статью заново — улучшайзер не запускается на битом тексте.",
+        }, 200);
+      }
+    }
+
     // ── Format normalization: pipeline expects HTML (metricsOf, htmlIntegrityOk,
     // validators). If content is pure Markdown (single-shot generation path
     // emits '# H1 / ## H2 ...' by design) — convert to HTML BEFORE any pass and
