@@ -855,13 +855,15 @@ ${content}`;
       let humanizeLlmError: string | undefined;
       let humanizeDurationMs = 0;
       if (orKey) {
-        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000);
+        await emitSubStep("Гуманизация (Sonnet)");
+        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 75_000);
         rewritten = r.content;
         humanizeLlmError = r.error;
         humanizeDurationMs = r.duration_ms;
       }
       if (!rewritten && lovableKey) {
         humanizeModel = "google/gemini-2.5-pro";
+        await emitSubStep("Гуманизация (Gemini fallback)");
         rewritten = await callGateway("google/gemini-2.5-pro", sys, usr, lovableKey);
         if (!rewritten && !humanizeLlmError) humanizeLlmError = "gemini_fallback_empty";
       }
@@ -882,6 +884,7 @@ ${content}`;
         }
       }
       if (humanizeApplied) {
+        await emitSubStep("Оценка кандидата (судьи)");
         await scoreCandidate(content, "humanize.sonnet");
       }
       recordPass({
@@ -902,7 +905,10 @@ ${content}`;
       // 1b) Severe AI-detected (ai_score < 40) → run a second Opus micro-pass
       // for "AI fingerprints" removal. Best-effort with HTML integrity guard.
       await checkStopFlag("humanize.sonnet");
-      if (!stoppedByUser && aiScore < 40 && orKey) {
+      // Opus is skipped in cycle mode — telemetry shows 120s timeouts eat the
+      // whole worker budget with 0 applied passes in >2 days. Manual buttons
+      // (fix_type=humanize outside a cycle) still get it.
+      if (!stoppedByUser && !cycleMode && aiScore < 40 && orKey) {
         const sysOpus = "Ты редактор-человек. Делаешь микро-проход по HTML: убираешь монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
         const usrOpus = `Микро-проход: убери оставшиеся "ИИ-подписи" — монотонность синтаксиса, одинаковые зачины абзацев, лексические всплески. Цель: AI-детектор <30%. НЕ трогай факты, цифры, ссылки, теги (<h2>,<h3>,<p>,<ul>,<table>,<a>).
 ${validatorContextBlock}
