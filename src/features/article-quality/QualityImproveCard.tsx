@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,7 +66,6 @@ function finalStatusLabel(s: CycleProgress["final_status"]): string {
 
 export function QualityImproveCard({ mode, articleId, currentContent, onRevertContent }: Props) {
   const [row, setRow] = useState<any>({});
-  const [showLog, setShowLog] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pollRef = useRef<number | null>(null);
   const [priority, setPriority] = useState<Priority>("auto");
