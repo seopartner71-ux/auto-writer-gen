@@ -185,10 +185,15 @@ export function QuickStartSummary({ articleId, hasContent, onSave, saveDisabled,
         {status.emoji} {status.label}
       </div>
       <div className="border-t border-border pt-3 space-y-2 text-sm">
-        <Row label="AI-детектор" value={ai} />
+        <Row label={`Человечность${data.ai_score != null ? `: ${data.ai_score}/100 (цель ≥70)` : ""}`} value={ai} />
+        {data.ai_score != null && (
+          <div className="text-[11px] text-muted-foreground pl-4">
+            Похожесть на AI: {Math.max(0, Math.min(100, 100 - Number(data.ai_score)))}% (ниже = лучше)
+          </div>
+        )}
         <Row label="Ритм текста" value={burst} />
         <Row label="Плотность" value={dens} />
-        <Row label="Тургенев" value={turg} />
+        <Row label={`Тургенев${data.turgenev_score != null ? `: ${data.turgenev_score} (цель ≤5)` : ""}`} value={turg} />
       </div>
       <div className="space-y-2 pt-2">
         {hasIssues && articleId && (
