@@ -37,6 +37,69 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Detect nominative-case keyword injections that hint the LLM glued the raw
+// keyword into a sentence without declension. Heuristic:
+//   - split plain-text into sentences,
+//   - for every sentence that contains the keyword (case-insensitive, as a
+//     whole word phrase),
+//   - flag if the keyword is NOT preceded by a RU preposition/comma/dash/
+//     sentence-start, OR is immediately followed by another content word
+//     (noun-noun jam like "минитрактор цена приятная").
+// Returns the list of flagged sentence excerpts (deduped, cap 6).
+const RU_PREPS = new Set([
+  "в","во","на","над","под","при","о","об","обо","у","от","до","для","из",
+  "к","ко","с","со","по","за","про","через","среди","между","без","около",
+  "вокруг","против","насчёт","насчет","благодаря",
+]);
+export function detectNominativeKeywordHits(html: string, keyword: string): string[] {
+  if (!keyword) return [];
+  const kw = keyword.trim().toLowerCase();
+  if (!kw || kw.length < 4) return [];
+  const kwWords = kw.split(/\s+/).filter(Boolean);
+  if (!kwWords.length) return [];
+  const plain = stripHtml(html);
+  const sentences = plain.split(/(?<=[.!?…])\s+/).filter((s) => s.length > 8);
+  const hits: string[] = [];
+  const seen = new Set<string>();
+  const kwRe = new RegExp(
+    // Match the keyword phrase as whole word sequence (case-insensitive).
+    "\\b" + kwWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+") + "\\b",
+    "i",
+  );
+  for (const sent of sentences) {
+    const m = kwRe.exec(sent);
+    if (!m) continue;
+    const start = m.index;
+    const end = start + m[0].length;
+    // Prev token (a single word before the keyword, ignoring punctuation glue).
+    const prevChunk = sent.slice(0, start).replace(/[,\-–—:;()"«»']/g, " ").trim();
+    const prevToken = prevChunk.split(/\s+/).pop()?.toLowerCase() || "";
+    const prevIsPrep = RU_PREPS.has(prevToken);
+    const atStart = prevChunk.length === 0;
+    // Next token: is it a content word (letters) with no preposition/comma
+    // between? "минитрактор цена" fires; "минитрактор из Китая" does not
+    // because "из" is a preposition; "минитрактор, отзывы" does not because
+    // of the comma between.
+    const tail = sent.slice(end);
+    const nextRaw = tail.match(/^\s*([^\s,.:;!?()"«»–—]+)/);
+    const nextToken = nextRaw?.[1]?.toLowerCase() || "";
+    const nextIsContent =
+      !!nextToken &&
+      /^[а-яёa-z][а-яёa-z-]*$/i.test(nextToken) &&
+      !RU_PREPS.has(nextToken);
+    // Glued injection = keyword not "anchored" by a preposition AND followed
+    // by another noun-like word with no glue punctuation.
+    const injected = !prevIsPrep && !atStart && nextIsContent;
+    if (!injected) continue;
+    const key = sent.slice(0, 120);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    hits.push(sent.length > 220 ? sent.slice(0, 217) + "…" : sent);
+    if (hits.length >= 6) break;
+  }
+  return hits;
+}
+
 // Косметическая нормализация текста статьи перед сохранением:
 // 1. Заголовки markdown (# / ## / ### / ####) с первой заглавной буквы.
 // 2. Заголовки HTML (<h1>-<h6>) — первая буква содержимого заглавная.
