@@ -1214,9 +1214,12 @@ ${content}`;
     const nextImproveCount = bypassLimits
       ? Number((art as any).seo_improve_count || 0)
       : Number((art as any).seo_improve_count || 0) + 1;
+    // One final stop check before we potentially spend more LLM calls on
+    // best-candidate scoring or the nominative-keyword micro-pass.
+    await checkStopFlag("pre_finalize");
     // Score the FINAL post-pipeline state (structural steps 2-8 run after
     // humanize and may have moved the needle); pick the best-scoring version.
-    if (content !== bestContent) {
+    if (!stoppedByUser && content !== bestContent) {
       try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
     }
     // ── Nominative-keyword micro-pass ────────────────────────────────
@@ -1226,9 +1229,9 @@ ${content}`;
     // focused Sonnet pass on the flagged sentences; guarded by htmlIntegrity.
     let nominativeHits: string[] = [];
     try {
-      nominativeHits = primaryKeyword ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
+      nominativeHits = (!stoppedByUser && primaryKeyword) ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
     } catch { nominativeHits = []; }
-    if (nominativeHits.length && orKey) {
+    if (!stoppedByUser && nominativeHits.length && orKey) {
       const nomBefore = metricsOf(bestContent);
       const sysNom =
         "Ты редактор. Задача — исправить сырые вставки ключевого слова в именительном падеже. " +
@@ -1288,8 +1291,11 @@ ${bestContent}`;
     const normalizedMeta = rawMeta ? normalizeMetaDescription(rawMeta) : null;
     await admin.from("articles").update({
       content: contentToPersist,
-      quality_status: "checking",
+      // If stopped by user — release the status immediately; no re-check will run.
+      quality_status: stoppedByUser ? null : "checking",
       seo_improve_count: nextImproveCount,
+      // Clear the stop flag on the way out so the next cycle starts clean.
+      improve_stop_requested: false,
       ...(normalizedMeta && normalizedMeta !== rawMeta ? { meta_description: normalizedMeta } : {}),
       updated_at: new Date().toISOString(),
     }).eq("id", article_id);
@@ -1315,7 +1321,8 @@ ${bestContent}`;
         quality_details: {
           ...prevDetails,
           improve_last: {
-            status: "ok",
+            status: stoppedByUser ? "stopped_by_user" : "ok",
+            ...(stoppedByUser ? { stopped_at_step: stoppedAtStep } : {}),
             phase,
             at: new Date().toISOString(),
             metrics_before: metricsInitial,
@@ -1341,7 +1348,7 @@ ${bestContent}`;
     // uses the same admin client, writes ai_score/ai_score_internal/
     // ai_score_claude/turgenev_score/quality_details.ai_*_reasons and
     // clears quality_status in one shot.
-    const reCheck = (async () => {
+    const reCheck = stoppedByUser ? Promise.resolve() : (async () => {
       try {
         const apiKey = Deno.env.get("OPENROUTER_API_KEY");
         if (!apiKey) {
