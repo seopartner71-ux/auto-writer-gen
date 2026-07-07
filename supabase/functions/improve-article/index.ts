@@ -1574,7 +1574,13 @@ async function runImproveCycle(args: CycleArgs): Promise<void> {
     ai: (art.ai_score as number | null) ?? null,
     turg: (art.turgenev_score as number | null) ?? null,
   };
-  const initialScores = { ai: bestSnapshot.ai, turg: bestSnapshot.turg };
+  const cycleInitialContent = bestSnapshot.content;
+  const initialSnap = {
+    ai: bestSnapshot.ai,
+    turg: bestSnapshot.turg,
+    // Full content so the client can offer "Откатить все" without a separate query.
+    content: cycleInitialContent,
+  };
   let finalStatus: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" = "max_passes";
   let noProgressStreak = 0;
 
@@ -1584,7 +1590,7 @@ async function runImproveCycle(args: CycleArgs): Promise<void> {
     of: MAX_PASSES,
     action: null,
     started_at: new Date().toISOString(),
-    initial: initialScores,
+    initial: initialSnap,
     priority,
   });
 
@@ -1691,7 +1697,7 @@ async function runImproveCycle(args: CycleArgs): Promise<void> {
       status: finalStatus === "stopped" ? "stopped" : "done",
       final_status: finalStatus,
       best: bestSnapshot,
-      initial: initialScores,
+      initial: initialSnap,
       finished_at: new Date().toISOString(),
     });
 
@@ -1716,7 +1722,7 @@ async function runImproveCycle(args: CycleArgs): Promise<void> {
       meta: {
         event: "cycle_summary",
         final_status: finalStatus,
-        initial: initialScores,
+        initial: { ai: initialSnap.ai, turg: initialSnap.turg },
         best: { ai: bestSnapshot.ai, turg: bestSnapshot.turg },
         priority,
       },
