@@ -222,10 +222,10 @@ async function callOpenRouter(model: string, system: string, user: string, key: 
   return r.content;
 }
 
-async function callGateway(model: string, system: string, user: string, key: string): Promise<string | null> {
+async function callGateway(model: string, system: string, user: string, key: string, maxTokens = 12000): Promise<string | null> {
   try {
     const r = await chatComplete({
-      apiKey: key, model, system, user, timeoutMs: 120_000,
+      apiKey: key, model, system, user, maxTokens, timeoutMs: 120_000,
       appTitle: "SEO-Modul improve-article",
     });
     return r.content || null;
