@@ -320,6 +320,56 @@ Deno.serve(async (req) => {
     }
 
     // Prevent overlapping runs on the same article.
+    // ── Stuck-detector (cycle-aware) ──────────────────────────────────
+    // A cycle is stuck when quality_details.cycle_progress.status='running'
+    // and its updated_at is older than 3 minutes (previous worker died
+    // without finalizing). Reset immediately so the user isn't blocked.
+    // Fresh (<3 min) running cycles reject duplicate starts.
+    const cycleProgress = ((art as any).quality_details && typeof (art as any).quality_details === "object")
+      ? ((art as any).quality_details.cycle_progress ?? null) : null;
+    if (cycleProgress && cycleProgress.status === "running") {
+      const cpUpdated = cycleProgress.updated_at ? Date.parse(cycleProgress.updated_at) : 0;
+      const cpAgeMs = Date.now() - (cpUpdated || 0);
+      const cpStuck = !cpUpdated || cpAgeMs > 3 * 60 * 1000;
+      if (cpStuck) {
+        const prevDetails = (art as any).quality_details || {};
+        try {
+          await admin.from("articles").update({
+            quality_status: null,
+            improve_stop_requested: false,
+            quality_details: {
+              ...prevDetails,
+              cycle_progress: {
+                ...cycleProgress,
+                status: "error",
+                final_status: "timed_out",
+                error: `Цикл не отвечал ${Math.round(cpAgeMs / 1000)}с — сброшен новым запросом`,
+                finished_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            },
+          }).eq("id", article_id);
+        } catch (_) {}
+        (art as any).quality_status = null;
+        logPipelineEvent({
+          stage: "improve",
+          user_id: user.id,
+          article_id,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "cycle_stuck_reset", age_ms: cpAgeMs, pass: cycleProgress.pass ?? null },
+        });
+      } else if (!isRelay) {
+        // Fresh running cycle + a NEW start attempt (not a relay) = user
+        // double-clicked or a stale UI retried. Reject cleanly.
+        return json({
+          ok: false,
+          already_running: true,
+          cycle_active: true,
+          message: "Цикл улучшения уже запущен, дождитесь завершения",
+        }, 202);
+      }
+    }
     // Auto-reset stale status: 'improving' / 'checking' with no pipeline_events
     // in the last 10 minutes = crashed background task, unblock the article.
     if ((art as any).quality_status === "improving" || (art as any).quality_status === "checking") {
@@ -344,7 +394,7 @@ Deno.serve(async (req) => {
         });
       }
     }
-    if ((art as any).quality_status === "improving") {
+    if ((art as any).quality_status === "improving" && !isRelay) {
       return json({
         ok: false,
         already_running: true,
