@@ -246,7 +246,10 @@ Deno.serve(async (req) => {
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({} as any));
-    const { article_id, fix_type, user_id: bodyUserId, source } = body || {};
+    const { article_id, fix_type, user_id: bodyUserId, source, cycle, priority: bodyPriority } = body || {};
+    const isCycle = cycle === true;
+    const cyclePriority: "auto" | "ai" | "turgenev" =
+      bodyPriority === "ai" || bodyPriority === "turgenev" ? bodyPriority : "auto";
 
     // Internal service-role invocation (e.g. quality-check auto-turgenev-fix).
     const isServiceCall =
@@ -395,15 +398,24 @@ Deno.serve(async (req) => {
     }).eq("id", article_id);
 
     // Kick off all LLM work in the background — LLM passes are far longer than
-    // the edge-function response deadline. Client polls quality_status.
-    const bg = runImprovePipeline({
-      admin, supabaseUrl, article_id, user, phase, art,
-      initialContent, primaryKeywordSeed: null, orKey, lovableKey,
-      authHeader, elapsed, source, bypassLimits,
-    });
+    // the edge-function response deadline. Client polls quality_status +
+    // quality_details.cycle_progress. F5-safe: the orchestration lives here,
+    // never in the browser tab.
+    const bg = isCycle
+      ? runImproveCycle({
+          admin, supabaseUrl, article_id, user, art,
+          initialContent, orKey, lovableKey,
+          authHeader, elapsed, source, bypassLimits,
+          priority: cyclePriority,
+        })
+      : runImprovePipeline({
+          admin, supabaseUrl, article_id, user, phase, art,
+          initialContent, primaryKeywordSeed: null, orKey, lovableKey,
+          authHeader, elapsed, source, bypassLimits,
+        });
     try { (globalThis as any).EdgeRuntime?.waitUntil?.(bg); } catch { void bg; }
 
-    return json({ ok: true, accepted: true, async: true }, 202);
+    return json({ ok: true, accepted: true, async: true, cycle: isCycle }, 202);
   } catch (e: any) {
     console.error("[improve-article] fatal", e);
     logPipelineEvent({
