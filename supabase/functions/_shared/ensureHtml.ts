@@ -136,15 +136,22 @@ export function ensureHtml(content: string): { html: string; converted: boolean;
 // and no matching pipeline_events exist in that window.
 export async function isStaleStatus(
   admin: any, articleId: string, minAgeMs = 10 * 60 * 1000,
+  // Optional filter: only these event stages count as "the pipeline is alive".
+  // For quality_status='checking' pass ['quality_check','ai_detect'] — otherwise
+  // a lingering 'improve' event from the previous phase keeps the status "fresh"
+  // forever and the auto-reset never fires.
+  stages?: string[],
 ): Promise<boolean> {
   try {
     const cutoff = new Date(Date.now() - minAgeMs).toISOString();
-    const { data: ev } = await admin
+    let q = admin
       .from("pipeline_events")
       .select("id")
       .eq("article_id", articleId)
       .gt("created_at", cutoff)
       .limit(1);
+    if (stages && stages.length) q = q.in("stage", stages);
+    const { data: ev } = await q;
     if (Array.isArray(ev) && ev.length > 0) return false;
     return true;
   } catch { return false; }
