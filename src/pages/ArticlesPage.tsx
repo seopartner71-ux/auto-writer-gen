@@ -511,17 +511,13 @@ export default function ArticlesPage() {
 
   const runStealthFromHint = useCallback(async () => {
     if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
-    toast.info("Запускаю Stealth Pass - очеловечивание текста");
-    try {
-      const lang: "ru" | "en" = /[а-я]/i.test(content) ? "ru" : "en";
-      await runAutoStealthPass(currentArticleId, lang);
-      // refresh score
-      const { data } = await supabase.from("articles").select("ai_score, content").eq("id", currentArticleId).maybeSingle();
-      if ((data as any)?.ai_score != null) setAiScore((data as any).ai_score);
-      if ((data as any)?.content) setContent((data as any).content);
-      toast.success("Stealth Pass завершен");
-    } catch (e: any) {
-      toast.error(e?.message || "Не удалось запустить Stealth");
+    const res = await startImproveCycle(currentArticleId, "auto");
+    if (res.ok) {
+      toast.message("Цикл улучшения запущен. Работа идёт на сервере — можно закрыть или обновить страницу.");
+    } else if (res.cooldown) {
+      toast.message(res.message || "Подождите перед повторной доработкой");
+    } else {
+      toast.error(res.error || "Не удалось запустить цикл");
     }
   }, [currentArticleId, content]);
 
