@@ -621,6 +621,42 @@ async function runAutoQuality(
     return;
   }
 
+  // ── Sanity check (deterministic, no LLM) ─────────────────────────
+  // Scans the FULL plain text (no sampling) for token-salad degradation:
+  // foreign scripts (bn/ko/cn/…), Cyrillic words with no vowels, 5+
+  // consecutive consonant runs, unterminated multi-thousand-char blobs.
+  // A single positive marks the article as `corrupted` — quality_status=fail,
+  // no auto-humanize/turgenev fire, improve-article refuses to touch it.
+  const sanity = analyzeSanity(plain);
+  if (sanity.corrupted) {
+    const { data: prevDetSan } = await admin.from("articles").select("quality_details").eq("id", articleId).maybeSingle();
+    await admin.from("articles").update({
+      quality_status: "fail",
+      quality_badge: "needs_work",
+      quality_checked_at: new Date().toISOString(),
+      quality_details: {
+        ...((prevDetSan?.quality_details as any) || {}),
+        sanity: { ...sanity, checked_at: new Date().toISOString() },
+        corrupted: true,
+        corrupted_reason: sanity.reasons.join(", "),
+        errors: ["content_corrupted:" + sanity.reasons.join(",")],
+        errors_at: new Date().toISOString(),
+      },
+    }).eq("id", articleId);
+    logPipelineEvent({
+      stage: "quality",
+      user_id: userId,
+      article_id: articleId,
+      verdict: "fail",
+      duration_ms: 0,
+      meta: { event: "content_corrupted", reasons: sanity.reasons, metrics: sanity.metrics },
+    });
+    await logErr(admin, "quality-check", "content_corrupted", {
+      article_id: articleId, reasons: sanity.reasons, metrics: sanity.metrics,
+    });
+    return;
+  }
+
   // Mark as checking
   await admin.from("articles").update({ quality_status: "checking" }).eq("id", articleId);
 
