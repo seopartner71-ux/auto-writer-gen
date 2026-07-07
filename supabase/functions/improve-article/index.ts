@@ -246,10 +246,14 @@ Deno.serve(async (req) => {
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({} as any));
-    const { article_id, fix_type, user_id: bodyUserId, source, cycle, priority: bodyPriority } = body || {};
+    const { article_id, fix_type, user_id: bodyUserId, source, cycle, priority: bodyPriority, pass_index: bodyPassIndex } = body || {};
     const isCycle = cycle === true;
     const cyclePriority: "auto" | "ai" | "turgenev" =
       bodyPriority === "ai" || bodyPriority === "turgenev" ? bodyPriority : "auto";
+    // pass_index > 0 means this is a relay call from a previous worker
+    // (see runImproveCycleStep). pass_index = 1 or absent means "start pass 1".
+    const passIndexRaw = Number(bodyPassIndex);
+    const isRelay = Number.isFinite(passIndexRaw) && passIndexRaw >= 2;
 
     // Internal service-role invocation (e.g. quality-check auto-turgenev-fix).
     const isServiceCall =
@@ -259,7 +263,8 @@ Deno.serve(async (req) => {
     const isAutoDangling = isServiceCall && source === "auto_dangling";
     const isAutoCancellary = isServiceCall && source === "auto_cancellary";
     const isAutoKwFreq = isServiceCall && source === "auto_keyword_freq";
-    const bypassLimits = isAutoTurgenev || isAutoSentence || isAutoDangling || isAutoCancellary || isAutoKwFreq;
+    const isCycleRelay = isServiceCall && source === "cycle_relay";
+    const bypassLimits = isAutoTurgenev || isAutoSentence || isAutoDangling || isAutoCancellary || isAutoKwFreq || isCycleRelay;
 
     let user: { id: string } | null = null;
     if (isServiceCall) {
