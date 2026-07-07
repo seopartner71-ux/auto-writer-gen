@@ -1196,9 +1196,6 @@ Deno.serve(async (req) => {
         });
       }
     } catch (_) { /* non-fatal */ }
-    // From here on, use normalizedContent for all downstream logic.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    (content as any) = normalizedContent; // shadow the outer const via assignment ban — use the new var below.
 
     // Resolve user: try service-role bypass first (auto mode from bulk), then user JWT.
     const serviceToken = authHeader.replace(/^Bearer\s+/i, "") === serviceKey;
