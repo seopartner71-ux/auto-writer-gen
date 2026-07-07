@@ -30,12 +30,14 @@ interface CycleProgress {
   pass?: number;
   of?: number;
   action?: "humanize" | "turgenev" | null;
+  sub_step?: string | null;
   initial?: { ai: number | null; turg: number | null; content?: string };
   best?: { ai: number | null; turg: number | null; content?: string };
   rolled_back?: boolean;
   rollback_reason?: string;
   error?: string;
   started_at?: string;
+  pass_started_at?: string;
   finished_at?: string;
   updated_at?: string;
   priority?: Priority;
@@ -62,6 +64,14 @@ function finalStatusLabel(s: CycleProgress["final_status"]): string {
     case "error":        return "Ошибка выполнения";
     default:             return "";
   }
+}
+
+function fmtDuration(ms: number): string {
+  if (ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function QualityImproveCard({ mode, articleId, currentContent, onRevertContent }: Props) {
