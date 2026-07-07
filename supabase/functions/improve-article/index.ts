@@ -1028,11 +1028,17 @@ ${content}`;
     if (content !== bestContent) {
       try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
     }
-    const contentToPersist = bestContent;
+    // Cosmetic normalization (last step, always): H2/H3/H4 первая буква — заглавная,
+    // пробел после точки перед заглавной буквой ("гараж.Резко" → "гараж. Резко").
+    const contentToPersist = cosmeticNormalize(bestContent);
+    // Meta description — из БД, отдельная нормализация (пробелы после точек + удаление переносов).
+    const rawMeta = (art as any).meta_description as string | null | undefined;
+    const normalizedMeta = rawMeta ? normalizeMetaDescription(rawMeta) : null;
     await admin.from("articles").update({
       content: contentToPersist,
       quality_status: "checking",
       seo_improve_count: nextImproveCount,
+      ...(normalizedMeta && normalizedMeta !== rawMeta ? { meta_description: normalizedMeta } : {}),
       updated_at: new Date().toISOString(),
     }).eq("id", article_id);
 
