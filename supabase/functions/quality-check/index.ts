@@ -1209,7 +1209,13 @@ const __QC_HANDLER = async (req: Request) => {
     try {
       const { data: st0 } = await admin.from("articles").select("quality_status").eq("id", article_id).maybeSingle();
       const qs = (st0 as any)?.quality_status;
-      if ((qs === "checking" || qs === "improving") && await isStaleStatus(admin, article_id, 10 * 60 * 1000)) {
+      // For 'checking' we care ONLY about quality_check/ai_detect events —
+      // a lingering 'improve' event from the previous phase would otherwise
+      // keep the row "fresh" forever and the reset would never fire.
+      const staleStages = qs === "checking"
+        ? ["quality_check", "ai_detect"]
+        : ["improve", "humanize"];
+      if ((qs === "checking" || qs === "improving") && await isStaleStatus(admin, article_id, 10 * 60 * 1000, staleStages)) {
         await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
         logPipelineEvent({
           stage: "quality-check",

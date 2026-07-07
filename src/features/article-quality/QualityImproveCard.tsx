@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, ShieldCheck, Info } from "lucide-react";
+import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, ShieldCheck, Info, StopCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ImprovingTipsLoader } from "./ImprovingTipsLoader";
 
@@ -45,6 +45,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const [bestSnapshot, setBestSnapshot] = useState<{ content: string; ai: number | null; turg: number | null } | null>(null);
   const [priority, setPriority] = useState<Priority>("auto");
   const [showSteps, setShowSteps] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   // Initial fetch + realtime
   useEffect(() => {
@@ -82,6 +83,27 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   useEffect(() => {
     try { window.dispatchEvent(new CustomEvent("quality-improving", { detail: running })); } catch {}
   }, [running]);
+
+  // Reset stopping when the improve cycle ends
+  useEffect(() => {
+    if (!running && row.quality_status !== "improving") setStopping(false);
+  }, [running, row.quality_status]);
+
+  async function requestStop() {
+    if (!articleId) return;
+    setStopping(true);
+    try {
+      await supabase
+        .from("articles")
+        .update({ improve_stop_requested: true } as any)
+        .eq("id", articleId);
+      log("⏹ Запрошена остановка — цикл завершится после текущего шага.");
+      toast.message("Остановка запрошена — цикл завершится после текущего шага");
+    } catch (e: any) {
+      toast.error(e?.message || "Не удалось остановить");
+      setStopping(false);
+    }
+  }
 
   function log(line: string) {
     setLogLines((l) => [...l, line]);
@@ -243,6 +265,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         if (!fix) { stoppedReason = "targets-met"; log("✅ Цели достигнуты - дальнейшие проходы не нужны."); break; }
         const res = await runOnePass(fix, pass);
         cur = res.scores;
+        if (stopping) { stoppedReason = "stopped-by-user"; log("⏹ Остановлено пользователем."); break; }
         if (aiOk(cur.ai) && turgOk(cur.turg)) { stoppedReason = "targets-met"; log("✅ Оба показателя в норме."); break; }
         if (res.rolledBack) { stoppedReason = "balanced"; log("⚖ Достигнут баланс - дальнейшее улучшение ухудшает другой показатель."); break; }
         if (!res.improved) {
@@ -384,6 +407,16 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               ))}
             </div>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full gap-1.5 border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+            onClick={requestStop}
+            disabled={stopping}
+          >
+            {stopping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StopCircle className="h-3.5 w-3.5" />}
+            {stopping ? "Останавливаем..." : "Остановить"}
+          </Button>
         </div>
       )}
 

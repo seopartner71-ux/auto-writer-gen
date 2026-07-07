@@ -315,7 +315,13 @@ Deno.serve(async (req) => {
     // Auto-reset stale status: 'improving' / 'checking' with no pipeline_events
     // in the last 10 minutes = crashed background task, unblock the article.
     if ((art as any).quality_status === "improving" || (art as any).quality_status === "checking") {
-      const stale = await isStaleStatus(admin, article_id, 10 * 60 * 1000);
+      // Filter events by stage: for 'checking' the pipeline is alive only if
+      // there is a recent quality_check/ai_detect event — any earlier
+      // 'improve' event would otherwise mask a dead background task forever.
+      const staleStages = (art as any).quality_status === "checking"
+        ? ["quality_check", "ai_detect"]
+        : ["improve", "humanize"];
+      const stale = await isStaleStatus(admin, article_id, 10 * 60 * 1000, staleStages);
       if (stale) {
         const prevStatus = (art as any).quality_status;
         await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
@@ -383,6 +389,9 @@ Deno.serve(async (req) => {
     await admin.from("articles").update({
       last_improve_at: new Date().toISOString(),
       quality_status: "improving",
+      // Reset the stop-request flag on every new cycle — flag from a previous
+      // run must not short-circuit the new one.
+      improve_stop_requested: false,
     }).eq("id", article_id);
 
     // Kick off all LLM work in the background — LLM passes are far longer than
@@ -513,6 +522,35 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   };
   const trace: PassTrace[] = [];
   const integrityRejections: Array<{ step: string; reason: string; metrics_llm: any; metrics_before: any }> = [];
+
+  // ── User "Stop" flag — checked BETWEEN steps (never inside an LLM call).
+  // When set, the pipeline skips remaining passes and jumps to finalize with
+  // the best-scoring candidate observed so far. Written by the client via
+  // `articles.improve_stop_requested = true`.
+  let stoppedByUser = false;
+  let stoppedAtStep: string | null = null;
+  async function checkStopFlag(afterStep: string): Promise<void> {
+    if (stoppedByUser) return;
+    try {
+      const { data } = await admin
+        .from("articles")
+        .select("improve_stop_requested")
+        .eq("id", article_id)
+        .maybeSingle();
+      if ((data as any)?.improve_stop_requested === true) {
+        stoppedByUser = true;
+        stoppedAtStep = afterStep;
+        logPipelineEvent({
+          stage: "improve",
+          user_id: user.id,
+          article_id,
+          verdict: "warning",
+          duration_ms: elapsed(),
+          meta: { event: "stop_requested", after_step: afterStep, phase },
+        });
+      }
+    } catch (_) { /* non-fatal */ }
+  }
 
   function metricsOf(html: string) {
     try {
@@ -727,7 +765,7 @@ ${rhythmSharedRules}`;
     }
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
-    if ((phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
+    if (!stoppedByUser && (phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
 ${validatorContextBlock}
@@ -811,7 +849,8 @@ ${content}`;
 
       // 1b) Severe AI-detected (ai_score < 40) → run a second Opus micro-pass
       // for "AI fingerprints" removal. Best-effort with HTML integrity guard.
-      if (aiScore < 40 && orKey) {
+      await checkStopFlag("humanize.sonnet");
+      if (!stoppedByUser && aiScore < 40 && orKey) {
         const sysOpus = "Ты редактор-человек. Делаешь микро-проход по HTML: убираешь монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
         const usrOpus = `Микро-проход: убери оставшиеся "ИИ-подписи" — монотонность синтаксиса, одинаковые зачины абзацев, лексические всплески. Цель: AI-детектор <30%. НЕ трогай факты, цифры, ссылки, теги (<h2>,<h3>,<p>,<ul>,<table>,<a>).
 ${validatorContextBlock}
@@ -875,11 +914,12 @@ ${content}`;
         });
       }
     }
+    await checkStopFlag("humanize");
 
     // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times
-    if ((phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "overuse") {
+    if (!stoppedByUser && (phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "overuse") {
       content = removeEveryNthKeyword(content, primaryKeyword, 3);
-    } else if ((phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
+    } else if (!stoppedByUser && (phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
       const sys = "Ты редактор. Встраиваешь ключевое слово в текст с полной грамматической адаптацией. Возвращаешь только итоговый HTML.";
       const usr = `Встрой фразу "${primaryKeyword}" органично в 2-3 места текста.
 
@@ -921,9 +961,10 @@ ${content}`;
         prompt: { system: sys, user: usr, user_bytes: usr.length },
       });
     }
+    await checkStopFlag("keyword_density");
 
     // 3) Burstiness fix: split long sentences (JS post-processor)
-    if ((phase === "humanize" || phase === "all") && (burstStatus === "fail" || burstStatus === "warning")) {
+    if (!stoppedByUser && (phase === "humanize" || phase === "all") && (burstStatus === "fail" || burstStatus === "warning")) {
       // Apply only to text inside <p>/<li> blocks
       content = content.replace(/(<(?:p|li)[^>]*>)([\s\S]*?)(<\/(?:p|li)>)/gi, (_m, open, inner, close) => {
         return `${open}${splitLongSentences(inner)}${close}`;
@@ -933,7 +974,7 @@ ${content}`;
     // 4) Turgenev (Yandex Baden-Baden) fix when status = fail (RU only, needs OpenRouter)
     const turgStatus = String((art as any).turgenev_status || "ok");
     const isRu = String((art as any).language || "ru").toLowerCase() === "ru";
-    if ((phase === "turgenev" || phase === "all") && turgStatus === "fail" && isRu && orKey) {
+    if (!stoppedByUser && (phase === "turgenev" || phase === "all") && turgStatus === "fail" && isRu && orKey) {
       const sys = "Ты редактор. Улучшаешь текст под Яндекс Баден-Баден, но СОХРАНЯЕШЬ человечность стиля. Возвращай ТОЛЬКО исправленный HTML без комментариев и markdown-обёрток.";
       const usr = `Снизь риск фильтра Баден-Баден, НЕ ухудшая человечность текста.
 
@@ -979,10 +1020,11 @@ ${content}`;
         prompt: { system: sys, user: usr, user_bytes: usr.length },
       });
     }
+    await checkStopFlag("turgenev");
 
     // 5) Sentence-structure fix: чиним «телеграфный» стиль —
     //    серии 3+ коротких подряд, низкая средняя длина, перекос коротких.
-    if ((phase === "sentence" || phase === "all") && orKey) {
+    if (!stoppedByUser && (phase === "sentence" || phase === "all") && orKey) {
       const metrics = analyzeSentenceStructure(stripHtml(content), sentenceOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildSentenceStructureFixHint(metrics) || "";
@@ -1030,7 +1072,8 @@ ${content}`;
     }
 
     // 6) Dangling thoughts: висящие союзы и обрывы абзацев без терминатора.
-    if ((phase === "dangling" || phase === "all") && orKey) {
+    await checkStopFlag("sentence");
+    if (!stoppedByUser && (phase === "dangling" || phase === "all") && orKey) {
       const metrics = analyzeDanglingThoughts(content);
       if (metrics.verdict === "fail") {
         const hint = buildDanglingFixHint(metrics) || "";
@@ -1076,7 +1119,8 @@ ${content}`;
     }
 
     // 7) Cancellary: канцеляризмы и штампы из BANLIST.
-    if ((phase === "cancellary" || phase === "all") && orKey) {
+    await checkStopFlag("dangling");
+    if (!stoppedByUser && (phase === "cancellary" || phase === "all") && orKey) {
       const metrics = analyzeCancellary(stripHtml(content), cancellaryOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildCancellaryFixHint(metrics) || "";
@@ -1121,7 +1165,8 @@ ${content}`;
     }
 
     // 8) Keyword frequency: сверхчастые значимые слова и переспам seed-ключа в H2.
-    if ((phase === "keyword_freq" || phase === "all") && orKey) {
+    await checkStopFlag("cancellary");
+    if (!stoppedByUser && (phase === "keyword_freq" || phase === "all") && orKey) {
       const metrics = analyzeKeywordFrequency(content, primaryKeyword || null, keywordOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildKeywordFrequencyFixHint(metrics) || "";
@@ -1169,9 +1214,12 @@ ${content}`;
     const nextImproveCount = bypassLimits
       ? Number((art as any).seo_improve_count || 0)
       : Number((art as any).seo_improve_count || 0) + 1;
+    // One final stop check before we potentially spend more LLM calls on
+    // best-candidate scoring or the nominative-keyword micro-pass.
+    await checkStopFlag("pre_finalize");
     // Score the FINAL post-pipeline state (structural steps 2-8 run after
     // humanize and may have moved the needle); pick the best-scoring version.
-    if (content !== bestContent) {
+    if (!stoppedByUser && content !== bestContent) {
       try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
     }
     // ── Nominative-keyword micro-pass ────────────────────────────────
@@ -1181,9 +1229,9 @@ ${content}`;
     // focused Sonnet pass on the flagged sentences; guarded by htmlIntegrity.
     let nominativeHits: string[] = [];
     try {
-      nominativeHits = primaryKeyword ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
+      nominativeHits = (!stoppedByUser && primaryKeyword) ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
     } catch { nominativeHits = []; }
-    if (nominativeHits.length && orKey) {
+    if (!stoppedByUser && nominativeHits.length && orKey) {
       const nomBefore = metricsOf(bestContent);
       const sysNom =
         "Ты редактор. Задача — исправить сырые вставки ключевого слова в именительном падеже. " +
@@ -1243,8 +1291,11 @@ ${bestContent}`;
     const normalizedMeta = rawMeta ? normalizeMetaDescription(rawMeta) : null;
     await admin.from("articles").update({
       content: contentToPersist,
-      quality_status: "checking",
+      // If stopped by user — release the status immediately; no re-check will run.
+      quality_status: stoppedByUser ? null : "checking",
       seo_improve_count: nextImproveCount,
+      // Clear the stop flag on the way out so the next cycle starts clean.
+      improve_stop_requested: false,
       ...(normalizedMeta && normalizedMeta !== rawMeta ? { meta_description: normalizedMeta } : {}),
       updated_at: new Date().toISOString(),
     }).eq("id", article_id);
@@ -1270,7 +1321,8 @@ ${bestContent}`;
         quality_details: {
           ...prevDetails,
           improve_last: {
-            status: "ok",
+            status: stoppedByUser ? "stopped_by_user" : "ok",
+            ...(stoppedByUser ? { stopped_at_step: stoppedAtStep } : {}),
             phase,
             at: new Date().toISOString(),
             metrics_before: metricsInitial,
@@ -1296,7 +1348,7 @@ ${bestContent}`;
     // uses the same admin client, writes ai_score/ai_score_internal/
     // ai_score_claude/turgenev_score/quality_details.ai_*_reasons and
     // clears quality_status in one shot.
-    const reCheck = (async () => {
+    const reCheck = stoppedByUser ? Promise.resolve() : (async () => {
       try {
         const apiKey = Deno.env.get("OPENROUTER_API_KEY");
         if (!apiKey) {
