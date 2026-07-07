@@ -51,7 +51,6 @@ import { QualityImproveCard } from "@/features/article-quality/QualityImproveCar
 import { ImprovingTipsLoader } from "@/features/article-quality/ImprovingTipsLoader";
 import { EditorSidebar } from "@/components/article/EditorSidebar";
 import { SeoSidePanelContainer } from "@/features/article-editor/SeoSidePanelContainer";
-import { runAutoStealthPass } from "@/features/article-editor/autoStealthPass";
 import { startImproveCycle } from "@/features/article-quality/startImproveCycle";
 import { useFactCheck } from "@/features/article-editor/useFactCheck";
 import { ArticleQualityHints } from "@/components/article/ArticleQualityHints";
