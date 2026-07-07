@@ -287,9 +287,32 @@ Deno.serve(async (req) => {
     logCtx = { user_id: user.id, article_id, phase };
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status")
+      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
+
+    // ── Stop-barrier ─────────────────────────────────────────────────
+    // If the user pressed "Stop", NO automatic source (auto_* from
+    // quality-check, cycle_relay from a stray relay hop) may re-enter
+    // this article. Only an explicit user click (source `cycle:ui` /
+    // `ui` / `manual` / unset) resets the barrier by starting a fresh
+    // cycle, which itself clears `improve_stop_requested` below.
+    const isAutoSource =
+      source === "auto_humanize" || source === "auto_turgenev" ||
+      source === "auto_dangling" || source === "auto_sentence_structure" ||
+      source === "auto_cancellary" || source === "auto_keyword_freq" ||
+      source === "cycle_relay";
+    if ((art as any).improve_stop_requested === true && isAutoSource) {
+      logPipelineEvent({
+        stage: "improve",
+        user_id: user.id,
+        article_id,
+        verdict: "warning",
+        duration_ms: 0,
+        meta: { event: "blocked_after_user_stop", source: source || null },
+      });
+      return json({ ok: false, blocked: "user_stop", source: source || null }, 200);
+    }
 
     let initialContent: string = art.content || "";
     if (!initialContent) return json({ error: "Article has no content" }, 400);

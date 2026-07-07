@@ -924,33 +924,17 @@ async function runAutoQuality(
       });
     }
     if (humanizeTriggered) {
-      const { data: artFlag2 } = await admin
-        .from("articles").select("rewritten").eq("id", articleId).maybeSingle();
-      if (artFlag2 && artFlag2.rewritten !== true) {
-        await admin.from("articles").update({ rewritten: true }).eq("id", articleId);
-        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const humanizeTask = (async () => {
-          try {
-            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${serviceKey2}`,
-              },
-              body: JSON.stringify({
-                article_id: articleId,
-                fix_type: "humanize",
-                user_id: userId,
-                source: "auto_humanize",
-              }),
-            });
-          } catch (e) {
-            await logErr(admin, "quality-check", "auto_humanize_dispatch_failed", { article_id: articleId, error: String(e) });
-          }
-        })();
-        try { (globalThis as any).EdgeRuntime?.waitUntil?.(humanizeTask); } catch (_) { void humanizeTask; }
-      }
+      // Suppressed: server-side auto_humanize was creating zombie runs that
+      // bypassed cycle_progress. The user-driven relay cycle in improve-article
+      // is the single orchestrator now.
+      logPipelineEvent({
+        stage: "quality-check",
+        article_id: articleId,
+        user_id: userId,
+        verdict: "warning",
+        duration_ms: 0,
+        meta: { event: "auto_fix_suppressed", kind: "auto_humanize", ai_combined: aiCombined },
+      });
     }
   } catch (e) {
     await logErr(admin, "quality-check", "auto_humanize_gate_error", { article_id: articleId, error: String(e) });
@@ -975,34 +959,18 @@ async function runAutoQuality(
         .eq("id", articleId)
         .maybeSingle();
       if (artFlag && artFlag.turgenev_auto_fixed !== true) {
-        // Сразу помечаем чтобы исключить гонки/петлю
         await admin
           .from("articles")
           .update({ turgenev_auto_fixed: true })
           .eq("id", articleId);
-
-        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const fixTask = (async () => {
-          try {
-            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${serviceKey}`,
-              },
-              body: JSON.stringify({
-                article_id: articleId,
-                fix_type: "turgenev",
-                user_id: userId,
-                source: "auto_turgenev",
-              }),
-            });
-          } catch (e) {
-            console.error("[quality-check] auto-turgenev-fix dispatch failed", e);
-          }
-        })();
-        try { (globalThis as any).EdgeRuntime?.waitUntil?.(fixTask); } catch (_) { void fixTask; }
+        logPipelineEvent({
+          stage: "quality-check",
+          article_id: articleId,
+          user_id: userId,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "auto_fix_suppressed", kind: "auto_turgenev", turgenev_score: turgScore },
+        });
       }
     }
   } catch (e) {
@@ -1034,29 +1002,14 @@ async function runAutoQuality(
         await admin.from("articles").update({
           quality_details: { ...det, [next.flag]: true },
         }).eq("id", articleId);
-
-        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const fixTask = (async () => {
-          try {
-            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${serviceKey}`,
-              },
-              body: JSON.stringify({
-                article_id: articleId,
-                fix_type: next.fixType,
-                user_id: userId,
-                source: next.source,
-              }),
-            });
-          } catch (e) {
-            await logErr(admin, "quality-check", `auto_${next.name}_dispatch_failed`, { article_id: articleId, error: String(e) });
-          }
-        })();
-        try { (globalThis as any).EdgeRuntime?.waitUntil?.(fixTask); } catch (_) { void fixTask; }
+        logPipelineEvent({
+          stage: "quality-check",
+          article_id: articleId,
+          user_id: userId,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "auto_fix_suppressed", kind: next.source, phase: next.name },
+        });
       }
     }
   } catch (e) {
