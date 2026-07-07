@@ -15,7 +15,6 @@ import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_sha
 import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
-import { runAutoQuality } from "../quality-check/index.ts";
 import {
   getStyleProfile,
   sentenceOptionsFromStyleProfile,
@@ -1385,12 +1384,9 @@ ${bestContent}`;
       updated_at: new Date().toISOString(),
     }).eq("id", article_id);
 
-    // Run quality-check IN-PROCESS via direct import — the previous
-    // fetch-in-background pattern died silently (no pipeline_events, no
-    // ai_score written, quality_status stuck at "checking"). Direct call
-    // uses the same admin client, writes ai_score/ai_score_internal/
-    // ai_score_claude/turgenev_score/quality_details.ai_*_reasons and
-    // clears quality_status in one shot.
+    // Dispatch the full quality-check as a follow-up only. The primary AI
+    // score is already persisted above from the improve judges, so the UI no
+    // longer depends on this re-check surviving the background worker.
     const reCheck = stoppedByUser ? Promise.resolve() : (async () => {
       try {
         await admin.from("pipeline_events").insert({
@@ -1410,7 +1406,12 @@ ${bestContent}`;
           await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
           return;
         }
-        await runAutoQuality(admin, article_id, user.id, contentToPersist, apiKey);
+        const resp = await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHeader },
+          body: JSON.stringify({ article_id, content: contentToPersist, mode: "auto", dispatched_by: "improve" }),
+        });
+        if (!resp.ok) throw new Error(`quality-check dispatch HTTP ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
       } catch (e) {
         console.error("[improve-article] inline quality-check failed", e);
         // Unlock the "checking" flag so the client stops spinning.
