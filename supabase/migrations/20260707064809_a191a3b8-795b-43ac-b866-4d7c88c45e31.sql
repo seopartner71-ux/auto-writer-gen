@@ -1,0 +1,1 @@
+UPDATE public.articles SET quality_status = NULL, updated_at = now() WHERE id = '64a2cec1-8180-4e5c-a964-3871ccc75210' AND quality_status IN ('checking','improving');
