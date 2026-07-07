@@ -265,6 +265,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         if (!fix) { stoppedReason = "targets-met"; log("✅ Цели достигнуты - дальнейшие проходы не нужны."); break; }
         const res = await runOnePass(fix, pass);
         cur = res.scores;
+        if (stopping) { stoppedReason = "stopped-by-user"; log("⏹ Остановлено пользователем."); break; }
         if (aiOk(cur.ai) && turgOk(cur.turg)) { stoppedReason = "targets-met"; log("✅ Оба показателя в норме."); break; }
         if (res.rolledBack) { stoppedReason = "balanced"; log("⚖ Достигнут баланс - дальнейшее улучшение ухудшает другой показатель."); break; }
         if (!res.improved) {
