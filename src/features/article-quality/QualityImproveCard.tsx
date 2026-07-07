@@ -231,11 +231,15 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       const httpOk = resp.ok || resp.status === 202;
       if (!httpOk) {
         setStarting(false);
+        startingSinceRef.current = null;
+        if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
         toast.error(payload?.error || `Ошибка ${resp.status}`);
         return;
       }
       if (payload?.cooldown) {
         setStarting(false);
+        startingSinceRef.current = null;
+        if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
         toast.message(payload?.message || "Подождите перед повторной доработкой");
         return;
       }
