@@ -8,8 +8,17 @@ const DANGLING_CONJUNCTIONS = [
   "при этом","в то время как","несмотря на то что","так что","за счет того что",
 ];
 
+// Хвосты, после которых терминатор — гарантированный обрубок придаточного:
+// "потому что.", "но когда.", "но зимой.", "если.", "чтобы." и т.п.
+// Проверяются per-sentence, не только в конце блока.
+const SENTENCE_TAIL_FRAGMENTS = [
+  "потому что","потому","так как","поскольку","чтобы","если","когда","пока",
+  "но когда","а когда","но если","но зимой","но летом","но при","и когда",
+  "хотя","несмотря на","при","без","из-за","благодаря","вопреки",
+];
+
 export interface DanglingHit {
-  kind: "block_end" | "missing_terminator";
+  kind: "block_end" | "missing_terminator" | "sentence_fragment";
   trigger: string;
   preview: string;
 }
@@ -51,6 +60,21 @@ export function analyzeDanglingThoughts(contentHtmlOrText: string): DanglingMetr
   const hits: DanglingHit[] = [];
 
   for (const block of blocks) {
+    // 0. Per-sentence: обрубки придаточных вида "…потому что." / "…но зимой."
+    const sentences = block.split(/(?<=[.!?…])\s+/);
+    for (const s of sentences) {
+      const trimmedS = s.trim().replace(/[»"'`)\]]+$/g, "");
+      if (trimmedS.length < 8) continue;
+      const noTermS = trimmedS.replace(/[.!?…]+$/g, "").trim().toLowerCase().replace(/ё/g, "е");
+      for (const frag of SENTENCE_TAIL_FRAGMENTS) {
+        const re = new RegExp(`(?:^|\\s)${frag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+        if (re.test(noTermS)) {
+          hits.push({ kind: "sentence_fragment", trigger: frag, preview: lastSnippet(trimmedS) });
+          break;
+        }
+      }
+    }
+
     const trimmed = block.replace(/\s+$/g, "").replace(/[«»"'`)\]]+$/g, "").trim();
     if (!trimmed) continue;
 
@@ -87,8 +111,10 @@ export function analyzeDanglingThoughts(contentHtmlOrText: string): DanglingMetr
   const issues: string[] = [];
   const dangling = hits.filter((h) => h.kind === "block_end").length;
   const missing = hits.filter((h) => h.kind === "missing_terminator").length;
+  const fragments = hits.filter((h) => h.kind === "sentence_fragment").length;
   if (dangling) issues.push(`Найдено ${dangling} абзацев, заканчивающихся висящим союзом ("и", "но", "поэтому"...).`);
   if (missing) issues.push(`Найдено ${missing} абзацев без терминатора предложения — мысль не закрыта.`);
+  if (fragments) issues.push(`Найдено ${fragments} обрубков придаточных предложений вида "…потому что." / "…но зимой." / "…если." — короткое предложение обязано быть грамматически полным.`);
 
   const verdict: "pass" | "warning" | "fail" = hits.length === 0 ? "pass" : "fail";
 
@@ -106,10 +132,12 @@ export function buildDanglingFixHint(m: DanglingMetrics): string | null {
   for (const h of m.hits.slice(0, 8)) {
     if (h.kind === "block_end") {
       lines.push(`  • Висящий "${h.trigger}": ${h.preview}`);
-    } else {
+    } else if (h.kind === "missing_terminator") {
       lines.push(`  • Нет терминатора: ${h.preview}`);
+    } else {
+      lines.push(`  • Обрубок придаточного "${h.trigger}.": ${h.preview}`);
     }
   }
-  lines.push("Допиши логическое завершение, не выкидывай абзац целиком.");
+  lines.push("Допиши логическое завершение придаточной части (что именно происходит «потому что», «когда», «если»). Короткое предложение должно быть грамматически полным: подлежащее + сказуемое или законченное назывное.");
   return lines.join("\n");
 }
