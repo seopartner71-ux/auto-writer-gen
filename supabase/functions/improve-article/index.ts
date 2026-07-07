@@ -428,8 +428,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Snapshot BEFORE any change so user can rollback
-    try {
+    // Snapshot BEFORE any change so user can rollback.
+    // Relay calls (cycle pass 2+) SKIP this — snapshot already taken by pass 1.
+    if (!isRelay) try {
       await admin.from("article_versions").insert({
         article_id,
         user_id: user.id,
@@ -444,24 +445,29 @@ Deno.serve(async (req) => {
     }
     // Mark as "improving" and record cooldown timestamp synchronously so the
     // client can start polling immediately and the cooldown gate holds.
+    // Relay calls keep the existing improve_stop_requested so a mid-cycle
+    // stop request placed BETWEEN passes is honoured on the next worker.
     await admin.from("articles").update({
       last_improve_at: new Date().toISOString(),
       quality_status: "improving",
-      // Reset the stop-request flag on every new cycle — flag from a previous
-      // run must not short-circuit the new one.
-      improve_stop_requested: false,
+      ...(isRelay ? {} : { improve_stop_requested: false }),
     }).eq("id", article_id);
 
     // Kick off all LLM work in the background — LLM passes are far longer than
-    // the edge-function response deadline. Client polls quality_status +
-    // quality_details.cycle_progress. F5-safe: the orchestration lives here,
-    // never in the browser tab.
+    // the edge-function response deadline. Cycles are split into ONE pass per
+    // worker (relay pattern): each worker does one pass + judges (~1.5-2.5min)
+    // and, if the goals aren't met, fire-and-forget POSTs to itself with an
+    // incremented pass_index. Individual worker never approaches the ~400s
+    // waitUntil limit. F5-safe: the orchestration state lives in cycle_progress.
+    const passIndex = isCycle ? (Number.isFinite(passIndexRaw) && passIndexRaw >= 1 ? passIndexRaw : 1) : 0;
     const bg = isCycle
-      ? runImproveCycle({
+      ? runImproveCycleStep({
           admin, supabaseUrl, article_id, user, art,
           initialContent, orKey, lovableKey,
           authHeader, elapsed, source, bypassLimits,
           priority: cyclePriority,
+          passIndex,
+          serviceKey,
         })
       : runImprovePipeline({
           admin, supabaseUrl, article_id, user, phase, art,
@@ -470,7 +476,7 @@ Deno.serve(async (req) => {
         });
     try { (globalThis as any).EdgeRuntime?.waitUntil?.(bg); } catch { void bg; }
 
-    return json({ ok: true, accepted: true, async: true, cycle: isCycle }, 202);
+    return json({ ok: true, accepted: true, async: true, cycle: isCycle, pass: passIndex || undefined }, 202);
   } catch (e: any) {
     console.error("[improve-article] fatal", e);
     logPipelineEvent({
