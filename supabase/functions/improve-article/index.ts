@@ -1393,7 +1393,8 @@ ${bestContent}`;
     await admin.from("articles").update({
       content: contentToPersist,
       // If stopped by user — release the status immediately; no re-check will run.
-      quality_status: stoppedByUser ? null : "checking",
+      // In cycle mode — keep 'improving' so the cycle orchestrator can decide.
+      quality_status: stoppedByUser ? null : (cycleMode ? "improving" : "checking"),
       seo_improve_count: nextImproveCount,
       // Persist the score already produced by the improve judges. The dashboard
       // no longer depends on a separate quality-check worker to fill ai_score.
@@ -1413,7 +1414,11 @@ ${bestContent}`;
     // Dispatch the full quality-check as a follow-up only. The primary AI
     // score is already persisted above from the improve judges, so the UI no
     // longer depends on this re-check surviving the background worker.
-    const reCheck = stoppedByUser ? Promise.resolve() : (async () => {
+    // In cycle mode this dispatch is SKIPPED — the cycle orchestrator handles
+    // scoring and any Turgenev/dangling autofixes; running quality-check here
+    // would trigger a zombie inline improve-article (source=auto_dangling)
+    // that races the next cycle pass.
+    const reCheck = (stoppedByUser || cycleMode) ? Promise.resolve() : (async () => {
       try {
         await admin.from("pipeline_events").insert({
           stage: "quality_check",
