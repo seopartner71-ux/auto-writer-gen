@@ -1622,7 +1622,8 @@ const CYCLE_MAX_PASSES = 2;
 const cycleAiOk = (v: number | null) => v != null && v >= CYCLE_AI_TARGET;
 const cycleTurgOk = (v: number | null) => v != null && v <= CYCLE_TURG_TARGET;
 
-async function refreshCycleArt(admin: ReturnType<typeof createClient>, article_id: string): Promise<any> {
+// deno-lint-ignore no-explicit-any
+async function refreshCycleArt(admin: any, article_id: string): Promise<any> {
   const { data } = await admin.from("articles")
     .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,turgenev_score,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
     .eq("id", article_id).maybeSingle();
@@ -1630,7 +1631,8 @@ async function refreshCycleArt(admin: ReturnType<typeof createClient>, article_i
 }
 
 async function writeCycleProgress(
-  admin: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  admin: any,
   article_id: string,
   patch: Record<string, unknown>,
 ): Promise<void> {
@@ -1684,7 +1686,8 @@ function relayNextPass(
 }
 
 async function finalizeCycle(
-  admin: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  admin: any,
   article_id: string,
   user: { id: string },
   priority: "auto" | "ai" | "turgenev",
