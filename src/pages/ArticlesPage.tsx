@@ -1070,7 +1070,10 @@ export default function ArticlesPage() {
       if (content && content.length > 200) {
         setTimeout(() => {
           if (result.isNew) {
-            void runAutoStealthPass(result.id, lang);
+            // Server-orchestrated improve cycle (F5-safe). The cycle branch of
+            // improve-article runs quality-check + humanize passes on the edge,
+            // so a refresh/close of this tab no longer kills the pipeline.
+            void startImproveCycle(result.id, "auto");
           } else {
             supabase.functions.invoke("quality-check", {
               body: { article_id: result.id, content, mode: "auto" },
