@@ -58,8 +58,8 @@ function findLongestUnterminatedRun(text: string): number {
 export function analyzeSanity(plain: string): SanityReport {
   const thresholds = {
     foreign_script_ratio: 0.003,   // 0.3%
-    novowel_word_ratio: 0.02,      // 2%
-    long_consonant_run_ratio: 0.01,// 1%
+    novowel_word_ratio: 0.05,      // 5% — RU abbreviations/tech terms give 2-3% legitimately
+    long_consonant_run_ratio: 0.05,// 5% — RU has many 5+ consonant clusters (взгляд, конструкт, всплеск)
     unterminated_run_max: 3000,
   };
   const text = String(plain || "");
@@ -112,18 +112,27 @@ export function analyzeSanity(plain: string): SanityReport {
   const long_consonant_run_ratio = cyrLong ? longConsonantRun / cyrLong : 0;
   const unterminated_run_max = findLongestUnterminatedRun(text);
 
-  const reasons: string[] = [];
-  if (foreign_script_ratio > thresholds.foreign_script_ratio) {
-    reasons.push(`foreign_script:${(foreign_script_ratio * 100).toFixed(2)}%`);
+  // Collect signals. To mark corrupted we require EITHER a strong foreign-script
+  // hit OR at least two independent weak signals — a single noisy metric on
+  // legitimate Russian text (technical terms, abbreviations) must not block save.
+  const signals: string[] = [];
+  if (novowel_word_ratio > thresholds.novowel_word_ratio && noVowel >= 10) {
+    signals.push(`novowel_words:${(novowel_word_ratio * 100).toFixed(2)}%`);
   }
-  if (novowel_word_ratio > thresholds.novowel_word_ratio && noVowel >= 5) {
-    reasons.push(`novowel_words:${(novowel_word_ratio * 100).toFixed(2)}%`);
-  }
-  if (long_consonant_run_ratio > thresholds.long_consonant_run_ratio && longConsonantRun >= 5) {
-    reasons.push(`consonant_runs:${(long_consonant_run_ratio * 100).toFixed(2)}%`);
+  if (long_consonant_run_ratio > thresholds.long_consonant_run_ratio && longConsonantRun >= 10) {
+    signals.push(`consonant_runs:${(long_consonant_run_ratio * 100).toFixed(2)}%`);
   }
   if (unterminated_run_max > thresholds.unterminated_run_max) {
-    reasons.push(`unterminated_run:${unterminated_run_max}`);
+    signals.push(`unterminated_run:${unterminated_run_max}`);
+  }
+  const reasons: string[] = [];
+  const strongForeign = foreign_script_ratio > thresholds.foreign_script_ratio;
+  if (strongForeign) {
+    reasons.push(`foreign_script:${(foreign_script_ratio * 100).toFixed(2)}%`);
+  }
+  // Corrupted only if: foreign script hit, OR two+ weak signals together.
+  if (strongForeign || signals.length >= 2) {
+    reasons.push(...signals);
   }
 
   return {
