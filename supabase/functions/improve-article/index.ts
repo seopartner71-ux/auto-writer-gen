@@ -453,6 +453,11 @@ interface PipelineArgs {
   elapsed: () => number;
   source: string | undefined;
   bypassLimits: boolean;
+  /** Cycle mode: skip Opus micro-pass, skip inline quality-check dispatch,
+   *  keep quality_status='improving' between passes (cycle controls status). */
+  cycleMode?: boolean;
+  /** Optional sub-step reporter (used by cycle for UI progress: "Гуманизация (Sonnet)" etc). */
+  reportSubStep?: (label: string) => Promise<void>;
 }
 
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
