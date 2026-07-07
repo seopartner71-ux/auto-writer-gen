@@ -959,34 +959,18 @@ async function runAutoQuality(
         .eq("id", articleId)
         .maybeSingle();
       if (artFlag && artFlag.turgenev_auto_fixed !== true) {
-        // Сразу помечаем чтобы исключить гонки/петлю
         await admin
           .from("articles")
           .update({ turgenev_auto_fixed: true })
           .eq("id", articleId);
-
-        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const fixTask = (async () => {
-          try {
-            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${serviceKey}`,
-              },
-              body: JSON.stringify({
-                article_id: articleId,
-                fix_type: "turgenev",
-                user_id: userId,
-                source: "auto_turgenev",
-              }),
-            });
-          } catch (e) {
-            console.error("[quality-check] auto-turgenev-fix dispatch failed", e);
-          }
-        })();
-        try { (globalThis as any).EdgeRuntime?.waitUntil?.(fixTask); } catch (_) { void fixTask; }
+        logPipelineEvent({
+          stage: "quality-check",
+          article_id: articleId,
+          user_id: userId,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "auto_fix_suppressed", kind: "auto_turgenev", turgenev_score: turgScore },
+        });
       }
     }
   } catch (e) {
