@@ -905,10 +905,25 @@ async function runAutoQuality(
       if (typeof t === "number") humanizeThreshold = t;
     } catch (_) { /* keep default */ }
 
-    if (
-      !opts.skipAutoFixes &&
-      humanizeThreshold > 0 && typeof aiCombined === "number" && aiCombined < humanizeThreshold && orKey
-    ) {
+    // NaN-gate fix: aiCombined === null (all judges failed) MUST count as
+    // "score missing, humanize needed" — previously `null < 40` was false and
+    // the pass was silently skipped, leaving low-quality drafts unimproved.
+    const aiCombinedMissing = aiCombined == null || Number.isNaN(Number(aiCombined));
+    const humanizeTriggered =
+      !opts.skipAutoFixes && humanizeThreshold > 0 && orKey &&
+      (aiCombinedMissing || (typeof aiCombined === "number" && aiCombined < humanizeThreshold));
+    if (aiCombinedMissing && humanizeThreshold > 0 && !opts.skipAutoFixes) {
+      // Explicit trace so it's visible WHY we entered humanize with no score.
+      logPipelineEvent({
+        stage: "quality-check",
+        article_id: articleId,
+        user_id: userId,
+        verdict: "warning",
+        duration_ms: 0,
+        meta: { event: "auto_humanize_null_score_trigger", reason: "ai_score_unavailable_treat_as_needs_humanize" },
+      });
+    }
+    if (humanizeTriggered) {
       const { data: artFlag2 } = await admin
         .from("articles").select("rewritten").eq("id", articleId).maybeSingle();
       if (artFlag2 && artFlag2.rewritten !== true) {
