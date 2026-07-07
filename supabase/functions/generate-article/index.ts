@@ -455,6 +455,11 @@ serve(async (req) => {
             ],
             stream: true,
             temperature: authorTemperature,
+            // Hard cap output length: prevents runaway generations where the
+            // model drifts into token-salad ("плуминиума", mixed scripts) after
+            // ~5-6k tokens on long-form Opus runs. 8000 tokens ≈ 25-30k chars
+            // which covers any legitimate SEO article.
+            max_tokens: 8000,
           }),
           signal: openCtrl.signal,
         });
