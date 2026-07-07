@@ -1502,7 +1502,13 @@ ${bestContent}`;
       llm_null_reason: t.llm_null_reason ?? null,
       llm_duration_ms: t.llm_duration_ms ?? null,
     }));
-    const hasBestScore = Number.isFinite(bestScore) && bestScore > 0;
+    // hasBestScore теперь != "bestScore > 0". Раньше при no_progress-цикле
+    // (все проходы отвергнуты integrity) bestScore оставался инициализирующим
+    // нулём, hasBestScore=false, ai_score в БД не писался → панель показывала
+    // "Нет данных". Теперь достаточно, чтобы судьи вернули хотя бы одну
+    // численную оценку — даже если она == 0.
+    const hasRealJudgeScore = scoreHistory.some((s) => typeof s.score === "number");
+    const hasBestScore = hasRealJudgeScore && Number.isFinite(bestScore);
     const qualityDetailsNext = {
       ...prevDetails,
       ai_internal_reasons: bestReasons.gemini,
