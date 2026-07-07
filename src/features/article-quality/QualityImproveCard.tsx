@@ -300,11 +300,21 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
                 {passLine} ⏳
               </div>
               <Progress value={progressPct} className="h-2" />
+              <div className="text-[11px] text-muted-foreground/80">
+                Обычно 2–6 минут. Работа идёт на сервере — F5 её не прервёт.
+              </div>
+              {escalationLevel === "long" && (
+                <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
+                  ⏱ Дольше обычного. Можно подождать ещё пару минут — или остановить и забрать лучший результат.
+                </div>
+              )}
+              {escalationLevel === "stuck" && (
+                <div className="text-[11px] text-rose-200 bg-rose-500/10 border border-rose-500/40 rounded px-2 py-1.5">
+                  ⚠ Похоже, цикл завис. Остановите и сохраните лучшее — при следующем запуске мы автоматически сбросим зависший цикл.
+                </div>
+              )}
             </>
           )}
-          <div className="text-[11px] text-muted-foreground italic">
-            Обновление или закрытие страницы не прервёт цикл — работа идёт на сервере.
-          </div>
           <Button
             size="sm"
             variant="outline"
