@@ -1501,3 +1501,249 @@ ${bestContent}`;
     });
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Server-side improve CYCLE — orchestrates up to MAX_PASSES=2 sequential
+// improve passes with decide-fix, best-snapshot, rollback and stop-flag
+// checks. Replaces the previous client-tab loop so F5 never breaks a run.
+// Progress is written to articles.quality_details.cycle_progress; the
+// client just polls / listens to the realtime UPDATE.
+// ──────────────────────────────────────────────────────────────────────
+interface CycleArgs {
+  admin: ReturnType<typeof createClient>;
+  supabaseUrl: string;
+  article_id: string;
+  user: { id: string };
+  art: any;
+  initialContent: string;
+  orKey: string | undefined;
+  lovableKey: string | undefined;
+  authHeader: string;
+  elapsed: () => number;
+  source: string | undefined;
+  bypassLimits: boolean;
+  priority: "auto" | "ai" | "turgenev";
+}
+
+async function runImproveCycle(args: CycleArgs): Promise<void> {
+  const { admin, supabaseUrl, article_id, user, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, priority } = args;
+  const AI_TARGET = 70;
+  const TURG_TARGET = 5;
+  const MAX_PASSES = 2;
+
+  const aiOk = (v: number | null) => v != null && v >= AI_TARGET;
+  const turgOk = (v: number | null) => v != null && v <= TURG_TARGET;
+
+  async function refreshArt(): Promise<any> {
+    const { data } = await admin.from("articles")
+      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,turgenev_score,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
+      .eq("id", article_id).maybeSingle();
+    return data as any;
+  }
+
+  async function writeCycleProgress(patch: Record<string, unknown>): Promise<void> {
+    try {
+      const cur = await refreshArt();
+      const prevDetails = (cur?.quality_details && typeof cur.quality_details === "object") ? cur.quality_details : {};
+      const prevProgress = (prevDetails.cycle_progress && typeof prevDetails.cycle_progress === "object") ? prevDetails.cycle_progress : {};
+      await admin.from("articles").update({
+        quality_details: {
+          ...prevDetails,
+          cycle_progress: { ...prevProgress, ...patch, updated_at: new Date().toISOString() },
+        },
+      }).eq("id", article_id);
+    } catch (e) {
+      console.warn("[improve-cycle] progress write failed", e);
+    }
+  }
+
+  function decideFix(scores: { ai: number | null; turg: number | null }): "humanize" | "turgenev" | null {
+    const aiBad = !aiOk(scores.ai);
+    const turgBad = !turgOk(scores.turg);
+    if (!aiBad && !turgBad) return null;
+    if (priority === "ai") return aiBad ? "humanize" : null;
+    if (priority === "turgenev") return turgBad ? "turgenev" : null;
+    if (aiBad && !turgBad) return "humanize";
+    if (turgBad && !aiBad) return "turgenev";
+    return "humanize";
+  }
+
+  let art = args.art;
+  let bestSnapshot = {
+    content: (art.content as string) || args.initialContent,
+    ai: (art.ai_score as number | null) ?? null,
+    turg: (art.turgenev_score as number | null) ?? null,
+  };
+  const initialScores = { ai: bestSnapshot.ai, turg: bestSnapshot.turg };
+  let finalStatus: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" = "max_passes";
+  let noProgressStreak = 0;
+
+  await writeCycleProgress({
+    status: "running",
+    pass: 0,
+    of: MAX_PASSES,
+    action: null,
+    started_at: new Date().toISOString(),
+    initial: initialScores,
+    priority,
+  });
+
+  try {
+    for (let pass = 1; pass <= MAX_PASSES; pass++) {
+      art = await refreshArt();
+      if (!art) { finalStatus = "error"; break; }
+      if (art.improve_stop_requested) { finalStatus = "stopped"; break; }
+
+      const curScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
+      const fix = decideFix(curScores);
+      if (!fix) { finalStatus = "targets_met"; break; }
+
+      const preContent = (art.content as string) || "";
+      const preScores = { ...curScores };
+
+      await writeCycleProgress({
+        status: "running",
+        pass,
+        of: MAX_PASSES,
+        action: fix,
+        pass_started_at: new Date().toISOString(),
+      });
+
+      // The single-pass pipeline sets quality_status='checking' on completion;
+      // reset to 'improving' so the client keeps the running UI between passes.
+      if (pass > 1) {
+        try { await admin.from("articles").update({ quality_status: "improving" }).eq("id", article_id); } catch (_) {}
+      }
+
+      try {
+        await runImprovePipeline({
+          admin, supabaseUrl, article_id, user,
+          phase: fix,
+          art,
+          initialContent: preContent,
+          primaryKeywordSeed: null,
+          orKey, lovableKey,
+          authHeader,
+          elapsed,
+          source: `cycle:${source ?? "ui"}`,
+          bypassLimits,
+        });
+      } catch (e) {
+        console.error("[improve-cycle] pass exception", pass, e);
+        // runImprovePipeline logs its own failure and clears status.
+        // Try the next pass — a single-pass hiccup shouldn't abort the cycle.
+      }
+
+      art = await refreshArt();
+      if (!art) { finalStatus = "error"; break; }
+      const postScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
+
+      // Rollback rule (mirrors the previous client heuristic).
+      const turgWorseBig = fix === "humanize" && postScores.turg != null && preScores.turg != null && postScores.turg > preScores.turg + 2;
+      const aiWorseBig = fix === "turgenev" && postScores.ai != null && preScores.ai != null && postScores.ai < preScores.ai - 3;
+      if (turgWorseBig || aiWorseBig) {
+        try {
+          await admin.from("articles")
+            .update({ content: preContent, updated_at: new Date().toISOString() })
+            .eq("id", article_id);
+        } catch (_) {}
+        await writeCycleProgress({
+          pass,
+          action: fix,
+          rolled_back: true,
+          rollback_reason: turgWorseBig ? "turgenev_rose" : "ai_dropped",
+        });
+        finalStatus = "balanced";
+        break;
+      }
+
+      const currentIsBetter =
+        (postScores.ai ?? 0) > (bestSnapshot.ai ?? 0) ||
+        ((postScores.ai ?? 0) === (bestSnapshot.ai ?? 0) && (postScores.turg ?? 999) < (bestSnapshot.turg ?? 999));
+      if (currentIsBetter) {
+        bestSnapshot = { content: (art.content as string) || preContent, ai: postScores.ai, turg: postScores.turg };
+      }
+
+      if (aiOk(postScores.ai) && turgOk(postScores.turg)) { finalStatus = "targets_met"; break; }
+
+      const targetImproved = fix === "humanize"
+        ? (postScores.ai != null && preScores.ai != null && postScores.ai > preScores.ai)
+        : (postScores.turg != null && preScores.turg != null && postScores.turg < preScores.turg);
+      if (!targetImproved) {
+        noProgressStreak++;
+        if (noProgressStreak >= 2) { finalStatus = "no_progress"; break; }
+      } else {
+        noProgressStreak = 0;
+      }
+    }
+
+    // If a later pass regressed vs bestSnapshot, restore best content.
+    const finalArt = await refreshArt();
+    if (finalArt && bestSnapshot.content && finalArt.content !== bestSnapshot.content) {
+      try {
+        await admin.from("articles")
+          .update({ content: bestSnapshot.content, updated_at: new Date().toISOString() })
+          .eq("id", article_id);
+      } catch (_) {}
+    }
+
+    await writeCycleProgress({
+      status: finalStatus === "stopped" ? "stopped" : "done",
+      final_status: finalStatus,
+      best: bestSnapshot,
+      initial: initialScores,
+      finished_at: new Date().toISOString(),
+    });
+
+    if (finalStatus === "stopped") {
+      try {
+        await admin.from("articles")
+          .update({ quality_status: null, improve_stop_requested: false })
+          .eq("id", article_id);
+      } catch (_) {}
+    } else {
+      // runImprovePipeline may have left quality_status='checking' (background
+      // quality re-check dispatched). Just clear the stop flag.
+      try { await admin.from("articles").update({ improve_stop_requested: false }).eq("id", article_id); } catch (_) {}
+    }
+
+    logPipelineEvent({
+      stage: "improve",
+      user_id: user.id,
+      article_id,
+      verdict: "pass",
+      duration_ms: elapsed(),
+      meta: {
+        event: "cycle_summary",
+        final_status: finalStatus,
+        initial: initialScores,
+        best: { ai: bestSnapshot.ai, turg: bestSnapshot.turg },
+        priority,
+      },
+    });
+  } catch (e: any) {
+    console.error("[improve-cycle] fatal", e);
+    const msg = (e?.message || String(e)).slice(0, 400);
+    await writeCycleProgress({
+      status: "error",
+      final_status: "error",
+      error: msg,
+      finished_at: new Date().toISOString(),
+    });
+    try {
+      await admin.from("articles")
+        .update({ quality_status: null, improve_stop_requested: false })
+        .eq("id", article_id);
+    } catch (_) {}
+    logPipelineEvent({
+      stage: "improve",
+      user_id: user.id,
+      article_id,
+      verdict: "fail",
+      duration_ms: elapsed(),
+      error_kind: "cycle_exception",
+      error_message: msg,
+      meta: { event: "cycle_error", priority },
+    });
+  }
+}
