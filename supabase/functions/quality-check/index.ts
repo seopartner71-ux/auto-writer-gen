@@ -1150,7 +1150,16 @@ ${paragraphs.map((p, i) => `[${i + 1}] ${p.slice(0, 400)}`).join("\n\n")}
   };
 }
 
-Deno.serve(async (req) => {
+// Exported for direct in-process invocation from other edge functions
+// (e.g. improve-article) — avoids cross-function fetch that dies silently.
+export { runAutoQuality };
+
+// Gate the HTTP handler behind `import.meta.main` so this module can be
+// imported from another edge function's isolate without double-binding
+// Deno.serve. When Supabase Edge Runtime executes this file directly as a
+// function entrypoint, import.meta.main === true and the handler is
+// registered as before.
+const __QC_HANDLER = async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const timer = startTimer();
   let articleIdForLog: string | null = null;
@@ -1479,4 +1488,14 @@ Deno.serve(async (req) => {
     });
     return json({ error: e?.message || "Unknown error" }, 500);
   }
-});
+};
+
+// Bind HTTP handler only when this module is the process entry (Supabase
+// Edge Runtime serves quality-check directly). When imported by another
+// function's isolate (e.g. improve-article using runAutoQuality), skip
+// the bind so we don't collide with the caller's own Deno.serve.
+// import.meta.main is a Deno primitive: true iff this file is the entry.
+// Fallback: try/catch guards against runtimes that don't set main.
+if ((import.meta as any).main !== false) {
+  try { Deno.serve(__QC_HANDLER); } catch (_) { /* already bound in imported context */ }
+}

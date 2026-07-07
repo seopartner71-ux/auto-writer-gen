@@ -37,6 +37,69 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Detect nominative-case keyword injections that hint the LLM glued the raw
+// keyword into a sentence without declension. Heuristic:
+//   - split plain-text into sentences,
+//   - for every sentence that contains the keyword (case-insensitive, as a
+//     whole word phrase),
+//   - flag if the keyword is NOT preceded by a RU preposition/comma/dash/
+//     sentence-start, OR is immediately followed by another content word
+//     (noun-noun jam like "минитрактор цена приятная").
+// Returns the list of flagged sentence excerpts (deduped, cap 6).
+const RU_PREPS = new Set([
+  "в","во","на","над","под","при","о","об","обо","у","от","до","для","из",
+  "к","ко","с","со","по","за","про","через","среди","между","без","около",
+  "вокруг","против","насчёт","насчет","благодаря",
+]);
+export function detectNominativeKeywordHits(html: string, keyword: string): string[] {
+  if (!keyword) return [];
+  const kw = keyword.trim().toLowerCase();
+  if (!kw || kw.length < 4) return [];
+  const kwWords = kw.split(/\s+/).filter(Boolean);
+  if (!kwWords.length) return [];
+  const plain = stripHtml(html);
+  const sentences = plain.split(/(?<=[.!?…])\s+/).filter((s) => s.length > 8);
+  const hits: string[] = [];
+  const seen = new Set<string>();
+  const kwRe = new RegExp(
+    // Match the keyword phrase as whole word sequence (case-insensitive).
+    "\\b" + kwWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+") + "\\b",
+    "i",
+  );
+  for (const sent of sentences) {
+    const m = kwRe.exec(sent);
+    if (!m) continue;
+    const start = m.index;
+    const end = start + m[0].length;
+    // Prev token (a single word before the keyword, ignoring punctuation glue).
+    const prevChunk = sent.slice(0, start).replace(/[,\-–—:;()"«»']/g, " ").trim();
+    const prevToken = prevChunk.split(/\s+/).pop()?.toLowerCase() || "";
+    const prevIsPrep = RU_PREPS.has(prevToken);
+    const atStart = prevChunk.length === 0;
+    // Next token: is it a content word (letters) with no preposition/comma
+    // between? "минитрактор цена" fires; "минитрактор из Китая" does not
+    // because "из" is a preposition; "минитрактор, отзывы" does not because
+    // of the comma between.
+    const tail = sent.slice(end);
+    const nextRaw = tail.match(/^\s*([^\s,.:;!?()"«»–—]+)/);
+    const nextToken = nextRaw?.[1]?.toLowerCase() || "";
+    const nextIsContent =
+      !!nextToken &&
+      /^[а-яёa-z][а-яёa-z-]*$/i.test(nextToken) &&
+      !RU_PREPS.has(nextToken);
+    // Glued injection = keyword not "anchored" by a preposition AND followed
+    // by another noun-like word with no glue punctuation.
+    const injected = !prevIsPrep && !atStart && nextIsContent;
+    if (!injected) continue;
+    const key = sent.slice(0, 120);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    hits.push(sent.length > 220 ? sent.slice(0, 217) + "…" : sent);
+    if (hits.length >= 6) break;
+  }
+  return hits;
+}
+
 // Косметическая нормализация текста статьи перед сохранением:
 // 1. Заголовки markdown (# / ## / ### / ####) с первой заглавной буквы.
 // 2. Заголовки HTML (<h1>-<h6>) — первая буква содержимого заглавная.
@@ -783,24 +846,11 @@ ${content}`;
             console.warn("[improve-article] opus pass rejected:", integrity2.reason);
           }
         }
-        // Fallback to Sonnet if Opus returned nothing — micro-polish is still valuable.
-        let opusFallbackUsed: string | undefined;
-        if (!polished) {
-          const fb = await callOpenRouterEx("anthropic/claude-sonnet-4", sysOpus, usrOpus, orKey, 6000, 60_000);
-          if (fb.content && fb.content.length > 200) {
-            const cand3 = fb.content.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
-            const int3 = htmlIntegrityOk(content, cand3);
-            opusCandidateMetrics = metricsOf(cand3);
-            opusIntegrity = int3;
-            if (int3.ok) {
-              content = cand3;
-              opusApplied = true;
-              opusFallbackUsed = "sonnet_fallback";
-            }
-          } else {
-            opusFallbackUsed = fb.error || "sonnet_fallback_empty";
-          }
-        }
+        // NOTE: Sonnet fallback removed — real telemetry shows the fallback
+        // was the actual 60s timeout culprit ("timeout: Timed out after
+        // 60000ms" in trace) and Sonnet redoing Sonnet-work adds no value.
+        // If Opus itself fails, we skip the micro-pass and log the reason;
+        // the humanize.sonnet pass already ran above.
         if (opusApplied) {
           await scoreCandidate(content, "humanize.opus");
         }
@@ -811,7 +861,7 @@ ${content}`;
             validators: validatorTasks.length > 0,
             rhythm: sentenceTooShort ? "lengthen" : "normal",
             opus_micro_pass: true,
-            fallback: opusFallbackUsed || null,
+            fallback: null,
           },
           metrics_before: opusBefore,
           metrics_llm: opusCandidateMetrics,
@@ -1124,6 +1174,67 @@ ${content}`;
     if (content !== bestContent) {
       try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
     }
+    // ── Nominative-keyword micro-pass ────────────────────────────────
+    // Post-humanize sanity check: catch raw keyword injections like
+    // "минитрактор цена приятная" / "китайский минитрактор отзывы это
+    // подтверждают" that slipped through the humanize prompt. Runs one
+    // focused Sonnet pass on the flagged sentences; guarded by htmlIntegrity.
+    let nominativeHits: string[] = [];
+    try {
+      nominativeHits = primaryKeyword ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
+    } catch { nominativeHits = []; }
+    if (nominativeHits.length && orKey) {
+      const nomBefore = metricsOf(bestContent);
+      const sysNom =
+        "Ты редактор. Задача — исправить сырые вставки ключевого слова в именительном падеже. " +
+        "Сохраняешь все HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
+      const usrNom = `В тексте ниже ключевое слово "${primaryKeyword}" вставлено в именительном падеже без согласования.
+Перепиши ТОЛЬКО эти конкретные предложения так, чтобы ключ склонялся по падежу/числу и встраивался в естественную грамматику.
+Пример дефекта: "детали на полке, китайский минитрактор отзывы владельцев это подтверждают".
+Правильно: "детали на полке, что подтверждают отзывы владельцев китайских минитракторов".
+
+Дефектные предложения (нужно переписать):
+${nominativeHits.map((h, i) => `${i + 1}. ${h}`).join("\n")}
+
+Верни ВЕСЬ исходный HTML целиком с исправленными местами. Не удаляй и не добавляй теги, не меняй факты/цифры/ссылки, остальной текст оставь как есть.
+
+HTML:
+${bestContent}`;
+      const nomRes = await callOpenRouterEx("anthropic/claude-sonnet-4", sysNom, usrNom, orKey, 6000, 90_000);
+      const polished = nomRes.content;
+      let nomApplied = false;
+      let nomIntegrity: { ok: boolean; reason?: string } | null = null;
+      let nomMetrics: ReturnType<typeof metricsOf> | null = null;
+      if (polished && polished.length > 200) {
+        const cand = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        nomMetrics = metricsOf(cand);
+        const integ = htmlIntegrityOk(bestContent, cand);
+        nomIntegrity = integ;
+        if (integ.ok) {
+          // Verify the fix actually removed injections; accept only if hits ↓.
+          const remaining = detectNominativeKeywordHits(cand, primaryKeyword);
+          if (remaining.length < nominativeHits.length) {
+            bestContent = cand;
+            nomApplied = true;
+            try { await scoreCandidate(bestContent, "keyword.nominative"); } catch (_) { /* non-critical */ }
+          }
+        }
+      }
+      recordPass({
+        step: "keyword.nominative",
+        model: "anthropic/claude-sonnet-4",
+        blocks: { hits_before: nominativeHits.length, keyword: primaryKeyword },
+        metrics_before: nomBefore,
+        metrics_llm: nomMetrics,
+        integrity: nomIntegrity,
+        applied: nomApplied,
+        llm_bytes: polished ? polished.length : 0,
+        llm_null: !polished,
+        llm_null_reason: !polished ? (nomRes.error || "unknown") : null,
+        llm_duration_ms: nomRes.duration_ms,
+        prompt: { system: sysNom, user: usrNom, user_bytes: usrNom.length },
+      });
+    }
     // Cosmetic normalization (last step, always): H2/H3/H4 первая буква — заглавная,
     // пробел после точки перед заглавной буквой ("гараж.Резко" → "гараж. Резко").
     const contentToPersist = cosmeticNormalize(bestContent);
@@ -1179,19 +1290,37 @@ ${content}`;
       }).eq("id", article_id);
     } catch (_) { /* non-critical */ }
 
-    // Re-trigger auto quality check (fire-and-forget)
+    // Run quality-check IN-PROCESS via direct import — the previous
+    // fetch-in-background pattern died silently (no pipeline_events, no
+    // ai_score written, quality_status stuck at "checking"). Direct call
+    // uses the same admin client, writes ai_score/ai_score_internal/
+    // ai_score_claude/turgenev_score/quality_details.ai_*_reasons and
+    // clears quality_status in one shot.
     const reCheck = (async () => {
       try {
-        await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": authHeader,
-          },
-          body: JSON.stringify({ article_id, content: contentToPersist, mode: "auto" }),
-        });
+        const apiKey = Deno.env.get("OPENROUTER_API_KEY");
+        if (!apiKey) {
+          console.warn("[improve-article] runAutoQuality skipped: no OPENROUTER_API_KEY");
+          await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
+          return;
+        }
+        const mod = await import("../quality-check/index.ts");
+        await (mod as any).runAutoQuality(admin, article_id, user.id, contentToPersist, apiKey);
       } catch (e) {
-        console.error("[improve-article] re-check failed", e);
+        console.error("[improve-article] inline quality-check failed", e);
+        // Unlock the "checking" flag so the client stops spinning.
+        try {
+          await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
+        } catch (_) { /* ignore */ }
+        logPipelineEvent({
+          stage: "quality_check",
+          user_id: user.id,
+          article_id,
+          verdict: "fail",
+          error_kind: "exception",
+          error_message: (e as Error)?.message?.slice(0, 300) || String(e),
+          meta: { source: "improve-article-inline" },
+        });
       }
     })();
     try { (globalThis as any).EdgeRuntime?.waitUntil?.(reCheck); } catch (_) { void reCheck; }
