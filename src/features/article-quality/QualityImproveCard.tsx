@@ -406,6 +406,16 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               ))}
             </div>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full gap-1.5 border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+            onClick={requestStop}
+            disabled={stopping}
+          >
+            {stopping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StopCircle className="h-3.5 w-3.5" />}
+            {stopping ? "Останавливаем..." : "Остановить"}
+          </Button>
         </div>
       )}
 
