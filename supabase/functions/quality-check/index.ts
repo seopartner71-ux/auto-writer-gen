@@ -1002,29 +1002,14 @@ async function runAutoQuality(
         await admin.from("articles").update({
           quality_details: { ...det, [next.flag]: true },
         }).eq("id", articleId);
-
-        const supabaseUrlEnv = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const fixTask = (async () => {
-          try {
-            await fetch(`${supabaseUrlEnv}/functions/v1/improve-article`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${serviceKey}`,
-              },
-              body: JSON.stringify({
-                article_id: articleId,
-                fix_type: next.fixType,
-                user_id: userId,
-                source: next.source,
-              }),
-            });
-          } catch (e) {
-            await logErr(admin, "quality-check", `auto_${next.name}_dispatch_failed`, { article_id: articleId, error: String(e) });
-          }
-        })();
-        try { (globalThis as any).EdgeRuntime?.waitUntil?.(fixTask); } catch (_) { void fixTask; }
+        logPipelineEvent({
+          stage: "quality-check",
+          article_id: articleId,
+          user_id: userId,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "auto_fix_suppressed", kind: next.source, phase: next.name },
+        });
       }
     }
   } catch (e) {
