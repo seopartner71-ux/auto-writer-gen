@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,11 +8,6 @@ import { ImprovingTipsLoader } from "./ImprovingTipsLoader";
 
 type Mode = "quick" | "expert";
 
-interface Snapshot {
-  ai: number | null;
-  turg: number | null;
-  content: string;
-}
 interface Props {
   mode: Mode;
   articleId: string | null;
@@ -27,37 +22,72 @@ const MAX_PASSES = 2;
 
 type Priority = "auto" | "ai" | "turgenev";
 
+// Server writes cycle_progress into articles.quality_details.
+// See runImproveCycle in supabase/functions/improve-article/index.ts.
+interface CycleProgress {
+  status?: "running" | "done" | "stopped" | "error";
+  final_status?: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error";
+  pass?: number;
+  of?: number;
+  action?: "humanize" | "turgenev" | null;
+  initial?: { ai: number | null; turg: number | null; content?: string };
+  best?: { ai: number | null; turg: number | null; content?: string };
+  rolled_back?: boolean;
+  rollback_reason?: string;
+  error?: string;
+  started_at?: string;
+  finished_at?: string;
+  updated_at?: string;
+  priority?: Priority;
+}
+
 function fmtAi(v: number | null) { return v == null ? "—" : `${Math.round(v)}%`; }
 function fmtTurg(v: number | null) { return v == null ? "—" : `${v}`; }
 function aiOk(v: number | null) { return v != null && v >= AI_TARGET; }
 function turgOk(v: number | null) { return v != null && v <= TURG_TARGET; }
 
+function actionLabel(a: CycleProgress["action"]): string {
+  if (a === "humanize") return "Гуманизация";
+  if (a === "turgenev") return "Тургенев-фикс";
+  return "Подготовка";
+}
+
+function finalStatusLabel(s: CycleProgress["final_status"]): string {
+  switch (s) {
+    case "targets_met":  return "Оба показателя в норме";
+    case "balanced":     return "Достигнут баланс — дальнейшее улучшение ухудшает другой показатель";
+    case "no_progress":  return "Прогресса нет два прохода подряд";
+    case "max_passes":   return `Достигнут лимит в ${MAX_PASSES} прохода`;
+    case "stopped":      return "Остановлено пользователем";
+    case "error":        return "Ошибка выполнения";
+    default:             return "";
+  }
+}
+
 export function QualityImproveCard({ mode, articleId, currentContent, onRevertContent }: Props) {
   const [row, setRow] = useState<any>({});
-  const [running, setRunning] = useState(false);
-  const [step, setStep] = useState(0); // 0-3
-  const [before, setBefore] = useState<Snapshot | null>(null);
-  const [after, setAfter] = useState<{ ai: number | null; turg: number | null } | null>(null);
   const [showLog, setShowLog] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const [logLines, setLogLines] = useState<string[]>([]);
-  const [warning, setWarning] = useState<string | null>(null);
-  const [bestSnapshot, setBestSnapshot] = useState<{ content: string; ai: number | null; turg: number | null } | null>(null);
+  const pollRef = useRef<number | null>(null);
   const [priority, setPriority] = useState<Priority>("auto");
   const [showSteps, setShowSteps] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [dismissed, setDismissed] = useState(false); // hide before/after card after user acted
+  const [starting, setStarting] = useState(false);
 
-  // Initial fetch + realtime
+  // Initial fetch + realtime + 5s polling fallback (server orchestrates the cycle;
+  // this card just reads state from articles.quality_details.cycle_progress).
   useEffect(() => {
-    setRow({}); setAfter(null); setBefore(null); setStep(0);
+    setRow({}); setDismissed(false);
     if (!articleId) return;
     let cancelled = false;
-    (async () => {
+    const fetchRow = async () => {
       const { data } = await supabase.from("articles")
-        .select("ai_score,turgenev_score,quality_status,content")
+        .select("ai_score,turgenev_score,quality_status,quality_details,content")
         .eq("id", articleId).maybeSingle();
       if (!cancelled && data) setRow(data);
-    })();
+    };
+    fetchRow();
     const ch = supabase.channel(`improve-card-${articleId}`)
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "articles", filter: `id=eq.${articleId}` },
@@ -68,16 +98,33 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
             ai_score: r.ai_score,
             turgenev_score: r.turgenev_score,
             quality_status: r.quality_status,
+            quality_details: r.quality_details,
             content: r.content,
           }));
         })
       .subscribe();
     channelRef.current = ch;
+    // Realtime can drop under load / RU-proxy; poll every 5s as a safety net.
+    pollRef.current = window.setInterval(fetchRow, 5000);
     return () => {
       cancelled = true;
       if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; }
+      if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
     };
   }, [articleId]);
+
+  const cycle: CycleProgress | null = (row.quality_details && typeof row.quality_details === "object")
+    ? (row.quality_details.cycle_progress ?? null)
+    : null;
+
+  // Derive running/finished state entirely from server truth — survives F5.
+  const running =
+    starting ||
+    row.quality_status === "improving" ||
+    row.quality_status === "checking" ||
+    cycle?.status === "running";
+
+  const cycleFinished = !running && cycle && (cycle.status === "done" || cycle.status === "stopped" || cycle.status === "error");
 
   // Notify other editor buttons to disable themselves
   useEffect(() => {
@@ -86,8 +133,9 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
 
   // Reset stopping when the improve cycle ends
   useEffect(() => {
-    if (!running && row.quality_status !== "improving") setStopping(false);
-  }, [running, row.quality_status]);
+    if (!running) setStopping(false);
+    if (!running) setStarting(false);
+  }, [running]);
 
   async function requestStop() {
     if (!articleId) return;
@@ -97,7 +145,6 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         .from("articles")
         .update({ improve_stop_requested: true } as any)
         .eq("id", articleId);
-      log("⏹ Запрошена остановка — цикл завершится после текущего шага.");
       toast.message("Остановка запрошена — цикл завершится после текущего шага");
     } catch (e: any) {
       toast.error(e?.message || "Не удалось остановить");
@@ -105,246 +152,77 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     }
   }
 
-  function log(line: string) {
-    setLogLines((l) => [...l, line]);
-  }
-
-  async function fetchScores(): Promise<{ ai: number | null; turg: number | null; content: string }> {
-    const { data } = await supabase.from("articles")
-      .select("ai_score,turgenev_score,content").eq("id", articleId!).maybeSingle();
-    return {
-      ai: (data?.ai_score ?? null) as number | null,
-      turg: (data?.turgenev_score ?? null) as number | null,
-      content: (data?.content ?? "") as string,
-    };
-  }
-
-  async function waitForIdle(maxMs = 60_000): Promise<void> {
-    const t0 = Date.now();
-    while (Date.now() - t0 < maxMs) {
-      const { data } = await supabase.from("articles")
-        .select("quality_status").eq("id", articleId!).maybeSingle();
-      if ((data as any)?.quality_status !== "checking") return;
-      await new Promise(r => setTimeout(r, 2500));
-    }
-  }
-
-  // improve-article is now async (202 accepted): the LLM pipeline runs in the
-  // background and clears quality_status='improving' when done. Poll at 5s /
-  // 240s to match the async contract.
-  async function waitForImproveFinished(maxMs = 240_000): Promise<void> {
-    const t0 = Date.now();
-    while (Date.now() - t0 < maxMs) {
-      const { data } = await supabase.from("articles")
-        .select("quality_status").eq("id", articleId!).maybeSingle();
-      if ((data as any)?.quality_status !== "improving") return;
-      await new Promise(r => setTimeout(r, 5000));
-    }
-  }
-
-  async function runQualityCheck(): Promise<void> {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) throw new Error("Сессия истекла");
-    const cur = await fetchScores();
-    if (!cur.content) return;
-    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quality-check`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      },
-      body: JSON.stringify({ article_id: articleId, content: cur.content, mode: "auto" }),
-    });
-    await waitForIdle();
-  }
-
-  async function callImprove(fixType: "humanize" | "turgenev"): Promise<{ ok: boolean; cooldown?: boolean; error?: string }> {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) return { ok: false, error: "Сессия истекла" };
-    const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/improve-article`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-      },
-      body: JSON.stringify({ article_id: articleId, fix_type: fixType }),
-    });
-    const payload = await resp.json().catch(() => null);
-    // 202 Accepted = async contract; treat as ok for the caller.
-    const httpOk = resp.ok || resp.status === 202;
-    if (!httpOk) return { ok: false, error: payload?.error || `Ошибка ${resp.status}` };
-    if (payload?.cooldown) return { ok: false, cooldown: true, error: payload?.message };
-    // Wait for the background pipeline to finish before returning to the caller,
-    // so scores read after this call reflect the improved content.
-    await waitForImproveFinished();
-    return { ok: true };
-  }
-
-  async function rollbackTo(content: string) {
-    await supabase.from("articles")
-      .update({ content, updated_at: new Date().toISOString() })
-      .eq("id", articleId!);
-    onRevertContent(content);
-  }
-
-  // Higher ai_score = better (more human). Lower turgenev = better.
-  // Returns true if `after` is meaningfully worse than `before` for the given metric.
-  function isWorse(after: { ai: number | null; turg: number | null }, before: { ai: number | null; turg: number | null }, metric: "ai" | "turg", tol = 0): boolean {
-    const a = after[metric]; const b = before[metric];
-    if (a == null || b == null) return false;
-    if (metric === "ai") return a < b - 3;            // human-likeness dropped >3pp
-    return a > b + tol;                               // turgenev rose
-  }
-
-  function decideFix(scores: { ai: number | null; turg: number | null }, prio: Priority): "humanize" | "turgenev" | null {
-    const aiBad = !aiOk(scores.ai);
-    const turgBad = !turgOk(scores.turg);
-    if (!aiBad && !turgBad) return null;
-    if (prio === "ai") return aiBad ? "humanize" : null;
-    if (prio === "turgenev") return turgBad ? "turgenev" : null;
-    // auto: only critical one; if both bad — humanize first
-    if (aiBad && !turgBad) return "humanize";
-    if (turgBad && !aiBad) return "turgenev";
-    return "humanize";
-  }
-
-  async function runOnePass(fix: "humanize" | "turgenev", passIdx: number): Promise<{ improved: boolean; rolledBack: boolean; scores: { ai: number | null; turg: number | null; content: string } }> {
-    const pre = await fetchScores();
-    log(`Проход ${passIdx}: ${fix === "humanize" ? "Гуманизация" : "Тургенев-фикс"}...`);
-    const r = await callImprove(fix);
-    if (r.cooldown) { log("⚠ Cooldown - подождите"); throw new Error("cooldown"); }
-    if (!r.ok) { log(`✘ ${r.error}`); return { improved: false, rolledBack: false, scores: pre }; }
-    await waitForIdle();
-    await runQualityCheck();
-    const post = await fetchScores();
-
-    // Rollback rule: humanize must not raise turgenev > +2; turgenev must not drop ai > 3pp
-    const turgWorseBig = fix === "humanize" && post.turg != null && pre.turg != null && post.turg > pre.turg + 2;
-    const aiWorseBig = fix === "turgenev" && isWorse(post, pre, "ai");
-
-    if (turgWorseBig || aiWorseBig) {
-      log(`⚠ Проход ${passIdx} ухудшил противоположный показатель - откат.`);
-      await rollbackTo(pre.content);
-      return { improved: false, rolledBack: true, scores: pre };
-    }
-
-    // Track if the targeted metric actually improved
-    const targetImproved = fix === "humanize"
-      ? (post.ai != null && pre.ai != null && post.ai > pre.ai)
-      : (post.turg != null && pre.turg != null && post.turg < pre.turg);
-    log(`${targetImproved ? "✅" : "·"} Проход ${passIdx}: AI ${fmtAi(pre.ai)} → ${fmtAi(post.ai)}, Тургенев ${fmtTurg(pre.turg)} → ${fmtTurg(post.turg)}`);
-    return { improved: targetImproved, rolledBack: false, scores: post };
-  }
-
+  // Kick off the server-side cycle. Returns immediately (202); realtime + poll
+  // pick up progress from articles.quality_details.cycle_progress.
   async function runImprove() {
     if (!articleId) { toast.error("Сначала сохраните статью"); return; }
-    setRunning(true);
-    setAfter(null);
-    setWarning(null);
-    setLogLines([]);
-    setStep(0);
-
+    setStarting(true);
+    setDismissed(false);
     try {
-      const origScores = await fetchScores();
-      const origSnap: Snapshot = { ai: origScores.ai, turg: origScores.turg, content: origScores.content || currentContent };
-      setBefore(origSnap);
-      setBestSnapshot({ content: origSnap.content, ai: origSnap.ai, turg: origSnap.turg });
-      log(`▶ Старт: AI ${fmtAi(origSnap.ai)}, Тургенев ${fmtTurg(origSnap.turg)}. Цель: AI ≥ ${AI_TARGET}%, Тургенев ≤ ${TURG_TARGET}.`);
-
-      let cur = { ai: origSnap.ai, turg: origSnap.turg, content: origSnap.content };
-      let stoppedReason = "";
-      let noProgressStreak = 0;
-
-      for (let pass = 1; pass <= MAX_PASSES; pass++) {
-        setStep(pass);
-        const fix = decideFix(cur, priority);
-        if (!fix) { stoppedReason = "targets-met"; log("✅ Цели достигнуты - дальнейшие проходы не нужны."); break; }
-        const res = await runOnePass(fix, pass);
-        cur = res.scores;
-        if (stopping) { stoppedReason = "stopped-by-user"; log("⏹ Остановлено пользователем."); break; }
-        if (aiOk(cur.ai) && turgOk(cur.turg)) { stoppedReason = "targets-met"; log("✅ Оба показателя в норме."); break; }
-        if (res.rolledBack) { stoppedReason = "balanced"; log("⚖ Достигнут баланс - дальнейшее улучшение ухудшает другой показатель."); break; }
-        if (!res.improved) {
-          noProgressStreak++;
-          if (noProgressStreak >= 2) {
-            stoppedReason = "no-progress";
-            log("· Прогресса нет два прохода подряд - останавливаем.");
-            break;
-          }
-          log("· Прогресса нет - пробуем ещё один проход.");
-        } else {
-          noProgressStreak = 0;
-        }
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Сессия истекла");
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/improve-article`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ article_id: articleId, cycle: true, priority }),
+      });
+      const payload = await resp.json().catch(() => null);
+      const httpOk = resp.ok || resp.status === 202;
+      if (!httpOk) {
+        setStarting(false);
+        toast.error(payload?.error || `Ошибка ${resp.status}`);
+        return;
       }
-      if (!stoppedReason) { stoppedReason = "max-passes"; log(`⏹ Достигнут лимит в ${MAX_PASSES} прохода.`); }
-
-      setStep(MAX_PASSES + 1);
-      setAfter({ ai: cur.ai, turg: cur.turg });
-      setBestSnapshot({ content: cur.content, ai: cur.ai, turg: cur.turg });
-      if (cur.content && cur.content !== currentContent) onRevertContent(cur.content);
-
-      const finalAiOk = aiOk(cur.ai);
-      const finalTurgOk = turgOk(cur.turg);
-      const articleLang: "ru" | "en" = await (async () => {
-        const { data } = await supabase.from("articles").select("language").eq("id", articleId!).maybeSingle();
-        return ((data as any)?.language === "ru" ? "ru" : "en");
-      })();
-      if (finalAiOk && finalTurgOk) {
-        toast.success("Готово ✓ Оба показателя в норме");
-      } else if (stoppedReason === "balanced" || stoppedReason === "no-progress" || stoppedReason === "max-passes") {
-        let msg: string;
-        if (articleLang === "ru" && cur.turg == null) {
-          msg = `AI ${fmtAi(cur.ai)}. Проверка Тургенева не выполнена - повторите проверку качества.`;
-        } else if (articleLang !== "ru") {
-          msg = `Достигнут оптимальный баланс. AI ${fmtAi(cur.ai)}. Дальнейшее улучшение может ухудшить читаемость.`;
-        } else {
-          msg = `Достигнут оптимальный баланс. AI ${fmtAi(cur.ai)}, Тургенев ${fmtTurg(cur.turg)}. Дальнейшее улучшение одного будет ухудшать другой.`;
-        }
-        setWarning(msg);
-        toast.warning("Достигнут баланс");
+      if (payload?.cooldown) {
+        setStarting(false);
+        toast.message(payload?.message || "Подождите перед повторной доработкой");
+        return;
       }
+      toast.message("Цикл запущен. Можно закрыть или обновить страницу — работа продолжится на сервере.");
     } catch (e: any) {
-      if (e?.message !== "cooldown") {
-        toast.error(e?.message || "Не удалось улучшить");
-        log(`✘ Ошибка: ${e?.message}`);
-      }
-    } finally {
-      setRunning(false);
+      setStarting(false);
+      toast.error(e?.message || "Не удалось запустить");
     }
   }
+
+  // Toast on cycle completion (one-shot per finished cycle).
+  const lastNotifiedFinishRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!cycleFinished || !cycle) return;
+    const key = cycle.finished_at || `${cycle.status}:${cycle.final_status}`;
+    if (lastNotifiedFinishRef.current === key) return;
+    lastNotifiedFinishRef.current = key;
+    if (cycle.final_status === "targets_met") toast.success("Готово ✓ Оба показателя в норме");
+    else if (cycle.final_status === "stopped") toast.message("Цикл остановлен");
+    else if (cycle.final_status === "error") toast.error(cycle.error || "Ошибка выполнения цикла");
+    else toast.warning("Достигнут баланс");
+    // Sync editor content with server-applied best content.
+    if (cycle.best?.content && cycle.best.content !== currentContent) {
+      onRevertContent(cycle.best.content);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleFinished, cycle?.finished_at]);
 
   async function acceptBest() {
-    if (!articleId || !bestSnapshot) { setBefore(null); setAfter(null); setWarning(null); return; }
-    try {
-      await supabase.from("articles")
-        .update({ content: bestSnapshot.content, updated_at: new Date().toISOString() })
-        .eq("id", articleId);
-      onRevertContent(bestSnapshot.content);
-      setBefore(null); setAfter(null); setWarning(null);
-      toast.success("Принят лучший вариант");
-    } catch (e: any) {
-      toast.error(e?.message || "Не удалось применить");
-    }
+    // Server has already applied best content. Just close the card.
+    setDismissed(true);
+    toast.success("Принят лучший вариант");
   }
 
-  async function accept() {
-    setBefore(null); setAfter(null);
-    toast.success("Изменения приняты");
-  }
-
-  async function revert() {
-    if (!before || !articleId) return;
+  async function revertAll() {
+    if (!articleId || !cycle?.initial?.content) { setDismissed(true); return; }
     try {
       const { error } = await supabase.from("articles")
-        .update({ content: before.content, updated_at: new Date().toISOString() })
+        .update({ content: cycle.initial.content, updated_at: new Date().toISOString() })
         .eq("id", articleId);
       if (error) throw error;
-      onRevertContent(before.content);
-      setBefore(null); setAfter(null);
+      onRevertContent(cycle.initial.content);
+      setDismissed(true);
       toast.success("Правки отменены");
     } catch (e: any) {
       toast.error(e?.message || "Не удалось отменить");
@@ -356,15 +234,25 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const turg = row.turgenev_score ?? null;
   const isOk = aiOk(ai) && turgOk(turg);
   const hasAny = ai != null || turg != null;
-  const checking = row.quality_status === "checking" || row.quality_status === "improving" || running;
   const statusBlock = (() => {
-    if (checking) return { dot: "🟡", text: "Проверяется...", cls: "text-amber-300" };
+    if (running) return { dot: "🟡", text: "Проверяется...", cls: "text-amber-300" };
     if (!hasAny) return { dot: "⚪", text: "Нет данных", cls: "text-muted-foreground" };
     if (isOk) return { dot: "🟢", text: `Готово к публикации (AI ${fmtAi(ai)}, Тургенев ${fmtTurg(turg)})`, cls: "text-emerald-300" };
     return { dot: "🔴", text: `Требует улучшения (AI ${fmtAi(ai)}, Тургенев ${fmtTurg(turg)})`, cls: "text-rose-300" };
   })();
 
-  const progressPct = !running ? 0 : Math.min(99, (step / 3) * 95);
+  const currentPass = Math.max(1, cycle?.pass || 1);
+  const totalPasses = cycle?.of || MAX_PASSES;
+  const progressPct = !running ? 0 : Math.min(99, (currentPass / (totalPasses + 1)) * 95);
+  const passLine = cycle
+    ? `Проход ${Math.min(currentPass, totalPasses)}/${totalPasses} · ${actionLabel(cycle.action)}${cycle.rolled_back ? " (откат)" : ""}`
+    : "Запуск цикла...";
+
+  // Before/after card is derived from server truth
+  const showBeforeAfter = !!(cycleFinished && cycle && !dismissed && cycle.initial);
+  const finalMsg = cycle?.final_status && cycle.final_status !== "targets_met"
+    ? finalStatusLabel(cycle.final_status)
+    : null;
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
@@ -385,28 +273,14 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
           ) : (
             <>
               <div className="text-xs text-muted-foreground">
-                Проход {Math.min(step, MAX_PASSES)}/{MAX_PASSES} ⏳
+                {passLine} ⏳
               </div>
               <Progress value={progressPct} className="h-2" />
             </>
           )}
-          {/* Always show what's happening right now */}
-          {logLines.length > 0 && (
-            <div className="text-[11px] text-muted-foreground italic">
-              {logLines[logLines.length - 1]}
-            </div>
-          )}
-          {mode === "expert" && logLines.length > 0 && (
-            <div className="text-[11px] space-y-0.5 mt-2 max-h-32 overflow-y-auto font-mono">
-              {logLines.slice(-6).map((l, i) => (
-                <div key={i} className={
-                  l.startsWith("✅") ? "text-emerald-400" :
-                  l.startsWith("⚠") || l.startsWith("⚖") ? "text-amber-300" :
-                  l.startsWith("✘") ? "text-rose-400" : "text-muted-foreground"
-                }>{l}</div>
-              ))}
-            </div>
-          )}
+          <div className="text-[11px] text-muted-foreground italic">
+            Обновление или закрытие страницы не прервёт цикл — работа идёт на сервере.
+          </div>
           <Button
             size="sm"
             variant="outline"
@@ -421,49 +295,28 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       )}
 
       {/* Before/After card */}
-      {!running && before && after && (
+      {!running && showBeforeAfter && cycle?.initial && cycle?.best && (
         <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
-          <Row label="AI Score" before={fmtAi(before.ai)} after={fmtAi(after.ai)} ok={aiOk(after.ai)} />
-          <Row label="Тургенев"  before={fmtTurg(before.turg)} after={fmtTurg(after.turg)} ok={turgOk(after.turg)} />
-          {warning && (
+          <Row label="AI Score" before={fmtAi(cycle.initial.ai ?? null)} after={fmtAi(cycle.best.ai ?? null)} ok={aiOk(cycle.best.ai ?? null)} />
+          <Row label="Тургенев"  before={fmtTurg(cycle.initial.turg ?? null)} after={fmtTurg(cycle.best.turg ?? null)} ok={turgOk(cycle.best.turg ?? null)} />
+          {finalMsg && (
             <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
-              ⚠️ {warning}
-            </div>
-          )}
-          {mode === "expert" && (
-            <button
-              type="button"
-              onClick={() => setShowLog(s => !s)}
-              className="w-full mt-1 inline-flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              {showLog ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              {showLog ? "Скрыть детали" : "Детали"}
-            </button>
-          )}
-          {mode === "expert" && showLog && logLines.length > 0 && (
-            <div className="text-[11px] space-y-0.5 pt-1 border-t border-border max-h-40 overflow-y-auto font-mono">
-              {logLines.map((l, i) => (
-                <div key={i} className={
-                  l.startsWith("✅") ? "text-emerald-400" :
-                  l.startsWith("⚠") ? "text-amber-300" :
-                  l.startsWith("✘") ? "text-rose-400" : "text-muted-foreground"
-                }>{l}</div>
-              ))}
+              ⚠️ {finalMsg}
             </div>
           )}
           <div className="grid grid-cols-2 gap-2 pt-2">
-            <Button size="sm" className="gap-1" onClick={warning ? acceptBest : accept}>
-              <Check className="h-3.5 w-3.5" /> {warning ? "Принять лучший" : "Принять"}
+            <Button size="sm" className="gap-1" onClick={acceptBest}>
+              <Check className="h-3.5 w-3.5" /> Принять лучший
             </Button>
-            <Button size="sm" variant="outline" className="gap-1" onClick={revert}>
-              <X className="h-3.5 w-3.5" /> {warning ? "Откатить все" : "Отменить правки"}
+            <Button size="sm" variant="outline" className="gap-1" onClick={revertAll} disabled={!cycle.initial.content}>
+              <X className="h-3.5 w-3.5" /> Откатить все
             </Button>
           </div>
         </div>
       )}
 
       {/* Idle state */}
-      {!running && !(before && after) && (() => {
+      {!running && !showBeforeAfter && (() => {
         const ready = articleId && currentContent && aiOk(ai) && turgOk(turg);
         if (ready) {
           return (
@@ -495,10 +348,10 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
             )}
             <Button
               className="w-full gap-2"
-              disabled={!articleId || !currentContent}
+              disabled={!articleId || !currentContent || starting}
               onClick={runImprove}
             >
-              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {mode === "quick" ? "Улучшить автоматически" : "Улучшить качество текста"}
             </Button>
             <button
@@ -516,7 +369,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
                 <Step n="2" name="Тургенев-фикс" what="Убирает канцеляризмы, разбивает длинные фразы, перефразирует повторы. Снижает балл Тургенева." />
                 <Step n="3" name="Финальная проверка" what="Перепроверяет AI Score и Тургенев. Если шаг ухудшил метрики - откат." />
                 <div className="pt-1.5 border-t border-border/60 text-muted-foreground/80 leading-snug">
-                  Цель: AI ≥ {AI_TARGET}% (человечно), Тургенев ≤ {TURG_TARGET}. Максимум {MAX_PASSES} прохода. Если оба показателя в норме - кнопка спрячется.
+                  Цель: AI ≥ {AI_TARGET}% (человечно), Тургенев ≤ {TURG_TARGET}. Максимум {MAX_PASSES} прохода. Цикл идёт на сервере — обновление страницы не прервёт его.
                 </div>
               </div>
             )}
