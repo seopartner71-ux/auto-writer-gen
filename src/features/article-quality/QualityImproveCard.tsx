@@ -83,6 +83,14 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const [stopping, setStopping] = useState(false);
   const [dismissed, setDismissed] = useState(false); // hide before/after card after user acted
   const [starting, setStarting] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  // 1s ticker while cycle is running, so the elapsed-time label updates.
+  useEffect(() => {
+    if (!articleId) return;
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [articleId]);
 
   // Initial fetch + realtime + 5s polling fallback (server orchestrates the cycle;
   // this card just reads state from articles.quality_details.cycle_progress).
@@ -253,9 +261,16 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const currentPass = Math.max(1, cycle?.pass || 1);
   const totalPasses = cycle?.of || MAX_PASSES;
   const progressPct = !running ? 0 : Math.min(99, (currentPass / (totalPasses + 1)) * 95);
+  const elapsedMs = cycle?.started_at ? Math.max(0, nowTick - Date.parse(cycle.started_at)) : 0;
+  const elapsedLabel = cycle?.started_at ? fmtDuration(elapsedMs) : "0:00";
+  const subStepLabel = cycle?.sub_step && cycle.sub_step.trim().length > 0 ? cycle.sub_step : null;
   const passLine = cycle
-    ? `Проход ${Math.min(currentPass, totalPasses)}/${totalPasses} · ${actionLabel(cycle.action)}${cycle.rolled_back ? " (откат)" : ""}`
+    ? `Проход ${Math.min(currentPass, totalPasses)}/${totalPasses} · ${subStepLabel ?? actionLabel(cycle.action)}${cycle.rolled_back ? " (откат)" : ""} · ${elapsedLabel}`
     : "Запуск цикла...";
+  const escalationLevel: "none" | "long" | "stuck" =
+    running && elapsedMs >= 10 * 60 * 1000 ? "stuck"
+    : running && elapsedMs >= 7 * 60 * 1000 ? "long"
+    : "none";
 
   // Before/after card is derived from server truth
   const showBeforeAfter = !!(cycleFinished && cycle && !dismissed && cycle.initial);
