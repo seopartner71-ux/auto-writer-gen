@@ -30,12 +30,14 @@ interface CycleProgress {
   pass?: number;
   of?: number;
   action?: "humanize" | "turgenev" | null;
+  sub_step?: string | null;
   initial?: { ai: number | null; turg: number | null; content?: string };
   best?: { ai: number | null; turg: number | null; content?: string };
   rolled_back?: boolean;
   rollback_reason?: string;
   error?: string;
   started_at?: string;
+  pass_started_at?: string;
   finished_at?: string;
   updated_at?: string;
   priority?: Priority;
@@ -64,6 +66,14 @@ function finalStatusLabel(s: CycleProgress["final_status"]): string {
   }
 }
 
+function fmtDuration(ms: number): string {
+  if (ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export function QualityImproveCard({ mode, articleId, currentContent, onRevertContent }: Props) {
   const [row, setRow] = useState<any>({});
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -73,6 +83,14 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const [stopping, setStopping] = useState(false);
   const [dismissed, setDismissed] = useState(false); // hide before/after card after user acted
   const [starting, setStarting] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  // 1s ticker while cycle is running, so the elapsed-time label updates.
+  useEffect(() => {
+    if (!articleId) return;
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [articleId]);
 
   // Initial fetch + realtime + 5s polling fallback (server orchestrates the cycle;
   // this card just reads state from articles.quality_details.cycle_progress).
@@ -243,9 +261,16 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const currentPass = Math.max(1, cycle?.pass || 1);
   const totalPasses = cycle?.of || MAX_PASSES;
   const progressPct = !running ? 0 : Math.min(99, (currentPass / (totalPasses + 1)) * 95);
+  const elapsedMs = cycle?.started_at ? Math.max(0, nowTick - Date.parse(cycle.started_at)) : 0;
+  const elapsedLabel = cycle?.started_at ? fmtDuration(elapsedMs) : "0:00";
+  const subStepLabel = cycle?.sub_step && cycle.sub_step.trim().length > 0 ? cycle.sub_step : null;
   const passLine = cycle
-    ? `Проход ${Math.min(currentPass, totalPasses)}/${totalPasses} · ${actionLabel(cycle.action)}${cycle.rolled_back ? " (откат)" : ""}`
+    ? `Проход ${Math.min(currentPass, totalPasses)}/${totalPasses} · ${subStepLabel ?? actionLabel(cycle.action)}${cycle.rolled_back ? " (откат)" : ""} · ${elapsedLabel}`
     : "Запуск цикла...";
+  const escalationLevel: "none" | "long" | "stuck" =
+    running && elapsedMs >= 10 * 60 * 1000 ? "stuck"
+    : running && elapsedMs >= 7 * 60 * 1000 ? "long"
+    : "none";
 
   // Before/after card is derived from server truth
   const showBeforeAfter = !!(cycleFinished && cycle && !dismissed && cycle.initial);
@@ -266,8 +291,23 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       {running && (
         <div className="space-y-2">
           {mode === "quick" ? (
-            <div className="flex justify-center py-1">
+            <div className="flex flex-col items-center gap-1.5 py-1">
               <ImprovingTipsLoader />
+              {cycle?.started_at && (
+                <div className="text-[11px] text-muted-foreground tabular-nums">
+                  {elapsedLabel} · обычно 2–6 минут
+                </div>
+              )}
+              {escalationLevel === "long" && (
+                <div className="text-[11px] text-amber-300 text-center">
+                  ⏱ Дольше обычного — можно остановить и забрать лучшее.
+                </div>
+              )}
+              {escalationLevel === "stuck" && (
+                <div className="text-[11px] text-rose-200 text-center">
+                  ⚠ Похоже, цикл завис. Остановите и сохраните лучший результат.
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -275,11 +315,21 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
                 {passLine} ⏳
               </div>
               <Progress value={progressPct} className="h-2" />
+              <div className="text-[11px] text-muted-foreground/80">
+                Обычно 2–6 минут. Работа идёт на сервере — F5 её не прервёт.
+              </div>
+              {escalationLevel === "long" && (
+                <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
+                  ⏱ Дольше обычного. Можно подождать ещё пару минут — или остановить и забрать лучший результат.
+                </div>
+              )}
+              {escalationLevel === "stuck" && (
+                <div className="text-[11px] text-rose-200 bg-rose-500/10 border border-rose-500/40 rounded px-2 py-1.5">
+                  ⚠ Похоже, цикл завис. Остановите и сохраните лучшее — при следующем запуске мы автоматически сбросим зависший цикл.
+                </div>
+              )}
             </>
           )}
-          <div className="text-[11px] text-muted-foreground italic">
-            Обновление или закрытие страницы не прервёт цикл — работа идёт на сервере.
-          </div>
           <Button
             size="sm"
             variant="outline"
