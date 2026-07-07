@@ -1,0 +1,3 @@
+INSERT INTO public.ai_models (model_key, display_name, description, credit_cost, min_plan, tier, is_active)
+VALUES ('mistralai/mistral-large-2512', 'Mistral Large 2512', 'Мощная модель Mistral с сильной стилистикой на русском', 5, 'pro', 'pro', true)
+ON CONFLICT (model_key) DO UPDATE SET is_active = true, display_name = EXCLUDED.display_name, description = EXCLUDED.description, credit_cost = EXCLUDED.credit_cost, min_plan = EXCLUDED.min_plan, tier = EXCLUDED.tier;
