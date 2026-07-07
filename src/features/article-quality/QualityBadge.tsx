@@ -363,8 +363,8 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             {data.ai_score != null && aiB && (
               <MetricRow
                 emoji={BAND_META[aiB].dot}
-                title="AI-детектор"
-                value={`${data.ai_score}/100`}
+                title="Человечность"
+                value={`${data.ai_score}/100 (цель ≥70)`}
                 hint={aiHint(data.ai_score)}
               />
             )}
@@ -395,7 +395,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
                       <MetricRow
                         emoji={BAND_META[turgB].dot}
                         title="Тургенев"
-                        value={`${data.turgenev_score} бал.`}
+                        value={`${data.turgenev_score} бал. (цель ≤5)`}
                         hint={turgHint(Number(data.turgenev_score))}
                       />
                     </div>
