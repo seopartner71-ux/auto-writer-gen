@@ -1490,6 +1490,7 @@ const __QC_HANDLER = async (req: Request) => {
   }
 };
 
-if ((import.meta as any).main) {
-  Deno.serve(__QC_HANDLER);
-}
+// Bind HTTP handler. When this module is imported from another edge
+// function's isolate that already called Deno.serve, the second bind
+// throws — swallow it so imports don't crash the caller.
+try { Deno.serve(__QC_HANDLER); } catch (_) { /* handler already bound (imported context) */ }
