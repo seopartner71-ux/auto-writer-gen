@@ -303,6 +303,9 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     : status === "ok" ? "ok"
     : status === "warning" ? "warning"
     : status === "fail" ? "fail"
+    : overallBand === "ok" ? "ok"
+    : overallBand === "warning" ? "warning"
+    : overallBand === "fail" ? "fail"
     : "none";
   const TRIGGER_META: Record<TriggerKind, { icon: string; label: string; cls: string }> = {
     ok:       { icon: "✓", label: "Готово",     cls: "bg-success/15 text-success border-success/30" },
