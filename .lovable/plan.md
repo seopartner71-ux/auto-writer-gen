@@ -1,89 +1,53 @@
-## Цель
+## Что и почему
 
-Убрать «промт-винегрет»: то, что можно проверить кодом - проверять кодом и автоматически переписывать. То, что нельзя - оставить в промте, но коротко и приоритизированно.
+Сейчас цикл «Улучшить качество текста» дирижируется из QualityImproveCard в браузере: он вызывает `improve-article`, ждёт, читает баллы, решает следующий проход, откатывает при ухудшении. Один проход `improve-article` уже живёт в `EdgeRuntime.waitUntil` — переживает F5. Но следующий проход некому запустить, если вкладка умерла. Отсюда «всё слетает».
 
-## Структура
+Переносим верхний оркестратор (loop MAX_PASSES=2 + decideFix + rollback) на сервер, в тот же файл, где уже лежит серверный пайплайн одного прохода.
 
-### Шаг 1. Разбить `antiTurgenevAddon.ts` на 3 константы
+## Изменения
 
-Файл `supabase/functions/_shared/antiTurgenevAddon.ts` превращается в композицию:
+### 1. `supabase/functions/improve-article/index.ts`
+- Новая ветка запроса: `body = { article_id, cycle: true, priority: "auto"|"ai"|"turgenev" }` → отвечает 202 и запускает `runImproveCycle` через `EdgeRuntime.waitUntil`.
+- Новая функция `runImproveCycle({ admin, article_id, user_id, priority, orKey, lovableKey, authHeader, supabaseUrl })` в этом же файле:
+  1. Ставит `quality_status='improving'`, `improve_stop_requested=false`, стартует `cycle_progress` в `quality_details`.
+  2. Читает исходные баллы, `bestSnapshot = { content, ai, turg }`.
+  3. Цикл `for pass in 1..2`:
+     - Проверяет `improve_stop_requested` → если стоп, break.
+     - `decideFix(scores, priority)` → `"humanize"` / `"turgenev"` / `null`.
+     - Если `null` (цели достигнуты) → break, status `targets_met`.
+     - Пишет `cycle_progress = { status:"running", pass, action, started_at }` в `quality_details`.
+     - Вызывает существующую `runImprovePipeline({ ..., phase, initialContent: currentContent })` **прямым вызовом** и `await`.
+     - После прохода читает свежие ai_score/turgenev_score. Правило отката (как на клиенте): humanize не должен поднять turgenev >+2; turgenev не должен уронить ai >3пп — откат к pre-снимку.
+     - Обновляет `bestSnapshot`, если новый лучше.
+  4. Финализация:
+     - `quality_details.cycle_progress = { status: "done"|"stopped"|"balanced"|"no_progress", pass, best: {...}, finished_at }`.
+     - `quality_status = null`, `improve_stop_requested = false`.
+     - Событие `pipeline_events` с итогом (stage `improve`, meta `cycle_summary`).
+- Между проходами `runImprovePipeline` уже сама пишет best-score и очищает status в 'checking'/null — оркестратор просто перечитывает статью и возвращает в `improving` перед следующим проходом.
 
-- `HARD_RULES` - 6-7 строк, только то, что валидируется кодом (длина предложений, серии коротких, обрывы мыслей, частотность ключа, запрет повтора зачинов абзацев). Идёт в system-промт первой.
-- `BANLIST` - плоский список запрещённых слов/фраз через запятую (канцеляризмы, штампы, заглушки, клише). Идёт отдельным блоком - LLM такие списки парсит лучше нумерованных.
-- `STYLE_GUIDE` - мягкие рекомендации по чередованию длин, абзацам, риторике. Подключается опционально (отключается для «raw» Persona, чтобы не дрались правила).
+### 2. `src/features/article-quality/QualityImproveCard.tsx`
+- `runImprove()` заменяется на одиночный POST в `improve-article` с `{ cycle: true, priority }` → 202, дальше **никаких клиентских проходов**.
+- Прогресс читается из `articles.quality_details.cycle_progress`:
+  - Уже подписаны на UPDATE — добавляем `quality_details` в `select`.
+  - Poll-fallback раз в 5с на случай пропущенного realtime-события.
+- Рендер запущенного состояния берётся из `cycle_progress.pass / action / status`.
+- **При монтировании компонента**: если `quality_status === "improving"` и `cycle_progress.status === "running"` — сразу показать «Проход X/2, ...» без ожидания клика. F5 бесшовный.
+- «Остановить» уже пишет `improve_stop_requested = true` — сервер читает между шагами (`checkStopFlag` уже есть в pipeline; в оркестраторе тоже добавим).
+- `logLines` больше не собирается на клиенте — вместо этого читаем `improve_last.trace` и `cycle_progress` для строки статуса.
 
-Экспортируем `ANTI_TURGENEV_ADDON` (HARD + BANLIST) как дефолт - совместимость со всеми вызовами не ломается. `STYLE_GUIDE` экспортируется отдельно.
+### 3. Правки, вытекающие из уроков предыдущих итераций
+- Никаких fetch между своими функциями — `runImprovePipeline` вызывается напрямую как JS-функция в том же процессе.
+- Финальный best-score уже пишется синхронно с content внутри `runImprovePipeline` — не трогаем.
+- Ошибка любого прохода: пишем в `cycle_progress.error`, `improve_last.status='error'`, снимаем `quality_status`.
 
-### Шаг 2. Создать 3 новых валидатора (по образцу `sentenceStructure.ts`)
+## Что НЕ трогаем
+- Сам пайплайн одного прохода (`runImprovePipeline`, humanize, turgenev, validators) — код тот же, вызывается в цикле.
+- `quality-check` — остаётся фоновой перепроверкой после последнего прохода (как сейчас).
+- Миграции БД не нужны: `cycle_progress` — просто ключ внутри существующего `quality_details jsonb`.
 
-В `supabase/functions/_shared/validators/`:
+## Проверка
+- Ручной прогон: жму «Улучшить», через 5с F5 — панель показывает «Проход 1/2: гуманизация» без перезапуска.
+- В логах edge-функции: одна цепочка `improve` событий за весь цикл, `cycle_summary` в конце.
+- В `pipeline_events` виден `stop_requested` при клике «Остановить», и цикл действительно останавливается перед следующим проходом.
 
-1. **`cancellaryGuard.ts`** - regex по BANLIST канцеляризмов и штампов. Возвращает `{ verdict, hits: [{phrase, count, samples}], issues }`. `fail` если >3 уникальных канцеляризма или любой встречается ≥3 раз.
-
-2. **`keywordFrequencyGuard.ts`** - считает частотность seed-ключа и значимых слов на 1000 знаков. `fail` если ключ чаще 2 раз в H2-блоке или значимое слово >2/1000 знаков.
-
-3. **`danglingThoughtGuard.ts`** - regex на висящие союзы в конце абзацев/H2 (`и`, `но`, `поэтому`, `однако`, `при этом`) и предложения, обрывающиеся без терминатора. `fail` если хоть один висящий союз.
-
-Каждый валидатор экспортирует `analyze*` + `build*FixHint(metrics)` - точно как `sentenceStructure.ts`.
-
-Дублирующая копия для фронта - в `src/shared/utils/validators/` (если понадобится в LiveTurgenevBadge).
-
-### Шаг 3. Подключить к `quality-check`
-
-В `supabase/functions/quality-check/index.ts`:
-
-- Импортировать все 4 валидатора (sentence + 3 новых).
-- Прогонять последовательно по plain text.
-- Сложить результаты в `quality_details.validators = { sentence_structure, cancellary, keyword_frequency, dangling_thoughts }`.
-- Aggregate verdict: `fail` если ≥1 валидатор fail; `warning` если ≥1 warning.
-- При `fail` - диспатчить `improve-article` с `fix_type: <validator_name>` и hint. Флаг `*_auto_fixed: true` в `quality_details` чтобы избежать петель. Если несколько fail - вызвать **последовательно по приоритету**: dangling → sentence → cancellary → keyword_frequency.
-
-### Шаг 4. Расширить `improve-article`
-
-В `supabase/functions/improve-article/index.ts` добавить phase для каждого валидатора:
-- `phase: "cancellary"` - Sonnet перепишет фрагменты с канцеляризмами.
-- `phase: "keyword_freq"` - Sonnet снизит частотность через синонимы/местоимения.
-- `phase: "dangling"` - Sonnet закроет висящие мысли.
-
-Каждая phase: bypass plan limits + cooldown (как `sentence`), system-промт с конкретным hint от валидатора, после фикса - background re-trigger `quality-check`.
-
-### Шаг 5. Урезать промт
-
-После того как валидаторы покрывают правила - в `antiTurgenevAddon` оставить:
-- 6-7 HARD-строк (одной строкой каждая, без объяснений «почему»).
-- BANLIST одной плоской строкой.
-- Финальная строка: «Текст проверяется автоматически на выходе. Нарушения переписываются.»
-
-Получается ~30% от текущего объёма. Промт читается LLM целиком, а не выборочно.
-
-## Технические детали
-
-### Совместимость
-- Имя `ANTI_TURGENEV_ADDON` и сигнатура не меняются - все edge-функции, что импортируют его, продолжают работать.
-- `analyzeSentenceStructure` и `buildSentenceStructureFixHint` остаются с прежними сигнатурами.
-
-### Анти-петли
-- Каждый валидатор пишет `quality_details.<name>_auto_fixed: true` после фикса.
-- Второй вызов `quality-check` не диспатчит `improve-article` если флаг уже стоит (даже если verdict снова fail) - чтобы не зациклиться на трудных текстах. Логируется warning.
-
-### Порядок фиксов
-Dangling (структурно ломает текст) → Sentence (стиль) → Cancellary (лексика) → Keyword frequency (тонкая настройка). Каждый следующий шаг работает с уже улучшенным текстом.
-
-### Файлы
-
-Новые:
-- `supabase/functions/_shared/validators/cancellaryGuard.ts`
-- `supabase/functions/_shared/validators/keywordFrequencyGuard.ts`
-- `supabase/functions/_shared/validators/danglingThoughtGuard.ts`
-
-Изменения:
-- `supabase/functions/_shared/antiTurgenevAddon.ts` - разнести на 3 константы, урезать.
-- `supabase/functions/quality-check/index.ts` - подключить все валидаторы, aggregate, dispatch по приоритету.
-- `supabase/functions/improve-article/index.ts` - добавить phases: cancellary, keyword_freq, dangling.
-
-Деплой: `quality-check`, `improve-article`.
-
-## Что НЕ делаю на этом шаге
-- Per-Persona оверрайды STYLE_GUIDE (отдельная задача).
-- UI-индикаторы новых валидаторов в `QualityCheckPanel` (могу добавить отдельно после проверки).
-- Front-копии валидаторов в `src/shared/utils/` - подключим, когда понадобится live-валидация в редакторе.
+Готов реализовать — жду одобрения.
