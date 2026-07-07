@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
-    const initialContent: string = art.content || "";
+    let initialContent: string = art.content || "";
     if (!initialContent) return json({ error: "Article has no content" }, 400);
     const originalAiScore = art.ai_score;
 
@@ -233,6 +233,10 @@ Deno.serve(async (req) => {
       if (norm.converted) {
         await admin.from("articles").update({ content: norm.html }).eq("id", article_id);
         (art as any).content = norm.html;
+        // CRITICAL: also update the local var — otherwise the background
+        // pipeline receives the pre-normalization Markdown as args.initialContent,
+        // operates on 0-metric text, and finally overwrites the DB back to Markdown.
+        initialContent = norm.html;
         logPipelineEvent({
           stage: "improve",
           user_id: user.id,
