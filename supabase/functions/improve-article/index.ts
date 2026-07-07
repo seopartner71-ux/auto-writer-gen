@@ -580,12 +580,16 @@ interface PipelineArgs {
   /** Cycle mode: skip Opus micro-pass, skip inline quality-check dispatch,
    *  keep quality_status='improving' between passes (cycle controls status). */
   cycleMode?: boolean;
+  /** Cycle relay pass index (>=2 means this is a relay hop; initial content
+   *  was already scored on pass 1 — skip re-scoring to save 60-80s). */
+  passIndex?: number;
   /** Optional sub-step reporter (used by cycle for UI progress: "Гуманизация (Sonnet)" etc). */
   reportSubStep?: (label: string) => Promise<void>;
 }
 
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, cycleMode, reportSubStep } = args;
+  const isRelay = (args.passIndex ?? 0) >= 2;
   const emitSubStep = async (label: string) => {
     if (reportSubStep) { try { await reportSubStep(label); } catch (_) {} }
   };
