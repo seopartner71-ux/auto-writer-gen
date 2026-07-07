@@ -1174,6 +1174,67 @@ ${content}`;
     if (content !== bestContent) {
       try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
     }
+    // ── Nominative-keyword micro-pass ────────────────────────────────
+    // Post-humanize sanity check: catch raw keyword injections like
+    // "минитрактор цена приятная" / "китайский минитрактор отзывы это
+    // подтверждают" that slipped through the humanize prompt. Runs one
+    // focused Sonnet pass on the flagged sentences; guarded by htmlIntegrity.
+    let nominativeHits: string[] = [];
+    try {
+      nominativeHits = primaryKeyword ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
+    } catch { nominativeHits = []; }
+    if (nominativeHits.length && orKey) {
+      const nomBefore = metricsOf(bestContent);
+      const sysNom =
+        "Ты редактор. Задача — исправить сырые вставки ключевого слова в именительном падеже. " +
+        "Сохраняешь все HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
+      const usrNom = `В тексте ниже ключевое слово "${primaryKeyword}" вставлено в именительном падеже без согласования.
+Перепиши ТОЛЬКО эти конкретные предложения так, чтобы ключ склонялся по падежу/числу и встраивался в естественную грамматику.
+Пример дефекта: "детали на полке, китайский минитрактор отзывы владельцев это подтверждают".
+Правильно: "детали на полке, что подтверждают отзывы владельцев китайских минитракторов".
+
+Дефектные предложения (нужно переписать):
+${nominativeHits.map((h, i) => `${i + 1}. ${h}`).join("\n")}
+
+Верни ВЕСЬ исходный HTML целиком с исправленными местами. Не удаляй и не добавляй теги, не меняй факты/цифры/ссылки, остальной текст оставь как есть.
+
+HTML:
+${bestContent}`;
+      const nomRes = await callOpenRouterEx("anthropic/claude-sonnet-4", sysNom, usrNom, orKey, 6000, 90_000);
+      const polished = nomRes.content;
+      let nomApplied = false;
+      let nomIntegrity: { ok: boolean; reason?: string } | null = null;
+      let nomMetrics: ReturnType<typeof metricsOf> | null = null;
+      if (polished && polished.length > 200) {
+        const cand = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        nomMetrics = metricsOf(cand);
+        const integ = htmlIntegrityOk(bestContent, cand);
+        nomIntegrity = integ;
+        if (integ.ok) {
+          // Verify the fix actually removed injections; accept only if hits ↓.
+          const remaining = detectNominativeKeywordHits(cand, primaryKeyword);
+          if (remaining.length < nominativeHits.length) {
+            bestContent = cand;
+            nomApplied = true;
+            try { await scoreCandidate(bestContent, "keyword.nominative"); } catch (_) { /* non-critical */ }
+          }
+        }
+      }
+      recordPass({
+        step: "keyword.nominative",
+        model: "anthropic/claude-sonnet-4",
+        blocks: { hits_before: nominativeHits.length, keyword: primaryKeyword },
+        metrics_before: nomBefore,
+        metrics_llm: nomMetrics,
+        integrity: nomIntegrity,
+        applied: nomApplied,
+        llm_bytes: polished ? polished.length : 0,
+        llm_null: !polished,
+        llm_null_reason: !polished ? (nomRes.error || "unknown") : null,
+        llm_duration_ms: nomRes.duration_ms,
+        prompt: { system: sysNom, user: usrNom, user_bytes: usrNom.length },
+      });
+    }
     // Cosmetic normalization (last step, always): H2/H3/H4 первая буква — заглавная,
     // пробел после точки перед заглавной буквой ("гараж.Резко" → "гараж. Резко").
     const contentToPersist = cosmeticNormalize(bestContent);
