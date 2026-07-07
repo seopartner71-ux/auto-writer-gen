@@ -942,6 +942,12 @@ ${rhythmSharedRules}`;
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
     if (!stoppedByUser && (phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
+      // ── Score the INITIAL content in parallel with humanize. Guarantees a
+      // real ai_score even if every subsequent pass is rejected on integrity
+      // (no_progress cycle). Only on pass 1 — relay hops reuse it.
+      const initialScorePromise = !isRelay
+        ? scoreCandidate(content, "initial").catch(() => null)
+        : Promise.resolve(null);
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
 ${validatorContextBlock}
@@ -980,7 +986,10 @@ ${content}`;
       let humanizeDurationMs = 0;
       if (orKey) {
         await emitSubStep("Гуманизация (Sonnet)");
-        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 75_000);
+        // 75s был впритык — Sonnet стабильно уходил в timeout и мы падали
+        // на gemini-2.5-pro. Поднято до 90s (worker budget всё ещё держит:
+        // 90 humanize + 80 judges + overhead ≈ 180s, реле распилит проходы).
+        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000);
         rewritten = r.content;
         humanizeLlmError = r.error;
         humanizeDurationMs = r.duration_ms;
@@ -988,9 +997,14 @@ ${content}`;
       if (!rewritten && lovableKey) {
         humanizeModel = "google/gemini-2.5-pro";
         await emitSubStep("Гуманизация (Gemini fallback)");
-        rewritten = await callGateway("google/gemini-2.5-pro", sys, usr, lovableKey);
+        // Explicit 12000 max_tokens — default (2000) обрывал длинные RU
+        // статьи (finish:"length", 2212 слов → 34), integrity rejected.
+        rewritten = await callGateway("google/gemini-2.5-pro", sys, usr, lovableKey, 12000);
         if (!rewritten && !humanizeLlmError) humanizeLlmError = "gemini_fallback_empty";
       }
+      // Drain the initial-score promise before we record/persist the pass so
+      // its result lands in scoreHistory / bestScore even if humanize failed.
+      try { await initialScorePromise; } catch (_) { /* non-critical */ }
       let humanizeApplied = false;
       let humanizeIntegrity: { ok: boolean; reason?: string } | null = null;
       let humanizeCandidateMetrics: ReturnType<typeof metricsOf> | null = null;
