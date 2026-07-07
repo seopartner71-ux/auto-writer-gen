@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { CHANGELOG } from "@/data/changelog";
 
 /**
  * Notifies the user once when a new changelog version appears.
@@ -13,27 +13,20 @@ export function useChangelogNotifier() {
   const { t } = useI18n();
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("changelog")
-        .select("version,title")
-        .order("release_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (cancelled || !data) return;
-      const seen = localStorage.getItem("changelog_last_seen");
-      if (seen === data.version) return;
-      // Compare to avoid downgrading
-      if (seen && cmpVersions(seen, data.version) >= 0) return;
-      toast.info(`${t("notifier.changelogTitle")}${data.version}`, {
-        description: data.title,
-        duration: 8000,
-        action: {
-          label: t("notifier.changelogAction"),
-          onClick: () => navigate("/changelog"),
-        },
-      });
-    })();
+    const data = CHANGELOG[0];
+    if (!data) return;
+    const seen = localStorage.getItem("changelog_last_seen");
+    if (seen === data.version) return;
+    if (seen && cmpVersions(seen, data.version) >= 0) return;
+    if (cancelled) return;
+    toast.info(`${t("notifier.changelogTitle")}${data.version}`, {
+      description: data.title,
+      duration: 8000,
+      action: {
+        label: t("notifier.changelogAction"),
+        onClick: () => navigate("/changelog"),
+      },
+    });
     return () => { cancelled = true; };
   }, [navigate, t]);
 }
@@ -52,22 +45,12 @@ function cmpVersions(a: string, b: string) {
 export function useUnseenChangelog() {
   const [unseen, setUnseen] = useState(false);
   useEffect(() => {
-    let cancelled = false;
-    const check = async () => {
-      const { data } = await supabase
-        .from("changelog")
-        .select("version")
-        .order("release_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (cancelled) return;
-      const seen = localStorage.getItem("changelog_last_seen");
-      setUnseen(!!data && seen !== data.version);
-    };
-    check();
+    const data = CHANGELOG[0];
+    const seen = localStorage.getItem("changelog_last_seen");
+    setUnseen(!!data && seen !== data.version);
     const onSeen = () => setUnseen(false);
     window.addEventListener("changelog:seen", onSeen);
-    return () => { cancelled = true; window.removeEventListener("changelog:seen", onSeen); };
+    return () => { window.removeEventListener("changelog:seen", onSeen); };
   }, []);
   return unseen;
 }
