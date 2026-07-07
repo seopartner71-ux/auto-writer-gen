@@ -1597,7 +1597,8 @@ ${bestContent}`;
 // 3-min stuck-guard, then runs its pass or finalizes.
 // ──────────────────────────────────────────────────────────────────────
 interface CycleArgs {
-  admin: ReturnType<typeof createClient>;
+  // deno-lint-ignore no-explicit-any
+  admin: any;
   supabaseUrl: string;
   article_id: string;
   user: { id: string };
