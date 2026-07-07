@@ -12,6 +12,7 @@ import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts } from "../_shared/validators/danglingThoughtGuard.ts";
+import { analyzeSanity } from "../_shared/contentSanity.ts";
 import {
   getStyleProfile,
   sentenceOptionsFromStyleProfile,
