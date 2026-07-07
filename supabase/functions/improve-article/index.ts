@@ -452,54 +452,86 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   let bestContent = args.initialContent;
   let bestScore = Number(art.ai_score ?? 0);
   let bestLabel = "initial";
-  const scoreHistory: Array<{ label: string; score: number | null; parts: { claude: number | null; gemini: number | null } }> = [];
-  async function scoreClaudeInline(plain: string, key: string): Promise<number | null> {
+  let bestParts: { claude: number | null; gemini: number | null } = {
+    claude: typeof art.ai_score_claude === "number" ? art.ai_score_claude : null,
+    gemini: typeof art.ai_score_internal === "number" ? art.ai_score_internal : null,
+  };
+  let bestReasons: { claude: string[]; gemini: string[] } = { claude: [], gemini: [] };
+  const scoreHistory: Array<{
+    label: string;
+    score: number | null;
+    parts: { claude: number | null; gemini: number | null };
+    reasons?: { claude: string[]; gemini: string[] };
+  }> = [];
+  function parseScoreAndReasons(rawInput: unknown): { score: number | null; reasons: string[] } {
+    const raw = String(rawInput || "").trim();
+    if (!raw) return { score: null, reasons: [] };
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    try {
+      const parsed = JSON.parse(cleaned);
+      const n = Number(parsed?.score);
+      const reasons = Array.isArray(parsed?.reasons)
+        ? parsed.reasons.map((s: unknown) => String(s)).filter(Boolean).slice(0, 6)
+        : [];
+      return { score: Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : null, reasons };
+    } catch (_) { /* plain-text fallback below */ }
+    const m = cleaned.match(/\d{1,3}/);
+    const score = m ? Math.max(0, Math.min(100, parseInt(m[0], 10))) : null;
+    const reasons = cleaned
+      .split(/\n+/)
+      .map((s) => s.replace(/^\s*[-•\d.)]+\s*/, "").trim())
+      .filter((s) => s && !/^\d{1,3}$/.test(s))
+      .slice(0, 6);
+    return { score, reasons };
+  }
+  async function scoreClaudeInline(plain: string, key: string): Promise<{ score: number | null; reasons: string[] }> {
     try {
       const raw = plain.slice(0, 2000);
       const lastEnd = Math.max(raw.lastIndexOf("."), raw.lastIndexOf("!"), raw.lastIndexOf("?"), raw.lastIndexOf("…"));
       const sample = lastEnd > 800 ? raw.slice(0, lastEnd + 1) : raw;
       const r = await chatComplete({
         apiKey: key, model: "anthropic/claude-sonnet-4",
-        system: "Ты - детектор ИИ-текста. Ответь ОДНИМ целым числом 0-100. 100 = живой человек, 0 = явный ИИ.",
-        user: `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100:\n\n${sample}`,
-        maxTokens: 10, temperature: 0, timeoutMs: 20_000,
+        system: "Ты - детектор ИИ-текста. Верни JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = живой человек, 0 = явный ИИ.",
+        user: `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100 и дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
+        maxTokens: 180, temperature: 0, timeoutMs: 20_000,
         appTitle: "SEO-Modul improve-article score",
       });
-      const m = String(r.content || "").match(/\d{1,3}/);
-      if (!m) return null;
-      return Math.max(0, Math.min(100, parseInt(m[0], 10)));
-    } catch { return null; }
+      return parseScoreAndReasons(r.content);
+    } catch { return { score: null, reasons: [] }; }
   }
-  async function scoreGeminiInline(plain: string, key: string): Promise<number | null> {
+  async function scoreGeminiInline(plain: string, key: string): Promise<{ score: number | null; reasons: string[] }> {
     try {
       const sample = plain.slice(0, 5000);
       const r = await chatComplete({
         apiKey: key, model: "google/gemini-2.5-flash",
-        system: 'Ты - детектор AI-текста. Верни JSON {"score":<0-100>}.',
-        user: `Оцени: 100 = написан человеком, 0 = ИИ. Ответь только JSON.\n\n${sample}`,
-        maxTokens: 60, temperature: 0, timeoutMs: 20_000,
+        system: 'Ты - детектор AI-текста. Верни JSON {"score":<0-100>,"reasons":["..."]}.',
+        user: `Оцени: 100 = написан человеком, 0 = ИИ. Дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
+        maxTokens: 180, temperature: 0, timeoutMs: 20_000,
         appTitle: "SEO-Modul improve-article score",
       });
-      const raw = String(r.content || "");
-      const m = raw.match(/"score"\s*:\s*(\d{1,3})/);
-      const n = m ? parseInt(m[1], 10) : (raw.match(/\d{1,3}/)?.[0] ? parseInt(raw.match(/\d{1,3}/)![0], 10) : NaN);
-      if (Number.isNaN(n)) return null;
-      return Math.max(0, Math.min(100, n));
-    } catch { return null; }
+      return parseScoreAndReasons(r.content);
+    } catch { return { score: null, reasons: [] }; }
   }
   async function scoreCandidate(html: string, label: string): Promise<number | null> {
     const plain = stripHtml(html);
     const [c, g] = await Promise.all([
-      orKey ? scoreClaudeInline(plain, orKey) : Promise.resolve(null),
-      lovableKey ? scoreGeminiInline(plain, lovableKey) : Promise.resolve(null),
+      orKey ? scoreClaudeInline(plain, orKey) : Promise.resolve({ score: null, reasons: [] }),
+      lovableKey ? scoreGeminiInline(plain, lovableKey) : Promise.resolve({ score: null, reasons: [] }),
     ]);
-    const parts = [c, g].filter((x): x is number => typeof x === "number");
+    const parts = [c.score, g.score].filter((x): x is number => typeof x === "number");
     const blended = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
-    scoreHistory.push({ label, score: blended, parts: { claude: c, gemini: g } });
+    scoreHistory.push({
+      label,
+      score: blended,
+      parts: { claude: c.score, gemini: g.score },
+      reasons: { claude: c.reasons, gemini: g.reasons },
+    });
     if (typeof blended === "number" && blended > bestScore) {
       bestScore = blended;
       bestContent = html;
       bestLabel = label;
+      bestParts = { claude: c.score, gemini: g.score };
+      bestReasons = { claude: c.reasons, gemini: g.reasons };
     }
     return blended;
   }
@@ -1289,58 +1321,68 @@ ${bestContent}`;
     // Meta description — из БД, отдельная нормализация (пробелы после точек + удаление переносов).
     const rawMeta = (art as any).meta_description as string | null | undefined;
     const normalizedMeta = rawMeta ? normalizeMetaDescription(rawMeta) : null;
+    const prevDetails = (art as any).quality_details && typeof (art as any).quality_details === "object"
+      ? (art as any).quality_details : {};
+    const metricsFinal = metricsOf(contentToPersist);
+    const appliedSteps = trace.filter((t) => t.applied).map((t) => t.step);
+    const traceSummary = trace.map((t) => ({
+      step: t.step,
+      model: t.model,
+      blocks: t.blocks || null,
+      metrics_before: t.metrics_before,
+      metrics_llm: t.metrics_llm,
+      integrity: t.integrity,
+      applied: t.applied,
+      llm_bytes: t.llm_bytes,
+      llm_null: t.llm_null,
+      llm_null_reason: t.llm_null_reason ?? null,
+      llm_duration_ms: t.llm_duration_ms ?? null,
+    }));
+    const hasBestScore = Number.isFinite(bestScore) && bestScore > 0;
+    const qualityDetailsNext = {
+      ...prevDetails,
+      ai_internal_reasons: bestReasons.gemini,
+      ai_claude_reasons: bestReasons.claude,
+      improve_last: {
+        status: stoppedByUser ? "stopped_by_user" : "ok",
+        ...(stoppedByUser ? { stopped_at_step: stoppedAtStep } : {}),
+        phase,
+        at: new Date().toISOString(),
+        metrics_before: metricsInitial,
+        metrics_after: metricsFinal,
+        applied_steps: appliedSteps,
+        integrity_rejections: integrityRejections,
+        trace: traceSummary,
+        best_pick: {
+          label: bestLabel,
+          score: bestScore,
+          parts: bestParts,
+          reasons: bestReasons,
+          entry_score: Number(art.ai_score ?? 0),
+        },
+        score_history: scoreHistory,
+      },
+      improve_error: null,
+    };
     await admin.from("articles").update({
       content: contentToPersist,
       // If stopped by user — release the status immediately; no re-check will run.
       quality_status: stoppedByUser ? null : "checking",
       seo_improve_count: nextImproveCount,
+      // Persist the score already produced by the improve judges. The dashboard
+      // no longer depends on a separate quality-check worker to fill ai_score.
+      ...(hasBestScore ? {
+        ai_score: bestScore,
+        ai_human_score: bestScore,
+        ...(typeof bestParts.gemini === "number" ? { ai_score_internal: bestParts.gemini } : {}),
+        ...(typeof bestParts.claude === "number" ? { ai_score_claude: bestParts.claude } : {}),
+      } : {}),
+      quality_details: qualityDetailsNext,
       // Clear the stop flag on the way out so the next cycle starts clean.
       improve_stop_requested: false,
       ...(normalizedMeta && normalizedMeta !== rawMeta ? { meta_description: normalizedMeta } : {}),
       updated_at: new Date().toISOString(),
     }).eq("id", article_id);
-
-    // Record success in quality_details.improve_last (best-effort JSON merge)
-    try {
-      const prevDetails = (art as any).quality_details && typeof (art as any).quality_details === "object"
-        ? (art as any).quality_details : {};
-      const metricsFinal = metricsOf(contentToPersist);
-      const appliedSteps = trace.filter((t) => t.applied).map((t) => t.step);
-      const traceSummary = trace.map((t) => ({
-        step: t.step,
-        model: t.model,
-        blocks: t.blocks || null,
-        metrics_before: t.metrics_before,
-        metrics_llm: t.metrics_llm,
-        integrity: t.integrity,
-        applied: t.applied,
-        llm_bytes: t.llm_bytes,
-        llm_null: t.llm_null,
-      }));
-      await admin.from("articles").update({
-        quality_details: {
-          ...prevDetails,
-          improve_last: {
-            status: stoppedByUser ? "stopped_by_user" : "ok",
-            ...(stoppedByUser ? { stopped_at_step: stoppedAtStep } : {}),
-            phase,
-            at: new Date().toISOString(),
-            metrics_before: metricsInitial,
-            metrics_after: metricsFinal,
-            applied_steps: appliedSteps,
-            integrity_rejections: integrityRejections,
-            trace: traceSummary,
-            best_pick: {
-              label: bestLabel,
-              score: bestScore,
-              entry_score: Number(art.ai_score ?? 0),
-            },
-            score_history: scoreHistory,
-          },
-          improve_error: null,
-        },
-      }).eq("id", article_id);
-    } catch (_) { /* non-critical */ }
 
     // Run quality-check IN-PROCESS via direct import — the previous
     // fetch-in-background pattern died silently (no pipeline_events, no
@@ -1356,6 +1398,17 @@ ${bestContent}`;
           await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
           return;
         }
+        await admin.from("pipeline_events").insert({
+          stage: "quality_check",
+          user_id: user.id,
+          article_id,
+          verdict: "warning",
+          duration_ms: elapsed(),
+          tokens_in: 0,
+          tokens_out: 0,
+          cost_usd: 0,
+          meta: { event: "quality_check/started", source: "improve-article-inline", best_pick: { label: bestLabel, score: bestScore, parts: bestParts } },
+        });
         const mod = await import("../quality-check/index.ts");
         await (mod as any).runAutoQuality(admin, article_id, user.id, contentToPersist, apiKey);
       } catch (e) {
@@ -1364,18 +1417,27 @@ ${bestContent}`;
         try {
           await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
         } catch (_) { /* ignore */ }
-        logPipelineEvent({
-          stage: "quality_check",
-          user_id: user.id,
-          article_id,
-          verdict: "fail",
-          error_kind: "exception",
-          error_message: (e as Error)?.message?.slice(0, 300) || String(e),
-          meta: { source: "improve-article-inline" },
-        });
+        try {
+          await admin.from("pipeline_events").insert({
+            stage: "quality_check",
+            user_id: user.id,
+            article_id,
+            verdict: "fail",
+            duration_ms: elapsed(),
+            tokens_in: 0,
+            tokens_out: 0,
+            cost_usd: 0,
+            error_kind: "exception",
+            error_message: ((e as Error)?.message || String(e)).slice(0, 500),
+            meta: { event: "quality_check/fail", source: "improve-article-inline" },
+          });
+        } catch (_) { /* ignore */ }
       }
     })();
-    try { (globalThis as any).EdgeRuntime?.waitUntil?.(reCheck); } catch (_) { void reCheck; }
+    // We are already inside the improve waitUntil task. Await the inline
+    // re-check here; a nested waitUntil can be dropped when the parent task
+    // returns, which is exactly how the previous quality pass disappeared.
+    await reCheck;
 
     logPipelineEvent({
       stage: "improve",
