@@ -523,6 +523,35 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const trace: PassTrace[] = [];
   const integrityRejections: Array<{ step: string; reason: string; metrics_llm: any; metrics_before: any }> = [];
 
+  // ── User "Stop" flag — checked BETWEEN steps (never inside an LLM call).
+  // When set, the pipeline skips remaining passes and jumps to finalize with
+  // the best-scoring candidate observed so far. Written by the client via
+  // `articles.improve_stop_requested = true`.
+  let stoppedByUser = false;
+  let stoppedAtStep: string | null = null;
+  async function checkStopFlag(afterStep: string): Promise<void> {
+    if (stoppedByUser) return;
+    try {
+      const { data } = await admin
+        .from("articles")
+        .select("improve_stop_requested")
+        .eq("id", article_id)
+        .maybeSingle();
+      if ((data as any)?.improve_stop_requested === true) {
+        stoppedByUser = true;
+        stoppedAtStep = afterStep;
+        logPipelineEvent({
+          stage: "improve",
+          user_id: user.id,
+          article_id,
+          verdict: "warning",
+          duration_ms: elapsed(),
+          meta: { event: "stop_requested", after_step: afterStep, phase },
+        });
+      }
+    } catch (_) { /* non-fatal */ }
+  }
+
   function metricsOf(html: string) {
     try {
       const m = analyzeSentenceStructure(stripHtml(html));
