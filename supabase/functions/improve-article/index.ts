@@ -765,7 +765,7 @@ ${rhythmSharedRules}`;
     }
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
-    if ((phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
+    if (!stoppedByUser && (phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
 ${validatorContextBlock}
@@ -849,7 +849,8 @@ ${content}`;
 
       // 1b) Severe AI-detected (ai_score < 40) → run a second Opus micro-pass
       // for "AI fingerprints" removal. Best-effort with HTML integrity guard.
-      if (aiScore < 40 && orKey) {
+      await checkStopFlag("humanize.sonnet");
+      if (!stoppedByUser && aiScore < 40 && orKey) {
         const sysOpus = "Ты редактор-человек. Делаешь микро-проход по HTML: убираешь монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
         const usrOpus = `Микро-проход: убери оставшиеся "ИИ-подписи" — монотонность синтаксиса, одинаковые зачины абзацев, лексические всплески. Цель: AI-детектор <30%. НЕ трогай факты, цифры, ссылки, теги (<h2>,<h3>,<p>,<ul>,<table>,<a>).
 ${validatorContextBlock}
@@ -913,11 +914,12 @@ ${content}`;
         });
       }
     }
+    await checkStopFlag("humanize");
 
     // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times
-    if ((phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "overuse") {
+    if (!stoppedByUser && (phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "overuse") {
       content = removeEveryNthKeyword(content, primaryKeyword, 3);
-    } else if ((phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
+    } else if (!stoppedByUser && (phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
       const sys = "Ты редактор. Встраиваешь ключевое слово в текст с полной грамматической адаптацией. Возвращаешь только итоговый HTML.";
       const usr = `Встрой фразу "${primaryKeyword}" органично в 2-3 места текста.
 
@@ -959,9 +961,10 @@ ${content}`;
         prompt: { system: sys, user: usr, user_bytes: usr.length },
       });
     }
+    await checkStopFlag("keyword_density");
 
     // 3) Burstiness fix: split long sentences (JS post-processor)
-    if ((phase === "humanize" || phase === "all") && (burstStatus === "fail" || burstStatus === "warning")) {
+    if (!stoppedByUser && (phase === "humanize" || phase === "all") && (burstStatus === "fail" || burstStatus === "warning")) {
       // Apply only to text inside <p>/<li> blocks
       content = content.replace(/(<(?:p|li)[^>]*>)([\s\S]*?)(<\/(?:p|li)>)/gi, (_m, open, inner, close) => {
         return `${open}${splitLongSentences(inner)}${close}`;
@@ -971,7 +974,7 @@ ${content}`;
     // 4) Turgenev (Yandex Baden-Baden) fix when status = fail (RU only, needs OpenRouter)
     const turgStatus = String((art as any).turgenev_status || "ok");
     const isRu = String((art as any).language || "ru").toLowerCase() === "ru";
-    if ((phase === "turgenev" || phase === "all") && turgStatus === "fail" && isRu && orKey) {
+    if (!stoppedByUser && (phase === "turgenev" || phase === "all") && turgStatus === "fail" && isRu && orKey) {
       const sys = "Ты редактор. Улучшаешь текст под Яндекс Баден-Баден, но СОХРАНЯЕШЬ человечность стиля. Возвращай ТОЛЬКО исправленный HTML без комментариев и markdown-обёрток.";
       const usr = `Снизь риск фильтра Баден-Баден, НЕ ухудшая человечность текста.
 
@@ -1017,10 +1020,11 @@ ${content}`;
         prompt: { system: sys, user: usr, user_bytes: usr.length },
       });
     }
+    await checkStopFlag("turgenev");
 
     // 5) Sentence-structure fix: чиним «телеграфный» стиль —
     //    серии 3+ коротких подряд, низкая средняя длина, перекос коротких.
-    if ((phase === "sentence" || phase === "all") && orKey) {
+    if (!stoppedByUser && (phase === "sentence" || phase === "all") && orKey) {
       const metrics = analyzeSentenceStructure(stripHtml(content), sentenceOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
         const hint = buildSentenceStructureFixHint(metrics) || "";
