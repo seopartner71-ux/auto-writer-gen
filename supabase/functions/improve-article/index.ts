@@ -461,7 +461,10 @@ interface PipelineArgs {
 }
 
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
-  const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits } = args;
+  const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, cycleMode, reportSubStep } = args;
+  const emitSubStep = async (label: string) => {
+    if (reportSubStep) { try { await reportSubStep(label); } catch (_) {} }
+  };
   let content = args.initialContent;
   // ── Best-candidate tracking. Every state (initial + after each successful
   // LLM step) is scored with the same blended judge stack as quality-check;
