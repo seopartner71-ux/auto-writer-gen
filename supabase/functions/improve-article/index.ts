@@ -9,6 +9,7 @@ import { verifyAuth } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { chatComplete, AiError } from "../_shared/aiClient.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { ensureHtml, isStaleStatus } from "../_shared/ensureHtml.ts";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
 import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators/cancellaryGuard.ts";
@@ -223,7 +224,45 @@ Deno.serve(async (req) => {
     if (!initialContent) return json({ error: "Article has no content" }, 400);
     const originalAiScore = art.ai_score;
 
+    // ── Format normalization: pipeline expects HTML (metricsOf, htmlIntegrityOk,
+    // validators). If content is pure Markdown (single-shot generation path
+    // emits '# H1 / ## H2 ...' by design) — convert to HTML BEFORE any pass and
+    // persist so the editor also sees HTML from here on.
+    {
+      const norm = ensureHtml(initialContent);
+      if (norm.converted) {
+        await admin.from("articles").update({ content: norm.html }).eq("id", article_id);
+        (art as any).content = norm.html;
+        logPipelineEvent({
+          stage: "improve",
+          user_id: user.id,
+          article_id,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "md_to_html_conversion", reason: norm.reason, before_bytes: initialContent.length, after_bytes: norm.html.length },
+        });
+      }
+    }
+
     // Prevent overlapping runs on the same article.
+    // Auto-reset stale status: 'improving' / 'checking' with no pipeline_events
+    // in the last 10 minutes = crashed background task, unblock the article.
+    if ((art as any).quality_status === "improving" || (art as any).quality_status === "checking") {
+      const stale = await isStaleStatus(admin, article_id, 10 * 60 * 1000);
+      if (stale) {
+        const prevStatus = (art as any).quality_status;
+        await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
+        (art as any).quality_status = null;
+        logPipelineEvent({
+          stage: "improve",
+          user_id: user.id,
+          article_id,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "stale_status_reset", was: prevStatus, reason: "no_events_>10min" },
+        });
+      }
+    }
     if ((art as any).quality_status === "improving") {
       return json({
         ok: false,
@@ -467,7 +506,22 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       primaryKeyword = String(art.keywords[0]);
     }
 
-    const aiScore = Number(art.ai_score ?? 100);
+    // NaN-gate fix: null ai_score = "score unknown", NOT "text is great".
+    // Previously `?? 100` skipped humanize/opus entirely on brand-new articles
+    // with no prior quality-check → we lost the very first pass on many drafts.
+    const aiScoreRaw = (art as any).ai_score;
+    const aiScoreMissing = aiScoreRaw == null || Number.isNaN(Number(aiScoreRaw));
+    const aiScore = aiScoreMissing ? 0 : Number(aiScoreRaw);
+    if (aiScoreMissing) {
+      logPipelineEvent({
+        stage: "improve",
+        user_id: user.id,
+        article_id,
+        verdict: "warning",
+        duration_ms: 0,
+        meta: { event: "ai_score_missing_treated_as_needs_improve", phase },
+      });
+    }
     const burstStatus = String(art.burstiness_status || "ok");
     const dStatus = String(art.keyword_density_status || "ok");
 

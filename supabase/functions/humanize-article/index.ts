@@ -16,6 +16,7 @@ import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { validateContent } from "../_shared/contentValidator.ts";
 import { webGroundedFactCheck, hasRiskyClaims } from "../_shared/webGroundedCheck.ts";
 import { analyzeH2Structure, countSignatures, structuralIntegrityOk } from "../_shared/humanizeMetrics.ts";
+import { ensureHtml, isStaleStatus } from "../_shared/ensureHtml.ts";
 
 function detectLang(text: string, hint?: string | null): "ru" | "en" {
   if (hint === "ru" || hint === "en") return hint;
@@ -66,7 +67,23 @@ serve(async (req) => {
     }
 
     const content = (article.content || "").toString();
-    if (content.replace(/<[^>]+>/g, "").length < 400) {
+    // Format normalization: humanizer prompts assume HTML (`<h2>`, `<p>`, `<a>`),
+    // otherwise the LLM reformats structure and htmlIntegrityOk rejects the
+    // rewrite. Convert pure-Markdown drafts BEFORE the pass and persist.
+    const norm = ensureHtml(content);
+    let workContent = norm.html;
+    if (norm.converted) {
+      try { await admin.from("articles").update({ content: workContent }).eq("id", article_id); } catch (_) { /* non-fatal */ }
+      logPipelineEvent({
+        stage: "humanize",
+        user_id: article.user_id,
+        article_id,
+        verdict: "warning",
+        duration_ms: 0,
+        meta: { event: "md_to_html_conversion", reason: norm.reason, before_bytes: content.length, after_bytes: workContent.length },
+      });
+    }
+    if (workContent.replace(/<[^>]+>/g, "").length < 400) {
       return jsonResponse({ ok: true, applied: false, reason: "too_short" });
     }
 
@@ -89,11 +106,11 @@ serve(async (req) => {
     const openRouterKey = orRow?.api_key || Deno.env.get("OPENROUTER_API_KEY");
     if (!openRouterKey) return errorResponse("OpenRouter key not configured", 500);
 
-    const lang = detectLang(content, article.language);
+    const lang = detectLang(workContent, article.language);
 
     // Preflight: anti-fake regex pass (fake experts, pseudo-stats, fake orgs).
     // Runs BEFORE humanize so LLM rewrites already-clean text.
-    const preflight = validateContent(content);
+    const preflight = validateContent(workContent);
     let cleanedInput = preflight.fixedContent;
     const fakesFixed = preflight.issues.length;
 
@@ -210,7 +227,7 @@ serve(async (req) => {
       // Persist meta even when nothing changed, so we can see why in admin.
       // If only anti-fake preflight applied changes, still save fixedContent.
       const updatePayload: Record<string, unknown> = { humanize_meta: meta, pipeline_stages: newStages };
-      if (fakesFixed > 0 && cleanedInput !== content) {
+      if (fakesFixed > 0 && cleanedInput !== workContent) {
         updatePayload.content = cleanedInput;
       }
       updatePayload.h2_warnings = h2.warnings.length ? h2 : null;

@@ -7,6 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { ensureHtml, isStaleStatus } from "../_shared/ensureHtml.ts";
 import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
@@ -904,10 +905,25 @@ async function runAutoQuality(
       if (typeof t === "number") humanizeThreshold = t;
     } catch (_) { /* keep default */ }
 
-    if (
-      !opts.skipAutoFixes &&
-      humanizeThreshold > 0 && typeof aiCombined === "number" && aiCombined < humanizeThreshold && orKey
-    ) {
+    // NaN-gate fix: aiCombined === null (all judges failed) MUST count as
+    // "score missing, humanize needed" — previously `null < 40` was false and
+    // the pass was silently skipped, leaving low-quality drafts unimproved.
+    const aiCombinedMissing = aiCombined == null || Number.isNaN(Number(aiCombined));
+    const humanizeTriggered =
+      !opts.skipAutoFixes && humanizeThreshold > 0 && orKey &&
+      (aiCombinedMissing || (typeof aiCombined === "number" && aiCombined < humanizeThreshold));
+    if (aiCombinedMissing && humanizeThreshold > 0 && !opts.skipAutoFixes) {
+      // Explicit trace so it's visible WHY we entered humanize with no score.
+      logPipelineEvent({
+        stage: "quality-check",
+        article_id: articleId,
+        user_id: userId,
+        verdict: "warning",
+        duration_ms: 0,
+        meta: { event: "auto_humanize_null_score_trigger", reason: "ai_score_unavailable_treat_as_needs_humanize" },
+      });
+    }
+    if (humanizeTriggered) {
       const { data: artFlag2 } = await admin
         .from("articles").select("rewritten").eq("id", articleId).maybeSingle();
       if (artFlag2 && artFlag2.rewritten !== true) {
@@ -1159,6 +1175,43 @@ Deno.serve(async (req) => {
     if (!content || typeof content !== "string") return json({ error: "content required" }, 400);
     articleIdForLog = article_id;
 
+    // Guarantee HTML for the whole check pipeline. If we converted, persist so
+    // downstream (editor + improve-cycle) sees the canonical HTML form.
+    let normalizedContent = content;
+    {
+      const norm = ensureHtml(content);
+      if (norm.converted) {
+        normalizedContent = norm.html;
+        try {
+          await admin.from("articles").update({ content: normalizedContent }).eq("id", article_id);
+        } catch (_) { /* non-fatal */ }
+        logPipelineEvent({
+          stage: "quality-check",
+          article_id,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "md_to_html_conversion", reason: norm.reason, before_bytes: content.length, after_bytes: normalizedContent.length },
+        });
+      }
+    }
+
+    // Stale-status auto-reset: if article is stuck in 'checking'/'improving'
+    // with no pipeline_events for 10+ minutes, unblock it before we start.
+    try {
+      const { data: st0 } = await admin.from("articles").select("quality_status").eq("id", article_id).maybeSingle();
+      const qs = (st0 as any)?.quality_status;
+      if ((qs === "checking" || qs === "improving") && await isStaleStatus(admin, article_id, 10 * 60 * 1000)) {
+        await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
+        logPipelineEvent({
+          stage: "quality-check",
+          article_id,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: { event: "stale_status_reset", was: qs, reason: "no_events_>10min" },
+        });
+      }
+    } catch (_) { /* non-fatal */ }
+
     // Resolve user: try service-role bypass first (auto mode from bulk), then user JWT.
     const serviceToken = authHeader.replace(/^Bearer\s+/i, "") === serviceKey;
     let user: { id: string } | null = null;
@@ -1186,7 +1239,7 @@ Deno.serve(async (req) => {
       // чтобы не гонять improve-article параллельно с клиентским циклом.
       const skipAutoFixes = dispatched_by === "stealth";
       const bg = runAutoQuality(
-        admin, article_id, user.id, content, apiKey, { skipAutoFixes },
+        admin, article_id, user.id, normalizedContent, apiKey, { skipAutoFixes },
       ).catch(async (e) => {
         console.error("[quality-check] auto bg error", e);
         try {
@@ -1203,7 +1256,7 @@ Deno.serve(async (req) => {
     const { data: art } = await admin.from("articles").select("id,user_id,quality_details").eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
-    const plain = stripHtml(content);
+    const plain = stripHtml(normalizedContent);
     if (plain.length < 200) return json({ error: "Текст слишком короткий для проверки (минимум 200 символов)" }, 400);
     if (plain.length > 50000) return json({ error: "Текст слишком длинный (максимум 50000 символов)" }, 400);
 
