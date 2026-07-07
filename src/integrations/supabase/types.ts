@@ -661,6 +661,7 @@ export type Database = {
           h2_warnings: Json | null
           humanize_meta: Json | null
           id: string
+          improve_stop_requested: boolean
           is_ab_test: boolean
           is_public: boolean | null
           keyword_density: number | null
@@ -732,6 +733,7 @@ export type Database = {
           h2_warnings?: Json | null
           humanize_meta?: Json | null
           id?: string
+          improve_stop_requested?: boolean
           is_ab_test?: boolean
           is_public?: boolean | null
           keyword_density?: number | null
@@ -803,6 +805,7 @@ export type Database = {
           h2_warnings?: Json | null
           humanize_meta?: Json | null
           id?: string
+          improve_stop_requested?: boolean
           is_ab_test?: boolean
           is_public?: boolean | null
           keyword_density?: number | null
