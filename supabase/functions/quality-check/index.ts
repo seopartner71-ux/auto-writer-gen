@@ -1224,7 +1224,7 @@ Deno.serve(async (req) => {
       // чтобы не гонять improve-article параллельно с клиентским циклом.
       const skipAutoFixes = dispatched_by === "stealth";
       const bg = runAutoQuality(
-        admin, article_id, user.id, content, apiKey, { skipAutoFixes },
+        admin, article_id, user.id, normalizedContent, apiKey, { skipAutoFixes },
       ).catch(async (e) => {
         console.error("[quality-check] auto bg error", e);
         try {
@@ -1241,7 +1241,7 @@ Deno.serve(async (req) => {
     const { data: art } = await admin.from("articles").select("id,user_id,quality_details").eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
-    const plain = stripHtml(content);
+    const plain = stripHtml(normalizedContent);
     if (plain.length < 200) return json({ error: "Текст слишком короткий для проверки (минимум 200 символов)" }, 400);
     if (plain.length > 50000) return json({ error: "Текст слишком длинный (максимум 50000 символов)" }, 400);
 
