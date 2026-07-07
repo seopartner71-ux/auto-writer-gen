@@ -1784,6 +1784,7 @@ async function finalizeCycle(
   bestSnapshot: { content: string; ai: number | null; turg: number | null },
   initialSnap: { ai: number | null; turg: number | null; content: string },
   extra: Record<string, unknown> = {},
+  dispatch?: { supabaseUrl: string; serviceKey: string },
 ): Promise<void> {
   // Restore best content if a later pass regressed.
   const finalArt = await refreshCycleArt(admin, article_id);
@@ -1822,6 +1823,44 @@ async function finalizeCycle(
       priority,
     },
   });
+
+  // ── Populate turgenev_score if the cycle never got a real judge on it ──
+  // In cycle mode the standard quality-check dispatch is skipped (to avoid
+  // zombie improve loops), so no_progress / balanced / max_passes / error
+  // exits used to leave `turgenev_score = NULL` in the DB even when the
+  // final content is fine. Fire one score-only quality-check now with a
+  // dedicated dispatched_by tag so it does NOT trigger any auto-fixes.
+  if (dispatch && bestSnapshot.content && bestSnapshot.turg == null) {
+    try {
+      await admin.from("articles").update({ quality_status: "checking" }).eq("id", article_id);
+    } catch (_) { /* non-fatal */ }
+    const bg = (async () => {
+      try {
+        const resp = await fetch(`${dispatch.supabaseUrl}/functions/v1/quality-check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${dispatch.serviceKey}`,
+            apikey: dispatch.serviceKey,
+          },
+          body: JSON.stringify({
+            article_id,
+            content: bestSnapshot.content,
+            mode: "auto",
+            dispatched_by: "cycle_finalize",
+          }),
+        });
+        if (!resp.ok) {
+          console.warn("[finalizeCycle] cycle_finalize quality-check HTTP", resp.status);
+          try { await admin.from("articles").update({ quality_status: null }).eq("id", article_id); } catch (_) {}
+        }
+      } catch (e) {
+        console.warn("[finalizeCycle] cycle_finalize quality-check dispatch failed", e);
+        try { await admin.from("articles").update({ quality_status: null }).eq("id", article_id); } catch (_) {}
+      }
+    })();
+    try { (globalThis as any).EdgeRuntime?.waitUntil?.(bg); } catch (_) { void bg; }
+  }
 }
 
 async function runImproveCycleStep(args: CycleArgs): Promise<void> {
