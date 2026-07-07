@@ -1392,12 +1392,6 @@ ${bestContent}`;
     // clears quality_status in one shot.
     const reCheck = stoppedByUser ? Promise.resolve() : (async () => {
       try {
-        const apiKey = Deno.env.get("OPENROUTER_API_KEY");
-        if (!apiKey) {
-          console.warn("[improve-article] runAutoQuality skipped: no OPENROUTER_API_KEY");
-          await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
-          return;
-        }
         await admin.from("pipeline_events").insert({
           stage: "quality_check",
           user_id: user.id,
@@ -1409,6 +1403,12 @@ ${bestContent}`;
           cost_usd: 0,
           meta: { event: "quality_check/started", source: "improve-article-inline", best_pick: { label: bestLabel, score: bestScore, parts: bestParts } },
         });
+        const apiKey = Deno.env.get("OPENROUTER_API_KEY");
+        if (!apiKey) {
+          console.warn("[improve-article] runAutoQuality skipped: no OPENROUTER_API_KEY");
+          await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
+          return;
+        }
         const mod = await import("../quality-check/index.ts");
         await (mod as any).runAutoQuality(admin, article_id, user.id, contentToPersist, apiKey);
       } catch (e) {
