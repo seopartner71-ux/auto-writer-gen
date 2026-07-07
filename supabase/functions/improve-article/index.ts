@@ -1290,19 +1290,37 @@ ${bestContent}`;
       }).eq("id", article_id);
     } catch (_) { /* non-critical */ }
 
-    // Re-trigger auto quality check (fire-and-forget)
+    // Run quality-check IN-PROCESS via direct import — the previous
+    // fetch-in-background pattern died silently (no pipeline_events, no
+    // ai_score written, quality_status stuck at "checking"). Direct call
+    // uses the same admin client, writes ai_score/ai_score_internal/
+    // ai_score_claude/turgenev_score/quality_details.ai_*_reasons and
+    // clears quality_status in one shot.
     const reCheck = (async () => {
       try {
-        await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": authHeader,
-          },
-          body: JSON.stringify({ article_id, content: contentToPersist, mode: "auto" }),
-        });
+        const apiKey = Deno.env.get("OPENROUTER_API_KEY");
+        if (!apiKey) {
+          console.warn("[improve-article] runAutoQuality skipped: no OPENROUTER_API_KEY");
+          await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
+          return;
+        }
+        const mod = await import("../quality-check/index.ts");
+        await (mod as any).runAutoQuality(admin, article_id, user.id, contentToPersist, apiKey);
       } catch (e) {
-        console.error("[improve-article] re-check failed", e);
+        console.error("[improve-article] inline quality-check failed", e);
+        // Unlock the "checking" flag so the client stops spinning.
+        try {
+          await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
+        } catch (_) { /* ignore */ }
+        logPipelineEvent({
+          stage: "quality_check",
+          user_id: user.id,
+          article_id,
+          verdict: "fail",
+          error_kind: "exception",
+          error_message: (e as Error)?.message?.slice(0, 300) || String(e),
+          meta: { source: "improve-article-inline" },
+        });
       }
     })();
     try { (globalThis as any).EdgeRuntime?.waitUntil?.(reCheck); } catch (_) { void reCheck; }
