@@ -36,6 +36,44 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Косметическая нормализация текста статьи перед сохранением:
+// 1. Заголовки markdown (# / ## / ### / ####) с первой заглавной буквы.
+// 2. Заголовки HTML (<h1>-<h6>) — первая буква содержимого заглавная.
+// 3. Пробел после точки/восклицания/вопроса перед заглавной буквой ("гараж.Резко" → "гараж. Резко").
+//    Затрагивает и кириллицу, и латиницу. НЕ ломает URL (после "://" не срабатывает),
+//    аббревиатуры вида "и.т.д" и десятичные числа "3.14" остаются нетронутыми.
+export function cosmeticNormalize(input: string): string {
+  if (!input) return input;
+  let out = input;
+
+  // Markdown-заголовки: "## что лучше" → "## Что лучше".
+  out = out.replace(/^(\s{0,3}#{1,6}\s+)(\S)(.*)$/gm, (_m, hash, first, rest) => {
+    return hash + first.toLocaleUpperCase("ru-RU") + rest;
+  });
+
+  // HTML-заголовки.
+  out = out.replace(/(<h[1-6][^>]*>)(\s*)(<[^>]+>)*(\s*)([a-zа-яё])/gi, (m, open, ws1, innerTag, ws2, ch) => {
+    return open + ws1 + (innerTag || "") + ws2 + ch.toLocaleUpperCase("ru-RU");
+  });
+
+  // Пробел после терминатора перед заглавной. Не трогаем URL и десятичные числа.
+  out = out.replace(/([а-яёa-z])([.!?])([A-ZА-ЯЁ])/g, (_m, prev, punct, next) => {
+    return `${prev}${punct} ${next}`;
+  });
+
+  return out;
+}
+
+// Meta description: то же + удаление внутренних переносов строк.
+export function normalizeMetaDescription(input: string): string {
+  if (!input) return input;
+  let out = input.replace(/\s*\n\s*/g, " ").replace(/\s{2,}/g, " ").trim();
+  out = out.replace(/([а-яёa-z])([.!?])([A-ZА-ЯЁ])/g, (_m, prev, punct, next) => `${prev}${punct} ${next}`);
+  // Первая буква — заглавная.
+  if (out) out = out.charAt(0).toLocaleUpperCase("ru-RU") + out.slice(1);
+  return out;
+}
+
 // Count critical structural HTML elements to detect rewrite damage.
 function countTags(html: string): { h: number; a: number; p: number; li: number; table: number; words: number } {
   return {
