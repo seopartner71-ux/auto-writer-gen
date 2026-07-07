@@ -7,6 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logCost } from "../_shared/costLogger.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { ensureHtml, isStaleStatus } from "../_shared/ensureHtml.ts";
 import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
