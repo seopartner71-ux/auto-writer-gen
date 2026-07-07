@@ -51,10 +51,11 @@ function aiBand(score: number | null | undefined): "ok" | "warning" | "fail" | n
   return "fail";
 }
 function aiHint(score: number): string {
-  if (score >= 80) return "Отлично - текст как человеческий";
-  if (score >= 60) return "Хорошо - слабые следы ИИ";
-  if (score >= 40) return "Средне - заметны паттерны ИИ";
-  return "Плохо - явный ИИ-текст";
+  const sim = Math.max(0, Math.min(100, 100 - score));
+  if (score >= 80) return `Отлично - похож на человеческий. Похожесть на AI: ${sim}% (ниже = лучше)`;
+  if (score >= 60) return `Хорошо - слабые следы ИИ. Похожесть на AI: ${sim}% (ниже = лучше)`;
+  if (score >= 40) return `Средне - заметны паттерны ИИ. Похожесть на AI: ${sim}% (ниже = лучше)`;
+  return `Плохо - явный ИИ-текст. Похожесть на AI: ${sim}% (ниже = лучше)`;
 }
 function burstBand(sigma: number | null | undefined): "ok" | "warning" | "fail" | null {
   if (sigma == null) return null;
@@ -89,9 +90,9 @@ function turgBand(score: number | null | undefined): "ok" | "warning" | "fail" |
   return "fail";
 }
 function turgHint(score: number): string {
-  if (score <= 5) return `${score} бал. - безопасно для Яндекса`;
-  if (score <= 10) return `${score} бал. - есть риск фильтра`;
-  return `${score} бал. - высокий риск Баден-Бадена`;
+  if (score <= 5) return `${score} бал. (цель ≤5) - безопасно для Яндекса`;
+  if (score <= 10) return `${score} бал. (цель ≤5) - есть риск фильтра`;
+  return `${score} бал. (цель ≤5) - высокий риск Баден-Бадена`;
 }
 function bandToScore(b: "ok" | "warning" | "fail" | null): number | null {
   if (b === "ok") return 90;
