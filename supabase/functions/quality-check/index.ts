@@ -1490,7 +1490,12 @@ const __QC_HANDLER = async (req: Request) => {
   }
 };
 
-// Bind HTTP handler. When this module is imported from another edge
-// function's isolate that already called Deno.serve, the second bind
-// throws — swallow it so imports don't crash the caller.
-try { Deno.serve(__QC_HANDLER); } catch (_) { /* handler already bound (imported context) */ }
+// Bind HTTP handler only when this module is the process entry (Supabase
+// Edge Runtime serves quality-check directly). When imported by another
+// function's isolate (e.g. improve-article using runAutoQuality), skip
+// the bind so we don't collide with the caller's own Deno.serve.
+// import.meta.main is a Deno primitive: true iff this file is the entry.
+// Fallback: try/catch guards against runtimes that don't set main.
+if ((import.meta as any).main !== false) {
+  try { Deno.serve(__QC_HANDLER); } catch (_) { /* already bound in imported context */ }
+}
