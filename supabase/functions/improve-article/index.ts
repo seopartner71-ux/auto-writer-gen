@@ -250,6 +250,7 @@ Deno.serve(async (req) => {
     if ((art as any).quality_status === "improving" || (art as any).quality_status === "checking") {
       const stale = await isStaleStatus(admin, article_id, 10 * 60 * 1000);
       if (stale) {
+        const prevStatus = (art as any).quality_status;
         await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
         (art as any).quality_status = null;
         logPipelineEvent({
@@ -258,7 +259,7 @@ Deno.serve(async (req) => {
           article_id,
           verdict: "warning",
           duration_ms: 0,
-          meta: { event: "stale_status_reset", was: (art as any).quality_status ?? "checking/improving", reason: "no_events_>10min" },
+          meta: { event: "stale_status_reset", was: prevStatus, reason: "no_events_>10min" },
         });
       }
     }
