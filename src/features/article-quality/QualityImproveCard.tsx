@@ -84,6 +84,8 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const [dismissed, setDismissed] = useState(false); // hide before/after card after user acted
   const [starting, setStarting] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const startingSinceRef = useRef<number | null>(null);
+  const startingTimerRef = useRef<number | null>(null);
 
   // 1s ticker while cycle is running, so the elapsed-time label updates.
   useEffect(() => {
@@ -141,6 +143,34 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     row.quality_status === "checking" ||
     cycle?.status === "running";
 
+  // Auto-clear stuck `starting` state. If the server hasn't reflected a running
+  // cycle within 20s of us kicking it off, the request either 404/timed out or
+  // the server accepted but never wrote cycle_progress. Either way we must not
+  // leave the overlay up forever. Also: if the DB shows a *finished* cycle
+  // while `starting` is still true (e.g. stale realtime returning the old
+  // "done" row after our POST), clear it so `running` collapses to server truth.
+  useEffect(() => {
+    if (!starting) return;
+    const started = startingSinceRef.current ?? 0;
+    const serverRunning =
+      row.quality_status === "improving" ||
+      row.quality_status === "checking" ||
+      cycle?.status === "running";
+    if (serverRunning) {
+      // Server picked it up — no longer need the client-side flag.
+      setStarting(false);
+      startingSinceRef.current = null;
+      return;
+    }
+    // If DB explicitly shows a terminal cycle newer than our start moment, drop it.
+    const cycleUpdated = cycle?.updated_at ? Date.parse(cycle.updated_at) : 0;
+    const terminal = cycle?.status === "done" || cycle?.status === "stopped" || cycle?.status === "error";
+    if (terminal && cycleUpdated > 0 && cycleUpdated >= started) {
+      setStarting(false);
+      startingSinceRef.current = null;
+    }
+  }, [starting, row.quality_status, cycle?.status, cycle?.updated_at]);
+
   const cycleFinished = !running && cycle && (cycle.status === "done" || cycle.status === "stopped" || cycle.status === "error");
 
   // Notify other editor buttons to disable themselves
@@ -174,6 +204,15 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   async function runImprove() {
     if (!articleId) { toast.error("Сначала сохраните статью"); return; }
     setStarting(true);
+    startingSinceRef.current = Date.now();
+    if (startingTimerRef.current) window.clearTimeout(startingTimerRef.current);
+    // Hard safety: never keep the overlay up longer than 25s waiting for the
+    // server to write cycle_progress. If we hit this, the cycle either failed
+    // to start or the client lost visibility of the write.
+    startingTimerRef.current = window.setTimeout(() => {
+      setStarting(false);
+      startingSinceRef.current = null;
+    }, 25_000) as unknown as number;
     setDismissed(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -192,17 +231,23 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       const httpOk = resp.ok || resp.status === 202;
       if (!httpOk) {
         setStarting(false);
+        startingSinceRef.current = null;
+        if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
         toast.error(payload?.error || `Ошибка ${resp.status}`);
         return;
       }
       if (payload?.cooldown) {
         setStarting(false);
+        startingSinceRef.current = null;
+        if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
         toast.message(payload?.message || "Подождите перед повторной доработкой");
         return;
       }
       toast.message("Цикл запущен. Можно закрыть или обновить страницу — работа продолжится на сервере.");
     } catch (e: any) {
       setStarting(false);
+      startingSinceRef.current = null;
+      if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
       toast.error(e?.message || "Не удалось запустить");
     }
   }
