@@ -1242,7 +1242,7 @@ const __QC_HANDLER = async (req: Request) => {
       // Когда quality-check вызывается из клиентского оркестратора autoStealthPass,
       // серверные fallback-автозапуски (auto_humanize / auto_turgenev) пропускаем,
       // чтобы не гонять improve-article параллельно с клиентским циклом.
-      const skipAutoFixes = dispatched_by === "stealth";
+      const skipAutoFixes = dispatched_by === "stealth" || dispatched_by === "cycle_finalize";
       const bg = runAutoQuality(
         admin, article_id, user.id, normalizedContent, apiKey, { skipAutoFixes },
       ).catch(async (e) => {
