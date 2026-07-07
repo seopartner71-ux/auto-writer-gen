@@ -65,7 +65,7 @@ export default function PlanBuilderPage() {
     if (!selectedKeyword) { setInsights([]); setLsiKeywords([]); setOutline([]); return; }
     const items: InsightItem[] = [];
     if (selectedKeyword.must_cover_topics) (selectedKeyword.must_cover_topics as string[]).forEach((t: string, i: number) => items.push({ id: `topic-${i}`, text: t, type: "topic" }));
-    if (selectedKeyword.content_gaps) (selectedKeyword.content_gaps as any[]).forEach((g: any, i: number) => items.push({ id: `gap-${i}`, text: `${g.topic} — ${g.reason}`, type: "gap" }));
+    if (selectedKeyword.content_gaps) (selectedKeyword.content_gaps as any[]).forEach((g: any, i: number) => items.push({ id: `gap-${i}`, text: `${g.topic} - ${g.reason}`, type: "gap" }));
     if (selectedKeyword.questions) (selectedKeyword.questions as string[]).forEach((q: string, i: number) => items.push({ id: `q-${i}`, text: q, type: "question" }));
     if (selectedKeyword.recommended_headings) (selectedKeyword.recommended_headings as string[]).forEach((h: string, i: number) => items.push({ id: `rec-${i}`, text: h, type: "heading" }));
     setInsights(items);
@@ -174,7 +174,7 @@ export default function PlanBuilderPage() {
             <Select value={selectedKeywordId} onValueChange={setSelectedKeywordId}>
               <SelectTrigger><SelectValue placeholder={t("planBuilder.selectKeywordPlaceholder")} /></SelectTrigger>
               <SelectContent>
-                {keywords.map((k: any) => (<SelectItem key={k.id} value={k.id}>{k.seed_keyword} — {k.intent}</SelectItem>))}
+                {keywords.map((k: any) => (<SelectItem key={k.id} value={k.id}>{k.seed_keyword} - {k.intent}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>

@@ -349,7 +349,7 @@ export function PbnTemplatesTab() {
             </div>
             <div>
               <Label className="text-xs">
-                Пары шрифтов (Heading,Body — по одной на строку)
+                Пары шрифтов (Heading,Body - по одной на строку)
               </Label>
               <Textarea
                 rows={3}

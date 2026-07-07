@@ -110,7 +110,7 @@ export function SectionHero() {
               {t("lp.heroMetric")}
             </motion.p>
 
-            {/* Реальные показатели качества — на основе блока «Доказательства качества» ниже */}
+            {/* Реальные показатели качества - на основе блока «Доказательства качества» ниже */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7, duration: 0.7 }}
               className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-xl mx-auto lg:mx-0">
               {[
@@ -127,7 +127,7 @@ export function SectionHero() {
             </motion.div>
           </div>
 
-          {/* Right — Stealth Guard */}
+          {/* Right - Stealth Guard */}
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, delay: 0.3 }}
             className="relative shrink-0">
             <div className="rounded-2xl border border-border bg-card p-2">

@@ -77,7 +77,7 @@ export function PipelineHealthTab() {
         ) : error ? (
           <div className="text-rose-500 flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> {(error as Error).message}</div>
         ) : !data || data.length === 0 ? (
-          <div className="text-muted-foreground">Нет событий за последние 24 часа. Pipeline observability только что подключен — данные появятся после первых генераций.</div>
+          <div className="text-muted-foreground">Нет событий за последние 24 часа. Pipeline observability только что подключен - данные появятся после первых генераций.</div>
         ) : (
           <div className="overflow-x-auto">
             <Table>

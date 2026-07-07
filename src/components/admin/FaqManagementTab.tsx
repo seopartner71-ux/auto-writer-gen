@@ -291,7 +291,7 @@ export function FaqManagementTab() {
                 <div>
                   <Label className="text-xs">Содержание (Markdown)</Label>
                   <p className="text-[11px] text-muted-foreground mb-1.5">
-                    # H1 &nbsp; ## H2 &nbsp; ### H3 &nbsp; **bold** &nbsp; `code` &nbsp; - список &nbsp; &gt; цитата &nbsp; --- разделитель &nbsp; ![описание](url) — изображение &nbsp; [текст](url) — ссылка
+                    # H1 &nbsp; ## H2 &nbsp; ### H3 &nbsp; **bold** &nbsp; `code` &nbsp; - список &nbsp; &gt; цитата &nbsp; --- разделитель &nbsp; ![описание](url) - изображение &nbsp; [текст](url) - ссылка
                   </p>
                   <Textarea
                     value={editingArticle.content || ""}

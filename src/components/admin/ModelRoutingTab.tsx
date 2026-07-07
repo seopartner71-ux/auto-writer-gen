@@ -107,7 +107,7 @@ export function ModelRoutingTab() {
         <Info className="h-4 w-4 text-primary" />
         <AlertDescription className="text-sm text-muted-foreground">
           <strong className="text-foreground">Скорость генерации</strong> напрямую зависит от выбранной модели.
-          Flash-модели генерируют статью за 20-60 секунд, Pro-модели — за 2-5 минут, но с лучшим качеством.
+          Flash-модели генерируют статью за 20-60 секунд, Pro-модели - за 2-5 минут, но с лучшим качеством.
           Для массовой генерации рекомендуется <code className="text-primary">flash-lite</code>.
         </AlertDescription>
       </Alert>

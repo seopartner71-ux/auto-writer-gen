@@ -36,6 +36,7 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { PLAN_LIMITS } from "@/shared/api/types";
 import { useUnseenChangelog } from "@/shared/hooks/useChangelogNotifier";
+import { LATEST_VERSION } from "@/data/changelog";
 import {
   Sidebar,
   SidebarContent,
@@ -146,7 +147,7 @@ export function AppSidebar() {
   const [moreOpen, setMoreOpen] = useState(morePaths.includes(location.pathname));
 
   const unseenChangelog = useUnseenChangelog();
-  const APP_VERSION = "v2.4";
+  const APP_VERSION = `v${LATEST_VERSION}`;
 
   const adminItems = [
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },

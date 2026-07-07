@@ -1,4 +1,4 @@
-// Central mock data for GEO modules — Prompts, Groups, Sources, Mentions
+// Central mock data for GEO modules - Prompts, Groups, Sources, Mentions
 
 export interface PromptGroup {
   id: string;

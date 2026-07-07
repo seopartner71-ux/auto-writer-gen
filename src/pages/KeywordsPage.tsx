@@ -215,11 +215,11 @@ export default function KeywordsPage() {
             <Label className="text-xs text-muted-foreground flex items-center justify-between">
               <span>{t("keywords.keyword")}</span>
               <span className="text-[10px] text-muted-foreground/70">
-                {isBatch ? `${parsedKeywords.length} / 10 запросов` : "До 10 запросов — по одному в строке"}
+                {isBatch ? `${parsedKeywords.length} / 10 запросов` : "До 10 запросов - по одному в строке"}
               </span>
             </Label>
             <Textarea
-              placeholder={`${t("keywords.keywordPlaceholder")}\nможно несколько — каждый с новой строки`}
+              placeholder={`${t("keywords.keywordPlaceholder")}\nможно несколько - каждый с новой строки`}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               onKeyDown={(e) => {

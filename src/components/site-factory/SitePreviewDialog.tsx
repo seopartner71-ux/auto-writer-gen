@@ -49,20 +49,20 @@ export function SitePreviewDialog({ open, onClose, onConfirm, spec, estimatedCos
     { title: `Топ-7 ошибок при работе с темой «${spec.topic}»`, author: "Ольга С.", days: 120, mins: 5 },
   ];
 
-  // Cost breakdown — matches the cost_log pricing table.
+  // Cost breakdown - matches the cost_log pricing table.
   const siteGenCost = 0.05;     // Gemini 2.5 Flash for site profile
   const articlesCost = 0.09;    // 3 starter articles via streaming Claude/Gemini
   const falImagesCost = 9 * 0.003; // ~9 FAL images: hero, why, guarantee, about, 3 team, 1 logo + buffer
   const totalCost = siteGenCost + articlesCost + falImagesCost;
 
-  // Tech preview placeholders — actual values are picked at deploy time.
+  // Tech preview placeholders - actual values are picked at deploy time.
   const wpVersion = "6.4.2";
   const wpTheme = "Astra";
   const seed = Math.random().toString(16).slice(2, 8);
 
   const accentColor = "#f97316";
   const fonts = "Inter + Playfair";
-  const titleTag = `${spec.siteName || spec.topic} — ${spec.topic}${spec.region ? ` в ${spec.region}` : ""}`;
+  const titleTag = `${spec.siteName || spec.topic} - ${spec.topic}${spec.region ? ` в ${spec.region}` : ""}`;
   const metaDesc = `Профессиональные решения по теме «${spec.topic}»${spec.region ? ` в ${spec.region}` : ""}. Опыт, гарантия, индивидуальный подход.`;
 
   return (
@@ -83,9 +83,9 @@ export function SitePreviewDialog({ open, onClose, onConfirm, spec, estimatedCos
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <PreviewField icon={<Tag className="h-3.5 w-3.5" />} label="Тематика" value={spec.topic} />
-            <PreviewField icon={<MapPin className="h-3.5 w-3.5" />} label="Регион" value={spec.region || "—"} />
+            <PreviewField icon={<MapPin className="h-3.5 w-3.5" />} label="Регион" value={spec.region || "-"} />
             <PreviewField icon={<Layers className="h-3.5 w-3.5" />} label="Шаблон" value={spec.templateName || "Случайный"} />
-            <PreviewField icon={<Users className="h-3.5 w-3.5" />} label="Аудитория" value={spec.audience || "—"} />
+            <PreviewField icon={<Users className="h-3.5 w-3.5" />} label="Аудитория" value={spec.audience || "-"} />
           </div>
 
           <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
@@ -141,7 +141,7 @@ export function SitePreviewDialog({ open, onClose, onConfirm, spec, estimatedCos
               ))}
             </ul>
             <div className="text-[10px] text-muted-foreground mt-2 italic">
-              Заголовки и авторы выше — пример. AI сгенерирует реальные тексты под вашу нишу.
+              Заголовки и авторы выше - пример. AI сгенерирует реальные тексты под вашу нишу.
             </div>
           </div>
 
@@ -189,7 +189,7 @@ export function SitePreviewDialog({ open, onClose, onConfirm, spec, estimatedCos
             <X className="h-4 w-4 mr-1" /> Изменить
           </Button>
           <Button onClick={onConfirm} className="gap-2">
-            <Rocket className="h-4 w-4" /> Всё хорошо — деплоить
+            <Rocket className="h-4 w-4" /> Всё хорошо - деплоить
           </Button>
         </DialogFooter>
       </DialogContent>

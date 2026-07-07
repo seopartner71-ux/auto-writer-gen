@@ -178,7 +178,7 @@ export default function PricingPage() {
         return;
       }
       if (yearly && !ids?.annual) {
-        toast.message("Annual plan not yet configured — proceeding with monthly checkout.");
+        toast.message("Annual plan not yet configured - proceeding with monthly checkout.");
       }
       setLoadingPlan(planId);
       try {
@@ -207,7 +207,7 @@ export default function PricingPage() {
         return;
       }
       if (yearly && !links?.annual) {
-        toast.message("Годовой план ещё не настроен — оформляем месячную подписку.");
+        toast.message("Годовой план ещё не настроен - оформляем месячную подписку.");
       }
       const url = new URL(link);
       if (user.email) url.searchParams.set("customer_email", user.email);
@@ -364,10 +364,10 @@ export default function PricingPage() {
               <tr><td>{isEn ? "Credits per month" : "Кредитов в месяц"}</td><td>150</td><td>450</td><td>1300</td></tr>
               <tr><td>{isEn ? "Approx. articles" : "Примерно статей"}</td><td>~30</td><td>~90</td><td>~260</td></tr>
               <tr><td>{isEn ? "SEO improvements" : "SEO улучшений"}</td><td>3</td><td>∞</td><td>∞</td></tr>
-              <tr><td>{isEn ? "Bulk generation" : "Bulk генерация"}</td><td>—</td><td>{isEn ? "up to 10" : "до 10"}</td><td>{isEn ? "unlimited" : "без лимита"}</td></tr>
-              <tr><td>{isEn ? "WordPress publishing" : "WordPress публикация"}</td><td>—</td><td>✓</td><td>✓</td></tr>
+              <tr><td>{isEn ? "Bulk generation" : "Bulk генерация"}</td><td>-</td><td>{isEn ? "up to 10" : "до 10"}</td><td>{isEn ? "unlimited" : "без лимита"}</td></tr>
+              <tr><td>{isEn ? "WordPress publishing" : "WordPress публикация"}</td><td>-</td><td>✓</td><td>✓</td></tr>
               <tr><td>{isEn ? "Users" : "Пользователей"}</td><td>1</td><td>1</td><td>2</td></tr>
-              <tr><td>{isEn ? "API access" : "API доступ"}</td><td>—</td><td>—</td><td>✓</td></tr>
+              <tr><td>{isEn ? "API access" : "API доступ"}</td><td>-</td><td>-</td><td>✓</td></tr>
               <tr><td>{isEn ? "Support" : "Поддержка"}</td><td>{isEn ? "Basic" : "Базовая"}</td><td>{isEn ? "Basic" : "Базовая"}</td><td>{isEn ? "Priority" : "Приоритет"}</td></tr>
             </tbody>
           </table>

@@ -146,7 +146,7 @@ export function LandingFooter() {
         {/* Legal */}
         <div className="mt-4 pt-4 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-[10px] font-mono text-gray-500 tracking-wide">
-            © {new Date().getFullYear()} {lang === "ru" ? "СЕО-Модуль" : "SEO-Module"} — {t("landing.copyright")}
+            © {new Date().getFullYear()} {lang === "ru" ? "СЕО-Модуль" : "SEO-Module"} - {t("landing.copyright")}
           </p>
           <p className="text-[9px] font-mono text-gray-500 tracking-wider max-w-md text-center sm:text-right leading-relaxed">
             {t("lp.footerLegal")}

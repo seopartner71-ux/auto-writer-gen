@@ -1,6 +1,6 @@
 /**
  * Lightweight client-side approximation of the Turgenev "risk score"
- * (0-10, lower is better). Used only as a LIVE indicator while streaming —
+ * (0-10, lower is better). Used only as a LIVE indicator while streaming -
  * the authoritative score still comes from the server check after save.
  *
  * Five sub-scores (0-2 each) following Turgenev's categories:

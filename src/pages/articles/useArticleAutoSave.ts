@@ -15,7 +15,7 @@ interface Options {
 /**
  * Debounced autosave for the article editor. Persists content/title/meta
  * to the `articles` row after `delayMs` of idle time. Skips while a
- * stream is in progress or another save is pending. Silent on errors —
+ * stream is in progress or another save is pending. Silent on errors -
  * the next debounce tick will retry.
  */
 export function useArticleAutoSave({
@@ -50,7 +50,7 @@ export function useArticleAutoSave({
           .eq("id", articleId);
         if (!error) lastSavedRef.current = content;
       } catch {
-        // silent — debounce will retry on next change
+        // silent - debounce will retry on next change
       }
     }, delayMs);
     return () => {

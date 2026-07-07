@@ -299,10 +299,10 @@ export default function RankTrackerPage() {
   };
 
   const renderPosition = (row?: Tracked) => {
-    if (!row) return <span className="text-xs text-muted-foreground">—</span>;
+    if (!row) return <span className="text-xs text-muted-foreground">-</span>;
     return (
       <span className={`font-bold ${posColor(row.last_position)}`}>
-        {row.last_position == null ? (row.last_checked_at ? ">30" : "—") : `#${row.last_position}`}
+        {row.last_position == null ? (row.last_checked_at ? ">30" : "-") : `#${row.last_position}`}
       </span>
     );
   };
@@ -484,7 +484,7 @@ export default function RankTrackerPage() {
                                 Yandex: {yandex.last_url.replace(/^https?:\/\//, "").slice(0, 48)}
                               </a>
                             )}
-                            {!google?.last_url && !yandex?.last_url && <span className="text-xs text-muted-foreground">—</span>}
+                            {!google?.last_url && !yandex?.last_url && <span className="text-xs text-muted-foreground">-</span>}
                           </div>
                         </td>
                         <td>
@@ -512,13 +512,13 @@ export default function RankTrackerPage() {
                                 <Line type="monotone" dataKey="yandex" stroke="hsl(var(--destructive))" strokeWidth={1.5} dot={false} connectNulls />
                               </LineChart>
                             </ResponsiveContainer>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                          ) : <span className="text-xs text-muted-foreground">-</span>}
                         </td>
                         <td className="text-xs text-muted-foreground">
-                          {placedAt ? new Date(placedAt).toLocaleDateString("ru") : "—"}
+                          {placedAt ? new Date(placedAt).toLocaleDateString("ru") : "-"}
                         </td>
                         <td className="text-xs text-muted-foreground">
-                          {latestRow?.last_checked_at ? new Date(latestRow.last_checked_at).toLocaleDateString("ru") : "—"}
+                          {latestRow?.last_checked_at ? new Date(latestRow.last_checked_at).toLocaleDateString("ru") : "-"}
                         </td>
                         <td>
                           <Button size="icon" variant="ghost" onClick={() => delMut.mutate(group.rows.map(row => row.id))} disabled={isImpersonating}>

@@ -61,7 +61,7 @@ export function GitHubProjectsTab() {
       setProjects(projectsWithTokenFlag as ProjectGH[]);
       const ed: Record<string, { repo: string; token: string }> = {};
       projectsWithTokenFlag.forEach((p: any) => {
-        // Editable token starts empty — user types new value to replace
+        // Editable token starts empty - user types new value to replace
         ed[p.id] = { repo: p.github_repo || "", token: "" };
       });
       setEditing(ed);
@@ -298,7 +298,7 @@ export function GitHubProjectsTab() {
                 Blogger (Google)
               </div>
               <div className="rounded-md border border-orange-500/30 bg-orange-500/5 p-3 text-xs text-muted-foreground space-y-1 ml-6">
-                <p>Blogger подключается через OAuth — пользователи коннектят свой Google-аккаунт сами на странице Site Factory → вкладка Blogger.</p>
+                <p>Blogger подключается через OAuth - пользователи коннектят свой Google-аккаунт сами на странице Site Factory → вкладка Blogger.</p>
                 <p>Серверные секреты <code className="text-orange-400">GOOGLE_BLOGGER_CLIENT_ID</code> и <code className="text-orange-400">GOOGLE_BLOGGER_CLIENT_SECRET</code> уже настроены в Edge Secrets.</p>
               </div>
             </div>

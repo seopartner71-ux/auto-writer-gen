@@ -180,7 +180,7 @@ export function TurgenevAnalyticsTab() {
           sub={
             avgBefore > 0
               ? `${goodAfter - goodBefore >= 0 ? "+" : ""}${(goodAfter - goodBefore).toFixed(1)} п.п.`
-              : "—"
+              : "-"
           }
           highlight
         />

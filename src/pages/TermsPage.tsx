@@ -80,9 +80,9 @@ function TermsFallbackEn() {
 
       <h2 className="text-lg font-bold text-foreground">4. Subscription Plans and Payment</h2>
       <ul className="list-disc pl-6 space-y-1">
-        <li>NANO: $19/month — 5 credits</li>
-        <li>PRO: $79/month — 40 credits</li>
-        <li>FACTORY: $249/month — 150 credits</li>
+        <li>NANO: $19/month - 5 credits</li>
+        <li>PRO: $79/month - 40 credits</li>
+        <li>FACTORY: $249/month - 150 credits</li>
       </ul>
       <p>Payments are processed securely through Polar (card). All prices are in USD. Credits are non-transferable and expire at the end of the billing period unless otherwise stated.</p>
 

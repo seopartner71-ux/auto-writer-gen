@@ -190,7 +190,7 @@ export function SupportManagementTab() {
                     <Badge variant={cfg.variant} className="text-xs">{cfg.label}</Badge>
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                    <span>{ticket.profile?.full_name || "—"}</span>
+                    <span>{ticket.profile?.full_name || "-"}</span>
                     <span>{ticket.profile?.email}</span>
                     <span>{format(new Date(ticket.created_at), "dd.MM.yy HH:mm")}</span>
                   </div>

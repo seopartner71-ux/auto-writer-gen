@@ -290,7 +290,7 @@ export default function ProjectsPage() {
                       </div>
                       <CardDescription className="flex items-center gap-1.5 text-xs">
                         <Globe className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{p.domain || "—"}</span>
+                        <span className="truncate">{p.domain || "-"}</span>
                       </CardDescription>
                     </div>
                     <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">

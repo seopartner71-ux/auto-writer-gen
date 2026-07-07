@@ -111,6 +111,10 @@ export function cosmeticNormalize(input: string): string {
   if (!input) return input;
   let out = input;
 
+  // Длинное тире (—) и среднее тире (–) заменяем на обычный дефис (-).
+  // Пробелы вокруг сохраняются: " — " → " - ", "слово—слово" → "слово-слово".
+  out = out.replace(/[—–]/g, "-");
+
   // Markdown-заголовки: "## что лучше" → "## Что лучше".
   out = out.replace(/^(\s{0,3}#{1,6}\s+)(\S)(.*)$/gm, (_m, hash, first, rest) => {
     return hash + first.toLocaleUpperCase("ru-RU") + rest;

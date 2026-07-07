@@ -82,7 +82,7 @@ function scoreColor(score: number | null | undefined) {
 
 // Parses "400-500 слов" / "от 400 до 500 слов" from prompt. Returns { min, max } or null.
 function parseWordRange(prompt: string): { min: number; max: number } | null {
-  const m = prompt.match(/(\d{2,5})\s*[-–—]\s*(\d{2,5})\s*слов/i)
+  const m = prompt.match(/(\d{2,5})\s*[---]\s*(\d{2,5})\s*слов/i)
     || prompt.match(/от\s+(\d{2,5})\s+до\s+(\d{2,5})\s+слов/i);
   if (!m) return null;
   const min = parseInt(m[1], 10);
@@ -404,7 +404,7 @@ export function ModelAbTestTab() {
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">
           Каждая модель генерирует N текстов, каждый оценивается детектором (gemini-2.5-flash-lite, temperature 0).
-          Рейтинг — по среднему AI Score среди засчитанных прогонов. Выше = человечнее.
+          Рейтинг - по среднему AI Score среди засчитанных прогонов. Выше = человечнее.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -457,7 +457,7 @@ export function ModelAbTestTab() {
               </SelectContent>
             </Select>
             {mode === "pipeline" && (
-              <div className="text-[10px] text-muted-foreground mt-1">В режиме конвейера — 1 прогон</div>
+              <div className="text-[10px] text-muted-foreground mt-1">В режиме конвейера - 1 прогон</div>
             )}
           </div>
           <Button onClick={run} disabled={running} className="flex-1">
@@ -534,11 +534,11 @@ export function ModelAbTestTab() {
                       {mode === "pipeline" ? (
                         <div className="flex items-center gap-2">
                           <span className={`font-semibold ${scoreColor(a.avgScore)}`}>
-                            {a.avgScore != null ? `${a.avgScore}` : "—"}
+                            {a.avgScore != null ? `${a.avgScore}` : "-"}
                           </span>
                           <span className="text-muted-foreground">→</span>
                           <span className={`font-semibold text-base ${scoreColor(a.avgPostScore)}`}>
-                            {a.avgPostScore != null ? `${a.avgPostScore}/100` : "—"}
+                            {a.avgPostScore != null ? `${a.avgPostScore}/100` : "-"}
                           </span>
                           {a.delta != null && (
                             <span className={`text-xs font-mono ${a.delta > 0 ? "text-emerald-400" : a.delta < 0 ? "text-red-400" : "text-muted-foreground"}`}>
@@ -549,10 +549,10 @@ export function ModelAbTestTab() {
                       ) : (
                         <>
                           <span className="text-muted-foreground">
-                            {a.minScore != null && a.maxScore != null ? `${a.minScore}–${a.maxScore}` : "—"}
+                            {a.minScore != null && a.maxScore != null ? `${a.minScore}-${a.maxScore}` : "-"}
                           </span>
                           <span className={`font-semibold text-base ${scoreColor(a.avgScore)}`}>
-                            {a.avgScore != null ? `${a.avgScore}/100` : "—"}
+                            {a.avgScore != null ? `${a.avgScore}/100` : "-"}
                           </span>
                         </>
                       )}
@@ -571,16 +571,16 @@ export function ModelAbTestTab() {
                               {mode === "pipeline" ? (
                                 <>
                                   <span className={`font-semibold ${scoreColor(r.ai_score)}`}>
-                                    {r.ai_score != null ? `${r.ai_score}` : "—"}
+                                    {r.ai_score != null ? `${r.ai_score}` : "-"}
                                   </span>
                                   <span className="text-muted-foreground">→</span>
                                   <span className={`font-semibold ${scoreColor(r.postAiScore)}`}>
-                                    {r.postAiScore != null ? `${r.postAiScore}/100` : "—"}
+                                    {r.postAiScore != null ? `${r.postAiScore}/100` : "-"}
                                   </span>
                                 </>
                               ) : (
                                 <span className={`font-semibold ${scoreColor(r.ai_score)}`}>
-                                  {r.ai_score != null ? `${r.ai_score}/100` : "—"}
+                                  {r.ai_score != null ? `${r.ai_score}/100` : "-"}
                                 </span>
                               )}
                             </div>
@@ -593,7 +593,7 @@ export function ModelAbTestTab() {
                               )}
                               {r.volumeFail && (
                                 <div className="text-[11px] text-amber-400 mb-1">
-                                  Не засчитан: неполный ответ ({r.word_count} слов, минимум {minThreshold ?? "—"})
+                                  Не засчитан: неполный ответ ({r.word_count} слов, минимум {minThreshold ?? "-"})
                                 </div>
                               )}
                               {!r.volumeFail && r.ai_score == null && (
@@ -670,7 +670,7 @@ export function ModelAbTestTab() {
                     {top && (
                       <div className="text-right shrink-0">
                         <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[180px]">{top.model}</div>
-                        <div className={`font-semibold ${scoreColor(topScore)}`}>{topScore != null ? `${topScore}/100` : "—"}</div>
+                        <div className={`font-semibold ${scoreColor(topScore)}`}>{topScore != null ? `${topScore}/100` : "-"}</div>
                       </div>
                     )}
                   </div>

@@ -247,7 +247,7 @@ function LogsList({ logs, isLoading }: { logs: LogEntry[]; isLoading: boolean })
     return (
       <div className="text-center py-12 text-muted-foreground">
         <AlertTriangle className="h-12 w-12 mx-auto mb-3 opacity-20" />
-        <p>Ошибок не найдено — всё работает штатно ✓</p>
+        <p>Ошибок не найдено - всё работает штатно ✓</p>
       </div>
     );
   }

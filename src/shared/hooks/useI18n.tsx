@@ -357,7 +357,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "persona.authorDeleted": { ru: "Автор удалён", en: "Author deleted" },
   "persona.styleAnalyzed": { ru: "Стиль проанализирован", en: "Style analyzed" },
   "persona.referenceText": { ru: "Эталонный текст автора", en: "Author Reference Text" },
-  "persona.referenceDesc": { ru: "Вставьте текст, написанный этим автором. ИИ будет копировать этот стиль при генерации статей. Чем больше текста — тем точнее стиль.", en: "Paste text written by this author. AI will copy this style when generating articles. More text = more accurate style." },
+  "persona.referenceDesc": { ru: "Вставьте текст, написанный этим автором. ИИ будет копировать этот стиль при генерации статей. Чем больше текста - тем точнее стиль.", en: "Paste text written by this author. AI will copy this style when generating articles. More text = more accurate style." },
   "persona.referencePlaceholder": { ru: "Вставьте сюда текст автора (статья, пост, эссе)... Минимум 200 символов для качественного результата.", en: "Paste the author's text here (article, post, essay)... Minimum 200 characters for quality results." },
   "persona.chars": { ru: "символов", en: "characters" },
   "persona.recommended200": { ru: "(рекомендуется ≥200)", en: "(recommended ≥200)" },
@@ -695,7 +695,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // GEO Radar page
   "radar.subtitle": { ru: "Мониторинг упоминаний бренда в ответах ИИ", en: "Monitor brand mentions in AI responses" },
   "radar.subtitleFull": { ru: "Мониторинг цитируемости бренда в ответах ИИ-моделей", en: "Monitor brand citation in AI model responses" },
-  "radar.geoSubtitle": { ru: "Generative Engine Optimization — мониторинг присутствия бренда в ИИ", en: "Generative Engine Optimization — monitor brand presence in AI" },
+  "radar.geoSubtitle": { ru: "Generative Engine Optimization - мониторинг присутствия бренда в ИИ", en: "Generative Engine Optimization - monitor brand presence in AI" },
   "radar.geoDesc": { ru: "Отслеживайте, упоминают ли нейросети ваш бренд, и получайте рекомендации по улучшению видимости", en: "Track whether AI models mention your brand and get recommendations to improve visibility" },
   "radar.newProject": { ru: "Новый проект", en: "New project" },
   "radar.deleteProject": { ru: "Удалить проект", en: "Delete project" },
@@ -923,7 +923,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "ps.instruction": { ru: "Инструкция (системный промпт)", en: "Instruction (system prompt)" },
   "ps.instructionPlaceholder": { ru: "Опишите стиль: тон, лексику, длину предложений, характерные обороты...", en: "Describe the style: tone, vocabulary, sentence length, typical phrases..." },
   "ps.sampleLabel": { ru: "Sample Text (необязательно)", en: "Sample Text (optional)" },
-  "ps.sampleHint": { ru: "Вставьте пример вашего текста — ИИ проанализирует стиль и дополнит инструкцию", en: "Paste a sample of your text — AI will analyze the style and enhance the instruction" },
+  "ps.sampleHint": { ru: "Вставьте пример вашего текста - ИИ проанализирует стиль и дополнит инструкцию", en: "Paste a sample of your text - AI will analyze the style and enhance the instruction" },
   "ps.samplePlaceholder": { ru: "Вставьте текст, написанный в нужном стиле (мин. 100 символов)...", en: "Paste text written in the desired style (min. 100 characters)..." },
   "ps.analyzing": { ru: "Анализируем стиль...", en: "Analyzing style..." },
   "ps.analyzeBtn": { ru: "Проанализировать стиль", en: "Analyze style" },
@@ -953,7 +953,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "sa.recommendedPrompt": { ru: "Рекомендуемый промпт", en: "Recommended prompt" },
   "common.collapse": { ru: "Свернуть", en: "Collapse" },
 
-  // Landing page — Hero
+  // Landing page - Hero
   "lp.badge": { ru: "SEO нового поколения", en: "Next-gen SEO" },
  "lp.heroLine1": { ru: "СЕО-Модуль", en: "SEO-Module" },
  "lp.heroLine2": { ru: "Проектируйте контент, который доминирует в поиске.", en: "Engineer content that dominates search." },
@@ -963,7 +963,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.stealthActive": { ru: "Stealth Mode Active", en: "Stealth Mode Active" },
   "lp.stealthProcessing": { ru: "Обработка...", en: "Processing..." },
 
-  // Landing — Smart Research section
+  // Landing - Smart Research section
   "lp.researchTitle": { ru: "Мы знаем, что хочет Google.", en: "We know what Google wants." },
   "lp.researchSub": { ru: "Алгоритмический шпионаж: извлекаем LSI-ключи и сущности из ТОП-10, чтобы ваш контент был неуязвим.", en: "Algorithmic espionage: we extract LSI keywords and entities from TOP-10 to make your content bulletproof." },
   "lp.researchMetric": { ru: "100% LSI & Entities Coverage", en: "100% LSI & Entities Coverage" },
@@ -972,12 +972,12 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.researchEntities": { ru: "Сущностей", en: "Entities" },
   "lp.researchGaps": { ru: "Content Gaps", en: "Content Gaps" },
 
-  // Landing — Persona Engine section
+  // Landing - Persona Engine section
   "lp.personaTitle": { ru: "Контент с душой эксперта.", en: "Content with an expert's soul." },
   "lp.personaSub": { ru: "Каждый текст звучит как написанный практикующим специалистом. Не роботом.", en: "Every text reads like it was written by a practicing expert. Not a robot." },
   "lp.personaMetric": { ru: "9 экспертных персон для любой ниши", en: "9 Expert Personas for any niche" },
 
-  // Landing — GEO & Radar section
+  // Landing - GEO & Radar section
   "lp.geoTitle": { ru: "Захватите ответы ChatGPT и Perplexity.", en: "Capture ChatGPT & Perplexity answers." },
   "lp.geoSub": { ru: "GEO Optimization - проектируем контент так, чтобы нейросети цитировали именно вас.", en: "GEO Optimization - we engineer content so AI models cite YOU." },
   "lp.geoMetric": { ru: "GEO Optimized: Доминируйте в AI-ответах", en: "GEO Optimized: Dominate AI Answers" },
@@ -985,7 +985,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.geoBrandFound": { ru: "Бренд найден", en: "Brand found" },
   "lp.geoBrandMissing": { ru: "Не найден", en: "Not found" },
 
-  // Landing — Factory section
+  // Landing - Factory section
   "lp.factoryTitle": { ru: "Контентный завод на автопилоте.", en: "Content factory on autopilot." },
   "lp.factorySub": { ru: "100+ SEO-статей за один цикл с автоматической публикацией в WordPress.", en: "100+ SEO articles per cycle with automatic WordPress publishing." },
   "lp.factoryMetric": { ru: "100+ статей за 15 минут", en: "100+ Articles in 15 Minutes" },
@@ -994,7 +994,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.factoryGenerating": { ru: "Генерация...", en: "Generating..." },
   "lp.factoryBulk": { ru: "Bulk Progress", en: "Bulk Progress" },
 
-  // Landing — Pricing (keep existing keys, add new ones)
+  // Landing - Pricing (keep existing keys, add new ones)
   "lp.pricingTitle": { ru: "Наши тарифы", en: "Pricing Plans" },
   "lp.pricingSub": { ru: "1 кредит = 1 полноценная SEO-статья под ключ", en: "1 credit = 1 full turnkey SEO article" },
   "lp.priceFree": { ru: "бесплатно", en: "free" },
@@ -1316,7 +1316,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "articles.customInstructionsPlaceholder": { ru: "Напр.: упомянуть сертификат GMP, сослаться на бренд", en: "E.g.: mention GMP certificate, reference brand" },
   "articles.bulkModeProOnly": { ru: "Массовая генерация доступна только на тарифе FACTORY", en: "Bulk generation available on FACTORY plan only" },
   "articles.faqSchemaGenerated": { ru: "FAQ и JSON-LD Schema сгенерированы", en: "FAQ and JSON-LD Schema generated" },
-  "articles.docDownloaded": { ru: "Файл .doc скачан — откройте в Google Docs", en: ".doc file downloaded — open in Google Docs" },
+  "articles.docDownloaded": { ru: "Файл .doc скачан - откройте в Google Docs", en: ".doc file downloaded - open in Google Docs" },
   "articles.autoFixBtn": { ru: "Исправить автоматически", en: "Auto-fix" },
   "articles.noContentToFix": { ru: "Нет контента для исправления", en: "No content to fix" },
   "articles.optimizedByBenchmark": { ru: "Статья оптимизирована по ТОП-10 бенчмарку", en: "Article optimized by TOP-10 benchmark" },
@@ -1338,7 +1338,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "articles.noUrl": { ru: "URL не указан", en: "No URL" },
   "articles.interlinkingHint": { ru: "Укажите Published URL у каждой статьи для корректной перелинковки.", en: "Set Published URL for each article for proper interlinking." },
   "articles.humanizedSuccess": { ru: "Текст успешно гуманизирован! Запах GPT устранён.", en: "Text humanized successfully! GPT smell eliminated." },
-  "articles.issueFixed": { ru: "Проблема исправлена — проверьте Human Score", en: "Issue fixed — check Human Score" },
+  "articles.issueFixed": { ru: "Проблема исправлена - проверьте Human Score", en: "Issue fixed - check Human Score" },
   "articles.userNotFound": { ru: "Пользователь не найден", en: "User not found" },
   "articles.articleTransferred": { ru: "Статья передана", en: "Article transferred" },
   "articles.creditSaved": { ru: "Статья сохранена, 1 кредит списан", en: "Article saved, 1 credit deducted" },
@@ -1363,7 +1363,7 @@ const translations: Record<string, Record<Lang, string>> = {
 
   // Support Page
   "support.title": { ru: "Поддержка", en: "Support" },
-  "support.subtitle": { ru: "Опишите проблему или задайте вопрос — мы поможем", en: "Describe your issue or ask a question — we'll help" },
+  "support.subtitle": { ru: "Опишите проблему или задайте вопрос - мы поможем", en: "Describe your issue or ask a question - we'll help" },
   "support.newRequest": { ru: "Новый запрос", en: "New Request" },
   "support.newRequestDesc": { ru: "Заполните форму и мы свяжемся с вами", en: "Fill out the form and we'll get back to you" },
   "support.subject": { ru: "Тема", en: "Subject" },
@@ -1449,19 +1449,19 @@ const translations: Record<string, Record<Lang, string>> = {
   "integrations.saving": { ru: "Сохранение...", en: "Saving..." },
   "integrations.ghostTitle": { ru: "Настройка Ghost", en: "Ghost Setup" },
   "integrations.ghostDesc": { ru: "Введите URL вашего Ghost-блога и Admin API Key. Ключ можно создать в Ghost Admin → Settings → Integrations → Custom.", en: "Enter your Ghost blog URL and Admin API Key. Create the key in Ghost Admin → Settings → Integrations → Custom." },
-  "integrations.telegraphDesc": { ru: "Не требует настройки. Нажмите кнопку «Telegra.ph» в редакторе статьи — публикация произойдёт мгновенно.", en: "No setup required. Click the 'Telegra.ph' button in the article editor — publishing is instant." },
+  "integrations.telegraphDesc": { ru: "Не требует настройки. Нажмите кнопку «Telegra.ph» в редакторе статьи - публикация произойдёт мгновенно.", en: "No setup required. Click the 'Telegra.ph' button in the article editor - publishing is instant." },
   "integrations.telegraphReady": { ru: "Готово", en: "Ready" },
   "integrations.ghostConfigured": { ru: "Настроено", en: "Configured" },
   "integrations.ghostNotConfigured": { ru: "Требует настройки", en: "Needs Setup" },
   "integrations.builtIn": { ru: "Встроено", en: "Built-in" },
   "integrations.telegraphPlatformDesc": { ru: "Моментальная публикация без авторизации. Статья публикуется в один клик прямо из редактора.", en: "Instant publishing without authorization. Article is published in one click from the editor." },
   "integrations.ghostPlatformDesc": { ru: "Популярная SEO-платформа для блогов. Статьи публикуются как черновики через Admin API.", en: "Popular SEO platform for blogs. Articles are published as drafts via Admin API." },
-  "integrations.miralinksPlatformDesc": { ru: "Биржа ссылок. Выберите профиль 'Miralinks Expert' при генерации — статья будет соответствовать требованиям модерации.", en: "Link exchange. Select 'Miralinks Expert' profile when generating — article will meet moderation requirements." },
-  "integrations.gogetlinksPlatformDesc": { ru: "Биржа контекстных ссылок. Выберите профиль 'GoGetLinks Expert' при генерации — статья будет соответствовать требованиям.", en: "Contextual link exchange. Select 'GoGetLinks Expert' profile when generating — article will meet requirements." },
+  "integrations.miralinksPlatformDesc": { ru: "Биржа ссылок. Выберите профиль 'Miralinks Expert' при генерации - статья будет соответствовать требованиям модерации.", en: "Link exchange. Select 'Miralinks Expert' profile when generating - article will meet moderation requirements." },
+  "integrations.gogetlinksPlatformDesc": { ru: "Биржа контекстных ссылок. Выберите профиль 'GoGetLinks Expert' при генерации - статья будет соответствовать требованиям.", en: "Contextual link exchange. Select 'GoGetLinks Expert' profile when generating - article will meet requirements." },
   "integrations.ghostDocLabel": { ru: "Документация Ghost", en: "Ghost Documentation" },
 
   // Blogger
-  "integrations.bloggerPlatformDesc": { ru: "Бесплатная платформа Google для блогов. Подключите Google-аккаунт — публикация в один клик с поддержкой массовой генерации.", en: "Google's free blogging platform. Connect your Google account — one-click publishing with bulk-mode support." },
+  "integrations.bloggerPlatformDesc": { ru: "Бесплатная платформа Google для блогов. Подключите Google-аккаунт - публикация в один клик с поддержкой массовой генерации.", en: "Google's free blogging platform. Connect your Google account - one-click publishing with bulk-mode support." },
   "integrations.bloggerConfigured": { ru: "Подключено", en: "Connected" },
   "integrations.bloggerNotConfigured": { ru: "Требует подключения", en: "Needs connection" },
   "integrations.bloggerDesc": { ru: "Авторизуйтесь через Google и выберите блог по умолчанию. Используется OAuth со scope blogger.", en: "Sign in with Google and pick your default blog. Uses OAuth with the blogger scope." },
@@ -1516,7 +1516,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "articles.faqGenerated": { ru: "FAQ и JSON-LD Schema сгенерированы", en: "FAQ and JSON-LD Schema generated" },
 
   // Trial / Paywall
-  "trial.bannerLastCredit": { ru: "Остался 1 бесплатный кредит. Перейдите на PRO — 40 статей за 5 900 ₽/мес", en: "1 free credit left. Upgrade to PRO — 40 articles for $65/mo" },
+  "trial.bannerLastCredit": { ru: "Остался 1 бесплатный кредит. Перейдите на PRO - 40 статей за 5 900 ₽/мес", en: "1 free credit left. Upgrade to PRO - 40 articles for $65/mo" },
   "trial.goToPro": { ru: "Перейти на PRO", en: "Upgrade to PRO" },
   "trial.expired": { ru: "Пробный период истёк", en: "Trial expired" },
   "trial.expiredDesc": { ru: "Ваш 7-дневный бесплатный период закончился. Выберите тариф, чтобы продолжить.", en: "Your 7-day free trial has ended. Choose a plan to continue." },
@@ -1526,9 +1526,9 @@ const translations: Record<string, Record<Lang, string>> = {
   "trial.declineLater": { ru: "Позже", en: "Later" },
   "trial.nudgeTitle": { ru: "Вы ещё не попробовали генерацию!", en: "You haven't tried generation yet!" },
   "trial.nudgeDesc": { ru: "Создайте первую SEO-статью за 3 минуты →", en: "Create your first SEO article in 3 minutes →" },
-  "trial.nano": { ru: "NANO — 990 ₽/мес", en: "NANO — $15/mo" },
-  "trial.pro": { ru: "PRO — 5 900 ₽/мес", en: "PRO — $65/mo" },
-  "trial.factory": { ru: "FACTORY — 19 900 ₽/мес", en: "FACTORY — $220/mo" },
+  "trial.nano": { ru: "NANO - 990 ₽/мес", en: "NANO - $15/mo" },
+  "trial.pro": { ru: "PRO - 5 900 ₽/мес", en: "PRO - $65/mo" },
+  "trial.factory": { ru: "FACTORY - 19 900 ₽/мес", en: "FACTORY - $220/mo" },
   "trial.nanoDesc": { ru: "5 статей в месяц", en: "5 articles per month" },
   "trial.proDesc": { ru: "40 статей + Stealth Engine + Fact-Check", en: "40 articles + Stealth Engine + Fact-Check" },
   "trial.factoryDesc": { ru: "150 статей + Bulk + авто-публикация", en: "150 articles + Bulk + auto-publish" },
@@ -1551,7 +1551,7 @@ const translations: Record<string, Record<Lang, string>> = {
   "onboarding.congratsTitle": { ru: "Первая статья готова! 🎉", en: "First article is ready! 🎉" },
   "onboarding.congratsDesc": { ru: "Отличная работа! Перейдите на PRO тариф для большего количества статей.", en: "Great job! Upgrade to PRO plan for more articles." },
   "onboarding.upgradePro": { ru: "Перейти на PRO →", en: "Upgrade to PRO →" },
-  "onboarding.hintKeyword": { ru: "💡 Введите ключевое слово — например «купить диван недорого» или «как похудеть за месяц»", en: "💡 Enter a keyword — for example 'buy sofa cheap' or 'how to lose weight in a month'" },
+  "onboarding.hintKeyword": { ru: "💡 Введите ключевое слово - например «купить диван недорого» или «как похудеть за месяц»", en: "💡 Enter a keyword - for example 'buy sofa cheap' or 'how to lose weight in a month'" },
   "onboarding.hintStructure": { ru: "💡 Сначала исследуйте ключевое слово в Smart Research", en: "💡 First, research a keyword in Smart Research" },
   "onboarding.hintWriter": { ru: "💡 Для лучшего результата сначала пройдите Smart Research и Структуру статьи", en: "💡 For best results, complete Smart Research and Article Structure first" },
   "onboarding.goToResearch": { ru: "Перейти в Smart Research →", en: "Go to Smart Research →" },

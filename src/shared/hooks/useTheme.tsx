@@ -8,7 +8,7 @@ interface ThemeContextValue {
   toggleTheme: () => void;
   /** True if the user explicitly toggled the theme (vs route default). */
   isExplicit: boolean;
-  /** Apply a route-level default theme — only takes effect if user hasn't explicitly chosen. */
+  /** Apply a route-level default theme - only takes effect if user hasn't explicitly chosen. */
   applyRouteDefault: (t: Theme) => void;
 }
 

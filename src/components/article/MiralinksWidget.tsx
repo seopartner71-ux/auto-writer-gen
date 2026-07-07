@@ -152,7 +152,7 @@ async function generateDocx(md: string, title: string, metaDesc: string): Promis
       continue;
     }
 
-    // Images — add as text reference
+    // Images - add as text reference
     const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
     if (imgMatch) {
       children.push(new Paragraph({

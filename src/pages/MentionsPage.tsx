@@ -27,7 +27,7 @@ const getSentimentBadge = (t: (k: string) => string): Record<string, { label: st
   positive: { label: t("mentions.sentPositive"), variant: "default" },
   negative: { label: t("mentions.sentNegative"), variant: "destructive" },
   neutral: { label: t("mentions.sentNeutral"), variant: "secondary" },
-  not_found: { label: "—", variant: "secondary" },
+  not_found: { label: "-", variant: "secondary" },
 });
 
 export default function MentionsPage({ projectId }: { projectId?: string }) {

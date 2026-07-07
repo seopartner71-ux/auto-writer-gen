@@ -19,12 +19,12 @@ import avatar12 from "@/assets/avatars/avatar-12.webp";
 
 const testimonials = {
   ru: [
-    { quote: "Спросите ChatGPT о бассейнах — он даст урок химии. Спросите СЕО-Модуль — он расскажет про тарифы на свет в Аризоне. В этом разница.", author: "Алексей М.", role: "SEO-директор, агентство", img: avatar01 },
+    { quote: "Спросите ChatGPT о бассейнах - он даст урок химии. Спросите СЕО-Модуль - он расскажет про тарифы на свет в Аризоне. В этом разница.", author: "Алексей М.", role: "SEO-директор, агентство", img: avatar01 },
     { quote: "За первый месяц мы вывели 47 статей в топ-10. Factory + Persona Engine дал масштаб без потери качества.", author: "Мария К.", role: "Контент-маркетолог", img: avatar02 },
     { quote: "GEO Radar показал, что Perplexity цитирует наши статьи как первоисточник. Мы обучаем нейросети рекомендовать наш бренд.", author: "Дмитрий В.", role: "Founder, SaaS-стартап", img: avatar03 },
-    { quote: "Stealth Engine — это магия. 1.57% AI detection на выходе. Ни один детектор не может отличить от человеческого текста.", author: "Ирина С.", role: "Копирайтер, фриланс", img: avatar04 },
-    { quote: "Раньше одна статья занимала 4 часа. Сейчас — 15 минут. И качество выше, чем у штатных авторов.", author: "Олег Н.", role: "Руководитель контент-отдела", img: avatar05 },
-    { quote: "Smart Research — это как иметь аналитика, который за минуту разбирает весь ТОП-10 и выдаёт стратегию.", author: "Анна Т.", role: "SEO-специалист", img: avatar06 },
+    { quote: "Stealth Engine - это магия. 1.57% AI detection на выходе. Ни один детектор не может отличить от человеческого текста.", author: "Ирина С.", role: "Копирайтер, фриланс", img: avatar04 },
+    { quote: "Раньше одна статья занимала 4 часа. Сейчас - 15 минут. И качество выше, чем у штатных авторов.", author: "Олег Н.", role: "Руководитель контент-отдела", img: avatar05 },
+    { quote: "Smart Research - это как иметь аналитика, который за минуту разбирает весь ТОП-10 и выдаёт стратегию.", author: "Анна Т.", role: "SEO-специалист", img: avatar06 },
     { quote: "Мы подключили WordPress Auto-Publish и забыли о рутине. Контент выходит по расписанию без нашего участия.", author: "Павел Д.", role: "Владелец интернет-магазина", img: avatar07 },
     { quote: "Persona Engine идеально скопировал мой стиль. Клиенты не отличают мои тексты от сгенерированных.", author: "Елена Р.", role: "Блогер, автор", img: avatar08 },
     { quote: "100 статей за неделю через Factory. Раньше это заняло бы 3 месяца у команды из 5 человек.", author: "Сергей Л.", role: "CEO, контент-агентство", img: avatar09 },
@@ -33,11 +33,11 @@ const testimonials = {
     { quote: "Поддержка отвечает моментально. Ощущение, что работаешь с командой, а не с сервисом.", author: "Юлия Б.", role: "Менеджер проектов", img: avatar12 },
   ],
   en: [
-    { quote: "Ask ChatGPT about pools — you get a chemistry lesson. Ask СЕО-Модуль — it tells you about electricity rates in Arizona. That's the difference.", author: "Alex M.", role: "SEO Director, Agency", img: avatar01 },
+    { quote: "Ask ChatGPT about pools - you get a chemistry lesson. Ask СЕО-Модуль - it tells you about electricity rates in Arizona. That's the difference.", author: "Alex M.", role: "SEO Director, Agency", img: avatar01 },
     { quote: "In the first month we pushed 47 articles into the top 10. Factory + Persona Engine gave us scale without losing quality.", author: "Maria K.", role: "Content Marketer", img: avatar02 },
     { quote: "GEO Radar showed that Perplexity already cites our articles as a primary source. We're training neural networks to recommend our brand.", author: "Dmitry V.", role: "Founder, SaaS Startup", img: avatar03 },
     { quote: "Stealth Engine is magic. 1.57% AI detection on output. No detector can tell it apart from human text.", author: "Irina S.", role: "Freelance Copywriter", img: avatar04 },
-    { quote: "One article used to take 4 hours. Now — 15 minutes. And the quality is higher than our in-house writers.", author: "Oleg N.", role: "Content Team Lead", img: avatar05 },
+    { quote: "One article used to take 4 hours. Now - 15 minutes. And the quality is higher than our in-house writers.", author: "Oleg N.", role: "Content Team Lead", img: avatar05 },
     { quote: "Smart Research is like having an analyst who breaks down the entire Top 10 in a minute and delivers a strategy.", author: "Anna T.", role: "SEO Specialist", img: avatar06 },
     { quote: "We connected WordPress Auto-Publish and forgot about routine. Content goes live on schedule without us.", author: "Pavel D.", role: "E-commerce Owner", img: avatar07 },
     { quote: "Persona Engine perfectly copied my style. Clients can't tell my texts from generated ones.", author: "Elena R.", role: "Blogger, Author", img: avatar08 },

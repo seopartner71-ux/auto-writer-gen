@@ -53,7 +53,7 @@ interface GenerationFormProps {
   customInstructions: string;
   onCustomInstructionsChange: (v: string) => void;
 
-  // Source page (user's own URL — facts injected into prompt)
+  // Source page (user's own URL - facts injected into prompt)
   sourcePageUrl: string;
   onSourcePageUrlChange: (v: string) => void;
   sourcePageFacts: any | null;
@@ -147,7 +147,7 @@ export function GenerationForm(props: GenerationFormProps) {
               <SelectItem value="none">{t("projects.noProject")}</SelectItem>
               {projects.map((p: any) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.name} ({p.domain || "—"})
+                  {p.name} ({p.domain || "-"})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -203,7 +203,7 @@ export function GenerationForm(props: GenerationFormProps) {
             <SelectContent>
               {keywords.map((k: any) => (
                 <SelectItem key={k.id} value={k.id}>
-                  {k.seed_keyword} — {k.intent}
+                  {k.seed_keyword} - {k.intent}
                 </SelectItem>
               ))}
             </SelectContent>

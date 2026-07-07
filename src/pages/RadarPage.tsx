@@ -1305,24 +1305,24 @@ export default function RadarPage() {
                       tips.push({ icon: AlertTriangle, color: "text-destructive", priority: 1, text: "Критически низкая видимость. Создайте экспертный контент с упоминанием бренда на авторитетных площадках (Wikipedia, отраслевые медиа, GitHub, научные публикации)." });
                     }
 
-                    // Weak models — specific actions
+                    // Weak models - specific actions
                     if (weakModels.length > 0) {
                       const names = weakModels.map(m => m.label).join(", ");
                       if (weakModels.length >= 4) {
                         tips.push({ icon: Target, color: "text-destructive", priority: 2, text: `${names} не знают ваш бренд. Приоритет: разместите обзоры и кейсы на площадках, которые эти модели используют как источники (Reddit, Habr, Medium, отраслевые форумы).` });
                       } else {
-                        tips.push({ icon: Target, color: "text-orange-400", priority: 3, text: `${names} — слабое покрытие. Опубликуйте сравнительные обзоры «${activeProject?.brand_name} vs конкурент» на площадках, индексируемых этими моделями.` });
+                        tips.push({ icon: Target, color: "text-orange-400", priority: 3, text: `${names} - слабое покрытие. Опубликуйте сравнительные обзоры «${activeProject?.brand_name} vs конкурент» на площадках, индексируемых этими моделями.` });
                       }
                     }
 
-                    // Strong models — leverage
+                    // Strong models - leverage
                     if (strongModels.length > 0) {
                       tips.push({ icon: CheckCircle2, color: "text-green-400", priority: 8, text: `${strongModels.map(m => m.label).join(", ")} уверенно рекомендуют ваш бренд. Используйте эти модели для генерации контента с упоминанием вашего бренда.` });
                     }
 
-                    // Mid models — almost there
+                    // Mid models - almost there
                     if (midModels.length > 0) {
-                      tips.push({ icon: TrendingUp, color: "text-yellow-400", priority: 5, text: `${midModels.map(m => m.label).join(", ")} — частичное покрытие. Добавьте структурированные данные (FAQ, How-to schema) и Data Nuggets с уникальной статистикой.` });
+                      tips.push({ icon: TrendingUp, color: "text-yellow-400", priority: 5, text: `${midModels.map(m => m.label).join(", ")} - частичное покрытие. Добавьте структурированные данные (FAQ, How-to schema) и Data Nuggets с уникальной статистикой.` });
                     }
 
                     // Negative sentiment high

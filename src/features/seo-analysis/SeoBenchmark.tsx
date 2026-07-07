@@ -228,7 +228,7 @@ export const SeoBenchmark = forwardRef<HTMLDivElement, SeoBenchmarkProps>(functi
         median: bm.video_percentage > 50 ? t("bench.yes") : t("bench.optional"),
         yours: hasVideo ? t("bench.yes") : t("bench.no"),
         status: hasVideo || bm.video_percentage <= 50 ? "done" : "error",
-        statusLabel: hasVideo ? `✅ ${t("bench.statusHasVideo")}` : bm.video_percentage > 50 ? `❌ ${t("bench.statusRecommended")}` : "—",
+        statusLabel: hasVideo ? `✅ ${t("bench.statusHasVideo")}` : bm.video_percentage > 50 ? `❌ ${t("bench.statusRecommended")}` : "-",
         weight: 5,
         score: hasVideo ? 100 : bm.video_percentage > 50 ? 0 : 100,
       },
@@ -343,7 +343,7 @@ export const SeoBenchmark = forwardRef<HTMLDivElement, SeoBenchmarkProps>(functi
 
       const mustUsePhrases = result.must_use_phrases
         .slice(0, 12)
-        .map((p) => `${p.phrase} — ${p.reason}`);
+        .map((p) => `${p.phrase} - ${p.reason}`);
 
       const tfidfRecommendations = result.tfidf_phrases
         .slice(0, 10)
@@ -354,7 +354,7 @@ export const SeoBenchmark = forwardRef<HTMLDivElement, SeoBenchmarkProps>(functi
         `Целевое число H2: ${result.benchmark.target_h2_count}, медиана H3: ${result.benchmark.median_h3_count}`,
         `Целевое число изображений: ${result.benchmark.target_img_count}`,
         `Целевая плотность ключа: около ${result.benchmark.median_keyword_density}%`,
-        result.benchmark.video_percentage > 50 ? `У ${result.benchmark.video_percentage}% страниц из TOP-10 есть видео — добавь видеоблок или упоминание видеоформата.` : null,
+        result.benchmark.video_percentage > 50 ? `У ${result.benchmark.video_percentage}% страниц из TOP-10 есть видео - добавь видеоблок или упоминание видеоформата.` : null,
         missingStructure.length > 0 ? `Добавь недостающие блоки структуры из лидеров TOP-10:\n${missingStructure.map((item) => `- ${item}`).join("\n")}` : null,
         entityCoverage.missing.length > 0 ? `Обязательно раскрой отсутствующие сущности:\n- ${entityCoverage.missing.map((e) => e.name).join("\n- ")}` : null,
         mustUsePhrases.length > 0 ? `Добавь фразы, которые часто встречаются у TOP-10:\n${mustUsePhrases.map((item) => `- ${item}`).join("\n")}` : null,

@@ -10,7 +10,7 @@ import { FloatingCTA } from "@/components/landing/FloatingCTA";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { useEffect } from "react";
 
-// Below-fold sections — lazy loaded
+// Below-fold sections - lazy loaded
 const SectionResearch = lazy(() => import("@/components/landing/SectionResearch").then(m => ({ default: m.SectionResearch })));
 const LandingSandbox = lazy(() => import("@/components/landing/LandingSandbox").then(m => ({ default: m.LandingSandbox })));
 const SectionVideoDemo = lazy(() => import("@/components/landing/SectionVideoDemo").then(m => ({ default: m.SectionVideoDemo })));
@@ -30,8 +30,8 @@ export default function Index() {
 
   useEffect(() => {
     document.title = lang === "ru"
-      ? "СЕО-Модуль — AI-экосистема для SEO-контента"
-      : "SEO-Module — AI-Powered SEO Content Ecosystem";
+      ? "СЕО-Модуль - AI-экосистема для SEO-контента"
+      : "SEO-Module - AI-Powered SEO Content Ecosystem";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute("content", lang === "ru"
@@ -84,12 +84,12 @@ export default function Index() {
 
     const faqItems = isEn
       ? [
-          { q: "How does СЕО-Модуль differ from ChatGPT?", a: "СЕО-Модуль is a specialized SEO ecosystem with Smart Research, competitor analysis, GEO optimization, and Stealth Engine — not a general chatbot." },
+          { q: "How does СЕО-Модуль differ from ChatGPT?", a: "СЕО-Модуль is a specialized SEO ecosystem with Smart Research, competitor analysis, GEO optimization, and Stealth Engine - not a general chatbot." },
           { q: "What is GEO Radar?", a: "GEO Radar monitors how AI assistants (ChatGPT, Perplexity, Gemini) mention your brand and tracks your visibility in AI-generated answers." },
           { q: "Is there a free plan?", a: "Yes, the Starter plan includes 3 free article generations per month with full Smart Research capabilities." },
         ]
       : [
-          { q: "Чем СЕО-Модуль отличается от ChatGPT?", a: "СЕО-Модуль — это специализированная SEO-экосистема со Smart Research, анализом конкурентов, GEO-оптимизацией и Stealth Engine, а не общий чат-бот." },
+          { q: "Чем СЕО-Модуль отличается от ChatGPT?", a: "СЕО-Модуль - это специализированная SEO-экосистема со Smart Research, анализом конкурентов, GEO-оптимизацией и Stealth Engine, а не общий чат-бот." },
           { q: "Что такое GEO Радар?", a: "GEO Радар отслеживает, как AI-ассистенты (ChatGPT, Perplexity, Gemini) упоминают ваш бренд и мониторит вашу видимость в AI-ответах." },
           { q: "Есть ли бесплатный тариф?", a: "Да, тариф Starter включает 3 бесплатные генерации статей в месяц с полным доступом к Smart Research." },
         ];

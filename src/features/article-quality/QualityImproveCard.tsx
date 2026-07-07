@@ -43,8 +43,8 @@ interface CycleProgress {
   priority?: Priority;
 }
 
-function fmtAi(v: number | null) { return v == null ? "—" : `${Math.round(v)}%`; }
-function fmtTurg(v: number | null) { return v == null ? "—" : `${v}`; }
+function fmtAi(v: number | null) { return v == null ? "-" : `${Math.round(v)}%`; }
+function fmtTurg(v: number | null) { return v == null ? "-" : `${v}`; }
 function aiOk(v: number | null) { return v != null && v >= AI_TARGET; }
 function turgOk(v: number | null) { return v != null && v <= TURG_TARGET; }
 
@@ -57,7 +57,7 @@ function actionLabel(a: CycleProgress["action"]): string {
 function finalStatusLabel(s: CycleProgress["final_status"]): string {
   switch (s) {
     case "targets_met":  return "Оба показателя в норме";
-    case "balanced":     return "Достигнут баланс — дальнейшее улучшение ухудшает другой показатель";
+    case "balanced":     return "Достигнут баланс - дальнейшее улучшение ухудшает другой показатель";
     case "no_progress":  return "Прогресса нет два прохода подряд";
     case "max_passes":   return `Достигнут лимит в ${MAX_PASSES} прохода`;
     case "stopped":      return "Остановлено пользователем";
@@ -136,7 +136,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     ? (row.quality_details.cycle_progress ?? null)
     : null;
 
-  // Derive running/finished state entirely from server truth — survives F5.
+  // Derive running/finished state entirely from server truth - survives F5.
   const running =
     starting ||
     row.quality_status === "improving" ||
@@ -157,7 +157,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       row.quality_status === "checking" ||
       cycle?.status === "running";
     if (serverRunning) {
-      // Server picked it up — no longer need the client-side flag.
+      // Server picked it up - no longer need the client-side flag.
       setStarting(false);
       startingSinceRef.current = null;
       return;
@@ -192,7 +192,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         .from("articles")
         .update({ improve_stop_requested: true } as any)
         .eq("id", articleId);
-      toast.message("Остановка запрошена — цикл завершится после текущего шага");
+      toast.message("Остановка запрошена - цикл завершится после текущего шага");
     } catch (e: any) {
       toast.error(e?.message || "Не удалось остановить");
       setStopping(false);
@@ -243,7 +243,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         toast.message(payload?.message || "Подождите перед повторной доработкой");
         return;
       }
-      toast.message("Цикл запущен. Можно закрыть или обновить страницу — работа продолжится на сервере.");
+      toast.message("Цикл запущен. Можно закрыть или обновить страницу - работа продолжится на сервере.");
     } catch (e: any) {
       setStarting(false);
       startingSinceRef.current = null;
@@ -340,12 +340,12 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               <ImprovingTipsLoader />
               {cycle?.started_at && (
                 <div className="text-[11px] text-muted-foreground tabular-nums">
-                  {elapsedLabel} · обычно 2–6 минут
+                  {elapsedLabel} · обычно 2-6 минут
                 </div>
               )}
               {escalationLevel === "long" && (
                 <div className="text-[11px] text-amber-300 text-center">
-                  ⏱ Дольше обычного — можно остановить и забрать лучшее.
+                  ⏱ Дольше обычного - можно остановить и забрать лучшее.
                 </div>
               )}
               {escalationLevel === "stuck" && (
@@ -361,16 +361,16 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               </div>
               <Progress value={progressPct} className="h-2" />
               <div className="text-[11px] text-muted-foreground/80">
-                Обычно 2–6 минут. Работа идёт на сервере — F5 её не прервёт.
+                Обычно 2-6 минут. Работа идёт на сервере - F5 её не прервёт.
               </div>
               {escalationLevel === "long" && (
                 <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
-                  ⏱ Дольше обычного. Можно подождать ещё пару минут — или остановить и забрать лучший результат.
+                  ⏱ Дольше обычного. Можно подождать ещё пару минут - или остановить и забрать лучший результат.
                 </div>
               )}
               {escalationLevel === "stuck" && (
                 <div className="text-[11px] text-rose-200 bg-rose-500/10 border border-rose-500/40 rounded px-2 py-1.5">
-                  ⚠ Похоже, цикл завис. Остановите и сохраните лучшее — при следующем запуске мы автоматически сбросим зависший цикл.
+                  ⚠ Похоже, цикл завис. Остановите и сохраните лучшее - при следующем запуске мы автоматически сбросим зависший цикл.
                 </div>
               )}
             </>
@@ -463,7 +463,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
                 <Step n="2" name="Тургенев-фикс" what="Убирает канцеляризмы, разбивает длинные фразы, перефразирует повторы. Снижает балл Тургенева." />
                 <Step n="3" name="Финальная проверка" what="Перепроверяет AI Score и Тургенев. Если шаг ухудшил метрики - откат." />
                 <div className="pt-1.5 border-t border-border/60 text-muted-foreground/80 leading-snug">
-                  Цель: AI ≥ {AI_TARGET}% (человечно), Тургенев ≤ {TURG_TARGET}. Максимум {MAX_PASSES} прохода. Цикл идёт на сервере — обновление страницы не прервёт его.
+                  Цель: AI ≥ {AI_TARGET}% (человечно), Тургенев ≤ {TURG_TARGET}. Максимум {MAX_PASSES} прохода. Цикл идёт на сервере - обновление страницы не прервёт его.
                 </div>
               </div>
             )}

@@ -456,7 +456,7 @@ function OnlineUsersPanel() {
         return {
           id: s.user_id,
           email: p?.email || s.user_id.slice(0, 8),
-          name: p?.full_name || "—",
+          name: p?.full_name || "-",
           plan: p?.plan || "free",
           lastActivity: s.last_activity_at,
         };
@@ -563,7 +563,7 @@ function AdminDashboard() {
       planMap[plan] = (planMap[plan] || 0) + 1;
     });
 
-    // Registration chart — last 30 days
+    // Registration chart - last 30 days
     const now = new Date();
     const regDays: { date: string; count: number }[] = [];
     for (let i = 29; i >= 0; i--) {
@@ -586,7 +586,7 @@ function AdminDashboard() {
       .slice(0, 5)
       .map(([uid, count]) => {
         const p = profiles.find((pr: any) => pr.id === uid);
-        return { email: p?.email || uid.slice(0, 8), name: p?.full_name || "—", count };
+        return { email: p?.email || uid.slice(0, 8), name: p?.full_name || "-", count };
       });
 
     // Recent registrations
@@ -819,7 +819,7 @@ function AdminDashboard() {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground shrink-0">
-                      {u.created_at ? format(new Date(u.created_at), "dd.MM.yy HH:mm", { locale: ru }) : "—"}
+                      {u.created_at ? format(new Date(u.created_at), "dd.MM.yy HH:mm", { locale: ru }) : "-"}
                     </span>
                   </div>
                 ))}
@@ -994,7 +994,7 @@ export default function DashboardPage() {
         {[
           { label: t("dashboard.totalArticles"), value: stats.totalArticles, icon: FileText, color: "text-primary" },
           { label: t("dashboard.keywords"), value: stats.totalKeywords, icon: Search, color: "text-accent" },
-          { label: t("dashboard.avgSeo"), value: stats.avgSeo !== null ? `${stats.avgSeo}%` : "—", icon: BarChart3, color: "text-success" },
+          { label: t("dashboard.avgSeo"), value: stats.avgSeo !== null ? `${stats.avgSeo}%` : "-", icon: BarChart3, color: "text-success" },
           { label: t("dashboard.generations"), value: stats.totalGenerations, icon: Zap, color: "text-warning" },
         ].map((s) => (
           <Card key={s.label} className="bg-card border-border">

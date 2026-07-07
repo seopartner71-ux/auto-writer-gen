@@ -226,13 +226,13 @@ export function validateContent(content: string): ValidationResult {
 // ─── EN Stealth Post-Processor ─────────────────────────────────────
 
 const EN_BANNED_PHRASES: [RegExp, string][] = [
-  [/\bIt is worth noting that\b/gi, "Here's the thing —"],
+  [/\bIt is worth noting that\b/gi, "Here's the thing -"],
   [/\bIn conclusion\b/gi, "Bottom line"],
   [/\bFurthermore\b/gi, "And"],
   [/\bIt is important to\b/gi, "You'll want to"],
   [/\bThis is because\b/gi, "That's because"],
   [/\bIn summary\b/gi, "So"],
-  [/\bIt should be noted\b/gi, "Worth knowing —"],
+  [/\bIt should be noted\b/gi, "Worth knowing -"],
   [/\bOne of the key\b/gi, "A big"],
   [/\bIn order to\b/gi, "To"],
   [/\bIt goes without saying\b/gi, "Obviously"],
@@ -300,9 +300,9 @@ const EN_CONTRACTION_FIXES: [RegExp, string][] = [
 ];
 
 const EN_INFORMAL_INJECTIONS = [
-  "Honestly, ", "Look, ", "Real talk — ", "Here's the deal: ",
-  "Spoiler alert — ", "Plot twist: ", "No surprise here — ",
-  "I mean, ", "To be fair, ", "Heads up — ",
+  "Honestly, ", "Look, ", "Real talk - ", "Here's the deal: ",
+  "Spoiler alert - ", "Plot twist: ", "No surprise here - ",
+  "I mean, ", "To be fair, ", "Heads up - ",
 ];
 
 export interface EnStealthStats {
@@ -316,7 +316,7 @@ export interface EnStealthStats {
 
 /**
  * Analyze content and return stats on how many AI phrases and contractions would be fixed.
- * Does NOT modify content — read-only analysis.
+ * Does NOT modify content - read-only analysis.
  */
 export function getEnStealthStats(content: string): EnStealthStats {
   const isEnglish = /^[a-zA-Z\s.,!?;:\-'"()\[\]{}0-9#*/]/.test(content.trim().slice(0, 200));

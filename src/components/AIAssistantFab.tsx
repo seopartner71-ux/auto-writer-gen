@@ -49,12 +49,12 @@ export function AIAssistantFab() {
     setInput("");
     setLoading(true);
     try {
-      // Anonymous visitors (landing) — show CTA instead of calling protected function
+      // Anonymous visitors (landing) - show CTA instead of calling protected function
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setHistory(h => [...h, {
           role: "assistant",
-          content: "Чтобы задать вопрос AI-помощнику, войдите или зарегистрируйтесь — это бесплатно и занимает 30 секунд.\n\n[Зарегистрироваться →](/register)\n[Войти →](/login)",
+          content: "Чтобы задать вопрос AI-помощнику, войдите или зарегистрируйтесь - это бесплатно и занимает 30 секунд.\n\n[Зарегистрироваться →](/register)\n[Войти →](/login)",
           ts: Date.now(),
         }]);
         return;

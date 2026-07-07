@@ -387,7 +387,7 @@ export default function DomainHunterPage() {
             {projects.filter(p => !p.custom_domain).map(p => (
               <Button key={p.id} variant="outline" className="w-full justify-between" onClick={() => assignDomain(p.id)}>
                 <span>{p.name}</span>
-                <span className="text-xs text-muted-foreground">{p.domain || "—"}</span>
+                <span className="text-xs text-muted-foreground">{p.domain || "-"}</span>
               </Button>
             ))}
           </div>

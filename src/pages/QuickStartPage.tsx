@@ -293,7 +293,7 @@ export default function QuickStartPage() {
             body: { article_id: articleId },
           });
         } catch {
-          // non-fatal — quality-check will still run
+          // non-fatal - quality-check will still run
         }
       }
 
