@@ -1174,6 +1174,24 @@ const __QC_HANDLER = async (req: Request) => {
     if (!content || typeof content !== "string") return json({ error: "content required" }, 400);
     articleIdForLog = article_id;
 
+    // ── Resolve caller BEFORE any DB write. Previously the normalize/persist
+    // block below wrote to articles.content before auth was checked, which
+    // let unauthenticated payloads overwrite article content (data-loss).
+    const serviceToken = authHeader.replace(/^Bearer\s+/i, "") === serviceKey;
+    let user: { id: string } | null = null;
+    if (serviceToken) {
+      const { data: art0 } = await admin.from("articles").select("user_id").eq("id", article_id).maybeSingle();
+      if (art0?.user_id) user = { id: art0.user_id };
+    } else {
+      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user: u } } = await userClient.auth.getUser();
+      if (u) user = { id: u.id };
+    }
+    if (!user) return json({ error: "Unauthorized" }, 401);
+    userIdForLog = user.id;
+
     // Guarantee HTML for the whole check pipeline. If we converted, persist so
     // downstream (editor + improve-cycle) sees the canonical HTML form.
     let normalizedContent = content;
@@ -1216,22 +1234,6 @@ const __QC_HANDLER = async (req: Request) => {
         });
       }
     } catch (_) { /* non-fatal */ }
-
-    // Resolve user: try service-role bypass first (auto mode from bulk), then user JWT.
-    const serviceToken = authHeader.replace(/^Bearer\s+/i, "") === serviceKey;
-    let user: { id: string } | null = null;
-    if (serviceToken) {
-      const { data: art0 } = await admin.from("articles").select("user_id").eq("id", article_id).maybeSingle();
-      if (art0?.user_id) user = { id: art0.user_id };
-    } else {
-      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user: u } } = await userClient.auth.getUser();
-      if (u) user = { id: u.id };
-    }
-    if (!user) return json({ error: "Unauthorized" }, 401);
-    userIdForLog = user.id;
 
     // ── AUTO mode: run AI(internal+ZeroGPT) + burstiness + density in background, no credits ──
     if (mode === "auto") {
