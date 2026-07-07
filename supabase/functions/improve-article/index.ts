@@ -1072,6 +1072,7 @@ ${content}`;
     }
 
     // 6) Dangling thoughts: висящие союзы и обрывы абзацев без терминатора.
+    await checkStopFlag("sentence");
     if (!stoppedByUser && (phase === "dangling" || phase === "all") && orKey) {
       const metrics = analyzeDanglingThoughts(content);
       if (metrics.verdict === "fail") {
@@ -1118,6 +1119,7 @@ ${content}`;
     }
 
     // 7) Cancellary: канцеляризмы и штампы из BANLIST.
+    await checkStopFlag("dangling");
     if (!stoppedByUser && (phase === "cancellary" || phase === "all") && orKey) {
       const metrics = analyzeCancellary(stripHtml(content), cancellaryOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
@@ -1163,6 +1165,7 @@ ${content}`;
     }
 
     // 8) Keyword frequency: сверхчастые значимые слова и переспам seed-ключа в H2.
+    await checkStopFlag("cancellary");
     if (!stoppedByUser && (phase === "keyword_freq" || phase === "all") && orKey) {
       const metrics = analyzeKeywordFrequency(content, primaryKeyword || null, keywordOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
