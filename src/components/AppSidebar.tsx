@@ -146,7 +146,7 @@ export function AppSidebar() {
   const [moreOpen, setMoreOpen] = useState(morePaths.includes(location.pathname));
 
   const unseenChangelog = useUnseenChangelog();
-  const APP_VERSION = "v2.4";
+  const APP_VERSION = `v${LATEST_VERSION}`;
 
   const adminItems = [
     { title: t("nav.admin"), url: "/admin", icon: ShieldCheck },
