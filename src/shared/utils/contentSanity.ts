@@ -3,7 +3,7 @@
 // impossible letter clusters) BEFORE the text is saved / handed to judges /
 // pushed into the improve cycle.
 //
-// Scans the FULL text — NEVER samples. Pure function, no I/O.
+// Scans the FULL text - NEVER samples. Pure function, no I/O.
 
 export interface SanityReport {
   corrupted: boolean;
@@ -58,8 +58,8 @@ function findLongestUnterminatedRun(text: string): number {
 export function analyzeSanity(plain: string): SanityReport {
   const thresholds = {
     foreign_script_ratio: 0.003,   // 0.3%
-    novowel_word_ratio: 0.05,      // 5% — RU abbreviations/tech terms give 2-3% legitimately
-    long_consonant_run_ratio: 0.05,// 5% — RU has many 5+ consonant clusters (взгляд, конструкт, всплеск)
+    novowel_word_ratio: 0.05,      // 5% - RU abbreviations/tech terms give 2-3% legitimately
+    long_consonant_run_ratio: 0.05,// 5% - RU has many 5+ consonant clusters (взгляд, конструкт, всплеск)
     unterminated_run_max: 3000,
   };
   const text = String(plain || "");
@@ -113,7 +113,7 @@ export function analyzeSanity(plain: string): SanityReport {
   const unterminated_run_max = findLongestUnterminatedRun(text);
 
   // Collect signals. To mark corrupted we require EITHER a strong foreign-script
-  // hit OR at least two independent weak signals — a single noisy metric on
+  // hit OR at least two independent weak signals - a single noisy metric on
   // legitimate Russian text (technical terms, abbreviations) must not block save.
   const signals: string[] = [];
   if (novowel_word_ratio > thresholds.novowel_word_ratio && noVowel >= 10) {

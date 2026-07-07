@@ -30,7 +30,7 @@ import { SeoBenchmark } from "@/features/seo-analysis/SeoBenchmark";
 import { fetchAndAnalyze, buildAnalysisContext } from "@/entities/competitor/analysisService";
 import MyArticlesPage from "@/pages/MyArticlesPage";
 import { BulkGenerationMode } from "@/components/bulk/BulkGenerationMode";
-// ProImageGenerator removed — image generation lives on /images page
+// ProImageGenerator removed - image generation lives on /images page
 import { HumanScorePanel, getFixInstructions } from "@/components/article/HumanScorePanel";
 import { detectContentLanguage } from "@/components/article/humanScore/constants";
 import { QualityCheckPanel } from "@/components/article/QualityCheckPanel";
@@ -88,14 +88,14 @@ export default function ArticlesPage() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
   const { t, lang } = useI18n();
-  // Не форсируем тему — уважаем глобальный выбор пользователя.
+  // Не форсируем тему - уважаем глобальный выбор пользователя.
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [aiwriterMode, setAiwriterModeState] = useState<"quick" | "expert">(() => {
     if (typeof window === "undefined") return "quick";
     const v = localStorage.getItem("aiwriter_mode");
-    // Returning user with explicit choice — respect it.
+    // Returning user with explicit choice - respect it.
     if (v === "quick" || v === "expert") return v;
-    // New user (no saved mode) — Quick Start by default.
+    // New user (no saved mode) - Quick Start by default.
     return "quick";
   });
   const setAiwriterMode = (m: "quick" | "expert") => {
@@ -232,7 +232,7 @@ export default function ArticlesPage() {
       .then(({ data }) => setUserPlan((data as any)?.plan || "free"));
   }, [user]);
   const [outline, setOutline] = useState<{ text: string; level: string }[]>([]);
-  const sanitizeContent = useCallback((text: string) => text.replace(/[—–]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
+  const sanitizeContent = useCallback((text: string) => text.replace(/[--]/g, '-').replace(/\*\*([^*]+)\*\*/g, '$1'), []);
   const [content, setContentRaw] = useState("");
   const setContent = useCallback((val: string | ((prev: string) => string)) => {
     setContentRaw(prev => {
@@ -330,7 +330,7 @@ export default function ArticlesPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamPhase, setStreamPhase] = useState<"thinking" | "writing" | null>(null);
   const [streamElapsed, setStreamElapsed] = useState(0);
-  // Recovery state — set when generation stream is interrupted mid-way.
+  // Recovery state - set when generation stream is interrupted mid-way.
   const [interruptedDraft, setInterruptedDraft] = useState<string | null>(null);
   // On mount: check for an interrupted draft from a previous session.
   useEffect(() => {
@@ -470,7 +470,7 @@ export default function ArticlesPage() {
     }
   }, [selectedKeyword]);
 
-  // Auto-image generation removed from /articles — handled on dedicated /images page.
+  // Auto-image generation removed from /articles - handled on dedicated /images page.
 
   // LSI keyword check
   const lsiStatus = useMemo(() => {
@@ -513,7 +513,7 @@ export default function ArticlesPage() {
     if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
     const res = await startImproveCycle(currentArticleId, "auto");
     if (res.ok) {
-      toast.message("Цикл улучшения запущен. Работа идёт на сервере — можно закрыть или обновить страницу.");
+      toast.message("Цикл улучшения запущен. Работа идёт на сервере - можно закрыть или обновить страницу.");
     } else if (res.cooldown) {
       toast.message(res.message || "Подождите перед повторной доработкой");
     } else {
@@ -628,7 +628,7 @@ export default function ArticlesPage() {
 
     setCurrentArticleId(null); // Reset so auto-save creates a NEW article & deducts credit
 
-    // Pre-flight credit cost guard — show premium confirm dialog if cost > 20 credits
+    // Pre-flight credit cost guard - show premium confirm dialog if cost > 20 credits
     if (!isAdmin && selectedModel) {
       try {
         const [{ data: costData }, { data: profileRow }] = await Promise.all([
@@ -655,7 +655,7 @@ export default function ArticlesPage() {
           });
           return;
         }
-      } catch (_) { /* ignore — RPC failure shouldn't block */ }
+      } catch (_) { /* ignore - RPC failure shouldn't block */ }
     }
 
     await runGenerate();
@@ -786,7 +786,7 @@ export default function ArticlesPage() {
                   keyword_id: selectedKeywordId,
                   ts: Date.now(),
                 }));
-              } catch { /* quota — ignore */ }
+              } catch { /* quota - ignore */ }
             }
           } catch {
             buffer = line + "\n" + buffer;
@@ -797,7 +797,7 @@ export default function ArticlesPage() {
 
       setFinishReason(lastFinishReason);
       if (idleTimer) clearTimeout(idleTimer);
-      // Successful completion — clear the partial draft.
+      // Successful completion - clear the partial draft.
       try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
 
       // Auto-fill title and meta from generated content
@@ -833,13 +833,13 @@ export default function ArticlesPage() {
       // Scans the full generated text for token-salad degradation
       // (foreign scripts, vowelless Cyrillic words, 5+ consonant runs).
       // If tripped: DO NOT save silently, DO NOT run polish / fact-check /
-      // improve — surface the failure and let the user regenerate.
+      // improve - surface the failure and let the user regenerate.
       {
         const sanity = analyzeSanity(fullContent.replace(/<[^>]+>/g, " "));
         if (sanity.corrupted) {
           setFactCheckStatus("warning");
           try { localStorage.setItem("aiwriter_partial_draft", JSON.stringify({ content: fullContent, keyword_id: selectedKeywordId, ts: Date.now() })); } catch { /* ignore */ }
-          toast.error("Содержимое статьи повреждено — модель ушла в токен-салат.", {
+          toast.error("Содержимое статьи повреждено - модель ушла в токен-салат.", {
             description: `Причины: ${sanity.reasons.join(", ")}. Черновик сохранен локально, но не записан в базу. Нажмите «Сгенерировать» заново.`,
             duration: 12000,
           });
@@ -873,7 +873,7 @@ export default function ArticlesPage() {
       }
 
       // ── Polish pass: чинит английский мусор, оборванные предложения,
-      // сломанные H2/H3 и дописывает оборванный JSON-LD. Best-effort —
+      // сломанные H2/H3 и дописывает оборванный JSON-LD. Best-effort -
       // если функция не отвечает или возвращает skipped, оставляем оригинал.
       try {
         const { data: polishData } = await supabase.functions.invoke("polish-article", {
@@ -890,7 +890,7 @@ export default function ArticlesPage() {
       // Auto-generate FAQ & JSON-LD schema (async, best-effort)
       autoGenerateSchema(fullContent, title);
 
-      // Image auto-insertion removed — users generate images on /images page.
+      // Image auto-insertion removed - users generate images on /images page.
 
       // Auto-save after generation completes
       setTimeout(() => {
@@ -981,7 +981,7 @@ export default function ArticlesPage() {
       }
       const safeProjectId = projectExists ? selectedProjectId : null;
 
-      // Language autodetect: if the article content is ≥30% Cyrillic — treat as RU.
+      // Language autodetect: if the article content is ≥30% Cyrillic - treat as RU.
       // Falls back to the selected keyword's language, then to explicit UI lang.
       // Without this the DB default 'en' silently applies to russian articles and
       // disables downstream RU-only checks (Turgenev).
@@ -1214,7 +1214,7 @@ export default function ArticlesPage() {
     // Auto-fill meta description
     const intent = kw.intent || "informational";
     setMetaDescription(
-      `${capitalize(kw.seed_keyword)} — ${intent === "informational" ? "полное руководство" : intent === "transactional" ? "лучшие предложения" : intent === "commercial" ? "сравнение и обзор" : "всё что нужно знать"}. ${(kw.lsi_keywords as string[] || []).slice(0, 3).join(", ")}.`.slice(0, 160)
+      `${capitalize(kw.seed_keyword)} - ${intent === "informational" ? "полное руководство" : intent === "transactional" ? "лучшие предложения" : intent === "commercial" ? "сравнение и обзор" : "всё что нужно знать"}. ${(kw.lsi_keywords as string[] || []).slice(0, 3).join(", ")}.`.slice(0, 160)
     );
 
     // Auto-fill outline from questions
@@ -1264,7 +1264,7 @@ export default function ArticlesPage() {
                 try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
                 // Триггерим показ кнопки «Дописать» (та же логика, что для finish_reason=length)
                 setFinishReason("length");
-                toast.success("Черновик восстановлен — нажмите «Дописать», чтобы продолжить");
+                toast.success("Черновик восстановлен - нажмите «Дописать», чтобы продолжить");
                 // Прокручиваем к кнопке продолжения
                 setTimeout(() => {
                   const el = document.querySelector('[data-continue-generation]') as HTMLElement | null;
@@ -1377,7 +1377,7 @@ export default function ArticlesPage() {
           )}
           {/* Image generation moved to dedicated /images page */}
 
-          {/* Title & Meta — compact */}
+          {/* Title & Meta - compact */}
           <Card className="bg-card border-border">
             <CardContent className="pt-3 pb-3 space-y-2">
               <ArticleQualityHints
@@ -1463,9 +1463,9 @@ export default function ArticlesPage() {
                   className="h-8 text-sm"
                 />
               </div>
-              {/* Published URL field removed — interlinking not used */}
+              {/* Published URL field removed - interlinking not used */}
 
-              {/* Anchor Links for Telegra.ph — only for "Телеграф" preset + PRO */}
+              {/* Anchor Links for Telegra.ph - only for "Телеграф" preset + PRO */}
               {limits.hasProImageGen && selectedAuthorId && authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф") && (
               <>
               <div className="space-y-1.5">
@@ -1652,7 +1652,7 @@ export default function ArticlesPage() {
 
                     {/* Тургенев & AI buttons moved to right-side Quality card to avoid duplication */}
 
-                    {/* Blog platform publish buttons — PRO only, Telegra.ph author only */}
+                    {/* Blog platform publish buttons - PRO only, Telegra.ph author only */}
                     {currentArticleId && content && limits.hasProImageGen && !!authorProfiles.find((a: any) => a.id === selectedAuthorId && (a.name === "Телеграф" || a.is_telegraph_author)) && (
                       <>
                         <Separator orientation="vertical" className="h-5" />
@@ -1899,7 +1899,7 @@ export default function ArticlesPage() {
                         <div className="flex items-center justify-between">
                           <h4 className="text-sm font-semibold flex items-center gap-2">
                             <BookOpen className="h-4 w-4 text-primary" />
-                            FAQ — Визуальный блок
+                            FAQ - Визуальный блок
                             {faqMode === "serp-dominance" && (
                               <Badge variant="secondary" className="text-[10px]">Information Gain</Badge>
                             )}
@@ -2171,7 +2171,7 @@ export default function ArticlesPage() {
                     if (!selectedAuthorId || selectedAuthorId === "none") return undefined;
                     const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
                     if (!author) return undefined;
-                    return `${author.name}${author.voice_tone ? ': ' + author.voice_tone : ''}${author.description ? ' — ' + author.description : ''}`;
+                    return `${author.name}${author.voice_tone ? ': ' + author.voice_tone : ''}${author.description ? ' - ' + author.description : ''}`;
                   })();
                   const lng = detectContentLanguage(content);
                   const instr = getFixInstructions(lng, personaStyle)["humanize-all"];
@@ -2209,7 +2209,7 @@ export default function ArticlesPage() {
                   if (!selectedAuthorId || selectedAuthorId === "none") return undefined;
                   const author = authorProfiles.find((a: any) => a.id === selectedAuthorId);
                   if (!author) return undefined;
-                  return `${author.name}${author.voice_tone ? ': ' + author.voice_tone : ''}${author.description ? ' — ' + author.description : ''}`;
+                  return `${author.name}${author.voice_tone ? ': ' + author.voice_tone : ''}${author.description ? ' - ' + author.description : ''}`;
                 })()}
                 onFixIssue={async (issueKey, instruction) => {
                   try { await runFixIssue(issueKey, instruction); } catch {}

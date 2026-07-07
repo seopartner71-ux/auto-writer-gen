@@ -496,7 +496,7 @@ export default function ImageGeneratorPage() {
                       className="mt-1.5"
                     />
                     <div className="mt-1 text-[11px] text-muted-foreground">
-                      Редактирование через Nano Banana — 1 кредит за фото.
+                      Редактирование через Nano Banana - 1 кредит за фото.
                     </div>
                   </div>
                 </>
@@ -768,7 +768,7 @@ export default function ImageGeneratorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Prompt reveal dialog — shows the enhanced prompt actually sent to FAL */}
+      {/* Prompt reveal dialog - shows the enhanced prompt actually sent to FAL */}
       <Dialog open={!!promptView} onOpenChange={(o) => !o && setPromptView(null)}>
         <DialogContent className="max-w-2xl">
           <div className="space-y-4">

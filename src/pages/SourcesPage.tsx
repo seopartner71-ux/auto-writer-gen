@@ -188,7 +188,7 @@ export default function SourcesPage({ projectId }: { projectId?: string }) {
             { label: "Всего источников", value: aggregatedSources.length },
             { label: "Всего упоминаний", value: totalOccurrences },
             { label: "Типов источников", value: new Set(aggregatedSources.map(s => s.type)).size },
-            { label: "Топ источник", value: aggregatedSources[0]?.domain || "—" },
+            { label: "Топ источник", value: aggregatedSources[0]?.domain || "-" },
           ].map((kpi, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <Card>

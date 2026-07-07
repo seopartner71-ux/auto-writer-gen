@@ -20,7 +20,7 @@ interface DeviationFixDialogProps {
 /**
  * Dialog to fix a single author-compliance deviation by rewriting the
  * sentence/paragraph or deleting the offending fragment. Extracted from
- * ArticlesPage as part of Step 5 refactor — behaviour identical.
+ * ArticlesPage as part of Step 5 refactor - behaviour identical.
  */
 export function DeviationFixDialog({
   activeDeviation, onClose, complianceResult, content, setContent, selectedAuthorId,

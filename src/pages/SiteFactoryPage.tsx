@@ -242,7 +242,7 @@ export default function SiteFactoryPage() {
       if (stored === "vercel" || stored === "netlify") stored = "cloudflare";
       const resolvedPlatform = detected || stored;
       setHostingPlatform(resolvedPlatform);
-      // If detected platform differs from saved one — auto-correct in DB
+      // If detected platform differs from saved one - auto-correct in DB
       if (detected && selectedProject.hosting_platform !== detected) {
         supabase.from("projects").update({ hosting_platform: detected }).eq("id", selectedProject.id).then(() => {
           setProjects((prev) => prev.map((p) => p.id === selectedProject.id ? { ...p, hosting_platform: detected } : p));
@@ -913,7 +913,7 @@ export default function SiteFactoryPage() {
       setKeywords("");
 
       // Auto-redeploy once all generations finish (Direct Upload projects only).
-      // Don't await — let it run in the background so UI stays responsive.
+      // Don't await - let it run in the background so UI stays responsive.
       if (isDirectUploadProject && generationPromises.length > 0) {
         Promise.allSettled(generationPromises).then((results) => {
           const anySuccess = results.some((r) => r.status === "fulfilled" && r.value === true);
@@ -921,8 +921,8 @@ export default function SiteFactoryPage() {
             addDeployLog(
               "publishing",
               lang === "ru"
-                ? "Все статьи готовы — автоматический деплой на Cloudflare Pages..."
-                : "All articles ready — auto-deploying to Cloudflare Pages...",
+                ? "Все статьи готовы - автоматический деплой на Cloudflare Pages..."
+                : "All articles ready - auto-deploying to Cloudflare Pages...",
             );
             triggerStaticDeploy();
           }
@@ -1041,7 +1041,7 @@ export default function SiteFactoryPage() {
     }
   };
 
-  // Unified entrypoint — dispatches by selected hosting platform. All places
+  // Unified entrypoint - dispatches by selected hosting platform. All places
   // that previously called triggerCloudflare should call this instead.
   const triggerStaticDeploy = async () => {
     if (hostingPlatform === "github_pages") return triggerGitHubPages();
@@ -2085,7 +2085,7 @@ export default function SiteFactoryPage() {
                   </div>
                   {(newLinkUrl.trim() || newLinkAnchor.trim()) && (
                     <p className="text-[10px] text-amber-500 mt-1.5 flex items-center gap-1">
-                      ⚠ {lang === "ru" ? "Нажмите «+» или Enter, чтобы сохранить ссылку — иначе она не будет вставлена в статьи" : "Click «+» or press Enter to save the link — otherwise it won't be injected"}
+                      ⚠ {lang === "ru" ? "Нажмите «+» или Enter, чтобы сохранить ссылку - иначе она не будет вставлена в статьи" : "Click «+» or press Enter to save the link - otherwise it won't be injected"}
                     </p>
                   )}
 
@@ -2114,7 +2114,7 @@ export default function SiteFactoryPage() {
                       />
                       <p className="text-[9px] text-muted-foreground/80 mt-2 italic">
                         {lang === "ru"
-                          ? "Анкоры подсвечены. Если точное вхождение анкора не найдено в статье — ссылка будет добавлена в конец первого подходящего абзаца (forced fallback)."
+                          ? "Анкоры подсвечены. Если точное вхождение анкора не найдено в статье - ссылка будет добавлена в конец первого подходящего абзаца (forced fallback)."
                           : "Anchors are highlighted. If the exact anchor isn't found in the article, the link is appended to the first eligible paragraph (forced fallback)."}
                       </p>
                     </div>
@@ -2492,7 +2492,7 @@ export default function SiteFactoryPage() {
               />
             </div>
 
-            {/* Inline Link Injection — placed here so user sees it BEFORE generation */}
+            {/* Inline Link Injection - placed here so user sees it BEFORE generation */}
             {selectedProjectId && (
               <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -2918,7 +2918,7 @@ export default function SiteFactoryPage() {
         <SyndicationSettings projectId={selectedProjectId} lang={lang} />
       )}
 
-      {/* Preview Dialog — matches published site design */}
+      {/* Preview Dialog - matches published site design */}
       <Dialog open={!!previewArticle} onOpenChange={() => setPreviewArticle(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0 bg-gray-50 border-0">
           <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden m-4">

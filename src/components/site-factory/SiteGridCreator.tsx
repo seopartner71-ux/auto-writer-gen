@@ -201,7 +201,7 @@ export function SiteGridCreator() {
           console.warn("[SiteGridCreator] seed-starter-articles failed, continuing", e);
         }
 
-        // 5. Direct Upload deploy (no GitHub, no Astro) — with one retry on transient CF errors.
+        // 5. Direct Upload deploy (no GitHub, no Astro) - with one retry on transient CF errors.
         updateRow(i, { status: "deploying" });
         const cfBody = {
           project_id: projectId,
@@ -235,8 +235,8 @@ export function SiteGridCreator() {
           const raw = String(cfData.error || "");
           let friendly = raw;
           if (/limit|500/i.test(raw)) friendly = "Cloudflare: превышен лимит проектов на аккаунте";
-          else if (/fal/i.test(raw)) friendly = "FAL AI недоступен — попробуйте позже";
-          else if (/openrouter|api.?key/i.test(raw)) friendly = "Ошибка генерации контента — проверьте API ключ";
+          else if (/fal/i.test(raw)) friendly = "FAL AI недоступен - попробуйте позже";
+          else if (/openrouter|api.?key/i.test(raw)) friendly = "Ошибка генерации контента - проверьте API ключ";
           throw new Error(friendly + (cfData.message ? ` (${cfData.message})` : ""));
         }
 
@@ -482,7 +482,7 @@ export function SiteGridCreator() {
                 {lastReport.err > 0 && (
                   <div className="mt-2 space-y-0.5 text-[11px] text-destructive/90">
                     {lastReport.sites.filter(s => s.status === "error").slice(0, 5).map((s, i) => (
-                      <div key={i}>❌ {s.topic}{s.failedStep ? ` — ${s.failedStep}` : ""}: {s.error}</div>
+                      <div key={i}>❌ {s.topic}{s.failedStep ? ` - ${s.failedStep}` : ""}: {s.error}</div>
                     ))}
                   </div>
                 )}
@@ -504,8 +504,8 @@ export function SiteGridCreator() {
                   {rows.map((r, idx) => (
                     <tr key={idx} className="border-t border-border">
                       <td className="px-3 py-2 truncate max-w-[140px]">{r.topic}</td>
-                      <td className="px-3 py-2 text-muted-foreground truncate max-w-[160px]">{r.name || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{r.templateName || r.template || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground truncate max-w-[160px]">{r.name || "-"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{r.templateName || r.template || "-"}</td>
                       <td className="px-3 py-2">
                         <Badge variant={
                           r.status === "done" ? "default" :
@@ -527,7 +527,7 @@ export function SiteGridCreator() {
                             <ExternalLink className="h-3 w-3" />
                             <span className="truncate max-w-[160px]">{r.url.replace(/^https?:\/\//, "")}</span>
                           </a>
-                        ) : <span className="text-muted-foreground">—</span>}
+                        ) : <span className="text-muted-foreground">-</span>}
                       </td>
                     </tr>
                   ))}

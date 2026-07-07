@@ -199,7 +199,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
     );
   }
 
-  // Quick mode — compact score-only view
+  // Quick mode - compact score-only view
   if (quickMode) {
     if (!hasKeyword) return null;
     const status = scoreStatus(totalScore);
@@ -344,7 +344,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
           </button>
         </div>
 
-        {/* Section 1 — Donut Score */}
+        {/* Section 1 - Donut Score */}
         {(() => {
           const status = scoreStatus(totalScore);
           const wordsDelta = metrics.wordCount - medianWords;
@@ -384,7 +384,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
           );
         })()}
 
-        {/* Section 2 — Density */}
+        {/* Section 2 - Density */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Плотность ключа</span>
@@ -401,7 +401,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
           </div>
         </div>
 
-        {/* Section 3 — Terms */}
+        {/* Section 3 - Terms */}
         {metrics.uniqueTerms.length > 0 && (
           <div className="space-y-1">
             <div className="flex items-center justify-between">
@@ -450,7 +450,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
           </div>
         )}
 
-        {/* Section 4 — Structure vs top */}
+        {/* Section 4 - Structure vs top */}
         <div className="space-y-1">
           <div className="text-muted-foreground">Структура vs топ</div>
           <div className="grid grid-cols-3 gap-1 text-[11px]">
@@ -472,11 +472,11 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
 
             <div>Вопросов</div>
             <div className="text-right font-mono">{metrics.questionCount}</div>
-            <div className="text-right font-mono text-muted-foreground">—</div>
+            <div className="text-right font-mono text-muted-foreground">-</div>
           </div>
         </div>
 
-        {/* Section 5 — Improve action */}
+        {/* Section 5 - Improve action */}
         {/* SEO improve button hidden - use unified "Улучшить качество текста" in right panel */}
         {totalScore >= 80 ? (
           <div className="flex items-center justify-center gap-1.5 py-2 text-emerald-400 text-[12px] font-medium border-t border-border">

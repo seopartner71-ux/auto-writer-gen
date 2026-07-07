@@ -164,7 +164,7 @@ export default function ApprovalPage() {
                       <Textarea
                         value={cur.comment}
                         onChange={(e) => setComment(topic.id, e.target.value)}
-                        placeholder="Комментарий — что именно поправить"
+                        placeholder="Комментарий - что именно поправить"
                         className="mt-3 min-h-[60px] bg-background/60"
                       />
                     )}

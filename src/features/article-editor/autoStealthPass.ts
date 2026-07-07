@@ -10,14 +10,14 @@ const MAX_PASSES = 2;
 // Полный конвейер: humanize (до 150с) + до 2× improve с 60с cooldown между ними
 // + turgenev + финальный quality-check. Прежний бюджет 90с обнулялся ещё
 // на Step 0, из-за чего improve/turgenev полностью пропускались (см. AB-тест).
-// Значение — верхняя граница, не задержка: короткие прогоны завершаются раньше.
+// Значение - верхняя граница, не задержка: короткие прогоны завершаются раньше.
 const TOTAL_BUDGET_MS = 600_000;
 const IMPROVE_COOLDOWN_MS = 65_000;
 const POLL_INTERVAL_MS = 2_500;
 const MAX_POLL_MS = 30_000;
 // improve-article is now async: it returns 202 immediately and does the LLM
 // work in the background. We poll `quality_status !== "improving"` for up to
-// 240s (per-pass budget) at 5s cadence — matches the stack-overflow reference
+// 240s (per-pass budget) at 5s cadence - matches the stack-overflow reference
 // pattern shipped with the async improve-article rewrite.
 const IMPROVE_POLL_INTERVAL_MS = 5_000;
 const IMPROVE_MAX_POLL_MS = 240_000;
@@ -69,7 +69,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
   });
 
   try {
-    // Step 0 — unconditional double-humanize (Sonnet + Opus, server-side, budget-gated).
+    // Step 0 - unconditional double-humanize (Sonnet + Opus, server-side, budget-gated).
     // This is the primary "quality first" pass for every freshly generated article.
     // Conditional skips inside humanize-article: already rewritten, too short, already great.
     try {
@@ -118,7 +118,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       console.warn("[stealth] humanize-article threw:", errMessage(e));
     }
 
-    // Step 1 — initial quality-check (independent: failure must not break the chain)
+    // Step 1 - initial quality-check (independent: failure must not break the chain)
     let qc: QualityCheckResult | null = null;
     try {
       qc = await invokeQualityCheck(articleId);
@@ -129,7 +129,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     // Fallback: if quality-check failed, treat ai_score as 0 so humanize still runs.
     let currentAiScore = numberOr(qc?.ai_score, 0);
 
-    // Step 2 — iterative humanize (up to MAX_PASSES). First pass only if < 60,
+    // Step 2 - iterative humanize (up to MAX_PASSES). First pass only if < 60,
     // second pass if still < 70 after the first.
     let passCount = 0;
     while (
@@ -150,7 +150,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         const res = await invokeImproveWithCooldown(articleId, "humanize", `pass ${passCount}`);
         if (res === "error") break;
         if (res === "cooldown_persist") {
-          // Cooldown не ушёл после ретрая — не молча ломаем цикл, идём к Turgenev/финалу.
+          // Cooldown не ушёл после ретрая - не молча ломаем цикл, идём к Turgenev/финалу.
           break;
         }
         await waitForQualityIdle(articleId);
@@ -163,7 +163,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
         logger.debug(`[stealth] humanize pass ${passCount} done, ai_score:`, currentAiScore);
 
         // Между улучшающими вызовами improve-article стоит 60с cooldown на
-        // сервере. Если планируем ещё один pass — переждём его, иначе второй
+        // сервере. Если планируем ещё один pass - переждём его, иначе второй
         // вызов вернёт 200 {cooldown:true} и превратится в no-op.
         const willRunAnother =
           passCount < MAX_PASSES &&
@@ -178,7 +178,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       }
     }
 
-    // Step 3 — Turgenev (Baden-Baden) auto-fix when flagged
+    // Step 3 - Turgenev (Baden-Baden) auto-fix when flagged
     const turgStatusInitial = String(qc?.turgenev_status || "ok");
     const turgScoreInitial = numberOr(qc?.turgenev_score, 0);
     const turgRisky = turgStatusInitial === "fail" || turgScoreInitial > 7;
@@ -196,7 +196,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       }
     }
 
-    // Step 4 — final quality-check for the summary toast (best-effort)
+    // Step 4 - final quality-check for the summary toast (best-effort)
     let final: QualityCheckResult | null = qc;
     if (turgRisky || passCount > 0) {
       try {
@@ -232,7 +232,7 @@ async function invokeQualityCheck(articleId: string): Promise<QualityCheckResult
   // Load fresh content + scores from DB. quality-check requires `content`
   // in the request body; without it the function returns 400 and the whole
   // chain silently no-ops. We also use mode:"auto" so no credits are spent
-  // and uniqueness (text.ru) is not blocking — auto path runs AI + Turgenev
+  // and uniqueness (text.ru) is not blocking - auto path runs AI + Turgenev
   // + burstiness in the background and writes scores to the row.
   try {
     const { data: row } = await supabase
@@ -287,9 +287,9 @@ async function waitForQualityIdle(articleId: string): Promise<void> {
 /**
  * Invokes improve-article and transparently retries once on the server-side
  * 60s cooldown. Returns:
- *  - "ok"                — improvement applied
- *  - "error"             — transport/edge error (already logged); caller breaks
- *  - "cooldown_persist"  — cooldown still active after one retry (logged);
+ *  - "ok"                - improvement applied
+ *  - "error"             - transport/edge error (already logged); caller breaks
+ *  - "cooldown_persist"  - cooldown still active after one retry (logged);
  *                          caller continues to the next step instead of silently
  *                          treating no-op as success.
  */
@@ -326,7 +326,7 @@ async function invokeImproveWithCooldown(
 
 /**
  * Polls `articles.quality_status` until it is no longer "improving" (i.e. the
- * background LLM pipeline in improve-article has finished — success or error).
+ * background LLM pipeline in improve-article has finished - success or error).
  * Bounded by IMPROVE_MAX_POLL_MS (240s) to avoid hanging.
  */
 async function waitForImproveFinished(articleId: string): Promise<void> {

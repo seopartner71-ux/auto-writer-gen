@@ -33,11 +33,11 @@ function RichEditor({ value, onChange }: { value: string; onChange: (html: strin
     const text = e.clipboardData.getData("text/plain");
 
     if (html) {
-      // Clean Word HTML — remove mso styles, classes, but keep structure
+      // Clean Word HTML - remove mso styles, classes, but keep structure
       const cleaned = cleanWordHtml(html);
       document.execCommand("insertHTML", false, cleaned);
     } else {
-      // Plain text — convert newlines to <br>
+      // Plain text - convert newlines to <br>
       const escaped = text
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -235,7 +235,7 @@ export function LegalPagesTab() {
       </div>
       <p className="text-sm text-muted-foreground">
         Редактируйте содержимое страниц /offer, /privacy, /terms, /cookies.
-        Вставляйте текст из Word — структура (заголовки, списки, таблицы) сохранится автоматически.
+        Вставляйте текст из Word - структура (заголовки, списки, таблицы) сохранится автоматически.
       </p>
 
       <Tabs value={activeSlug} onValueChange={setActiveSlug}>

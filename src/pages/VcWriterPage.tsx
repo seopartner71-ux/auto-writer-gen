@@ -437,7 +437,7 @@ export default function VcWriterPage() {
   };
 
   /**
-   * Funnel Pack — генерим 3 связанные статьи (TOFU+MOFU+BOFU) под одну исходную
+   * Funnel Pack - генерим 3 связанные статьи (TOFU+MOFU+BOFU) под одну исходную
    * тему через batch-эндпоинт. Темы автодеривируются из текущего topic.
    */
   const handleFunnelPack = async () => {
@@ -460,7 +460,7 @@ export default function VcWriterPage() {
           format: "guide",
           funnel_stage: "mofu",
           topic: `Как выбрать ${base} в ${year}: сравнение вариантов и типовые ошибки`,
-          thesis: `Сравнение основных вариантов по теме «${base}», ошибки покупателей и чек-лист выбора. Цель — провести читателя к решению.`,
+          thesis: `Сравнение основных вариантов по теме «${base}», ошибки покупателей и чек-лист выбора. Цель - провести читателя к решению.`,
         },
         {
           format: "guide",
@@ -944,7 +944,7 @@ export default function VcWriterPage() {
               </Select>
               {funnelStage === "tofu" && offerEnabled && (
                 <p className="text-[10px] text-amber-500">
-                  На TOFU оффер автоматически отключается — это информационный уровень, не для заявок. Для CTA переключите воронку на MOFU/BOFU.
+                  На TOFU оффер автоматически отключается - это информационный уровень, не для заявок. Для CTA переключите воронку на MOFU/BOFU.
                 </p>
               )}
               <div className="flex items-center justify-between gap-2 pt-1">

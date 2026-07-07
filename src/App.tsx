@@ -16,7 +16,7 @@ import { Loader2 } from "lucide-react";
 
 /**
  * Wraps React.lazy with automatic recovery from stale chunk errors.
- * After a new deploy, old tabs request chunks by outdated hashes — import() rejects
+ * After a new deploy, old tabs request chunks by outdated hashes - import() rejects
  * and Suspense hangs forever. We retry once, then force a hard reload (one time only)
  * so the user gets the new index.html with fresh chunk URLs instead of a frozen page.
  */
@@ -37,7 +37,7 @@ function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
         try {
           return await factory();
         } catch {
-          // Still failing — almost certainly a stale deploy. Hard-reload once.
+          // Still failing - almost certainly a stale deploy. Hard-reload once.
           if (!sessionStorage.getItem(RELOAD_KEY)) {
             sessionStorage.setItem(RELOAD_KEY, "1");
             window.location.reload();
@@ -120,7 +120,7 @@ function PageLoader() {
   );
 }
 
-/** Shared layout — mounts once, children swap via <Outlet /> */
+/** Shared layout - mounts once, children swap via <Outlet /> */
 function ProtectedAppLayout() {
   return (
     <ProtectedRoute>

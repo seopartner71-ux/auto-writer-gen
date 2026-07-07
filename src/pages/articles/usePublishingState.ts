@@ -4,7 +4,7 @@ import type { GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 
 /**
  * Изолированный стейт для блока публикации и линкбилдинга.
- * Слабосвязан с генерацией — выносим, чтобы уменьшить ArticlesPage.tsx.
+ * Слабосвязан с генерацией - выносим, чтобы уменьшить ArticlesPage.tsx.
  */
 export function usePublishingState() {
   const [publishingTo, setPublishingTo] = useState<string | null>(null);

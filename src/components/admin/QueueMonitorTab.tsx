@@ -229,7 +229,7 @@ export function QueueMonitorTab() {
                       </span>
                     )}
                     <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                      {item.created_at ? format(new Date(item.created_at), "dd.MM HH:mm", { locale: ru }) : "—"}
+                      {item.created_at ? format(new Date(item.created_at), "dd.MM HH:mm", { locale: ru }) : "-"}
                     </span>
                   </div>
                 );

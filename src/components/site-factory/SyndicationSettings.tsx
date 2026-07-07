@@ -77,7 +77,7 @@ export function SyndicationSettings({ projectId, lang }: Props) {
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           {lang === "ru"
-            ? "После публикации каждой статьи на сайте — автоматически разместить копию на внешних площадках с canonical-ссылкой на оригинал."
+            ? "После публикации каждой статьи на сайте - автоматически разместить копию на внешних площадках с canonical-ссылкой на оригинал."
             : "After each article is published on your site, copies are auto-posted to external platforms with a canonical link to the original."}
         </p>
       </CardHeader>

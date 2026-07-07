@@ -82,7 +82,7 @@ export function UserManagementTab() {
     },
   });
 
-  // Roles per user (admin / staff / user). A user may have several roles —
+  // Roles per user (admin / staff / user). A user may have several roles -
   // we surface the "highest" one (admin > staff > user) in the UI.
   const { data: roles = [] } = useQuery({
     queryKey: ["admin-user-roles"],
@@ -214,7 +214,7 @@ export function UserManagementTab() {
           p_user_id: userId,
           p_amount: 10,
           p_notify: true,
-          p_comment: "Приветственные кредиты — добро пожаловать в СЕО-Модуль! 🎉",
+          p_comment: "Приветственные кредиты - добро пожаловать в СЕО-Модуль! 🎉",
         });
       }
 
@@ -307,7 +307,7 @@ export function UserManagementTab() {
 
   const getLastActivity = (userId: string) => {
     const stat = statsData.find((s) => s.user_id === userId);
-    return stat?.last_activity_at ? format(new Date(stat.last_activity_at), 'dd.MM.yyyy HH:mm') : '—';
+    return stat?.last_activity_at ? format(new Date(stat.last_activity_at), 'dd.MM.yyyy HH:mm') : '-';
   };
 
   const getUserStats = (userId: string) => statsData.find((s) => s.user_id === userId);
@@ -411,15 +411,15 @@ export function UserManagementTab() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{p.full_name || '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{p.full_name || '-'}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {p.created_at ? format(new Date(p.created_at), 'dd.MM.yyyy') : '—'}
+                        {p.created_at ? format(new Date(p.created_at), 'dd.MM.yyyy') : '-'}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {getLastActivity(p.id)}
                       </TableCell>
                       <TableCell className="font-mono text-[11px] text-muted-foreground">
-                        {p.last_ip || '—'}
+                        {p.last_ip || '-'}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         {isEditing ? (
@@ -457,7 +457,7 @@ export function UserManagementTab() {
                               className="h-7 px-2 text-[11px] border-red-500/40 text-red-400 hover:bg-red-500/10"
                               onClick={() => {
                                 const reason = window.prompt(
-                                  "Причина отказа (необязательно — отправится письмом)"
+                                  "Причина отказа (необязательно - отправится письмом)"
                                 ) || "";
                                 setUserStatus.mutate({ userId: p.id, status: "blocked", reason });
                               }}
@@ -608,15 +608,15 @@ export function UserManagementTab() {
                               <div className="space-y-1 text-xs">
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Ниша:</span>
-                                  <span className="font-medium">{p.onboarding_niche || '—'}</span>
+                                  <span className="font-medium">{p.onboarding_niche || '-'}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Откуда узнал:</span>
-                                  <span className="font-medium">{p.referral_source || '—'}</span>
+                                  <span className="font-medium">{p.referral_source || '-'}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">План статей/мес:</span>
-                                  <span className="font-medium">{p.planned_articles_month ?? '—'}</span>
+                                  <span className="font-medium">{p.planned_articles_month ?? '-'}</span>
                                 </div>
                                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-border mt-2">
                                   <span className="text-muted-foreground">Роль:</span>

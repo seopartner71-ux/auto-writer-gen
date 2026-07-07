@@ -144,7 +144,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                 <TableRow>
                   <TableCell className="text-xs flex items-center gap-1.5"><FileText className="h-3 w-3 text-muted-foreground" />{t("comp.h3Sections")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.median_h3_count}</TableCell>
-                  <TableCell className="text-xs text-right font-mono text-muted-foreground">—</TableCell>
+                  <TableCell className="text-xs text-right font-mono text-muted-foreground">-</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell className="text-xs flex items-center gap-1.5"><Video className="h-3 w-3 text-muted-foreground" />{t("comp.withVideo")}</TableCell>
@@ -154,7 +154,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                 <TableRow>
                   <TableCell className="text-xs">{t("comp.paragraphs")}</TableCell>
                   <TableCell className="text-xs text-right font-mono">{bm.median_paragraph_count}</TableCell>
-                  <TableCell className="text-xs text-right font-mono text-muted-foreground">—</TableCell>
+                  <TableCell className="text-xs text-right font-mono text-muted-foreground">-</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell className="text-xs">{t("comp.kwDensity")}</TableCell>
@@ -260,7 +260,7 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
             </CollapsibleTrigger>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-[10px] text-muted-foreground flex-1">
-                #{bch.position} — {bch.title}
+                #{bch.position} - {bch.title}
               </p>
               {onCopyStructure && (
                 <Button
@@ -356,11 +356,11 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                         <TableCell className="text-[10px] text-right font-mono">{c.h2_count}</TableCell>
                         <TableCell className="text-[10px] text-right font-mono">{c.h3_count}</TableCell>
                         <TableCell className="text-[10px] text-right font-mono">{c.keyword_density}%</TableCell>
-                        <TableCell className="text-[10px] text-center">{c.video_presence ? "✅" : "—"}</TableCell>
+                        <TableCell className="text-[10px] text-center">{c.video_presence ? "✅" : "-"}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-semibold">
-                      <TableCell className="text-[10px]">—</TableCell>
+                      <TableCell className="text-[10px]">-</TableCell>
                       <TableCell className="text-[10px]">{t("comp.median")}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono">{bm.median_word_count.toLocaleString()}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono">{bm.median_img_count}</TableCell>
@@ -375,9 +375,9 @@ export function CompetitorBenchmark({ keywordId, onAddEntity, onAddHeading, onCo
                       <TableCell className="text-[10px] text-right font-mono text-primary">{bm.target_word_count.toLocaleString()}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono text-primary">{bm.target_img_count}</TableCell>
                       <TableCell className="text-[10px] text-right font-mono text-primary">{bm.target_h2_count}</TableCell>
-                      <TableCell className="text-[10px] text-right font-mono">—</TableCell>
+                      <TableCell className="text-[10px] text-right font-mono">-</TableCell>
                       <TableCell className="text-[10px] text-right font-mono">{bm.median_keyword_density}%</TableCell>
-                      <TableCell className="text-[10px] text-center">{bm.video_percentage > 50 ? "✅" : "—"}</TableCell>
+                      <TableCell className="text-[10px] text-center">{bm.video_percentage > 50 ? "✅" : "-"}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

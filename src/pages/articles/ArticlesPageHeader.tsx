@@ -126,11 +126,11 @@ export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode, aiwriterMo
             <div className="text-sm font-semibold">👋 Два режима работы</div>
             <div className="space-y-2 text-xs text-muted-foreground">
               <div>
-                <span className="text-foreground font-medium">🚀 Быстрый старт</span> — минимум настроек.
+                <span className="text-foreground font-medium">🚀 Быстрый старт</span> - минимум настроек.
                 Просто выберите тему и жмите Generate.
               </div>
               <div>
-                <span className="text-foreground font-medium">⚙️ Эксперт</span> — полный контроль:
+                <span className="text-foreground font-medium">⚙️ Эксперт</span> - полный контроль:
                 SEO настройки, авторский стиль, детальные метрики.
               </div>
             </div>

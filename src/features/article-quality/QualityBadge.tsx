@@ -9,7 +9,7 @@ import {
 import { toast } from "sonner";
 
 /**
- * Unified quality badge — replaces AutoQualityBadge + LiveQualityBadge.
+ * Unified quality badge - replaces AutoQualityBadge + LiveQualityBadge.
  * Compact icon button; popover shows AI score / burstiness / keyword density
  * with quick actions: improve, recheck, version history.
  * Subscribes to realtime updates on the article row.
@@ -78,7 +78,7 @@ function densityBand(s: string | null | undefined): "ok" | "warning" | "fail" | 
   return null;
 }
 function densityHint(pct: number | null | undefined, status: string | null | undefined): string {
-  const v = pct == null ? "—" : `${pct}%`;
+  const v = pct == null ? "-" : `${pct}%`;
   if (status === "overuse") return `${v} - переспам, нужно убрать повторы`;
   if (status === "underuse") return `${v} - мало, ключ встречается слишком редко`;
   return `${v} - в норме`;
@@ -185,7 +185,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
   async function callEdge(fnName: string, body: Record<string, unknown>): Promise<any> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    if (!token) throw new Error("Нужно войти заново — сессия истекла");
+    if (!token) throw new Error("Нужно войти заново - сессия истекла");
 
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fnName}`;
     const resp = await fetch(url, {
@@ -215,7 +215,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
       }
       // improve-article теперь асинхронна: 202 accepted → фоновая обработка.
       // Итог придёт по realtime через quality_status ('improving' → 'checking' → готово).
-      toast.info("Улучшение запущено — обработка займёт до пары минут");
+      toast.info("Улучшение запущено - обработка займёт до пары минут");
       setData((d: any) => ({ ...d, quality_status: "improving" }));
       stoppedRef.current = false;
       startRealtime();
@@ -385,7 +385,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
               <MetricRow
                 emoji={BAND_META[densB].dot}
                 title="Плотность ключа"
-                value={data.keyword_density != null ? `${data.keyword_density}%${data.keyword_density_status === "overuse" ? "↑" : data.keyword_density_status === "underuse" ? "↓" : ""}` : "—"}
+                value={data.keyword_density != null ? `${data.keyword_density}%${data.keyword_density_status === "overuse" ? "↑" : data.keyword_density_status === "underuse" ? "↓" : ""}` : "-"}
                 hint={densityHint(data.keyword_density, data.keyword_density_status)}
               />
             )}
@@ -418,7 +418,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
                 </Tooltip>
               </TooltipProvider>
             )}
-            {/* Uniqueness (text.ru antiplagiat) — manual only */}
+            {/* Uniqueness (text.ru antiplagiat) - manual only */}
             {data.uniqueness_percent != null && (
               <MetricRow
                 emoji={data.uniqueness_percent >= 85 ? "🟢" : data.uniqueness_percent >= 70 ? "🟡" : "🔴"}

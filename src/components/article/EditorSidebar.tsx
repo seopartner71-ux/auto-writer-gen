@@ -50,7 +50,7 @@ interface Props {
 export function EditorSidebar({ content, title, metaDescription, domain, slug, onJump }: Props) {
   const headings = useMemo(() => parseHeadings(content), [content]);
 
-  const seoTitle = title || "Заголовок страницы — пример";
+  const seoTitle = title || "Заголовок страницы - пример";
   const seoDesc = metaDescription || (content ? truncate(content.replace(/[#*_`>]/g, "").trim(), 155) : "Описание появится здесь после генерации.");
   const host = (domain || "example.com").replace(/^https?:\/\//, "").replace(/\/$/, "");
   const path = slug ? `/${slug}` : "/article";

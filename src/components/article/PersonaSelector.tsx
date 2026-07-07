@@ -53,7 +53,7 @@ interface PersonaSelectorProps {
   selectedId: string;
   onSelect: (id: string) => void;
   quickMode?: boolean;
-  /** Текст текущего ключа/запроса — для авто-подбора Persona по тематике. */
+  /** Текст текущего ключа/запроса - для авто-подбора Persona по тематике. */
   keywordText?: string | null;
 }
 
@@ -152,7 +152,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
         type: "custom",
         system_instruction: newInstruction.trim(),
         user_id: user.id,
-        // Не сохраняем системный промпт в description — он показывается пользователям.
+        // Не сохраняем системный промпт в description - он показывается пользователям.
         description: null,
         avatar_icon: "User",
       });

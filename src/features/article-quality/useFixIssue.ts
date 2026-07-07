@@ -107,7 +107,7 @@ export function useFixIssue(deps: FixIssueDeps) {
           { duration: 5000 }
         );
       } else {
-        toast.success(d.lang === "ru" ? "Проблема исправлена — проверьте Human Score" : "Issue fixed — check Human Score");
+        toast.success(d.lang === "ru" ? "Проблема исправлена - проверьте Human Score" : "Issue fixed - check Human Score");
       }
     } catch (e: any) {
       if (e.name === "AbortError") { toast.info(d.t("articles.genStopped")); }

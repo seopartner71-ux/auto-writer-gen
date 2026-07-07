@@ -245,7 +245,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* AI Budget — monthly spend + Opus quota */}
+          {/* AI Budget - monthly spend + Opus quota */}
           <Card className="bg-card border-border overflow-hidden">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm flex items-center gap-2">

@@ -102,7 +102,7 @@ export function PolarSettingsTab() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
               <ShieldCheck className="h-5 w-5 text-emerald-500" />
-              Prodamus — Приём платежей (RU)
+              Prodamus - Приём платежей (RU)
             </CardTitle>
             <Badge variant="outline" className="text-emerald-500 border-emerald-500/30">RUB ₽</Badge>
           </div>
@@ -182,7 +182,7 @@ export function PolarSettingsTab() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Globe className="h-5 w-5 text-blue-500" />
-              Polar — International Payments (EN)
+              Polar - International Payments (EN)
             </CardTitle>
             <Badge variant="outline" className="text-blue-500 border-blue-500/30">USD $</Badge>
           </div>

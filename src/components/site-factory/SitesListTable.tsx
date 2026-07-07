@@ -225,11 +225,11 @@ export function SitesListTable() {
                             <ExternalLink className="h-3 w-3" />
                             <span className="truncate max-w-[200px]">{host}</span>
                           </a>
-                        ) : <span className="text-muted-foreground">—</span>}
+                        ) : <span className="text-muted-foreground">-</span>}
                       </td>
                       <td className="px-3 py-2">
                         <Badge variant="outline" className="text-[10px]">
-                          {s.hosting_platform || "—"}
+                          {s.hosting_platform || "-"}
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">

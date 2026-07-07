@@ -13,9 +13,9 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-  { key: "pass1",    labelRu: "Pass 1 — глубокое переписывание (Sonnet)", labelEn: "Pass 1 - deep rewrite (Sonnet)",    endAt: 0.50 },
-  { key: "pass2",    labelRu: "Pass 2 — микро-полировка (Opus)",          labelEn: "Pass 2 - micro polish (Opus)",      endAt: 0.92 },
-  { key: "finalize", labelRu: "Finalize — сохраняем результат",           labelEn: "Finalize - saving result",          endAt: 1.00 },
+  { key: "pass1",    labelRu: "Pass 1 - глубокое переписывание (Sonnet)", labelEn: "Pass 1 - deep rewrite (Sonnet)",    endAt: 0.50 },
+  { key: "pass2",    labelRu: "Pass 2 - микро-полировка (Opus)",          labelEn: "Pass 2 - micro polish (Opus)",      endAt: 0.92 },
+  { key: "finalize", labelRu: "Finalize - сохраняем результат",           labelEn: "Finalize - saving result",          endAt: 1.00 },
 ];
 
 export interface HumanizeMetricsSnapshot {
@@ -77,7 +77,7 @@ export function HumanizeProgress({
 
   const elapsed = Math.max(0, now - startedAt);
   // Cap the auto-progress at 95% so the bar doesn't claim "done" before
-  // the server actually returns — the final 5% is filled on completion.
+  // the server actually returns - the final 5% is filled on completion.
   const autoPct = Math.min(0.95, elapsed / estimatedMs);
   const pct = forcedStage === "done" ? 1 : forcedStage === "error" ? autoPct : autoPct;
 
@@ -190,7 +190,7 @@ function MetricsDelta({
     { key: "ngram", label: t("Повторы фраз",  "Repeated phrases"),  before: pre.repeatedNgrams,  after: post.repeatedNgrams,  lowerBetter: true },
   ];
 
-  // Drop rows where both sides are zero — keeps the panel tight.
+  // Drop rows where both sides are zero - keeps the panel tight.
   const visible = rows.filter((r) => (r.before || 0) + (r.after || 0) > 0);
   const fakes = metrics.fakesFixed || 0;
   if (!visible.length && !fakes) return null;

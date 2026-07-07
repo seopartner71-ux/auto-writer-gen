@@ -210,7 +210,7 @@ ${a.content || ""}
         <div>
           <h1 className="text-2xl font-bold">{t("myArticles.title")}</h1>
           <p className="text-muted-foreground text-sm">
-            {t("myArticles.subtitleCount")} — {articles.length} {t("myArticles.pcs")}
+            {t("myArticles.subtitleCount")} - {articles.length} {t("myArticles.pcs")}
           </p>
         </div>
         {articles.length > 0 && (
@@ -336,7 +336,7 @@ ${a.content || ""}
                     <TableCell className="text-sm text-muted-foreground">
                       {article.created_at
                         ? format(new Date(article.created_at), "dd.MM.yyyy HH:mm")
-                        : "—"}
+                        : "-"}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">

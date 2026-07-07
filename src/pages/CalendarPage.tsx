@@ -82,7 +82,7 @@ function DayDetailPanel({
                     )}
                   </div>
                 </div>
-                <p className="text-xs font-medium truncate">{task.keywords?.seed_keyword || "—"}</p>
+                <p className="text-xs font-medium truncate">{task.keywords?.seed_keyword || "-"}</p>
                 {task.author_profiles?.name && (
                   <p className="text-[10px] text-muted-foreground">{t("calendar.author")}: {task.author_profiles.name}</p>
                 )}
@@ -294,7 +294,7 @@ export default function CalendarPage() {
                       <div className="mt-0.5 space-y-px hidden sm:block">
                         {dayTasks.slice(0, 2).map((tt: any) => {
                           const cfg = STATUS_CONFIG_LOCAL[tt.status] || STATUS_CONFIG_LOCAL.pending;
-                          return (<div key={tt.id} className={`text-[9px] leading-tight px-0.5 py-px rounded truncate border ${cfg.class}`}>{tt.keywords?.seed_keyword || "—"}</div>);
+                          return (<div key={tt.id} className={`text-[9px] leading-tight px-0.5 py-px rounded truncate border ${cfg.class}`}>{tt.keywords?.seed_keyword || "-"}</div>);
                         })}
                         {dayTasks.length > 2 && <span className="text-[9px] text-muted-foreground pl-0.5">+{dayTasks.length - 2}</span>}
                       </div>

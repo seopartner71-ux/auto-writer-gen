@@ -11,7 +11,7 @@ html {
 @layer base {
   :root,
   .dark {
-    /* Linear/Vercel premium minimalism — dark */
+    /* Linear/Vercel premium minimalism - dark */
     --background: 0 0% 4%;            /* #0A0A0A */
     --foreground: 0 0% 98%;
 
@@ -58,7 +58,7 @@ html {
   }
 
   .light {
-    /* Linear/Vercel premium minimalism — light */
+    /* Linear/Vercel premium minimalism - light */
     --background: 240 9% 97%;         /* #F7F7F8 */
     --foreground: 0 0% 8%;
 

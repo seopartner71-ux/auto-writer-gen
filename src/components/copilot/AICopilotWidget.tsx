@@ -34,7 +34,7 @@ interface ChatMessage {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-// Detect which embedded UI card to attach (purely additive — text comes from LLM)
+// Detect which embedded UI card to attach (purely additive - text comes from LLM)
 function detectWidget(userText: string): WidgetPayload | undefined {
   const t = userText.toLowerCase();
   if (/(оператор|человек\s*техподдержк|жив(ой|ого)\s*челов|хочу\s*к\s*спе|свяжите|тикет)/.test(t)) {
@@ -64,7 +64,7 @@ async function processUserMessage(
     console.error("[AICopilot] invoke error:", error);
     return {
       content:
-        "⚠️ Не удалось связаться с AI. Проверьте подключение или попробуйте позже. Если проблема повторяется — создайте тикет в **/support**.",
+        "⚠️ Не удалось связаться с AI. Проверьте подключение или попробуйте позже. Если проблема повторяется - создайте тикет в **/support**.",
     };
   }
 

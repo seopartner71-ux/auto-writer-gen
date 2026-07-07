@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { analyzeSanity } from "./contentSanity";
 
-// Russian technical corpus — must NOT be flagged as corrupted.
+// Russian technical corpus - must NOT be flagged as corrupted.
 // These samples contain legitimate long consonant clusters (взгляд, всплеск,
 // конструкт), abbreviations (СССР, НДФЛ, ВПР), and tech terms (HTTP, JWT).
 

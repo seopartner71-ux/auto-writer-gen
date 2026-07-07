@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Подписка на изменения тарифов (subscription_plans) и ai_models.
- * При любом UPDATE/INSERT/DELETE инвалидирует кэш — UI обновляется без F5.
+ * При любом UPDATE/INSERT/DELETE инвалидирует кэш - UI обновляется без F5.
  */
 export function useSubscriptionPlansRealtime() {
   const qc = useQueryClient();
@@ -17,7 +17,7 @@ export function useSubscriptionPlansRealtime() {
       qc.invalidateQueries({ queryKey: ["ai-models-active"] });
     };
 
-    // Unique channel id per mount — otherwise multiple consumers (AppLayout +
+    // Unique channel id per mount - otherwise multiple consumers (AppLayout +
     // PricingPage + landing) collide on the same channel name and race on
     // removeChannel during unmount.
     const channelId = `subscription-plans-rt-${Math.random().toString(36).slice(2, 10)}`;

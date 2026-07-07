@@ -52,7 +52,7 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
       const end = ta.selectionEnd ?? 0;
       if (end - start < 5) { setSel(null); return; }
       const text = ta.value.slice(start, end);
-      // Anchor toolbar near the bottom of the textarea selection — we don't
+      // Anchor toolbar near the bottom of the textarea selection - we don't
       // have per-character coordinates in a textarea, so use the textarea
       // viewport position with an offset.
       const taRect = ta.getBoundingClientRect();

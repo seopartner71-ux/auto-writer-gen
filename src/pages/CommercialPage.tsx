@@ -387,7 +387,7 @@ export default function CommercialPage() {
     }
   };
 
-  // Click "Перегенерировать". 1-я бесплатная (regenCount=0 после генерации), дальше — подтверждение списания.
+  // Click "Перегенерировать". 1-я бесплатная (regenCount=0 после генерации), дальше - подтверждение списания.
   const handleRegenClick = (idx: number) => {
     const b = blocks[idx];
     if ((b.regenCount || 0) >= 1) {

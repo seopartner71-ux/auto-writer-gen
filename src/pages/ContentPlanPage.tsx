@@ -750,7 +750,7 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
               <Select value={clientId} onValueChange={setClientId}>
                 <SelectTrigger><SelectValue placeholder="Выберите клиента" /></SelectTrigger>
                 <SelectContent>
-                  {clients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} — {p.domain}</SelectItem>)}
+                  {clients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} - {p.domain}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -787,7 +787,7 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
                   </Button>
                 </div>
                 {topicsByTab[t.id].length === 0 && (
-                  <div className="text-xs text-muted-foreground text-center py-2">Тем нет — добавьте первую ниже</div>
+                  <div className="text-xs text-muted-foreground text-center py-2">Тем нет - добавьте первую ниже</div>
                 )}
                 {topicsByTab[t.id].map((topic, idx) => (
                   <div key={topic.id} className="rounded-md border border-border bg-card/40 p-2 space-y-2">
@@ -821,7 +821,7 @@ function PlanCreatorDialog({ initialClientId, onClose, onCreated }: { initialCli
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addTopic(t.id, drafts[t.id]); }
                     }}
-                    placeholder="Новая тема — введите и нажмите «Добавить»"
+                    placeholder="Новая тема - введите и нажмите «Добавить»"
                     className="min-h-[48px]"
                   />
                   <Button type="button" size="sm" onClick={() => addTopic(t.id, drafts[t.id])} disabled={!drafts[t.id].trim() || !clientId}>
@@ -930,7 +930,7 @@ function PlanDetail({ planId, onBack, onOpenWriting, onSwitchPlan }: { planId: s
         <CardHeader>
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle className="text-lg">{owner.name} — {String(plan.month).padStart(2, "0")}/{plan.year}</CardTitle>
+              <CardTitle className="text-lg">{owner.name} - {String(plan.month).padStart(2, "0")}/{plan.year}</CardTitle>
               <CardDescription>{owner.domain}</CardDescription>
             </div>
             <Badge variant="outline" className={`text-xs ${st.cls}`}>{st.label}</Badge>
@@ -1281,7 +1281,7 @@ function WritingScreen({ planId, onBack }: { planId: string; onBack: () => void 
         <CardHeader>
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <CardTitle className="text-lg">Написание статей — {owner.name}</CardTitle>
+              <CardTitle className="text-lg">Написание статей - {owner.name}</CardTitle>
               <CardDescription>{owner.domain} · {String(plan.month).padStart(2, "0")}/{plan.year}</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -1561,7 +1561,7 @@ function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submit
               </SelectContent>
             </Select>
             {!authorsLoading && authors.length === 0 && (
-              <p className="text-[11px] text-muted-foreground">Нет сохранённых авторов — создайте их в разделе «Авторы».</p>
+              <p className="text-[11px] text-muted-foreground">Нет сохранённых авторов - создайте их в разделе «Авторы».</p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">

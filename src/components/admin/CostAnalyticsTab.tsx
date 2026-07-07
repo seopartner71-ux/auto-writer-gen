@@ -540,7 +540,7 @@ export function CostAnalyticsTab() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Курс: 1$ ≈ {rate}₽. Цены: Claude Sonnet 4 — $3/$15 за 1M токенов. FAL AI — $0.003/фото. Cloudflare Pages — $0.
+        Курс: 1$ ≈ {rate}₽. Цены: Claude Sonnet 4 - $3/$15 за 1M токенов. FAL AI - $0.003/фото. Cloudflare Pages - $0.
       </p>
     </div>
   );
@@ -586,7 +586,7 @@ function TimeseriesChart({ series }: { series: any[] }) {
   const path = series.map((p, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(Number(p.total) || 0).toFixed(1)}`).join(" ");
   const area = `${path} L ${toX(series.length - 1).toFixed(1)} ${toY(0).toFixed(1)} L ${toX(0).toFixed(1)} ${toY(0).toFixed(1)} Z`;
 
-  // X labels — show ~6 evenly spaced
+  // X labels - show ~6 evenly spaced
   const labelStep = Math.max(1, Math.floor(series.length / 6));
 
   return (
@@ -802,14 +802,14 @@ function OpenRouterBudgetCard({
           <div className="rounded-lg border p-3">
             <div className="text-xs text-muted-foreground mb-1">Хватит дней</div>
             <div className="font-semibold">
-              {Number.isFinite(daysLeft) && daysLeft > 0 ? `${Math.floor(daysLeft)} дн.` : "—"}
+              {Number.isFinite(daysLeft) && daysLeft > 0 ? `${Math.floor(daysLeft)} дн.` : "-"}
             </div>
             <div className="text-[11px] text-muted-foreground">Расход: {fmtUsd(dailyBurn)}/день</div>
           </div>
           <div className="rounded-lg border p-3">
             <div className="text-xs text-muted-foreground mb-1">Хватит статей</div>
             <div className="font-semibold">
-              {avgPerArticleUsd > 0 ? `≈ ${Math.floor(articlesLeft)}` : "—"}
+              {avgPerArticleUsd > 0 ? `≈ ${Math.floor(articlesLeft)}` : "-"}
             </div>
             <div className="text-[11px] text-muted-foreground">
               Ср.: {fmtUsd(avgPerArticleUsd)} / статью
@@ -924,10 +924,10 @@ function OpenRouterBudgetCard({
                               <div className="text-[11px] text-muted-foreground">{fmtRub(avg, rate)}</div>
                             </>
                           ) : (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="py-2 px-2 text-muted-foreground">{t.note || "—"}</td>
+                        <td className="py-2 px-2 text-muted-foreground">{t.note || "-"}</td>
                         <td className="py-2 pl-2">
                           <Button variant="ghost" size="icon" onClick={() => removeTopup(t.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />

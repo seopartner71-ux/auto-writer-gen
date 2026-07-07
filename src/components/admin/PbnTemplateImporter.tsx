@@ -52,12 +52,12 @@ export function PbnTemplateImporter({ open, onOpenChange, onImported }: Props) {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
 
-  // Step 2 — analysis result + editable mapping
+  // Step 2 - analysis result + editable mapping
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [mapping, setMapping] = useState<Mapping>({});
   const [postsBlock, setPostsBlock] = useState<any>(null);
 
-  // Step 3 — meta
+  // Step 3 - meta
   const [name, setName] = useState("");
   const [templateKey, setTemplateKey] = useState("");
   const [description, setDescription] = useState("");
@@ -234,7 +234,7 @@ export function PbnTemplateImporter({ open, onOpenChange, onImported }: Props) {
               </div>
               <div className="p-2 rounded border bg-muted/30">
                 <div className="text-muted-foreground">Шрифты</div>
-                <div className="mt-1">H: {result.analysis.headingFont || "—"} / B: {result.analysis.bodyFont || "—"}</div>
+                <div className="mt-1">H: {result.analysis.headingFont || "-"} / B: {result.analysis.bodyFont || "-"}</div>
               </div>
               <div className="p-2 rounded border bg-muted/30">
                 <div className="text-muted-foreground">Структура</div>

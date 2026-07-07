@@ -1,5 +1,5 @@
 // Dev-only logger. In production .debug/.info are no-ops to keep prod console clean.
-// Use console.warn / console.error directly for real signals — they are kept in prod.
+// Use console.warn / console.error directly for real signals - they are kept in prod.
 const isDev = import.meta.env.DEV;
 
 export const logger = {

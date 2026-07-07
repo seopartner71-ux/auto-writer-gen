@@ -85,7 +85,7 @@ export function SectionContentFlow() {
 
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="grid lg:grid-cols-[2fr_3fr] gap-12 lg:gap-16 items-start">
-          {/* Left column — heading + stats */}
+          {/* Left column - heading + stats */}
           <motion.div className="lg:sticky lg:top-28" {...fadeUp}>
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 mb-6">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -126,7 +126,7 @@ export function SectionContentFlow() {
             </div>
           </motion.div>
 
-          {/* Right column — timeline */}
+          {/* Right column - timeline */}
           <div className="relative">
             {steps.map((step, i) => {
               const Icon = step.icon;

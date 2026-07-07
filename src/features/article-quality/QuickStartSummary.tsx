@@ -13,27 +13,27 @@ interface Props {
 }
 
 function aiLabel(s: number | null | undefined) {
-  if (s == null) return { text: "—", tone: "muted" as const };
+  if (s == null) return { text: "-", tone: "muted" as const };
   if (s >= 80) return { text: "отлично", tone: "ok" as const };
   if (s >= 60) return { text: "хорошо", tone: "ok" as const };
   if (s >= 40) return { text: "средне", tone: "warn" as const };
   return { text: "плохо", tone: "fail" as const };
 }
 function burstLabel(s: number | null | undefined) {
-  if (s == null) return { text: "—", tone: "muted" as const };
+  if (s == null) return { text: "-", tone: "muted" as const };
   if (s >= 10) return { text: "отлично", tone: "ok" as const };
   if (s >= 7) return { text: "хорошо", tone: "ok" as const };
   return { text: "монотонно", tone: "warn" as const };
 }
 function densityLabel(status: string | null | undefined) {
-  if (!status) return { text: "—", tone: "muted" as const };
+  if (!status) return { text: "-", tone: "muted" as const };
   if (status === "ok") return { text: "в норме", tone: "ok" as const };
   if (status === "overuse") return { text: "переспам↑", tone: "fail" as const };
   if (status === "underuse") return { text: "мало↓", tone: "warn" as const };
   return { text: status, tone: "muted" as const };
 }
 function turgLabel(s: number | null | undefined) {
-  if (s == null) return { text: "—", tone: "muted" as const };
+  if (s == null) return { text: "-", tone: "muted" as const };
   if (s <= 5) return { text: "безопасно", tone: "ok" as const };
   if (s <= 10) return { text: "есть риск", tone: "warn" as const };
   return { text: "высокий риск", tone: "fail" as const };
@@ -128,7 +128,7 @@ export function QuickStartSummary({ articleId, hasContent, onSave, saveDisabled,
         return;
       }
       // Async: 202 accepted. Result will arrive via realtime on quality_status.
-      toast.info("Улучшение запущено — обработка займёт до пары минут");
+      toast.info("Улучшение запущено - обработка займёт до пары минут");
       setData((d: any) => ({ ...d, quality_status: "improving" }));
     } catch (e: any) {
       toast.error(e?.message || "Не удалось выполнить запрос");

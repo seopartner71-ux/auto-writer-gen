@@ -88,7 +88,7 @@ const difficultyMeta = (d?: string) => {
       return { label: "🟢 Низкая", cls: "text-emerald-400",
         tip: "Мало конкурентов. Хорошая статья быстро попадет в топ-10." };
     default:
-      return { label: "—", cls: "text-muted-foreground", tip: "" };
+      return { label: "-", cls: "text-muted-foreground", tip: "" };
   }
 };
 
@@ -101,18 +101,18 @@ function escapeCsv(s: string) {
 function cleanKeyword(raw: string): string {
   let s = String(raw || "").trim();
   // Remove trailing intent labels
-  s = s.replace(/\s*[—–-]\s*(commercial|transactional|informational|navigational)\s*$/i, "");
+  s = s.replace(/\s*[---]\s*(commercial|transactional|informational|navigational)\s*$/i, "");
   // Remove known site-name tails after dash
-  s = s.replace(/\s*[—–-]\s*(профи\.ру|profi\.ru|ozon|avito|wildberries|wb|dns|эльдорадо|mvideo|м\.видео|ситилинк|яндекс[^—–-]*|google[^—–-]*)\b.*$/i, "");
+  s = s.replace(/\s*[---]\s*(профи\.ру|profi\.ru|ozon|avito|wildberries|wb|dns|эльдорадо|mvideo|м\.видео|ситилинк|яндекс[^---]*|google[^---]*)\b.*$/i, "");
   // Remove tail after dash if it contains a domain or starts with capital + brand-ish word
-  s = s.replace(/\s*[—–-]\s*[^—–-]*?\.(ru|com|рф|net|org|ua|by|kz)\b.*$/i, "");
+  s = s.replace(/\s*[---]\s*[^---]*?\.(ru|com|рф|net|org|ua|by|kz)\b.*$/i, "");
   // Strip surrounding quotes
   s = s.replace(/^["'«»]+|["'«»]+$/g, "");
   // Collapse whitespace
   s = s.replace(/\s{2,}/g, " ").trim();
   // If still too long, take part before first " - " / em-dash
   if (s.length > 60) {
-    const parts = s.split(/\s*[—–-]\s*/);
+    const parts = s.split(/\s*[---]\s*/);
     if (parts[0] && parts[0].length >= 3) s = parts[0].trim();
   }
   return s;
@@ -445,7 +445,7 @@ export default function TopicalMapPage() {
                         const f = kw.frequency || 0;
                         const freqCls = f >= 10000 ? "text-emerald-400" : f >= 1000 ? "text-amber-400" : f > 0 ? "text-muted-foreground" : "text-muted-foreground";
                         const freqIcon = f >= 10000 ? "🟢" : f >= 1000 ? "🟡" : f > 0 ? "⚫" : "";
-                        const freqText = kw.frequency_display || (f > 0 ? f.toLocaleString("ru") + "/мес" : "—");
+                        const freqText = kw.frequency_display || (f > 0 ? f.toLocaleString("ru") + "/мес" : "-");
                         return (
                           <li key={ki} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_140px_auto] items-center gap-2 text-sm py-1 px-2 rounded hover:bg-muted/30 group">
                             <span className="truncate text-foreground/90" title={display}>{display}</span>

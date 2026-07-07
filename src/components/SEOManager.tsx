@@ -53,7 +53,7 @@ export function SEOManager() {
       meta.setAttribute("content", gv);
     }
 
-    // Yandex.Metrica script — skip on localhost and preview domains
+    // Yandex.Metrica script - skip on localhost and preview domains
     const mid = settings.metrica_id?.trim();
     const hostname = window.location.hostname;
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname.includes(".lovable.app");

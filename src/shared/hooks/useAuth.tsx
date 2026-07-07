@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })();
 
-      // Track IP address on login — fetch real client IP first
+      // Track IP address on login - fetch real client IP first
       void (async () => {
         try {
           let clientIp = "unknown";

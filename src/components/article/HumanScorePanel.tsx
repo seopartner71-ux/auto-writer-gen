@@ -30,8 +30,8 @@ interface HumanScorePanelProps {
 export function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Record<string, string> {
   const personaBlock = personaStyle
     ? (lang === "ru"
-      ? `\n\nАДАПТАЦИЯ К ПЕРСОНЕ: Сохрани тон и стиль выбранного автора: "${personaStyle}". Если автор 'Скептик' — сделай текст ворчливым и прямым. Если 'Блогер' — более эмоциональным и неформальным. Если стиль нейтральный — сделай профессиональную, чистую, человечную редактуру.`
-      : `\n\nPERSONA ADAPTATION: Maintain the tone and style of the chosen author: "${personaStyle}". If "Skeptical Pro" — make the fix more grumpy and direct. If "Lifestyle Blogger" — more emotional and informal. If neutral — make it a professional, clean human-like edit.`)
+      ? `\n\nАДАПТАЦИЯ К ПЕРСОНЕ: Сохрани тон и стиль выбранного автора: "${personaStyle}". Если автор 'Скептик' - сделай текст ворчливым и прямым. Если 'Блогер' - более эмоциональным и неформальным. Если стиль нейтральный - сделай профессиональную, чистую, человечную редактуру.`
+      : `\n\nPERSONA ADAPTATION: Maintain the tone and style of the chosen author: "${personaStyle}". If "Skeptical Pro" - make the fix more grumpy and direct. If "Lifestyle Blogger" - more emotional and informal. If neutral - make it a professional, clean human-like edit.`)
     : "";
 
   if (lang === "ru") {
@@ -43,7 +43,7 @@ export function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Re
       "burstiness": "Чередуй длину предложений: минимум 30% предложений должны быть очень короткими (3-7 слов), а 20% - длинными ветвистыми конструкциями (25-40 слов). Используй тире, двоеточия и парентетические вставки.",
       "rhetorical": "Добавь 3-4 риторических вопроса в тело статьи (НЕ в FAQ). Используй их для перехода между мыслями.",
       "humanize-all": `UNIVERSAL STEALTH BYPASS (0% AI TARGET):
-Ты — элитный человеческий редактор. Твоя задача — переписать текст для 0% AI Score, СТРОГО сохраняя тон выбранной персоны.${personaBlock}
+Ты - элитный человеческий редактор. Твоя задача - переписать текст для 0% AI Score, СТРОГО сохраняя тон выбранной персоны.${personaBlock}
 
 ОСНОВНЫЕ ПРАВИЛА:
 1. ОЧИСТКА: Удали ВСЕ символы ** (жирный шрифт). Человеческие эксперты не выделяют ключевые слова bold в плавном тексте.
@@ -61,7 +61,7 @@ export function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Re
 
 6. FAQ РЕДИЗАЙН: Переделай FAQ в формат 'Вопросы и ответы'. Тон - как у эксперта, отвечающего другу.
 
-7. ЗАПРЕТ НА ТИРЕ: НИКОГДА не используй длинное тире (—) или среднее тире (–). Используй ТОЛЬКО обычный дефис-минус (-) для всех пунктуаций, списков и диалогов. Это техническое требование для совместимости с CMS.
+7. ЗАПРЕТ НА ТИРЕ: НИКОГДА не используй длинное тире (-) или среднее тире (-). Используй ТОЛЬКО обычный дефис-минус (-) для всех пунктуаций, списков и диалогов. Это техническое требование для совместимости с CMS.
 
 ЦЕЛЬ: Результат должен выглядеть так, будто человек набрал его за один присест, со всеми естественными несовершенствами, сленгом и уникальным ритмом, который ИИ не может предсказать. 0% AI Score - единственный приемлемый результат.`,
     };
@@ -77,7 +77,7 @@ export function getFixInstructions(lang: "ru" | "en", personaStyle?: string): Re
 
 WRITING STYLE RULES:
 - Use contractions ALWAYS: it's, don't, you'll, can't, won't, I've, we've, they're, isn't, wasn't, wouldn't, shouldn't. NEVER write "it is", "do not", "you will" in full form.
-- Start some sentences with And, But, So — this is how real people write.
+- Start some sentences with And, But, So - this is how real people write.
 - Add rhetorical questions every 3-4 paragraphs to break monotony.
 - Mix very short sentences (3-5 words) with long ones (25-35 words). Pattern: short-long-medium-short-long.
 - Add specific personal observations and opinions: "I've seen this happen with...", "Most clients I work with..."
@@ -85,19 +85,19 @@ WRITING STYLE RULES:
 - Use 'you' to address the reader directly throughout.
 
 HUMANIZATION RULES:
-- Occasionally use em-dashes — like this — for emphasis and asides.
+- Occasionally use em-dashes - like this - for emphasis and asides.
 - Add 1-2 industry-specific slang terms per 500 words ("the kicker", "game-changer", "no-brainer", "bottom line").
 - Include at least one counterintuitive statement per section ("Sounds crazy, but...", "Against popular belief...").
 - Use specific numbers instead of round ones: not "50%" but "47%", not "10 years" but "9 years".
 - Add occasional self-corrections: "Actually, let me rephrase that...", "Wait, that's not quite right..."
 - Use sentence fragments occasionally. For emphasis. Like this.
 - Reference real-world scenarios: "I've seen this happen with..." or "Most clients I work with..."
-- Vary paragraph length dramatically — one sentence, then five sentences, then two.
+- Vary paragraph length dramatically - one sentence, then five sentences, then two.
 - Add qualifiers: "In most cases...", "This won't work if...", "The exception here is..."
 - Never start two consecutive paragraphs with the same word.
 - Include at least one direct quote or paraphrased expert opinion per section.
 
-ZERO TOLERANCE — BANNED PHRASES (delete on sight, replace with natural transitions):
+ZERO TOLERANCE - BANNED PHRASES (delete on sight, replace with natural transitions):
 - "It is worth noting" / "It is worth noting that"
 - "In conclusion"
 - "Furthermore"
@@ -118,12 +118,12 @@ ZERO TOLERANCE — BANNED PHRASES (delete on sight, replace with natural transit
 
 FORMATTING:
 1. STRIP ALL BOLD: Remove all ** formatting. Human experts don't bold keywords.
-2. First sentence after each H2/H3 — blunt, clear answer. No fluff intros.
+2. First sentence after each H2/H3 - blunt, clear answer. No fluff intros.
 3. FAQ section tone: like an expert answering a friend, not a textbook.
 
 Keep all facts, structure, headings, and SEO keywords intact. Only change the writing style.
 
-FINAL GOAL: Output must look typed by a human in one sitting — with all natural imperfections, slang, and unique rhythm that AI cannot predict. 0% AI Score is the only acceptable result.`,
+FINAL GOAL: Output must look typed by a human in one sitting - with all natural imperfections, slang, and unique rhythm that AI cannot predict. 0% AI Score is the only acceptable result.`,
   };
 }
 

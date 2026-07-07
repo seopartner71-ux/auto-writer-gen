@@ -228,7 +228,7 @@ export default function PromptsPage({ projectId }: { projectId?: string }) {
                               {group.name}
                             </Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">

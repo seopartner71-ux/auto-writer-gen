@@ -109,10 +109,10 @@ export function PaymentLogsTab() {
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {format(new Date(log.created_at), "dd.MM.yyyy HH:mm")}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{log.email || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{log.email || "-"}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {PLAN_LABELS[log.plan_id || ""] || log.plan_id || "—"}
+                        {PLAN_LABELS[log.plan_id || ""] || log.plan_id || "-"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm font-semibold">
@@ -127,7 +127,7 @@ export function PaymentLogsTab() {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-[11px] text-muted-foreground">
-                      {log.order_id || "—"}
+                      {log.order_id || "-"}
                     </TableCell>
                   </TableRow>
                 ))}

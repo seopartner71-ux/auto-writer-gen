@@ -1,5 +1,5 @@
 // Pure helpers extracted from ArticlesPage.tsx.
-// No React, no Supabase — safe to import anywhere.
+// No React, no Supabase - safe to import anywhere.
 
 export function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;

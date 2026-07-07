@@ -6,7 +6,7 @@ import { useI18n } from "@/shared/hooks/useI18n";
 type Engine = "google" | "yandex";
 
 const series: Record<Engine, number[]> = {
-  // позиции по дням (меньше — лучше). 14 точек
+  // позиции по дням (меньше - лучше). 14 точек
   google: [22, 19, 17, 15, 14, 12, 11, 9, 8, 7, 6, 5, 4, 3],
   yandex: [28, 26, 24, 21, 18, 16, 14, 12, 10, 9, 7, 6, 5, 4],
 };
@@ -50,7 +50,7 @@ function buildArea(points: number[]) {
 export function SectionRankTracker() {
   const { lang } = useI18n();
   const isEn = lang === "en";
-  const [progress, setProgress] = useState(0); // 0..1 — анимация рисования
+  const [progress, setProgress] = useState(0); // 0..1 - анимация рисования
 
   useEffect(() => {
     let raf = 0;

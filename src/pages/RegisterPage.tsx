@@ -38,7 +38,7 @@ export default function RegisterPage() {
         const { data, error } = await supabase.rpc("is_registration_enabled");
         if (cancelled) return;
         if (error) {
-          // Fail open on RPC error — admin can still disable via UI later
+          // Fail open on RPC error - admin can still disable via UI later
           setRegistrationOpen(true);
         } else {
           setRegistrationOpen(data !== false);
@@ -203,8 +203,8 @@ export default function RegisterPage() {
             <div className="space-y-4 text-center">
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-4 py-4 text-sm text-emerald-300/90">
                 {lang === "ru"
-                  ? "Заявка отправлена. Мы свяжемся с вами после проверки — на указанный email придёт письмо об активации."
-                  : "Application sent. We'll get back to you after the review — you'll receive an activation email on the address you provided."}
+                  ? "Заявка отправлена. Мы свяжемся с вами после проверки - на указанный email придёт письмо об активации."
+                  : "Application sent. We'll get back to you after the review - you'll receive an activation email on the address you provided."}
               </div>
               <Link to="/login" className="inline-block text-sm text-primary hover:underline">
                 {lang === "ru" ? "Вернуться к входу" : "Back to login"}
@@ -239,8 +239,8 @@ export default function RegisterPage() {
             </div>
             <div className="text-emerald-300/70 text-[11px]">
               {lang === "ru"
-                ? "Мы рассматриваем заявки вручную и сообщаем об активации письмом на ваш email. 2 кредита на счет сразу после активации — хватит проверить Smart Research и сгенерировать статью."
-                : "We review applications manually and email you once your account is activated. 2 credits land on your account right after activation — enough to test Smart Research and generate one article."}
+                ? "Мы рассматриваем заявки вручную и сообщаем об активации письмом на ваш email. 2 кредита на счет сразу после активации - хватит проверить Smart Research и сгенерировать статью."
+                : "We review applications manually and email you once your account is activated. 2 credits land on your account right after activation - enough to test Smart Research and generate one article."}
             </div>
           </div>
           <form onSubmit={handleRegister} className="space-y-4">

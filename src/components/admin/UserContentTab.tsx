@@ -63,14 +63,14 @@ export function UserContentTab() {
               {articles.map((art: any) => (
                 <TableRow key={art.id} className="border-border">
                   <TableCell className="text-xs">
-                    <div>{art._profile?.full_name || "—"}</div>
-                    <div className="text-muted-foreground font-mono">{art._profile?.email || "—"}</div>
+                    <div>{art._profile?.full_name || "-"}</div>
+                    <div className="text-muted-foreground font-mono">{art._profile?.email || "-"}</div>
                   </TableCell>
                   <TableCell className="font-medium max-w-[300px] truncate">
                     {art.title || "Без заголовка"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {art._keyword?.seed_keyword || "—"}
+                    {art._keyword?.seed_keyword || "-"}
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -81,7 +81,7 @@ export function UserContentTab() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {art.created_at ? format(new Date(art.created_at), "dd.MM.yyyy HH:mm") : "—"}
+                    {art.created_at ? format(new Date(art.created_at), "dd.MM.yyyy HH:mm") : "-"}
                   </TableCell>
                 </TableRow>
               ))}

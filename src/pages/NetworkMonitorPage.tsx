@@ -331,7 +331,7 @@ export default function NetworkMonitorPage() {
   const totalIndexed = Object.values(indexedCounts).reduce((sum, b) => sum + b.sent, 0);
   const totalArticles = Object.values(indexedCounts).reduce((sum, b) => sum + b.total, 0);
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US") : "—";
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US") : "-";
   const hostOf = (domain: string) => (domain || "").replace(/^https?:\/\//, "").split("/")[0];
 
   return (
@@ -405,7 +405,7 @@ export default function NetworkMonitorPage() {
           </CardHeader>
           <CardContent>
             <span className="text-lg font-bold truncate block">
-              {bestProject?.name || "—"}
+              {bestProject?.name || "-"}
             </span>
             <span className="text-muted-foreground text-xs">
               {bestProject ? `${(bestProject.total_views || 0).toLocaleString()} ${lang === "ru" ? "просмотров" : "views"}` : ""}
@@ -546,7 +546,7 @@ export default function NetworkMonitorPage() {
                               <Activity className="h-4 w-4 text-muted-foreground" />
                             )}
                             <span className={`text-xs font-medium ${isOnline ? "text-green-400" : pingStatus === "offline" ? "text-destructive" : "text-muted-foreground"}`}>
-                              {hr?.statusCode ? `${hr.statusCode}` : isOnline ? "200 OK" : pingStatus === "offline" ? "Offline" : "—"}
+                              {hr?.statusCode ? `${hr.statusCode}` : isOnline ? "200 OK" : pingStatus === "offline" ? "Offline" : "-"}
                             </span>
                             {hr?.responseTime && (
                               <span className="text-xs text-muted-foreground">{hr.responseTime}ms</span>
@@ -558,7 +558,7 @@ export default function NetworkMonitorPage() {
                         <TableCell>
                           {cf ? (
                             <span className="text-xs text-muted-foreground">{cf.requests_30d.toLocaleString()}</span>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                          ) : <span className="text-xs text-muted-foreground">-</span>}
                         </TableCell>
                         <TableCell>
                           <div className="text-xs">
@@ -581,7 +581,7 @@ export default function NetworkMonitorPage() {
                               {fmtDate(project.last_search_ping_at ?? null)}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
                         <TableCell>

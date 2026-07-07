@@ -17,7 +17,7 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
 
   // Wait not only for the session bootstrap (`loading`) but also for the role
   // to be resolved when we have a session. Otherwise on F5 there is a window
-  // where `loading` is already false but `role` is still null — and the
+  // where `loading` is already false but `role` is still null - and the
   // `allowedRoles` branch below would redirect the user to /dashboard.
   const roleNotReady = !!session && role === null;
   if (loading || roleNotReady) {
@@ -95,7 +95,7 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
   const hasAllowed =
     !allowedRoles || allowedRoles.length === 0 || (!!role && allowedRoles.includes(role));
   if (!hasRequired || !hasAllowed) {
-    // Do NOT force-redirect to /dashboard on refresh — that ejects the user
+    // Do NOT force-redirect to /dashboard on refresh - that ejects the user
     // from the URL they were on. Render an inline 403 instead so the route
     // stays the same and they can navigate back manually.
     return (

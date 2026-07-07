@@ -20,7 +20,7 @@ export function LandingNav() {
           <span className="text-base sm:text-xl font-brand tracking-tight whitespace-nowrap">{lang === "ru" ? <>СЕО-<span className="gradient-text">Модуль</span></> : <>SEO-<span className="gradient-text">Module</span></>}</span>
         </div>
 
-        {/* Nav links — hidden on mobile */}
+        {/* Nav links - hidden on mobile */}
         <div className="hidden md:flex items-center gap-6">
           <button onClick={() => scrollTo("features")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             {t("lp.navFeatures")}

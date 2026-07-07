@@ -1,6 +1,6 @@
 // Mirror of supabase/functions/_shared/authorAutoSelect.ts kept in sync so the
 // UI can pre-select the same Persona the backend would auto-pick from
-// onboarding_niche. Order matters — more specific rules first.
+// onboarding_niche. Order matters - more specific rules first.
 
 const NICHE_RULES: { match: RegExp; name: string }[] = [
   { match: /медиц|здоров|психолог|питан|спорт|реабилит|клиник|фарм|стоматол/i, name: "Врач-практик" },
