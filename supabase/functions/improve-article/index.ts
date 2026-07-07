@@ -315,7 +315,13 @@ Deno.serve(async (req) => {
     // Auto-reset stale status: 'improving' / 'checking' with no pipeline_events
     // in the last 10 minutes = crashed background task, unblock the article.
     if ((art as any).quality_status === "improving" || (art as any).quality_status === "checking") {
-      const stale = await isStaleStatus(admin, article_id, 10 * 60 * 1000);
+      // Filter events by stage: for 'checking' the pipeline is alive only if
+      // there is a recent quality_check/ai_detect event — any earlier
+      // 'improve' event would otherwise mask a dead background task forever.
+      const staleStages = (art as any).quality_status === "checking"
+        ? ["quality_check", "ai_detect"]
+        : ["improve", "humanize"];
+      const stale = await isStaleStatus(admin, article_id, 10 * 60 * 1000, staleStages);
       if (stale) {
         const prevStatus = (art as any).quality_status;
         await admin.from("articles").update({ quality_status: null }).eq("id", article_id);
