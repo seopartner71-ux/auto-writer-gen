@@ -506,7 +506,22 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       primaryKeyword = String(art.keywords[0]);
     }
 
-    const aiScore = Number(art.ai_score ?? 100);
+    // NaN-gate fix: null ai_score = "score unknown", NOT "text is great".
+    // Previously `?? 100` skipped humanize/opus entirely on brand-new articles
+    // with no prior quality-check → we lost the very first pass on many drafts.
+    const aiScoreRaw = (art as any).ai_score;
+    const aiScoreMissing = aiScoreRaw == null || Number.isNaN(Number(aiScoreRaw));
+    const aiScore = aiScoreMissing ? 0 : Number(aiScoreRaw);
+    if (aiScoreMissing) {
+      logPipelineEvent({
+        stage: "improve",
+        user_id: user.id,
+        article_id,
+        verdict: "warning",
+        duration_ms: 0,
+        meta: { event: "ai_score_missing_treated_as_needs_improve", phase },
+      });
+    }
     const burstStatus = String(art.burstiness_status || "ok");
     const dStatus = String(art.keyword_density_status || "ok");
 
