@@ -291,8 +291,23 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       {running && (
         <div className="space-y-2">
           {mode === "quick" ? (
-            <div className="flex justify-center py-1">
+            <div className="flex flex-col items-center gap-1.5 py-1">
               <ImprovingTipsLoader />
+              {cycle?.started_at && (
+                <div className="text-[11px] text-muted-foreground tabular-nums">
+                  {elapsedLabel} · обычно 2–6 минут
+                </div>
+              )}
+              {escalationLevel === "long" && (
+                <div className="text-[11px] text-amber-300 text-center">
+                  ⏱ Дольше обычного — можно остановить и забрать лучшее.
+                </div>
+              )}
+              {escalationLevel === "stuck" && (
+                <div className="text-[11px] text-rose-200 text-center">
+                  ⚠ Похоже, цикл завис. Остановите и сохраните лучший результат.
+                </div>
+              )}
             </div>
           ) : (
             <>
