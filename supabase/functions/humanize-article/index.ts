@@ -106,11 +106,11 @@ serve(async (req) => {
     const openRouterKey = orRow?.api_key || Deno.env.get("OPENROUTER_API_KEY");
     if (!openRouterKey) return errorResponse("OpenRouter key not configured", 500);
 
-    const lang = detectLang(content, article.language);
+    const lang = detectLang(workContent, article.language);
 
     // Preflight: anti-fake regex pass (fake experts, pseudo-stats, fake orgs).
     // Runs BEFORE humanize so LLM rewrites already-clean text.
-    const preflight = validateContent(content);
+    const preflight = validateContent(workContent);
     let cleanedInput = preflight.fixedContent;
     const fakesFixed = preflight.issues.length;
 
@@ -227,7 +227,7 @@ serve(async (req) => {
       // Persist meta even when nothing changed, so we can see why in admin.
       // If only anti-fake preflight applied changes, still save fixedContent.
       const updatePayload: Record<string, unknown> = { humanize_meta: meta, pipeline_stages: newStages };
-      if (fakesFixed > 0 && cleanedInput !== content) {
+      if (fakesFixed > 0 && cleanedInput !== workContent) {
         updatePayload.content = cleanedInput;
       }
       updatePayload.h2_warnings = h2.warnings.length ? h2 : null;
