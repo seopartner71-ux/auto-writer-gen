@@ -39,6 +39,7 @@ import { LiveTurgenevBadge } from "@/features/article-editor/LiveTurgenevBadge";
 import { AuthorComplianceCard, type ComplianceResult, type ComplianceDeviation } from "@/components/article/AuthorComplianceCard";
 import { MiralinksWidget, type MiralinksLink } from "@/components/article/MiralinksWidget";
 import { validateContent, applyEnStealthPostProcessing } from "@/shared/utils/contentValidator";
+import { analyzeSanity } from "@/shared/utils/contentSanity";
 import { GoGetLinksWidget, type GoGetLinksLink } from "@/components/article/GoGetLinksWidget";
 import { InlineAIToolbar } from "@/components/article/InlineAIToolbar";
 import { SectionedGeneratorMount } from "@/pages/articles/SectionedGeneratorMount";
