@@ -30,7 +30,9 @@ export interface SanityReport {
 // Unicode ranges we consider "foreign" (not expected in RU/EN articles).
 // Deliberately excludes Latin, Cyrillic, digits, punctuation, whitespace,
 // common typographic marks and math/currency symbols.
-const FOREIGN_SCRIPT_RE = /[\u0370-\u03FF\u0530-\u058F\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u0F00-\u0FFF\u1000-\u109F\u10A0-\u10FF\u1200-\u137F\u3040-\u309F\u30A0-\u30FF\u3130-\u318F\u3400-\u4DBF\u4E00-\u9FFF\uA960-\uA97F\uAC00-\uD7AF]/g;
+const FOREIGN_SCRIPT_CLASS = "\\u0370-\\u03FF\\u0530-\\u058F\\u0590-\\u05FF\\u0600-\\u06FF\\u0700-\\u074F\\u0750-\\u077F\\u0780-\\u07BF\\u0900-\\u097F\\u0980-\\u09FF\\u0A00-\\u0A7F\\u0A80-\\u0AFF\\u0B00-\\u0B7F\\u0B80-\\u0BFF\\u0C00-\\u0C7F\\u0C80-\\u0CFF\\u0D00-\\u0D7F\\u0D80-\\u0DFF\\u0E00-\\u0E7F\\u0E80-\\u0EFF\\u0F00-\\u0FFF\\u1000-\\u109F\\u10A0-\\u10FF\\u1200-\\u137F\\u3040-\\u309F\\u30A0-\\u30FF\\u3130-\\u318F\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uA960-\\uA97F\\uAC00-\\uD7AF";
+const FOREIGN_SCRIPT_RE_G = new RegExp(`[${FOREIGN_SCRIPT_CLASS}]`, "g");
+const FOREIGN_SCRIPT_RE = new RegExp(`[${FOREIGN_SCRIPT_CLASS}]`);
 
 const CYR_LETTER_RE = /[а-яёА-ЯЁ]/;
 const CYR_VOWELS = "аеёиоуыэюяАЕЁИОУЫЭЮЯ";
@@ -64,7 +66,7 @@ export function analyzeSanity(plain: string): SanityReport {
   const length = text.length;
 
   // Foreign scripts.
-  const foreignMatches = text.match(FOREIGN_SCRIPT_RE) || [];
+  const foreignMatches = text.match(FOREIGN_SCRIPT_RE_G) || [];
   const foreign_script_ratio = length ? foreignMatches.length / length : 0;
   const foreign_script_samples: string[] = [];
   if (foreignMatches.length) {
@@ -72,12 +74,9 @@ export function analyzeSanity(plain: string): SanityReport {
     const words = text.split(/\s+/);
     for (const w of words) {
       if (FOREIGN_SCRIPT_RE.test(w)) {
-        // reset lastIndex because /g regex retains state
-        FOREIGN_SCRIPT_RE.lastIndex = 0;
         foreign_script_samples.push(w.slice(0, 40));
         if (foreign_script_samples.length >= 5) break;
       }
-      FOREIGN_SCRIPT_RE.lastIndex = 0;
     }
   }
 
