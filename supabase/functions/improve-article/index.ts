@@ -1913,6 +1913,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         source: `cycle:${source ?? "ui"}`,
         bypassLimits,
         cycleMode: true,
+        passIndex,
         reportSubStep: async (label) => {
           await writeCycleProgress(admin, article_id, { sub_step: label });
         },
