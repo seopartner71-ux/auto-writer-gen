@@ -26,7 +26,7 @@ type Priority = "auto" | "ai" | "turgenev";
 // See runImproveCycle in supabase/functions/improve-article/index.ts.
 interface CycleProgress {
   status?: "running" | "done" | "stopped" | "error";
-  final_status?: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error";
+  final_status?: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" | "turgenev_unavailable";
   pass?: number;
   of?: number;
   action?: "humanize" | "turgenev" | null;
@@ -62,6 +62,7 @@ function finalStatusLabel(s: CycleProgress["final_status"]): string {
     case "max_passes":   return `Достигнут лимит в ${MAX_PASSES} прохода`;
     case "stopped":      return "Остановлено пользователем";
     case "error":        return "Ошибка выполнения";
+    case "turgenev_unavailable": return "Тургенев временно недоступен, улучшение по этой метрике отложено";
     default:             return "";
   }
 }
