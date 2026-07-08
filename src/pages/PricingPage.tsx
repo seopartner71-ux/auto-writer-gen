@@ -132,7 +132,7 @@ export default function PricingPage() {
       credits: fmtCredits("basic", 450),
       showShield: true,
       features: getFeatures("basic", [
-        { text: isEn ? "450 credits / mo (~90 articles)" : "450 кредитов / мес (~90 статей)", included: true },
+        { text: isEn ? "450 credits / mo (~40 articles)" : "450 кредитов / мес (~40 статей)", included: true },
         { text: isEn ? "Everything in NANO" : "Всё из NANO", included: true },
         { text: isEn ? "Unlimited SEO improvements" : "Безлимит SEO-улучшений", included: true },
         { text: isEn ? "Bulk up to 10 articles" : "Bulk генерация до 10 статей", included: true },
@@ -362,7 +362,7 @@ export default function PricingPage() {
             </thead>
             <tbody className="[&_tr]:border-t [&_tr]:border-border [&_td]:p-3 [&_td:not(:first-child)]:text-center">
               <tr><td>{isEn ? "Credits per month" : "Кредитов в месяц"}</td><td>150</td><td>450</td><td>1300</td></tr>
-              <tr><td>{isEn ? "Approx. articles" : "Примерно статей"}</td><td>~30</td><td>~90</td><td>~260</td></tr>
+              <tr><td>{isEn ? "Approx. articles" : "Примерно статей"}</td><td>~30</td><td>~40</td><td>~260</td></tr>
               <tr><td>{isEn ? "SEO improvements" : "SEO улучшений"}</td><td>3</td><td>∞</td><td>∞</td></tr>
               <tr><td>{isEn ? "Bulk generation" : "Bulk генерация"}</td><td>-</td><td>{isEn ? "up to 10" : "до 10"}</td><td>{isEn ? "unlimited" : "без лимита"}</td></tr>
               <tr><td>{isEn ? "WordPress publishing" : "WordPress публикация"}</td><td>-</td><td>✓</td><td>✓</td></tr>
