@@ -69,7 +69,10 @@ export function analyzeCancellary(text: string, options: CancellaryOptions = {})
   let total = 0;
 
   for (const phrase of BANNED_PHRASES) {
-    const re = new RegExp(`\\b${escapeRegExp(phrase)}\\b`, "g");
+    // JS `\b` is ASCII-only and does NOT match Cyrillic word boundaries — a
+    // regex like /\bпрактика\b/ never fires on russian text. Use explicit
+    // Unicode word-char lookarounds so the banlist actually works in RU.
+    const re = new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(phrase)}(?![\\p{L}\\p{N}_])`, "gu");
     const samples: string[] = [];
     let m: RegExpExecArray | null;
     let count = 0;
