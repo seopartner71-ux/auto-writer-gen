@@ -11,6 +11,7 @@ const faqData = {
     { q: "Могу ли я обучить AI своему стилю?", a: "Да, модуль Persona Engine анализирует ваши образцы текста, выявляет синтаксические паттерны и лексику, чтобы имитировать ваш уникальный авторский голос во всех статьях." },
     { q: "Что такое Factory (Фабрика)?", a: "Это инструмент для массовой генерации. Загрузите список из 100 ключевых слов через CSV, и система сама проведет исследование и напишет статьи для каждой темы в фоновом режиме." },
     { q: "Сколько статей я получу за 1 кредит?", a: "1 кредит = 1 полноценная экспертная статья с анализом конкурентов, LSI-ключами и оптимизацией. Мы не считаем токены или слова, только готовый результат." },
+    { q: "Почему статья PRO стоит больше кредитов, чем NANO или FACTORY?", a: "На PRO статьи пишутся топовыми моделями (Claude, GPT) и проходят полный цикл улучшения качества: humanize, фактчек, SEO-доводка. На NANO и FACTORY используются более быстрые модели и упрощенный цикл, поэтому одна статья там дешевле по кредитам, а на PRO вы получаете максимум качества за счет большего расхода." },
   ],
   en: [
     { q: "How do texts pass AI detector checks?", a: "Our Stealth Prompt technology increases text burstiness and perplexity, so articles consistently pass checks on Originality.ai, GPTZero and Copyleaks." },
@@ -19,6 +20,7 @@ const faqData = {
     { q: "Can I train the AI on my style?", a: "Yes, the Persona Engine module analyzes your text samples, identifying syntactic patterns and vocabulary to mimic your unique authorial voice in all articles." },
     { q: "What is the Factory module?", a: "It's a bulk generation tool. Upload a list of 100 keywords via CSV, and the system will perform research and write articles for each topic in the background." },
     { q: "How many articles do I get for 1 credit?", a: "1 credit = 1 full expert article with competitor analysis, LSI keywords, and optimization. We don't count tokens or words, only the final result." },
+    { q: "Why does a PRO article cost more credits than NANO or FACTORY?", a: "On PRO, articles are written by top-tier models (Claude, GPT) and go through the full quality cycle: humanize, fact-check, SEO polish. NANO and FACTORY use faster models and a lighter cycle, so an article costs fewer credits there - on PRO you trade credits for maximum quality." },
   ],
 };
 
