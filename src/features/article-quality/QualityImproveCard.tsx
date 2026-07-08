@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, ShieldCheck, Info, StopCircle } from "lucide-react";
+import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, Info, StopCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ImprovingTipsLoader } from "./ImprovingTipsLoader";
 
@@ -298,10 +298,10 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const isOk = aiOk(ai) && turgOk(turg);
   const hasAny = ai != null || turg != null;
   const statusBlock = (() => {
-    if (running) return { dot: "🟡", text: "Проверяется...", cls: "text-amber-300" };
-    if (!hasAny) return { dot: "⚪", text: "Нет данных", cls: "text-muted-foreground" };
-    if (isOk) return { dot: "🟢", text: `Готово к публикации (AI ${fmtAi(ai)}, Тургенев ${fmtTurg(turg)})`, cls: "text-emerald-300" };
-    return { dot: "🔴", text: `Требует улучшения (AI ${fmtAi(ai)}, Тургенев ${fmtTurg(turg)})`, cls: "text-rose-300" };
+    if (running) return { dotCls: "bg-amber-400", text: "Проверяется...", cls: "text-amber-300" };
+    if (!hasAny) return { dotCls: "bg-muted-foreground/50", text: "Нет данных", cls: "text-muted-foreground" };
+    if (isOk) return { dotCls: "bg-emerald-400", text: "Готово к публикации", cls: "text-emerald-300" };
+    return { dotCls: "bg-rose-400", text: "Требует улучшения", cls: "text-rose-300" };
   })();
 
   const currentPass = Math.max(1, cycle?.pass || 1);
@@ -329,9 +329,33 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold">Качество текста</div>
         {mode === "expert" && (
-          <span className={`text-[11px] ${statusBlock.cls}`}>{statusBlock.dot} {statusBlock.text}</span>
+          <span className={`inline-flex items-center gap-1.5 text-[11px] ${statusBlock.cls}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${statusBlock.dotCls}`} />
+            {statusBlock.text}
+          </span>
         )}
       </div>
+
+      {/* Compact metric bars — visible whenever we have any score and not mid-cycle */}
+      {!running && hasAny && (
+        <div className="grid grid-cols-2 gap-2">
+          <MetricBar
+            label="Человечность"
+            valueLabel={fmtAi(ai)}
+            hint={`цель ≥${AI_TARGET}`}
+            pct={ai == null ? 0 : Math.max(0, Math.min(100, ai))}
+            ok={aiOk(ai)}
+          />
+          <MetricBar
+            label="Тургенев"
+            valueLabel={fmtTurg(turg)}
+            hint={`цель ≤${TURG_TARGET}`}
+            /* inverted scale: lower = better; render fill inversely */
+            pct={turg == null ? 0 : Math.max(0, Math.min(100, 100 - Math.min(20, turg) * 5))}
+            ok={turgOk(turg)}
+          />
+        </div>
+      )}
 
       {/* Running state */}
       {running && (
@@ -413,16 +437,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       {/* Idle state */}
       {!running && !showBeforeAfter && (() => {
         const ready = articleId && currentContent && aiOk(ai) && turgOk(turg);
-        if (ready) {
-          return (
-            <div className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
-              <div className="text-xs text-emerald-100">
-                Статья готова. AI {fmtAi(ai)} (цель ≥{AI_TARGET}%), Тургенев {fmtTurg(turg)} (цель ≤{TURG_TARGET}).
-              </div>
-            </div>
-          );
-        }
+        if (ready) return null;
         return (
           <div className="space-y-2">
             {mode === "expert" && (
