@@ -1681,7 +1681,23 @@ ${bestContent}`;
     }
     // Cosmetic normalization (last step, always): H2/H3/H4 первая буква — заглавная,
     // пробел после точки перед заглавной буквой ("гараж.Резко" → "гараж. Резко").
-    const contentToPersist = cosmeticNormalize(bestContent);
+    // Persistence invariant (LAROSSA post-mortem): `articles.content` must
+    // stay in lock-step with best_pick. If best_pick rolled back to the
+    // entry state (bestLabel === "initial" — no candidate beat entry), we
+    // MUST NOT overwrite `articles.content`. The prior version always wrote
+    // `cosmeticNormalize(bestContent)`, and any silent divergence (pre-
+    // normalization, structural passes that mutated `content` but not
+    // bestContent, cosmetic tweaks) leaked a rejected candidate into the DB
+    // → the next relay hop then re-humanized that leak. Guard: skip the
+    // content field when best_pick is `initial`; still persist quality
+    // details, ai_score, etc.
+    const contentBeatEntry = bestLabel !== "initial";
+    const contentToPersist = contentBeatEntry ? cosmeticNormalize(bestContent) : args.initialContent;
+    if (!contentBeatEntry) {
+      console.log("[improve-pipeline] persist:skip_content_write (best_pick=initial, keeping DB content untouched)", {
+        article_id, bestScore, entry_score: Number(art.ai_score ?? 0),
+      });
+    }
     // Meta description — из БД, отдельная нормализация (пробелы после точек + удаление переносов).
     const rawMeta = (art as any).meta_description as string | null | undefined;
     const normalizedMeta = rawMeta ? normalizeMetaDescription(rawMeta) : null;
