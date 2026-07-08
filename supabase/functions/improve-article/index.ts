@@ -1111,7 +1111,29 @@ ${content}`;
         ai_score_at_entry: aiScore,
         judge_reasons_count: judgeReasonsAll.length,
         lexical_ban: true,
+        preserve_kept: preserveBits.length,
+        preserve_overridden_by_validator: overrideAll.length,
+        preserve_banned_fragments: Array.from(bannedFrags).slice(0, 12),
       };
+      if (overrideAll.length > 0) {
+        logPipelineEvent({
+          stage: "improve",
+          user_id: user.id,
+          article_id,
+          verdict: "warning",
+          duration_ms: 0,
+          meta: {
+            event: "preserve_overridden_by_validator",
+            count: overrideAll.length,
+            banned_fragments: Array.from(bannedFrags).slice(0, 12),
+            samples: overrideAll.slice(0, 4).map((o) => ({
+              judge: o.judge,
+              fragment: o.frag,
+              reason_preview: o.reason.slice(0, 160),
+            })),
+          },
+        });
+      }
       // Fallback humanize model: Gemini 2.5 Flash (не Pro). Pro-кандидаты в
       // humanize часто отклоняются integrity-гвардом, а стоят в ~20 раз
       // дороже Flash. Flash уже используется в других узлах пайплайна и
