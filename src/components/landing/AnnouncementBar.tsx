@@ -55,7 +55,7 @@ export function AnnouncementBar() {
           <span aria-hidden>🔒</span>{" "}
           {isRu ? (
             <>
-              Места на июнь заняты · На июль осталось 5 мест ·{" "}
+              Места на июль заняты · Запись на август открыта - осталось 5 мест ·{" "}
               <a
                 href="https://t.me/sin0ptick"
                 target="_blank"
