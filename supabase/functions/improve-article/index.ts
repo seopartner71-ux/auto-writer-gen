@@ -16,6 +16,7 @@ import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators
 import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
 import { analyzeNominativeKeys } from "../_shared/validators/nominativeKeyGuard.ts";
+import { analyzeFakeQuotes } from "../_shared/validators/fakeQuoteGuard.ts";
 import { analyzeSanity } from "../_shared/contentSanity.ts";
 import {
   getStyleProfile,
@@ -2133,6 +2134,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         cancellary: analyzeCancellary(plainForScan),
         dangling: analyzeDanglingThoughts((art.content as string) || ""),
         nominative: analyzeNominativeKeys(plainForScan),
+        fake_quotes: analyzeFakeQuotes((art.content as string) || ""),
       };
       const fired: Record<string, unknown> = {};
       if (scan.sentence_structure.verdict !== "pass") {
@@ -2160,6 +2162,13 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         fired.nominative = {
           verdict: scan.nominative.verdict,
           hits: scan.nominative.hits.slice(0, 10),
+        };
+      }
+      if (scan.fake_quotes.verdict !== "pass") {
+        fired.fake_quotes = {
+          verdict: scan.fake_quotes.verdict,
+          hits: scan.fake_quotes.hits.slice(0, 10),
+          task: scan.fake_quotes.task,
         };
       }
       const anyFired = Object.keys(fired).length > 0;
