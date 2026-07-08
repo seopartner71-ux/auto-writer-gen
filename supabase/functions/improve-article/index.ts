@@ -2000,7 +2000,87 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
 
     // ── Decide what to fix this pass ─────────────────────────────────
     const curScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
-    const fix = decideCycleFix(curScores, priority);
+
+    // ── First-pass Turgenev pre-measure ──────────────────────────────
+    // `turg === null` used to be treated as "measured OK" by cycleTurgOk,
+    // which meant a RU article with an unknown Turgenev score would exit
+    // the cycle with a permanent "—" in the UI header. New rule: null =
+    // "not measured" → run a scored-only quality-check for turgenev FIRST,
+    // then re-refresh art, THEN decide the phase. Only on the first pass
+    // and only when RU (Turgenev only supports Russian).
+    const isRuArt = String((art as any).language || "ru").toLowerCase() === "ru";
+    if (isFirstPass && isRuArt && curScores.turg == null && art.content) {
+      await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева (первый шаг)" });
+      try {
+        const resp = await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+          },
+          body: JSON.stringify({
+            article_id,
+            content: art.content,
+            checks: ["turgenev"],
+            dispatched_by: "cycle_prescore",
+          }),
+        });
+        if (!resp.ok) {
+          console.warn("[improve-cycle] turgenev prescore HTTP", resp.status);
+        }
+      } catch (e) {
+        console.warn("[improve-cycle] turgenev prescore failed", (e as Error)?.message);
+      }
+      art = await refreshCycleArt(admin, article_id);
+      if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
+      logPipelineEvent({
+        stage: "improve",
+        user_id: user.id,
+        article_id,
+        verdict: "pass",
+        duration_ms: elapsed(),
+        meta: { event: "cycle_turgenev_prescore", turg: curScores.turg },
+      });
+    }
+
+    // ── Density gate: compare current keyword_density to top-median ──
+    // If density < 0.5 × benchmark median → route to a content pass first
+    // (keyword_density phase) instead of paying humanize budget on a
+    // topic-off text.
+    let densitySevereLow = false;
+    let densityCanFix = false;
+    try {
+      const kwId = (art as any).keyword_id;
+      const uId = (art as any).user_id;
+      const curDensity = Number((art as any).keyword_density ?? 0);
+      if (kwId && uId) {
+        const { data: bmRow } = await admin.from("benchmark_cache")
+          .select("data").eq("user_id", uId).eq("keyword_id", kwId).maybeSingle();
+        const median = Number((bmRow as any)?.data?.median_keyword_density ?? 0);
+        if (median > 0) {
+          densityCanFix = true;
+          if (curDensity < 0.5 * median) densitySevereLow = true;
+          logPipelineEvent({
+            stage: "improve",
+            user_id: user.id,
+            article_id,
+            verdict: densitySevereLow ? "warning" : "pass",
+            duration_ms: 0,
+            meta: {
+              event: "cycle_density_gate",
+              current: curDensity,
+              median,
+              severe_low: densitySevereLow,
+            },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[improve-cycle] density gate failed", (e as Error)?.message);
+    }
+
+    const fix = decideCycleFix(curScores, priority, { densitySevereLow, densityCanFix });
     if (!fix) {
       return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
     }
@@ -2013,7 +2093,10 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       pass: passIndex,
       of: CYCLE_MAX_PASSES,
       action: fix,
-      sub_step: fix === "humanize" ? "Гуманизация (Sonnet)" : "Тургенев-фикс",
+      sub_step:
+        fix === "humanize" ? "Гуманизация (Sonnet)"
+        : fix === "turgenev" ? "Тургенев-фикс"
+        : "Плотность ключа (первый шаг)",
     });
 
     // ── ONE pass ─────────────────────────────────────────────────────
