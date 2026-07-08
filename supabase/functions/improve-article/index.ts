@@ -295,13 +295,14 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     if (!article_id) return json({ error: "article_id required" }, 400);
-    const phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "all" =
+    const phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "keyword_density" | "all" =
       fix_type === "humanize" ? "humanize" :
       fix_type === "turgenev" ? "turgenev" :
       fix_type === "sentence_structure" ? "sentence" :
       fix_type === "dangling" ? "dangling" :
       fix_type === "cancellary" ? "cancellary" :
-      fix_type === "keyword_freq" ? "keyword_freq" : "all";
+      fix_type === "keyword_freq" ? "keyword_freq" :
+      fix_type === "keyword_density" ? "keyword_density" : "all";
     logCtx = { user_id: user.id, article_id, phase };
     const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
 
@@ -585,7 +586,7 @@ interface PipelineArgs {
   supabaseUrl: string;
   article_id: string;
   user: { id: string };
-  phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "all";
+  phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "keyword_density" | "all";
   art: any;
   initialContent: string;
   primaryKeywordSeed: string | null;
