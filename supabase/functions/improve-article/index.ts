@@ -196,6 +196,7 @@ function splitLongSentences(text: string): string {
 
 async function callOpenRouterEx(
   model: string, system: string, user: string, key: string, maxTokens = 8000, timeoutMs = 120_000,
+  ctx: { functionName?: string; userId?: string | null; articleId?: string | null } = {},
 ): Promise<{ content: string | null; error?: string; duration_ms: number }> {
   const t0 = Date.now();
   try {
@@ -203,6 +204,9 @@ async function callOpenRouterEx(
       apiKey: key, model, system, user,
       maxTokens, temperature: 0.85, timeoutMs,
       appTitle: "SEO-Modul improve-article",
+      functionName: ctx.functionName || "improve-article",
+      userId: ctx.userId ?? null,
+      articleId: ctx.articleId ?? null,
     });
     const content = r.content || null;
     const duration_ms = Date.now() - t0;
@@ -221,16 +225,25 @@ async function callOpenRouterEx(
     return { content: null, error: `${kind}: ${msg.slice(0, 200)}`, duration_ms };
   }
 }
-async function callOpenRouter(model: string, system: string, user: string, key: string, maxTokens = 8000): Promise<string | null> {
-  const r = await callOpenRouterEx(model, system, user, key, maxTokens);
+async function callOpenRouter(
+  model: string, system: string, user: string, key: string, maxTokens = 8000,
+  ctx: { functionName?: string; userId?: string | null; articleId?: string | null } = {},
+): Promise<string | null> {
+  const r = await callOpenRouterEx(model, system, user, key, maxTokens, 120_000, ctx);
   return r.content;
 }
 
-async function callGateway(model: string, system: string, user: string, key: string, maxTokens = 12000): Promise<string | null> {
+async function callGateway(
+  model: string, system: string, user: string, key: string, maxTokens = 12000,
+  ctx: { functionName?: string; userId?: string | null; articleId?: string | null } = {},
+): Promise<string | null> {
   try {
     const r = await chatComplete({
       apiKey: key, model, system, user, maxTokens, timeoutMs: 120_000,
       appTitle: "SEO-Modul improve-article",
+      functionName: ctx.functionName || "improve-article",
+      userId: ctx.userId ?? null,
+      articleId: ctx.articleId ?? null,
     });
     return r.content || null;
   } catch { return null; }
