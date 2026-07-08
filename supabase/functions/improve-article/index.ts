@@ -2036,36 +2036,49 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     const isRuArt = String((art as any).language || "ru").toLowerCase() === "ru";
     if (isFirstPass && isRuArt && curScores.turg == null && art.content) {
       await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева (первый шаг)" });
-      try {
-        const resp = await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceKey}`,
-            apikey: serviceKey,
-          },
-          body: JSON.stringify({
-            article_id,
-            content: art.content,
-            checks: ["turgenev"],
-            dispatched_by: "cycle_prescore",
-          }),
-        });
-        if (!resp.ok) {
-          console.warn("[improve-cycle] turgenev prescore HTTP", resp.status);
+      // Up to 2 attempts — external Turgenev API timeouts are usually transient.
+      const tryPrescore = async (attempt: number): Promise<boolean> => {
+        try {
+          const resp = await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${serviceKey}`,
+              apikey: serviceKey,
+            },
+            body: JSON.stringify({
+              article_id,
+              content: art.content,
+              checks: ["turgenev"],
+              dispatched_by: attempt === 1 ? "cycle_prescore" : "cycle_prescore_retry",
+            }),
+          });
+          if (!resp.ok) {
+            console.warn("[improve-cycle] turgenev prescore HTTP", resp.status, "attempt", attempt);
+            return false;
+          }
+          return true;
+        } catch (e) {
+          console.warn("[improve-cycle] turgenev prescore failed attempt", attempt, (e as Error)?.message);
+          return false;
         }
-      } catch (e) {
-        console.warn("[improve-cycle] turgenev prescore failed", (e as Error)?.message);
-      }
+      };
+      let ok = await tryPrescore(1);
       art = await refreshCycleArt(admin, article_id);
       if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
+      if (!ok && curScores.turg == null) {
+        await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева - повторная попытка" });
+        ok = await tryPrescore(2);
+        art = await refreshCycleArt(admin, article_id);
+        if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
+      }
       logPipelineEvent({
         stage: "improve",
         user_id: user.id,
         article_id,
         verdict: "pass",
         duration_ms: elapsed(),
-        meta: { event: "cycle_turgenev_prescore", turg: curScores.turg },
+        meta: { event: "cycle_turgenev_prescore", turg: curScores.turg, ok },
       });
     }
 
