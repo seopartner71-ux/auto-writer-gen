@@ -44,8 +44,10 @@ const PRICE_TABLE: Record<string, { in: number; out: number }> = {
   // Per-token (USD). Numbers are $/1M tokens divided by 1_000_000.
   "claude-sonnet-4":              { in: 3 / 1_000_000,    out: 15 / 1_000_000 },
   "anthropic/claude-sonnet-4":    { in: 3 / 1_000_000,    out: 15 / 1_000_000 },
+  "anthropic/claude-4-sonnet-20250522": { in: 3 / 1_000_000, out: 15 / 1_000_000 },
   "claude-opus-4":                { in: 15 / 1_000_000,   out: 75 / 1_000_000 },
   "anthropic/claude-opus-4":      { in: 15 / 1_000_000,   out: 75 / 1_000_000 },
+  "anthropic/claude-opus-4-20250514": { in: 15 / 1_000_000, out: 75 / 1_000_000 },
   "anthropic/claude-3.5-haiku":   { in: 0.80 / 1_000_000, out: 4 / 1_000_000 },
   "openai/gpt-5":                 { in: 1.25 / 1_000_000, out: 10 / 1_000_000 },
   "openai/gpt-5-mini":            { in: 0.25 / 1_000_000, out: 2 / 1_000_000 },
