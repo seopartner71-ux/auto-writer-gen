@@ -972,12 +972,55 @@ ${rhythmSharedRules}`;
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
     if (!stoppedByUser && (phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
-      // ── Score the INITIAL content in parallel with humanize. Guarantees a
-      // real ai_score even if every subsequent pass is rejected on integrity
-      // (no_progress cycle). Only on pass 1 — relay hops reuse it.
-      const initialScorePromise = !isRelay
-        ? scoreCandidate(content, "initial").catch(() => null)
-        : Promise.resolve(null);
+      // ── Score the INITIAL content BEFORE building the humanize prompt.
+      // We need each judge's reasons NOW so the prompt can carry a
+      // "СОХРАНИТЬ" block for whichever judge scored ≥70 (its `reasons`
+      // list is praise — we must instruct the humanizer to keep those
+      // elements intact instead of paving over them). Relay hops reuse
+      // the initial score persisted on pass 1 (see fallback lookup below).
+      if (!isRelay) {
+        try { await scoreCandidate(content, "initial"); } catch (_) { /* non-critical */ }
+      }
+      // Locate the initial judge entry: current pipeline's scoreHistory
+      // for pass 1, or the previous pipeline's persisted improve_last for
+      // relay hops (pass 2+).
+      const prevImproveLast = (art as any).quality_details?.improve_last;
+      const initEntry =
+        scoreHistory.find((e) => e.label === "initial") ??
+        (Array.isArray(prevImproveLast?.score_history)
+          ? prevImproveLast.score_history.find((x: any) => x?.label === "initial")
+          : null);
+      const iClaudeR: string[] = Array.isArray(initEntry?.reasons?.claude)
+        ? initEntry.reasons.claude.map((s: unknown) => String(s)).filter(Boolean)
+        : [];
+      const iGeminiR: string[] = Array.isArray(initEntry?.reasons?.gemini)
+        ? initEntry.reasons.gemini.map((s: unknown) => String(s)).filter(Boolean)
+        : [];
+      const iClaudeS: number | null = typeof initEntry?.parts?.claude === "number" ? initEntry.parts.claude : null;
+      const iGeminiS: number | null = typeof initEntry?.parts?.gemini === "number" ? initEntry.parts.gemini : null;
+
+      // Preserve block — reasons from any judge that scored ≥70.
+      const preserveBits: string[] = [];
+      if (iClaudeS !== null && iClaudeS >= 70 && iClaudeR.length) {
+        preserveBits.push(`Судья Claude поставил ${iClaudeS}/100 и отметил как «человеческое»:\n  - ${iClaudeR.slice(0, 6).join("\n  - ")}`);
+      }
+      if (iGeminiS !== null && iGeminiS >= 70 && iGeminiR.length) {
+        preserveBits.push(`Судья Gemini поставил ${iGeminiS}/100 и отметил как «человеческое»:\n  - ${iGeminiR.slice(0, 6).join("\n  - ")}`);
+      }
+      const preserveBlock = preserveBits.length
+        ? `\n\nСОХРАНИТЬ, НЕ ПЕРЕПИСЫВАТЬ (эти обороты и приёмы уже прошли AI-детекцию — оставляй их в тексте дословно или почти дословно; критика ниже применяется ТОЛЬКО к фрагментам, НЕ попадающим под "СОХРАНИТЬ"):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+        : "";
+
+      // Critique block — reasons from judges that scored <70 (real
+      // defects), plus any prior quality-check reasons still in DB.
+      const critiqueReasons: string[] = [];
+      if (iClaudeS !== null && iClaudeS < 70 && iClaudeR.length) critiqueReasons.push(...iClaudeR);
+      if (iGeminiS !== null && iGeminiS < 70 && iGeminiR.length) critiqueReasons.push(...iGeminiR);
+      critiqueReasons.push(...priorClaudeReasons, ...priorInternalReasons);
+      const critiqueBlock = critiqueReasons.length
+        ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, но НЕ ломай элементы из блока "СОХРАНИТЬ"):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+        : judgeReasonsBlock; // fallback to prior-only critique if no init reasons
+      judgeReasonsBlock = preserveBlock + critiqueBlock;
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
 ${validatorContextBlock}
@@ -1036,9 +1079,6 @@ ${content}`;
         rewritten = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000, { ...llmCtx, functionName: "improve-article/humanize-flash-fb" });
         if (!rewritten && !humanizeLlmError) humanizeLlmError = "gemini_fallback_empty";
       }
-      // Drain the initial-score promise before we record/persist the pass so
-      // its result lands in scoreHistory / bestScore even if humanize failed.
-      try { await initialScorePromise; } catch (_) { /* non-critical */ }
       let humanizeApplied = false;
       let humanizeIntegrity: { ok: boolean; reason?: string } | null = null;
       let humanizeCandidateMetrics: ReturnType<typeof metricsOf> | null = null;
