@@ -6,18 +6,26 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, DollarSign, RefreshCw } from "lucide-react";
 
-// Цены OpenRouter (USD за 1M токенов). Актуальность: 2026-01
-// Обновлять вручную при изменениях у провайдера.
-const PRICES_UPDATED = "2026-01";
+// Цены OpenRouter (USD за 1M токенов). Актуальность: 2026-07
+// Обновлять вручную при изменениях у провайдера. Синхронизировано с
+// supabase/functions/_shared/costLogger.ts → PRICE_TABLE.
+const PRICES_UPDATED = "2026-07";
 const PRICES: Record<string, { in: number; out: number }> = {
-  "anthropic/claude-opus-4":       { in: 15,   out: 75 },
-  "anthropic/claude-sonnet-4":     { in: 3,    out: 15 },
-  "openai/gpt-5":                  { in: 1.25, out: 10 },
-  "openai/gpt-5-mini":             { in: 0.25, out: 2 },
-  "google/gemini-2.5-pro":         { in: 1.25, out: 5 },
-  "google/gemini-2.5-flash":       { in: 0.075, out: 0.30 },
-  "google/gemini-2.5-flash-lite":  { in: 0.04, out: 0.15 },
-  "perplexity/sonar":              { in: 1,    out: 1 },
+  "anthropic/claude-opus-4":         { in: 15,   out: 75 },
+  "anthropic/claude-sonnet-4":       { in: 3,    out: 15 },
+  "anthropic/claude-3.5-haiku":      { in: 0.80, out: 4 },
+  "openai/gpt-5":                    { in: 1.25, out: 10 },
+  "openai/gpt-5-mini":               { in: 0.25, out: 2 },
+  "google/gemini-2.5-pro":           { in: 1.25, out: 10 },
+  "google/gemini-2.5-flash":         { in: 0.30, out: 2.50 },
+  "google/gemini-2.5-flash-lite":    { in: 0.10, out: 0.40 },
+  "mistralai/mistral-large-2411":    { in: 2,    out: 6 },
+  "mistralai/mistral-large-2512":    { in: 2,    out: 6 },
+  "mistralai/mistral-large-latest":  { in: 2,    out: 6 },
+  "perplexity/sonar":                { in: 1,    out: 1 },
+  "perplexity/sonar-pro":            { in: 3,    out: 15 },
+  "deepseek/deepseek-chat-v3":       { in: 0.27, out: 1.10 },
+  "meta-llama/llama-3.3-70b-instruct": { in: 0.13, out: 0.40 },
 };
 
 function priceFor(model: string | null | undefined) {
@@ -32,7 +40,7 @@ function tokensCost(model: string | null | undefined, ti: number, to: number): n
   return (ti * p.in + to * p.out) / 1_000_000;
 }
 
-// Группировка stage → функциональная категория
+// Группировка stage/functionName → функциональная категория
 const STAGE_GROUP: Record<string, string> = {
   generate: "Генерация",
   commercial_block: "Генерация",
@@ -49,6 +57,15 @@ const STAGE_GROUP: Record<string, string> = {
 };
 function groupOf(stage: string) {
   return STAGE_GROUP[stage] || "Прочее";
+}
+// Маппинг имени функции (metadata.kind в cost_log) → категория.
+function groupOfFunction(fn: string): string {
+  const f = fn.toLowerCase();
+  if (/humaniz|polish|improve/.test(f)) return "Humanize";
+  if (/quality|detect-ai|fact.?check|judge|ai_detect|uniqueness|audit/.test(f)) return "Судьи";
+  if (/turgenev/.test(f)) return "Тургенев";
+  if (/generat|commercial|section|outline|research|deep|radar|geo|schema|title|topical|interlink|persona|nugget|content-plan|bulk|seed|site-config|site-content/.test(f)) return "Генерация";
+  return "Прочее";
 }
 
 function fmtUsd(n: number) {
