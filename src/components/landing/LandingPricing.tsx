@@ -89,7 +89,7 @@ export function LandingPricing() {
       modelLabel: isEn ? "Generation: Claude Opus 4" : "Генерация: Claude Opus 4",
       modelPremium: true,
       features: getFeatures("basic", [
-        { text: isEn ? "450 credits per month (~90 articles)" : "450 кредитов в месяц (~90 статей)", included: true },
+        { text: isEn ? "450 credits per month (~40 articles)" : "450 кредитов в месяц (~40 статей)", included: true },
         { text: isEn ? "Everything in NANO" : "Всё из NANO", included: true },
         { text: isEn ? "Unlimited SEO improvements" : "Безлимит SEO-улучшений", included: true },
         { text: isEn ? "Bulk up to 10 articles" : "Bulk генерация до 10 статей", included: true },
