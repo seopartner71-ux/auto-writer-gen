@@ -86,7 +86,7 @@ export function SectionPricing() {
       popular: true,
       showShield: true,
       features: getFeatures("basic", [
-        { text: isEn ? "450 credits / mo (~90 articles)" : "450 кредитов / мес (~90 статей)", included: true },
+        { text: isEn ? "450 credits / mo (~40 articles)" : "450 кредитов / мес (~40 статей)", included: true },
         { text: isEn ? "Everything in NANO" : "Всё из NANO", included: true },
         { text: isEn ? "Unlimited SEO improvements" : "Безлимит SEO-улучшений", included: true },
         { text: isEn ? "Bulk generation up to 10 articles" : "Bulk генерация до 10 статей", included: true },
