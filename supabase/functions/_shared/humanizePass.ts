@@ -198,8 +198,13 @@ export async function runDoubleHumanizePass(
   content: string,
   language: "ru" | "en",
   openRouterKey: string | null | undefined,
-  opts?: { admin?: any; userId?: string | null; maxMs?: number },
+  opts?: { admin?: any; userId?: string | null; maxMs?: number; articleId?: string | null; functionName?: string },
 ): Promise<DoubleHumanizeResult> {
+  const logCtx = {
+    functionName: opts?.functionName || "humanize-pass",
+    userId: opts?.userId ?? null,
+    articleId: opts?.articleId ?? null,
+  };
   if (!openRouterKey || !content || content.length < 300) {
     return { content, passesApplied: 0, modelsUsed: [] };
   }
@@ -237,7 +242,7 @@ export async function runDoubleHumanizePass(
   }
 
   // Pass 1: Sonnet (deeper rewrite)
-  const out1 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS1_USER(language, current), sonnetTimeout);
+  const out1 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS1_USER(language, current), sonnetTimeout, { ...logCtx, functionName: `${logCtx.functionName}/pass1` });
   if (out1) {
     const cand1 = applyStealthPostProcess(stripCodeFences(out1), language);
     const candSig = (await Promise.resolve(measureHumanize(cand1, language))).signatures;
@@ -293,7 +298,7 @@ export async function runDoubleHumanizePass(
     sonnetTimeout = Math.min(sonnetTimeout, cap);
   }
   let out2 = opusAllowed
-    ? await callOpenRouter(openRouterKey, pass2Model, system, PASS2_USER(language, current), useSonnetForPass2 ? sonnetTimeout : opusTimeout)
+    ? await callOpenRouter(openRouterKey, pass2Model, system, PASS2_USER(language, current), useSonnetForPass2 ? sonnetTimeout : opusTimeout, { ...logCtx, functionName: `${logCtx.functionName}/pass2` })
     : null;
 
   // Fallback: if Opus failed (timeout/HTTP error), retry pass2 with Sonnet
@@ -308,7 +313,7 @@ export async function runDoubleHumanizePass(
       opusSkipReason = "opus_failed_fallback_sonnet";
       pass2Model = SONNET_MODEL;
       const cap = budgetMs > 0 ? Math.max(20_000, remFb - 5_000) : sonnetTimeout;
-      out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), Math.min(sonnetTimeout, cap));
+      out2 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, PASS2_USER(language, current), Math.min(sonnetTimeout, cap), { ...logCtx, functionName: `${logCtx.functionName}/pass2-fb-sonnet` });
     }
   }
 
@@ -321,7 +326,7 @@ export async function runDoubleHumanizePass(
     opusSkipReason = (opusSkipReason ? opusSkipReason + "+" : "") + "sonnet_failed_fallback_llama";
     pass2Model = LLAMA_FALLBACK_MODEL;
     const cap = budgetMs > 0 ? Math.max(20_000, remaining() - 5_000) : 90_000;
-    out2 = await callOpenRouter(openRouterKey, LLAMA_FALLBACK_MODEL, system, PASS2_USER(language, current), Math.min(90_000, cap));
+    out2 = await callOpenRouter(openRouterKey, LLAMA_FALLBACK_MODEL, system, PASS2_USER(language, current), Math.min(90_000, cap), { ...logCtx, functionName: `${logCtx.functionName}/pass2-fb-llama` });
   }
 
   if (out2) {
@@ -368,7 +373,7 @@ export async function runDoubleHumanizePass(
       "Текст:",
       current,
     ].filter(Boolean).join("\n");
-    const out3 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, cleanupUser, 35_000);
+    const out3 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, cleanupUser, 35_000, { ...logCtx, functionName: `${logCtx.functionName}/cleanup` });
     if (out3) {
       const cand3 = applyStealthPostProcess(stripCodeFences(out3), language);
       const candSig = measureHumanize(cand3, language).signatures;
