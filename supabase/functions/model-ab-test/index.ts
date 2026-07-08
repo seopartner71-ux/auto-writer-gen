@@ -4,6 +4,7 @@
 // pick the model that produces least-AI-looking text.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,6 +51,7 @@ async function callOpenRouter(model: string, prompt: string, apiKey: string, ms 
       return { ok: false, error: `HTTP ${res.status}: ${t.slice(0, 200)}`, elapsedMs };
     }
     const data = await res.json();
+    try { logLLM({ functionName: "model-ab-test", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const text: string = data?.choices?.[0]?.message?.content || "";
     return { ok: true, text, elapsedMs, tokens_in: data?.usage?.prompt_tokens || 0, tokens_out: data?.usage?.completion_tokens || 0 };
   } catch (e: any) {
@@ -92,6 +94,7 @@ async function scoreAI(plain: string, lovableKey: string): Promise<{ score: numb
     });
     if (!res.ok) return null;
     const data = await res.json();
+    try { logLLM({ functionName: "model-ab-test", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return null;
     const p = JSON.parse(args);

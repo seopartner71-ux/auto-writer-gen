@@ -1,5 +1,6 @@
 // Generate randomized site config (name, about, copyright, contacts, privacy, author) via OpenRouter
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,6 +86,7 @@ Deno.serve(async (req) => {
     }
 
     const data = await resp.json();
+    try { logLLM({ functionName: "generate-site-config", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("Empty AI response");
     const parsed = JSON.parse(args);

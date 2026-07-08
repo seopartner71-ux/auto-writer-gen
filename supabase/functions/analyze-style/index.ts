@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -157,6 +158,8 @@ serve(async (req) => {
     }
 
     const aiData = await response.json();
+    try { logLLM({ functionName: "analyze-style", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
+    try { logLLM({ functionName: "analyze-style", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const styleAnalysis = extractStyleAnalysis(aiData);
 
     await supabaseAdmin.from("usage_logs").insert({

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAuth } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -172,6 +173,7 @@ Generate:
     }
 
     const aiData = await aiResponse.json();
+    try { logLLM({ functionName: "generate-schema", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     console.log("AI response status:", aiResponse.status);
     const rawContent = aiData.choices?.[0]?.message?.content || "";
     console.log("AI raw content length:", rawContent.length);

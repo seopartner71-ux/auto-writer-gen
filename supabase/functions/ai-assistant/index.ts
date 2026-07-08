@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const SYSTEM_PROMPT_BASE = `Ты AI-помощник сервиса СЕО-Модуль (seo-modul.pro).
 Помогаешь пользователям с SEO вопросами и вопросами по функционалу сервиса.
@@ -124,6 +125,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: `AI gateway error ${resp.status}`, detail: errText.slice(0, 300) }, resp.status);
     }
     const data = await resp.json();
+    try { logLLM({ functionName: "ai-assistant", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     let content: string = data?.choices?.[0]?.message?.content || "Не удалось получить ответ.";
     // Enforce formatting rules
     content = content.replace(/\*\*/g, "").replace(/ё/g, "е").replace(/Ё/g, "Е").replace(/—/g, "-").replace(/–/g, "-");

@@ -5,6 +5,7 @@
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const RU_CLICHES = [
   "является","данный","стоит отметить","в заключение","важно отметить",
@@ -135,6 +136,7 @@ async function llmSecondOpinion(text: string, lang: "ru" | "en"): Promise<number
     });
     if (!resp.ok) return null;
     const j = await resp.json();
+    try { logLLM({ functionName: "detect-ai", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const txt = j?.choices?.[0]?.message?.content || "";
     const m = String(txt).match(/\d{1,3}/);
     if (!m) return null;

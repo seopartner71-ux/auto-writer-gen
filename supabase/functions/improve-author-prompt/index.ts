@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { fetchWithTimeout, TIMEOUTS } from "../_shared/withTimeout.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const META_PROMPT = (original: string) => `Ты эксперт по промптингу для Claude.
 Перед тобой короткий промпт автора. Расширь его до детального промпта,
@@ -89,6 +90,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "AI gateway error", status: res.status, detail: t.slice(0, 300) }, 502);
     }
     const data = await res.json();
+    try { logLLM({ functionName: "improve-author-prompt", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const improved = String(data?.choices?.[0]?.message?.content || "").trim();
     if (!improved || improved.length < 50) {
       return jsonResponse({ error: "Empty or too-short improved prompt" }, 500);

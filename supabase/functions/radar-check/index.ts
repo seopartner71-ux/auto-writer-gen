@@ -8,6 +8,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 interface ModelCfg { key: string; openrouter: string; }
 
@@ -112,6 +113,7 @@ async function queryOpenRouter(apiKey: string, model: string, prompt: string, la
       throw new Error(`OpenRouter ${model} HTTP ${r.status}: ${t.slice(0, 200)}`);
     }
     const j = await r.json();
+    try { logLLM({ functionName: "radar-check", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     return (j?.choices?.[0]?.message?.content as string) || "";
   } finally {
     clearTimeout(t);
