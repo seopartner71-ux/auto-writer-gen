@@ -750,6 +750,12 @@ async function runAutoQuality(
   const burst = computeBurstiness(plain);
   const density = primaryKeyword ? computeDensity(plain, primaryKeyword) : 0;
   const dStatus = primaryKeyword && medianDensity > 0 ? densityStatus(density, medianDensity) : "ok";
+  // Companion metric: lemmatized (stem-based) density. Collapses Russian
+  // wordforms the exact counter misses. Stored alongside for observability
+  // and future routing — does NOT feed dStatus yet.
+  const densityLemma = primaryKeyword
+    ? computeDensityLemmatized(plain, primaryKeyword)
+    : { density: 0, hits: 0, totalWords: 0, stems: [] as string[] };
 
   // ── Sentence structure analysis ───────────────────────────────────
   // Ловим "телеграфный" AI-стиль: серии коротких подряд, низкая средняя длина.
