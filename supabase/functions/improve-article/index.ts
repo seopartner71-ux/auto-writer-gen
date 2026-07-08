@@ -16,6 +16,7 @@ import { analyzeCancellary, buildCancellaryFixHint } from "../_shared/validators
 import { analyzeKeywordFrequency, buildKeywordFrequencyFixHint } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/validators/danglingThoughtGuard.ts";
 import { analyzeNominativeKeys } from "../_shared/validators/nominativeKeyGuard.ts";
+import { analyzeFakeQuotes } from "../_shared/validators/fakeQuoteGuard.ts";
 import { analyzeSanity } from "../_shared/contentSanity.ts";
 import {
   getStyleProfile,
