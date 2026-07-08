@@ -1015,7 +1015,7 @@ ${content}`;
         // 75s был впритык — Sonnet стабильно уходил в timeout и мы падали
         // на gemini-2.5-flash. Поднято до 90s (worker budget всё ещё держит:
         // 90 humanize + 80 judges + overhead ≈ 180s, реле распилит проходы).
-        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000);
+        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000, { ...llmCtx, functionName: "improve-article/humanize-sonnet" });
         rewritten = r.content;
         humanizeLlmError = r.error;
         humanizeDurationMs = r.duration_ms;
@@ -1025,7 +1025,7 @@ ${content}`;
         await emitSubStep("Гуманизация (Gemini Flash fallback)");
         // Explicit 12000 max_tokens — default (2000) обрывал длинные RU
         // статьи (finish:"length", 2212 слов → 34), integrity rejected.
-        rewritten = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000);
+        rewritten = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000, { ...llmCtx, functionName: "improve-article/humanize-flash-fb" });
         if (!rewritten && !humanizeLlmError) humanizeLlmError = "gemini_fallback_empty";
       }
       // Drain the initial-score promise before we record/persist the pass so
@@ -1088,7 +1088,7 @@ ${content}`;
         // Opus regularly takes 60-100s. 90s hit timeout in both real runs today;
         // bump to 120s. If this still times out consistently, the step should
         // be removed entirely (see improve_last.score_history).
-        const opusRes = await callOpenRouterEx("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 6000, 120_000);
+        const opusRes = await callOpenRouterEx("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 6000, 120_000, { ...llmCtx, functionName: "improve-article/humanize-opus" });
         const polished = opusRes.content;
         const opusLlmError = opusRes.error;
         const opusDurationMs = opusRes.duration_ms;
