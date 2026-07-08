@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Coins, Sparkles, Info, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const PLAN_LABEL: Record<string, string> = { free: "FREE", basic: "NANO", pro: "PRO" };
+const PLAN_LABEL: Record<string, string> = { free: "NANO", basic: "PRO", pro: "FACTORY" };
 const PLAN_RANK: Record<string, number> = { free: 0, basic: 1, pro: 2 };
 
 export function PlanModelCard() {
