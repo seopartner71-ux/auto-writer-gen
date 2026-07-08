@@ -2122,6 +2122,12 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     if (!fix) {
       return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
     }
+    if (fix === "turgenev_unavailable") {
+      return finalizeCycle(
+        admin, article_id, user, priority, elapsed, "turgenev_unavailable",
+        bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey },
+      );
+    }
 
     const preContent = (art.content as string) || "";
     const preScores = { ...curScores };
