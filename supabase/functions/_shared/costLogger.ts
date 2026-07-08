@@ -31,6 +31,7 @@ export type OperationType =
 export interface CostLogParams {
   project_id?: string | null;
   user_id?: string | null;
+  article_id?: string | null;
   operation_type: OperationType;
   model?: string | null;
   tokens_input?: number;
@@ -43,8 +44,10 @@ const PRICE_TABLE: Record<string, { in: number; out: number }> = {
   // Per-token (USD). Numbers are $/1M tokens divided by 1_000_000.
   "claude-sonnet-4":              { in: 3 / 1_000_000,    out: 15 / 1_000_000 },
   "anthropic/claude-sonnet-4":    { in: 3 / 1_000_000,    out: 15 / 1_000_000 },
+  "anthropic/claude-4-sonnet-20250522": { in: 3 / 1_000_000, out: 15 / 1_000_000 },
   "claude-opus-4":                { in: 15 / 1_000_000,   out: 75 / 1_000_000 },
   "anthropic/claude-opus-4":      { in: 15 / 1_000_000,   out: 75 / 1_000_000 },
+  "anthropic/claude-opus-4-20250514": { in: 15 / 1_000_000, out: 75 / 1_000_000 },
   "anthropic/claude-3.5-haiku":   { in: 0.80 / 1_000_000, out: 4 / 1_000_000 },
   "openai/gpt-5":                 { in: 1.25 / 1_000_000, out: 10 / 1_000_000 },
   "openai/gpt-5-mini":            { in: 0.25 / 1_000_000, out: 2 / 1_000_000 },
@@ -120,6 +123,7 @@ export function logLLM(params: {
       const row = {
         project_id: params.projectId || null,
         user_id: params.userId || null,
+        article_id: params.articleId || null,
         operation_type: "llm_call" as OperationType,
         model: params.model || null,
         tokens_input: tokensIn,
@@ -154,6 +158,7 @@ export async function logCost(adminClient: any, params: CostLogParams): Promise<
     const row = {
       project_id: params.project_id || null,
       user_id: params.user_id || null,
+        article_id: params.article_id || (typeof params.metadata?.article_id === "string" ? params.metadata.article_id : null),
       operation_type: params.operation_type,
       model: params.model || null,
       tokens_input: tokensIn,

@@ -607,6 +607,7 @@ interface PipelineArgs {
 
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, cycleMode, reportSubStep } = args;
+  const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
   const isRelay = (args.passIndex ?? 0) >= 2;
   const emitSubStep = async (label: string) => {
     if (reportSubStep) { try { await reportSubStep(label); } catch (_) {} }
@@ -1945,14 +1946,14 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
   try {
     // ── Stop flag between workers ────────────────────────────────────
     if (art.improve_stop_requested) {
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "stopped", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "stopped", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
     }
 
     // ── Decide what to fix this pass ─────────────────────────────────
     const curScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
     const fix = decideCycleFix(curScores, priority);
     if (!fix) {
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
     }
 
     const preContent = (art.content as string) || "";
@@ -1992,7 +1993,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     }
 
     art = await refreshCycleArt(admin, article_id);
-    if (!art) return finalizeCycle(admin, article_id, user, priority, elapsed, "error", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
+    if (!art) return finalizeCycle(admin, article_id, user, priority, elapsed, "error", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
 
     const postScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
 
@@ -2009,7 +2010,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         pass: passIndex, action: fix, rolled_back: true,
         rollback_reason: turgWorseBig ? "turgenev_rose" : "ai_dropped",
       });
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "balanced", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "balanced", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
     }
 
     // Update best snapshot.
@@ -2028,7 +2029,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
 
     // Targets met?
     if (cycleAiOk(postScores.ai) && cycleTurgOk(postScores.turg)) {
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
     }
 
     // Progress tracking.
@@ -2038,7 +2039,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     if (!targetImproved) {
       noProgressStreak++;
       if (noProgressStreak >= 2) {
-        return finalizeCycle(admin, article_id, user, priority, elapsed, "no_progress", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
+        return finalizeCycle(admin, article_id, user, priority, elapsed, "no_progress", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
       }
     } else {
       noProgressStreak = 0;
@@ -2047,7 +2048,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
 
     // Max passes reached?
     if (passIndex >= CYCLE_MAX_PASSES) {
-      return finalizeCycle(admin, article_id, user, priority, elapsed, "max_passes", bestSnapshot, initialSnap, { supabaseUrl, serviceKey });
+      return finalizeCycle(admin, article_id, user, priority, elapsed, "max_passes", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
     }
 
     // ── Hand off to the next relay worker ────────────────────────────

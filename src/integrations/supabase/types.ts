@@ -1597,6 +1597,7 @@ export type Database = {
       }
       cost_log: {
         Row: {
+          article_id: string | null
           cost_usd: number
           created_at: string
           id: string
@@ -1609,6 +1610,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          article_id?: string | null
           cost_usd?: number
           created_at?: string
           id?: string
@@ -1621,6 +1623,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          article_id?: string | null
           cost_usd?: number
           created_at?: string
           id?: string
@@ -1632,7 +1635,29 @@ export type Database = {
           tokens_output?: number
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cost_log_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "article_serp_outcomes"
+            referencedColumns: ["article_id"]
+          },
+          {
+            foreignKeyName: "cost_log_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_log_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "public_articles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       credit_transactions: {
         Row: {
