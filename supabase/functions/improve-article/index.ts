@@ -1828,9 +1828,10 @@ function decideCycleFix(
   scores: { ai: number | null; turg: number | null },
   priority: "auto" | "ai" | "turgenev",
   hints?: { densitySevereLow?: boolean; densityCanFix?: boolean },
-): "humanize" | "turgenev" | "keyword_density" | null {
+): "humanize" | "turgenev" | "keyword_density" | "turgenev_unavailable" | null {
   const aiBad = !cycleAiOk(scores.ai);
   const turgBad = !cycleTurgOk(scores.turg);
+  const turgUnknown = scores.turg == null;
   // Density severely low (< 0.5 × top-median) → route content-fix pass FIRST,
   // ahead of humanize. Gated behind DENSITY_GATE_ENABLED because the current
   // density counter underweights Russian wordforms (no lemmatization) and on
@@ -1838,6 +1839,14 @@ function decideCycleFix(
   // Re-enable only after lemmatized density is in place.
   if (DENSITY_GATE_ENABLED && hints?.densitySevereLow && hints?.densityCanFix && priority !== "turgenev") {
     return "keyword_density";
+  }
+  // Turgenev score unknown (prescore failed) → never route a turgenev-only
+  // pass: the fix gate needs turgenev_status === "fail" and would no-op,
+  // wasting a cycle iteration and dirtying no_progress stats.
+  if (turgUnknown) {
+    if (priority === "turgenev") return "turgenev_unavailable";
+    if (aiBad) return "humanize";                 // AI can still be fixed
+    return "turgenev_unavailable";                // AI ok, turg unknown → exit clean
   }
   if (!aiBad && !turgBad) return null;
   if (priority === "ai") return aiBad ? "humanize" : null;
@@ -1874,7 +1883,7 @@ async function finalizeCycle(
   user: { id: string },
   priority: "auto" | "ai" | "turgenev",
   elapsed: () => number,
-  finalStatus: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" | "timed_out",
+  finalStatus: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" | "timed_out" | "turgenev_unavailable",
   bestSnapshot: { content: string; ai: number | null; turg: number | null },
   initialSnap: { ai: number | null; turg: number | null; content: string },
   extra: Record<string, unknown> = {},
@@ -2027,36 +2036,49 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     const isRuArt = String((art as any).language || "ru").toLowerCase() === "ru";
     if (isFirstPass && isRuArt && curScores.turg == null && art.content) {
       await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева (первый шаг)" });
-      try {
-        const resp = await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceKey}`,
-            apikey: serviceKey,
-          },
-          body: JSON.stringify({
-            article_id,
-            content: art.content,
-            checks: ["turgenev"],
-            dispatched_by: "cycle_prescore",
-          }),
-        });
-        if (!resp.ok) {
-          console.warn("[improve-cycle] turgenev prescore HTTP", resp.status);
+      // Up to 2 attempts — external Turgenev API timeouts are usually transient.
+      const tryPrescore = async (attempt: number): Promise<boolean> => {
+        try {
+          const resp = await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${serviceKey}`,
+              apikey: serviceKey,
+            },
+            body: JSON.stringify({
+              article_id,
+              content: art.content,
+              checks: ["turgenev"],
+              dispatched_by: attempt === 1 ? "cycle_prescore" : "cycle_prescore_retry",
+            }),
+          });
+          if (!resp.ok) {
+            console.warn("[improve-cycle] turgenev prescore HTTP", resp.status, "attempt", attempt);
+            return false;
+          }
+          return true;
+        } catch (e) {
+          console.warn("[improve-cycle] turgenev prescore failed attempt", attempt, (e as Error)?.message);
+          return false;
         }
-      } catch (e) {
-        console.warn("[improve-cycle] turgenev prescore failed", (e as Error)?.message);
-      }
+      };
+      let ok = await tryPrescore(1);
       art = await refreshCycleArt(admin, article_id);
       if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
+      if (!ok && curScores.turg == null) {
+        await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева - повторная попытка" });
+        ok = await tryPrescore(2);
+        art = await refreshCycleArt(admin, article_id);
+        if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
+      }
       logPipelineEvent({
         stage: "improve",
         user_id: user.id,
         article_id,
         verdict: "pass",
         duration_ms: elapsed(),
-        meta: { event: "cycle_turgenev_prescore", turg: curScores.turg },
+        meta: { event: "cycle_turgenev_prescore", turg: curScores.turg, ok },
       });
     }
 
@@ -2099,6 +2121,12 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     const fix = decideCycleFix(curScores, priority, { densitySevereLow, densityCanFix });
     if (!fix) {
       return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
+    }
+    if (fix === "turgenev_unavailable") {
+      return finalizeCycle(
+        admin, article_id, user, priority, elapsed, "turgenev_unavailable",
+        bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey },
+      );
     }
 
     const preContent = (art.content as string) || "";
