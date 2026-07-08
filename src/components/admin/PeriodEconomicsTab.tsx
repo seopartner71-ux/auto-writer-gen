@@ -6,18 +6,26 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, DollarSign, RefreshCw } from "lucide-react";
 
-// Цены OpenRouter (USD за 1M токенов). Актуальность: 2026-01
-// Обновлять вручную при изменениях у провайдера.
-const PRICES_UPDATED = "2026-01";
+// Цены OpenRouter (USD за 1M токенов). Актуальность: 2026-07
+// Обновлять вручную при изменениях у провайдера. Синхронизировано с
+// supabase/functions/_shared/costLogger.ts → PRICE_TABLE.
+const PRICES_UPDATED = "2026-07";
 const PRICES: Record<string, { in: number; out: number }> = {
-  "anthropic/claude-opus-4":       { in: 15,   out: 75 },
-  "anthropic/claude-sonnet-4":     { in: 3,    out: 15 },
-  "openai/gpt-5":                  { in: 1.25, out: 10 },
-  "openai/gpt-5-mini":             { in: 0.25, out: 2 },
-  "google/gemini-2.5-pro":         { in: 1.25, out: 5 },
-  "google/gemini-2.5-flash":       { in: 0.075, out: 0.30 },
-  "google/gemini-2.5-flash-lite":  { in: 0.04, out: 0.15 },
-  "perplexity/sonar":              { in: 1,    out: 1 },
+  "anthropic/claude-opus-4":         { in: 15,   out: 75 },
+  "anthropic/claude-sonnet-4":       { in: 3,    out: 15 },
+  "anthropic/claude-3.5-haiku":      { in: 0.80, out: 4 },
+  "openai/gpt-5":                    { in: 1.25, out: 10 },
+  "openai/gpt-5-mini":               { in: 0.25, out: 2 },
+  "google/gemini-2.5-pro":           { in: 1.25, out: 10 },
+  "google/gemini-2.5-flash":         { in: 0.30, out: 2.50 },
+  "google/gemini-2.5-flash-lite":    { in: 0.10, out: 0.40 },
+  "mistralai/mistral-large-2411":    { in: 2,    out: 6 },
+  "mistralai/mistral-large-2512":    { in: 2,    out: 6 },
+  "mistralai/mistral-large-latest":  { in: 2,    out: 6 },
+  "perplexity/sonar":                { in: 1,    out: 1 },
+  "perplexity/sonar-pro":            { in: 3,    out: 15 },
+  "deepseek/deepseek-chat-v3":       { in: 0.27, out: 1.10 },
+  "meta-llama/llama-3.3-70b-instruct": { in: 0.13, out: 0.40 },
 };
 
 function priceFor(model: string | null | undefined) {
@@ -32,7 +40,7 @@ function tokensCost(model: string | null | undefined, ti: number, to: number): n
   return (ti * p.in + to * p.out) / 1_000_000;
 }
 
-// Группировка stage → функциональная категория
+// Группировка stage/functionName → функциональная категория
 const STAGE_GROUP: Record<string, string> = {
   generate: "Генерация",
   commercial_block: "Генерация",
@@ -49,6 +57,15 @@ const STAGE_GROUP: Record<string, string> = {
 };
 function groupOf(stage: string) {
   return STAGE_GROUP[stage] || "Прочее";
+}
+// Маппинг имени функции (metadata.kind в cost_log) → категория.
+function groupOfFunction(fn: string): string {
+  const f = fn.toLowerCase();
+  if (/humaniz|polish|improve/.test(f)) return "Humanize";
+  if (/quality|detect-ai|fact.?check|judge|ai_detect|uniqueness|audit/.test(f)) return "Судьи";
+  if (/turgenev/.test(f)) return "Тургенев";
+  if (/generat|commercial|section|outline|research|deep|radar|geo|schema|title|topical|interlink|persona|nugget|content-plan|bulk|seed|site-config|site-content/.test(f)) return "Генерация";
+  return "Прочее";
 }
 
 function fmtUsd(n: number) {
@@ -73,7 +90,7 @@ function dateInputVal(d: Date) {
 }
 
 type PipelineRow = { user_id: string | null; stage: string; model: string | null; tokens_in: number | null; tokens_out: number | null; cost_usd: number | null };
-type CostRow = { user_id: string | null; operation_type: string; model: string | null; tokens_input: number; tokens_output: number; cost_usd: number };
+type CostRow = { user_id: string | null; operation_type: string; model: string | null; tokens_input: number; tokens_output: number; cost_usd: number; metadata: any };
 type ProfileRow = { id: string; email: string | null; plan: string | null };
 
 export function PeriodEconomicsTab() {
@@ -101,7 +118,7 @@ export function PeriodEconomicsTab() {
           .limit(50000),
         supabase
           .from("cost_log")
-          .select("user_id,operation_type,model,tokens_input,tokens_output,cost_usd")
+          .select("user_id,operation_type,model,tokens_input,tokens_output,cost_usd,metadata")
           .gte("created_at", fromIso)
           .lte("created_at", toIsoStr)
           .limit(50000),
@@ -144,23 +161,30 @@ export function PeriodEconomicsTab() {
   }), [pipeline]);
 
   // (1) По функциям
+  // Основной источник — cost_log (реальные деньги). pipeline_events используем
+  // только как дополнение для стадий, которые не пишут в cost_log (сейчас — почти
+  // ничего, после фикса всё пишется). Для строк cost_log функция определяется
+  // по metadata.kind (у новых llm_call) или по operation_type.
   const byGroup = useMemo(() => {
     const m = new Map<string, { calls: number; ti: number; to: number; cost: number }>();
-    for (const r of peWithCost) {
-      const g = groupOf(r.stage);
+    for (const r of costs) {
+      const kind = String(r.metadata?.kind || "").trim();
+      const g = kind ? groupOfFunction(kind) : (r.operation_type === "article_generation" ? "Генерация" : "Прочее");
       const cur = m.get(g) || { calls: 0, ti: 0, to: 0, cost: 0 };
       cur.calls += 1;
-      cur.ti += Number(r.tokens_in || 0);
-      cur.to += Number(r.tokens_out || 0);
-      cur.cost += r._cost;
+      cur.ti += r.tokens_input;
+      cur.to += r.tokens_output;
+      cur.cost += Number(r.cost_usd || 0);
       m.set(g, cur);
     }
     return Array.from(m.entries())
       .map(([group, v]) => ({ group, ...v }))
       .sort((a, b) => b.cost - a.cost || b.calls - a.calls);
-  }, [peWithCost]);
+  }, [costs]);
 
-  // (3) По моделям — берём cost_log (реальные токены) + добавляем pipeline_events cost для стадий
+  // (3) По моделям — берём cost_log (реальные токены, единый источник правды).
+  // pipeline_events НЕ прибавляем, чтобы не задваивать: теперь каждый LLM-вызов
+  // пишет свою строку в cost_log через logLLM().
   const byModel = useMemo(() => {
     const m = new Map<string, { calls: number; ti: number; to: number; cost: number }>();
     for (const r of costs) {
@@ -172,25 +196,10 @@ export function PeriodEconomicsTab() {
       cur.cost += Number(r.cost_usd || 0);
       m.set(key, cur);
     }
-    for (const r of peWithCost) {
-      if (!r.model) continue;
-      const key = r.model;
-      const cur = m.get(key) || { calls: 0, ti: 0, to: 0, cost: 0 };
-      cur.calls += 1;
-      cur.ti += Number(r.tokens_in || 0);
-      cur.to += Number(r.tokens_out || 0);
-      // Избегаем двойного учёта: pipeline cost добавляем ТОЛЬКО если стадия не совпадает
-      // с логированной операцией (для стадий, где cost_log не пишется). Простое правило:
-      // добавляем pipeline cost для стадий-судей/фактчека, где нет отдельного cost_log.
-      if (["fact_check_llm","fact_check_web","commercial_block","quality_check","ai_detect"].includes(r.stage)) {
-        cur.cost += r._cost;
-      }
-      m.set(key, cur);
-    }
     return Array.from(m.entries())
       .map(([model, v]) => ({ model, ...v }))
       .sort((a, b) => b.cost - a.cost);
-  }, [costs, peWithCost]);
+  }, [costs]);
 
   // (2) По пользователям
   const byUser = useMemo(() => {
@@ -204,17 +213,6 @@ export function PeriodEconomicsTab() {
       cur.cost += Number(r.cost_usd || 0);
       m.set(uid, cur);
     }
-    for (const r of peWithCost) {
-      const uid = r.user_id || "(system)";
-      const cur = m.get(uid) || { calls: 0, ti: 0, to: 0, cost: 0 };
-      cur.calls += 1;
-      cur.ti += Number(r.tokens_in || 0);
-      cur.to += Number(r.tokens_out || 0);
-      if (["fact_check_llm","fact_check_web","commercial_block","quality_check","ai_detect"].includes(r.stage)) {
-        cur.cost += r._cost;
-      }
-      m.set(uid, cur);
-    }
     return Array.from(m.entries())
       .map(([uid, v]) => {
         const p = profiles[uid];
@@ -226,10 +224,10 @@ export function PeriodEconomicsTab() {
         };
       })
       .sort((a, b) => b.cost - a.cost);
-  }, [costs, peWithCost, profiles]);
+  }, [costs, profiles]);
 
   const totals = useMemo(() => {
-    const totalCalls = costs.length + peWithCost.length;
+    const totalCalls = costs.length;
     const totalCost = byUser.reduce((s, u) => s + u.cost, 0);
     const payingCost = byUser
       .filter((u) => u.plan && u.plan !== "basic")
@@ -238,7 +236,7 @@ export function PeriodEconomicsTab() {
     const totalTokensIn = byUser.reduce((s, u) => s + u.ti, 0);
     const totalTokensOut = byUser.reduce((s, u) => s + u.to, 0);
     return { totalCalls, totalCost, payingCost, payingUsers, totalTokensIn, totalTokensOut };
-  }, [byUser, costs.length, peWithCost.length]);
+  }, [byUser, costs.length]);
 
   return (
     <div className="space-y-4">

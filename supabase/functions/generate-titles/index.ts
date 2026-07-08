@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 serve(async (req) => {
   const pre = handlePreflight(req);
@@ -82,6 +83,7 @@ Return only a JSON array of 5 strings.`;
       return errorResponse(`AI error: ${aiResp.status} ${txt.slice(0, 200)}`, 500);
     }
     const aj = await aiResp.json();
+    try { logLLM({ functionName: "generate-titles", model: ((aj as any)?.model) as string, tokensIn: Number((aj as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aj as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const raw: string = aj?.choices?.[0]?.message?.content || "";
 
     let titles: string[] = [];

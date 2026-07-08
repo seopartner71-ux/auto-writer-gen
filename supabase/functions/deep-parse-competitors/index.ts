@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { DOMParser, Element } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -622,6 +623,8 @@ Extract 10-15 important entities (importance 1-10) and 5-10 must-use LSI phrases
 
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
+        try { logLLM({ functionName: "deep-parse-competitors", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
+        try { logLLM({ functionName: "deep-parse-competitors", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
         
         // Try tool_calls first (OpenRouter/OpenAI format)
         const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];

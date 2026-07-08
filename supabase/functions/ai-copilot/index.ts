@@ -1,4 +1,5 @@
 // AI Copilot for СЕО-Модуль — uses OpenRouter
+import { logLLM } from "../_shared/costLogger.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -113,6 +114,7 @@ Deno.serve(async (req) => {
     }
 
     const data = await resp.json();
+    try { logLLM({ functionName: "ai-copilot", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const content = data?.choices?.[0]?.message?.content || "Не удалось получить ответ.";
 
     return new Response(JSON.stringify({ content }), {

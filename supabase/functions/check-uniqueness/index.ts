@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -100,6 +101,7 @@ Return ONLY valid JSON, no markdown.`
     }
 
     const data = await response.json();
+    try { logLLM({ functionName: "check-uniqueness", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     
     let analysis;

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -213,6 +214,7 @@ Write the full article now.`;
         }
 
         const aiData = await aiResp.json();
+        try { logLLM({ functionName: "run-scheduled", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
         const content = aiData.choices?.[0]?.message?.content || "";
         const h1Match = content.match(/^#\s+(.+)$/m);
         const title = h1Match ? h1Match[1] : keyword.seed_keyword;

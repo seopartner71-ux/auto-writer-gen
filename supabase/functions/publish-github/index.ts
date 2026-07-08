@@ -1,7 +1,7 @@
 import { verifyAuth } from "../_shared/auth.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { logCost, FAL_IMAGE_COST_USD } from "../_shared/costLogger.ts";
+import { logCost, FAL_IMAGE_COST_USD, logLLM } from "../_shared/costLogger.ts";
 
 // Lazy admin client used for best-effort cost logging from helper functions.
 let _costAdmin: any = null;
@@ -358,6 +358,7 @@ async function prepareArticle(
             });
             if (!r.ok) return null;
             const d = await r.json();
+            try { logLLM({ functionName: "publish-github/lovable-image", model: (d as any)?.model || "google/gemini-2.5-flash-image", tokensIn: Number((d as any)?.usage?.prompt_tokens || 0), tokensOut: Number((d as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
             const imgData = d.choices?.[0]?.message?.images?.[0]?.image_url?.url;
             if (!imgData) return null;
             return imgData.replace(/^data:image\/\w+;base64,/, "");

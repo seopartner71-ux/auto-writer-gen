@@ -14,6 +14,7 @@ import { validateContent } from "../_shared/contentValidator.ts";
 import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurgenevAddon.ts";
 import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -220,6 +221,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
     let analysis: Record<string, any> = {};
     if (analysisResp.ok) {
       const analysisData = await analysisResp.json();
+      try { logLLM({ functionName: "bulk-generate", model: ((analysisData as any)?.model) as string, tokensIn: Number((analysisData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((analysisData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
       try {
         analysis = JSON.parse(analysisData.choices?.[0]?.message?.content || "{}");
       } catch {
@@ -346,6 +348,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
     }
 
     const articleData = await articleResp.json();
+    try { logLLM({ functionName: "bulk-generate", model: ((articleData as any)?.model) as string, tokensIn: Number((articleData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((articleData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const rawContent = articleData.choices?.[0]?.message?.content || "";
     let articleContent = applyStealthPostProcess(rawContent, isRussian ? "ru" : "en");
 

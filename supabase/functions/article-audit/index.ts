@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const AUDIT_LIMITS: Record<string, number> = {
   basic: 3, nano: 3, free: 3, starter: 3,
@@ -274,6 +275,7 @@ ${keyword ? `- Плотность ключа: ${density}%
       return errorResponse(`Ошибка AI: ${aiResp.status}`, 500);
     }
     const aiData = await aiResp.json();
+    try { logLLM({ functionName: "article-audit", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const tc = aiData.choices?.[0]?.message?.tool_calls?.[0];
     let analysis: any;
     if (tc?.function?.arguments) {

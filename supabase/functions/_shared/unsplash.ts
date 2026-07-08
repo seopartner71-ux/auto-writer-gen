@@ -1,4 +1,5 @@
 // Unsplash API helper for site factory.
+import { logLLM } from "./costLogger.ts";
 // Looks up the access key from app_settings.unsplash_access_key, fetches a pool
 // of topical photos, and returns a randomized subset. On any failure, returns
 // an empty array — callers must keep their existing fallbacks.
@@ -140,6 +141,7 @@ export async function aiTranslateToPhotoQuery(raw: string): Promise<string> {
       return nicheToUnsplashQuery(input);
     }
     const data = await res.json();
+    try { logLLM({ functionName: "unsplash-helper", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     let q = String(data?.choices?.[0]?.message?.content || "").trim();
     q = q.replace(/["'`.,!?:;()]+/g, " ").replace(/\s{2,}/g, " ").trim().toLowerCase();
     if (!q || isCyrillic(q)) return nicheToUnsplashQuery(input);

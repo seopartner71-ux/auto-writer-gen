@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { withErrorHandler, HttpError } from "../_shared/errorHandler.ts";
 import { fetchWithTimeout, TIMEOUTS } from "../_shared/withTimeout.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 async function hashIp(ip: string): Promise<string> {
   const data = new TextEncoder().encode(ip + "sandbox-salt");
@@ -103,6 +104,7 @@ serve(withErrorHandler("sandbox-demo", async (req) => {
   }
 
   const aiData = await aiResp.json();
+  try { logLLM({ functionName: "sandbox-demo", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
   const content = aiData.choices?.[0]?.message?.content || "";
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new HttpError("Не удалось распознать ответ AI", 502);

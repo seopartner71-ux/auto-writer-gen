@@ -4,6 +4,7 @@
 
 import { corsHeaders, handlePreflight, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 Deno.serve(async (req) => {
   const pre = handlePreflight(req); if (pre) return pre;
@@ -88,6 +89,14 @@ Be specific: name platforms (Reddit, Wikipedia, industry media), content formats
       const t = await upstream.text().catch(() => "");
       return errorResponse(`OpenRouter HTTP ${upstream.status}: ${t.slice(0, 300)}`, 502);
     }
+
+    // Приближённая оценка стоимости стрима: считаем токены по длине промпта и cap max_tokens.
+    // Точных usage-цифр в SSE OpenRouter обычно нет, поэтому пишем оценку — лучше, чем ноль.
+    try {
+      const promptChars = (sys.length + userPrompt.length);
+      const approxIn = Math.round(promptChars / 4);
+      logLLM({ functionName: "generate-geo-plan", model: "google/gemini-2.5-flash", tokensIn: approxIn, tokensOut: 3000, extraMeta: { estimated: true } });
+    } catch(_) {}
 
     return new Response(upstream.body, {
       headers: {

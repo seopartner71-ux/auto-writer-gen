@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 /**
  * suggest-article-topics
@@ -222,6 +223,7 @@ HARD RULES:
         continue;
       }
       const aiJson = await aiResp.json();
+      try { logLLM({ functionName: "suggest-article-topics", model: ((aiJson as any)?.model) as string, tokensIn: Number((aiJson as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiJson as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
       const argsRaw = aiJson?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
       if (!argsRaw) { lastRejected = [{ h1: "", reason: "no tool call" }]; continue; }
       let parsed: any;

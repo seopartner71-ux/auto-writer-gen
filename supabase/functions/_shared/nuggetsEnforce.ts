@@ -11,6 +11,7 @@
  */
 
 import { dataNuggetsCoverage } from "./contentValidator.ts";
+import { logLLM } from "./costLogger.ts";
 
 async function callOpenRouter(
   apiKey: string,
@@ -40,6 +41,7 @@ async function callOpenRouter(
       return null;
     }
     const j = await r.json();
+    try { logLLM({ functionName: "nuggetsEnforce", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     return (j?.choices?.[0]?.message?.content as string | undefined) ?? null;
   } catch (e) {
     console.warn(`[nuggets-enforce] ${model} threw:`, (e as Error)?.message);

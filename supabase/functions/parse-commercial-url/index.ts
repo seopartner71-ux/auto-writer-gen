@@ -5,6 +5,7 @@
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
 import { withTimeout } from "../_shared/withTimeout.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 interface ReqBody {
   url: string;
@@ -248,6 +249,7 @@ Deno.serve(async (req) => {
         return errorResponse(`Upstream ${r.status}: ${t.slice(0, 200)}`, 502);
       }
       const j = await r.json();
+      try { logLLM({ functionName: "parse-commercial-url", model: ((j as any)?.model) as string, tokensIn: Number((j as any)?.usage?.prompt_tokens || 0), tokensOut: Number((j as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
       const txt = (j?.choices?.[0]?.message?.content || "").trim();
       parsed = tryParseJson(txt);
     } catch (e) {

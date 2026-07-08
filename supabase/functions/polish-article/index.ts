@@ -2,6 +2,7 @@
 // Не переписывает текст, только чинит технические баги по 5 правилам.
 import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const SYSTEM_PROMPT = `Ты — строгий технический SEO-редактор и валидатор кода. Тебе передают черновик статьи. Твоя задача — точечно исправить технические баги, СОХРАНИВ 95% оригинального текста нетронутым.
 
@@ -90,6 +91,7 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
+    try { logLLM({ functionName: "polish-article", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     let polished: string = data?.choices?.[0]?.message?.content || "";
     if (!polished || polished.length < content.length * 0.7) {
       // Подозрительное сокращение — модель могла обрезать. Возвращаем оригинал.

@@ -4,6 +4,7 @@
 import { handlePreflight, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient, requireAdminOrStaff } from "../_shared/auth.ts";
 import { withTimeout } from "../_shared/withTimeout.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 interface ReqBody {
   kind: "utp" | "benefits";
@@ -90,6 +91,7 @@ Deno.serve(async (req) => {
       return errorResponse(`Upstream ${upstream.status}: ${t.slice(0, 200)}`, 502);
     }
     const json = await upstream.json();
+    try { logLLM({ functionName: "commercial-brief-helper", model: ((json as any)?.model) as string, tokensIn: Number((json as any)?.usage?.prompt_tokens || 0), tokensOut: Number((json as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const text = (json?.choices?.[0]?.message?.content || "").trim();
     const items = tryParseJsonArray(text).slice(0, count);
     if (!items.length) return errorResponse("Не удалось разобрать ответ модели", 502);

@@ -6,6 +6,7 @@ import { corsHeaders, jsonResponse, errorResponse, handlePreflight } from "../_s
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
 import { withTimeout, fetchWithTimeout } from "../_shared/withTimeout.ts";
 import { SERP_CLUSTER_SYSTEM_PROMPT, buildSerpClusterUserPrompt } from "../_shared/serpClusterPrompt.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const SERPER_TIMEOUT_MS = 12000;
 const AI_TIMEOUT_MS = 60000;
@@ -190,6 +191,7 @@ async function clusterWithAI(topic: string, keywords: string[], lang: string): P
     throw new Error(`AI gateway ${res.status}: ${text.slice(0, 200)}`);
   }
   const data = await res.json();
+  try { logLLM({ functionName: "topical-map", model: ((data as any)?.model) as string, tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
   const content = data?.choices?.[0]?.message?.content || "{}";
   try {
     const parsed = JSON.parse(content);
