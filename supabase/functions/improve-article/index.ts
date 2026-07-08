@@ -2271,12 +2271,18 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         fake_quotes: analyzeFakeQuotes((art.content as string) || ""),
       };
       const fired: Record<string, unknown> = {};
-      if (scan.sentence_structure.verdict !== "pass") {
+      if (scan.sentence_structure.verdict === "warning" || scan.sentence_structure.verdict === "fail") {
         fired.sentence_structure = {
           verdict: scan.sentence_structure.verdict,
           issues: scan.sentence_structure.issues,
           avg_words: scan.sentence_structure.avgWords,
           max_short_run: scan.sentence_structure.maxShortRun,
+        };
+      } else if (scan.sentence_structure.verdict === "insufficient_prose") {
+        fired.sentence_structure_insufficient_prose = {
+          verdict: "insufficient_prose",
+          prose_word_count: scan.sentence_structure.proseWordCount ?? 0,
+          issues: scan.sentence_structure.issues,
         };
       }
       if (scan.cancellary.verdict !== "pass") {

@@ -761,8 +761,12 @@ async function runAutoQuality(
   // ── Sentence structure analysis ───────────────────────────────────
   // Ловим "телеграфный" AI-стиль: серии коротких подряд, низкая средняя длина.
   const sentStruct = analyzeSentenceStructure(plain, sentenceOptionsFromStyleProfile(styleProfile));
+  // insufficient_prose (< 300 слов прозы после вырезания таблиц/списков/цитат)
+  // трактуем как "ok" — метрика ритма к таким текстам неприменима.
   const sentStatus: "ok" | "warning" | "fail" =
-    sentStruct.verdict === "fail" ? "fail" : sentStruct.verdict === "warning" ? "warning" : "ok";
+    sentStruct.verdict === "fail" ? "fail"
+    : sentStruct.verdict === "warning" ? "warning"
+    : "ok";
 
   // ── Validators v2: канцеляризмы, частотность ключа, обрывы мысли ──
   const cancellary = analyzeCancellary(plain, cancellaryOptionsFromStyleProfile(styleProfile));
