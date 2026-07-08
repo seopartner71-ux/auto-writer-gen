@@ -90,7 +90,7 @@ function dateInputVal(d: Date) {
 }
 
 type PipelineRow = { user_id: string | null; stage: string; model: string | null; tokens_in: number | null; tokens_out: number | null; cost_usd: number | null };
-type CostRow = { user_id: string | null; operation_type: string; model: string | null; tokens_input: number; tokens_output: number; cost_usd: number };
+type CostRow = { user_id: string | null; operation_type: string; model: string | null; tokens_input: number; tokens_output: number; cost_usd: number; metadata: any };
 type ProfileRow = { id: string; email: string | null; plan: string | null };
 
 export function PeriodEconomicsTab() {
@@ -118,7 +118,7 @@ export function PeriodEconomicsTab() {
           .limit(50000),
         supabase
           .from("cost_log")
-          .select("user_id,operation_type,model,tokens_input,tokens_output,cost_usd")
+          .select("user_id,operation_type,model,tokens_input,tokens_output,cost_usd,metadata")
           .gte("created_at", fromIso)
           .lte("created_at", toIsoStr)
           .limit(50000),
@@ -161,21 +161,26 @@ export function PeriodEconomicsTab() {
   }), [pipeline]);
 
   // (1) По функциям
+  // Основной источник — cost_log (реальные деньги). pipeline_events используем
+  // только как дополнение для стадий, которые не пишут в cost_log (сейчас — почти
+  // ничего, после фикса всё пишется). Для строк cost_log функция определяется
+  // по metadata.kind (у новых llm_call) или по operation_type.
   const byGroup = useMemo(() => {
     const m = new Map<string, { calls: number; ti: number; to: number; cost: number }>();
-    for (const r of peWithCost) {
-      const g = groupOf(r.stage);
+    for (const r of costs) {
+      const kind = String(r.metadata?.kind || "").trim();
+      const g = kind ? groupOfFunction(kind) : (r.operation_type === "article_generation" ? "Генерация" : "Прочее");
       const cur = m.get(g) || { calls: 0, ti: 0, to: 0, cost: 0 };
       cur.calls += 1;
-      cur.ti += Number(r.tokens_in || 0);
-      cur.to += Number(r.tokens_out || 0);
-      cur.cost += r._cost;
+      cur.ti += r.tokens_input;
+      cur.to += r.tokens_output;
+      cur.cost += Number(r.cost_usd || 0);
       m.set(g, cur);
     }
     return Array.from(m.entries())
       .map(([group, v]) => ({ group, ...v }))
       .sort((a, b) => b.cost - a.cost || b.calls - a.calls);
-  }, [peWithCost]);
+  }, [costs]);
 
   // (3) По моделям — берём cost_log (реальные токены) + добавляем pipeline_events cost для стадий
   const byModel = useMemo(() => {
