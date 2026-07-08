@@ -2331,7 +2331,17 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       );
     }
 
-    const preContent = (art.content as string) || "";
+    // Relay-hop input MUST be the best-so-far snapshot, not `art.content`.
+    // `art.content` reflects whatever runImprovePipeline persisted on the
+    // previous hop — which, when the previous pass rolled back or was
+    // rejected by quality/turgenev, is a DEGRADED humanize candidate rather
+    // than the true best. Feeding that back into the next hop compounds the
+    // damage (see LAROSSA cycle 2, 14:03: input was cycle-1 humanize output
+    // instead of the initial-that-won best_pick).
+    //
+    // isFirstPass → bestSnapshot.content == art.content == initial article.
+    // Relay hops → bestSnapshot.content == winner across prior passes.
+    const preContent = (bestSnapshot.content as string) || (art.content as string) || "";
     const preScores = { ...curScores };
 
     await writeCycleProgress(admin, article_id, {
