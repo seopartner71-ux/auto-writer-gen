@@ -515,3 +515,22 @@ function Row({ label, before, after, ok }: { label: string; before: string; afte
     </div>
   );
 }
+
+function MetricBar({
+  label, valueLabel, hint, pct, ok,
+}: { label: string; valueLabel: string; hint: string; pct: number; ok: boolean }) {
+  const barCls = ok ? "bg-emerald-500" : "bg-amber-500";
+  const valueCls = ok ? "text-emerald-300" : "text-amber-300";
+  return (
+    <div className="rounded-md border border-border bg-muted/20 px-2.5 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] text-muted-foreground">{label}</span>
+        <span className={`text-xs font-mono tabular-nums ${valueCls}`}>{valueLabel}</span>
+      </div>
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className={`h-full ${barCls} transition-all`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-1 text-[10px] text-muted-foreground/80">{hint}</div>
+    </div>
+  );
+}
