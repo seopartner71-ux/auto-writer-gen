@@ -196,6 +196,7 @@ function splitLongSentences(text: string): string {
 
 async function callOpenRouterEx(
   model: string, system: string, user: string, key: string, maxTokens = 8000, timeoutMs = 120_000,
+  ctx: { functionName?: string; userId?: string | null; articleId?: string | null } = {},
 ): Promise<{ content: string | null; error?: string; duration_ms: number }> {
   const t0 = Date.now();
   try {
@@ -203,6 +204,9 @@ async function callOpenRouterEx(
       apiKey: key, model, system, user,
       maxTokens, temperature: 0.85, timeoutMs,
       appTitle: "SEO-Modul improve-article",
+      functionName: ctx.functionName || "improve-article",
+      userId: ctx.userId ?? null,
+      articleId: ctx.articleId ?? null,
     });
     const content = r.content || null;
     const duration_ms = Date.now() - t0;
@@ -221,16 +225,25 @@ async function callOpenRouterEx(
     return { content: null, error: `${kind}: ${msg.slice(0, 200)}`, duration_ms };
   }
 }
-async function callOpenRouter(model: string, system: string, user: string, key: string, maxTokens = 8000): Promise<string | null> {
-  const r = await callOpenRouterEx(model, system, user, key, maxTokens);
+async function callOpenRouter(
+  model: string, system: string, user: string, key: string, maxTokens = 8000,
+  ctx: { functionName?: string; userId?: string | null; articleId?: string | null } = {},
+): Promise<string | null> {
+  const r = await callOpenRouterEx(model, system, user, key, maxTokens, 120_000, ctx);
   return r.content;
 }
 
-async function callGateway(model: string, system: string, user: string, key: string, maxTokens = 12000): Promise<string | null> {
+async function callGateway(
+  model: string, system: string, user: string, key: string, maxTokens = 12000,
+  ctx: { functionName?: string; userId?: string | null; articleId?: string | null } = {},
+): Promise<string | null> {
   try {
     const r = await chatComplete({
       apiKey: key, model, system, user, maxTokens, timeoutMs: 120_000,
       appTitle: "SEO-Modul improve-article",
+      functionName: ctx.functionName || "improve-article",
+      userId: ctx.userId ?? null,
+      articleId: ctx.articleId ?? null,
     });
     return r.content || null;
   } catch { return null; }
@@ -290,6 +303,7 @@ Deno.serve(async (req) => {
       fix_type === "cancellary" ? "cancellary" :
       fix_type === "keyword_freq" ? "keyword_freq" : "all";
     logCtx = { user_id: user.id, article_id, phase };
+    const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
 
     const { data: art } = await admin.from("articles")
       .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
@@ -647,6 +661,9 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         user: `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100 и дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
         maxTokens: 180, temperature: 0, timeoutMs: 60_000,
         appTitle: "SEO-Modul improve-article score",
+        functionName: "improve-article/judge-claude",
+        userId: user.id,
+        articleId: article_id,
       });
       return parseScoreAndReasons(r.content);
     } catch { return { score: null, reasons: [] }; }
@@ -660,6 +677,9 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         user: `Оцени: 100 = написан человеком, 0 = ИИ. Дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
         maxTokens: 180, temperature: 0, timeoutMs: 20_000,
         appTitle: "SEO-Modul improve-article score",
+        functionName: "improve-article/judge-gemini",
+        userId: user.id,
+        articleId: article_id,
       });
       return parseScoreAndReasons(r.content);
     } catch { return { score: null, reasons: [] }; }
@@ -989,25 +1009,29 @@ ${content}`;
         judge_reasons_count: judgeReasonsAll.length,
         lexical_ban: true,
       };
-      let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-pro";
+      // Fallback humanize model: Gemini 2.5 Flash (не Pro). Pro-кандидаты в
+      // humanize часто отклоняются integrity-гвардом, а стоят в ~20 раз
+      // дороже Flash. Flash уже используется в других узлах пайплайна и
+      // справляется с задачей.
+      let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-flash";
       let humanizeLlmError: string | undefined;
       let humanizeDurationMs = 0;
       if (orKey) {
         await emitSubStep("Гуманизация (Sonnet)");
         // 75s был впритык — Sonnet стабильно уходил в timeout и мы падали
-        // на gemini-2.5-pro. Поднято до 90s (worker budget всё ещё держит:
+        // на gemini-2.5-flash. Поднято до 90s (worker budget всё ещё держит:
         // 90 humanize + 80 judges + overhead ≈ 180s, реле распилит проходы).
-        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000);
+        const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000, { ...llmCtx, functionName: "improve-article/humanize-sonnet" });
         rewritten = r.content;
         humanizeLlmError = r.error;
         humanizeDurationMs = r.duration_ms;
       }
       if (!rewritten && lovableKey) {
-        humanizeModel = "google/gemini-2.5-pro";
-        await emitSubStep("Гуманизация (Gemini fallback)");
+        humanizeModel = "google/gemini-2.5-flash";
+        await emitSubStep("Гуманизация (Gemini Flash fallback)");
         // Explicit 12000 max_tokens — default (2000) обрывал длинные RU
         // статьи (finish:"length", 2212 слов → 34), integrity rejected.
-        rewritten = await callGateway("google/gemini-2.5-pro", sys, usr, lovableKey, 12000);
+        rewritten = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000, { ...llmCtx, functionName: "improve-article/humanize-flash-fb" });
         if (!rewritten && !humanizeLlmError) humanizeLlmError = "gemini_fallback_empty";
       }
       // Drain the initial-score promise before we record/persist the pass so
@@ -1070,7 +1094,7 @@ ${content}`;
         // Opus regularly takes 60-100s. 90s hit timeout in both real runs today;
         // bump to 120s. If this still times out consistently, the step should
         // be removed entirely (see improve_last.score_history).
-        const opusRes = await callOpenRouterEx("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 6000, 120_000);
+        const opusRes = await callOpenRouterEx("anthropic/claude-opus-4", sysOpus, usrOpus, orKey, 6000, 120_000, { ...llmCtx, functionName: "improve-article/humanize-opus" });
         const polished = opusRes.content;
         const opusLlmError = opusRes.error;
         const opusDurationMs = opusRes.duration_ms;
@@ -1139,8 +1163,8 @@ ${content}`;
       const before = metricsOf(content);
       let added: string | null = null;
       let usedModel = "google/gemini-2.5-flash";
-      if (lovableKey) added = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey);
-      if (!added && orKey) added = await callOpenRouter("google/gemini-2.5-flash", sys, usr, orKey);
+      if (lovableKey) added = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000, { ...llmCtx, functionName: "improve-article/keyword-density" });
+      if (!added && orKey) added = await callOpenRouter("google/gemini-2.5-flash", sys, usr, orKey, 8000, { ...llmCtx, functionName: "improve-article/keyword-density" });
       let applied = false;
       let integrityRes: { ok: boolean; reason?: string } | null = null;
       let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1199,7 +1223,7 @@ ${content}`;
 Текст:
 ${content}`;
       const before = metricsOf(content);
-      const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+      const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/turgenev-fix" });
       let applied = false;
       let integrityRes: { ok: boolean; reason?: string } | null = null;
       let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1248,7 +1272,7 @@ ${hint}
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/sentence-structure" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1295,7 +1319,7 @@ ${hint}
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/dangling" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1341,7 +1365,7 @@ ${hint}
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/cancellary" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1387,7 +1411,7 @@ ${hint}
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/keyword-freq" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1452,7 +1476,7 @@ ${nominativeHits.map((h, i) => `${i + 1}. ${h}`).join("\n")}
 
 HTML:
 ${bestContent}`;
-      const nomRes = await callOpenRouterEx("anthropic/claude-sonnet-4", sysNom, usrNom, orKey, 6000, 90_000);
+      const nomRes = await callOpenRouterEx("anthropic/claude-sonnet-4", sysNom, usrNom, orKey, 6000, 90_000, { ...llmCtx, functionName: "improve-article/keyword-nominative" });
       const polished = nomRes.content;
       let nomApplied = false;
       let nomIntegrity: { ok: boolean; reason?: string } | null = null;
