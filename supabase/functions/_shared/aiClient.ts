@@ -52,6 +52,8 @@ export interface ChatOptions {
   userId?: string | null;
   articleId?: string | null;
   projectId?: string | null;
+  /** Отключает автоматическую запись в cost_log (для функций, которые логируют агрегат сами). */
+  disableCostLog?: boolean;
 }
 
 export interface ChatResult {
@@ -119,16 +121,18 @@ async function callOpenRouter(opts: ChatOptions, extraBody: Record<string, unkno
       finishReason,
     };
     console.log("[aiClient] ok", { model: result.model, ms: Date.now() - startedAt, in: result.tokensIn, out: result.tokensOut, finish: finishReason });
-    // best-effort cost logging
-    logLLM({
-      functionName: opts.functionName || opts.appTitle || "aiClient",
-      model: result.model,
-      tokensIn: result.tokensIn,
-      tokensOut: result.tokensOut,
-      userId: opts.userId ?? null,
-      articleId: opts.articleId ?? null,
-      projectId: opts.projectId ?? null,
-    });
+    // best-effort cost logging (можно отключить, если функция агрегирует cost сама)
+    if (!opts.disableCostLog) {
+      logLLM({
+        functionName: opts.functionName || opts.appTitle || "aiClient",
+        model: result.model,
+        tokensIn: result.tokensIn,
+        tokensOut: result.tokensOut,
+        userId: opts.userId ?? null,
+        articleId: opts.articleId ?? null,
+        projectId: opts.projectId ?? null,
+      });
+    }
     return result;
   } catch (e) {
     if (e instanceof AiError) throw e;
