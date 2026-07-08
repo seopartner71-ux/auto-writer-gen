@@ -446,6 +446,8 @@ serve(async (req) => {
           headers: {
             Authorization: `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://seo-modul.pro",
+            "X-Title": req.headers.get("x-bulk-user-id") ? "SEO-Modul bulk-generate" : "SEO-Modul generate-article",
           },
           body: JSON.stringify({
             model,
@@ -454,6 +456,11 @@ serve(async (req) => {
               { role: "user", content: userPrompt },
             ],
             stream: true,
+            // Ask OpenRouter to include real usage (prompt/completion tokens
+            // and upstream cost) in the final SSE chunk so we can log actuals
+            // instead of the 3000-token estimate.
+            stream_options: { include_usage: true },
+            usage: { include: true },
             temperature: authorTemperature,
             // Hard cap output length: prevents runaway Opus generations that
             // drift into token-salad ("плуминиума", mixed scripts) past
