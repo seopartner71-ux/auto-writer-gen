@@ -20,8 +20,9 @@ export interface SentenceStructureMetrics {
   longRatio: number;      // 0..1
   maxShortRun: number;    // макс. длина серии коротких подряд
   shortRuns3Plus: Array<{ start: number; length: number; preview: string }>;
-  verdict: "pass" | "warning" | "fail";
+  verdict: "pass" | "warning" | "fail" | "insufficient_prose";
   issues: string[];       // человекочитаемые замечания
+  proseWordCount?: number; // слова после вырезания таблиц/списков/цитат
 }
 
 export interface SentenceStructureOptions {
@@ -42,19 +43,44 @@ const DEFAULTS: Required<SentenceStructureOptions> = {
   maxShortRun: 2,
 };
 
-// Грубая очистка markdown/html, чтобы заголовки/код/списки не искажали статистику.
-function stripMarkup(input: string): string {
-  return input
-    .replace(/```[\s\S]*?```/g, " ")          // fenced code
-    .replace(/`[^`]*`/g, " ")                  // inline code
-    .replace(/<[^>]+>/g, " ")                  // html tags
-    .replace(/^\s{0,3}#{1,6}\s.*$/gm, " ")     // markdown headings
-    .replace(/^\s{0,3}[-*+]\s+/gm, " ")        // list markers
-    .replace(/^\s{0,3}\d+\.\s+/gm, " ")        // ordered list markers
-    .replace(/\|/g, " ")                       // table pipes
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")     // images
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")   // links -> текст
-    .replace(/[*_~]+/g, "")                    // emphasis
+// Оставляем только «прозаический» текст: вырезаем таблицы, списки и blockquote
+// ЦЕЛИКОМ (не только маркеры). Это защищает анализатор ритма от искажений —
+// таблицы и bullet-списки не должны считаться короткими предложениями.
+function stripToProse(input: string): string {
+  // 1. Убираем fenced-код и html-теги целиком.
+  let text = input
+    .replace(/```[\s\S]*?```/g, "\n")
+    .replace(/<[^>]+>/g, " ");
+
+  // 2. Построчная фильтрация: удаляем целые строки, которые являются
+  //    таблицей / списком / blockquote / заголовком.
+  const lines = text.split(/\r?\n/);
+  const kept: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { kept.push(""); continue; }
+    // Markdown-таблица: строка содержит | и это не одиночный символ в тексте.
+    // Обычная проза редко содержит | вообще.
+    if (line.includes("|")) continue;
+    // Разделительная строка таблицы: |---|---|
+    if (/^[-:| ]+$/.test(line) && line.includes("-")) continue;
+    // blockquote
+    if (/^>\s?/.test(line)) continue;
+    // markdown heading
+    if (/^#{1,6}\s/.test(line)) continue;
+    // список: маркер в начале строки
+    if (/^[-*+]\s+/.test(line)) continue;
+    if (/^\d+[.)]\s+/.test(line)) continue;
+    kept.push(raw);
+  }
+  text = kept.join("\n");
+
+  // 3. Инлайн-очистка: inline code, картинки, ссылки -> текст, эмфазис.
+  return text
+    .replace(/`[^`]*`/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[*_~]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -67,7 +93,7 @@ const ABBR = new Set([
 ]);
 
 function splitSentences(text: string): string[] {
-  const clean = stripMarkup(text);
+  const clean = stripToProse(text);
   if (!clean) return [];
   const out: string[] = [];
   let buf = "";
@@ -109,6 +135,25 @@ export function analyzeSentenceStructure(
   options: SentenceStructureOptions = {},
 ): SentenceStructureMetrics {
   const opts = { ...DEFAULTS, ...options };
+  const proseText = stripToProse(text);
+  const proseWordCount = proseText ? proseText.split(/\s+/).filter(Boolean).length : 0;
+  // Мало прозы — статистика по ритму бессмысленна (таблицы/списки/короткие блоки).
+  if (proseWordCount < 300) {
+    return {
+      sentenceCount: 0,
+      wordCount: 0,
+      avgWords: 0,
+      shortCount: 0,
+      longCount: 0,
+      shortRatio: 0,
+      longRatio: 0,
+      maxShortRun: 0,
+      shortRuns3Plus: [],
+      verdict: "insufficient_prose",
+      issues: [`Прозаического текста ${proseWordCount} слов (< 300) — анализ ритма пропущен.`],
+      proseWordCount,
+    };
+  }
   const sentences = splitSentences(text);
   const lengths = sentences.map(countWords).filter((n) => n > 0);
   const sentenceCount = lengths.length;
@@ -181,12 +226,13 @@ export function analyzeSentenceStructure(
     shortRuns3Plus: runs,
     verdict,
     issues,
+    proseWordCount,
   };
 }
 
 // Структурированная подсказка для Sonnet с жесткими запретами и примерами.
 export function buildSentenceStructureFixHint(metrics: SentenceStructureMetrics): string | null {
-  if (metrics.verdict === "pass") return null;
+  if (metrics.verdict === "pass" || metrics.verdict === "insufficient_prose") return null;
 
   const problems: string[] = [];
   if (metrics.avgWords < 15) {
