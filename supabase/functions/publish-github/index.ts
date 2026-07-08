@@ -358,6 +358,7 @@ async function prepareArticle(
             });
             if (!r.ok) return null;
             const d = await r.json();
+            try { logLLM({ functionName: "publish-github/lovable-image", model: (d as any)?.model || "google/gemini-2.5-flash-image", tokensIn: Number((d as any)?.usage?.prompt_tokens || 0), tokensOut: Number((d as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
             const imgData = d.choices?.[0]?.message?.images?.[0]?.image_url?.url;
             if (!imgData) return null;
             return imgData.replace(/^data:image\/\w+;base64,/, "");
