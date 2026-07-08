@@ -1812,9 +1812,17 @@ async function writeCycleProgress(
 function decideCycleFix(
   scores: { ai: number | null; turg: number | null },
   priority: "auto" | "ai" | "turgenev",
-): "humanize" | "turgenev" | null {
+  hints?: { densitySevereLow?: boolean; densityCanFix?: boolean },
+): "humanize" | "turgenev" | "keyword_density" | null {
   const aiBad = !cycleAiOk(scores.ai);
   const turgBad = !cycleTurgOk(scores.turg);
+  // Density severely low (< 0.5 × top-median) → route content-fix pass FIRST,
+  // ahead of humanize. Wasting humanize LLM budget on a text that can't rank
+  // for its own keyword is the wrong maneuver. Requires a working benchmark
+  // (densityCanFix) — otherwise we fall through to the normal logic.
+  if (hints?.densitySevereLow && hints?.densityCanFix && priority !== "turgenev") {
+    return "keyword_density";
+  }
   if (!aiBad && !turgBad) return null;
   if (priority === "ai") return aiBad ? "humanize" : null;
   if (priority === "turgenev") return turgBad ? "turgenev" : null;
