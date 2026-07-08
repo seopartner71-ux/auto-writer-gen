@@ -1825,10 +1825,11 @@ function decideCycleFix(
   const aiBad = !cycleAiOk(scores.ai);
   const turgBad = !cycleTurgOk(scores.turg);
   // Density severely low (< 0.5 × top-median) → route content-fix pass FIRST,
-  // ahead of humanize. Wasting humanize LLM budget on a text that can't rank
-  // for its own keyword is the wrong maneuver. Requires a working benchmark
-  // (densityCanFix) — otherwise we fall through to the normal logic.
-  if (hints?.densitySevereLow && hints?.densityCanFix && priority !== "turgenev") {
+  // ahead of humanize. Gated behind DENSITY_GATE_ENABLED because the current
+  // density counter underweights Russian wordforms (no lemmatization) and on
+  // live benchmarks would over-insert keywords into already-saturated text.
+  // Re-enable only after lemmatized density is in place.
+  if (DENSITY_GATE_ENABLED && hints?.densitySevereLow && hints?.densityCanFix && priority !== "turgenev") {
     return "keyword_density";
   }
   if (!aiBad && !turgBad) return null;
