@@ -196,6 +196,7 @@ ${inputJson}`;
       });
       if (!r.ok) { console.error("[improve-seo] model error", r.status, await r.text().catch(() => "")); return null; }
       const data = await r.json();
+      try { logLLM({ functionName: "improve-seo", model: (data as any)?.model || "google/gemini-2.5-flash", tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
       return data?.choices?.[0]?.message?.content || null;
     };
     if (orKey) {
