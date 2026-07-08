@@ -1788,6 +1788,13 @@ const CYCLE_MAX_PASSES = 2;
 const cycleAiOk = (v: number | null) => v != null && v >= CYCLE_AI_TARGET;
 const cycleTurgOk = (v: number | null) => v != null && v <= CYCLE_TURG_TARGET;
 
+// Feature flag: density-first routing in decideCycleFix. Turn back on only
+// after lemmatized keyword-density counting is in place — the current counter
+// underweights Russian wordforms and would over-insert keywords on live
+// benchmarks. Env override: IMPROVE_DENSITY_GATE_ENABLED=true.
+const DENSITY_GATE_ENABLED =
+  (Deno.env.get("IMPROVE_DENSITY_GATE_ENABLED") || "false").toLowerCase() === "true";
+
 // deno-lint-ignore no-explicit-any
 async function refreshCycleArt(admin: any, article_id: string): Promise<any> {
   const { data } = await admin.from("articles")
@@ -1825,10 +1832,11 @@ function decideCycleFix(
   const aiBad = !cycleAiOk(scores.ai);
   const turgBad = !cycleTurgOk(scores.turg);
   // Density severely low (< 0.5 × top-median) → route content-fix pass FIRST,
-  // ahead of humanize. Wasting humanize LLM budget on a text that can't rank
-  // for its own keyword is the wrong maneuver. Requires a working benchmark
-  // (densityCanFix) — otherwise we fall through to the normal logic.
-  if (hints?.densitySevereLow && hints?.densityCanFix && priority !== "turgenev") {
+  // ahead of humanize. Gated behind DENSITY_GATE_ENABLED because the current
+  // density counter underweights Russian wordforms (no lemmatization) and on
+  // live benchmarks would over-insert keywords into already-saturated text.
+  // Re-enable only after lemmatized density is in place.
+  if (DENSITY_GATE_ENABLED && hints?.densitySevereLow && hints?.densityCanFix && priority !== "turgenev") {
     return "keyword_density";
   }
   if (!aiBad && !turgBad) return null;
