@@ -661,6 +661,9 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         user: `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100 и дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
         maxTokens: 180, temperature: 0, timeoutMs: 60_000,
         appTitle: "SEO-Modul improve-article score",
+        functionName: "improve-article/judge-claude",
+        userId: user.id,
+        articleId: article_id,
       });
       return parseScoreAndReasons(r.content);
     } catch { return { score: null, reasons: [] }; }
@@ -674,6 +677,9 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         user: `Оцени: 100 = написан человеком, 0 = ИИ. Дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
         maxTokens: 180, temperature: 0, timeoutMs: 20_000,
         appTitle: "SEO-Modul improve-article score",
+        functionName: "improve-article/judge-gemini",
+        userId: user.id,
+        articleId: article_id,
       });
       return parseScoreAndReasons(r.content);
     } catch { return { score: null, reasons: [] }; }
