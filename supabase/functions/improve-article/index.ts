@@ -2165,9 +2165,15 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     }
 
     // Progress tracking.
-    const targetImproved = fix === "humanize"
-      ? (postScores.ai != null && preScores.ai != null && postScores.ai > preScores.ai)
-      : (postScores.turg != null && preScores.turg != null && postScores.turg < preScores.turg);
+    const targetImproved =
+      fix === "humanize"
+        ? (postScores.ai != null && preScores.ai != null && postScores.ai > preScores.ai)
+        : fix === "turgenev"
+          ? (postScores.turg != null && preScores.turg != null && postScores.turg < preScores.turg)
+          // For keyword_density: any content mutation from the density pass
+          // counts as progress (density itself is re-measured out-of-band by
+          // the next quality-check).
+          : ((art.content as string) !== preContent);
     if (!targetImproved) {
       noProgressStreak++;
       if (noProgressStreak >= 2) {
