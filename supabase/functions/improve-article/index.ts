@@ -888,7 +888,7 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       ? (art as any).quality_details.ai_internal_reasons.map((s: any) => String(s)).filter(Boolean)
       : [];
     const judgeReasonsAll = [...priorClaudeReasons, ...priorInternalReasons];
-    const judgeReasonsBlock = judgeReasonsAll.length
+    let judgeReasonsBlock = judgeReasonsAll.length
       ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, не воспроизводи эти же дефекты):\n${judgeReasonsAll.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
       : "";
 
