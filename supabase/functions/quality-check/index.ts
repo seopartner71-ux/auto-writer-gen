@@ -12,6 +12,7 @@ import { analyzeSentenceStructure } from "../_shared/sentenceStructure.ts";
 import { analyzeCancellary } from "../_shared/validators/cancellaryGuard.ts";
 import { analyzeKeywordFrequency } from "../_shared/validators/keywordFrequencyGuard.ts";
 import { analyzeDanglingThoughts } from "../_shared/validators/danglingThoughtGuard.ts";
+import { computeDensityLemmatized } from "../_shared/keywordDensity.ts";
 import { analyzeSanity } from "../_shared/contentSanity.ts";
 import {
   getStyleProfile,
@@ -750,6 +751,12 @@ async function runAutoQuality(
   const burst = computeBurstiness(plain);
   const density = primaryKeyword ? computeDensity(plain, primaryKeyword) : 0;
   const dStatus = primaryKeyword && medianDensity > 0 ? densityStatus(density, medianDensity) : "ok";
+  // Companion metric: lemmatized (stem-based) density. Collapses Russian
+  // wordforms the exact counter misses. Stored alongside for observability
+  // and future routing — does NOT feed dStatus yet.
+  const densityLemma = primaryKeyword
+    ? computeDensityLemmatized(plain, primaryKeyword)
+    : { density: 0, hits: 0, totalWords: 0, stems: [] as string[] };
 
   // ── Sentence structure analysis ───────────────────────────────────
   // Ловим "телеграфный" AI-стиль: серии коротких подряд, низкая средняя длина.
@@ -855,6 +862,14 @@ async function runAutoQuality(
           hit_count: dangling.hits.length,
           hits: dangling.hits.slice(0, 5),
           issues: dangling.issues,
+        },
+        keyword_density_lemma: {
+          density: densityLemma.density,
+          hits: densityLemma.hits,
+          total_words: densityLemma.totalWords,
+          stems: densityLemma.stems,
+          exact_density: density,
+          seed_keyword: primaryKeyword || null,
         },
         checked_at: new Date().toISOString(),
       },
