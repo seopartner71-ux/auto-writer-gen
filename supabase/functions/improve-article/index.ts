@@ -303,6 +303,7 @@ Deno.serve(async (req) => {
       fix_type === "cancellary" ? "cancellary" :
       fix_type === "keyword_freq" ? "keyword_freq" : "all";
     logCtx = { user_id: user.id, article_id, phase };
+    const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
 
     const { data: art } = await admin.from("articles")
       .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
