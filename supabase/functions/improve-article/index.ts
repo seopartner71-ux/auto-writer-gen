@@ -8,6 +8,7 @@
 import { verifyAuth } from "../_shared/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { chatComplete, AiError } from "../_shared/aiClient.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { ensureHtml, isStaleStatus } from "../_shared/ensureHtml.ts";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
@@ -668,8 +669,22 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         functionName: "improve-article/judge-claude",
         userId: user.id,
         articleId: article_id,
+        disableCostLog: true,
       });
-      return parseScoreAndReasons(r.content);
+      const parsed = parseScoreAndReasons(r.content);
+      // Log to cost_log ONLY when the judge actually returned usable output.
+      // Empty/0-token responses (rate-limit fallbacks, upstream errors that
+      // still returned 200) previously inflated the "3rd judge pair" noise.
+      if ((r.tokensIn + r.tokensOut) > 0 && parsed.score !== null) {
+        logLLM({
+          functionName: "improve-article/judge-claude",
+          model: r.model, tokensIn: r.tokensIn, tokensOut: r.tokensOut,
+          userId: user.id, articleId: article_id,
+        });
+      } else {
+        console.warn("[judge-claude] skipped cost_log", { tokensIn: r.tokensIn, tokensOut: r.tokensOut, hasScore: parsed.score !== null });
+      }
+      return parsed;
     } catch { return { score: null, reasons: [] }; }
   }
   async function scoreGeminiInline(plain: string, key: string): Promise<{ score: number | null; reasons: string[] }> {
@@ -684,8 +699,19 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         functionName: "improve-article/judge-gemini",
         userId: user.id,
         articleId: article_id,
+        disableCostLog: true,
       });
-      return parseScoreAndReasons(r.content);
+      const parsed = parseScoreAndReasons(r.content);
+      if ((r.tokensIn + r.tokensOut) > 0 && parsed.score !== null) {
+        logLLM({
+          functionName: "improve-article/judge-gemini",
+          model: r.model, tokensIn: r.tokensIn, tokensOut: r.tokensOut,
+          userId: user.id, articleId: article_id,
+        });
+      } else {
+        console.warn("[judge-gemini] skipped cost_log", { tokensIn: r.tokensIn, tokensOut: r.tokensOut, hasScore: parsed.score !== null });
+      }
+      return parsed;
     } catch { return { score: null, reasons: [] }; }
   }
   async function scoreCandidate(html: string, label: string): Promise<number | null> {
@@ -1575,10 +1601,22 @@ ${content}`;
     // One final stop check before we potentially spend more LLM calls on
     // best-candidate scoring or the nominative-keyword micro-pass.
     await checkStopFlag("pre_finalize");
-    // Score the FINAL post-pipeline state (structural steps 2-8 run after
-    // humanize and may have moved the needle); pick the best-scoring version.
-    if (!stoppedByUser && content !== bestContent) {
-      try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
+    // Redundant post-pipeline "final" judge pair removed. Structural steps
+    // 2-8 don't rewrite prose (they fix HTML/lists/dangling terminators),
+    // so re-judging duplicated the humanize-candidate verdict — see LAROSSA
+    // cycle 1: identical parts + Gemini 0-tokens on the 3rd pair.
+    // To preserve those structural fixes in the persisted output, adopt
+    // the current `content` as bestContent whenever the winning label was
+    // a humanize pass (structural steps operated on that same prose after
+    // the judge saw it — score/reasons remain semantically valid).
+    if (!stoppedByUser && content !== bestContent && /^humanize\./.test(bestLabel)) {
+      bestContent = content;
+      scoreHistory.push({
+        label: `${bestLabel}+structural`,
+        score: bestScore,
+        parts: bestParts,
+        reasons: bestReasons,
+      });
     }
     // ── Nominative-keyword micro-pass ────────────────────────────────
     // Post-humanize sanity check: catch raw keyword injections like
