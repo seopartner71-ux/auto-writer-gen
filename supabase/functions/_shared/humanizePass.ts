@@ -19,6 +19,7 @@ import {
   listBanlistHits,
   type HumanizeMetrics,
 } from "./humanizeMetrics.ts";
+import { logLLM } from "./costLogger.ts";
 
 const SONNET_MODEL = "anthropic/claude-sonnet-4";
 const OPUS_MODEL = "anthropic/claude-opus-4";
@@ -102,6 +103,7 @@ async function callOpenRouter(
   system: string,
   user: string,
   timeoutMs = 90_000,
+  logCtx: { functionName?: string; userId?: string | null; articleId?: string | null } = {},
 ): Promise<string | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -128,6 +130,14 @@ async function callOpenRouter(
       return null;
     }
     const j = await r.json();
+    logLLM({
+      functionName: logCtx.functionName || "humanize-pass",
+      model: String(j?.model || model),
+      tokensIn: Number(j?.usage?.prompt_tokens || 0),
+      tokensOut: Number(j?.usage?.completion_tokens || 0),
+      userId: logCtx.userId ?? null,
+      articleId: logCtx.articleId ?? null,
+    });
     return (j?.choices?.[0]?.message?.content as string | undefined) ?? null;
   } catch (e) {
     const msg = (e as Error)?.message || String(e);
