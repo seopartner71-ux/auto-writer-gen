@@ -4,6 +4,7 @@
 
 import { corsHeaders, handlePreflight, errorResponse } from "../_shared/cors.ts";
 import { verifyAuth, adminClient } from "../_shared/auth.ts";
+import { logLLM } from "../_shared/costLogger.ts";
 
 Deno.serve(async (req) => {
   const pre = handlePreflight(req); if (pre) return pre;
