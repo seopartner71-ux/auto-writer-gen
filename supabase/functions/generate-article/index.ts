@@ -446,6 +446,8 @@ serve(async (req) => {
           headers: {
             Authorization: `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://seo-modul.pro",
+            "X-Title": req.headers.get("x-bulk-user-id") ? "SEO-Modul bulk-generate" : "SEO-Modul generate-article",
           },
           body: JSON.stringify({
             model,
@@ -454,6 +456,11 @@ serve(async (req) => {
               { role: "user", content: userPrompt },
             ],
             stream: true,
+            // Ask OpenRouter to include real usage (prompt/completion tokens
+            // and upstream cost) in the final SSE chunk so we can log actuals
+            // instead of the 3000-token estimate.
+            stream_options: { include_usage: true },
+            usage: { include: true },
             temperature: authorTemperature,
             // Hard cap output length: prevents runaway Opus generations that
             // drift into token-salad ("плуминиума", mixed scripts) past
@@ -507,23 +514,11 @@ serve(async (req) => {
       tokens_used: 0,
     }).then(() => {});
 
-    // Cost log (estimate — streaming response, true tokens unavailable here).
-    // Input is estimated from prompt char count (1 token ~= 4 chars), output
-    // assumed at ~3000 tokens (typical long-form article). Best-effort, never throws.
-    try {
-      const promptChars = (systemPrompt?.length || 0) + (userPrompt?.length || 0);
-      const estIn  = Math.max(0, Math.ceil(promptChars / 4));
-      const estOut = 3000;
-      void logCost(supabaseAdmin, {
-        project_id: project_id || null,
-        user_id: user.id,
-        operation_type: "article_generation",
-        model: String(model),
-        tokens_input: estIn,
-        tokens_output: estOut,
-        metadata: { context: "writer_stream", estimated: true, source: (req.headers.get("x-bulk-user-id") ? "bulk" : "writer") },
-      });
-    } catch (_) { /* ignore */ }
+    // Cost log is written AFTER the stream ends using real usage from
+    // OpenRouter (stream_options.include_usage=true → usage arrives in the
+    // final SSE chunk). If usage is missing, fall back to GET /generation?id=
+    // with a short backoff. Only if both fail do we log an estimate.
+    const costSource = req.headers.get("x-bulk-user-id") ? "bulk" : "writer";
 
     logPipelineEvent({
       stage: "generate",
@@ -541,8 +536,14 @@ serve(async (req) => {
     const keepAlive = new ReadableStream<Uint8Array>({
       start(controller) {
         const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
         const reader = upstream.getReader();
         let closed = false;
+        let sseBuf = "";
+        let realIn = 0;
+        let realOut = 0;
+        let realCostUsd: number | null = null;
+        let genId: string | null = null;
         const ping = setInterval(() => {
           if (closed) return;
           try { controller.enqueue(encoder.encode(": ping\n\n")); } catch { /* ignore */ }
@@ -553,6 +554,26 @@ serve(async (req) => {
               const { done, value } = await reader.read();
               if (done) break;
               controller.enqueue(value);
+              // Tap SSE payload to extract generation id + final usage frame.
+              try {
+                sseBuf += decoder.decode(value, { stream: true });
+                let nl: number;
+                while ((nl = sseBuf.indexOf("\n")) !== -1) {
+                  const line = sseBuf.slice(0, nl).trim();
+                  sseBuf = sseBuf.slice(nl + 1);
+                  if (!line.startsWith("data:")) continue;
+                  const payload = line.slice(5).trim();
+                  if (!payload || payload === "[DONE]") continue;
+                  const j = JSON.parse(payload);
+                  if (!genId && typeof j?.id === "string") genId = j.id;
+                  if (j?.usage) {
+                    realIn = Number(j.usage.prompt_tokens || 0) || realIn;
+                    realOut = Number(j.usage.completion_tokens || 0) || realOut;
+                    const c = Number(j.usage.cost);
+                    if (Number.isFinite(c) && c > 0) realCostUsd = c;
+                  }
+                }
+              } catch { /* ignore parse errors mid-stream */ }
             }
           } catch (err) {
             try { controller.error(err); } catch { /* ignore */ }
@@ -560,6 +581,55 @@ serve(async (req) => {
             closed = true;
             clearInterval(ping);
             try { controller.close(); } catch { /* ignore */ }
+            // Post-stream cost log with real usage. Backoff-poll OpenRouter
+            // /generation if usage was not in the stream. Never throws.
+            (async () => {
+              try {
+                if ((!realIn || !realOut) && genId) {
+                  for (const wait of [800, 1500, 2500]) {
+                    await new Promise((r) => setTimeout(r, wait));
+                    try {
+                      const gr = await fetch(`https://openrouter.ai/api/v1/generation?id=${encodeURIComponent(genId)}`, {
+                        headers: {
+                          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                          "HTTP-Referer": "https://seo-modul.pro",
+                          "X-Title": "SEO-Modul generate-article",
+                        },
+                      });
+                      if (!gr.ok) { await gr.text().catch(() => ""); continue; }
+                      const gj = await gr.json();
+                      const d = gj?.data || gj;
+                      const nIn = Number(d?.tokens_prompt ?? d?.native_tokens_prompt ?? 0);
+                      const nOut = Number(d?.tokens_completion ?? d?.native_tokens_completion ?? 0);
+                      const nCost = Number(d?.total_cost ?? d?.cost);
+                      if (nIn || nOut) { realIn = nIn || realIn; realOut = nOut || realOut; }
+                      if (Number.isFinite(nCost) && nCost > 0) realCostUsd = nCost;
+                      if (realIn && realOut) break;
+                    } catch { /* keep polling */ }
+                  }
+                }
+                const estimated = !(realIn && realOut);
+                const tokens_input = realIn || Math.max(0, Math.ceil(((systemPrompt?.length || 0) + (userPrompt?.length || 0)) / 4));
+                const tokens_output = realOut || 3000;
+                await logCost(supabaseAdmin, {
+                  project_id: project_id || null,
+                  user_id: user.id,
+                  operation_type: "article_generation",
+                  model: String(model),
+                  tokens_input,
+                  tokens_output,
+                  metadata: {
+                    context: "writer_stream",
+                    source: costSource,
+                    estimated,
+                    generation_id: genId,
+                    ...(realCostUsd !== null ? { openrouter_cost_usd: realCostUsd } : {}),
+                  },
+                });
+              } catch (e) {
+                console.error("[generate-article] post-stream cost log failed", e);
+              }
+            })();
           }
         })();
       },

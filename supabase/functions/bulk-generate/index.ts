@@ -128,6 +128,8 @@ async function scheduleNextChunk(params: {
       method: "POST",
       headers: {
         Authorization: `Bearer ${params.serviceKey}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul bulk-generate",
         apikey: params.publicKey,
         "Content-Type": "application/json",
         "x-bulk-user-id": params.userId,
@@ -209,6 +211,8 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       method: "POST",
       headers: {
         Authorization: `Bearer ${openRouterApiKey}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul bulk-generate",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -330,6 +334,8 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       method: "POST",
       headers: {
         Authorization: `Bearer ${openRouterApiKey}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul bulk-generate",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

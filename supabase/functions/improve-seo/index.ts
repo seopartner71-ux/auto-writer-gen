@@ -192,7 +192,7 @@ ${inputJson}`;
       if (withMaxTokens) body.max_tokens = 16000;
       const r = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}`, "HTTP-Referer": "https://seo-modul.pro", "X-Title": "SEO-Modul improve-seo" },
         body: JSON.stringify(body),
       });
       if (!r.ok) { console.error("[improve-seo] model error", r.status, await r.text().catch(() => "")); return null; }

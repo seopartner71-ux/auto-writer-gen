@@ -123,6 +123,8 @@ serve(async (req) => {
       signal: aiController.signal,
       headers: {
         Authorization: `Bearer ${aiAuthKey}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul analyze-style",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

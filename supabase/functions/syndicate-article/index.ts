@@ -209,7 +209,9 @@ async function publishToBlogger(
 
   const res = await fetch(`https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts/`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${accessToken}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul syndicate-article", "Content-Type": "application/json" },
     body: JSON.stringify({
       kind: "blogger#post",
       title: article.title || "Untitled",

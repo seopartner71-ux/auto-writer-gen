@@ -173,7 +173,7 @@ async function clusterWithAI(topic: string, keywords: string[], lang: string): P
   const res = await withTimeout(
     fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableKey}`, "HTTP-Referer": "https://seo-modul.pro", "X-Title": "SEO-Modul topical-map" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [

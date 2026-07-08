@@ -38,7 +38,9 @@ async function callOpenRouter(
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${apiKey}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul personaEnforce", "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
         messages: [

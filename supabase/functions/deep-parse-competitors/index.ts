@@ -587,6 +587,8 @@ serve(async (req) => {
         signal: aiController.signal,
         headers: {
           Authorization: `Bearer ${aiAuthKey}`,
+          "HTTP-Referer": "https://seo-modul.pro",
+          "X-Title": "SEO-Modul deep-parse-competitors",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

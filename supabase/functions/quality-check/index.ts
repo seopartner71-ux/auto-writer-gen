@@ -1127,7 +1127,9 @@ ${paragraphs.map((p, i) => `[${i + 1}] ${p.slice(0, 400)}`).join("\n\n")}
 
   const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${apiKey}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul quality-check", "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash-lite",
       messages: [

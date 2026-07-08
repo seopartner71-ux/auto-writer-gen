@@ -65,6 +65,8 @@ Return only a JSON array of 5 strings.`;
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul generate-titles",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

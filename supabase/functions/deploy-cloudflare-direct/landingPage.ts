@@ -1420,7 +1420,9 @@ FORMAT: Natural English, no corporate jargon. Realistic prices, phone, address. 
     const timer = setTimeout(() => ac.abort(), 30_000);
     const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul deploy-cloudflare-direct", "Content-Type": "application/json" },
       signal: ac.signal,
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",

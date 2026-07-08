@@ -65,7 +65,9 @@ ${language === "ru" ? "- В русском НИКОГДА не использу�
 
     const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul generate-section-outline", "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [

@@ -112,6 +112,8 @@ async function callOpenRouter(
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul humanizePass",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

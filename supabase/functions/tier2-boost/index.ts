@@ -316,7 +316,9 @@ async function publishToBlogger(
       `https://www.googleapis.com/blogger/v3/blogs/${conn.default_blog_id}/posts/`,
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${accessToken}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul tier2-boost", "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "blogger#post", title, content: html }),
       },
     );

@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
 
     const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}`, "HTTP-Referer": "https://seo-modul.pro", "X-Title": "SEO-Modul improve-author-prompt" },
       body: JSON.stringify({
         model: "anthropic/claude-opus-4",
         messages: [

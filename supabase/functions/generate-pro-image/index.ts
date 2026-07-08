@@ -42,7 +42,9 @@ async function buildVisualPrompt(context: string, style: string): Promise<string
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${OPENROUTER_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${OPENROUTER_KEY}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul generate-pro-image", "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
@@ -117,7 +119,9 @@ async function editImage(sourceUrl: string, prompt: string): Promise<string> {
   if (!LOVABLE_AI_KEY) throw new Error("LOVABLE_API_KEY not configured");
   const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_AI_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${LOVABLE_AI_KEY}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul generate-pro-image", "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash-image",
       messages: [{

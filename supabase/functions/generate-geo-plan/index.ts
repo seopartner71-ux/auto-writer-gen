@@ -70,6 +70,8 @@ Be specific: name platforms (Reddit, Wikipedia, industry media), content formats
       method: "POST",
       headers: {
         Authorization: `Bearer ${openrouterKey}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul generate-geo-plan",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://seo-modul.pro",
       },

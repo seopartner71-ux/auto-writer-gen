@@ -101,6 +101,8 @@ Write ALL output in the same language as the keyword "${kw.seed_keyword}".`;
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul analyze-content-gaps",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
