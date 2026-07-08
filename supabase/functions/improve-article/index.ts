@@ -989,13 +989,17 @@ ${content}`;
         judge_reasons_count: judgeReasonsAll.length,
         lexical_ban: true,
       };
-      let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-pro";
+      // Fallback humanize model: Gemini 2.5 Flash (не Pro). Pro-кандидаты в
+      // humanize часто отклоняются integrity-гвардом, а стоят в ~20 раз
+      // дороже Flash. Flash уже используется в других узлах пайплайна и
+      // справляется с задачей.
+      let humanizeModel = orKey ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-flash";
       let humanizeLlmError: string | undefined;
       let humanizeDurationMs = 0;
       if (orKey) {
         await emitSubStep("Гуманизация (Sonnet)");
         // 75s был впритык — Sonnet стабильно уходил в timeout и мы падали
-        // на gemini-2.5-pro. Поднято до 90s (worker budget всё ещё держит:
+        // на gemini-2.5-flash. Поднято до 90s (worker budget всё ещё держит:
         // 90 humanize + 80 judges + overhead ≈ 180s, реле распилит проходы).
         const r = await callOpenRouterEx("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, 90_000);
         rewritten = r.content;
@@ -1003,11 +1007,11 @@ ${content}`;
         humanizeDurationMs = r.duration_ms;
       }
       if (!rewritten && lovableKey) {
-        humanizeModel = "google/gemini-2.5-pro";
-        await emitSubStep("Гуманизация (Gemini fallback)");
+        humanizeModel = "google/gemini-2.5-flash";
+        await emitSubStep("Гуманизация (Gemini Flash fallback)");
         // Explicit 12000 max_tokens — default (2000) обрывал длинные RU
         // статьи (finish:"length", 2212 слов → 34), integrity rejected.
-        rewritten = await callGateway("google/gemini-2.5-pro", sys, usr, lovableKey, 12000);
+        rewritten = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000);
         if (!rewritten && !humanizeLlmError) humanizeLlmError = "gemini_fallback_empty";
       }
       // Drain the initial-score promise before we record/persist the pass so
