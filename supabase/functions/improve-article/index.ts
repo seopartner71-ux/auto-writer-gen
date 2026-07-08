@@ -1788,6 +1788,13 @@ const CYCLE_MAX_PASSES = 2;
 const cycleAiOk = (v: number | null) => v != null && v >= CYCLE_AI_TARGET;
 const cycleTurgOk = (v: number | null) => v != null && v <= CYCLE_TURG_TARGET;
 
+// Feature flag: density-first routing in decideCycleFix. Turn back on only
+// after lemmatized keyword-density counting is in place — the current counter
+// underweights Russian wordforms and would over-insert keywords on live
+// benchmarks. Env override: IMPROVE_DENSITY_GATE_ENABLED=true.
+const DENSITY_GATE_ENABLED =
+  (Deno.env.get("IMPROVE_DENSITY_GATE_ENABLED") || "false").toLowerCase() === "true";
+
 // deno-lint-ignore no-explicit-any
 async function refreshCycleArt(admin: any, article_id: string): Promise<any> {
   const { data } = await admin.from("articles")
