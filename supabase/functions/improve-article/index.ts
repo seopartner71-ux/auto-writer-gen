@@ -1751,7 +1751,9 @@ ${bestContent}`;
       improve_error: null,
     };
     await admin.from("articles").update({
-      content: contentToPersist,
+      // Only write content when best_pick actually beat entry. See invariant
+      // comment above `contentBeatEntry`.
+      ...(contentBeatEntry ? { content: contentToPersist } : {}),
       // If stopped by user — release the status immediately; no re-check will run.
       // In cycle mode — keep 'improving' so the cycle orchestrator can decide.
       quality_status: stoppedByUser ? null : (cycleMode ? "improving" : "checking"),
