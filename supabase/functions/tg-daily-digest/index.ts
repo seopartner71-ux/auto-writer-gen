@@ -71,6 +71,7 @@ serve(async (req) => {
 
     // Window: last 24h (МСК-aware handled via UTC delta)
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const USD_RUB = 95;
 
     const { data: rows, error } = await admin
       .from("articles")
@@ -95,6 +96,49 @@ serve(async (req) => {
 
     const dateLabel = formatDateRu(new Date());
 
+    // Load cost_log for the same 24h window. We aggregate by article_id (for
+    // primary-model detection) and by user_id (for daily spend totals).
+    const articleIds = doneArticles.map((a) => a.id);
+    const { data: costRows } = articleIds.length
+      ? await admin
+          .from("cost_log")
+          .select("article_id,user_id,model,cost_usd,metadata")
+          .gte("created_at", since)
+          .limit(20000)
+      : { data: [] as any[] };
+
+    // Map article_id -> { model -> summed cost } for "primary model" pick.
+    const modelCostByArticle = new Map<string, Map<string, number>>();
+    // Map article_id -> total cost across ALL log entries for that article.
+    const costByArticle = new Map<string, number>();
+    // Map user_id -> total daily cost across all their log entries (any article + writer_stream w/o article_id via user_id).
+    const costByUser = new Map<string, number>();
+    for (const c of (costRows || []) as any[]) {
+      const aid = c.article_id as string | null;
+      const uid = c.user_id as string | null;
+      const cost = Number(c.cost_usd || 0);
+      const model = String(c.model || "");
+      if (aid) {
+        costByArticle.set(aid, (costByArticle.get(aid) || 0) + cost);
+        if (model) {
+          let m = modelCostByArticle.get(aid);
+          if (!m) { m = new Map(); modelCostByArticle.set(aid, m); }
+          m.set(model, (m.get(model) || 0) + cost);
+        }
+      }
+      if (uid) costByUser.set(uid, (costByUser.get(uid) || 0) + cost);
+    }
+
+    function primaryModelFor(a: ArticleRow): string | null {
+      const m = modelCostByArticle.get(a.id);
+      if (m && m.size) {
+        let best = ""; let bestC = -1;
+        for (const [k, v] of m) if (v > bestC) { best = k; bestC = v; }
+        return best;
+      }
+      return a.generation_model || null;
+    }
+
     if (doneArticles.length === 0) {
       const emptyText = `📊 <b>Статьи за ${dateLabel}</b>\n\nСегодня статей не было.`;
       await postDigest(supabaseUrl, serviceRoleKey, emptyText);
@@ -107,21 +151,32 @@ serve(async (req) => {
     const userIds = Array.from(new Set(doneArticles.map((a) => a.user_id).filter(Boolean))) as string[];
     const { data: profiles } = await admin
       .from("profiles")
-      .select("id, full_name, email")
+      .select("id, full_name, email, plan")
       .in("id", userIds);
     const nameById = new Map<string, string>();
+    const planById = new Map<string, string>();
     for (const p of profiles || []) {
       nameById.set(p.id as string, (p.full_name as string) || (p.email as string) || "Без имени");
+      planById.set(p.id as string, String((p as any).plan || "free"));
     }
+
+    // subscription_plans → monthly price in RUB (profiles.plan is the plan id).
+    const { data: planRows } = await admin
+      .from("subscription_plans")
+      .select("id, price_rub");
+    const priceByPlan = new Map<string, number>();
+    for (const p of planRows || []) priceByPlan.set(String(p.id), Number((p as any).price_rub || 0));
 
     // Group
     type Bucket = {
       name: string;
+      plan: string;
       count: number;
       models: Map<string, number>;
       sources: Map<string, number>;
       scoreSum: number;
       scoreN: number;
+      costUsd: number;
     };
     const buckets = new Map<string, Bucket>();
     for (const a of doneArticles) {
@@ -130,16 +185,18 @@ serve(async (req) => {
       if (!b) {
         b = {
           name: nameById.get(uid) || "Без имени",
+          plan: planById.get(uid) || "free",
           count: 0,
           models: new Map(),
           sources: new Map(),
           scoreSum: 0,
           scoreN: 0,
+          costUsd: 0,
         };
         buckets.set(uid, b);
       }
       b.count += 1;
-      const model = labelModel(a.generation_model);
+      const model = labelModel(primaryModelFor(a));
       b.models.set(model, (b.models.get(model) || 0) + 1);
       const src = labelSource(a);
       b.sources.set(src, (b.sources.get(src) || 0) + 1);
@@ -147,17 +204,37 @@ serve(async (req) => {
         b.scoreSum += a.ai_score;
         b.scoreN += 1;
       }
+      b.costUsd += costByArticle.get(a.id) || 0;
+    }
+    // Add writer_stream / other user-scoped log rows that had no article_id
+    // but belong to a user who shipped articles today.
+    for (const [uid, b] of buckets) {
+      const userTotal = costByUser.get(uid) || 0;
+      // Prefer the larger of "sum of per-article costs" or "sum of all user logs"
+      if (userTotal > b.costUsd) b.costUsd = userTotal;
     }
 
     // Sort users by article count desc
     const sorted = Array.from(buckets.values()).sort((a, b) => b.count - a.count);
 
+    const totalCostUsd = sorted.reduce((s, b) => s + b.costUsd, 0);
+    const totalCostRub = Math.round(totalCostUsd * USD_RUB);
+    const avgPerArticle = doneArticles.length ? totalCostUsd / doneArticles.length : 0;
+
     const lines: string[] = [];
-    lines.push(`📊 <b>Статьи за ${dateLabel} — всего ${doneArticles.length}</b>`);
+    lines.push(
+      `📊 <b>Статьи за ${dateLabel} — всего ${doneArticles.length}</b>\n` +
+      `Затраты: $${totalCostUsd.toFixed(2)} (~${totalCostRub} ₽) · среднее $${avgPerArticle.toFixed(2)}/статья`
+    );
     lines.push("");
 
     for (const b of sorted) {
-      lines.push(`<b>${esc(b.name)}</b> — ${b.count} ${pluralArticles(b.count)}`);
+      const planKeyRaw = String(b.plan || "").toLowerCase();
+      const planTag = planKeyRaw === "basic" ? "PRO"
+        : planKeyRaw === "pro" ? "FACTORY"
+        : planKeyRaw === "free" ? "NANO"
+        : planKeyRaw.toUpperCase();
+      lines.push(`<b>${esc(b.name)}</b> [${esc(planTag)}] — ${b.count} ${pluralArticles(b.count)}`);
       const modelsStr = formatCounts(b.models);
       if (modelsStr) lines.push(`  Модели: ${esc(modelsStr)}`);
       const sourcesStr = formatCounts(b.sources);
@@ -165,6 +242,16 @@ serve(async (req) => {
       if (b.scoreN > 0) {
         const avg = Math.round(b.scoreSum / b.scoreN);
         lines.push(`  Средняя человечность: ${avg}/100`);
+      }
+      const rub = Math.round(b.costUsd * USD_RUB);
+      lines.push(`  Затраты: $${b.costUsd.toFixed(2)} (~${rub} ₽)`);
+      // Paying plans → also print daily revenue slice (monthly / 30).
+      if (planKeyRaw === "basic" || planKeyRaw === "pro" || planKeyRaw === "factory") {
+        const monthly = priceByPlan.get(planKeyRaw) || 0;
+        if (monthly > 0) {
+          const daily = Math.round(monthly / 30);
+          lines.push(`  Выручка-день ≈ ${daily} ₽`);
+        }
       }
       lines.push("");
     }
