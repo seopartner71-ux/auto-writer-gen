@@ -815,6 +815,7 @@ async function runVcEditorPass(apiKey: string, markdown: string): Promise<string
       return null;
     }
     const data = await res.json();
+    try { logLLM({ functionName: "vc-editor-pass", model: (data as any)?.model || "google/gemini-2.5-flash", tokensIn: Number((data as any)?.usage?.prompt_tokens || 0), tokensOut: Number((data as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     let out: string = data?.choices?.[0]?.message?.content || "";
     if (!out) return null;
     out = out.replace(/^```(?:markdown|md|html)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
