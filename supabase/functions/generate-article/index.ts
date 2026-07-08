@@ -514,23 +514,11 @@ serve(async (req) => {
       tokens_used: 0,
     }).then(() => {});
 
-    // Cost log (estimate — streaming response, true tokens unavailable here).
-    // Input is estimated from prompt char count (1 token ~= 4 chars), output
-    // assumed at ~3000 tokens (typical long-form article). Best-effort, never throws.
-    try {
-      const promptChars = (systemPrompt?.length || 0) + (userPrompt?.length || 0);
-      const estIn  = Math.max(0, Math.ceil(promptChars / 4));
-      const estOut = 3000;
-      void logCost(supabaseAdmin, {
-        project_id: project_id || null,
-        user_id: user.id,
-        operation_type: "article_generation",
-        model: String(model),
-        tokens_input: estIn,
-        tokens_output: estOut,
-        metadata: { context: "writer_stream", estimated: true, source: (req.headers.get("x-bulk-user-id") ? "bulk" : "writer") },
-      });
-    } catch (_) { /* ignore */ }
+    // Cost log is written AFTER the stream ends using real usage from
+    // OpenRouter (stream_options.include_usage=true → usage arrives in the
+    // final SSE chunk). If usage is missing, fall back to GET /generation?id=
+    // with a short backoff. Only if both fail do we log an estimate.
+    const costSource = req.headers.get("x-bulk-user-id") ? "bulk" : "writer";
 
     logPipelineEvent({
       stage: "generate",
