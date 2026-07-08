@@ -1601,11 +1601,23 @@ ${content}`;
     // One final stop check before we potentially spend more LLM calls on
     // best-candidate scoring or the nominative-keyword micro-pass.
     await checkStopFlag("pre_finalize");
-    // NOTE: the redundant post-pipeline "final" judge pair was removed —
-    // structural steps 2-8 don't rewrite prose, they only fix HTML/lists/
-    // dangling terminators, so re-judging duplicated the humanize-candidate
-    // verdict (see LAROSSA cycle 1: identical parts, Gemini 0-tokens on the
-    // 3rd pair). bestContent/bestScore already reflect the true winner.
+    // Redundant post-pipeline "final" judge pair removed. Structural steps
+    // 2-8 don't rewrite prose (they fix HTML/lists/dangling terminators),
+    // so re-judging duplicated the humanize-candidate verdict — see LAROSSA
+    // cycle 1: identical parts + Gemini 0-tokens on the 3rd pair.
+    // To preserve those structural fixes in the persisted output, adopt
+    // the current `content` as bestContent whenever the winning label was
+    // a humanize pass (structural steps operated on that same prose after
+    // the judge saw it — score/reasons remain semantically valid).
+    if (!stoppedByUser && content !== bestContent && /^humanize\./.test(bestLabel)) {
+      bestContent = content;
+      scoreHistory.push({
+        label: `${bestLabel}+structural`,
+        score: bestScore,
+        parts: bestParts,
+        reasons: bestReasons,
+      });
+    }
     // ── Nominative-keyword micro-pass ────────────────────────────────
     // Post-humanize sanity check: catch raw keyword injections like
     // "минитрактор цена приятная" / "китайский минитрактор отзывы это
