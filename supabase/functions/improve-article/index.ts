@@ -295,13 +295,14 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     if (!article_id) return json({ error: "article_id required" }, 400);
-    const phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "all" =
+    const phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "keyword_density" | "all" =
       fix_type === "humanize" ? "humanize" :
       fix_type === "turgenev" ? "turgenev" :
       fix_type === "sentence_structure" ? "sentence" :
       fix_type === "dangling" ? "dangling" :
       fix_type === "cancellary" ? "cancellary" :
-      fix_type === "keyword_freq" ? "keyword_freq" : "all";
+      fix_type === "keyword_freq" ? "keyword_freq" :
+      fix_type === "keyword_density" ? "keyword_density" : "all";
     logCtx = { user_id: user.id, article_id, phase };
     const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
 
@@ -585,7 +586,7 @@ interface PipelineArgs {
   supabaseUrl: string;
   article_id: string;
   user: { id: string };
-  phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "all";
+  phase: "humanize" | "turgenev" | "sentence" | "dangling" | "cancellary" | "keyword_freq" | "keyword_density" | "all";
   art: any;
   initialContent: string;
   primaryKeywordSeed: string | null;
@@ -887,7 +888,7 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       ? (art as any).quality_details.ai_internal_reasons.map((s: any) => String(s)).filter(Boolean)
       : [];
     const judgeReasonsAll = [...priorClaudeReasons, ...priorInternalReasons];
-    const judgeReasonsBlock = judgeReasonsAll.length
+    let judgeReasonsBlock = judgeReasonsAll.length
       ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, не воспроизводи эти же дефекты):\n${judgeReasonsAll.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
       : "";
 
@@ -971,12 +972,55 @@ ${rhythmSharedRules}`;
 
     // 1) Rewrite-pass when ai_score is too low (looks AI-ish)
     if (!stoppedByUser && (phase === "humanize" || phase === "all") && aiScore < 70 && (orKey || lovableKey)) {
-      // ── Score the INITIAL content in parallel with humanize. Guarantees a
-      // real ai_score even if every subsequent pass is rejected on integrity
-      // (no_progress cycle). Only on pass 1 — relay hops reuse it.
-      const initialScorePromise = !isRelay
-        ? scoreCandidate(content, "initial").catch(() => null)
-        : Promise.resolve(null);
+      // ── Score the INITIAL content BEFORE building the humanize prompt.
+      // We need each judge's reasons NOW so the prompt can carry a
+      // "СОХРАНИТЬ" block for whichever judge scored ≥70 (its `reasons`
+      // list is praise — we must instruct the humanizer to keep those
+      // elements intact instead of paving over them). Relay hops reuse
+      // the initial score persisted on pass 1 (see fallback lookup below).
+      if (!isRelay) {
+        try { await scoreCandidate(content, "initial"); } catch (_) { /* non-critical */ }
+      }
+      // Locate the initial judge entry: current pipeline's scoreHistory
+      // for pass 1, or the previous pipeline's persisted improve_last for
+      // relay hops (pass 2+).
+      const prevImproveLast = (art as any).quality_details?.improve_last;
+      const initEntry =
+        scoreHistory.find((e) => e.label === "initial") ??
+        (Array.isArray(prevImproveLast?.score_history)
+          ? prevImproveLast.score_history.find((x: any) => x?.label === "initial")
+          : null);
+      const iClaudeR: string[] = Array.isArray(initEntry?.reasons?.claude)
+        ? initEntry.reasons.claude.map((s: unknown) => String(s)).filter(Boolean)
+        : [];
+      const iGeminiR: string[] = Array.isArray(initEntry?.reasons?.gemini)
+        ? initEntry.reasons.gemini.map((s: unknown) => String(s)).filter(Boolean)
+        : [];
+      const iClaudeS: number | null = typeof initEntry?.parts?.claude === "number" ? initEntry.parts.claude : null;
+      const iGeminiS: number | null = typeof initEntry?.parts?.gemini === "number" ? initEntry.parts.gemini : null;
+
+      // Preserve block — reasons from any judge that scored ≥70.
+      const preserveBits: string[] = [];
+      if (iClaudeS !== null && iClaudeS >= 70 && iClaudeR.length) {
+        preserveBits.push(`Судья Claude поставил ${iClaudeS}/100 и отметил как «человеческое»:\n  - ${iClaudeR.slice(0, 6).join("\n  - ")}`);
+      }
+      if (iGeminiS !== null && iGeminiS >= 70 && iGeminiR.length) {
+        preserveBits.push(`Судья Gemini поставил ${iGeminiS}/100 и отметил как «человеческое»:\n  - ${iGeminiR.slice(0, 6).join("\n  - ")}`);
+      }
+      const preserveBlock = preserveBits.length
+        ? `\n\nСОХРАНИТЬ, НЕ ПЕРЕПИСЫВАТЬ (эти обороты и приёмы уже прошли AI-детекцию — оставляй их в тексте дословно или почти дословно; критика ниже применяется ТОЛЬКО к фрагментам, НЕ попадающим под "СОХРАНИТЬ"):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+        : "";
+
+      // Critique block — reasons from judges that scored <70 (real
+      // defects), plus any prior quality-check reasons still in DB.
+      const critiqueReasons: string[] = [];
+      if (iClaudeS !== null && iClaudeS < 70 && iClaudeR.length) critiqueReasons.push(...iClaudeR);
+      if (iGeminiS !== null && iGeminiS < 70 && iGeminiR.length) critiqueReasons.push(...iGeminiR);
+      critiqueReasons.push(...priorClaudeReasons, ...priorInternalReasons);
+      const critiqueBlock = critiqueReasons.length
+        ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, но НЕ ломай элементы из блока "СОХРАНИТЬ"):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+        : judgeReasonsBlock; // fallback to prior-only critique if no init reasons
+      judgeReasonsBlock = preserveBlock + critiqueBlock;
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
 ${validatorContextBlock}
@@ -1035,9 +1079,6 @@ ${content}`;
         rewritten = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000, { ...llmCtx, functionName: "improve-article/humanize-flash-fb" });
         if (!rewritten && !humanizeLlmError) humanizeLlmError = "gemini_fallback_empty";
       }
-      // Drain the initial-score promise before we record/persist the pass so
-      // its result lands in scoreHistory / bestScore even if humanize failed.
-      try { await initialScorePromise; } catch (_) { /* non-critical */ }
       let humanizeApplied = false;
       let humanizeIntegrity: { ok: boolean; reason?: string } | null = null;
       let humanizeCandidateMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1145,10 +1186,18 @@ ${content}`;
     }
     await checkStopFlag("humanize");
 
-    // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times
+    // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times.
+    //    `keyword_density` phase (routed by the cycle when density < 0.5×top-median)
+    //    forces the underuse branch even when `dStatus` is stale/"ok".
     if (!stoppedByUser && (phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "overuse") {
       content = removeEveryNthKeyword(content, primaryKeyword, 3);
-    } else if (!stoppedByUser && (phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
+    } else if (
+      !stoppedByUser
+      && (phase === "humanize" || phase === "all" || phase === "keyword_density")
+      && primaryKeyword
+      && (dStatus === "underuse" || phase === "keyword_density")
+      && (orKey || lovableKey)
+    ) {
       const sys = "Ты редактор. Встраиваешь ключевое слово в текст с полной грамматической адаптацией. Возвращаешь только итоговый HTML.";
       const usr = `Встрой фразу "${primaryKeyword}" органично в 2-3 места текста.
 
@@ -1771,9 +1820,17 @@ async function writeCycleProgress(
 function decideCycleFix(
   scores: { ai: number | null; turg: number | null },
   priority: "auto" | "ai" | "turgenev",
-): "humanize" | "turgenev" | null {
+  hints?: { densitySevereLow?: boolean; densityCanFix?: boolean },
+): "humanize" | "turgenev" | "keyword_density" | null {
   const aiBad = !cycleAiOk(scores.ai);
   const turgBad = !cycleTurgOk(scores.turg);
+  // Density severely low (< 0.5 × top-median) → route content-fix pass FIRST,
+  // ahead of humanize. Wasting humanize LLM budget on a text that can't rank
+  // for its own keyword is the wrong maneuver. Requires a working benchmark
+  // (densityCanFix) — otherwise we fall through to the normal logic.
+  if (hints?.densitySevereLow && hints?.densityCanFix && priority !== "turgenev") {
+    return "keyword_density";
+  }
   if (!aiBad && !turgBad) return null;
   if (priority === "ai") return aiBad ? "humanize" : null;
   if (priority === "turgenev") return turgBad ? "turgenev" : null;
@@ -1951,7 +2008,87 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
 
     // ── Decide what to fix this pass ─────────────────────────────────
     const curScores = { ai: art.ai_score as number | null, turg: art.turgenev_score as number | null };
-    const fix = decideCycleFix(curScores, priority);
+
+    // ── First-pass Turgenev pre-measure ──────────────────────────────
+    // `turg === null` used to be treated as "measured OK" by cycleTurgOk,
+    // which meant a RU article with an unknown Turgenev score would exit
+    // the cycle with a permanent "—" in the UI header. New rule: null =
+    // "not measured" → run a scored-only quality-check for turgenev FIRST,
+    // then re-refresh art, THEN decide the phase. Only on the first pass
+    // and only when RU (Turgenev only supports Russian).
+    const isRuArt = String((art as any).language || "ru").toLowerCase() === "ru";
+    if (isFirstPass && isRuArt && curScores.turg == null && art.content) {
+      await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева (первый шаг)" });
+      try {
+        const resp = await fetch(`${supabaseUrl}/functions/v1/quality-check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+          },
+          body: JSON.stringify({
+            article_id,
+            content: art.content,
+            checks: ["turgenev"],
+            dispatched_by: "cycle_prescore",
+          }),
+        });
+        if (!resp.ok) {
+          console.warn("[improve-cycle] turgenev prescore HTTP", resp.status);
+        }
+      } catch (e) {
+        console.warn("[improve-cycle] turgenev prescore failed", (e as Error)?.message);
+      }
+      art = await refreshCycleArt(admin, article_id);
+      if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
+      logPipelineEvent({
+        stage: "improve",
+        user_id: user.id,
+        article_id,
+        verdict: "pass",
+        duration_ms: elapsed(),
+        meta: { event: "cycle_turgenev_prescore", turg: curScores.turg },
+      });
+    }
+
+    // ── Density gate: compare current keyword_density to top-median ──
+    // If density < 0.5 × benchmark median → route to a content pass first
+    // (keyword_density phase) instead of paying humanize budget on a
+    // topic-off text.
+    let densitySevereLow = false;
+    let densityCanFix = false;
+    try {
+      const kwId = (art as any).keyword_id;
+      const uId = (art as any).user_id;
+      const curDensity = Number((art as any).keyword_density ?? 0);
+      if (kwId && uId) {
+        const { data: bmRow } = await admin.from("benchmark_cache")
+          .select("data").eq("user_id", uId).eq("keyword_id", kwId).maybeSingle();
+        const median = Number((bmRow as any)?.data?.median_keyword_density ?? 0);
+        if (median > 0) {
+          densityCanFix = true;
+          if (curDensity < 0.5 * median) densitySevereLow = true;
+          logPipelineEvent({
+            stage: "improve",
+            user_id: user.id,
+            article_id,
+            verdict: densitySevereLow ? "warning" : "pass",
+            duration_ms: 0,
+            meta: {
+              event: "cycle_density_gate",
+              current: curDensity,
+              median,
+              severe_low: densitySevereLow,
+            },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[improve-cycle] density gate failed", (e as Error)?.message);
+    }
+
+    const fix = decideCycleFix(curScores, priority, { densitySevereLow, densityCanFix });
     if (!fix) {
       return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
     }
@@ -1964,7 +2101,10 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       pass: passIndex,
       of: CYCLE_MAX_PASSES,
       action: fix,
-      sub_step: fix === "humanize" ? "Гуманизация (Sonnet)" : "Тургенев-фикс",
+      sub_step:
+        fix === "humanize" ? "Гуманизация (Sonnet)"
+        : fix === "turgenev" ? "Тургенев-фикс"
+        : "Плотность ключа (первый шаг)",
     });
 
     // ── ONE pass ─────────────────────────────────────────────────────
@@ -2033,9 +2173,15 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     }
 
     // Progress tracking.
-    const targetImproved = fix === "humanize"
-      ? (postScores.ai != null && preScores.ai != null && postScores.ai > preScores.ai)
-      : (postScores.turg != null && preScores.turg != null && postScores.turg < preScores.turg);
+    const targetImproved =
+      fix === "humanize"
+        ? (postScores.ai != null && preScores.ai != null && postScores.ai > preScores.ai)
+        : fix === "turgenev"
+          ? (postScores.turg != null && preScores.turg != null && postScores.turg < preScores.turg)
+          // For keyword_density: any content mutation from the density pass
+          // counts as progress (density itself is re-measured out-of-band by
+          // the next quality-check).
+          : ((art.content as string) !== preContent);
     if (!targetImproved) {
       noProgressStreak++;
       if (noProgressStreak >= 2) {
