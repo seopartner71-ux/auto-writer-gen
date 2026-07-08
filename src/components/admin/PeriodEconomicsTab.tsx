@@ -182,7 +182,9 @@ export function PeriodEconomicsTab() {
       .sort((a, b) => b.cost - a.cost || b.calls - a.calls);
   }, [costs]);
 
-  // (3) По моделям — берём cost_log (реальные токены) + добавляем pipeline_events cost для стадий
+  // (3) По моделям — берём cost_log (реальные токены, единый источник правды).
+  // pipeline_events НЕ прибавляем, чтобы не задваивать: теперь каждый LLM-вызов
+  // пишет свою строку в cost_log через logLLM().
   const byModel = useMemo(() => {
     const m = new Map<string, { calls: number; ti: number; to: number; cost: number }>();
     for (const r of costs) {
@@ -194,25 +196,10 @@ export function PeriodEconomicsTab() {
       cur.cost += Number(r.cost_usd || 0);
       m.set(key, cur);
     }
-    for (const r of peWithCost) {
-      if (!r.model) continue;
-      const key = r.model;
-      const cur = m.get(key) || { calls: 0, ti: 0, to: 0, cost: 0 };
-      cur.calls += 1;
-      cur.ti += Number(r.tokens_in || 0);
-      cur.to += Number(r.tokens_out || 0);
-      // Избегаем двойного учёта: pipeline cost добавляем ТОЛЬКО если стадия не совпадает
-      // с логированной операцией (для стадий, где cost_log не пишется). Простое правило:
-      // добавляем pipeline cost для стадий-судей/фактчека, где нет отдельного cost_log.
-      if (["fact_check_llm","fact_check_web","commercial_block","quality_check","ai_detect"].includes(r.stage)) {
-        cur.cost += r._cost;
-      }
-      m.set(key, cur);
-    }
     return Array.from(m.entries())
       .map(([model, v]) => ({ model, ...v }))
       .sort((a, b) => b.cost - a.cost);
-  }, [costs, peWithCost]);
+  }, [costs]);
 
   // (2) По пользователям
   const byUser = useMemo(() => {
@@ -226,17 +213,6 @@ export function PeriodEconomicsTab() {
       cur.cost += Number(r.cost_usd || 0);
       m.set(uid, cur);
     }
-    for (const r of peWithCost) {
-      const uid = r.user_id || "(system)";
-      const cur = m.get(uid) || { calls: 0, ti: 0, to: 0, cost: 0 };
-      cur.calls += 1;
-      cur.ti += Number(r.tokens_in || 0);
-      cur.to += Number(r.tokens_out || 0);
-      if (["fact_check_llm","fact_check_web","commercial_block","quality_check","ai_detect"].includes(r.stage)) {
-        cur.cost += r._cost;
-      }
-      m.set(uid, cur);
-    }
     return Array.from(m.entries())
       .map(([uid, v]) => {
         const p = profiles[uid];
@@ -248,10 +224,10 @@ export function PeriodEconomicsTab() {
         };
       })
       .sort((a, b) => b.cost - a.cost);
-  }, [costs, peWithCost, profiles]);
+  }, [costs, profiles]);
 
   const totals = useMemo(() => {
-    const totalCalls = costs.length + peWithCost.length;
+    const totalCalls = costs.length;
     const totalCost = byUser.reduce((s, u) => s + u.cost, 0);
     const payingCost = byUser
       .filter((u) => u.plan && u.plan !== "basic")
@@ -260,7 +236,7 @@ export function PeriodEconomicsTab() {
     const totalTokensIn = byUser.reduce((s, u) => s + u.ti, 0);
     const totalTokensOut = byUser.reduce((s, u) => s + u.to, 0);
     return { totalCalls, totalCost, payingCost, payingUsers, totalTokensIn, totalTokensOut };
-  }, [byUser, costs.length, peWithCost.length]);
+  }, [byUser, costs.length]);
 
   return (
     <div className="space-y-4">
