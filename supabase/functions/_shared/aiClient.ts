@@ -1,5 +1,7 @@
 // Единый AI-клиент для всех edge-функций. Заменяет россыпь самописных
 // fetch + timeout + parseLoose по проекту.
+
+import { logLLM } from "./costLogger.ts";
 //
 // Что даёт:
 // - один вход chatComplete / chatJson;
@@ -44,6 +46,12 @@ export interface ChatOptions {
   timeoutMs?: number;
   /** Передаётся в OpenRouter HTTP-Referer / X-Title — для аналитики провайдера. */
   appTitle?: string;
+  /** Для cost_log — какая функция вызвала. По умолчанию берётся appTitle или "aiClient". */
+  functionName?: string;
+  /** Для cost_log. */
+  userId?: string | null;
+  articleId?: string | null;
+  projectId?: string | null;
 }
 
 export interface ChatResult {
@@ -111,6 +119,16 @@ async function callOpenRouter(opts: ChatOptions, extraBody: Record<string, unkno
       finishReason,
     };
     console.log("[aiClient] ok", { model: result.model, ms: Date.now() - startedAt, in: result.tokensIn, out: result.tokensOut, finish: finishReason });
+    // best-effort cost logging
+    logLLM({
+      functionName: opts.functionName || opts.appTitle || "aiClient",
+      model: result.model,
+      tokensIn: result.tokensIn,
+      tokensOut: result.tokensOut,
+      userId: opts.userId ?? null,
+      articleId: opts.articleId ?? null,
+      projectId: opts.projectId ?? null,
+    });
     return result;
   } catch (e) {
     if (e instanceof AiError) throw e;
