@@ -1601,11 +1601,11 @@ ${content}`;
     // One final stop check before we potentially spend more LLM calls on
     // best-candidate scoring or the nominative-keyword micro-pass.
     await checkStopFlag("pre_finalize");
-    // Score the FINAL post-pipeline state (structural steps 2-8 run after
-    // humanize and may have moved the needle); pick the best-scoring version.
-    if (!stoppedByUser && content !== bestContent) {
-      try { await scoreCandidate(content, "final"); } catch (_) { /* non-critical */ }
-    }
+    // NOTE: the redundant post-pipeline "final" judge pair was removed —
+    // structural steps 2-8 don't rewrite prose, they only fix HTML/lists/
+    // dangling terminators, so re-judging duplicated the humanize-candidate
+    // verdict (see LAROSSA cycle 1: identical parts, Gemini 0-tokens on the
+    // 3rd pair). bestContent/bestScore already reflect the true winner.
     // ── Nominative-keyword micro-pass ────────────────────────────────
     // Post-humanize sanity check: catch raw keyword injections like
     // "минитрактор цена приятная" / "китайский минитрактор отзывы это
