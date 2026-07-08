@@ -198,6 +198,12 @@ export function SectionPricing() {
                     </span>
                   </div>
 
+                  {plan.id === "basic" && (
+                    <p className="mb-4 -mt-1 text-[11px] leading-[1.5] text-muted-foreground/80">
+                      {t("lp.priceProNote")}
+                    </p>
+                  )}
+
                   {plan.showShield && (
                     <div className="mb-5 flex items-center gap-1.5">
                       <Shield className="h-4 w-4 text-emerald-500" />
