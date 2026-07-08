@@ -1883,7 +1883,7 @@ async function finalizeCycle(
   user: { id: string },
   priority: "auto" | "ai" | "turgenev",
   elapsed: () => number,
-  finalStatus: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" | "timed_out",
+  finalStatus: "targets_met" | "stopped" | "balanced" | "no_progress" | "max_passes" | "error" | "timed_out" | "turgenev_unavailable",
   bestSnapshot: { content: string; ai: number | null; turg: number | null },
   initialSnap: { ai: number | null; turg: number | null; content: string },
   extra: Record<string, unknown> = {},
