@@ -94,6 +94,8 @@ async function queryOpenRouter(apiKey: string, model: string, prompt: string, la
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul radar-check",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://seo-modul.pro",
       },

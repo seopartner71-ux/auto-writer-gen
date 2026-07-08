@@ -88,6 +88,8 @@ serve(withErrorHandler("sandbox-demo", async (req) => {
     timeoutMs: TIMEOUTS.ai,
     headers: {
       Authorization: `Bearer ${lovableKey}`,
+      "HTTP-Referer": "https://seo-modul.pro",
+      "X-Title": "SEO-Modul sandbox-demo",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

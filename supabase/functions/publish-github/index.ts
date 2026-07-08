@@ -105,7 +105,9 @@ function parseH2Sections(content: string): { heading: string; text: string }[] {
 async function generateVisualPrompt(apiKey: string, context: string): Promise<string> {
   const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${apiKey}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul publish-github", "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "openai/gpt-4o-mini",
       messages: [
@@ -349,7 +351,9 @@ async function prepareArticle(
           try {
             const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
               method: "POST",
-              headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+              headers: { Authorization: `Bearer ${lovableKey}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul publish-github", "Content-Type": "application/json" },
               body: JSON.stringify({
                 model: "google/gemini-2.5-flash-image",
                 messages: [{ role: "user", content: prompt }],
@@ -596,7 +600,9 @@ async function autoSubmitIndexing(
         const token = await getGoogleAccessToken(keyData);
         const googleResp = await fetch("https://indexing.googleapis.com/v3/urlNotifications:publish", {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${token}`,
+ "HTTP-Referer": "https://seo-modul.pro",
+ "X-Title": "SEO-Modul publish-github", "Content-Type": "application/json" },
           body: JSON.stringify({ url, type: "URL_UPDATED" }),
         });
         const googleData = await googleResp.json();

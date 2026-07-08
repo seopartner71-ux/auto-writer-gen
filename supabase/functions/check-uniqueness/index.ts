@@ -36,6 +36,8 @@ serve(async (req) => {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul check-uniqueness",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

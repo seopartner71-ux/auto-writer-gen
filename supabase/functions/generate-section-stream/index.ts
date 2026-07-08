@@ -109,6 +109,8 @@ ${rules}`;
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul generate-section-stream",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

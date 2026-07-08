@@ -198,6 +198,8 @@ ABSOLUTE REQUIREMENT: Write EVERY piece of text output in ${langName}. Not a sin
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://seo-modul.pro",
+        "X-Title": "SEO-Modul smart-research",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
