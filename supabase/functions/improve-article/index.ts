@@ -1266,7 +1266,7 @@ ${hint}
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/sentence-structure" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1313,7 +1313,7 @@ ${hint}
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/dangling" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1359,7 +1359,7 @@ ${hint}
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/cancellary" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1405,7 +1405,7 @@ ${hint}
 HTML:
 ${content}`;
         const before = metricsOf(content);
-        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000);
+        const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/keyword-freq" });
         let applied = false;
         let integrityRes: { ok: boolean; reason?: string } | null = null;
         let candMetrics: ReturnType<typeof metricsOf> | null = null;
@@ -1470,7 +1470,7 @@ ${nominativeHits.map((h, i) => `${i + 1}. ${h}`).join("\n")}
 
 HTML:
 ${bestContent}`;
-      const nomRes = await callOpenRouterEx("anthropic/claude-sonnet-4", sysNom, usrNom, orKey, 6000, 90_000);
+      const nomRes = await callOpenRouterEx("anthropic/claude-sonnet-4", sysNom, usrNom, orKey, 6000, 90_000, { ...llmCtx, functionName: "improve-article/keyword-nominative" });
       const polished = nomRes.content;
       let nomApplied = false;
       let nomIntegrity: { ok: boolean; reason?: string } | null = null;
