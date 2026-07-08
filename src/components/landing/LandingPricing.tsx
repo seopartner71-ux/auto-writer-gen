@@ -226,6 +226,12 @@ export function LandingPricing() {
                   )}
                 </div>
 
+                {plan.id === "basic" && (
+                  <p className="-mt-4 mb-6 text-[11px] leading-[1.5] text-[#9ca3af]/85">
+                    {t("lp.priceProNote")}
+                  </p>
+                )}
+
                 <ul className="space-y-2.5 mb-8">
                   {plan.features.map((f, fi) => (
                     <li key={fi} className="flex items-start gap-2.5 text-[13px]">
