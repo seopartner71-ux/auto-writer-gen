@@ -668,8 +668,22 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         functionName: "improve-article/judge-claude",
         userId: user.id,
         articleId: article_id,
+        disableCostLog: true,
       });
-      return parseScoreAndReasons(r.content);
+      const parsed = parseScoreAndReasons(r.content);
+      // Log to cost_log ONLY when the judge actually returned usable output.
+      // Empty/0-token responses (rate-limit fallbacks, upstream errors that
+      // still returned 200) previously inflated the "3rd judge pair" noise.
+      if ((r.tokensIn + r.tokensOut) > 0 && parsed.score !== null) {
+        logLLM({
+          functionName: "improve-article/judge-claude",
+          model: r.model, tokensIn: r.tokensIn, tokensOut: r.tokensOut,
+          userId: user.id, articleId: article_id,
+        });
+      } else {
+        console.warn("[judge-claude] skipped cost_log", { tokensIn: r.tokensIn, tokensOut: r.tokensOut, hasScore: parsed.score !== null });
+      }
+      return parsed;
     } catch { return { score: null, reasons: [] }; }
   }
   async function scoreGeminiInline(plain: string, key: string): Promise<{ score: number | null; reasons: string[] }> {
@@ -684,8 +698,19 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
         functionName: "improve-article/judge-gemini",
         userId: user.id,
         articleId: article_id,
+        disableCostLog: true,
       });
-      return parseScoreAndReasons(r.content);
+      const parsed = parseScoreAndReasons(r.content);
+      if ((r.tokensIn + r.tokensOut) > 0 && parsed.score !== null) {
+        logLLM({
+          functionName: "improve-article/judge-gemini",
+          model: r.model, tokensIn: r.tokensIn, tokensOut: r.tokensOut,
+          userId: user.id, articleId: article_id,
+        });
+      } else {
+        console.warn("[judge-gemini] skipped cost_log", { tokensIn: r.tokensIn, tokensOut: r.tokensOut, hasScore: parsed.score !== null });
+      }
+      return parsed;
     } catch { return { score: null, reasons: [] }; }
   }
   async function scoreCandidate(html: string, label: string): Promise<number | null> {
