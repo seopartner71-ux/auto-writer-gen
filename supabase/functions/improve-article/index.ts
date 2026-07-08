@@ -1186,10 +1186,18 @@ ${content}`;
     }
     await checkStopFlag("humanize");
 
-    // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times
+    // 2) Keyword density: overuse → remove every 3rd; underuse → ask LLM to insert 2-3 times.
+    //    `keyword_density` phase (routed by the cycle when density < 0.5×top-median)
+    //    forces the underuse branch even when `dStatus` is stale/"ok".
     if (!stoppedByUser && (phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "overuse") {
       content = removeEveryNthKeyword(content, primaryKeyword, 3);
-    } else if (!stoppedByUser && (phase === "humanize" || phase === "all") && primaryKeyword && dStatus === "underuse" && (orKey || lovableKey)) {
+    } else if (
+      !stoppedByUser
+      && (phase === "humanize" || phase === "all" || phase === "keyword_density")
+      && primaryKeyword
+      && (dStatus === "underuse" || phase === "keyword_density")
+      && (orKey || lovableKey)
+    ) {
       const sys = "Ты редактор. Встраиваешь ключевое слово в текст с полной грамматической адаптацией. Возвращаешь только итоговый HTML.";
       const usr = `Встрой фразу "${primaryKeyword}" органично в 2-3 места текста.
 
