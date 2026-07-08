@@ -1828,9 +1828,10 @@ function decideCycleFix(
   scores: { ai: number | null; turg: number | null },
   priority: "auto" | "ai" | "turgenev",
   hints?: { densitySevereLow?: boolean; densityCanFix?: boolean },
-): "humanize" | "turgenev" | "keyword_density" | null {
+): "humanize" | "turgenev" | "keyword_density" | "turgenev_unavailable" | null {
   const aiBad = !cycleAiOk(scores.ai);
   const turgBad = !cycleTurgOk(scores.turg);
+  const turgUnknown = scores.turg == null;
   // Density severely low (< 0.5 × top-median) → route content-fix pass FIRST,
   // ahead of humanize. Gated behind DENSITY_GATE_ENABLED because the current
   // density counter underweights Russian wordforms (no lemmatization) and on
@@ -1838,6 +1839,14 @@ function decideCycleFix(
   // Re-enable only after lemmatized density is in place.
   if (DENSITY_GATE_ENABLED && hints?.densitySevereLow && hints?.densityCanFix && priority !== "turgenev") {
     return "keyword_density";
+  }
+  // Turgenev score unknown (prescore failed) → never route a turgenev-only
+  // pass: the fix gate needs turgenev_status === "fail" and would no-op,
+  // wasting a cycle iteration and dirtying no_progress stats.
+  if (turgUnknown) {
+    if (priority === "turgenev") return "turgenev_unavailable";
+    if (aiBad) return "humanize";                 // AI can still be fixed
+    return "turgenev_unavailable";                // AI ok, turg unknown → exit clean
   }
   if (!aiBad && !turgBad) return null;
   if (priority === "ai") return aiBad ? "humanize" : null;
