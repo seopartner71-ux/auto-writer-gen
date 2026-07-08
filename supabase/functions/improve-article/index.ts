@@ -1001,16 +1001,72 @@ ${rhythmSharedRules}`;
       const iClaudeS: number | null = typeof initEntry?.parts?.claude === "number" ? initEntry.parts.claude : null;
       const iGeminiS: number | null = typeof initEntry?.parts?.gemini === "number" ? initEntry.parts.gemini : null;
 
-      // Preserve block — reasons from any judge that scored ≥70.
-      const preserveBits: string[] = [];
-      if (iClaudeS !== null && iClaudeS >= 70 && iClaudeR.length) {
-        preserveBits.push(`Судья Claude поставил ${iClaudeS}/100 и отметил как «человеческое»:\n  - ${iClaudeR.slice(0, 6).join("\n  - ")}`);
+      // Validator-over-judge filter: build banned semantic fragments from
+      // pre-scan hits so any judge praise that lauds a validator-failed
+      // pattern (e.g. Gemini hvatit "цитаты опытных специалистов" while
+      // fake_quote_guard flagged them fail) is dropped from СОХРАНИТЬ and
+      // moved to an override block. Validator veto > judge praise.
+      const preScanFired = (validators as any).pre_scan?.fired ?? {};
+      const bannedFrags = new Set<string>();
+      const cancHits = Array.isArray(preScanFired?.cancellary?.hits) ? preScanFired.cancellary.hits : [];
+      for (const h of cancHits) {
+        const p = String(h?.phrase || "").toLowerCase().trim();
+        if (p.length >= 4) bannedFrags.add(p);
       }
-      if (iGeminiS !== null && iGeminiS >= 70 && iGeminiR.length) {
-        preserveBits.push(`Судья Gemini поставил ${iGeminiS}/100 и отметил как «человеческое»:\n  - ${iGeminiR.slice(0, 6).join("\n  - ")}`);
+      const fqHits = Array.isArray(preScanFired?.fake_quotes?.hits) ? preScanFired.fake_quotes.hits : [];
+      for (const h of fqHits) {
+        const p = String(h?.pattern || "").toLowerCase();
+        if (p.includes("практика") || p.includes("опыт")) {
+          bannedFrags.add("практика показывает"); bannedFrags.add("опыт показывает");
+        }
+        if (p.includes("специалист") || p.includes("эксперт")) {
+          bannedFrags.add("специалист"); bannedFrags.add("эксперт");
+          bannedFrags.add("по мнению"); bannedFrags.add("по наблюдениям");
+          bannedFrags.add("отмечают"); bannedFrags.add("считают");
+        }
+        if (p.includes("цитат")) bannedFrags.add("цитат");
+      }
+      const nomHits = Array.isArray(preScanFired?.nominative?.hits) ? preScanFired.nominative.hits : [];
+      if (nomHits.some((h: any) => h?.kind === "brand_stuffing")) {
+        bannedFrags.add("бренд"); bannedFrags.add("брендов");
+      }
+      const findConflict = (reason: string): string | null => {
+        const low = reason.toLowerCase();
+        for (const frag of bannedFrags) if (low.includes(frag)) return frag;
+        return null;
+      };
+      const filterPraise = (reasons: string[]) => {
+        const keep: string[] = [];
+        const overridden: Array<{ reason: string; frag: string }> = [];
+        for (const r of reasons) {
+          const c = findConflict(r);
+          if (c) overridden.push({ reason: r, frag: c });
+          else keep.push(r);
+        }
+        return { keep, overridden };
+      };
+      const claudeF = filterPraise(iClaudeR);
+      const geminiF = filterPraise(iGeminiR);
+
+      // Preserve block — praise reasons that survived the validator filter.
+      const preserveBits: string[] = [];
+      if (iClaudeS !== null && iClaudeS >= 70 && claudeF.keep.length) {
+        preserveBits.push(`Судья Claude поставил ${iClaudeS}/100 и отметил как «человеческое»:\n  - ${claudeF.keep.slice(0, 6).join("\n  - ")}`);
+      }
+      if (iGeminiS !== null && iGeminiS >= 70 && geminiF.keep.length) {
+        preserveBits.push(`Судья Gemini поставил ${iGeminiS}/100 и отметил как «человеческое»:\n  - ${geminiF.keep.slice(0, 6).join("\n  - ")}`);
       }
       const preserveBlock = preserveBits.length
         ? `\n\nСОХРАНИТЬ, НЕ ПЕРЕПИСЫВАТЬ (эти обороты и приёмы уже прошли AI-детекцию — оставляй их в тексте дословно или почти дословно; критика ниже применяется ТОЛЬКО к фрагментам, НЕ попадающим под "СОХРАНИТЬ"):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+        : "";
+
+      // Override block — praise the validators nullified. Validator veto wins.
+      const overrideAll = [
+        ...claudeF.overridden.map((o) => ({ ...o, judge: "Claude" })),
+        ...geminiF.overridden.map((o) => ({ ...o, judge: "Gemini" })),
+      ];
+      const overrideBlock = overrideAll.length
+        ? `\n\nПОХВАЛА СУДЕЙ ОТМЕНЕНА ВАЛИДАТОРАМИ (валидатор сильнее судьи — эти приёмы УБРАТЬ, не «сохранять»):\n${overrideAll.slice(0, 6).map((o, i) => `${i + 1}. Судья ${o.judge} хвалил: «${o.reason.slice(0, 200)}» — но pre-validator поймал шаблон «${o.frag}». Удали фрагмент или замени конкретной атрибуцией (имя, должность, компания, ссылка на исследование).`).join("\n")}\n`
         : "";
 
       // Critique block — reasons from judges that scored <70 (real
@@ -1022,7 +1078,7 @@ ${rhythmSharedRules}`;
       const critiqueBlock = critiqueReasons.length
         ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, но НЕ ломай элементы из блока "СОХРАНИТЬ"):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
         : judgeReasonsBlock; // fallback to prior-only critique if no init reasons
-      judgeReasonsBlock = preserveBlock + critiqueBlock;
+      judgeReasonsBlock = preserveBlock + overrideBlock + critiqueBlock;
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
       const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
 ${validatorContextBlock}
