@@ -607,6 +607,7 @@ interface PipelineArgs {
 
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, cycleMode, reportSubStep } = args;
+  const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
   const isRelay = (args.passIndex ?? 0) >= 2;
   const emitSubStep = async (label: string) => {
     if (reportSubStep) { try { await reportSubStep(label); } catch (_) {} }

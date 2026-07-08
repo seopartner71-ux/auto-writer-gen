@@ -31,6 +31,7 @@ export type OperationType =
 export interface CostLogParams {
   project_id?: string | null;
   user_id?: string | null;
+  article_id?: string | null;
   operation_type: OperationType;
   model?: string | null;
   tokens_input?: number;
@@ -120,6 +121,7 @@ export function logLLM(params: {
       const row = {
         project_id: params.projectId || null,
         user_id: params.userId || null,
+        article_id: params.articleId || null,
         operation_type: "llm_call" as OperationType,
         model: params.model || null,
         tokens_input: tokensIn,
@@ -154,6 +156,7 @@ export async function logCost(adminClient: any, params: CostLogParams): Promise<
     const row = {
       project_id: params.project_id || null,
       user_id: params.user_id || null,
+        article_id: params.article_id || (typeof params.metadata?.article_id === "string" ? params.metadata.article_id : null),
       operation_type: params.operation_type,
       model: params.model || null,
       tokens_input: tokensIn,
