@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logLLM } from "../_shared/costLogger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -195,6 +196,7 @@ Write ALL output in the same language as the keyword "${kw.seed_keyword}".`;
     }
 
     const aiData = await aiResponse.json();
+    try { logLLM({ functionName: "analyze-content-gaps", model: ((aiData as any)?.model) as string, tokensIn: Number((aiData as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aiData as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     let analysis;
     if (toolCall?.function?.arguments) {
