@@ -426,7 +426,9 @@ async function runClaudeAiScore(plain: string, key: string): Promise<{ score: nu
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4",
-        max_tokens: 150,
+        // 150 обрезало ~93 ответа по MAX_TOKENS (вердикт без reasons).
+        // 400 покрывает число + 3 короткие причины с запасом.
+        max_tokens: 400,
         temperature: 0,
         messages: [
           { role: "system", content: "Ты - детектор ИИ-текста. Формат ответа СТРОГО: первая строка - целое число 0-100, далее 2-3 короткие причины, каждая с новой строки, по 5-12 слов." },
