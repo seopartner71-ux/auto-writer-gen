@@ -306,6 +306,11 @@ export default function PricingPage() {
                     {fmtCreditsBadge(plan.credits)}
                   </Badge>
                 </div>
+                {plan.id === "basic" && (
+                  <p className="pt-2 text-[11px] leading-[1.5] text-muted-foreground/80">
+                    {t("lp.priceProNote")}
+                  </p>
+                )}
                 {plan.showShield && (
                   <div className="pt-2 flex items-center justify-center gap-1.5">
                     <Shield className="h-4 w-4 text-emerald-500" />

@@ -1006,6 +1006,18 @@ const translations: Record<string, Record<Lang, string>> = {
   "lp.priceContact": { ru: "Связаться", en: "Contact us" },
   "lp.priceExcl": { ru: "Эксклюзив", en: "Exclusive" },
   "lp.priceSocial": { ru: "Используется 150+ профессиональными SEO-инженерами и агентствами", en: "Used by 150+ professional SEO engineers and agencies" },
+  "lp.priceProNote": {
+    ru: "Статьи PRO пишутся топовыми моделями (Claude, GPT) и проходят полный цикл улучшения качества - поэтому расходуют больше кредитов",
+    en: "PRO articles are written by top-tier models (Claude, GPT) and go through the full quality improvement cycle - that's why they use more credits",
+  },
+  "lp.faqProCreditsQ": {
+    ru: "Почему статья PRO стоит больше кредитов, чем NANO или FACTORY?",
+    en: "Why does a PRO article cost more credits than NANO or FACTORY?",
+  },
+  "lp.faqProCreditsA": {
+    ru: "На PRO статьи пишутся топовыми моделями (Claude, GPT) и проходят полный цикл улучшения качества: humanize, фактчек, SEO-доводка. На NANO и FACTORY используются более быстрые модели и упрощенный цикл, поэтому одна статья там дешевле по кредитам, а на PRO вы получаете максимум качества за счет большего расхода.",
+    en: "On PRO, articles are written by top-tier models (Claude, GPT) and go through the full quality cycle: humanize, fact-check, SEO polish. NANO and FACTORY use faster models and a lighter cycle, so an article costs fewer credits there - on PRO you trade credits for maximum quality.",
+  },
   "lp.priceF1a": { ru: "3 кредита / месяц", en: "3 credits / month" },
   "lp.priceF1b": { ru: "Smart Research", en: "Smart Research" },
   "lp.priceF1c": { ru: "AI Writer", en: "AI Writer" },
