@@ -2119,6 +2119,82 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       console.warn("[improve-cycle] density gate failed", (e as Error)?.message);
     }
 
+    // ── Unconditional pre-validator scan (no LLM) ────────────────────
+    // First step of every cycle pass: run the four zero-cost validators
+    // (sentence-structure, cancellary/lexical bans, dangling thoughts,
+    // nominative-key fragments) on the current text and log what fires.
+    // Purely observational — does not change routing yet, but surfaces the
+    // issues in pipeline_events + quality_details.validators.pre_scan so
+    // fixes can be prioritised on the first pass without paying humanize.
+    try {
+      const plainForScan = stripHtml((art.content as string) || "");
+      const scan = {
+        sentence_structure: analyzeSentenceStructure(plainForScan),
+        cancellary: analyzeCancellary(plainForScan),
+        dangling: analyzeDanglingThoughts((art.content as string) || ""),
+        nominative: analyzeNominativeKeys(plainForScan),
+      };
+      const fired: Record<string, unknown> = {};
+      if (scan.sentence_structure.verdict !== "pass") {
+        fired.sentence_structure = {
+          verdict: scan.sentence_structure.verdict,
+          issues: scan.sentence_structure.issues,
+          avg_words: scan.sentence_structure.avgWords,
+          max_short_run: scan.sentence_structure.maxShortRun,
+        };
+      }
+      if (scan.cancellary.verdict !== "pass") {
+        fired.cancellary = {
+          verdict: scan.cancellary.verdict,
+          total_hits: scan.cancellary.totalHits,
+          hits: scan.cancellary.hits.slice(0, 10).map((h) => ({ phrase: h.phrase, count: h.count })),
+        };
+      }
+      if (scan.dangling.verdict !== "pass") {
+        fired.dangling = {
+          verdict: scan.dangling.verdict,
+          hits: scan.dangling.hits.slice(0, 10),
+        };
+      }
+      if (scan.nominative.verdict !== "pass") {
+        fired.nominative = {
+          verdict: scan.nominative.verdict,
+          hits: scan.nominative.hits.slice(0, 10),
+        };
+      }
+      const anyFired = Object.keys(fired).length > 0;
+      logPipelineEvent({
+        stage: "improve",
+        user_id: user.id,
+        article_id,
+        verdict: anyFired ? "warning" : "pass",
+        duration_ms: 0,
+        meta: { event: "cycle_prevalidator_scan", pass: passIndex, fired },
+      });
+      // Also stamp into quality_details so it surfaces in the admin UI.
+      try {
+        const { data: prevArt } = await admin.from("articles")
+          .select("quality_details").eq("id", article_id).maybeSingle();
+        const prevDet = (prevArt?.quality_details as any) || {};
+        const prevValidators = prevDet.validators || {};
+        await admin.from("articles").update({
+          quality_details: {
+            ...prevDet,
+            validators: {
+              ...prevValidators,
+              pre_scan: {
+                pass: passIndex,
+                fired,
+                checked_at: new Date().toISOString(),
+              },
+            },
+          },
+        }).eq("id", article_id);
+      } catch (_) {}
+    } catch (e) {
+      console.warn("[improve-cycle] pre-validator scan failed", (e as Error)?.message);
+    }
+
     const fix = decideCycleFix(curScores, priority, { densitySevereLow, densityCanFix });
     if (!fix) {
       return finalizeCycle(admin, article_id, user, priority, elapsed, "targets_met", bestSnapshot, initialSnap, {}, { supabaseUrl, serviceKey });
