@@ -229,7 +229,11 @@ serve(async (req) => {
     lines.push("");
 
     for (const b of sorted) {
-      const planTag = (b.plan || "").toUpperCase();
+      const planKeyRaw = String(b.plan || "").toLowerCase();
+      const planTag = planKeyRaw === "basic" ? "PRO"
+        : planKeyRaw === "pro" ? "FACTORY"
+        : planKeyRaw === "free" ? "NANO"
+        : planKeyRaw.toUpperCase();
       lines.push(`<b>${esc(b.name)}</b> [${esc(planTag)}] — ${b.count} ${pluralArticles(b.count)}`);
       const modelsStr = formatCounts(b.models);
       if (modelsStr) lines.push(`  Модели: ${esc(modelsStr)}`);
@@ -242,9 +246,8 @@ serve(async (req) => {
       const rub = Math.round(b.costUsd * USD_RUB);
       lines.push(`  Затраты: $${b.costUsd.toFixed(2)} (~${rub} ₽)`);
       // Paying plans → also print daily revenue slice (monthly / 30).
-      const planKey = String(b.plan || "").toLowerCase();
-      if (planKey === "basic" || planKey === "pro" || planKey === "factory") {
-        const monthly = priceByPlan.get(planKey) || 0;
+      if (planKeyRaw === "basic" || planKeyRaw === "pro" || planKeyRaw === "factory") {
+        const monthly = priceByPlan.get(planKeyRaw) || 0;
         if (monthly > 0) {
           const daily = Math.round(monthly / 30);
           lines.push(`  Выручка-день ≈ ${daily} ₽`);
