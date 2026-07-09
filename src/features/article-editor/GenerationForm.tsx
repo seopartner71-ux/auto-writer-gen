@@ -11,7 +11,7 @@ import {
 import { PersonaSelector } from "@/components/article/PersonaSelector";
 import { ModelSelector } from "@/components/ModelSelector";
 import { useI18n } from "@/shared/hooks/useI18n";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SuggestTopicsDialog } from "./SuggestTopicsDialog";
@@ -118,8 +118,21 @@ export function GenerationForm(props: GenerationFormProps) {
     } finally { setLoadingFacts(false); }
   };
 
-  const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
-    authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
+  const selectedAuthor = selectedAuthorId && selectedAuthorId !== "none"
+    ? authorProfiles.find((a: any) => a.id === selectedAuthorId)
+    : null;
+  const authorName: string = String(selectedAuthor?.name || "");
+  const isTelegraphAuthor = authorName === "Телеграф";
+  const isMiralinksAuthor = /miralinks/i.test(authorName);
+
+  // Auto-switch to Gemini 2.5 Flash for Telegraph / Miralinks authors.
+  // These formats need concise, cheap generation — no need to burn premium models.
+  useEffect(() => {
+    if (!onModelChange) return;
+    if (!isTelegraphAuthor && !isMiralinksAuthor) return;
+    const target = "google/gemini-2.5-flash";
+    if (selectedModel !== target) onModelChange(target);
+  }, [isTelegraphAuthor, isMiralinksAuthor, onModelChange, selectedModel]);
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
