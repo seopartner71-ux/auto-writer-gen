@@ -658,6 +658,7 @@ export type Database = {
           featured_image_url: string | null
           generation_model: string | null
           geo: string | null
+          geo_details: Json | null
           h2_warnings: Json | null
           humanize_meta: Json | null
           id: string
@@ -730,6 +731,7 @@ export type Database = {
           featured_image_url?: string | null
           generation_model?: string | null
           geo?: string | null
+          geo_details?: Json | null
           h2_warnings?: Json | null
           humanize_meta?: Json | null
           id?: string
@@ -802,6 +804,7 @@ export type Database = {
           featured_image_url?: string | null
           generation_model?: string | null
           geo?: string | null
+          geo_details?: Json | null
           h2_warnings?: Json | null
           humanize_meta?: Json | null
           id?: string
@@ -2099,6 +2102,7 @@ export type Database = {
           created_at: string | null
           difficulty: number | null
           geo: string | null
+          geo_details: Json | null
           id: string
           intent: string | null
           language: string | null
@@ -2117,6 +2121,7 @@ export type Database = {
           created_at?: string | null
           difficulty?: number | null
           geo?: string | null
+          geo_details?: Json | null
           id?: string
           intent?: string | null
           language?: string | null
@@ -2135,6 +2140,7 @@ export type Database = {
           created_at?: string | null
           difficulty?: number | null
           geo?: string | null
+          geo_details?: Json | null
           id?: string
           intent?: string | null
           language?: string | null
@@ -2567,6 +2573,7 @@ export type Database = {
           font_pair: string | null
           footer_link: Json | null
           founding_year: number | null
+          geo: Json | null
           github_repo: string | null
           github_token: string | null
           google_verification: string | null
@@ -2638,6 +2645,7 @@ export type Database = {
           font_pair?: string | null
           footer_link?: Json | null
           founding_year?: number | null
+          geo?: Json | null
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null
@@ -2709,6 +2717,7 @@ export type Database = {
           font_pair?: string | null
           footer_link?: Json | null
           founding_year?: number | null
+          geo?: Json | null
           github_repo?: string | null
           github_token?: string | null
           google_verification?: string | null

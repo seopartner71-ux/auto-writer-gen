@@ -43,6 +43,17 @@ const ATTRIBUTION_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: "специалисты отрасли",              re: rx(`специалисты\\s+отрасли`) },
 ];
 
+// English starter patterns for the same fake-authority anti-signal.
+const ATTRIBUTION_PATTERNS_EN: Array<{ label: string; re: RegExp }> = [
+  { label: "experts say",                       re: rx(`experts\\s+say`) },
+  { label: "specialists note",                  re: rx(`specialists\\s+(?:note|recommend|say)`) },
+  { label: "professionals recommend",           re: rx(`(?:professionals|experienced\\s+professionals)\\s+recommend`) },
+  { label: "studies show",                      re: rx(`studies\\s+show`) },
+  { label: "practice shows",                    re: rx(`practice\\s+shows`) },
+  { label: "industry specialists",              re: rx(`industry\\s+(?:specialists|experts|professionals)(?:\\s+\\w+){0,2}\\s+(?:note|say|recommend|report|point\\s+out)?`) },
+  { label: "experienced professionals",         re: rx(`experienced\\s+(?:professionals|specialists|experts)`) },
+];
+
 function normalize(s: string): string {
   return s.toLowerCase().replace(/ё/g, "е");
 }
@@ -69,17 +80,23 @@ function extractBlockquotes(html: string): string[] {
 //   «…» - отмечают эксперты
 const INLINE_QUOTE_ATTRIBUTION = /["«"„][^"»"“]{15,}["»"”][\s]*[-—–]+[\s]*([а-яa-z][\s\wа-я]{4,80})/gu;
 
-export function analyzeFakeQuotes(contentHtmlOrText: string): FakeQuoteMetrics {
+export interface FakeQuoteOptions {
+  /** Язык статьи — переключает набор паттернов атрибуции. По умолчанию "ru". */
+  language?: "ru" | "en";
+}
+
+export function analyzeFakeQuotes(contentHtmlOrText: string, options: FakeQuoteOptions = {}): FakeQuoteMetrics {
   const html = contentHtmlOrText || "";
   const plainRaw = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const plain = normalize(plainRaw);
+  const patterns = options.language === "en" ? ATTRIBUTION_PATTERNS_EN : ATTRIBUTION_PATTERNS;
   const hits: FakeQuoteHit[] = [];
   const seen = new Set<string>();
 
   // 1. Явные <blockquote> с анонимной атрибуцией внутри или сразу после.
   for (const bq of extractBlockquotes(html)) {
     const bqLower = normalize(bq);
-    for (const { label, re } of ATTRIBUTION_PATTERNS) {
+    for (const { label, re } of patterns) {
       const m = bqLower.match(re);
       if (m) {
         const key = `bq:${label}:${bq.slice(0, 60)}`;
@@ -96,7 +113,7 @@ export function analyzeFakeQuotes(contentHtmlOrText: string): FakeQuoteMetrics {
   let mm: RegExpExecArray | null;
   while ((mm = INLINE_QUOTE_ATTRIBUTION.exec(plain)) !== null) {
     const tail = mm[1] || "";
-    for (const { label, re } of ATTRIBUTION_PATTERNS) {
+    for (const { label, re } of patterns) {
       if (re.test(tail)) {
         const around = plain.slice(Math.max(0, mm.index - 20), Math.min(plain.length, mm.index + mm[0].length + 20));
         const key = `inline:${label}:${around.slice(0, 60)}`;
@@ -112,7 +129,7 @@ export function analyzeFakeQuotes(contentHtmlOrText: string): FakeQuoteMetrics {
   // 3. Narrative-предложения, целиком построенные вокруг анонимной атрибуции.
   const sents = plain.split(/(?<=[.!?…])\s+/);
   for (const s of sents) {
-    for (const { label, re } of ATTRIBUTION_PATTERNS) {
+    for (const { label, re } of patterns) {
       if (re.test(s)) {
         const key = `narr:${label}:${s.slice(0, 60)}`;
         if (seen.has(key)) continue;

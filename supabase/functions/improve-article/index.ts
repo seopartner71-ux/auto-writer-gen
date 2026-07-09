@@ -2263,14 +2263,32 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     // fixes can be prioritised on the first pass without paying humanize.
     try {
       const plainForScan = stripHtml((art.content as string) || "");
+      // Language-aware dispatcher. RU-only guards (nominative, Cyrillic-stemmed
+      // density, Turgenev score) get marked "not_applicable" for non-ru so the
+      // UI can distinguish "skipped by language" from "not run yet". English
+      // gets a starter cancellary/fake-quote banlist; dangling and sentence
+      // structure are language-agnostic.
+      const artLang = String((art as any).language || "ru").toLowerCase();
+      const isRu = artLang === "ru";
       const scan = {
         sentence_structure: analyzeSentenceStructure(plainForScan),
-        cancellary: analyzeCancellary(plainForScan),
+        cancellary: analyzeCancellary(plainForScan, {
+          ...cancellaryOptionsFromStyleProfile(styleProfile),
+          language: isRu ? "ru" : "en",
+        }),
         dangling: analyzeDanglingThoughts((art.content as string) || ""),
-        nominative: analyzeNominativeKeys(plainForScan),
-        fake_quotes: analyzeFakeQuotes((art.content as string) || ""),
+        nominative: isRu ? analyzeNominativeKeys(plainForScan) : null,
+        fake_quotes: analyzeFakeQuotes((art.content as string) || "", {
+          language: isRu ? "ru" : "en",
+        }),
       };
       const fired: Record<string, unknown> = {};
+      if (!isRu) {
+        // Explicit skip markers for non-ru so admin/UI sees why a guard is dark.
+        fired.nominative_not_applicable = { language: artLang, reason: "ru_only_guard" };
+        fired.turgenev_not_applicable = { language: artLang, reason: "ru_only_service" };
+        fired.keyword_density_stemmer_not_applicable = { language: artLang, reason: "ru_only_stemmer" };
+      }
       if (scan.sentence_structure.verdict === "warning" || scan.sentence_structure.verdict === "fail") {
         fired.sentence_structure = {
           verdict: scan.sentence_structure.verdict,
@@ -2287,6 +2305,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       }
       if (scan.cancellary.verdict !== "pass") {
         fired.cancellary = {
+          language: isRu ? "ru" : "en",
           verdict: scan.cancellary.verdict,
           total_hits: scan.cancellary.totalHits,
           hits: scan.cancellary.hits.slice(0, 10).map((h) => ({ phrase: h.phrase, count: h.count })),
@@ -2298,7 +2317,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
           hits: scan.dangling.hits.slice(0, 10),
         };
       }
-      if (scan.nominative.verdict !== "pass") {
+      if (scan.nominative && scan.nominative.verdict !== "pass") {
         fired.nominative = {
           verdict: scan.nominative.verdict,
           hits: scan.nominative.hits.slice(0, 10),
@@ -2306,6 +2325,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       }
       if (scan.fake_quotes.verdict !== "pass") {
         fired.fake_quotes = {
+          language: isRu ? "ru" : "en",
           verdict: scan.fake_quotes.verdict,
           hits: scan.fake_quotes.hits.slice(0, 10),
           task: scan.fake_quotes.task,
