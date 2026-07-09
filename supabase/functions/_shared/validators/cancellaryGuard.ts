@@ -29,6 +29,14 @@ const BANNED_PHRASES = [
   "специалисты отрасли отмечают", "по наблюдениям специалистов",
 ];
 
+// English starter banlist. Kept intentionally small: only the most obvious
+// LLM/blog clichés and vague hedges. Extend as we ship more en content.
+const BANNED_PHRASES_EN = [
+  "here's the kicker", "let that sink in", "real talk", "game-changer",
+  "game changer", "let's dive in", "let's dive into", "in today's fast-paced world",
+  "it's worth noting", "at the end of the day",
+];
+
 export interface CancellaryHit {
   phrase: string;
   count: number;
@@ -46,6 +54,8 @@ export interface CancellaryMetrics {
 export interface CancellaryOptions {
   /** "soft" — пороги fail повышаются в 2 раза (blogger/provocateur). */
   strictness?: "soft" | "hard";
+  /** Язык статьи — переключает набор запрещённых фраз. По умолчанию "ru". */
+  language?: "ru" | "en";
 }
 
 function normalize(s: string): string {
@@ -64,11 +74,13 @@ function snippetAround(text: string, idx: number, len: number): string {
 
 export function analyzeCancellary(text: string, options: CancellaryOptions = {}): CancellaryMetrics {
   const soft = options.strictness === "soft";
+  const isEn = options.language === "en";
+  const phrases = isEn ? BANNED_PHRASES_EN : BANNED_PHRASES;
   const lower = normalize(text);
   const hits: CancellaryHit[] = [];
   let total = 0;
 
-  for (const phrase of BANNED_PHRASES) {
+  for (const phrase of phrases) {
     // JS `\b` is ASCII-only and does NOT match Cyrillic word boundaries — a
     // regex like /\bпрактика\b/ never fires on russian text. Use explicit
     // Unicode word-char lookarounds so the banlist actually works in RU.
