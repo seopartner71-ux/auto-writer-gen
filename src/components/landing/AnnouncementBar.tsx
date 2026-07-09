@@ -55,26 +55,26 @@ export function AnnouncementBar() {
           <span aria-hidden>🔒</span>{" "}
           {isRu ? (
             <>
-              Места на июль заняты · Запись на август открыта - осталось 5 мест ·{" "}
+              Закрытая регистрация · Доступ предоставляется по приглашениям,{" "}
               <a
                 href="https://t.me/sin0ptick"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline underline-offset-2 font-semibold hover:text-white/90"
               >
-                Написать в поддержку →
+                напишите нам →
               </a>
             </>
           ) : (
             <>
-              June is fully booked · 5 spots left for July ·{" "}
+              Closed registration · Access is by invitation only,{" "}
               <a
                 href="https://t.me/sin0ptick"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline underline-offset-2 font-semibold hover:text-white/90"
               >
-                Contact Support →
+                contact us →
               </a>
             </>
           )}
