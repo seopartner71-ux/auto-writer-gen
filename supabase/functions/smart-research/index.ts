@@ -38,7 +38,7 @@ serve(async (req) => {
     });
     const user = { id: userId };
 
-    const { keyword, geo, language, city } = await req.json();
+    const { keyword, geo, language: langIn, city, project_id } = await req.json();
     if (!keyword || typeof keyword !== "string" || keyword.trim().length < 2) {
       return new Response(JSON.stringify({ error: "Keyword is required (min 2 chars)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -46,6 +46,22 @@ serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Resolve language: explicit request → project default → "ru" fallback.
+    // Historical bug: fallback used to be "en", which mislabelled ~840
+    // Russian articles as English. Keep explicit ru fallback here.
+    let language: string = String(langIn || "").trim().toLowerCase() || "";
+    let projectGeo: string | null = null;
+    if (!language && project_id) {
+      try {
+        const { data: proj } = await supabaseAdmin
+          .from("projects").select("language, region").eq("id", project_id).maybeSingle();
+        if (proj?.language) language = String(proj.language).toLowerCase();
+        if (proj?.region) projectGeo = String(proj.region).toLowerCase();
+      } catch (_) { /* ignore */ }
+    }
+    if (!language) language = "ru";
+    const geoResolved = String(geo || projectGeo || (language === "en" ? "us" : "ru")).toLowerCase();
 
     // 1. Get Serper API key from admin vault
     const { data: serperKey } = await supabaseAdmin
@@ -70,8 +86,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         q: keyword.trim(),
-        gl: geo || "us",
-        hl: language || "en",
+        gl: geoResolved,
+        hl: language,
         num: 10,
       }),
     });
@@ -98,8 +114,8 @@ serve(async (req) => {
         user_id: user.id,
         seed_keyword: keyword.trim(),
         intent: null,
-        language: language || "en",
-        geo: geo || "us",
+        language: language,
+        geo: geoResolved,
       })
       .select("id")
       .single();
@@ -147,9 +163,9 @@ serve(async (req) => {
       hi: "Hindi", th: "Thai", vi: "Vietnamese", id: "Indonesian",
       kk: "Kazakh", az: "Azerbaijani", ka: "Georgian", uz: "Uzbek",
     };
-    const langName = langMap[language || "en"] || "English";
+    const langName = langMap[language] || (language === "ru" ? "Russian" : "English");
 
-    const geoContext = city ? `${city}, ${(geo || "us").toUpperCase()}` : (geo || "us").toUpperCase();
+    const geoContext = city ? `${city}, ${geoResolved.toUpperCase()}` : geoResolved.toUpperCase();
 
     const systemPrompt = `You are an expert SEO analyst. Analyze Google search results for the given keyword and provide actionable insights.
 
