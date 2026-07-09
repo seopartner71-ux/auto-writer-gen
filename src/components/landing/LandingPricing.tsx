@@ -210,7 +210,10 @@ export function LandingPricing() {
 
                 <div className="flex flex-wrap items-center gap-2 mb-6">
                   <span className="text-[11px] font-tech text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                    {plan.credits} {isEn ? "credits / mo" : "кредитов / мес"}
+                    {plan.credits}{" "}
+                    {isEn
+                      ? `credits / mo (~${plan.credits <= 200 ? 30 : plan.credits <= 600 ? 40 : 260} articles)`
+                      : `кредитов / мес (~${plan.credits <= 200 ? 30 : plan.credits <= 600 ? 40 : 260} статей)`}
                   </span>
                   {plan.modelLabel && (
                     <span
