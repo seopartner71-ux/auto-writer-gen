@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Loader2, Globe, MapPin, Settings2, ChevronDown } from "lucide-react";
+import { Search, Loader2, Globe, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { ResearchResults } from "@/components/research/ResearchResults";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -115,7 +115,6 @@ export default function KeywordsPage() {
   const [geoMode, setGeoMode] = useState<"country" | "city">("country");
   const [city, setCity] = useState("");
   const [language, setLanguage] = useState("ru");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [results, setResults] = useState<ResearchData | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; currentKw: string } | null>(null);
 
@@ -232,58 +231,35 @@ export default function KeywordsPage() {
               className="resize-y min-h-[44px]"
             />
           </div>
-          <div className="flex items-end gap-3 flex-wrap">
-            <Button
-              disabled={parsedKeywords.length === 0 || research.isPending}
-              onClick={() => research.mutate()}
-            >
-              {research.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Globe className="h-4 w-4 mr-2" />
-              )}
-              {research.isPending
-                ? (batchProgress && batchProgress.total > 1
-                    ? `${batchProgress.current} / ${batchProgress.total}...`
-                    : t("keywords.analyzing"))
-                : (isBatch ? `Исследовать (${parsedKeywords.length})` : t("keywords.research"))}
-            </Button>
-            <button
-              type="button"
-              onClick={() => setAdvancedOpen((v) => !v)}
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1.5 rounded-md hover:bg-white/5"
-              aria-expanded={advancedOpen}
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-              Расширенные настройки
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
-            </button>
-          </div>
-          {advancedOpen && (
-            <div className="flex items-end gap-3 flex-wrap pt-2 border-t border-border/50 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
-              <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto self-center">
-                <TabsList className="h-8 p-0.5">
-                  <TabsTrigger value="country" className="text-xs px-2.5 h-7 gap-1">
-                    <Globe className="h-3 w-3" /> {t("geo.country")}
+          {/* Settings row: geo + language, always visible, aligned with the CTA */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto">
+                <TabsList className="h-10 p-0.5">
+                  <TabsTrigger value="country" className="text-xs px-3 h-9 gap-1">
+                    <Globe className="h-3.5 w-3.5" /> {t("geo.country")}
                   </TabsTrigger>
-                  <TabsTrigger value="city" className="text-xs px-2.5 h-7 gap-1">
-                    <MapPin className="h-3 w-3" /> {t("geo.city")}
+                  <TabsTrigger value="city" className="text-xs px-3 h-9 gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> {t("geo.city")}
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
               <Select value={geo} onValueChange={(v) => { setGeo(v); setCity(""); }}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[170px] h-10 font-medium">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {GEO_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>
+                    <SelectItem key={o.value} value={o.value}>
+                      <span className="font-mono text-[10px] text-muted-foreground mr-2 uppercase">{o.value}</span>
+                      {t(o.labelKey)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {geoMode === "city" && (
                 <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[190px] h-10">
                     <SelectValue placeholder={t("geo.selectCity")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -294,7 +270,7 @@ export default function KeywordsPage() {
                 </Select>
               )}
               <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[150px] h-10 font-medium">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -303,8 +279,24 @@ export default function KeywordsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <Button
+              disabled={parsedKeywords.length === 0 || research.isPending}
+              onClick={() => research.mutate()}
+              className="h-10 md:min-w-[180px]"
+            >
+              {research.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4 mr-2" />
+              )}
+              {research.isPending
+                ? (batchProgress && batchProgress.total > 1
+                    ? `${batchProgress.current} / ${batchProgress.total}...`
+                    : t("keywords.analyzing"))
+                : (isBatch ? `Исследовать (${parsedKeywords.length})` : t("keywords.research"))}
+            </Button>
           </div>
-          )}
         </div>
       </div>
 
