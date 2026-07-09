@@ -50,8 +50,15 @@ export function SectionPricing() {
     return fallback;
   };
 
+  const approxArticles = (n: number) => {
+    if (n <= 200) return 30;
+    if (n <= 600) return 40;
+    return 260;
+  };
   const fmtCreditsBadge = (n: number) =>
-    isEn ? `${n} credits / mo` : `${n} кредитов / мес`;
+    isEn
+      ? `${n} credits / mo (~${approxArticles(n)} articles)`
+      : `${n} кредитов / мес (~${approxArticles(n)} статей)`;
 
   const plans = [
     {
