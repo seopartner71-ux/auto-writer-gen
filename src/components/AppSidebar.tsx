@@ -29,6 +29,7 @@ import {
   MoreHorizontal,
   Link2,
   ClipboardList,
+  Wand2,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -77,6 +78,7 @@ const routePrefetchMap: Record<string, () => void> = {
   "/rank-tracker": () => import("@/pages/RankTrackerPage"),
   "/vc-writer": () => import("@/pages/VcWriterPage"),
   "/content-plan": () => import("@/pages/ContentPlanPage"),
+  "/rewrite": () => import("@/pages/RewritePage"),
 };
 
 export function AppSidebar() {
@@ -131,6 +133,7 @@ export function AppSidebar() {
     { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
     { title: t("nav.topicalMap"), url: "/topical-map", icon: Map },
     { title: t("nav.articleAudit"), url: "/article-audit", icon: Search },
+    { title: t("nav.rewrite"), url: "/rewrite", icon: Wand2 },
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
     { title: t("nav.calendarPlanner"), url: "/calendar", icon: CalendarDays },
     { title: t("nav.wiki"), url: "/wiki", icon: BookOpen },
