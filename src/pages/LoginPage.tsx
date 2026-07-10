@@ -36,25 +36,15 @@ export default function LoginPage() {
         .eq("id", userId)
         .maybeSingle();
       const status = (profile as any)?.status as "pending" | "active" | "blocked" | undefined;
-      if (status && status !== "active") {
-        await supabase.auth.signOut();
-        if (status === "blocked") {
-          toast.error(
-            lang === "ru"
-              ? "Ваш аккаунт заблокирован. Свяжитесь с поддержкой."
-              : "Your account is blocked. Please contact support.",
-            { duration: 8000 }
-          );
-        } else {
-          toast.info(
-            lang === "ru"
-              ? "Ваш аккаунт ожидает активации. Мы пришлём письмо, как только откроем доступ."
-              : "Your account is awaiting activation. We'll email you once access is granted.",
-            { duration: 8000 }
-          );
+        if (status && status !== "active") {
+          await supabase.auth.signOut();
+          if (status === "blocked") {
+            toast.error(t("auth.accountBlocked"), { duration: 8000 });
+          } else {
+            toast.info(t("auth.accountPending"), { duration: 8000 });
+          }
+          return;
         }
-        return;
-      }
     }
 
       const isWelcome = searchParams.get("welcome") === "1";
@@ -71,7 +61,11 @@ export default function LoginPage() {
               <Hexagon className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-brand tracking-tight">СЕО-<span className="gradient-text">Модуль</span></CardTitle>
+          <CardTitle className="text-2xl font-brand tracking-tight">
+            {lang === "ru"
+              ? (<>СЕО-<span className="gradient-text">Модуль</span></>)
+              : (<span className="gradient-text">{t("brand.name")}</span>)}
+          </CardTitle>
           <CardDescription>{t("auth.loginTitle")}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -104,7 +98,7 @@ export default function LoginPage() {
           </form>
           <div className="mt-3 text-center">
             <Link to="/forgot-password" className="text-sm text-muted-foreground hover:text-primary">
-              Забыли пароль?
+              {t("auth.forgotPassword")}
             </Link>
           </div>
           <div className="mt-2 text-center text-sm text-muted-foreground">
