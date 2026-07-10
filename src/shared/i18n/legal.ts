@@ -14,7 +14,7 @@ export const legal: Dict = {
   "landing.copyright": { ru: "Все права защищены.", en: "All rights reserved." },
   // Landing page - Hero
   "lp.badge": { ru: "SEO нового поколения", en: "Next-gen SEO" },
-  "lp.heroLine1": { ru: "СЕО-Модуль", en: "SEO-Module" },
+  "lp.heroLine1": { ru: "СЕО-Модуль", en: "Draften" },
   "lp.heroLine2": { ru: "Проектируйте контент, который доминирует в поиске.", en: "Engineer content that dominates search." },
   "lp.heroSub": { ru: "Единственный SEO-инструмент для РУ-рынка с Realtime Score, Картой тем и защитой от фильтра Яндекса Баден-Баден.", en: "The only SEO tool for RU market with Realtime Score, Topical Map and protection against Yandex Baden-Baden filter." },
   "lp.cta": { ru: "Начать синтез", en: "Start synthesis" },
