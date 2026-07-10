@@ -6,7 +6,7 @@ export type { Lang };
 interface I18nContextValue {
   lang: Lang;
   setLang: (l: Lang) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextValue>({
@@ -28,7 +28,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") localStorage.setItem("app-lang", l);
   };
 
-  const t = (key: string): string => translations[key]?.[lang] || key;
+  const t = (key: string, params?: Record<string, string | number>): string => {
+    let s = translations[key]?.[lang] || key;
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        s = s.replaceAll(`{${k}}`, String(v));
+      }
+    }
+    return s;
+  };
 
   return (
     <I18nContext.Provider value={{ lang, setLang, t }}>
