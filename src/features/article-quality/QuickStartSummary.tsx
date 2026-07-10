@@ -73,7 +73,7 @@ export function QuickStartSummary({ articleId, hasContent, onSave, saveDisabled,
     (async () => {
       const { data: row } = await supabase
         .from("articles")
-        .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status,turgenev_score,turgenev_status")
+        .select("quality_status,ai_score,burstiness_score,burstiness_status,keyword_density,keyword_density_status,turgenev_score,turgenev_status,language")
         .eq("id", articleId)
         .maybeSingle();
       if (!cancelled && row) setData(row);
@@ -202,6 +202,13 @@ export function QuickStartSummary({ articleId, hasContent, onSave, saveDisabled,
         )}
         <Row label={t("qss.rhythm")} value={burst} t={t} />
         <Row label={t("qss.density")} value={dens} t={t} />
+        {data.language !== "en" && (
+          <Row
+            label={data.turgenev_score != null ? t("qss.turgenevWithVal", { n: data.turgenev_score }) : t("qss.turgenev")}
+            value={turg}
+            t={t}
+          />
+        )}
       </div>
       <div className="space-y-2 pt-2">
         {hasIssues && articleId && (

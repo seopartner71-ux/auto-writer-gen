@@ -157,6 +157,8 @@ export const onboarding: Dict = {
   "qss.humanScore": { ru: "Human Score", en: "Human Score" },
   "qss.humanWithVal": { ru: "Human Score: {n}/100 (цель ≥70)", en: "Human Score: {n}/100 (target ≥70)" },
   "qss.aiLikeness": { ru: "Похожесть на AI: {n}% (ниже = лучше)", en: "AI likeness: {n}% (lower is better)" },
+  "qss.turgenev": { ru: "Тургенев", en: "" },
+  "qss.turgenevWithVal": { ru: "Тургенев: {n} (цель ≤5)", en: "" },
   "qss.improveAuto": { ru: "Улучшить автоматически", en: "Improve quality" },
   "qss.improveStarted": { ru: "Улучшение запущено - обработка займёт до пары минут", en: "Improvement started - this takes up to a couple of minutes" },
   "qss.cooldown": { ru: "Подождите перед повторной доработкой", en: "Please wait before running another pass" },
