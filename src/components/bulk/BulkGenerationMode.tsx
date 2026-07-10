@@ -26,7 +26,7 @@ interface BulkJobItem { id: string; seed_keyword: string; status: string; articl
 interface BulkJob { id: string; status: string; total_items: number; completed_items: number; author_profile_id: string | null; created_at: string; }
 
 export function BulkGenerationMode() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const confirm = useConfirm();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,8 +61,8 @@ export function BulkGenerationMode() {
   };
 
   const { data: authorProfiles = [] } = useQuery({
-    queryKey: ["author-profiles-bulk"],
-    queryFn: async () => { const { data, error } = await supabase.from("author_profiles").select("*").order("name"); if (error) throw error; return data; },
+    queryKey: ["author-profiles-bulk", lang],
+    queryFn: async () => { const { data, error } = await supabase.from("author_profiles").select("*").eq("language", lang).order("name"); if (error) throw error; return data; },
   });
 
   const { data: bulkJobs = [] } = useQuery({

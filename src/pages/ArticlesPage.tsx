@@ -181,11 +181,12 @@ export default function ArticlesPage() {
   });
 
   const { data: authorProfiles = [] } = useQuery({
-    queryKey: ["author-profiles-for-writer"],
+    queryKey: ["author-profiles-for-writer", lang],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("author_profiles")
         .select("*")
+        .eq("language", lang)
         .order("name");
       if (error) throw error;
       return data;

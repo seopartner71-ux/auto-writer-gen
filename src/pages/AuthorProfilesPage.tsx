@@ -57,7 +57,7 @@ interface AuthorProfile {
 }
 
 export default function AuthorProfilesPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const { limits } = usePlanLimits();
   const [createOpen, setCreateOpen] = useState(false);
@@ -78,9 +78,9 @@ export default function AuthorProfilesPage() {
   ];
 
   const { data: authors = [], isLoading } = useQuery({
-    queryKey: ["author-profiles"],
+    queryKey: ["author-profiles", lang],
     queryFn: async () => {
-      const { data, error } = await supabase.from("author_profiles").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("author_profiles").select("*").eq("language", lang).order("created_at", { ascending: false });
       if (error) throw error;
       return data as AuthorProfile[];
     },
@@ -93,7 +93,7 @@ export default function AuthorProfilesPage() {
       }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase.from("author_profiles").insert({ user_id: user.id, name: name.trim(), niche: niche.trim() || null, voice_tone: voiceTone || null, style_examples: sampleText.trim() || null, system_instruction: systemInstruction.trim() || null, type: "custom" });
+      const { error } = await supabase.from("author_profiles").insert({ user_id: user.id, name: name.trim(), niche: niche.trim() || null, voice_tone: voiceTone || null, style_examples: sampleText.trim() || null, system_instruction: systemInstruction.trim() || null, type: "custom", language: lang });
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["author-profiles"] }); setCreateOpen(false); resetForm(); toast.success(t("persona.authorCreated")); },
@@ -183,7 +183,7 @@ if (!user) { toast.error(t("authorPage.notAuth")); return; }
               const { error } = await supabase.from("author_profiles").insert({
                 user_id: user.id, name: "Miralinks Expert", type: "custom",
                 is_miralinks_profile: true, is_gogetlinks_profile: false,
-                ...MIRALINKS_DEFAULTS,
+                ...MIRALINKS_DEFAULTS, language: lang,
               });
               if (error) { toast.error(error.message); return; }
               queryClient.invalidateQueries({ queryKey: ["author-profiles"] });
@@ -199,7 +199,7 @@ if (!user) { toast.error(t("authorPage.notAuth")); return; }
               const { error } = await supabase.from("author_profiles").insert({
                 user_id: user.id, name: "GoGetLinks Expert", type: "custom",
                 is_gogetlinks_profile: true, is_miralinks_profile: false,
-                ...GOGETLINKS_DEFAULTS,
+                ...GOGETLINKS_DEFAULTS, language: lang,
               });
               if (error) { toast.error(error.message); return; }
               queryClient.invalidateQueries({ queryKey: ["author-profiles"] });

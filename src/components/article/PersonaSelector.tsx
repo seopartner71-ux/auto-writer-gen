@@ -62,7 +62,7 @@ const SYNTAX_PRESET_KEYS = [
 ] as const;
 
 export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keywordText }: PersonaSelectorProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newInstruction, setNewInstruction] = useState("");
@@ -150,6 +150,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
         // Не сохраняем системный промпт в description - он показывается пользователям.
         description: null,
         avatar_icon: "User",
+        language: lang,
       });
       if (error) throw error;
 

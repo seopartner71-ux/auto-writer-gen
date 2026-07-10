@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1505,15 +1506,17 @@ function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submit
   onSubmit: (s: TemplateSettings) => void; submitting: boolean;
 }) {
   const [s, setS] = useState<TemplateSettings>({ ...DEFAULT_SETTINGS, ...(initial ?? {}) });
+  const { lang: cpLang } = useI18n();
 
   // Live authors from author_profiles (same source as /articles).
   // Falls back to legacy persona presets if the table is empty.
   const { data: authors = [], isLoading: authorsLoading } = useQuery({
-    queryKey: ["cp-author-profiles"],
+    queryKey: ["cp-author-profiles", cpLang],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("author_profiles")
         .select("id, name, type, avatar_icon, description")
+        .eq("language", cpLang)
         .order("type", { ascending: true })
         .order("name", { ascending: true });
       if (error) throw error;
