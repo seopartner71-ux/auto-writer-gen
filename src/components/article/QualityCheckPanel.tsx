@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 export interface QualityResult {
   turgenev_score: number | null;
@@ -103,6 +104,7 @@ function MetricRow({
 }
 
 export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHumanize, onBenchmarkOptimize, benchmarkReady }: Props) {
+  const { t, lang } = useI18n();
   const [result, setResult] = useState<QualityResult>(initial || {
     turgenev_score: null, uniqueness_percent: null, ai_human_score: null, quality_badge: null,
   });
@@ -180,7 +182,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
           checked_at: data.quality_checked_at ?? prev.checked_at,
         }));
         if (errMsg) toast.error(String(errMsg), { duration: 9000 });
-        else if (data.uniqueness_percent !== null) toast.success(`Уникальность: ${data.uniqueness_percent}%`);
+        else if (data.uniqueness_percent !== null) toast.success(t("qcp.uniqPercent", { v: data.uniqueness_percent }));
         return;
       }
       if (attempts > 36) { setUniqPending(false); return; } // ~3 min
@@ -194,11 +196,11 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
 
   async function runChecks(checks: string[], opts?: { confirmCredit?: boolean }) {
     if (!articleId) {
-      toast.error("Сначала сохраните статью");
+      toast.error(t("qcp.saveFirst"));
       return;
     }
     if (!content || content.replace(/<[^>]+>/g, "").trim().length < 200) {
-      toast.error("Текст слишком короткий для проверки (минимум 200 символов)");
+      toast.error(t("qcp.tooShort"));
       return;
     }
     // confirmation handled via AlertDialog at the call site
@@ -215,11 +217,11 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
         const msg = String(data.uniqueness_error);
         const isBalance = /нейросимвол|баланс/i.test(msg);
         const isKey = /ключ|key|TEXTRU/i.test(msg);
-        toast.error(msg + (data.credit_refunded ? " Кредит возвращён." : ""), {
+        toast.error(msg + (data.credit_refunded ? t("qcp.creditRefunded") : ""), {
           duration: 10000,
           action: (isBalance || isKey)
             ? {
-                label: isBalance ? "Пополнить" : "В поддержку",
+                label: isBalance ? t("qcp.action.topup") : t("qcp.action.support"),
                 onClick: () => {
                   if (isBalance) {
                     window.open("https://text.ru/account/balance", "_blank", "noopener");
@@ -230,9 +232,9 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
               }
             : undefined,
           description: isBalance
-            ? "Проверка уникальности использует API Text.ru. Пополните баланс нейросимволов или напишите нам - поможем."
+            ? t("qcp.descBalance")
             : isKey
-            ? "Откройте раздел Поддержка - мы быстро обновим ключ TEXTRU_API_KEY."
+            ? t("qcp.descKey")
             : undefined,
         });
       }
@@ -248,12 +250,12 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       onUpdate?.(updated);
       if (data?.uniqueness_pending) {
         setUniqPending(true);
-        toast.info("Уникальность проверяется через Text.ru (до 2 минут)...", { duration: 6000 });
+        toast.info(t("qcp.uniqPending"), { duration: 6000 });
       } else if (!data?.uniqueness_error) {
-        toast.success("Проверка завершена");
+        toast.success(t("qcp.done"));
       }
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка проверки");
+      toast.error(e?.message || t("qcp.error"));
     } finally {
       const after = new Set(loadingSet);
       checks.forEach((c) => after.delete(c));
@@ -263,19 +265,19 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
 
   async function shareCard() {
     const lines = [
-      "СЕО-Модуль - Проверка качества",
+      t("qcp.share.title"),
       "",
-      result.turgenev_score !== null ? `Качество текста: ${result.turgenev_score}/10 баллов риска` : null,
-      result.uniqueness_percent !== null ? `Уникальность: ${result.uniqueness_percent}%` : null,
-      result.ai_human_score !== null ? `AI-детектор: ${result.ai_human_score}% человек` : null,
+      result.turgenev_score !== null ? t("qcp.share.quality", { v: result.turgenev_score }) : null,
+      result.uniqueness_percent !== null ? t("qcp.share.uniq", { v: result.uniqueness_percent }) : null,
+      result.ai_human_score !== null ? t("qcp.share.ai", { v: result.ai_human_score }) : null,
       "",
-      "Создано на seo-modul.pro",
+      t("qcp.share.footer"),
     ].filter(Boolean).join("\n");
     try {
       await navigator.clipboard.writeText(lines);
-      toast.success("Результат скопирован в буфер");
+      toast.success(t("qcp.share.copied"));
     } catch {
-      toast.error("Не удалось скопировать");
+      toast.error(t("qcp.share.copyFailed"));
     }
   }
 
@@ -284,11 +286,11 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
   const sAi = statusOf(result.ai_human_score, "ai");
 
   const badgeMeta = result.quality_badge === "excellent"
-    ? { icon: Trophy,        label: "Отлично - готово к публикации", cls: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5", border: "border-emerald-500/30" }
+    ? { icon: Trophy,        label: t("qcp.badge.excellent"), cls: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5", border: "border-emerald-500/30" }
     : result.quality_badge === "good"
-    ? { icon: ThumbsUp,      label: "Хорошо - можно публиковать",    cls: "text-amber-400",   bg: "from-amber-500/15 to-amber-500/5",     border: "border-amber-500/30" }
+    ? { icon: ThumbsUp,      label: t("qcp.badge.good"),    cls: "text-amber-400",   bg: "from-amber-500/15 to-amber-500/5",     border: "border-amber-500/30" }
     : result.quality_badge === "needs_work"
-    ? { icon: AlertTriangle, label: "Требует доработки",             cls: "text-rose-400",    bg: "from-rose-500/15 to-rose-500/5",       border: "border-rose-500/30" }
+    ? { icon: AlertTriangle, label: t("qcp.badge.needsWork"),             cls: "text-rose-400",    bg: "from-rose-500/15 to-rose-500/5",       border: "border-rose-500/30" }
     : null;
 
   // progress mappings
@@ -301,15 +303,15 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
 
   async function autoImproveToTop() {
     if (!articleId) {
-      toast.error("Сначала сохраните статью");
+      toast.error(t("qcp.saveFirst"));
       return;
     }
     if (!onHumanize) {
-      toast.error("Гуманизация недоступна в этом контексте");
+      toast.error(t("qcp.humanizeUnavailable"));
       return;
     }
     if (!content || content.replace(/<[^>]+>/g, "").trim().length < 200) {
-      toast.error("Текст слишком короткий (минимум 200 символов)");
+      toast.error(t("qcp.tooShort2"));
       return;
     }
     setAutoImproving(true);
@@ -344,10 +346,10 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       } else {
         setStepStates(s => ({ ...s, uniqueness: "done" }));
       }
-      toast.success("Готово - текст доведен до ТОПа. Проверьте вердикт выше.");
+      toast.success(t("qcp.autoDone"));
       setTimeout(() => setAutoDialogOpen(false), 800);
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка Auto-Improve");
+      toast.error(e?.message || t("qcp.autoError"));
     } finally {
       setAutoImproving(false);
     }
