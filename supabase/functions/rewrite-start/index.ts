@@ -1,4 +1,4 @@
-// rewrite-start: entry-point for the /rewrite feature.
+// rewrite-start: entry-point for the /rewrite feature. (deploy trigger)
 //
 // Body: {
 //   article_id?: string,   // existing draft (optional; if absent, we create one)
