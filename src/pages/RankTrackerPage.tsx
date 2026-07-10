@@ -111,7 +111,9 @@ export default function RankTrackerPage() {
 
   const [kw, setKw] = useState("");
   const [domain, setDomain] = useState("");
-  const [engine, setEngine] = useState<"google" | "yandex" | "both">("both");
+  const [engine, setEngine] = useState<"google" | "yandex" | "both">(
+    lang === "ru" ? "both" : "google",
+  );
   const [region, setRegion] = useState("ru");
   const [city, setCity] = useState("");
   const [viewUserId, setViewUserId] = useState<string>("");
@@ -312,7 +314,7 @@ export default function RankTrackerPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">{isRu ? "Трекер позиций" : "Rank Tracker"}</h1>
-          <p className="text-sm text-muted-foreground">{isRu ? "Ежедневный мониторинг позиций в Google и Яндекс до ТОП-30" : "Daily Google and Yandex position monitoring up to TOP-30"}</p>
+          <p className="text-sm text-muted-foreground">{isRu ? "Ежедневный мониторинг позиций в Google и Яндекс до ТОП-30" : "Daily Google position monitoring up to TOP-30"}</p>
         </div>
         <Button onClick={() => refreshMut.mutate()} disabled={refreshMut.isPending || tracked.length === 0 || isImpersonating}>
           {refreshMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
@@ -376,9 +378,9 @@ export default function RankTrackerPage() {
             <Select value={engine} onValueChange={(v) => setEngine(v as "google" | "yandex" | "both")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="both">{isRu ? "Google + Yandex" : "Google + Yandex"}</SelectItem>
+                {isRu && <SelectItem value="both">Google + Yandex</SelectItem>}
                 <SelectItem value="google">Google</SelectItem>
-                <SelectItem value="yandex">Yandex</SelectItem>
+                {isRu && <SelectItem value="yandex">Yandex</SelectItem>}
               </SelectContent>
             </Select>
             <Input placeholder={engine === "yandex" ? "lr (213)" : "ru"} value={region} onChange={e => setRegion(e.target.value)} />
@@ -426,7 +428,7 @@ export default function RankTrackerPage() {
                     <th>{isRu ? "Запрос" : "Keyword"}</th>
                     <th>{isRu ? "Домен" : "Domain"}</th>
                     <th>Google</th>
-                    <th>Yandex</th>
+                    {isRu && <th>Yandex</th>}
                     <th>{isRu ? "Страницы в ТОП" : "Ranking pages"}</th>
                     <th>{isRu ? "Выдача" : "SERP"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
@@ -462,12 +464,12 @@ export default function RankTrackerPage() {
                             {renderTrend(google?.id)}
                           </div>
                         </td>
-                        <td>
+                        {isRu && <td>
                           <div className="flex items-center gap-2">
                             {renderPosition(yandex)}
                             {renderTrend(yandex?.id)}
                           </div>
-                        </td>
+                        </td>}
                         <td className="max-w-[260px]">
                           <div className="space-y-1">
                             {google?.last_url && (
@@ -477,14 +479,14 @@ export default function RankTrackerPage() {
                                 Google: {google.last_url.replace(/^https?:\/\//, "").slice(0, 48)}
                               </a>
                             )}
-                            {yandex?.last_url && (
+                            {isRu && yandex?.last_url && (
                               <a href={yandex.last_url} target="_blank" rel="noopener noreferrer"
                                 className="text-xs text-primary hover:underline truncate block"
                                 title={yandex.last_url}>
                                 Yandex: {yandex.last_url.replace(/^https?:\/\//, "").slice(0, 48)}
                               </a>
                             )}
-                            {!google?.last_url && !yandex?.last_url && <span className="text-xs text-muted-foreground">-</span>}
+                            {!google?.last_url && (!isRu || !yandex?.last_url) && <span className="text-xs text-muted-foreground">-</span>}
                           </div>
                         </td>
                         <td>
@@ -494,11 +496,11 @@ export default function RankTrackerPage() {
                               className="text-xs text-primary hover:underline">
                               Google ↗
                             </a>
-                            <a href={buildSerpUrl("yandex", group.keyword, group.region, group.city)}
+                            {isRu && <a href={buildSerpUrl("yandex", group.keyword, group.region, group.city)}
                               target="_blank" rel="noopener noreferrer"
                               className="text-xs text-primary hover:underline">
                               Yandex ↗
-                            </a>
+                            </a>}
                           </div>
                         </td>
                         <td className="w-32 h-10">

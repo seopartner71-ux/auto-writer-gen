@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ExternalLink, Loader2, RefreshCw, Trash2, Globe } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface SiteRow {
   id: string;
@@ -31,6 +32,8 @@ function pagesHost(domain: string | null): string | null {
 export function SitesListTable() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { lang } = useI18n();
+  const isRu = lang === "ru";
   const [rows, setRows] = useState<SiteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -46,7 +49,7 @@ export function SitesListTable() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (error) {
-      toast({ title: "Ошибка загрузки сайтов", description: error.message, variant: "destructive" });
+      toast({ title: isRu ? "Ошибка загрузки сайтов" : "Failed to load sites", description: error.message, variant: "destructive" });
     }
     setRows((data || []) as SiteRow[]);
     setSelected(new Set());
@@ -62,10 +65,16 @@ export function SitesListTable() {
       .eq("id", row.id);
     if (error) {
       setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, auto_weekly_post: !next } : r));
-      toast({ title: "Не удалось сохранить", description: error.message, variant: "destructive" });
+      toast({ title: isRu ? "Не удалось сохранить" : "Save failed", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: next ? "Автопубликация включена" : "Автопубликация выключена",
-              description: next ? "Новая статья будет публиковаться раз в 7 дней в рабочие часы." : undefined });
+      toast({
+        title: isRu
+          ? (next ? "Автопубликация включена" : "Автопубликация выключена")
+          : (next ? "Auto-publish enabled" : "Auto-publish disabled"),
+        description: next
+          ? (isRu ? "Новая статья будет публиковаться раз в 7 дней в рабочие часы." : "A new article will be published every 7 days during working hours.")
+          : undefined,
+      });
     }
   };
 
@@ -95,14 +104,18 @@ export function SitesListTable() {
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       toast({
-        title: "Сайт удалён",
+        title: isRu ? "Сайт удалён" : "Site deleted",
         description: data?.deleted_cf
-          ? `Cloudflare-проект и ${data?.articles_deleted ?? 0} статей удалены`
-          : `Запись удалена. ${data?.cf_message || "Cloudflare-проект пропущен."}`,
+          ? (isRu
+              ? `Cloudflare-проект и ${data?.articles_deleted ?? 0} статей удалены`
+              : `Cloudflare project and ${data?.articles_deleted ?? 0} articles deleted`)
+          : (isRu
+              ? `Запись удалена. ${data?.cf_message || "Cloudflare-проект пропущен."}`
+              : `Record deleted. ${data?.cf_message || "Cloudflare project skipped."}`),
       });
       return true;
     } catch (e: any) {
-      toast({ title: "Ошибка удаления", description: e?.message || String(e), variant: "destructive" });
+      toast({ title: isRu ? "Ошибка удаления" : "Delete failed", description: e?.message || String(e), variant: "destructive" });
       return false;
     } finally {
       setDeletingIds((p) => { const n = new Set(p); n.delete(row.id); return n; });
@@ -119,8 +132,10 @@ export function SitesListTable() {
     }
     await load();
     toast({
-      title: "Массовое удаление завершено",
-      description: `Удалено: ${ok}${fail ? `, ошибок: ${fail}` : ""}`,
+      title: isRu ? "Массовое удаление завершено" : "Bulk delete finished",
+      description: isRu
+        ? `Удалено: ${ok}${fail ? `, ошибок: ${fail}` : ""}`
+        : `Deleted: ${ok}${fail ? `, failed: ${fail}` : ""}`,
       variant: fail ? "destructive" : "default",
     });
   };
@@ -133,10 +148,12 @@ export function SitesListTable() {
         <div>
           <CardTitle className="text-base flex items-center gap-2">
             <Globe className="h-4 w-4 text-primary" />
-            Мои сайты <span className="text-xs text-muted-foreground font-normal">({rows.length})</span>
+            {isRu ? "Мои сайты" : "My sites"} <span className="text-xs text-muted-foreground font-normal">({rows.length})</span>
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
-            Удаление сайта стирает Cloudflare Pages-проект, запись и все его статьи.
+            {isRu
+              ? "Удаление сайта стирает Cloudflare Pages-проект, запись и все его статьи."
+              : "Deleting a site removes its Cloudflare Pages project, record and every article."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -149,30 +166,32 @@ export function SitesListTable() {
                 className="gap-2"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Удалить выбранные {selected.size > 0 && `(${selected.size})`}
+                {isRu ? "Удалить выбранные" : "Delete selected"} {selected.size > 0 && `(${selected.size})`}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Удалить выбранные сайты?</AlertDialogTitle>
+                <AlertDialogTitle>{isRu ? "Удалить выбранные сайты?" : "Delete selected sites?"}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Будет удалено {selected.size} сайт(ов) с Cloudflare Pages, их записи и все связанные статьи. Действие необратимо.
+                  {isRu
+                    ? `Будет удалено ${selected.size} сайт(ов) с Cloudflare Pages, их записи и все связанные статьи. Действие необратимо.`
+                    : `${selected.size} site(s) will be removed from Cloudflare Pages along with their records and all related articles. This cannot be undone.`}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                <AlertDialogCancel>{isRu ? "Отмена" : "Cancel"}</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleBulkDelete}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  Удалить
+                  {isRu ? "Удалить" : "Delete"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
           <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            Обновить
+            {isRu ? "Обновить" : "Refresh"}
           </Button>
         </div>
       </CardHeader>
@@ -181,7 +200,7 @@ export function SitesListTable() {
           <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : sites.length === 0 ? (
           <div className="text-center text-sm text-muted-foreground py-6">
-            Сайтов пока нет. Создайте первую сетку выше.
+            {isRu ? "Сайтов пока нет. Создайте первую сетку выше." : "No sites yet. Create your first grid above."}
           </div>
         ) : (
           <div className="rounded-md border border-border overflow-x-auto">
@@ -192,15 +211,15 @@ export function SitesListTable() {
                     <Checkbox
                       checked={allChecked || (someChecked ? "indeterminate" : false)}
                       onCheckedChange={toggleAll}
-                      aria-label="Выбрать все"
+                      aria-label={isRu ? "Выбрать все" : "Select all"}
                     />
                   </th>
-                  <th className="text-left px-3 py-2 font-medium">Название</th>
-                  <th className="text-left px-3 py-2 font-medium">Домен</th>
-                  <th className="text-left px-3 py-2 font-medium">Хостинг</th>
-                  <th className="text-left px-3 py-2 font-medium">Создан</th>
-                  <th className="text-left px-3 py-2 font-medium">Авто 7д</th>
-                  <th className="text-right px-3 py-2 font-medium">Действия</th>
+                  <th className="text-left px-3 py-2 font-medium">{isRu ? "Название" : "Name"}</th>
+                  <th className="text-left px-3 py-2 font-medium">{isRu ? "Домен" : "Domain"}</th>
+                  <th className="text-left px-3 py-2 font-medium">{isRu ? "Хостинг" : "Hosting"}</th>
+                  <th className="text-left px-3 py-2 font-medium">{isRu ? "Создан" : "Created"}</th>
+                  <th className="text-left px-3 py-2 font-medium">{isRu ? "Авто 7д" : "Auto 7d"}</th>
+                  <th className="text-right px-3 py-2 font-medium">{isRu ? "Действия" : "Actions"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -214,7 +233,7 @@ export function SitesListTable() {
                         <Checkbox
                           checked={selected.has(s.id)}
                           onCheckedChange={() => toggleOne(s.id)}
-                          aria-label={`Выбрать ${s.name}`}
+                          aria-label={(isRu ? "Выбрать " : "Select ") + s.name}
                         />
                       </td>
                       <td className="px-3 py-2 font-medium truncate max-w-[200px]">{s.name}</td>
@@ -239,7 +258,7 @@ export function SitesListTable() {
                         <Switch
                           checked={!!s.auto_weekly_post}
                           onCheckedChange={() => toggleAuto(s)}
-                          aria-label="Автопубликация раз в 7 дней"
+                          aria-label={isRu ? "Автопубликация раз в 7 дней" : "Auto-publish every 7 days"}
                         />
                       </td>
                       <td className="px-3 py-2 text-right">
@@ -255,19 +274,21 @@ export function SitesListTable() {
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>
-                                Удалить сайт {host || s.name}?
+                                {isRu ? `Удалить сайт ${host || s.name}?` : `Delete site ${host || s.name}?`}
                               </AlertDialogTitle>
                               <AlertDialogDescription>
-                                Cloudflare Pages-проект, запись в базе и все статьи этого сайта будут удалены безвозвратно.
+                                {isRu
+                                  ? "Cloudflare Pages-проект, запись в базе и все статьи этого сайта будут удалены безвозвратно."
+                                  : "The Cloudflare Pages project, database record and every article of this site will be permanently deleted."}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Отмена</AlertDialogCancel>
+                              <AlertDialogCancel>{isRu ? "Отмена" : "Cancel"}</AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={async () => { const ok = await deleteOne(s); if (ok) load(); }}
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               >
-                                Удалить
+                                {isRu ? "Удалить" : "Delete"}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
