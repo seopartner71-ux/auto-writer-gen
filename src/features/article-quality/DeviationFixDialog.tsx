@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Wand2, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface ActiveDeviation { idx: number; quote: string }
 
@@ -25,6 +26,7 @@ interface DeviationFixDialogProps {
 export function DeviationFixDialog({
   activeDeviation, onClose, complianceResult, content, setContent, selectedAuthorId,
 }: DeviationFixDialogProps) {
+  const { t } = useI18n();
   const [isRewritingFragment, setIsRewritingFragment] = useState(false);
 
   const handleClose = (open: boolean) => {
@@ -109,7 +111,7 @@ export function DeviationFixDialog({
 
           const handleRewrite = async (scope: "sentence" | "paragraph") => {
             const range = findFragmentRange(scope);
-            if (!range) { toast.error("Не удалось найти фрагмент в тексте"); return; }
+            if (!range) { toast.error(t("dfd.notFound")); return; }
             setIsRewritingFragment(true);
             try {
               const { data: { session } } = await supabase.auth.getSession();
@@ -137,12 +139,12 @@ export function DeviationFixDialog({
               const data = await resp.json();
               if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
               const rewritten = (data.rewritten || "").toString().trim();
-              if (!rewritten) throw new Error("Пустой ответ");
+              if (!rewritten) throw new Error(t("dfd.emptyResponse"));
               setContent(range.before + rewritten + range.after);
-              toast.success(scope === "paragraph" ? "Абзац переписан с учётом требований автора" : "Предложение переписано с учётом требований автора");
+              toast.success(scope === "paragraph" ? t("dfd.paragraphDone") : t("dfd.sentenceDone"));
               onClose();
             } catch (e: any) {
-              toast.error(e.message || "Ошибка переписывания");
+              toast.error(e.message || t("dfd.rewriteError"));
             } finally {
               setIsRewritingFragment(false);
             }
@@ -153,7 +155,7 @@ export function DeviationFixDialog({
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <ShieldAlert className="h-4 w-4 text-warning" />
-                  Правка отклонения
+                  {t("dfd.title")}
                 </DialogTitle>
                 <DialogDescription>
                   <span className="font-medium text-foreground">{dev.category}</span> · {dev.rule}
@@ -161,18 +163,18 @@ export function DeviationFixDialog({
               </DialogHeader>
               <div className="space-y-3">
                 <div>
-                  <Label className="text-[11px] text-muted-foreground">Цитата из статьи</Label>
+                  <Label className="text-[11px] text-muted-foreground">{t("dfd.quote")}</Label>
                   <div className="mt-1 p-2 rounded-md bg-muted/50 border border-border text-xs italic">
                     «{activeDeviation.quote}»
                   </div>
                 </div>
                 {dev.suggestion && (
                   <div className="text-[11px] text-muted-foreground">
-                    Подсказка ИИ: <span className="text-foreground">{dev.suggestion}</span>
+                    {t("dfd.hint")} <span className="text-foreground">{dev.suggestion}</span>
                   </div>
                 )}
                 <div className="text-[11px] text-muted-foreground">
-                  ИИ перепишет фрагмент строго по инструкции автора, исправив все найденные нарушения. Факты сохранятся.
+                  {t("dfd.explain")}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
@@ -182,7 +184,7 @@ export function DeviationFixDialog({
                     onClick={() => handleRewrite("sentence")}
                   >
                     {isRewritingFragment ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
-                    Переписать предложение
+                    {t("dfd.rewriteSentence")}
                   </Button>
                   <Button
                     variant="secondary"
@@ -191,7 +193,7 @@ export function DeviationFixDialog({
                     onClick={() => handleRewrite("paragraph")}
                   >
                     {isRewritingFragment ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
-                    Переписать абзац
+                    {t("dfd.rewriteParagraph")}
                   </Button>
                 </div>
                 <Button
@@ -203,25 +205,25 @@ export function DeviationFixDialog({
                     if (!orig) return;
                     if (content.includes(orig)) {
                       setContent(content.replace(orig, ""));
-                      toast.success("Фрагмент удален из текста");
+                      toast.success(t("dfd.deleted"));
                       onClose();
                     } else {
                       const re = new RegExp(escRegex(orig).replace(/\s+/g, "\\s+"), "i");
                       if (re.test(content)) {
                         setContent(content.replace(re, ""));
-                        toast.success("Фрагмент удален из текста");
+                        toast.success(t("dfd.deleted"));
                         onClose();
                       } else {
-                        toast.error("Не удалось найти фрагмент");
+                        toast.error(t("dfd.notFoundShort"));
                       }
                     }
                   }}
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
-                  Удалить фрагмент из текста
+                  {t("dfd.deleteFragment")}
                 </Button>
                 <Button variant="ghost" className="w-full" onClick={onClose}>
-                  Отмена
+                  {t("dfd.cancel")}
                 </Button>
               </div>
             </>
