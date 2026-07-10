@@ -25,6 +25,7 @@ const EXCLUDE_PREFIXES = [
   "src/shared/utils/sanitizeKeyword.ts",
   "src/shared/utils/sentenceStructure.ts",
   "src/components/article/humanScore/",
+  "src/components/article/HumanScorePanel.tsx",
   "src/features/commercial/constants.ts",
 ];
 

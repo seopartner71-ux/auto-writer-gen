@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Sparkles, ShieldCheck, ShieldAlert, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface Props {
   authorSelected: boolean;
@@ -22,6 +23,7 @@ export function ArticleQualityHints({
   factIssuesCount, factCheckStatus, onOpenFactCheck, onAutoFix,
   hasContent,
 }: Props) {
+  const { t } = useI18n();
   const [stealthDismissed, setStealthDismissed] = useState(false);
   const [factDismissed, setFactDismissed] = useState(false);
   const [globalLock, setGlobalLock] = useState(false);
@@ -52,7 +54,7 @@ export function ArticleQualityHints({
         >
           <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0" />
           <span className="text-xs text-yellow-100">
-            Автор не выбран - текст будет шаблонным. Выберите Persona для уникального стиля.
+            {t("hints.author.missing")}
           </span>
           <UserPlus className="h-3.5 w-3.5 ml-auto text-yellow-300 shrink-0" />
         </button>
@@ -61,11 +63,11 @@ export function ArticleQualityHints({
           type="button"
           onClick={onPickAuthor}
           className="inline-flex items-center gap-2 rounded-md border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-left hover:bg-violet-500/15 transition-colors"
-          title="Сменить автора"
+          title={t("hints.author.change")}
         >
           <Sparkles className="h-3.5 w-3.5 text-violet-300 shrink-0" />
           <span className="text-xs text-violet-100 font-medium">
-            Persona: {authorLabel || "выбран"}
+            Persona: {authorLabel || t("hints.author.chosen")}
           </span>
         </button>
       )}
@@ -76,7 +78,7 @@ export function ArticleQualityHints({
           <span className="text-base">🤖</span>
           <div className="flex-1 min-w-0">
             <div className="text-xs text-orange-100">
-              Человечность: {aiScore}/100 (цель ≥70). Похожесть на AI: {Math.max(0, Math.min(100, 100 - (aiScore ?? 0)))}% - запустить Stealth Pass?
+              {t("hints.stealth.text", { score: aiScore ?? 0, ai: Math.max(0, Math.min(100, 100 - (aiScore ?? 0))) })}
             </div>
           </div>
           <Button
@@ -86,13 +88,13 @@ export function ArticleQualityHints({
             onClick={() => { onRunStealth(); setStealthDismissed(true); }}
             disabled={stealthRunning || globalLock}
           >
-            ✨ {stealthRunning ? "..." : "Да, улучшить"}
+            ✨ {stealthRunning ? "..." : t("hints.stealth.yes")}
           </Button>
           <button
             type="button"
             className="text-orange-300/70 hover:text-orange-200"
             onClick={() => setStealthDismissed(true)}
-            title="Пропустить"
+            title={t("hints.stealth.skip")}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -105,9 +107,7 @@ export function ArticleQualityHints({
           <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="text-xs text-amber-100">
-              Fact Check: найдено {factIssuesCount}{" "}
-              {factIssuesCount === 1 ? "утверждение" : factIssuesCount < 5 ? "утверждения" : "утверждений"}{" "}
-              требующих проверки
+              {t("hints.fact.warn", { n: factIssuesCount })}
             </div>
           </div>
           <Button
@@ -116,7 +116,7 @@ export function ArticleQualityHints({
             className="h-7 text-xs"
             onClick={onOpenFactCheck}
           >
-            Проверить
+            {t("hints.fact.check")}
           </Button>
           <Button
             size="sm"
@@ -124,13 +124,13 @@ export function ArticleQualityHints({
             className="h-7 text-xs"
             onClick={() => { onAutoFix(); setFactDismissed(true); }}
           >
-            Исправить авто
+            {t("hints.fact.autoFix")}
           </Button>
           <button
             type="button"
             className="text-amber-300/70 hover:text-amber-200"
             onClick={() => setFactDismissed(true)}
-            title="Скрыть"
+            title={t("hints.fact.hide")}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -139,7 +139,7 @@ export function ArticleQualityHints({
       {showFactOk && (
         <div className="inline-flex items-center gap-1.5 rounded-md border border-green-500/40 bg-green-500/10 px-2.5 py-1">
           <ShieldCheck className="h-3.5 w-3.5 text-green-400" />
-          <span className="text-[11px] text-green-100">Fact Check: OK</span>
+          <span className="text-[11px] text-green-100">{t("hints.fact.ok")}</span>
         </div>
       )}
     </div>
