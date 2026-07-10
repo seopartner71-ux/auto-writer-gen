@@ -27,7 +27,7 @@ import { RankingTracker } from "@/components/analytics/RankingTracker";
 /* ──────────── Quick Start Banner ──────────── */
 function QuickStartBanner() {
   const navigate = useNavigate();
-  const { lang } = useI18n();
+  const { t } = useI18n();
   return (
     <Card
       onClick={() => navigate("/quick-start")}
@@ -40,16 +40,14 @@ function QuickStartBanner() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold text-sm">
-              {lang === "ru" ? "Статья за 60 секунд" : "Article in 60 seconds"}
+              {t("dashboard.quickStart.title")}
             </h3>
             <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/15 text-primary">
-              {lang === "ru" ? "Авто-режим" : "Auto mode"}
+              {t("dashboard.quickStart.badge")}
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {lang === "ru"
-              ? "Введите ключ - получите Research, структуру и готовый текст за один клик"
-              : "Enter a keyword - get Research, structure and ready text in one click"}
+            {t("dashboard.quickStart.desc")}
           </p>
         </div>
         <ArrowRight className="h-4 w-4 text-primary shrink-0 transition-transform group-hover:translate-x-0.5" />
@@ -1163,7 +1161,7 @@ export default function DashboardPage() {
                       {kw.difficulty != null && <Progress value={kw.difficulty} className="w-12 h-1.5" />}
                       <button
                         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                        title="Удалить"
+                        title={t("common.delete")}
                         onClick={async () => {
                           const { error } = await supabase.functions.invoke("delete-content", { body: { type: "keyword", id: kw.id } });
                           if (error) { toast.error(`${t("adminDash.errorDelete")}: ${error.message}`); return; }
@@ -1204,7 +1202,7 @@ export default function DashboardPage() {
                         <Badge variant={a.status === "published" ? "default" : "secondary"} className="text-[10px]">{statusLabel}</Badge>
                         <button
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                          title="Удалить"
+                          title={t("common.delete")}
                           onClick={async () => {
                             const { error } = await supabase.functions.invoke("delete-content", { body: { type: "article", id: a.id } });
                             if (error) { toast.error(`${t("adminDash.errorDelete")}: ${error.message}`); return; }

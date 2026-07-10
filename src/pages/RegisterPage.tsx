@@ -102,7 +102,7 @@ export default function RegisterPage() {
       return;
     }
     if (!turnstileToken) {
-      toast.error(lang === "ru" ? "Пожалуйста, пройдите проверку CAPTCHA" : "Please complete the CAPTCHA check");
+      toast.error(t("auth.captchaRequired"));
       return;
     }
     setLoading(true);
@@ -130,7 +130,7 @@ export default function RegisterPage() {
         body: { email, client_ip: registrationIp, turnstile_token: turnstileToken },
       });
       if (checkResult && !checkResult.allowed) {
-        toast.error(checkResult.reason || (lang === "ru" ? "Регистрация заблокирована" : "Registration blocked"));
+        toast.error(checkResult.reason || t("auth.registrationBlocked"));
         // Reset Turnstile for retry
         setTurnstileToken(null);
         if (widgetIdRef.current && (window as any).turnstile) {
@@ -160,15 +160,16 @@ export default function RegisterPage() {
     });
     setLoading(false);
     if (error) {
-      const ruErrors: Record<string, string> = {
-        "Password is known to be weak and easy to guess, please choose a different one.": "Пароль слишком простой и легко угадывается. Пожалуйста, выберите другой.",
-        "User already registered": "Пользователь с таким email уже зарегистрирован.",
-        "Password should be at least 6 characters.": "Пароль должен быть не менее 6 символов.",
-        "Unable to validate email address: invalid format": "Неверный формат email адреса.",
-        "Signup requires a valid password": "Необходимо указать пароль.",
-        "Password is too weak. It has been found in a database of compromised passwords.": "Пароль обнаружен в базе скомпрометированных паролей. Выберите другой.",
+      const errKeyMap: Record<string, string> = {
+        "Password is known to be weak and easy to guess, please choose a different one.": "auth.err.weakPassword",
+        "User already registered": "auth.err.alreadyRegistered",
+        "Password should be at least 6 characters.": "auth.err.passwordShort",
+        "Unable to validate email address: invalid format": "auth.err.emailFormat",
+        "Signup requires a valid password": "auth.err.passwordRequired",
+        "Password is too weak. It has been found in a database of compromised passwords.": "auth.err.passwordCompromised",
       };
-      toast.error(lang === "ru" ? (ruErrors[error.message] || error.message) : error.message);
+      const mapped = errKeyMap[error.message];
+      toast.error(mapped ? t(mapped) : error.message);
       // Reset Turnstile
       setTurnstileToken(null);
       if (widgetIdRef.current && (window as any).turnstile) {
@@ -189,12 +190,16 @@ export default function RegisterPage() {
               <Hexagon className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-brand tracking-tight">СЕО-<span className="gradient-text">Модуль</span></CardTitle>
+          <CardTitle className="text-2xl font-brand tracking-tight">
+            {lang === "ru"
+              ? (<>СЕО-<span className="gradient-text">Модуль</span></>)
+              : (<span className="gradient-text">{t("brand.name")}</span>)}
+          </CardTitle>
           <CardDescription>
             {submitted
-              ? (lang === "ru" ? "Заявка принята" : "Application received")
+              ? t("auth.applicationReceived")
               : registrationOpen === false
-                ? (lang === "ru" ? "Регистрация закрыта" : "Registration closed")
+                ? t("auth.registrationClosed")
                 : t("auth.registerTitle")}
           </CardDescription>
         </CardHeader>
@@ -202,20 +207,16 @@ export default function RegisterPage() {
           {submitted ? (
             <div className="space-y-4 text-center">
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-4 py-4 text-sm text-emerald-300/90">
-                {lang === "ru"
-                  ? "Заявка отправлена. Мы свяжемся с вами после проверки - на указанный email придёт письмо об активации."
-                  : "Application sent. We'll get back to you after the review - you'll receive an activation email on the address you provided."}
+                {t("auth.applicationSent")}
               </div>
               <Link to="/login" className="inline-block text-sm text-primary hover:underline">
-                {lang === "ru" ? "Вернуться к входу" : "Back to login"}
+                {t("auth.backToLogin")}
               </Link>
             </div>
           ) : registrationOpen === false ? (
             <div className="space-y-4 text-center">
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-amber-300/90">
-                {lang === "ru"
-                  ? "Регистрация временно закрыта. Свяжитесь с нами для получения доступа."
-                  : "Registration is temporarily closed. Contact us to request access."}
+                {t("auth.registrationClosedDesc")}
               </div>
               <a
                 href="https://t.me/sin0ptick"
@@ -223,11 +224,11 @@ export default function RegisterPage() {
                 rel="noopener noreferrer"
                 className="inline-block text-sm text-primary hover:underline"
               >
-                {lang === "ru" ? "Написать в Telegram" : "Message us on Telegram"}
+                {t("auth.messageTelegram")}
               </a>
               <div className="text-xs text-muted-foreground">
                 <Link to="/login" className="hover:text-primary">
-                  {lang === "ru" ? "У меня уже есть аккаунт" : "I already have an account"}
+                  {t("auth.alreadyHaveAccount")}
                 </Link>
               </div>
             </div>
@@ -235,12 +236,10 @@ export default function RegisterPage() {
           <>
           <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-2.5 text-[12px] leading-relaxed text-emerald-300/90">
             <div className="font-tech font-semibold mb-0.5">
-              {lang === "ru" ? "Доступ открывается после ручной проверки" : "Access is granted after manual review"}
+              {t("auth.closedRegBadge")}
             </div>
             <div className="text-emerald-300/70 text-[11px]">
-              {lang === "ru"
-                ? "Мы рассматриваем заявки вручную и сообщаем об активации письмом на ваш email. 2 кредита на счет сразу после активации - хватит проверить Smart Research и сгенерировать статью."
-                : "We review applications manually and email you once your account is activated. 2 credits land on your account right after activation - enough to test Smart Research and generate one article."}
+              {t("auth.closedRegDesc")}
             </div>
           </div>
           <form onSubmit={handleRegister} className="space-y-4">
@@ -338,15 +337,10 @@ export default function RegisterPage() {
                 className="mt-0.5"
               />
               <label htmlFor="terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
-                {lang === "ru" ? (
-                  <>Я согласен с условиями{" "}
-                    <Link to="/offer" className="text-primary hover:underline" target="_blank">Публичной оферты</Link>{" "}и{" "}
-                    <Link to="/privacy" className="text-primary hover:underline" target="_blank">Политикой конфиденциальности</Link></>
-                ) : (
-                  <>I agree to the{" "}
-                    <Link to="/offer" className="text-primary hover:underline" target="_blank">Public Offer</Link>{" "}and{" "}
-                    <Link to="/privacy" className="text-primary hover:underline" target="_blank">Privacy Policy</Link></>
-                )}
+                {t("auth.termsAgreementRu")}{" "}
+                <Link to="/offer" className="text-primary hover:underline" target="_blank">{t("auth.termsOffer")}</Link>{" "}
+                {t("auth.termsAnd")}{" "}
+                <Link to="/privacy" className="text-primary hover:underline" target="_blank">{t("auth.termsPrivacy")}</Link>
               </label>
             </div>
 
