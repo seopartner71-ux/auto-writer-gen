@@ -153,9 +153,9 @@ export default function CalendarPage() {
   });
 
   const { data: authors = [] } = useQuery({
-    queryKey: ["authors-for-calendar"],
+    queryKey: ["authors-for-calendar", lang],
     queryFn: async () => {
-      const { data } = await supabase.from("author_profiles").select("id, name").order("name");
+      const { data } = await supabase.from("author_profiles").select("id, name").eq("language", lang).order("name");
       return data || [];
     },
   });
