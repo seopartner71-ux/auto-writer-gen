@@ -54,10 +54,10 @@ export function BulkGenerationMode() {
 
   const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; className: string }> = {
     queued: { label: t("bulk.inQueue"), icon: FileText, className: "bg-muted text-muted-foreground" },
-    researching: { label: "Researching", icon: Search, className: "bg-info/20 text-info" },
-    writing: { label: "Writing", icon: Pencil, className: "bg-primary/20 text-primary" },
-    done: { label: "Done", icon: CheckCircle2, className: "bg-purple-500/20 text-purple-400" },
-    error: { label: "Error", icon: AlertTriangle, className: "bg-destructive/20 text-destructive" },
+    researching: { label: t("bulk.statusResearching"), icon: Search, className: "bg-info/20 text-info" },
+    writing: { label: t("bulk.statusWriting"), icon: Pencil, className: "bg-primary/20 text-primary" },
+    done: { label: t("bulk.statusDone"), icon: CheckCircle2, className: "bg-purple-500/20 text-purple-400" },
+    error: { label: t("bulk.statusError"), icon: AlertTriangle, className: "bg-destructive/20 text-destructive" },
   };
 
   const { data: authorProfiles = [] } = useQuery({
@@ -178,17 +178,17 @@ export function BulkGenerationMode() {
     mutationFn: async () => {
       if (keywords.length === 0) throw new Error(t("bulk.uploadError"));
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error("Not authenticated");
+      if (!session?.user) throw new Error(t("bulk.notAuth"));
       // Plan-based bulk size limit. DB plans: free=NANO (no bulk), basic=PRO (≤10), pro=FACTORY (∞)
       const { data: prof } = await supabase.from("profiles").select("plan").eq("id", session.user.id).maybeSingle();
       const plan = String((prof as any)?.plan || "").toLowerCase();
       const BULK_MAX: Record<string, number> = { free: 0, basic: 10, pro: 999 };
       const maxItems = BULK_MAX[plan] ?? 0;
       if (maxItems === 0) {
-        throw new Error("Массовая генерация доступна на тарифах PRO и FACTORY");
+        throw new Error(t("bulk.needPlan"));
       }
       if (keywords.length > maxItems) {
-        throw new Error(`Ваш тариф позволяет до ${maxItems} статей за раз. Обновите до FACTORY для безлимита.`);
+        throw new Error(t("bulk.overLimit", { n: maxItems }));
       }
       const { data: job, error: jobErr } = await supabase
         .from("bulk_jobs")
@@ -207,7 +207,7 @@ export function BulkGenerationMode() {
       queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
       queryClient.invalidateQueries({ queryKey: ["bulk-job-items", jobId] });
       startProcessing.mutate(jobId);
-      toast.success("Пакет создан");
+      toast.success(t("bulk.batchCreated"));
     },
     onError: (e) => toast.error(e.message),
   });
@@ -231,7 +231,7 @@ export function BulkGenerationMode() {
       const { error } = await supabase.from("bulk_jobs").update({ status: "paused" }).eq("id", jobId);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); toast.success("Генерация поставлена на паузу"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); toast.success(t("bulk.paused")); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -247,7 +247,7 @@ export function BulkGenerationMode() {
     onSuccess: (_, jobId) => {
       queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
       queryClient.invalidateQueries({ queryKey: ["bulk-job-items", jobId] });
-      toast.success("Генерация возобновлена");
+      toast.success(t("bulk.resumed"));
     },
     onError: (e) => toast.error(e.message),
   });
@@ -270,7 +270,7 @@ export function BulkGenerationMode() {
       queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] });
       queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
       setDeletingItemId(null);
-      toast.success("Статья удалена");
+      toast.success(t("bulk.articleDeleted"));
     },
     onError: (e) => toast.error(e.message),
   });
@@ -278,7 +278,7 @@ export function BulkGenerationMode() {
   const publishToWp = useMutation({
     mutationFn: async ({ articleId, siteId }: { articleId: string; siteId: string }) => {
       const { data: article } = await supabase.from("articles").select("title, content, meta_description").eq("id", articleId).single();
-      if (!article) throw new Error("Статья не найдена");
+      if (!article) throw new Error(t("bulk.articleNotFound"));
       const { data, error } = await supabase.functions.invoke("wordpress-proxy", {
         body: {
           action: "create_post",
@@ -290,15 +290,15 @@ export function BulkGenerationMode() {
           meta_description: article.meta_description || "",
         },
       });
-      if (error || data?.error) throw new Error(data?.error || "Ошибка публикации");
+      if (error || data?.error) throw new Error(data?.error || t("bulk.publishError"));
       return data;
     },
     onSuccess: (data) => {
       setPublishingItemId(null);
       const url = data?.post_url || data?.url;
-      toast.success("Черновик создан в WordPress!", {
+      toast.success(t("bulk.draftCreatedWp"), {
         description: url,
-        action: url ? { label: "Открыть", onClick: () => window.open(url, "_blank") } : undefined,
+        action: url ? { label: t("bulk.open"), onClick: () => window.open(url, "_blank") } : undefined,
       });
     },
     onError: (e) => toast.error(e.message),
@@ -358,7 +358,7 @@ export function BulkGenerationMode() {
     link.download = `articles-${new Date().toISOString().slice(0, 10)}.zip`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`ZIP создан: ${articles.length} файлов`);
+    toast.success(t("bulk.zipCreated", { n: articles.length }));
   }, [fetchDoneArticles]);
 
   const handleDownloadCsv = useCallback(async () => {
@@ -369,7 +369,7 @@ export function BulkGenerationMode() {
       return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const rows = [
-      ["Заголовок", "URL", "Слов", "SEO Score", "Дата"],
+      [t("bulk.csvColTitle"), t("bulk.csvColUrl"), t("bulk.csvColWords"), t("bulk.csvColScore"), t("bulk.csvColDate")],
       ...articles.map((a: any) => {
         const words = a.content ? String(a.content).split(/\s+/).filter(Boolean).length : 0;
         const score = a.seo_score && typeof a.seo_score === "object"
@@ -392,7 +392,7 @@ export function BulkGenerationMode() {
     link.download = `articles-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`CSV создан: ${articles.length} строк`);
+    toast.success(t("bulk.csvCreated", { n: articles.length }));
   }, [fetchDoneArticles]);
 
   const progressPercent = activeJob ? Math.round((activeJob.completed_items / Math.max(activeJob.total_items, 1)) * 100) : 0;
@@ -411,8 +411,8 @@ export function BulkGenerationMode() {
     if (sec <= 0) return "-";
     const h = Math.floor(sec / 3600);
     const m = Math.round((sec % 3600) / 60);
-    if (h > 0) return `${h} ч ${m} мин`;
-    return `${m} мин`;
+    if (h > 0) return t("bulk.etaHours", { h, m });
+    return t("bulk.etaMinutes", { m });
   };
 
   return (
@@ -452,12 +452,12 @@ export function BulkGenerationMode() {
 
           {/* Manual keyword input */}
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Или введите запросы вручную (каждый с новой строки)</Label>
+            <Label className="text-xs text-muted-foreground">{t("bulk.manualLabel")}</Label>
             <div className="flex gap-2">
               <Textarea
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
-                placeholder={"как выбрать ноутбук\nлучшие смартфоны 2026\nсравнение iphone и samsung"}
+                placeholder={t("bulk.manualPlaceholder")}
                 className="text-sm min-h-[80px] resize-y"
                 rows={3}
               />
@@ -475,11 +475,11 @@ export function BulkGenerationMode() {
                   const merged = [...new Set([...keywords, ...lines])].slice(0, 100);
                   setKeywords(merged);
                   setManualInput("");
-                  toast.success(`Добавлено ${lines.length} запросов`);
+                  toast.success(t("bulk.addedN", { n: lines.length }));
                 }}
               >
                 <Plus className="h-4 w-4" />
-                Добавить
+                {t("bulk.add")}
               </Button>
             </div>
           </div>
@@ -515,23 +515,23 @@ export function BulkGenerationMode() {
                 {activeJob.status === "completed" && (
                   <>
                     <Button size="sm" variant="outline" onClick={handleDownloadAll} className="gap-1.5">
-                      <DownloadIcon className="h-4 w-4" />Скачать ZIP (HTML)
+                      <DownloadIcon className="h-4 w-4" />{t("bulk.downloadZip")}
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleDownloadCsv} className="gap-1.5">
-                      <FileSpreadsheet className="h-4 w-4" />Экспорт CSV
+                      <FileSpreadsheet className="h-4 w-4" />{t("bulk.exportCsv")}
                     </Button>
                   </>
                 )}
                 {activeJob.status === "processing" && (
                   <Button size="sm" variant="outline" onClick={() => pauseJob.mutate(activeJob.id)} disabled={pauseJob.isPending} className="gap-1.5">
                     {pauseJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
-                    Пауза
+                    {t("bulk.pauseBtn")}
                   </Button>
                 )}
                 {isPaused && (
                   <Button size="sm" variant="default" onClick={() => resumeJob.mutate(activeJob.id)} disabled={resumeJob.isPending} className="gap-1.5">
                     {resumeJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                    Возобновить
+                    {t("bulk.resumeBtn")}
                   </Button>
                 )}
                 {(activeJob.status !== "processing") && (
@@ -540,7 +540,7 @@ export function BulkGenerationMode() {
                   </Button>
                 )}
                 {activeJob.status === "processing" && <Badge className="bg-primary/20 text-primary border-0 animate-pulse"><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />{t("bulk.processing")}</Badge>}
-                {isPaused && <Badge variant="outline" className="border-yellow-500/30 text-yellow-500">На паузе</Badge>}
+                {isPaused && <Badge variant="outline" className="border-yellow-500/30 text-yellow-500">{t("bulk.pausedBadge")}</Badge>}
               </div>
             </div>
           </CardHeader>
@@ -549,23 +549,23 @@ export function BulkGenerationMode() {
             <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
                 <span className="flex items-center gap-1.5 text-emerald-500">
-                  <CheckCircle2 className="h-4 w-4" /> Готово: <b>{counts.done}</b>
+                  <CheckCircle2 className="h-4 w-4" /> {t("bulk.qDone")}: <b>{counts.done}</b>
                 </span>
                 <span className="flex items-center gap-1.5 text-yellow-500">
-                  <Loader2 className={`h-4 w-4 ${counts.working > 0 ? "animate-spin" : ""}`} /> В работе: <b>{counts.working}</b>
+                  <Loader2 className={`h-4 w-4 ${counts.working > 0 ? "animate-spin" : ""}`} /> {t("bulk.qWorking")}: <b>{counts.working}</b>
                 </span>
                 <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <FileText className="h-4 w-4" /> Ждут: <b>{counts.queued}</b>
+                  <FileText className="h-4 w-4" /> {t("bulk.qWaiting")}: <b>{counts.queued}</b>
                 </span>
                 {counts.error > 0 && (
                   <span className="flex items-center gap-1.5 text-destructive">
-                    <AlertTriangle className="h-4 w-4" /> Ошибки: <b>{counts.error}</b>
+                    <AlertTriangle className="h-4 w-4" /> {t("bulk.qErrors")}: <b>{counts.error}</b>
                   </span>
                 )}
                 <span className="ml-auto text-xs text-muted-foreground">
-                  {progressPercent}% ({activeJob.completed_items} из {activeJob.total_items})
+                  {progressPercent}% ({activeJob.completed_items} {t("bulk.of")} {activeJob.total_items})
                   {remainingSec > 0 && activeJob.status === "processing" && (
-                    <> - примерно {formatEta(remainingSec)} до завершения</>
+                    <> - {t("bulk.etaHint", { eta: formatEta(remainingSec) })}</>
                   )}
                 </span>
               </div>
@@ -597,7 +597,7 @@ export function BulkGenerationMode() {
                                 size="sm"
                                 variant="ghost"
                                 className="text-yellow-500 hover:text-yellow-400 gap-1"
-                                title="Повторить"
+                                title={t("bulk.retry")}
                                 onClick={async () => {
                                   await supabase.from("bulk_job_items")
                                     .update({ status: "queued", error_message: null })
@@ -607,7 +607,7 @@ export function BulkGenerationMode() {
                                     .eq("id", activeJob!.id);
                                   startProcessing.mutate(activeJob!.id);
                                   queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] });
-                                  toast.success("Поставлено в очередь");
+                                  toast.success(t("bulk.queued"));
                                 }}
                               >
                                 <RotateCcw className="h-3.5 w-3.5" />
@@ -615,18 +615,18 @@ export function BulkGenerationMode() {
                             )}
                             {item.status === "done" && item.article_id && (
                               <>
-                                <Button size="sm" variant="ghost" onClick={() => window.location.href = `/articles?edit=${item.article_id}`} title="Редактировать">
+                                <Button size="sm" variant="ghost" onClick={() => window.location.href = `/articles?edit=${item.article_id}`} title={t("bulk.editArticle")}>
                                   <Pencil className="h-3.5 w-3.5" />
                                 </Button>
                                 {wpSites.length > 0 && (
                                   <Popover>
                                     <PopoverTrigger asChild>
-                                      <Button size="sm" variant="ghost" title="Опубликовать в WordPress" disabled={publishToWp.isPending && publishingItemId === item.id}>
+                                      <Button size="sm" variant="ghost" title={t("bulk.publishToWp")} disabled={publishToWp.isPending && publishingItemId === item.id}>
                                         {publishToWp.isPending && publishingItemId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
                                       </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-48 p-1" align="end">
-                                      <p className="text-xs text-muted-foreground px-2 py-1.5">Выберите блог:</p>
+                                      <p className="text-xs text-muted-foreground px-2 py-1.5">{t("bulk.selectBlog")}</p>
                                       {wpSites.map((site: any) => (
                                         <Button
                                           key={site.id}
@@ -650,9 +650,9 @@ export function BulkGenerationMode() {
                               size="sm"
                               variant="ghost"
                               className="text-destructive hover:text-destructive"
-                              onClick={async () => { if (await confirm({ title: "Удалить статью и запись?", destructive: true, confirmText: "Удалить" })) deleteArticle.mutate(item); }}
+                              onClick={async () => { if (await confirm({ title: t("bulk.deleteArticleConfirm"), destructive: true, confirmText: t("bulk.confirmDelete") })) deleteArticle.mutate(item); }}
                               disabled={deleteArticle.isPending && deletingItemId === item.id}
-                              title="Удалить"
+                              title={t("bulk.deleteTitle")}
                             >
                               {deleteArticle.isPending && deletingItemId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                             </Button>
