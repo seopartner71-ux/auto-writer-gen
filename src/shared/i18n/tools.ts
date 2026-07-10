@@ -241,7 +241,7 @@ export const tools: Dict = {
   "radar.queries": { ru: "запросов", en: "queries" },
   "radar.newMonitoringProject": { ru: "Новый проект GEO-мониторинга", en: "New GEO monitoring project" },
   "radar.brandName": { ru: "Название бренда", en: "Brand name" },
-  "radar.brandPlaceholder": { ru: "Например: СЕО-Модуль", en: "E.g.: СЕО-Модуль" },
+  "radar.brandPlaceholder": { ru: "Например: СЕО-Модуль", en: "E.g.: Draften" },
   "radar.domain": { ru: "Домен сайта", en: "Website domain" },
   "radar.dataNuggets": { ru: "Data Nuggets (уникальные тезисы, по одному на строку)", en: "Data Nuggets (unique selling points, one per line)" },
   "radar.projectCreated": { ru: "Проект создан", en: "Project created" },
