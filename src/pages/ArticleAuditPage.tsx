@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useI18n } from "@/shared/hooks/useI18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -32,12 +33,6 @@ function scoreColor(score: number): string {
   if (score >= 40) return "text-amber-400";
   return "text-red-400";
 }
-function scoreLabel(score: number): string {
-  if (score >= 90) return "Отлично";
-  if (score >= 70) return "Хорошо";
-  if (score >= 40) return "Средне";
-  return "Слабо";
-}
 function scoreBarColor(score: number): string {
   if (score >= 70) return "bg-emerald-500";
   if (score >= 40) return "bg-amber-500";
@@ -46,8 +41,15 @@ function scoreBarColor(score: number): string {
 
 export default function ArticleAuditPage() {
   const { user } = useAuth();
+  const { t, lang } = useI18n();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const scoreLabel = (score: number): string => {
+    if (score >= 90) return t("audit.scoreExcellent");
+    if (score >= 70) return t("audit.scoreGood");
+    if (score >= 40) return t("audit.scoreAverage");
+    return t("audit.scoreWeak");
+  };
   const [url, setUrl] = useState("");
   const [keyword, setKeyword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -69,7 +71,7 @@ export default function ArticleAuditPage() {
 
   const runAudit = async () => {
     if (!url.trim() || !/^https?:\/\//i.test(url.trim())) {
-      toast.error("Введите корректный URL (с http:// или https://)");
+      toast.error(t("audit.invalidUrl"));
       return;
     }
     setLoading(true);
@@ -78,7 +80,7 @@ export default function ArticleAuditPage() {
       const { data, error } = await supabase.functions.invoke("article-audit", {
         body: { url: url.trim(), keyword: keyword.trim() || undefined },
       });
-      if (error) throw new Error(error.message || "Ошибка анализа");
+      if (error) throw new Error(error.message || t("audit.errorGeneric"));
       if ((data as any)?.error) throw new Error((data as any).error);
       const row: AuditRow = {
         id: (data as any).id,
@@ -89,9 +91,9 @@ export default function ArticleAuditPage() {
       };
       setCurrent(row);
       qc.invalidateQueries({ queryKey: ["article-audits", user?.id] });
-      toast.success("Аудит готов");
+      toast.success(t("audit.ready"));
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось выполнить аудит");
+      toast.error(e?.message || t("audit.errorRun"));
     } finally {
       setLoading(false);
     }
@@ -101,22 +103,22 @@ export default function ArticleAuditPage() {
     if (!current) return;
     const r = current.result;
     const lines = [
-      `Аудит: ${current.url}`,
-      current.keyword ? `Ключ: ${current.keyword}` : "",
-      `Оценка: ${r.score}/100 - ${scoreLabel(r.score)}`,
-      `Резюме: ${r.summary}`,
+      t("audit.reportUrl", { url: current.url }),
+      current.keyword ? t("audit.reportKey", { kw: current.keyword }) : "",
+      t("audit.reportScore", { score: r.score, label: scoreLabel(r.score) }),
+      t("audit.reportSummary", { text: r.summary }),
       "",
-      "Сильные стороны:",
+      t("audit.reportStrengths"),
       ...r.strengths.map((s) => `- ${s}`),
       "",
-      "Что улучшить:",
+      t("audit.reportImprovements"),
       ...r.improvements.map((s) => `- ${s}`),
       "",
-      "Приоритеты:",
+      t("audit.reportPriorities"),
       ...r.priorities.map((s, i) => `${i + 1}. ${s}`),
     ].filter(Boolean).join("\n");
     navigator.clipboard.writeText(lines);
-    toast.success("Отчет скопирован");
+    toast.success(t("audit.reportCopied"));
   };
 
   const rewriteThis = () => {
@@ -138,7 +140,7 @@ export default function ArticleAuditPage() {
   const deleteAudit = async (id: string) => {
     const { error } = await supabase.from("article_audits" as any).delete().eq("id", id);
     if (error) {
-      toast.error("Не удалось удалить");
+      toast.error(t("audit.deleteFailed"));
       return;
     }
     qc.invalidateQueries({ queryKey: ["article-audits", user?.id] });
@@ -149,29 +151,29 @@ export default function ArticleAuditPage() {
       <header>
         <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
           <Search className="h-6 w-6 text-primary" />
-          AI-аудит статьи
+          {t("audit.title")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Вставьте URL вашей статьи или статьи конкурента - за 30 секунд получите отчет что улучшить.
+          {t("audit.subtitle")}
         </p>
       </header>
 
       <Card className="p-5 space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium">URL статьи</label>
+          <label className="text-sm font-medium">{t("audit.urlLabel")}</label>
           <Input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/moya-statya"
+            placeholder={t("audit.urlPlaceholder")}
             disabled={loading}
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Ключевое слово (опционально)</label>
+          <label className="text-sm font-medium">{t("audit.keywordLabel")}</label>
           <Input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="газовая колонка купить"
+            placeholder={t("audit.keywordPlaceholder")}
             disabled={loading}
           />
         </div>
@@ -179,12 +181,12 @@ export default function ArticleAuditPage() {
           {loading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Анализирую (~30 сек)
+              {t("audit.analyzing")}
             </>
           ) : (
             <>
               <Search className="h-4 w-4 mr-2" />
-              Проанализировать статью
+              {t("audit.analyze")}
             </>
           )}
         </Button>
@@ -200,13 +202,13 @@ export default function ArticleAuditPage() {
               </a>
             </div>
             <h2 className="text-lg font-semibold">
-              {current.result.stats?.h1 || current.result.stats?.title || "Аудит статьи"}
+              {current.result.stats?.h1 || current.result.stats?.title || t("audit.defaultTitle")}
             </h2>
           </div>
 
           <div className="rounded-lg border bg-muted/30 p-4">
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-sm font-medium">Общая оценка</span>
+              <span className="text-sm font-medium">{t("audit.overallScore")}</span>
               <span className={`text-2xl font-bold ${scoreColor(current.result.score)}`}>
                 {current.result.score}/100
               </span>
@@ -225,7 +227,7 @@ export default function ArticleAuditPage() {
           {current.result.strengths.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold flex items-center gap-2 mb-2 text-emerald-400">
-                <CheckCircle2 className="h-4 w-4" /> Сильные стороны
+                <CheckCircle2 className="h-4 w-4" /> {t("audit.strengths")}
               </h3>
               <ul className="space-y-1 text-sm">
                 {current.result.strengths.map((s, i) => (
@@ -238,7 +240,7 @@ export default function ArticleAuditPage() {
           {current.result.improvements.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold flex items-center gap-2 mb-2 text-amber-400">
-                <AlertTriangle className="h-4 w-4" /> Что улучшить
+                <AlertTriangle className="h-4 w-4" /> {t("audit.improvements")}
               </h3>
               <ul className="space-y-1 text-sm">
                 {current.result.improvements.map((s, i) => (
@@ -251,7 +253,7 @@ export default function ArticleAuditPage() {
           {current.result.priorities.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold flex items-center gap-2 mb-2 text-primary">
-                <Target className="h-4 w-4" /> Приоритеты для роста в топ
+                <Target className="h-4 w-4" /> {t("audit.priorities")}
               </h3>
               <ol className="space-y-1 text-sm list-decimal list-inside">
                 {current.result.priorities.map((s, i) => (
@@ -264,11 +266,11 @@ export default function ArticleAuditPage() {
           <div className="flex flex-wrap gap-2 pt-2 border-t">
             <Button onClick={rewriteThis} className="gap-2">
               <Sparkles className="h-4 w-4" />
-              Переписать эту статью
+              {t("audit.rewriteThis")}
             </Button>
             <Button onClick={copyReport} variant="outline" className="gap-2">
               <Copy className="h-4 w-4" />
-              Скопировать отчет
+              {t("audit.copyReport")}
             </Button>
           </div>
         </Card>
@@ -277,7 +279,7 @@ export default function ArticleAuditPage() {
       {history && history.length > 0 && (
         <Card className="p-5">
           <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-            <History className="h-4 w-4" /> История аудитов
+            <History className="h-4 w-4" /> {t("audit.history")}
           </h3>
           <div className="space-y-2">
             {history.map((h) => (
@@ -289,10 +291,10 @@ export default function ArticleAuditPage() {
                   <div className="truncate">{h.url}</div>
                   <div className="text-xs text-muted-foreground">
                     {h.keyword ? `${h.keyword} · ` : ""}
-                    {new Date(h.created_at).toLocaleDateString("ru-RU")}
+                    {new Date(h.created_at).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US")}
                   </div>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setCurrent(h)}>Открыть</Button>
+                <Button size="sm" variant="ghost" onClick={() => setCurrent(h)}>{t("audit.open")}</Button>
                 <Button size="sm" variant="ghost" onClick={() => deleteAudit(h.id)}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
