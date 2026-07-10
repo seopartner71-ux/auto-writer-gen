@@ -21,17 +21,19 @@ import {
 } from "@/components/ui/select";
 import { Bug, Lightbulb, AlertTriangle, MessageSquarePlus, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 type FeedbackType = "bug" | "error" | "idea";
 
-const TYPES: { value: FeedbackType; label: string; tag: string; icon: typeof Bug }[] = [
-  { value: "bug", label: "Баг в интерфейсе", tag: "БАГ", icon: Bug },
-  { value: "error", label: "Ошибка системы", tag: "ОШИБКА", icon: AlertTriangle },
-  { value: "idea", label: "Идея / рекомендация", tag: "ИДЕЯ", icon: Lightbulb },
+const TYPE_CFG: { value: FeedbackType; labelKey: string; tagKey: string; icon: typeof Bug }[] = [
+  { value: "bug", labelKey: "feedback.typeBug", tagKey: "feedback.tagBug", icon: Bug },
+  { value: "error", labelKey: "feedback.typeError", tagKey: "feedback.tagError", icon: AlertTriangle },
+  { value: "idea", labelKey: "feedback.typeIdea", tagKey: "feedback.tagIdea", icon: Lightbulb },
 ];
 
 export function QuickFeedbackBar() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [enabled, setEnabled] = useState<boolean>(false);
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<FeedbackType>("bug");
@@ -57,32 +59,32 @@ export function QuickFeedbackBar() {
   const submit = async () => {
     const text = message.trim();
     if (text.length < 5) {
-      toast.error("Опишите проблему подробнее (минимум 5 символов)");
+      toast.error(t("feedback.tooShort"));
       return;
     }
     setSending(true);
     try {
-      const cfg = TYPES.find((t) => t.value === type)!;
+      const cfg = TYPE_CFG.find((c) => c.value === type)!;
       const cleanSubject = subject.trim() || text.slice(0, 60);
       const ctx = [
         `URL: ${window.location.href}`,
         `UA: ${navigator.userAgent}`,
-        `Время: ${new Date().toISOString()}`,
+        `${t("feedback.ctxTime")}: ${new Date().toISOString()}`,
       ].join("\n");
       const { error } = await supabase.from("support_tickets").insert({
         user_id: user.id,
-        subject: `[${cfg.tag}] ${cleanSubject}`.slice(0, 200),
+        subject: `[${t(cfg.tagKey)}] ${cleanSubject}`.slice(0, 200),
         message: `${text}\n\n---\n${ctx}`,
         status: "open",
       });
       if (error) throw error;
-      toast.success("Сообщение отправлено администратору");
+      toast.success(t("feedback.sent"));
       setOpen(false);
       setSubject("");
       setMessage("");
     } catch (e: any) {
       console.error("[quick-feedback]", e);
-      toast.error(e?.message || "Не удалось отправить");
+      toast.error(e?.message || t("feedback.sendError"));
     } finally {
       setSending(false);
     }
@@ -98,19 +100,19 @@ export function QuickFeedbackBar() {
           </span>
           <MessageSquarePlus className="h-4 w-4 text-primary shrink-0 hidden sm:inline" />
           <span className="text-foreground/90 font-medium hidden md:inline">
-            Идет бета-тестирование. Нашли баг, ошибку или есть идея? Сообщите админу одной кнопкой.
+            {t("feedback.betaLong")}
           </span>
           <span className="text-foreground/90 font-medium hidden sm:inline md:hidden">
-            Бета-тест. Помогите сделать сервис лучше.
+            {t("feedback.betaMid")}
           </span>
-          <span className="text-foreground/90 font-medium sm:hidden">Бета-тест</span>
+          <span className="text-foreground/90 font-medium sm:hidden">{t("feedback.betaShort")}</span>
           <Button
             size="sm"
             variant="default"
             className="h-7 px-3 text-xs ml-auto font-semibold"
             onClick={() => setOpen(true)}
           >
-            Сообщить
+            {t("feedback.report")}
           </Button>
         </div>
       </div>
@@ -118,25 +120,25 @@ export function QuickFeedbackBar() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Быстрая связь с админом</DialogTitle>
+            <DialogTitle>{t("feedback.dialogTitle")}</DialogTitle>
             <DialogDescription>
-              Сообщение попадет в систему тикетов. Админ получит уведомление.
+              {t("feedback.dialogDesc")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Тип обращения</label>
+              <label className="text-xs text-muted-foreground">{t("feedback.type")}</label>
               <Select value={type} onValueChange={(v) => setType(v as FeedbackType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {TYPES.map((t) => {
-                    const Icon = t.icon;
+                  {TYPE_CFG.map((c) => {
+                    const Icon = c.icon;
                     return (
-                      <SelectItem key={t.value} value={t.value}>
+                      <SelectItem key={c.value} value={c.value}>
                         <span className="flex items-center gap-2">
                           <Icon className="h-3.5 w-3.5" />
-                          {t.label}
+                          {t(c.labelKey)}
                         </span>
                       </SelectItem>
                     );
@@ -146,22 +148,22 @@ export function QuickFeedbackBar() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Заголовок (опционально)</label>
+              <label className="text-xs text-muted-foreground">{t("feedback.subjectLabel")}</label>
               <Input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="Коротко о сути"
+                placeholder={t("feedback.subjectPh")}
                 maxLength={140}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Описание</label>
+              <label className="text-xs text-muted-foreground">{t("feedback.descLabel")}</label>
               <Textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={5}
-                placeholder="Что произошло, что вы делали, что ожидали увидеть..."
+                placeholder={t("feedback.descPh")}
                 maxLength={4000}
               />
               <div className="text-[10px] text-muted-foreground text-right">
@@ -172,10 +174,10 @@ export function QuickFeedbackBar() {
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={sending}>
-              <X className="h-3.5 w-3.5 mr-1" /> Отмена
+              <X className="h-3.5 w-3.5 mr-1" /> {t("common.cancel")}
             </Button>
             <Button onClick={submit} disabled={sending}>
-              {sending ? "Отправка..." : "Отправить"}
+              {sending ? t("feedback.sending") : t("feedback.send")}
             </Button>
           </DialogFooter>
         </DialogContent>

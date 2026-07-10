@@ -8,7 +8,8 @@ import { useAuth } from "@/shared/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { ru } from "date-fns/locale";
+import { ru, enUS } from "date-fns/locale";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface Notification {
   id: string;
@@ -20,6 +21,7 @@ interface Notification {
 
 export function NotificationBell() {
   const { user } = useAuth();
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
@@ -161,15 +163,15 @@ export function NotificationBell() {
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between border-b border-border px-4 py-2">
-          <span className="text-sm font-medium">Уведомления</span>
+          <span className="text-sm font-medium">{t("notify.title")}</span>
           <div className="flex gap-1">
             {unreadCount > 0 && (
               <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllRead}>
-                Прочитать все
+                {t("notify.readAll")}
               </Button>
             )}
             {notifications.length > 0 && (
-              <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={deleteAllNotifications} title="Удалить все">
+              <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={deleteAllNotifications} title={t("notify.deleteAll")}>
                 <Trash2 className="h-3 w-3" />
               </Button>
             )}
@@ -178,7 +180,7 @@ export function NotificationBell() {
         <ScrollArea className="max-h-72">
           {notifications.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              Нет уведомлений
+              {t("notify.empty")}
             </div>
           ) : (
             notifications.map((n) => (
@@ -208,7 +210,7 @@ export function NotificationBell() {
                 <p className="mt-1 text-[10px] text-muted-foreground/60">
                   {formatDistanceToNow(new Date(n.created_at), {
                     addSuffix: true,
-                    locale: ru,
+                    locale: lang === "ru" ? ru : enUS,
                   })}
                 </p>
               </div>

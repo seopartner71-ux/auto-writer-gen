@@ -12,7 +12,7 @@ const PLAN_RANK: Record<string, number> = { free: 0, basic: 1, pro: 2 };
 
 export function PlanModelCard() {
   const { profile, role } = useAuth();
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
   const isAdmin = role === "admin";
   const plan = (profile?.plan ?? "free") as string;
   const credits = profile?.credits_amount ?? 0;
@@ -45,7 +45,7 @@ export function PlanModelCard() {
   if (!current) {
     return (
       <div className="px-4 py-3 border-t border-sidebar-border text-xs text-muted-foreground">
-        {lang === "ru" ? "Загрузка..." : "Loading..."}
+        {t("common.loading")}
       </div>
     );
   }
@@ -56,37 +56,27 @@ export function PlanModelCard() {
   const planOk = isAdmin || userRank >= required;
   const articlesLeft = cost > 0 ? Math.floor(credits / cost) : 0;
   const reason = !planOk
-    ? lang === "ru"
-      ? `Требуется тариф ${PLAN_LABEL[current.min_plan]}+`
-      : `Requires ${PLAN_LABEL[current.min_plan]}+`
+    ? t("planCard.requiresPlan", { plan: PLAN_LABEL[current.min_plan] })
     : articlesLeft >= 10
-    ? lang === "ru"
-      ? "Хватит кредитов с запасом"
-      : "Plenty of credits"
+    ? t("planCard.plenty")
     : articlesLeft >= 3
-    ? lang === "ru"
-      ? "Кредитов хватит на несколько статей"
-      : "Enough for a few articles"
+    ? t("planCard.enoughFew")
     : articlesLeft >= 1
-    ? lang === "ru"
-      ? "Кредитов мало - пора пополнить"
-      : "Running low - top up soon"
-    : lang === "ru"
-    ? "Недостаточно кредитов"
-    : "Not enough credits";
+    ? t("planCard.lowTopUp")
+    : t("planCard.notEnough");
 
   return (
     <TooltipProvider delayDuration={150}>
       <div className="px-4 py-3 border-t border-sidebar-border space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">{lang === "ru" ? "Тариф" : "Plan"}</span>
+          <span className="text-muted-foreground">{t("planCard.plan")}</span>
           <Link to="/pricing" className="font-semibold text-primary uppercase hover:underline">
             {isAdmin ? "ADMIN" : PLAN_LABEL[plan] ?? plan.toUpperCase()}
           </Link>
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground flex items-center gap-1">
-            <Coins className="h-3 w-3" /> {lang === "ru" ? "Кредиты" : "Credits"}
+            <Coins className="h-3 w-3" /> {t("planCard.credits")}
           </span>
           <span className={`font-bold ${credits > 0 ? "text-success" : "text-destructive"}`}>
             {credits}
@@ -104,19 +94,13 @@ export function PlanModelCard() {
                   </span>
                 </div>
                 <span className="text-[10px] font-semibold text-primary whitespace-nowrap">
-                  {cost} {lang === "ru" ? "кр" : "cr"}
+                  {cost} {t("planCard.creditsShort")}
                 </span>
               </div>
               <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Info className="h-2.5 w-2.5" />
-                  {planOk
-                    ? lang === "ru"
-                      ? `~${articlesLeft} статей`
-                      : `~${articlesLeft} articles`
-                    : lang === "ru"
-                    ? "Модель заблокирована"
-                    : "Model locked"}
+                  {planOk ? t("planCard.articlesShort", { n: articlesLeft }) : t("planCard.modelLocked")}
                 </span>
                 {isAdmin && (
                   <span className="flex items-center gap-0.5 text-primary">
@@ -128,23 +112,13 @@ export function PlanModelCard() {
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-[260px] text-xs">
             <div className="space-y-1">
-              <div className="font-semibold">
-                {lang === "ru" ? "Почему эта модель?" : "Why this model?"}
-              </div>
+              <div className="font-semibold">{t("planCard.whyModel")}</div>
               <div>{reason}</div>
               <div className="pt-1 border-t border-border text-[11px] text-muted-foreground">
-                {lang === "ru"
-                  ? `База: ${cost} кр/статья. Stealth x1.5, длинные тексты x1.5-3.`
-                  : `Base: ${cost} cr/article. Stealth x1.5, long texts x1.5-3.`}
+                {t("planCard.baseInfo", { cost })}
               </div>
               <div className="text-[11px]">
-                {isAdmin
-                  ? lang === "ru"
-                    ? "Admin: списания отключены."
-                    : "Admin: deductions disabled."
-                  : lang === "ru"
-                  ? `Баланс: ${credits} кр - хватит на ~${articlesLeft} статей.`
-                  : `Balance: ${credits} cr - ~${articlesLeft} articles.`}
+                {isAdmin ? t("planCard.adminInfo") : t("planCard.balanceInfo", { credits, n: articlesLeft })}
               </div>
             </div>
           </TooltipContent>
