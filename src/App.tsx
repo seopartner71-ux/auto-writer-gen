@@ -100,6 +100,7 @@ const VcWriterPage = lazyWithRetry(() => import("@/pages/VcWriterPage"));
 const UtmGeneratorPage = lazyWithRetry(() => import("@/pages/UtmGeneratorPage"));
 const ContentPlanPage = lazyWithRetry(() => import("@/pages/ContentPlanPage"));
 const ApprovalPage = lazyWithRetry(() => import("@/pages/ApprovalPage"));
+const RewritePage = lazyWithRetry(() => import("@/pages/RewritePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -202,6 +203,7 @@ const App = () => (
                   <Route path="/network-monitor" element={<NetworkMonitorPage />} />
                   <Route path="/domain-hunter" element={<DomainHunterPage />} />
                   <Route path="/content-plan" element={<ProtectedRoute allowedRoles={["admin","staff"]}><ContentPlanPage /></ProtectedRoute>} />
+                  <Route path="/rewrite" element={<RewritePage />} />
                 </Route>
 
                 <Route element={<AdminLayout />}>
