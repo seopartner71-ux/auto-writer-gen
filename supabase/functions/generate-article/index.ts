@@ -246,6 +246,26 @@ serve(async (req) => {
       }
     }
 
+    // ─── Persona language sanity-check ─────────────────────────────────
+    // UI filters personas by locale, but the API accepts any author_profile_id.
+    // If persona language ≠ target article language, drop the persona prompt
+    // (fall back to plain style) and emit a pipeline_events warning.
+    {
+      const intendedLang = String(
+        bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
+      ).toLowerCase();
+      const kept = assertPersonaLanguage({
+        authorProfile: authorData,
+        articleLang: intendedLang,
+        context: {
+          fn: "generate-article",
+          userId: user.id,
+          keywordId: keyword_id ?? null,
+        },
+      });
+      if (authorData && !kept) authorData = null;
+    }
+
     // Fast-model override for low-quality publishing targets (Telegraph / Miralinks / GoGetLinks).
     // For these platforms users care about speed/cost more than nuance. Skip if it's a
     // humanize/polish pass (quality-critical) or a Site Factory project (already overridden).
