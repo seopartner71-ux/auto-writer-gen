@@ -15,6 +15,7 @@ import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurg
 import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,6 +244,26 @@ serve(async (req) => {
       } else {
         console.log("[generate-article] No author selected (humanize pass) — keeping default");
       }
+    }
+
+    // ─── Persona language sanity-check ─────────────────────────────────
+    // UI filters personas by locale, but the API accepts any author_profile_id.
+    // If persona language ≠ target article language, drop the persona prompt
+    // (fall back to plain style) and emit a pipeline_events warning.
+    {
+      const intendedLang = String(
+        bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
+      ).toLowerCase();
+      const kept = assertPersonaLanguage({
+        authorProfile: authorData,
+        articleLang: intendedLang,
+        context: {
+          fn: "generate-article",
+          userId: user.id,
+          keywordId: keyword_id ?? null,
+        },
+      });
+      if (authorData && !kept) authorData = null;
     }
 
     // Fast-model override for low-quality publishing targets (Telegraph / Miralinks / GoGetLinks).

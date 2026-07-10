@@ -15,6 +15,7 @@ import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurg
 import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 import { logLLM } from "../_shared/costLogger.ts";
+import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,10 +170,10 @@ async function processQueuedItem(params: {
     serperApiKey,
     writerModel,
     researchModel,
-    authorProfile,
     bulkJobId,
     completedCount,
   } = params;
+  let authorProfile = params.authorProfile;
 
   try {
     await admin.from("bulk_job_items").update({ status: "researching", error_message: null }).eq("id", item.id);
@@ -180,6 +181,23 @@ async function processQueuedItem(params: {
     const isRussian = /[а-яё]/i.test(item.seed_keyword);
     const geo = isRussian ? "ru" : "us";
     const lang = isRussian ? "ru" : "en";
+
+    // ─── Persona language sanity-check ───────────────────────────────
+    // Server-side guard: FACTORY jobs may carry a persona from the wrong
+    // locale (e.g. RU persona on EN keywords). Drop the persona prompt if
+    // languages diverge — bulk item will fall back to plain style.
+    {
+      const kept = assertPersonaLanguage({
+        authorProfile,
+        articleLang: lang,
+        context: {
+          fn: "bulk-generate",
+          userId,
+          keywordId: item.keyword_id ?? null,
+        },
+      });
+      if (authorProfile && !kept) authorProfile = null;
+    }
 
     let competitors: any[] = [];
     if (serperApiKey) {

@@ -10,6 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { chatComplete, AiError } from "../_shared/aiClient.ts";
 import { logLLM } from "../_shared/costLogger.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 import { ensureHtml, isStaleStatus } from "../_shared/ensureHtml.ts";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
 import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_shared/sentenceStructure.ts";
@@ -992,9 +993,22 @@ ${rhythmSharedRules}`;
     if ((art as any).author_profile_id) {
       try {
         const { data: author } = await admin.from("author_profiles")
-          .select("style_analysis").eq("id", (art as any).author_profile_id).maybeSingle();
-        const preset = (author?.style_analysis as any)?.syntax_profile;
-        styleProfile = getStyleProfile(preset);
+          .select("id,name,language,style_analysis")
+          .eq("id", (art as any).author_profile_id).maybeSingle();
+        const kept = assertPersonaLanguage({
+          authorProfile: author,
+          articleLang: String((art as any).language || "ru"),
+          context: {
+            fn: "improve-article",
+            userId: (art as any).user_id ?? null,
+            articleId: (art as any).id ?? null,
+          },
+        });
+        if (kept) {
+          const preset = (author?.style_analysis as any)?.syntax_profile;
+          styleProfile = getStyleProfile(preset);
+        }
+        // If dropped, keep default styleProfile (no persona applied).
       } catch (_) { /* keep default */ }
     }
 
