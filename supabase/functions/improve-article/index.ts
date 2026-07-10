@@ -993,9 +993,22 @@ ${rhythmSharedRules}`;
     if ((art as any).author_profile_id) {
       try {
         const { data: author } = await admin.from("author_profiles")
-          .select("style_analysis").eq("id", (art as any).author_profile_id).maybeSingle();
-        const preset = (author?.style_analysis as any)?.syntax_profile;
-        styleProfile = getStyleProfile(preset);
+          .select("id,name,language,style_analysis")
+          .eq("id", (art as any).author_profile_id).maybeSingle();
+        const kept = assertPersonaLanguage({
+          authorProfile: author,
+          articleLang: String((art as any).language || "ru"),
+          context: {
+            fn: "improve-article",
+            userId: (art as any).user_id ?? null,
+            articleId: (art as any).id ?? null,
+          },
+        });
+        if (kept) {
+          const preset = (author?.style_analysis as any)?.syntax_profile;
+          styleProfile = getStyleProfile(preset);
+        }
+        // If dropped, keep default styleProfile (no persona applied).
       } catch (_) { /* keep default */ }
     }
 
