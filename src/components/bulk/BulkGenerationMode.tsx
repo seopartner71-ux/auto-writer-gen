@@ -54,10 +54,10 @@ export function BulkGenerationMode() {
 
   const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; className: string }> = {
     queued: { label: t("bulk.inQueue"), icon: FileText, className: "bg-muted text-muted-foreground" },
-    researching: { label: "Researching", icon: Search, className: "bg-info/20 text-info" },
-    writing: { label: "Writing", icon: Pencil, className: "bg-primary/20 text-primary" },
-    done: { label: "Done", icon: CheckCircle2, className: "bg-purple-500/20 text-purple-400" },
-    error: { label: "Error", icon: AlertTriangle, className: "bg-destructive/20 text-destructive" },
+    researching: { label: t("bulk.statusResearching"), icon: Search, className: "bg-info/20 text-info" },
+    writing: { label: t("bulk.statusWriting"), icon: Pencil, className: "bg-primary/20 text-primary" },
+    done: { label: t("bulk.statusDone"), icon: CheckCircle2, className: "bg-purple-500/20 text-purple-400" },
+    error: { label: t("bulk.statusError"), icon: AlertTriangle, className: "bg-destructive/20 text-destructive" },
   };
 
   const { data: authorProfiles = [] } = useQuery({
@@ -178,17 +178,17 @@ export function BulkGenerationMode() {
     mutationFn: async () => {
       if (keywords.length === 0) throw new Error(t("bulk.uploadError"));
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error("Not authenticated");
+      if (!session?.user) throw new Error(t("bulk.notAuth"));
       // Plan-based bulk size limit. DB plans: free=NANO (no bulk), basic=PRO (≤10), pro=FACTORY (∞)
       const { data: prof } = await supabase.from("profiles").select("plan").eq("id", session.user.id).maybeSingle();
       const plan = String((prof as any)?.plan || "").toLowerCase();
       const BULK_MAX: Record<string, number> = { free: 0, basic: 10, pro: 999 };
       const maxItems = BULK_MAX[plan] ?? 0;
       if (maxItems === 0) {
-        throw new Error("Массовая генерация доступна на тарифах PRO и FACTORY");
+        throw new Error(t("bulk.needPlan"));
       }
       if (keywords.length > maxItems) {
-        throw new Error(`Ваш тариф позволяет до ${maxItems} статей за раз. Обновите до FACTORY для безлимита.`);
+        throw new Error(t("bulk.overLimit", { n: maxItems }));
       }
       const { data: job, error: jobErr } = await supabase
         .from("bulk_jobs")
@@ -207,7 +207,7 @@ export function BulkGenerationMode() {
       queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
       queryClient.invalidateQueries({ queryKey: ["bulk-job-items", jobId] });
       startProcessing.mutate(jobId);
-      toast.success("Пакет создан");
+      toast.success(t("bulk.batchCreated"));
     },
     onError: (e) => toast.error(e.message),
   });
@@ -231,7 +231,7 @@ export function BulkGenerationMode() {
       const { error } = await supabase.from("bulk_jobs").update({ status: "paused" }).eq("id", jobId);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); toast.success("Генерация поставлена на паузу"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] }); toast.success(t("bulk.paused")); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -247,7 +247,7 @@ export function BulkGenerationMode() {
     onSuccess: (_, jobId) => {
       queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
       queryClient.invalidateQueries({ queryKey: ["bulk-job-items", jobId] });
-      toast.success("Генерация возобновлена");
+      toast.success(t("bulk.resumed"));
     },
     onError: (e) => toast.error(e.message),
   });
@@ -270,7 +270,7 @@ export function BulkGenerationMode() {
       queryClient.invalidateQueries({ queryKey: ["bulk-job-items", activeJobId] });
       queryClient.invalidateQueries({ queryKey: ["bulk-jobs"] });
       setDeletingItemId(null);
-      toast.success("Статья удалена");
+      toast.success(t("bulk.articleDeleted"));
     },
     onError: (e) => toast.error(e.message),
   });
@@ -278,7 +278,7 @@ export function BulkGenerationMode() {
   const publishToWp = useMutation({
     mutationFn: async ({ articleId, siteId }: { articleId: string; siteId: string }) => {
       const { data: article } = await supabase.from("articles").select("title, content, meta_description").eq("id", articleId).single();
-      if (!article) throw new Error("Статья не найдена");
+      if (!article) throw new Error(t("bulk.articleNotFound"));
       const { data, error } = await supabase.functions.invoke("wordpress-proxy", {
         body: {
           action: "create_post",
@@ -290,15 +290,15 @@ export function BulkGenerationMode() {
           meta_description: article.meta_description || "",
         },
       });
-      if (error || data?.error) throw new Error(data?.error || "Ошибка публикации");
+      if (error || data?.error) throw new Error(data?.error || t("bulk.publishError"));
       return data;
     },
     onSuccess: (data) => {
       setPublishingItemId(null);
       const url = data?.post_url || data?.url;
-      toast.success("Черновик создан в WordPress!", {
+      toast.success(t("bulk.draftCreatedWp"), {
         description: url,
-        action: url ? { label: "Открыть", onClick: () => window.open(url, "_blank") } : undefined,
+        action: url ? { label: t("bulk.open"), onClick: () => window.open(url, "_blank") } : undefined,
       });
     },
     onError: (e) => toast.error(e.message),
