@@ -123,9 +123,9 @@ ${a.content || ""}
       link.download = `articles-${new Date().toISOString().slice(0, 10)}.zip`;
       link.click();
       URL.revokeObjectURL(url);
-      toast.success(`ZIP создан: ${selectedArticles.length} файлов`);
+      toast.success(t("myArticles.zipCreated", { n: selectedArticles.length }));
     } catch (e: any) {
-      toast.error(e.message || "Ошибка экспорта");
+      toast.error(e.message || t("myArticles.exportError"));
     } finally {
       setExporting(false);
     }
@@ -138,7 +138,7 @@ ${a.content || ""}
       return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const rows = [
-      ["Заголовок", "URL", "Слов", "SEO Score", "AI Score", "Дата создания"],
+      [t("myArticles.csvTitle"), "URL", t("myArticles.csvWords"), "SEO Score", "AI Score", t("myArticles.csvDate")],
       ...selectedArticles.map((a: any) => [
         a.title || "",
         `${window.location.origin}/articles?edit=${a.id}`,
@@ -156,18 +156,18 @@ ${a.content || ""}
     link.download = `articles-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`CSV создан: ${selectedArticles.length} строк`);
+    toast.success(t("myArticles.csvCreated", { n: selectedArticles.length }));
   };
 
   const handleBatchDelete = async () => {
     if (selectedArticles.length === 0) return;
-    if (!(await confirm({ title: "Удалить статьи?", description: `Будет удалено: ${selectedArticles.length}`, destructive: true, confirmText: "Удалить" }))) return;
+    if (!(await confirm({ title: t("myArticles.batchDeleteTitle"), description: t("myArticles.batchDeleteDesc", { n: selectedArticles.length }), destructive: true, confirmText: t("common.delete") }))) return;
     const ids = selectedArticles.map((a: any) => a.id);
     const { error } = await supabase.from("articles").delete().in("id", ids);
     if (error) { toast.error(error.message); return; }
     queryClient.invalidateQueries({ queryKey: ["my-articles-list"] });
     clearSelection();
-    toast.success(`Удалено: ${ids.length}`);
+    toast.success(t("myArticles.batchDeleted", { n: ids.length }));
   };
 
   const deleteMutation = useMutation({
@@ -247,9 +247,9 @@ ${a.content || ""}
           <div className="px-4 pt-4">
             <Tabs value={sourceTab} onValueChange={(v) => { setSourceTab(v as any); clearSelection(); }}>
               <TabsList>
-                <TabsTrigger value="all">Все статьи ({articles.length})</TabsTrigger>
-                <TabsTrigger value="manual">Обычные ({(articles as any[]).filter((a) => (a.source ?? "manual") === "manual").length})</TabsTrigger>
-                <TabsTrigger value="content_plan">Контент-план ({(articles as any[]).filter((a) => a.source === "content_plan").length})</TabsTrigger>
+                <TabsTrigger value="all">{t("myArticles.tabAll")} ({articles.length})</TabsTrigger>
+                <TabsTrigger value="manual">{t("myArticles.tabManual")} ({(articles as any[]).filter((a) => (a.source ?? "manual") === "manual").length})</TabsTrigger>
+                <TabsTrigger value="content_plan">{t("myArticles.tabContentPlan")} ({(articles as any[]).filter((a) => a.source === "content_plan").length})</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -271,7 +271,7 @@ ${a.content || ""}
                     <Checkbox
                       checked={allSelected}
                       onCheckedChange={toggleAll}
-                      aria-label="Выбрать все"
+                      aria-label={t("myArticles.selectAll")}
                     />
                   </TableHead>
                   <TableHead className="w-16">№</TableHead>
@@ -296,7 +296,7 @@ ${a.content || ""}
                         checked={selected.has(article.id)}
                         onCheckedChange={() => toggleOne(article.id)}
                         className={`${selected.has(article.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}
-                        aria-label="Выбрать"
+                        aria-label={t("myArticles.selectRow")}
                       />
                     </TableCell>
                     <TableCell className="font-mono text-muted-foreground">
@@ -328,7 +328,7 @@ ${a.content || ""}
                         </span>
                         {article.source === "content_plan" && (
                           <Badge variant="secondary" className="text-[10px] shrink-0">
-                            Контент-план{clientNameOf(article) ? ` · ${clientNameOf(article)}` : ""}
+                            {t("myArticles.tabContentPlan")}{clientNameOf(article) ? ` · ${clientNameOf(article)}` : ""}
                           </Badge>
                         )}
                       </div>
@@ -394,23 +394,23 @@ ${a.content || ""}
       {selected.size > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-border bg-background/95 backdrop-blur px-4 py-2.5 shadow-lg">
           <span className="text-sm font-medium pr-2 border-r border-border">
-            Выбрано: {selected.size}
+            {t("myArticles.selectedCount", { n: selected.size })}
           </span>
           <Button size="sm" variant="outline" onClick={handleZipExport} disabled={exporting} className="gap-1.5">
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Скачать ZIP
+            {t("myArticles.downloadZip")}
           </Button>
           <Button size="sm" variant="outline" onClick={handleCsvExport} className="gap-1.5">
             <FileSpreadsheet className="h-4 w-4" />
-            Экспорт CSV
+            {t("myArticles.exportCsv")}
           </Button>
           <Button size="sm" variant="ghost" onClick={handleBatchDelete} className="gap-1.5 text-destructive hover:text-destructive">
             <Trash2 className="h-4 w-4" />
-            Удалить
+            {t("common.delete")}
           </Button>
           <Button size="sm" variant="ghost" onClick={clearSelection} className="gap-1.5">
             <X className="h-4 w-4" />
-            Отменить
+            {t("common.cancel")}
           </Button>
         </div>
       )}
