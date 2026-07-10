@@ -358,7 +358,7 @@ export function BulkGenerationMode() {
     link.download = `articles-${new Date().toISOString().slice(0, 10)}.zip`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`ZIP создан: ${articles.length} файлов`);
+    toast.success(t("bulk.zipCreated", { n: articles.length }));
   }, [fetchDoneArticles]);
 
   const handleDownloadCsv = useCallback(async () => {
@@ -369,7 +369,7 @@ export function BulkGenerationMode() {
       return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const rows = [
-      ["Заголовок", "URL", "Слов", "SEO Score", "Дата"],
+      [t("bulk.csvColTitle"), t("bulk.csvColUrl"), t("bulk.csvColWords"), t("bulk.csvColScore"), t("bulk.csvColDate")],
       ...articles.map((a: any) => {
         const words = a.content ? String(a.content).split(/\s+/).filter(Boolean).length : 0;
         const score = a.seo_score && typeof a.seo_score === "object"
@@ -392,7 +392,7 @@ export function BulkGenerationMode() {
     link.download = `articles-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`CSV создан: ${articles.length} строк`);
+    toast.success(t("bulk.csvCreated", { n: articles.length }));
   }, [fetchDoneArticles]);
 
   const progressPercent = activeJob ? Math.round((activeJob.completed_items / Math.max(activeJob.total_items, 1)) * 100) : 0;
