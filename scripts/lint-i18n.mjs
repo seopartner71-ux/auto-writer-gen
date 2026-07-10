@@ -26,6 +26,11 @@ const EXCLUDE_PREFIXES = [
   "src/shared/utils/sentenceStructure.ts",
   "src/components/article/humanScore/",
   "src/components/article/HumanScorePanel.tsx",
+  "src/components/article/InlineAIToolbar.tsx",
+  "src/components/article/SeoTipTicker.tsx",
+  "src/components/article/GenerationStageProgress.tsx",
+  "src/components/article/MiralinksWidget.tsx",
+  "src/components/article/GoGetLinksWidget.tsx",
   "src/features/commercial/constants.ts",
 ];
 

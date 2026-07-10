@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { ShieldCheck, AlertTriangle, XCircle, Loader2, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 export type ComplianceDeviation = {
   severity: "high" | "medium" | "low";
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function AuthorComplianceCard({ content, authorProfileId, authorHasInstruction, onResult }: Props) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ComplianceResult | null>(null);
   const [expanded, setExpanded] = useState(true);
@@ -53,11 +55,11 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
       setResult(r);
       onResult?.(r);
       const v = data.result.verdict;
-      if (v === "pass") toast.success("Статья соответствует промту автора");
-      else if (v === "warning") toast.warning("Найдены отклонения - проверьте до публикации");
-      else toast.error("Статья сильно отклоняется от промта автора");
+      if (v === "pass") toast.success(t("acc.toastPass"));
+      else if (v === "warning") toast.warning(t("acc.toastWarn"));
+      else toast.error(t("acc.toastFail"));
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка проверки");
+      toast.error(e?.message || t("acc.error"));
     } finally {
       setLoading(false);
     }
@@ -81,18 +83,18 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
-          Соответствие промту автора
+          {t("acc.title")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {!authorProfileId && (
-          <p className="text-xs text-muted-foreground">Выберите автора, чтобы запустить проверку.</p>
+          <p className="text-xs text-muted-foreground">{t("acc.pickAuthor")}</p>
         )}
         {authorProfileId && !authorHasInstruction && (
-          <p className="text-xs text-muted-foreground">У выбранного автора не задан системный промт - проверять не на что.</p>
+          <p className="text-xs text-muted-foreground">{t("acc.noInstruction")}</p>
         )}
         {authorProfileId && authorHasInstruction && content.trim().length < 100 && (
-          <p className="text-xs text-muted-foreground">Сгенерируйте статью, чтобы проверить соответствие.</p>
+          <p className="text-xs text-muted-foreground">{t("acc.generateFirst")}</p>
         )}
 
         <Button
@@ -103,11 +105,11 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
           disabled={!canCheck || loading}
         >
           {loading ? (
-            <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Проверка...</>
+            <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> {t("acc.checking")}</>
           ) : result ? (
-            <>Проверить заново</>
+            <>{t("acc.recheck")}</>
           ) : (
-            <>Проверить соответствие</>
+            <>{t("acc.check")}</>
           )}
         </Button>
 
@@ -115,7 +117,7 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
           <>
             <div>
               <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-muted-foreground">Оценка соответствия</span>
+                <span className="text-muted-foreground">{t("acc.score")}</span>
                 <span className={`font-mono font-semibold ${verdictColor}`}>{result.score}/100</span>
               </div>
               <Progress value={result.score} className="h-2" />
@@ -133,7 +135,7 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
                   className="w-full flex items-center justify-between text-xs text-foreground hover:text-primary"
                   onClick={() => setExpanded(!expanded)}
                 >
-                  <span className="font-medium">Найдено отклонений: {result.deviations.length}</span>
+                  <span className="font-medium">{t("acc.deviations", { n: result.deviations.length })}</span>
                   {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </button>
 
@@ -145,14 +147,14 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
                           <Badge variant="outline" className="text-[9px] h-4 px-1">{d.severity}</Badge>
                           <Badge variant="outline" className="text-[9px] h-4 px-1">{d.category}</Badge>
                         </div>
-                        <div className="text-foreground"><span className="font-medium">Правило:</span> {d.rule}</div>
+                        <div className="text-foreground"><span className="font-medium">{t("acc.rule")}</span> {d.rule}</div>
                         {d.quote && (
                           <div className="italic text-muted-foreground border-l-2 border-current/40 pl-2">
                             «{d.quote}»
                           </div>
                         )}
                         {d.suggestion && (
-                          <div className="text-foreground"><span className="font-medium">Что сделать:</span> {d.suggestion}</div>
+                          <div className="text-foreground"><span className="font-medium">{t("acc.doWhat")}</span> {d.suggestion}</div>
                         )}
                       </div>
                     ))}
@@ -165,7 +167,7 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
               <>
                 <Separator />
                 <div className="space-y-1">
-                  <p className="text-[11px] font-medium text-success">Соблюдено:</p>
+                  <p className="text-[11px] font-medium text-success">{t("acc.compliant")}</p>
                   <ul className="space-y-0.5">
                     {result.matched_rules.slice(0, 5).map((r, i) => (
                       <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1">

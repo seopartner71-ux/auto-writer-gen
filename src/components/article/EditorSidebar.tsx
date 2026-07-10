@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ListTree, Search } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface Heading {
   text: string;
@@ -48,10 +49,11 @@ interface Props {
 }
 
 export function EditorSidebar({ content, title, metaDescription, domain, slug, onJump }: Props) {
+  const { t } = useI18n();
   const headings = useMemo(() => parseHeadings(content), [content]);
 
-  const seoTitle = title || "Заголовок страницы - пример";
-  const seoDesc = metaDescription || (content ? truncate(content.replace(/[#*_`>]/g, "").trim(), 155) : "Описание появится здесь после генерации.");
+  const seoTitle = title || t("es.titlePlaceholder");
+  const seoDesc = metaDescription || (content ? truncate(content.replace(/[#*_`>]/g, "").trim(), 155) : t("es.descPlaceholder"));
   const host = (domain || "example.com").replace(/^https?:\/\//, "").replace(/\/$/, "");
   const path = slug ? `/${slug}` : "/article";
 
@@ -65,7 +67,7 @@ export function EditorSidebar({ content, title, metaDescription, domain, slug, o
       <Card className="bg-card border-border p-3">
         <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-muted-foreground">
           <Search className="h-3.5 w-3.5" />
-          SERP-превью
+          {t("es.serpPreview")}
         </div>
         <div className="rounded-md bg-background/40 p-3 space-y-1 border border-border/40">
           <div className="text-[11px] text-muted-foreground truncate">{host}{path}</div>
@@ -86,15 +88,15 @@ export function EditorSidebar({ content, title, metaDescription, domain, slug, o
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <ListTree className="h-3.5 w-3.5" />
-            Структура
+            {t("es.structure")}
           </div>
           <span className="text-[10px] font-mono text-muted-foreground">
-            {headings.length} {headings.length === 1 ? "блок" : "блоков"}
+            {headings.length} {headings.length === 1 ? t("es.block") : t("es.blocks")}
           </span>
         </div>
         {headings.length === 0 ? (
           <div className="text-[11px] text-muted-foreground/60 italic py-2">
-            Заголовки H2/H3 появятся здесь после генерации.
+            {t("es.headingsAppear")}
           </div>
         ) : (
           <ScrollArea className="max-h-[55vh]">

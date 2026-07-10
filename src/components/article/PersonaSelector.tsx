@@ -57,14 +57,9 @@ interface PersonaSelectorProps {
   keywordText?: string | null;
 }
 
-const SYNTAX_PRESETS: { key: string; label: string }[] = [
-  { key: "standard", label: "Стандартный" },
-  { key: "blogger", label: "Блогер" },
-  { key: "practitioner", label: "Практик" },
-  { key: "skeptic", label: "Скептик" },
-  { key: "provocateur", label: "Провокатор" },
-  { key: "academic", label: "Академик" },
-];
+const SYNTAX_PRESET_KEYS = [
+  "standard", "blogger", "practitioner", "skeptic", "provocateur", "academic",
+] as const;
 
 export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keywordText }: PersonaSelectorProps) {
   const { t } = useI18n();
@@ -121,11 +116,11 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
       if (recommendedPrompt) {
         setNewInstruction(prev => (prev ? `${prev}\n\n${recommendedPrompt}` : recommendedPrompt));
         const details = [
-          analysis.formality && `Формальность: ${analysis.formality}`,
-          analysis.tone_description && `Тон: ${analysis.tone_description}`,
-          analysis.vocabulary_level && `Лексика: ${analysis.vocabulary_level}`,
+          analysis.formality && t("ps.formality", { v: analysis.formality }),
+          analysis.tone_description && t("ps.tone", { v: analysis.tone_description }),
+          analysis.vocabulary_level && t("ps.vocab", { v: analysis.vocabulary_level }),
         ].filter(Boolean).join(" · ");
-        toast.success(`✅ Стиль проанализирован!`, {
+        toast.success(`✅ ${t("ps.styleAnalyzed")}`, {
           description: details || t("ps.styleAdded"),
           duration: 6000,
         });
@@ -186,26 +181,26 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
             <SelectItem value="none">{t("ps.noStyle")}</SelectItem>
             {recommendedByQuery && (
               <>
-                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 По теме запроса</div>
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 {t("ps.byQuery")}</div>
                 <SelectItem key={recommendedByQuery.id} value={recommendedByQuery.id}>
                   {recommendedByQuery.name}
                 </SelectItem>
               </>
             )}
             {starred.length > 0 && (
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-400/90">⭐ Рекомендуемые</div>
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-400/90">⭐ {t("ps.recommended")}</div>
             )}
             {starred.map(a => (
               <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
             ))}
             {otherPresets.length > 0 && (
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Все авторы</div>
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{t("ps.allAuthors")}</div>
             )}
             {otherPresets.map(a => (
               <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
             ))}
             {customs.length > 0 && (
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Мои авторы</div>
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{t("ps.myAuthors")}</div>
             )}
             {customs.map(a => (
               <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
@@ -225,7 +220,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
           <>
             <div className="flex items-center gap-2">
               <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 По теме запроса</span>
+              <span className="text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 {t("ps.byQuery")}</span>
               <span className="h-px flex-1 bg-border" />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
@@ -245,7 +240,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
           <>
             <div className="flex items-center gap-2">
               <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] uppercase tracking-wider text-amber-400/90">⭐ Рекомендуемые</span>
+              <span className="text-[10px] uppercase tracking-wider text-amber-400/90">⭐ {t("ps.recommended")}</span>
               <span className="h-px flex-1 bg-border" />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
@@ -265,7 +260,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
         )}
         <div className="flex items-center gap-2 pt-1">
           <span className="h-px flex-1 bg-border" />
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Все авторы</span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ps.allAuthors")}</span>
           <span className="h-px flex-1 bg-border" />
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
@@ -294,7 +289,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
           <>
             <div className="flex items-center gap-2 pt-1">
               <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Мои авторы</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ps.myAuthors")}</span>
               <span className="h-px flex-1 bg-border" />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
@@ -323,7 +318,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
                 className="flex h-[70px] w-full items-center justify-center gap-1 rounded-md border border-dashed border-muted-foreground/30 px-2 text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground hover:bg-accent/30"
               >
                 <Plus className="h-3 w-3" />
-                <span>Создать автора</span>
+                <span>{t("ps.createAuthor")}</span>
               </button>
             </div>
           </>
@@ -402,6 +397,7 @@ const PersonaChip = React.forwardRef<HTMLButtonElement, PersonaChipProps>(functi
   name, description, icon, isActive, onClick, temperature, isCustom,
   editable, author, onEdited, onDeleted,
 }, ref) {
+  const { t } = useI18n();
   const Icon = ICON_MAP[icon] || User;
   const [editOpen, setEditOpen] = useState(false);
 
@@ -435,7 +431,7 @@ const PersonaChip = React.forwardRef<HTMLButtonElement, PersonaChipProps>(functi
           onClick={(e) => { e.stopPropagation(); setEditOpen(true); }}
           onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setEditOpen(true); } }}
           className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus:opacity-100 cursor-pointer"
-          aria-label="Редактировать автора"
+          aria-label={t("ps.editAria")}
         >
           <Pencil className="h-3 w-3" />
         </span>
@@ -453,7 +449,7 @@ const PersonaChip = React.forwardRef<HTMLButtonElement, PersonaChipProps>(functi
           <p className="text-xs font-semibold mb-1">{name}</p>
           {description && <p className="text-[10px] text-muted-foreground">{description}</p>}
           {temperature && (
-            <p className="text-[10px] mt-1 text-muted-foreground">Temperature: {temperature}</p>
+            <p className="text-[10px] mt-1 text-muted-foreground">{t("ps.temp")}: {temperature}</p>
           )}
         </TooltipContent>
       </Tooltip>
@@ -526,10 +522,10 @@ function EditAuthorForm({
         .select()
         .maybeSingle();
       if (error) throw error;
-      toast.success("Автор обновлен");
+      toast.success(t("ps.updated"));
       onSaved((data as any) || author);
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка сохранения");
+      toast.error(e?.message || t("ps.saveError"));
     } finally {
       setSaving(false);
     }
@@ -539,39 +535,39 @@ function EditAuthorForm({
     try {
       const { error } = await supabase.from("author_profiles").delete().eq("id", author.id);
       if (error) throw error;
-      toast.success("Автор удален");
+      toast.success(t("ps.deleted"));
       onDeleted();
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка удаления");
+      toast.error(e?.message || t("ps.deleteError"));
     }
   };
 
   return (
     <div className="space-y-2.5 p-3 text-xs">
       <div className="flex items-center justify-between">
-        <span className="font-semibold">Редактировать автора</span>
+        <span className="font-semibold">{t("ps.edit")}</span>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Название</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.name")}</Label>
         <Input value={name} onChange={(e) => setName(e.target.value)} className="h-7 text-xs" />
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Тон голоса</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.voiceTone")}</Label>
         <Input
           value={voice}
           onChange={(e) => setVoice(e.target.value)}
-          placeholder="экспертный, технический"
+          placeholder={t("ps.voiceTonePlaceholder")}
           className="h-7 text-xs"
         />
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Стоп-слова</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.stopWords")}</Label>
         <div className="flex flex-wrap gap-1">
           {stopWords.map((w) => (
             <Badge key={w} variant="secondary" className="h-5 gap-1 px-1.5 text-[10px]">
@@ -590,7 +586,7 @@ function EditAuthorForm({
             value={stopInput}
             onChange={(e) => setStopInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addStop(); } }}
-            placeholder="+ добавить"
+            placeholder={t("ps.addPlaceholder")}
             className="h-7 text-xs"
           />
           <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={addStop}>
@@ -600,7 +596,7 @@ function EditAuthorForm({
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Инструкция автора</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.authorInstruction")}</Label>
         <Textarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
@@ -610,24 +606,24 @@ function EditAuthorForm({
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Синтаксический профиль</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.syntaxProfile")}</Label>
         <div className="grid grid-cols-2 gap-1">
-          {SYNTAX_PRESETS.map((p) => (
+          {SYNTAX_PRESET_KEYS.map((k) => (
             <label
-              key={p.key}
+              key={k}
               className={`flex cursor-pointer items-center gap-1.5 rounded border px-2 py-1 text-[11px] transition-colors ${
-                syntax === p.key ? "border-primary bg-primary/5" : "border-border hover:bg-accent/30"
+                syntax === k ? "border-primary bg-primary/5" : "border-border hover:bg-accent/30"
               }`}
             >
               <input
                 type="radio"
                 name="syntax_profile"
-                value={p.key}
-                checked={syntax === p.key}
-                onChange={() => setSyntax(p.key)}
+                value={k}
+                checked={syntax === k}
+                onChange={() => setSyntax(k)}
                 className="h-3 w-3"
               />
-              <span>{p.label}</span>
+              <span>{t(`ps.syn.${k}` as any)}</span>
             </label>
           ))}
         </div>
@@ -641,15 +637,15 @@ function EditAuthorForm({
           onClick={() => setConfirmDelete(true)}
         >
           <Trash2 className="mr-1 h-3 w-3" />
-          Удалить
+          {t("ps.delete")}
         </Button>
         <div className="flex gap-1">
           <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={onClose}>
-            Отмена
+            {t("ps.cancel")}
           </Button>
           <Button size="sm" className="h-7 px-2 text-[11px]" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-            Сохранить
+            {t("ps.save")}
           </Button>
         </div>
       </div>
@@ -657,18 +653,18 @@ function EditAuthorForm({
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить автора "{author.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>{t("ps.confirmDeleteTitle", { name: author.name })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Статьи созданные с этим автором останутся без изменений.
+              {t("ps.confirmDeleteDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t("ps.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Удалить
+              {t("ps.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

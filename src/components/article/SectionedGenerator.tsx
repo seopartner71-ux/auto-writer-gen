@@ -15,6 +15,7 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 type SectionStatus = "pending" | "generating" | "done" | "error";
 
@@ -46,6 +47,7 @@ export function SectionedGenerator({
   articleId, keyword, language = "ru", personaPrompt = "",
   existingOutline, onComplete,
 }: Props) {
+  const { t } = useI18n();
   const [h1, setH1] = useState<string>("");
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [phase, setPhase] = useState<"idle" | "outlining" | "running" | "done" | "stopped">("idle");
@@ -110,19 +112,24 @@ export function SectionedGenerator({
       if (!data?.h1 || !Array.isArray(data?.h2)) throw new Error("Bad outline response");
       return { h1: data.h1, h2: data.h2 };
     } catch (e: any) {
-      toast.error(`Не удалось сгенерировать структуру: ${e?.message || e}`);
+      toast.error(t("sg.outlineErr", { msg: e?.message || String(e) }));
       setPhase("idle");
       return null;
     }
   }
 
   async function createSectionRows(h1Title: string, h2: string[]) {
-    // Compose blueprint: intro (no H2), each H2, FAQ, conclusion
+    // Compose blueprint: intro (no H2), each H2, FAQ, conclusion.
+    // Blueprint titles use the article's language, not the UI language.
+    const ru = language === "ru";
+    const introTitle = ru ? "Введение" : "Introduction";
+    const faqTitle = ru ? "Часто задаваемые вопросы" : "FAQ";
+    const conclusionTitle = ru ? "Заключение" : "Conclusion";
     const blueprint: { title: string; kind: "intro" | "h2" | "faq" | "conclusion" }[] = [
-      { title: "Введение", kind: "intro" },
-      ...h2.map(t => ({ title: t, kind: "h2" as const })),
-      { title: "Часто задаваемые вопросы", kind: "faq" },
-      { title: "Заключение", kind: "conclusion" },
+      { title: introTitle, kind: "intro" },
+      ...h2.map((title) => ({ title, kind: "h2" as const })),
+      { title: faqTitle, kind: "faq" },
+      { title: conclusionTitle, kind: "conclusion" },
     ];
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -231,7 +238,7 @@ export function SectionedGenerator({
     try {
       rows = await createSectionRows(outline.h1, outline.h2);
     } catch (e: any) {
-      toast.error(`Ошибка создания разделов: ${e?.message || e}`);
+      toast.error(t("sg.rowsErr", { msg: e?.message || String(e) }));
       setPhase("idle");
       return;
     }
@@ -242,7 +249,7 @@ export function SectionedGenerator({
     for (const row of rows) {
       if (stopFlag.current) {
         setPhase("stopped");
-        toast(`Генерация остановлена. Готово ${rows.filter(r => r.status === "done").length} из ${rows.length}.`);
+        toast(t("sg.stopped", { done: rows.filter(r => r.status === "done").length, total: rows.length }));
         finalize();
         return;
       }
@@ -254,7 +261,7 @@ export function SectionedGenerator({
           finalize();
           return;
         }
-        toast.error(`Ошибка раздела "${row.h2_title}": ${e?.message || e}`);
+        toast.error(t("sg.errSection", { name: row.h2_title, msg: e?.message || String(e) }));
       }
     }
     setPhase("done");
@@ -291,37 +298,37 @@ export function SectionedGenerator({
     if (allDone) {
       // 1) Humanize pass (budget-gated, conditional-skip inside the function)
       try {
-        const tHum = toast.loading("Humanize: причесываем текст...");
+        const tHum = toast.loading(t("sg.humanizeLoading"));
         const { data: humRes, error: humErr } = await supabase.functions.invoke("humanize-article", {
           body: { article_id: articleId },
         });
         toast.dismiss(tHum);
         if (humErr) {
-          toast.warning(`Humanize пропущен: ${humErr.message || "ошибка"}`);
+          toast.warning(t("sg.humanizeSkip", { reason: humErr.message || "error" }));
         } else if (humRes?.applied) {
-          toast.success(`Humanize применен (${humRes.passes || 2} прохода)`);
+          toast.success(t("sg.humanizeApplied", { n: humRes.passes || 2 }));
         } else if (humRes?.reason) {
-          toast(`Humanize пропущен: ${humRes.reason}`);
+          toast(t("sg.humanizeSkip", { reason: humRes.reason }));
         }
         // Refresh content from DB
         const { data: fresh } = await supabase
           .from("articles").select("content").eq("id", articleId).maybeSingle();
         if (fresh?.content) finalMd = fresh.content;
       } catch (e: any) {
-        toast.warning(`Humanize ошибка: ${e?.message || e}`);
+        toast.warning(t("sg.humanizeErr", { msg: e?.message || String(e) }));
       }
 
       // 2) Quality check (writes turgenev_score / uniqueness_percent + errors[])
       try {
-        const tq = toast.loading("Проверяем метрики качества...");
+        const tq = toast.loading(t("sg.qualityLoading"));
         const { error: qErr } = await supabase.functions.invoke("quality-check", {
           body: { article_id: articleId, content: finalMd },
         });
         toast.dismiss(tq);
-        if (qErr) toast.warning(`Quality-check: ${qErr.message || "ошибка"}`);
-        else toast.success("Метрики обновлены");
+        if (qErr) toast.warning(t("sg.qualityErr", { msg: qErr.message || "error" }));
+        else toast.success(t("sg.qualityDone"));
       } catch (e: any) {
-        toast.warning(`Quality-check ошибка: ${e?.message || e}`);
+        toast.warning(t("sg.qualityErr", { msg: e?.message || String(e) }));
       }
 
       // 3) Auto-redeploy the project's site (if it has ever been deployed) so
@@ -341,7 +348,7 @@ export function SectionedGenerator({
               .invoke("deploy-cloudflare-direct", { body: { projectId } })
               .then(({ error }) => {
                 if (error) console.warn("[auto-redeploy] failed:", error.message);
-                else toast.success("Карта сайта обновлена");
+                else toast.success(t("sg.sitemapUpdated"));
               })
               .catch((e) => console.warn("[auto-redeploy] error:", e));
           }
@@ -363,9 +370,9 @@ export function SectionedGenerator({
     setPhase("running");
     try {
       await streamSection(s, h1 || keyword, allH2, extraPrompt);
-      toast.success(`Раздел "${s.h2_title}" обновлен`);
+      toast.success(t("sg.updated", { name: s.h2_title }));
     } catch (e: any) {
-      if (e?.name !== "AbortError") toast.error(`Ошибка: ${e?.message || e}`);
+      if (e?.name !== "AbortError") toast.error(t("sg.err", { msg: e?.message || String(e) }));
     } finally {
       setPhase("idle");
       finalize();
@@ -387,18 +394,18 @@ export function SectionedGenerator({
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm text-muted-foreground">Тема</div>
+            <div className="text-sm text-muted-foreground">{t("sg.topic")}</div>
             <div className="font-medium truncate">{keyword}</div>
           </div>
           <div className="flex gap-2">
             {phase === "running" || phase === "outlining" ? (
               <Button variant="destructive" size="sm" onClick={stopGeneration}>
-                <Square className="size-4 mr-1" /> Остановить
+                <Square className="size-4 mr-1" /> {t("sg.stop")}
               </Button>
             ) : (
               <Button size="sm" onClick={startGeneration} disabled={!keyword}>
                 <Sparkles className="size-4 mr-1" />
-                {sections.length ? "Перегенерировать всё" : "Сгенерировать"}
+                {sections.length ? t("sg.regenAll") : t("sg.generate")}
               </Button>
             )}
           </div>
@@ -407,7 +414,7 @@ export function SectionedGenerator({
         {(total > 0) && (
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{phase === "outlining" ? "Создаю структуру..." : `Готово ${doneCount} из ${total}`}</span>
+              <span>{phase === "outlining" ? t("sg.outlining") : t("sg.doneOf", { done: doneCount, total })}</span>
               <span>{progress}%</span>
             </div>
             <Progress value={phase === "outlining" ? 5 : progress} />
@@ -416,7 +423,7 @@ export function SectionedGenerator({
 
         {showResume && (
           <div className="text-xs rounded-md border border-dashed border-primary/40 bg-primary/5 p-2">
-            Найдена незавершенная статья. Нажмите "Сгенерировать", чтобы начать заново, или используйте 🔄 на нужных разделах.
+            {t("sg.resumeHint")}
           </div>
         )}
       </Card>
@@ -446,13 +453,13 @@ export function SectionedGenerator({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => regenerateOne(s)}>
-                          <RefreshCw className="size-4 mr-2" /> Перегенерировать раздел
+                          <RefreshCw className="size-4 mr-2" /> {t("sg.regenSection")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setEditPromptFor(s); setPromptText(""); }}>
-                          <Pencil className="size-4 mr-2" /> Редактировать промт
+                          <Pencil className="size-4 mr-2" /> {t("sg.editPrompt")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => deleteSection(s)} className="text-destructive">
-                          Удалить раздел
+                          {t("sg.deleteSection")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -474,24 +481,24 @@ export function SectionedGenerator({
       <Dialog open={!!editPromptFor} onOpenChange={(o) => !o && setEditPromptFor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Доп. инструкции для раздела</DialogTitle>
+            <DialogTitle>{t("sg.dlgTitle")}</DialogTitle>
           </DialogHeader>
           <div className="text-xs text-muted-foreground mb-2">
-            Раздел: <span className="font-medium">{editPromptFor?.h2_title}</span>
+            {t("sg.dlgSection")} <span className="font-medium">{editPromptFor?.h2_title}</span>
           </div>
           <Textarea
             value={promptText}
             onChange={(e) => setPromptText(e.target.value)}
-            placeholder="Например: добавь конкретный пример из практики, упомяни цены в рублях..."
+            placeholder={t("sg.dlgPlaceholder")}
             rows={5}
           />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditPromptFor(null)}>Отмена</Button>
+            <Button variant="ghost" onClick={() => setEditPromptFor(null)}>{t("ps.cancel")}</Button>
             <Button onClick={() => {
               if (editPromptFor) regenerateOne(editPromptFor, promptText);
               setEditPromptFor(null);
             }}>
-              <RefreshCw className="size-4 mr-1" /> Регенерировать
+              <RefreshCw className="size-4 mr-1" /> {t("sg.dlgRegen")}
             </Button>
           </DialogFooter>
         </DialogContent>
