@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface Benchmark {
   medianWordCount?: number | null;
@@ -63,12 +64,6 @@ function scoreColor(s: number) {
   if (s >= 40) return "text-orange-400";
   return "text-rose-400";
 }
-function scoreLabel(s: number) {
-  if (s >= 80) return "Отлично";
-  if (s >= 60) return "Хорошо";
-  if (s >= 40) return "Слабо";
-  return "Плохо";
-}
 
 function scoreStrokeColor(s: number) {
   if (s >= 80) return "#22c55e";
@@ -76,14 +71,14 @@ function scoreStrokeColor(s: number) {
   if (s >= 40) return "#f97316";
   return "#ef4444";
 }
-function scoreStatus(s: number) {
-  if (s >= 80) return { dot: "bg-emerald-400", text: "Отлично - готово к публикации", color: "text-emerald-400" };
-  if (s >= 60) return { dot: "bg-amber-400", text: "Хорошо - можно улучшить", color: "text-amber-400" };
-  if (s >= 40) return { dot: "bg-orange-400", text: "Слабо - нужно улучшение", color: "text-orange-400" };
-  return { dot: "bg-rose-400", text: "Плохо - требует доработки", color: "text-rose-400" };
+function scoreStatus(s: number, t: (k: string) => string) {
+  if (s >= 80) return { dot: "bg-emerald-400", text: t("seo.status.excellent"), color: "text-emerald-400" };
+  if (s >= 60) return { dot: "bg-amber-400", text: t("seo.status.good"), color: "text-amber-400" };
+  if (s >= 40) return { dot: "bg-orange-400", text: t("seo.status.weak"), color: "text-orange-400" };
+  return { dot: "bg-rose-400", text: t("seo.status.bad"), color: "text-rose-400" };
 }
 
-function ScoreDonut({ score, size = 140, stroke = 12 }: { score: number; size?: number; stroke?: number }) {
+function ScoreDonut({ score, size = 140, stroke = 12, of100 }: { score: number; size?: number; stroke?: number; of100: string }) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, score));
@@ -120,13 +115,15 @@ function ScoreDonut({ score, size = 140, stroke = 12 }: { score: number; size?: 
         >
           {clamped}
         </div>
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">из 100</div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">{of100}</div>
       </div>
     </div>
   );
 }
 
 export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeyword = true, onPickKeyword, articleId, onContentImproved, isStreaming = false, quickMode = false }: Props) {
+  const { t } = useI18n();
+  const of100 = t("seo.donut.of100");
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
   });
@@ -192,8 +189,8 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
       <Card className="bg-card border-border">
         <CardContent className="pt-3 pb-3 text-center text-xs text-muted-foreground space-y-2">
           <div className="text-2xl">⏳</div>
-          <div className="font-semibold text-sm text-foreground">Генерация...</div>
-          <div>SEO Score обновится после завершения</div>
+          <div className="font-semibold text-sm text-foreground">{t("seo.streaming.generating")}</div>
+          <div>{t("seo.streaming.willUpdate")}</div>
         </CardContent>
       </Card>
     );
@@ -202,7 +199,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
   // Quick mode - compact score-only view
   if (quickMode) {
     if (!hasKeyword) return null;
-    const status = scoreStatus(totalScore);
+    const status = scoreStatus(totalScore, t);
     return (
       <Card className="bg-card border-border">
         <CardContent className="pt-3 pb-3 space-y-3 text-xs">
@@ -211,7 +208,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
             <LiveDot pending={pending} />
           </div>
           <div className="flex justify-center pt-1">
-            <ScoreDonut score={totalScore} size={120} stroke={10} />
+            <ScoreDonut score={totalScore} size={120} stroke={10} of100={of100} />
           </div>
           <div className={cn("flex items-center justify-center gap-1.5 text-[11px] font-medium", status.color)}>
             <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
@@ -227,7 +224,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
       <button
         onClick={() => setCollapsed(false)}
         className="hidden md:flex items-center gap-1 px-2 py-1 rounded-md border border-border bg-card text-[10px] text-muted-foreground hover:bg-muted/40"
-        title="Развернуть SEO Score"
+        title={t("seo.collapsed.expand")}
       >
         <ChevronLeft className="h-3 w-3" />
         <span className={cn("font-mono font-semibold", scoreColor(totalScore))}>{totalScore}</span>
@@ -247,11 +244,11 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
             </button>
           </div>
           <div className="text-muted-foreground text-[11px] leading-snug">
-            Привяжите ключевое слово для SEO-анализа.
+            {t("seo.bindKeyword")}
           </div>
           {onPickKeyword && (
             <Button size="sm" variant="outline" className="w-full h-7 text-[11px]" onClick={onPickKeyword}>
-              Выбрать ключ
+              {t("seo.pickKeyword")}
             </Button>
           )}
         </CardContent>
@@ -269,11 +266,11 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
   const missingTerms = metrics.uniqueTerms.filter(t => !metrics.covered.has(t));
 
   const handleImprove = async () => {
-    if (!articleId) { toast.error("Сначала сохраните статью"); return; }
+    if (!articleId) { toast.error(t("seo.saveArticleFirst")); return; }
     if (!onContentImproved) return;
     if (improving) return;
     setImproving(true);
-    setImproveStage("Анализирую текст...");
+    setImproveStage(t("seo.improve.analyzing"));
     const scoreBefore = totalScore;
     try {
       // Verify article exists in DB (avoid stale currentArticleId -> 404)
@@ -283,10 +280,10 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
         .eq("id", articleId)
         .maybeSingle();
       if (!exists) {
-        toast.error("Статья еще не сохранена. Подождите пару секунд и повторите.");
+        toast.error(t("seo.improve.notSavedYet"));
         return;
       }
-      setImproveStage("Вставляю термины...");
+      setImproveStage(t("seo.improve.insertingTerms"));
       const { data, error } = await supabase.functions.invoke("improve-seo", {
         body: {
           article_id: articleId,
@@ -302,18 +299,18 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
       const payload: any = data;
       if (payload?.limit_reached) {
         setLimitReached(true);
-        toast.error(payload?.error || "Лимит улучшений достигнут");
+        toast.error(payload?.error || t("seo.improve.limitReached"));
         return;
       }
       if (!payload?.ok || !payload?.content) {
-        throw new Error(payload?.error || "Не удалось улучшить без потери форматирования. Попробуйте снова или отредактируйте вручную.");
+        throw new Error(payload?.error || t("seo.improve.fallbackError"));
       }
-      setImproveStage("Проверяю результат...");
+      setImproveStage(t("seo.improve.verifying"));
       onContentImproved(payload.content);
       // estimate new score quickly: re-run on next render via debounced effect; show before/after
-      toast.success(`SEO улучшен: score был ${scoreBefore}`);
+      toast.success(t("seo.improve.success", { score: scoreBefore }));
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка улучшения");
+      toast.error(e?.message || t("seo.improve.error"));
     } finally {
       setImproving(false);
       setImproveStage("");
@@ -339,45 +336,49 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
             <span className="font-semibold text-sm">SEO Score</span>
             <LiveDot pending={pending} />
           </div>
-          <button onClick={() => setCollapsed(true)} className="text-muted-foreground hover:text-foreground" title="Свернуть">
+          <button onClick={() => setCollapsed(true)} className="text-muted-foreground hover:text-foreground" title={t("seo.collapse")}>
             <ChevronRight className="h-3 w-3" />
           </button>
         </div>
 
         {/* Section 1 - Donut Score */}
         {(() => {
-          const status = scoreStatus(totalScore);
+          const status = scoreStatus(totalScore, t);
           const wordsDelta = metrics.wordCount - medianWords;
-          const wordsDeltaText = wordsDelta === 0 ? "= топ" : wordsDelta > 0 ? `топ+${wordsDelta}` : `топ${wordsDelta}`;
+          const wordsDeltaText = wordsDelta === 0
+            ? t("seo.structure.eqTop")
+            : wordsDelta > 0
+              ? t("seo.structure.topPlus", { n: wordsDelta })
+              : t("seo.structure.topMinus", { n: wordsDelta });
           const wordsDeltaColor = wordsDelta >= 0 ? "text-emerald-400" : "text-rose-400";
           return (
             <div className="flex flex-col items-center gap-2 border-b border-border pb-3">
-              <ScoreDonut score={totalScore} size={140} stroke={12} />
+              <ScoreDonut score={totalScore} size={140} stroke={12} of100={of100} />
               <div className={cn("flex items-center justify-center gap-1.5 text-[11px] font-medium text-center", status.color)}>
                 <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
                 {status.text}
               </div>
               <div className="grid grid-cols-3 gap-1.5 w-full pt-1">
                 <div className="rounded-md border border-border bg-muted/20 p-1.5 text-center">
-                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Плотность</div>
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("seo.density.label")}</div>
                   <div className={cn("text-xs font-mono font-semibold", densityScore >= 70 ? "text-emerald-400" : densityScore >= 40 ? "text-amber-400" : "text-rose-400")}>
                     {metrics.density.toFixed(1)}%
                   </div>
-                  <div className="text-[9px] text-muted-foreground">из {medianDensity.toFixed(1)}%</div>
+                  <div className="text-[9px] text-muted-foreground">{t("seo.density.of", { v: medianDensity.toFixed(1) })}</div>
                 </div>
                 <div className="rounded-md border border-border bg-muted/20 p-1.5 text-center">
                   <div className="text-[9px] uppercase tracking-wider text-muted-foreground">NLP</div>
                   <div className={cn("text-xs font-mono font-semibold", coverageScore >= 70 ? "text-emerald-400" : coverageScore >= 40 ? "text-amber-400" : "text-rose-400")}>
                     {metrics.covered.size}/{metrics.uniqueTerms.length || 0}
                   </div>
-                  <div className="text-[9px] text-muted-foreground">терминов</div>
+                  <div className="text-[9px] text-muted-foreground">{t("seo.nlp.of")}</div>
                 </div>
                 <div className="rounded-md border border-border bg-muted/20 p-1.5 text-center">
-                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Структура</div>
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("seo.structure.label")}</div>
                   <div className={cn("text-xs font-mono font-semibold", wordsDeltaColor)}>
                     {wordsDeltaText}
                   </div>
-                  <div className="text-[9px] text-muted-foreground">слов</div>
+                  <div className="text-[9px] text-muted-foreground">{t("seo.structure.words")}</div>
                 </div>
               </div>
             </div>
@@ -387,17 +388,17 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
         {/* Section 2 - Density */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Плотность ключа</span>
+            <span className="text-muted-foreground">{t("seo.keywordDensity")}</span>
             <span className="font-mono">
               <span className={cn(densityScore >= 70 ? "text-emerald-400" : densityScore >= 40 ? "text-amber-400" : "text-rose-400")}>
                 {metrics.density.toFixed(1)}%
               </span>
-              <span className="text-muted-foreground text-[10px] ml-1">медиана {medianDensity.toFixed(1)}%</span>
+              <span className="text-muted-foreground text-[10px] ml-1">{t("seo.median", { v: medianDensity.toFixed(1) })}</span>
             </span>
           </div>
           <Progress value={Math.min(100, (metrics.density / Math.max(medianDensity * 2, 1)) * 100)} className="h-1.5" />
           <div className="text-[10px] text-muted-foreground">
-            Найдено вхождений: {metrics.keywordCount} / {metrics.wordCount} слов
+            {t("seo.hitsFound", { hits: metrics.keywordCount, words: metrics.wordCount })}
           </div>
         </div>
 
@@ -405,7 +406,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
         {metrics.uniqueTerms.length > 0 && (
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">NLP термины</span>
+              <span className="text-muted-foreground">{t("seo.nlpTerms")}</span>
               <span className="font-mono">
                 {metrics.covered.size}/{metrics.uniqueTerms.length}
               </span>
@@ -421,16 +422,16 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
                       if (isCovered) return;
                       try {
                         await navigator.clipboard.writeText(term);
-                        toast.success(`Скопировано: ${term}`);
+                        toast.success(t("seo.term.copied", { term }));
                       } catch {
-                        toast.error("Не удалось скопировать");
+                        toast.error(t("seo.term.copyFailed"));
                       }
                     }}
                     className={cn(
                       "w-full text-left flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] transition-colors",
                       isCovered ? "text-emerald-400" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                     )}
-                    title={isCovered ? "Покрыто" : "Кликните чтобы скопировать"}
+                    title={isCovered ? t("seo.term.covered") : t("seo.term.clickToCopy")}
                   >
                     <span className="shrink-0">{isCovered ? "✅" : "⬜"}</span>
                     <span className="truncate">{term}</span>
@@ -444,7 +445,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
                 onClick={() => setShowAllTerms(v => !v)}
                 className="text-[10px] text-primary hover:underline"
               >
-                {showAllTerms ? "Свернуть" : `Показать ещё ${sortedTerms.length - 15}`}
+                {showAllTerms ? t("seo.terms.collapse") : t("seo.terms.showMore", { n: sortedTerms.length - 15 })}
               </button>
             )}
           </div>
@@ -452,25 +453,25 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
 
         {/* Section 4 - Structure vs top */}
         <div className="space-y-1">
-          <div className="text-muted-foreground">Структура vs топ</div>
+          <div className="text-muted-foreground">{t("seo.structureVsTop")}</div>
           <div className="grid grid-cols-3 gap-1 text-[11px]">
-            <div className="text-muted-foreground">Параметр</div>
-            <div className="text-right text-muted-foreground">Ваша</div>
-            <div className="text-right text-muted-foreground">Топ</div>
+            <div className="text-muted-foreground">{t("seo.col.param")}</div>
+            <div className="text-right text-muted-foreground">{t("seo.col.yours")}</div>
+            <div className="text-right text-muted-foreground">{t("seo.col.top")}</div>
 
-            <div>Слов</div>
+            <div>{t("seo.row.words")}</div>
             <div className={cn("text-right font-mono", cellColor(metrics.wordCount, medianWords))}>{metrics.wordCount}</div>
             <div className="text-right font-mono text-muted-foreground">{medianWords}</div>
 
-            <div>H2</div>
+            <div>{t("seo.row.h2")}</div>
             <div className={cn("text-right font-mono", cellColor(metrics.h2Count, medianH2))}>{metrics.h2Count}</div>
             <div className="text-right font-mono text-muted-foreground">{medianH2}</div>
 
-            <div>Списков</div>
+            <div>{t("seo.row.lists")}</div>
             <div className={cn("text-right font-mono", cellColor(metrics.listCount, medianLists))}>{metrics.listCount}</div>
             <div className="text-right font-mono text-muted-foreground">{medianLists}</div>
 
-            <div>Вопросов</div>
+            <div>{t("seo.row.questions")}</div>
             <div className="text-right font-mono">{metrics.questionCount}</div>
             <div className="text-right font-mono text-muted-foreground">-</div>
           </div>
@@ -481,7 +482,7 @@ export function SeoSidePanel({ content, keyword, terms = [], benchmark, hasKeywo
         {totalScore >= 80 ? (
           <div className="flex items-center justify-center gap-1.5 py-2 text-emerald-400 text-[12px] font-medium border-t border-border">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Готово к публикации
+            {t("seo.readyToPublish")}
           </div>
         ) : null}
       </CardContent>

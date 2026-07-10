@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 type ProblemType =
   | "none"
@@ -21,19 +22,15 @@ interface Props {
   language?: "ru" | "en";
 }
 
-const PROBLEM_OPTIONS: { value: ProblemType; ru: string; en: string }[] = [
-  { value: "none", ru: "Без проблем", en: "No issues" },
-  { value: "factual", ru: "Фактические ошибки", en: "Factual errors" },
-  { value: "style", ru: "Стиль / водянистость", en: "Style / fluff" },
-  { value: "structure", ru: "Слабая структура", en: "Weak structure" },
-  { value: "length", ru: "Объём / краткость", en: "Length issues" },
-  { value: "repetition", ru: "Повторы", en: "Repetition" },
-  { value: "off_topic", ru: "Не по теме", en: "Off topic" },
-  { value: "other", ru: "Другое", en: "Other" },
+const PROBLEM_VALUES: ProblemType[] = [
+  "none", "factual", "style", "structure", "length", "repetition", "off_topic", "other",
 ];
 
 export function ArticleFeedback({ articleId, language = "ru" }: Props) {
-  const lang = language;
+  const { t } = useI18n();
+  // `language` is kept in the API for callers, but strings resolve via the
+  // global i18n so a UI-language switch takes effect immediately.
+  void language;
   const [rating, setRating] = useState<number>(0);
   const [hover, setHover] = useState<number>(0);
   const [problem, setProblem] = useState<ProblemType>("none");
@@ -70,7 +67,7 @@ export function ArticleFeedback({ articleId, language = "ru" }: Props) {
 
   const submit = async () => {
     if (!rating) {
-      toast.error(lang === "ru" ? "Поставьте оценку" : "Please pick a rating");
+      toast.error(t("feedback.pickRating"));
       return;
     }
     setSaving(true);
@@ -91,12 +88,12 @@ export function ArticleFeedback({ articleId, language = "ru" }: Props) {
       );
     setSaving(false);
     if (error) {
-      toast.error(lang === "ru" ? "Не удалось сохранить отзыв" : "Failed to save feedback");
+      toast.error(t("feedback.saveError"));
       return;
     }
     setSaved(true);
     setOpen(false);
-    toast.success(lang === "ru" ? "Спасибо за отзыв!" : "Thanks for the feedback!");
+    toast.success(t("feedback.thanks"));
   };
 
   if (loading || !articleId) return null;
@@ -106,7 +103,7 @@ export function ArticleFeedback({ articleId, language = "ru" }: Props) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {lang === "ru" ? "Оцените качество:" : "Rate quality:"}
+            {t("feedback.rateQuality")}
           </span>
           <div className="flex items-center gap-0.5">
             {[1, 2, 3, 4, 5].map((n) => (
@@ -133,7 +130,7 @@ export function ArticleFeedback({ articleId, language = "ru" }: Props) {
           {saved && !open && (
             <span className="flex items-center gap-1 text-xs text-emerald-500">
               <Check className="h-3 w-3" />
-              {lang === "ru" ? "Сохранено" : "Saved"}
+              {t("feedback.saved")}
             </span>
           )}
         </div>
@@ -143,7 +140,7 @@ export function ArticleFeedback({ articleId, language = "ru" }: Props) {
             onClick={() => setOpen(true)}
             className="text-xs text-primary hover:underline"
           >
-            {lang === "ru" ? "Изменить" : "Edit"}
+            {t("feedback.edit")}
           </button>
         )}
       </div>
@@ -151,37 +148,35 @@ export function ArticleFeedback({ articleId, language = "ru" }: Props) {
       {open && (
         <div className="mt-3 space-y-2">
           <div className="flex flex-wrap gap-1.5">
-            {PROBLEM_OPTIONS.map((o) => (
+            {PROBLEM_VALUES.map((value) => (
               <button
-                key={o.value}
+                key={value}
                 type="button"
-                onClick={() => setProblem(o.value)}
+                onClick={() => setProblem(value)}
                 className={cn(
                   "px-2 py-1 rounded-md text-xs border transition-colors",
-                  problem === o.value
+                  problem === value
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background border-border hover:bg-muted"
                 )}
               >
-                {lang === "ru" ? o.ru : o.en}
+                {t(`feedback.problem.${value}`)}
               </button>
             ))}
           </div>
           <Textarea
             value={comment}
             onChange={(e) => setComment(e.target.value.slice(0, 1000))}
-            placeholder={lang === "ru"
-              ? "Что можно улучшить? (необязательно)"
-              : "What could be improved? (optional)"}
+            placeholder={t("feedback.commentPlaceholder")}
             className="min-h-[60px] text-sm"
           />
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>
-              {lang === "ru" ? "Отмена" : "Cancel"}
+              {t("feedback.cancel")}
             </Button>
             <Button size="sm" onClick={submit} disabled={saving || !rating}>
               {saving && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-              {lang === "ru" ? "Отправить" : "Submit"}
+              {t("feedback.submit")}
             </Button>
           </div>
         </div>

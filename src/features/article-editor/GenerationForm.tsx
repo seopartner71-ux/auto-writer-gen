@@ -103,17 +103,17 @@ export function GenerationForm(props: GenerationFormProps) {
 
   const loadFacts = async () => {
     const url = sourcePageUrl.trim();
-    if (!url) { toast.error(lang === "ru" ? "Укажите URL страницы" : "Enter page URL"); return; }
-    if (!/^https?:\/\//i.test(url)) { toast.error(lang === "ru" ? "URL должен начинаться с http:// или https://" : "URL must start with http(s)://"); return; }
+    if (!url) { toast.error(t("generation.enterPageUrl")); return; }
+    if (!/^https?:\/\//i.test(url)) { toast.error(t("generation.urlMustBeHttp")); return; }
     setLoadingFacts(true);
     try {
       const { data, error } = await supabase.functions.invoke("extract-source-facts", { body: { url, force: true } });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       onSourcePageFactsChange(data?.facts || null);
-      toast.success(lang === "ru" ? "Факты со страницы загружены" : "Page facts loaded");
+      toast.success(t("generation.factsLoaded"));
     } catch (e: any) {
-      toast.error(e?.message || (lang === "ru" ? "Не удалось загрузить факты" : "Failed to load facts"));
+      toast.error(e?.message || t("generation.factsFailed"));
       onSourcePageFactsChange(null);
     } finally { setLoadingFacts(false); }
   };
@@ -143,7 +143,7 @@ export function GenerationForm(props: GenerationFormProps) {
             value={selectedModel || ""}
             onChange={onModelChange}
             userPlan={userPlan}
-            label={lang === "ru" ? "Модель ИИ и стоимость" : "AI model & cost"}
+            label={t("generation.aiModelAndCost")}
           />
         </div>
       )}
@@ -177,7 +177,7 @@ export function GenerationForm(props: GenerationFormProps) {
             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
           >
             <Link2 className="h-3.5 w-3.5" />
-            <span>{lang === "ru" ? "Статьи для перелинковки" : "Articles for interlinking"} ({projectArticlesForLinks.length})</span>
+            <span>{t("generation.interlinkingArticles")} ({projectArticlesForLinks.length})</span>
             {showInterlinkingArticles ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
           </button>
           {showInterlinkingArticles && (
@@ -192,14 +192,12 @@ export function GenerationForm(props: GenerationFormProps) {
                       <span className="max-w-[200px] truncate">{article.published_url}</span>
                     </a>
                   ) : (
-                    <span className="text-destructive/70 text-[10px] shrink-0">{lang === "ru" ? "URL не указан" : "No URL"}</span>
+                    <span className="text-destructive/70 text-[10px] shrink-0">{t("generation.noUrl")}</span>
                   )}
                 </div>
               ))}
               <p className="text-[10px] text-muted-foreground mt-1">
-                {lang === "ru"
-                  ? "Укажите Published URL у каждой статьи (в редакторе → SEO/Meta) для корректной перелинковки."
-                  : "Set Published URL for each article (in editor → SEO/Meta) for proper interlinking."}
+                {t("generation.setPublishedUrlHint")}
               </p>
             </div>
           )}
@@ -228,14 +226,14 @@ export function GenerationForm(props: GenerationFormProps) {
               geo={enableGeo ? geoLocation : undefined}
               disabled={isStreaming}
               onPick={(topic) => {
-                const prefix = lang === "ru" ? "Угол подачи" : "Angle";
-                const h1Label = lang === "ru" ? "Заголовок H1" : "H1";
+                const prefix = t("generation.angle");
+                const h1Label = t("generation.h1");
                 const block = `${prefix}: ${topic.angle}\n${h1Label}: ${topic.h1}\nIntent: ${topic.intent}`;
                 const next = customInstructions?.trim()
                   ? `${customInstructions.trim()}\n\n${block}`
                   : block;
                 onCustomInstructionsChange(next);
-                toast.success(lang === "ru" ? "Тема добавлена в инструкции" : "Topic added to instructions");
+                toast.success(t("generation.topicAdded"));
               }}
             />
           )}
@@ -264,10 +262,10 @@ export function GenerationForm(props: GenerationFormProps) {
               disabled={!selectedKeywordId}
               className="w-full mt-1.5 gap-2 text-xs"
               onClick={onOpenSectioned}
-              title="Генерировать по разделам со стримингом и регенерацией каждого H2"
+              title={t("generation.bySectionsTitle")}
             >
               <Wand2 className="h-3.5 w-3.5" />
-              По разделам
+              {t("generation.bySections")}
             </Button>
           )}
         </div>
@@ -302,7 +300,7 @@ export function GenerationForm(props: GenerationFormProps) {
         <button
           type="button"
           disabled={isTelegraphAuthor}
-          title={isTelegraphAuthor ? "Telegra.ph не поддерживает таблицы" : undefined}
+          title={isTelegraphAuthor ? t("generation.telegraphNoTables") : undefined}
           onClick={() => !isTelegraphAuthor && onComparisonTableChange(!includeComparisonTable)}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 select-none ${
             isTelegraphAuthor
@@ -376,7 +374,7 @@ export function GenerationForm(props: GenerationFormProps) {
         <div className="space-y-1">
           <Label className="text-[11px] text-muted-foreground flex items-center gap-1.5">
             <Globe className="h-3 w-3" />
-            {lang === "ru" ? "URL вашей страницы (статья будет использовать факты с неё)" : "Your page URL (article will use facts from it)"}
+            {t("generation.sourcePageUrlLabel")}
           </Label>
           <div className="flex gap-2">
             <Input
@@ -387,35 +385,33 @@ export function GenerationForm(props: GenerationFormProps) {
             />
             <Button type="button" size="sm" variant="outline" disabled={loadingFacts || !sourcePageUrl.trim()} onClick={loadFacts} className="h-8 gap-1.5 shrink-0">
               {loadingFacts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : sourcePageFacts ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Globe className="h-3.5 w-3.5" />}
-              {sourcePageFacts ? (lang === "ru" ? "Обновить" : "Refresh") : (lang === "ru" ? "Загрузить факты" : "Load facts")}
+              {sourcePageFacts ? t("generation.refresh") : t("generation.loadFacts")}
             </Button>
           </div>
           {sourcePageFacts && (
             <div className="mt-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-[11px] space-y-0.5 text-foreground/80">
-              {sourcePageFacts.service_name && <div><span className="text-muted-foreground">Услуга:</span> {sourcePageFacts.service_name}</div>}
-              {sourcePageFacts.usp && <div><span className="text-muted-foreground">УТП:</span> {sourcePageFacts.usp}</div>}
+              {sourcePageFacts.service_name && <div><span className="text-muted-foreground">{t("generation.facts.service")}:</span> {sourcePageFacts.service_name}</div>}
+              {sourcePageFacts.usp && <div><span className="text-muted-foreground">{t("generation.facts.usp")}:</span> {sourcePageFacts.usp}</div>}
               {Array.isArray(sourcePageFacts.key_numbers) && sourcePageFacts.key_numbers.length > 0 && (
-                <div><span className="text-muted-foreground">Цифры:</span> {sourcePageFacts.key_numbers.join("; ")}</div>
+                <div><span className="text-muted-foreground">{t("generation.facts.numbers")}:</span> {sourcePageFacts.key_numbers.join("; ")}</div>
               )}
-              {sourcePageFacts.location && <div><span className="text-muted-foreground">Гео:</span> {sourcePageFacts.location}</div>}
+              {sourcePageFacts.location && <div><span className="text-muted-foreground">{t("generation.facts.location")}:</span> {sourcePageFacts.location}</div>}
               {Array.isArray(sourcePageFacts.features) && sourcePageFacts.features.length > 0 && (
-                <div><span className="text-muted-foreground">Особенности:</span> {sourcePageFacts.features.slice(0, 6).join("; ")}</div>
+                <div><span className="text-muted-foreground">{t("generation.facts.features")}:</span> {sourcePageFacts.features.slice(0, 6).join("; ")}</div>
               )}
               {Array.isArray(sourcePageFacts.brands) && sourcePageFacts.brands.length > 0 && (
-                <div><span className="text-muted-foreground">Бренды:</span> {sourcePageFacts.brands.join("; ")}</div>
+                <div><span className="text-muted-foreground">{t("generation.facts.brands")}:</span> {sourcePageFacts.brands.join("; ")}</div>
               )}
-              {sourcePageFacts.pricing && <div><span className="text-muted-foreground">Цены:</span> {sourcePageFacts.pricing}</div>}
-              {sourcePageFacts.guarantees && <div><span className="text-muted-foreground">Гарантии:</span> {sourcePageFacts.guarantees}</div>}
-              {sourcePageFacts.delivery && <div><span className="text-muted-foreground">Доставка:</span> {sourcePageFacts.delivery}</div>}
+              {sourcePageFacts.pricing && <div><span className="text-muted-foreground">{t("generation.facts.pricing")}:</span> {sourcePageFacts.pricing}</div>}
+              {sourcePageFacts.guarantees && <div><span className="text-muted-foreground">{t("generation.facts.guarantees")}:</span> {sourcePageFacts.guarantees}</div>}
+              {sourcePageFacts.delivery && <div><span className="text-muted-foreground">{t("generation.facts.delivery")}:</span> {sourcePageFacts.delivery}</div>}
               {Array.isArray(sourcePageFacts.must_mention) && sourcePageFacts.must_mention.length > 0 && (
-                <div className="pt-1 border-t border-emerald-500/20"><span className="text-muted-foreground">Якоря:</span> {sourcePageFacts.must_mention.slice(0, 8).join("; ")}</div>
+                <div className="pt-1 border-t border-emerald-500/20"><span className="text-muted-foreground">{t("generation.facts.anchors")}:</span> {sourcePageFacts.must_mention.slice(0, 8).join("; ")}</div>
               )}
             </div>
           )}
           <p className="text-[10px] text-muted-foreground mt-1">
-            {lang === "ru"
-              ? "AI извлечёт ключевые факты (УТП, цифры, услуги) и будет писать статью именно под них, а не под общие данные конкурентов."
-              : "AI extracts key facts (USP, numbers, services) and writes around them instead of generic competitor data."}
+            {t("generation.factsHint")}
           </p>
         </div>
       </div>

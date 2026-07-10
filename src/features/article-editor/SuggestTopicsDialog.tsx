@@ -30,7 +30,7 @@ const intentColors: Record<string, string> = {
 };
 
 export function SuggestTopicsDialog({ keyword, language, geo, onPick, disabled }: Props) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -47,7 +47,7 @@ export function SuggestTopicsDialog({ keyword, language, geo, onPick, disabled }
       if (data?.error) throw new Error(data.error);
       setTopics(data?.topics || []);
     } catch (e: any) {
-      toast.error(e?.message || (lang === "ru" ? "Не удалось подобрать темы" : "Failed to suggest topics"));
+      toast.error(e?.message || t("topics.failed"));
       setOpen(false);
     } finally {
       setLoading(false);
@@ -72,17 +72,17 @@ export function SuggestTopicsDialog({ keyword, language, geo, onPick, disabled }
           className="w-full h-9 gap-1.5 text-xs border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-500/10 text-purple-300"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          {lang === "ru" ? "Предложить темы (бесплатно)" : "Suggest topics (free)"}
+          {t("topics.suggestFree")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-purple-400" />
-            {lang === "ru" ? "5 углов подачи статьи" : "5 article angles"}
+            {t("topics.fiveAngles")}
             {keyword && (
               <span className="text-xs font-normal text-muted-foreground ml-2">
-                {lang === "ru" ? "по запросу" : "for"}: <span className="text-foreground">{keyword}</span>
+                {t("topics.forQuery")}: <span className="text-foreground">{keyword}</span>
               </span>
             )}
           </DialogTitle>
@@ -91,7 +91,7 @@ export function SuggestTopicsDialog({ keyword, language, geo, onPick, disabled }
         {loading && (
           <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
-            <p className="text-sm">{lang === "ru" ? "Анализируем топ Google и подбираем углы..." : "Analyzing Google top and crafting angles..."}</p>
+            <p className="text-sm">{t("topics.analyzing")}</p>
           </div>
         )}
 
@@ -119,7 +119,7 @@ export function SuggestTopicsDialog({ keyword, language, geo, onPick, disabled }
             ))}
             <div className="pt-2 flex justify-end">
               <Button variant="ghost" size="sm" onClick={fetchTopics} disabled={loading} className="text-xs">
-                {lang === "ru" ? "Обновить варианты" : "Regenerate"}
+                {t("topics.regenerate")}
               </Button>
             </div>
           </div>
