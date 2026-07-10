@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, Info, StopCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ImprovingTipsLoader } from "./ImprovingTipsLoader";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 type Mode = "quick" | "expert";
 
@@ -48,25 +49,6 @@ function fmtTurg(v: number | null) { return v == null ? "-" : `${v}`; }
 function aiOk(v: number | null) { return v != null && v >= AI_TARGET; }
 function turgOk(v: number | null) { return v != null && v <= TURG_TARGET; }
 
-function actionLabel(a: CycleProgress["action"]): string {
-  if (a === "humanize") return "Гуманизация";
-  if (a === "turgenev") return "Тургенев-фикс";
-  return "Подготовка";
-}
-
-function finalStatusLabel(s: CycleProgress["final_status"]): string {
-  switch (s) {
-    case "targets_met":  return "Оба показателя в норме";
-    case "balanced":     return "Достигнут баланс - дальнейшее улучшение ухудшает другой показатель";
-    case "no_progress":  return "Прогресса нет два прохода подряд";
-    case "max_passes":   return `Достигнут лимит в ${MAX_PASSES} прохода`;
-    case "stopped":      return "Остановлено пользователем";
-    case "error":        return "Ошибка выполнения";
-    case "turgenev_unavailable": return "Тургенев временно недоступен, улучшение по этой метрике отложено";
-    default:             return "";
-  }
-}
-
 function fmtDuration(ms: number): string {
   if (ms < 0) ms = 0;
   const totalSec = Math.floor(ms / 1000);
@@ -76,6 +58,25 @@ function fmtDuration(ms: number): string {
 }
 
 export function QualityImproveCard({ mode, articleId, currentContent, onRevertContent }: Props) {
+  const { t, lang } = useI18n();
+  const isEn = lang === "en";
+  const actionLabel = (a: CycleProgress["action"]): string => {
+    if (a === "humanize") return t("qic.step.humanize");
+    if (a === "turgenev") return t("qic.step.turgenev");
+    return t("qic.step.prep");
+  };
+  const finalStatusLabel = (s: CycleProgress["final_status"]): string => {
+    switch (s) {
+      case "targets_met":  return t("qic.stop.targets_met");
+      case "balanced":     return t("qic.stop.balanced");
+      case "no_progress":  return t("qic.stop.no_progress");
+      case "max_passes":   return t("qic.stop.max_passes", { n: String(MAX_PASSES) });
+      case "stopped":      return t("qic.stop.stopped");
+      case "error":        return t("qic.stop.error");
+      case "turgenev_unavailable": return t("qic.stop.turgenev_unavailable");
+      default:             return "";
+    }
+  };
   const [row, setRow] = useState<any>({});
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pollRef = useRef<number | null>(null);
@@ -193,9 +194,9 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         .from("articles")
         .update({ improve_stop_requested: true } as any)
         .eq("id", articleId);
-      toast.message("Остановка запрошена - цикл завершится после текущего шага");
+      toast.message(t("qic.stopRequested"));
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось остановить");
+      toast.error(e?.message || t("qic.stopFailed"));
       setStopping(false);
     }
   }
@@ -203,7 +204,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   // Kick off the server-side cycle. Returns immediately (202); realtime + poll
   // pick up progress from articles.quality_details.cycle_progress.
   async function runImprove() {
-    if (!articleId) { toast.error("Сначала сохраните статью"); return; }
+    if (!articleId) { toast.error(t("qic.needSaveFirst")); return; }
     setStarting(true);
     startingSinceRef.current = Date.now();
     if (startingTimerRef.current) window.clearTimeout(startingTimerRef.current);
@@ -218,7 +219,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      if (!token) throw new Error("Сессия истекла");
+      if (!token) throw new Error(t("qic.sessionExpired"));
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/improve-article`, {
         method: "POST",
         headers: {
@@ -234,22 +235,22 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         setStarting(false);
         startingSinceRef.current = null;
         if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
-        toast.error(payload?.error || `Ошибка ${resp.status}`);
+        toast.error(payload?.error || t("qic.errorN", { n: String(resp.status) }));
         return;
       }
       if (payload?.cooldown) {
         setStarting(false);
         startingSinceRef.current = null;
         if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
-        toast.message(payload?.message || "Подождите перед повторной доработкой");
+        toast.message(payload?.message || t("qic.cooldown"));
         return;
       }
-      toast.message("Цикл запущен. Можно закрыть или обновить страницу - работа продолжится на сервере.");
+      toast.message(t("qic.started"));
     } catch (e: any) {
       setStarting(false);
       startingSinceRef.current = null;
       if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
-      toast.error(e?.message || "Не удалось запустить");
+      toast.error(e?.message || t("qic.failedStart"));
     }
   }
 
@@ -260,10 +261,10 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
     const key = cycle.finished_at || `${cycle.status}:${cycle.final_status}`;
     if (lastNotifiedFinishRef.current === key) return;
     lastNotifiedFinishRef.current = key;
-    if (cycle.final_status === "targets_met") toast.success("Готово ✓ Оба показателя в норме");
-    else if (cycle.final_status === "stopped") toast.message("Цикл остановлен");
-    else if (cycle.final_status === "error") toast.error(cycle.error || "Ошибка выполнения цикла");
-    else toast.warning("Достигнут баланс");
+    if (cycle.final_status === "targets_met") toast.success(t("qic.done.targets"));
+    else if (cycle.final_status === "stopped") toast.message(t("qic.done.stopped"));
+    else if (cycle.final_status === "error") toast.error(cycle.error || t("qic.done.error"));
+    else toast.warning(t("qic.done.balance"));
     // Sync editor content with server-applied best content.
     if (cycle.best?.content && cycle.best.content !== currentContent) {
       onRevertContent(cycle.best.content);
@@ -274,7 +275,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   async function acceptBest() {
     // Server has already applied best content. Just close the card.
     setDismissed(true);
-    toast.success("Принят лучший вариант");
+    toast.success(t("qic.acceptBest"));
   }
 
   async function revertAll() {
@@ -286,9 +287,9 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       if (error) throw error;
       onRevertContent(cycle.initial.content);
       setDismissed(true);
-      toast.success("Правки отменены");
+      toast.success(t("qic.revertDone"));
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось отменить");
+      toast.error(e?.message || t("qic.revertFailed"));
     }
   }
 
@@ -298,10 +299,10 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const isOk = aiOk(ai) && turgOk(turg);
   const hasAny = ai != null || turg != null;
   const statusBlock = (() => {
-    if (running) return { dotCls: "bg-amber-400", text: "Проверяется...", cls: "text-amber-300" };
-    if (!hasAny) return { dotCls: "bg-muted-foreground/50", text: "Нет данных", cls: "text-muted-foreground" };
-    if (isOk) return { dotCls: "bg-emerald-400", text: "Готово к публикации", cls: "text-emerald-300" };
-    return { dotCls: "bg-rose-400", text: "Требует улучшения", cls: "text-rose-300" };
+    if (running) return { dotCls: "bg-amber-400", text: t("qic.status.checking"), cls: "text-amber-300" };
+    if (!hasAny) return { dotCls: "bg-muted-foreground/50", text: t("qic.status.noData"), cls: "text-muted-foreground" };
+    if (isOk) return { dotCls: "bg-emerald-400", text: t("qic.status.ready"), cls: "text-emerald-300" };
+    return { dotCls: "bg-rose-400", text: t("qic.status.needImprove"), cls: "text-rose-300" };
   })();
 
   const currentPass = Math.max(1, cycle?.pass || 1);
@@ -311,8 +312,14 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const elapsedLabel = cycle?.started_at ? fmtDuration(elapsedMs) : "0:00";
   const subStepLabel = cycle?.sub_step && cycle.sub_step.trim().length > 0 ? cycle.sub_step : null;
   const passLine = cycle
-    ? `Проход ${Math.min(currentPass, totalPasses)}/${totalPasses} · ${subStepLabel ?? actionLabel(cycle.action)}${cycle.rolled_back ? " (откат)" : ""} · ${elapsedLabel}`
-    : "Запуск цикла...";
+    ? t("qic.passLine", {
+        p: String(Math.min(currentPass, totalPasses)),
+        t: String(totalPasses),
+        step: subStepLabel ?? actionLabel(cycle.action),
+        roll: cycle.rolled_back ? t("qic.rollback") : "",
+        elapsed: elapsedLabel,
+      })
+    : t("qic.launching");
   const escalationLevel: "none" | "long" | "stuck" =
     running && elapsedMs >= 10 * 60 * 1000 ? "stuck"
     : running && elapsedMs >= 7 * 60 * 1000 ? "long"
@@ -327,7 +334,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-semibold">Качество текста</div>
+        <div className="text-sm font-semibold">{t("qic.cardTitle")}</div>
         {mode === "expert" && (
           <span className={`inline-flex items-center gap-1.5 text-[11px] ${statusBlock.cls}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${statusBlock.dotCls}`} />
@@ -338,22 +345,22 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
 
       {/* Compact metric bars — visible whenever we have any score and not mid-cycle */}
       {!running && hasAny && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid ${isEn ? "grid-cols-1" : "grid-cols-2"} gap-2`}>
           <MetricBar
-            label="Человечность"
+            label={t("qic.metric.human")}
             valueLabel={fmtAi(ai)}
-            hint={`цель ≥${AI_TARGET}`}
+            hint={t("qic.metric.aiTarget", { n: String(AI_TARGET) })}
             pct={ai == null ? 0 : Math.max(0, Math.min(100, ai))}
             ok={aiOk(ai)}
           />
-          <MetricBar
-            label="Тургенев"
+          {!isEn && <MetricBar
+            label={t("qic.metric.turgenev")}
             valueLabel={fmtTurg(turg)}
-            hint={`цель ≤${TURG_TARGET}`}
+            hint={t("qic.metric.turgTarget", { n: String(TURG_TARGET) })}
             /* inverted scale: lower = better; render fill inversely */
             pct={turg == null ? 0 : Math.max(0, Math.min(100, 100 - Math.min(20, turg) * 5))}
             ok={turgOk(turg)}
-          />
+          />}
         </div>
       )}
 
@@ -365,17 +372,17 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               <ImprovingTipsLoader />
               {cycle?.started_at && (
                 <div className="text-[11px] text-muted-foreground tabular-nums">
-                  {elapsedLabel} · обычно 2-6 минут
+                  {elapsedLabel} · {t("qic.usual")}
                 </div>
               )}
               {escalationLevel === "long" && (
                 <div className="text-[11px] text-amber-300 text-center">
-                  ⏱ Дольше обычного - можно остановить и забрать лучшее.
+                  {t("qic.long")}
                 </div>
               )}
               {escalationLevel === "stuck" && (
                 <div className="text-[11px] text-rose-200 text-center">
-                  ⚠ Похоже, цикл завис. Остановите и сохраните лучший результат.
+                  {t("qic.stuck")}
                 </div>
               )}
             </div>
@@ -386,16 +393,16 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               </div>
               <Progress value={progressPct} className="h-2" />
               <div className="text-[11px] text-muted-foreground/80">
-                Обычно 2-6 минут. Работа идёт на сервере - F5 её не прервёт.
+                {t("qic.serverNote")}
               </div>
               {escalationLevel === "long" && (
                 <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
-                  ⏱ Дольше обычного. Можно подождать ещё пару минут - или остановить и забрать лучший результат.
+                  {t("qic.longBlock")}
                 </div>
               )}
               {escalationLevel === "stuck" && (
                 <div className="text-[11px] text-rose-200 bg-rose-500/10 border border-rose-500/40 rounded px-2 py-1.5">
-                  ⚠ Похоже, цикл завис. Остановите и сохраните лучшее - при следующем запуске мы автоматически сбросим зависший цикл.
+                  {t("qic.stuckBlock")}
                 </div>
               )}
             </>
@@ -408,7 +415,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
             disabled={stopping}
           >
             {stopping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StopCircle className="h-3.5 w-3.5" />}
-            {stopping ? "Останавливаем..." : "Остановить"}
+            {stopping ? t("qic.stopping") : t("qic.stop")}
           </Button>
         </div>
       )}
@@ -416,8 +423,8 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
       {/* Before/After card */}
       {!running && showBeforeAfter && cycle?.initial && cycle?.best && (
         <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
-          <Row label="AI Score" before={fmtAi(cycle.initial.ai ?? null)} after={fmtAi(cycle.best.ai ?? null)} ok={aiOk(cycle.best.ai ?? null)} />
-          <Row label="Тургенев"  before={fmtTurg(cycle.initial.turg ?? null)} after={fmtTurg(cycle.best.turg ?? null)} ok={turgOk(cycle.best.turg ?? null)} />
+          <Row label={t("qic.row.ai")} before={fmtAi(cycle.initial.ai ?? null)} after={fmtAi(cycle.best.ai ?? null)} ok={aiOk(cycle.best.ai ?? null)} />
+          {!isEn && <Row label={t("qic.row.turg")}  before={fmtTurg(cycle.initial.turg ?? null)} after={fmtTurg(cycle.best.turg ?? null)} ok={turgOk(cycle.best.turg ?? null)} />}
           {finalMsg && (
             <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5">
               ⚠️ {finalMsg}
@@ -425,10 +432,10 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
           )}
           <div className="grid grid-cols-2 gap-2 pt-2">
             <Button size="sm" className="gap-1" onClick={acceptBest}>
-              <Check className="h-3.5 w-3.5" /> Принять лучший
+              <Check className="h-3.5 w-3.5" /> {t("qic.acceptBtn")}
             </Button>
             <Button size="sm" variant="outline" className="gap-1" onClick={revertAll} disabled={!cycle.initial.content}>
-              <X className="h-3.5 w-3.5" /> Откатить все
+              <X className="h-3.5 w-3.5" /> {t("qic.revertBtn")}
             </Button>
           </div>
         </div>
@@ -441,19 +448,19 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         return (
           <div className="space-y-2">
             {mode === "expert" && (
-              <div className="grid grid-cols-3 gap-1 text-[11px]">
+              <div className={`grid ${isEn ? "grid-cols-2" : "grid-cols-3"} gap-1 text-[11px]`}>
                 <button type="button" onClick={() => setPriority("auto")}
                   className={`rounded border px-2 py-1 ${priority === "auto" ? "border-violet-500 bg-violet-500/15 text-violet-100" : "border-border text-muted-foreground hover:text-foreground"}`}>
-                  Авто
+                  {t("qic.priority.auto")}
                 </button>
                 <button type="button" onClick={() => setPriority("ai")}
                   className={`rounded border px-2 py-1 ${priority === "ai" ? "border-violet-500 bg-violet-500/15 text-violet-100" : "border-border text-muted-foreground hover:text-foreground"}`}>
-                  Меньше AI
+                  {t("qic.priority.ai")}
                 </button>
-                <button type="button" onClick={() => setPriority("turgenev")}
+                {!isEn && <button type="button" onClick={() => setPriority("turgenev")}
                   className={`rounded border px-2 py-1 ${priority === "turgenev" ? "border-violet-500 bg-violet-500/15 text-violet-100" : "border-border text-muted-foreground hover:text-foreground"}`}>
-                  Тургенев
-                </button>
+                  {t("qic.priority.turg")}
+                </button>}
               </div>
             )}
             <Button
@@ -462,7 +469,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               onClick={runImprove}
             >
               {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {mode === "quick" ? "Улучшить автоматически" : "Улучшить качество текста"}
+              {mode === "quick" ? t("qic.btn.quick") : t("qic.btn.expert")}
             </Button>
             <button
               type="button"
@@ -470,16 +477,18 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
               className="w-full inline-flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
             >
               <Info className="h-3 w-3" />
-              {showSteps ? "Скрыть что делают шаги" : "Что произойдёт при нажатии?"}
+              {showSteps ? t("qic.hideSteps") : t("qic.showSteps")}
               {showSteps ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
             {showSteps && (
               <div className="rounded-md border border-border bg-muted/20 p-2 text-[11px] space-y-1.5">
-                <Step n="1" name="Гуманизация (Stealth Pass)" what="Чередует длину предложений, добавляет разговорные вставки. Снижает AI Score." />
-                <Step n="2" name="Тургенев-фикс" what="Убирает канцеляризмы, разбивает длинные фразы, перефразирует повторы. Снижает балл Тургенева." />
-                <Step n="3" name="Финальная проверка" what="Перепроверяет AI Score и Тургенев. Если шаг ухудшил метрики - откат." />
+                <Step n="1" name={t("qic.step1.name")} what={t("qic.step1.what")} />
+                {!isEn && <Step n="2" name={t("qic.step2.name")} what={t("qic.step2.what")} />}
+                <Step n={isEn ? "2" : "3"} name={t("qic.step3.name")} what={t("qic.step3.what")} />
                 <div className="pt-1.5 border-t border-border/60 text-muted-foreground/80 leading-snug">
-                  Цель: AI ≥ {AI_TARGET}% (человечно), Тургенев ≤ {TURG_TARGET}. Максимум {MAX_PASSES} прохода. Цикл идёт на сервере - обновление страницы не прервёт его.
+                  {isEn
+                    ? t("qic.goalEn", { ai: String(AI_TARGET), p: String(MAX_PASSES) })
+                    : t("qic.goal", { ai: String(AI_TARGET), t: String(TURG_TARGET), p: String(MAX_PASSES) })}
                 </div>
               </div>
             )}
