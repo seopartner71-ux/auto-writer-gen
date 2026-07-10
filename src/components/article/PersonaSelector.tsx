@@ -607,22 +607,22 @@ function EditAuthorForm({
       <div className="space-y-1">
         <Label className="text-[10px] text-muted-foreground">Синтаксический профиль</Label>
         <div className="grid grid-cols-2 gap-1">
-          {SYNTAX_PRESETS.map((p) => (
+          {SYNTAX_PRESET_KEYS.map((k) => (
             <label
-              key={p.key}
+              key={k}
               className={`flex cursor-pointer items-center gap-1.5 rounded border px-2 py-1 text-[11px] transition-colors ${
-                syntax === p.key ? "border-primary bg-primary/5" : "border-border hover:bg-accent/30"
+                syntax === k ? "border-primary bg-primary/5" : "border-border hover:bg-accent/30"
               }`}
             >
               <input
                 type="radio"
                 name="syntax_profile"
-                value={p.key}
-                checked={syntax === p.key}
-                onChange={() => setSyntax(p.key)}
+                value={k}
+                checked={syntax === k}
+                onChange={() => setSyntax(k)}
                 className="h-3 w-3"
               />
-              <span>{p.label}</span>
+              <span>{t(`ps.syn.${k}` as any)}</span>
             </label>
           ))}
         </div>
