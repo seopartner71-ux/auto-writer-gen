@@ -365,11 +365,11 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
               <Sparkles className="h-3.5 w-3.5" />
             </div>
             <div>
-              <div className="text-sm font-semibold leading-tight">Проверка качества</div>
+              <div className="text-sm font-semibold leading-tight">{t("qcp.title")}</div>
               <div className="text-[10px] text-muted-foreground leading-tight">
                 {result.checked_at
-                  ? `Обновлено ${new Date(result.checked_at).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" })}`
-                  : "Запустите проверку для оценки текста"}
+                  ? t("qcp.updated", { date: new Date(result.checked_at).toLocaleString(lang === "ru" ? "ru-RU" : "en-US", { dateStyle: "short", timeStyle: "short" }) })
+                  : t("qcp.runHint")}
               </div>
             </div>
           </div>
@@ -380,7 +380,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
               </button>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
-              <div className="text-xs">Score и AI-детектор бесплатны. Уникальность через Text.ru стоит 1 кредит.</div>
+              <div className="text-xs">{t("qcp.infoTip")}</div>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -397,40 +397,40 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
         <div className="space-y-2 p-4">
           <MetricRow
             icon={Sparkles}
-            title="СЕО-Модуль Score"
-            hint={result.details?.score_details ? `Стилистика ${result.details.score_details.stylistics}/10 - Вода ${result.details.score_details.water}/10` : "Аналог Тургенева - меньше баллов лучше"}
+            title={t("qcp.metric.score")}
+            hint={result.details?.score_details ? t("qcp.metric.score.hintDetail", { stylistics: result.details.score_details.stylistics, water: result.details.score_details.water }) : t("qcp.metric.score.hint")}
             value={result.turgenev_score !== null ? String(result.turgenev_score) : "-"}
-            suffix={result.turgenev_score !== null ? "из 10 баллов риска" : undefined}
+            suffix={result.turgenev_score !== null ? t("qcp.metric.score.suffix") : undefined}
             status={sScore}
             progress={scoreProgress}
           />
           <MetricRow
             icon={ShieldCheck}
-            title="Уникальность"
-            hint={uniqPending ? "Идет проверка через Text.ru..." : (result.details?.uniqueness_details?.words ? `${result.details.uniqueness_details.words} слов - Text.ru` : "Антиплагиат через Text.ru")}
+            title={t("qcp.metric.uniq")}
+            hint={uniqPending ? t("qcp.metric.uniq.pending") : (result.details?.uniqueness_details?.words ? t("qcp.metric.uniq.words", { words: result.details.uniqueness_details.words }) : t("qcp.metric.uniq.hint"))}
             value={uniqPending ? "..." : (result.uniqueness_percent !== null ? `${result.uniqueness_percent}%` : "-")}
             status={sUniq}
             progress={uniqProgress}
           />
           <MetricRow
             icon={BrainCircuit}
-            title="AI-детектор"
-            hint={result.details?.ai_details?.verdict ? `Вердикт: ${result.details.ai_details.verdict}` : "Шкала человечности 0-100"}
+            title={t("qcp.metric.ai")}
+            hint={result.details?.ai_details?.verdict ? t("qcp.metric.ai.verdict", { verdict: result.details.ai_details.verdict }) : t("qcp.metric.ai.hint")}
             value={result.ai_human_score !== null ? `${result.ai_human_score}%` : "-"}
-            suffix={result.ai_human_score !== null ? "человек" : undefined}
+            suffix={result.ai_human_score !== null ? t("qcp.metric.ai.suffix") : undefined}
             status={sAi}
             progress={aiProgress}
           />
           <MetricRow
             icon={Target}
-            title={`SERP-кластер ${result.serp_cluster_pipeline ? "· новый пайплайн" : "· старый пайплайн"}`}
+            title={result.serp_cluster_pipeline ? t("qcp.metric.cluster.newPipe") : t("qcp.metric.cluster.oldPipe")}
             hint={
               result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined
-                ? `Абзацев в основном кластере: ${(result.details as any)?.cluster_fitness_details?.in_cluster ?? "?"} из ${(result.details as any)?.cluster_fitness_details?.total_paragraphs ?? "?"}`
-                : "% абзацев, попадающих в основной SERP-кластер ключа"
+                ? t("qcp.metric.cluster.details", { in: (result.details as any)?.cluster_fitness_details?.in_cluster ?? "?", total: (result.details as any)?.cluster_fitness_details?.total_paragraphs ?? "?" })
+                : t("qcp.metric.cluster.hint")
             }
             value={result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined ? `${result.cluster_fitness_score}%` : "-"}
-            suffix={result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined ? "в кластере" : undefined}
+            suffix={result.cluster_fitness_score !== null && result.cluster_fitness_score !== undefined ? t("qcp.metric.cluster.suffix") : undefined}
             status={
               result.cluster_fitness_score === null || result.cluster_fitness_score === undefined ? "none"
                 : result.cluster_fitness_score >= 70 ? "ok"
@@ -452,8 +452,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
               className="h-11 font-semibold text-white bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700 hover:scale-[1.01] transition-all shadow-[0_0_24px_-8px_hsl(var(--primary)/0.6)]"
             >
               {autoImproving
-                ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Доводим до ТОПа...</>
-                : <><Rocket className="h-4 w-4 mr-1.5" /> Довести до ТОПа <span className="ml-1.5 text-[10px] opacity-80">~2 ₵</span></>}
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> {t("qcp.toTop.running")}</>
+                : <><Rocket className="h-4 w-4 mr-1.5" /> {t("qcp.toTop.btn")} <span className="ml-1.5 text-[10px] opacity-80">~2 ₵</span></>}
             </Button>
           ) : (
             <Button
@@ -463,8 +463,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
               className="h-11 font-semibold text-white bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700 hover:scale-[1.01] transition-all"
             >
               {loadingFree || loadingUniq
-                ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Проверяем...</>
-                : <><Sparkles className="h-4 w-4 mr-1.5" /> Проверить качество <span className="ml-1.5 text-[10px] opacity-80">1 ₵</span></>}
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> {t("qcp.checking")}</>
+                : <><Sparkles className="h-4 w-4 mr-1.5" /> {t("qcp.runCheck")} <span className="ml-1.5 text-[10px] opacity-80">1 ₵</span></>}
             </Button>
           )}
           <div className="flex items-center justify-between text-[11px]">
@@ -474,7 +474,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
               onClick={() => runChecks(["score", "ai"])}
               className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             >
-              {loadingFree ? "Анализ..." : "Только бесплатные (Score + AI)"}
+              {loadingFree ? t("qcp.freeOnly.running") : t("qcp.freeOnly")}
             </button>
             {badgeMeta && (
               <button
@@ -482,7 +482,7 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
                 onClick={shareCard}
                 className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Share2 className="h-3 w-3" /> Поделиться
+                <Share2 className="h-3 w-3" /> {t("qcp.share.btn")}
               </button>
             )}
           </div>
@@ -499,19 +499,19 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-purple-500/20 to-blue-500/20 text-purple-400">
                 <Rocket className="h-3.5 w-3.5" />
               </div>
-              Auto-Improve to TOP
+              {t("qcp.dlg.title")}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="pt-2 space-y-3">
                 <div className="text-sm text-muted-foreground">
-                  Запустим полный цикл доводки текста до уровня публикации:
+                  {t("qcp.dlg.intro")}
                 </div>
                 <div className="space-y-2">
                   {([
-                    { key: "benchmark" as const, title: "Оптимизация под TOP-10", desc: "Объем, LSI, сущности по медиане конкурентов", cost: "1 ₵", show: useBenchmark && !!onBenchmarkOptimize && !!benchmarkReady },
-                    { key: "humanize" as const, title: "Humanize Fix", desc: "Перепишем AI-абзацы под живой стиль", cost: "1 ₵", show: true },
-                    { key: "score" as const, title: "Score + AI-детектор", desc: "Стилистика, вода, человечность", cost: "free", show: true },
-                    { key: "uniqueness" as const, title: "Уникальность Text.ru", desc: "Антиплагиат - норма 85%+", cost: "1 ₵", show: true },
+                    { key: "benchmark" as const, title: t("qcp.dlg.step.benchmark.title"), desc: t("qcp.dlg.step.benchmark.desc"), cost: "1 ₵", show: useBenchmark && !!onBenchmarkOptimize && !!benchmarkReady },
+                    { key: "humanize" as const, title: t("qcp.dlg.step.humanize.title"), desc: t("qcp.dlg.step.humanize.desc"), cost: "1 ₵", show: true },
+                    { key: "score" as const, title: t("qcp.dlg.step.score.title"), desc: t("qcp.dlg.step.score.desc"), cost: t("qcp.dlg.free"), show: true },
+                    { key: "uniqueness" as const, title: t("qcp.dlg.step.uniqueness.title"), desc: t("qcp.dlg.step.uniqueness.desc"), cost: "1 ₵", show: true },
                   ]).filter(s => s.show).map((step, idx) => {
                     const state = stepStates[step.key];
                     const enabled = stepEnabled[step.key];
@@ -537,13 +537,13 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
                           </div>
                           <div className="text-muted-foreground">{step.desc}</div>
                         </div>
-                        <span className={`text-[10px] ${step.cost === "free" ? "text-emerald-400" : "text-muted-foreground"}`}>{step.cost}</span>
+                         <span className={`text-[10px] ${step.cost === t("qcp.dlg.free") ? "text-emerald-400" : "text-muted-foreground"}`}>{step.cost}</span>
                       </label>
                     );
                   })}
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-                  <span className="text-xs text-muted-foreground">Итого спишется</span>
+                  <span className="text-xs text-muted-foreground">{t("qcp.dlg.total")}</span>
                   <span className="text-sm font-semibold text-foreground">{totalCost} ₵</span>
                 </div>
 
@@ -562,12 +562,12 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
                     <div className="flex-1 text-xs">
                       <div className="flex items-center gap-1.5 font-medium text-foreground">
                         <Target className="h-3.5 w-3.5 text-primary" />
-                        Учесть конкурентов TOP-10
+                        {t("qcp.dlg.bench.on")}
                       </div>
                       <div className="text-muted-foreground mt-0.5">
                         {benchmarkReady
-                          ? "Перепишем под медианы TOP-10: объем, LSI, сущности. +1 ₵, +60 сек"
-                          : "Сначала откройте вкладку Benchmark и нажмите 'Загрузить Benchmark'"}
+                          ? t("qcp.dlg.bench.readyDesc")
+                          : t("qcp.dlg.bench.notReadyDesc")}
                       </div>
                     </div>
                   </label>
@@ -576,14 +576,14 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t("qcp.dlg.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={autoImproveToTop}
               disabled={autoImproving}
               className="bg-gradient-to-r from-purple-600 via-fuchsia-600 to-blue-600 text-white hover:from-purple-700 hover:via-fuchsia-700 hover:to-blue-700"
             >
               {autoImproving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
-              {autoImproving ? "Идет доводка..." : `Запустить (${totalCost} ₵)`}
+              {autoImproving ? t("qcp.dlg.running") : t("qcp.dlg.run", { v: totalCost })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
