@@ -248,4 +248,3 @@ export const common: Dict = {
   "confirmGen.highSpend": { ru: "Высокий расход", en: "High spend" },
   "confirmGen.generateFor": { ru: "Сгенерировать за {n} кр", en: "Generate for {n} cr" },
 };
-};
