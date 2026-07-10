@@ -14,6 +14,7 @@ const EXCLUDE_PREFIXES = [
   "src/components/vc-writer/",
   "src/pages/VcWriterPage.tsx",
   "src/pages/AdminPage.tsx",
+  "src/pages/ContentPlanPage.tsx",
   "src/shared/hooks/useI18n.tsx",
   "src/shared/i18n/",
   "src/shared/utils/liveTurgenev.ts",

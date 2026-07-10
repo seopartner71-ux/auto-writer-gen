@@ -143,7 +143,7 @@ export default function KeywordsPage() {
         const raw = list[i];
         const clean = sanitizeKeyword(raw);
         const vErr = validateKeywordInput(clean);
-        if (vErr) { failed++; toast.error(`"${raw}": ${vErr === "too_short" ? "слишком короткий" : "слишком длинный"}`); continue; }
+        if (vErr) { failed++; toast.error(`"${raw}": ${vErr === "too_short" ? t("keywords.tooShort") : t("keywords.tooLong")}`); continue; }
         setBatchProgress({ current: i + 1, total: list.length, currentKw: clean });
         try {
           const { data, error } = await supabase.functions.invoke("smart-research", {
@@ -155,11 +155,11 @@ export default function KeywordsPage() {
           ok++;
         } catch (e: any) {
           failed++;
-          toast.error(`"${clean}": ${e?.message || "ошибка"}`);
+          toast.error(`"${clean}": ${e?.message || t("keywords.genericError")}`);
         }
       }
       setBatchProgress(null);
-      if (!lastResult) throw new Error("Все запросы завершились с ошибкой");
+      if (!lastResult) throw new Error(t("keywords.allFailed"));
       (lastResult as any).__batchStats = { ok, failed, total: list.length };
       return lastResult;
     },
@@ -167,7 +167,8 @@ export default function KeywordsPage() {
       setResults(data);
       const stats = (data as any).__batchStats;
       if (stats && stats.total > 1) {
-        toast.success(`Готово: ${stats.ok} из ${stats.total}${stats.failed ? ` (ошибок: ${stats.failed})` : ""}`);
+        const errPart = stats.failed ? t("keywords.batchDoneErrors", { failed: stats.failed }) : "";
+        toast.success(`${t("keywords.batchDone", { ok: stats.ok, total: stats.total })}${errPart}`);
       } else {
         toast.success(`${t("keywords.analysisComplete")} (${data.model_used})`);
       }
@@ -214,11 +215,11 @@ export default function KeywordsPage() {
             <Label className="text-xs text-muted-foreground flex items-center justify-between">
               <span>{t("keywords.keyword")}</span>
               <span className="text-[10px] text-muted-foreground/70">
-                {isBatch ? `${parsedKeywords.length} / 10 запросов` : "До 10 запросов - по одному в строке"}
+                {isBatch ? t("keywords.batchCount", { n: parsedKeywords.length }) : t("keywords.batchHint")}
               </span>
             </Label>
             <Textarea
-              placeholder={`${t("keywords.keywordPlaceholder")}\nможно несколько - каждый с новой строки`}
+              placeholder={`${t("keywords.keywordPlaceholder")}\n${t("keywords.placeholderMultiline")}`}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               onKeyDown={(e) => {
@@ -294,7 +295,7 @@ export default function KeywordsPage() {
                 ? (batchProgress && batchProgress.total > 1
                     ? `${batchProgress.current} / ${batchProgress.total}...`
                     : t("keywords.analyzing"))
-                : (isBatch ? `Исследовать (${parsedKeywords.length})` : t("keywords.research"))}
+                : (isBatch ? t("keywords.researchBatch", { n: parsedKeywords.length }) : t("keywords.research"))}
             </Button>
           </div>
         </div>
@@ -306,7 +307,7 @@ export default function KeywordsPage() {
           <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
           <p className="text-sm">
             {batchProgress && batchProgress.total > 1
-              ? `Обработка ${batchProgress.current} / ${batchProgress.total}: ${batchProgress.currentKw}`
+              ? t("keywords.batchProcessing", { current: batchProgress.current, total: batchProgress.total, kw: batchProgress.currentKw })
               : t("keywords.searching")}
           </p>
           <p className="text-xs mt-1">{t("keywords.searchTime")}</p>

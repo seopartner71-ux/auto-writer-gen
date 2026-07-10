@@ -178,7 +178,7 @@ export default function PlanBuilderPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" size="icon" onClick={() => refetchKeywords()} disabled={isFetchingKeywords} title="Обновить список">
+          <Button variant="outline" size="icon" onClick={() => refetchKeywords()} disabled={isFetchingKeywords} title={t("planBuilder.refreshList")}>
             <RefreshCw className={`h-4 w-4 ${isFetchingKeywords ? "animate-spin" : ""}`} />
           </Button>
           <Button onClick={() => autopilot.mutate()} disabled={!selectedKeywordId || autopilot.isPending} className="gap-2">
