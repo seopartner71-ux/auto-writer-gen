@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
     const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
+      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested,humanize_profile,source,main_keyword,source_url")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
