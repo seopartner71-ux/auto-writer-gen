@@ -167,29 +167,28 @@ export default function RewritePage() {
     if (!user) { toast.error(isRu ? "Требуется вход" : "Please sign in"); return; }
     setStarting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("no session");
-      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rewrite-start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({
-          content,
-          language: lang,
-          main_keyword: keyword.trim(),
-          source_url: sourceUrl.trim() || undefined,
-        }),
+      const { data: rpcData, error: rpcErr } = await supabase.rpc("rewrite_start", {
+        p_content: content,
+        p_language: lang,
+        p_main_keyword: keyword.trim(),
+        p_source_url: sourceUrl.trim() || null,
+        p_title: null,
+        p_article_id: null,
       });
-      const payload = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        toast.error(payload?.error || `HTTP ${resp.status}`);
+      if (rpcErr) { toast.error(rpcErr.message); return; }
+      const payload: any = rpcData || {};
+      if (!payload.ok) {
+        toast.error(payload.reason || "start_failed");
         return;
       }
       setArticleId(payload.article_id);
+      // Kick off improve cycle (existing deployed function).
+      const { startImproveCycle } = await import("@/features/article-quality/startImproveCycle");
+      const kick = await startImproveCycle(payload.article_id, "auto");
+      if (!kick.ok) {
+        toast.error(kick.error || kick.message || "cycle_start_failed");
+        return;
+      }
       setOriginalContent(content);
       setImprovedContent(null);
       setCycleStatus("running");
