@@ -448,7 +448,7 @@ const PersonaChip = React.forwardRef<HTMLButtonElement, PersonaChipProps>(functi
           <p className="text-xs font-semibold mb-1">{name}</p>
           {description && <p className="text-[10px] text-muted-foreground">{description}</p>}
           {temperature && (
-            <p className="text-[10px] mt-1 text-muted-foreground">Temperature: {temperature}</p>
+            <p className="text-[10px] mt-1 text-muted-foreground">{t("ps.temp")}: {temperature}</p>
           )}
         </TooltipContent>
       </Tooltip>
