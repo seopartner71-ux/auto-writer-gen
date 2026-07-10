@@ -188,8 +188,8 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
       if (attempts > 36) { setUniqPending(false); return; } // ~3 min
       setTimeout(tick, 5000);
     };
-    const t = setTimeout(tick, 5000);
-    return () => { stopped = true; clearTimeout(t); };
+    const timer = setTimeout(tick, 5000);
+    return () => { stopped = true; clearTimeout(timer); };
   }, [articleId, uniqPending]);
 
   const isLoading = (k: string) => loadingSet.has(k);
