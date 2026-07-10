@@ -16,5 +16,3 @@ project_id = "mwcejojlbqpolplshjgj"
     verify_jwt = false
   [functions.handle-email-suppression]
     verify_jwt = false
-  [functions.rewrite-start]
-    verify_jwt = false
