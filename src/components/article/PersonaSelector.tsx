@@ -397,6 +397,7 @@ const PersonaChip = React.forwardRef<HTMLButtonElement, PersonaChipProps>(functi
   name, description, icon, isActive, onClick, temperature, isCustom,
   editable, author, onEdited, onDeleted,
 }, ref) {
+  const { t } = useI18n();
   const Icon = ICON_MAP[icon] || User;
   const [editOpen, setEditOpen] = useState(false);
 
@@ -430,7 +431,7 @@ const PersonaChip = React.forwardRef<HTMLButtonElement, PersonaChipProps>(functi
           onClick={(e) => { e.stopPropagation(); setEditOpen(true); }}
           onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setEditOpen(true); } }}
           className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus:opacity-100 cursor-pointer"
-          aria-label="Редактировать автора"
+          aria-label={t("ps.editAria")}
         >
           <Pencil className="h-3 w-3" />
         </span>
@@ -521,10 +522,10 @@ function EditAuthorForm({
         .select()
         .maybeSingle();
       if (error) throw error;
-      toast.success("Автор обновлен");
+      toast.success(t("ps.updated"));
       onSaved((data as any) || author);
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка сохранения");
+      toast.error(e?.message || t("ps.saveError"));
     } finally {
       setSaving(false);
     }
@@ -534,39 +535,39 @@ function EditAuthorForm({
     try {
       const { error } = await supabase.from("author_profiles").delete().eq("id", author.id);
       if (error) throw error;
-      toast.success("Автор удален");
+      toast.success(t("ps.deleted"));
       onDeleted();
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка удаления");
+      toast.error(e?.message || t("ps.deleteError"));
     }
   };
 
   return (
     <div className="space-y-2.5 p-3 text-xs">
       <div className="flex items-center justify-between">
-        <span className="font-semibold">Редактировать автора</span>
+        <span className="font-semibold">{t("ps.edit")}</span>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Название</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.name")}</Label>
         <Input value={name} onChange={(e) => setName(e.target.value)} className="h-7 text-xs" />
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Тон голоса</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.voiceTone")}</Label>
         <Input
           value={voice}
           onChange={(e) => setVoice(e.target.value)}
-          placeholder="экспертный, технический"
+          placeholder={t("ps.voiceTonePlaceholder")}
           className="h-7 text-xs"
         />
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Стоп-слова</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.stopWords")}</Label>
         <div className="flex flex-wrap gap-1">
           {stopWords.map((w) => (
             <Badge key={w} variant="secondary" className="h-5 gap-1 px-1.5 text-[10px]">
@@ -585,7 +586,7 @@ function EditAuthorForm({
             value={stopInput}
             onChange={(e) => setStopInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addStop(); } }}
-            placeholder="+ добавить"
+            placeholder={t("ps.addPlaceholder")}
             className="h-7 text-xs"
           />
           <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={addStop}>
@@ -595,7 +596,7 @@ function EditAuthorForm({
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Инструкция автора</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.authorInstruction")}</Label>
         <Textarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}
@@ -605,7 +606,7 @@ function EditAuthorForm({
       </div>
 
       <div className="space-y-1">
-        <Label className="text-[10px] text-muted-foreground">Синтаксический профиль</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("ps.syntaxProfile")}</Label>
         <div className="grid grid-cols-2 gap-1">
           {SYNTAX_PRESET_KEYS.map((k) => (
             <label
@@ -636,15 +637,15 @@ function EditAuthorForm({
           onClick={() => setConfirmDelete(true)}
         >
           <Trash2 className="mr-1 h-3 w-3" />
-          Удалить
+          {t("ps.delete")}
         </Button>
         <div className="flex gap-1">
           <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={onClose}>
-            Отмена
+            {t("ps.cancel")}
           </Button>
           <Button size="sm" className="h-7 px-2 text-[11px]" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-            Сохранить
+            {t("ps.save")}
           </Button>
         </div>
       </div>
@@ -652,18 +653,18 @@ function EditAuthorForm({
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить автора "{author.name}"?</AlertDialogTitle>
+            <AlertDialogTitle>{t("ps.confirmDeleteTitle", { name: author.name })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Статьи созданные с этим автором останутся без изменений.
+              {t("ps.confirmDeleteDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t("ps.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Удалить
+              {t("ps.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
