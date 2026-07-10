@@ -107,34 +107,34 @@ export function AppSidebar() {
     { title: t("nav.articles"), url: "/articles", icon: FileText },
     { title: lang === "ru" ? "vc.ru Writer" : "vc.ru Writer", url: "/vc-writer", icon: PenSquare },
     ...(isStaffOrAdmin ? [
-      { title: lang === "ru" ? "Изображения" : "Images", url: "/images", icon: ImageIcon },
-      { title: lang === "ru" ? "Коммерческие страницы" : "Commercial Pages", url: "/commercial", icon: Store },
-      { title: lang === "ru" ? "Контент-план" : "Content Plan", url: "/content-plan", icon: ClipboardList },
+      { title: t("nav.images"), url: "/images", icon: ImageIcon },
+      { title: t("nav.commercialPages"), url: "/commercial", icon: Store },
+      { title: t("nav.contentPlan"), url: "/content-plan", icon: ClipboardList },
     ] : []),
   ];
   const publishItems = isFactory ? [
     { title: t("nav.wordpress"), url: "/wordpress", icon: Send },
     { title: t("nav.indexing"), url: "/indexing", icon: Send },
     { title: t("nav.integrations"), url: "/integrations", icon: Send },
-    { title: lang === "ru" ? "Фабрика сайтов" : "Site Factory", url: "/site-factory", icon: Factory },
+    { title: t("nav.siteFactory"), url: "/site-factory", icon: Factory },
   ] : [];
   const analyticsItems = [
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
-    { title: lang === "ru" ? "Трекер позиций" : "Rank Tracker", url: "/rank-tracker", icon: LineChartIcon },
+    { title: t("nav.rankTracker"), url: "/rank-tracker", icon: LineChartIcon },
     ...(isFactory ? [
       { title: "AI Radar", url: "/radar", icon: Radar },
-      { title: lang === "ru" ? "Мониторинг сети" : "Network Monitor", url: "/network-monitor", icon: Activity },
-      { title: lang === "ru" ? "Aged домены" : "Domain Hunter", url: "/domain-hunter", icon: Crosshair },
+      { title: t("nav.networkMonitor"), url: "/network-monitor", icon: Activity },
+      { title: t("nav.domainHunter"), url: "/domain-hunter", icon: Crosshair },
     ] : []),
   ];
   const moreItems = [
     { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
-    { title: lang === "ru" ? "Карта тем" : "Topical Map", url: "/topical-map", icon: Map },
-    { title: lang === "ru" ? "Аудит статьи" : "Article Audit", url: "/article-audit", icon: Search },
+    { title: t("nav.topicalMap"), url: "/topical-map", icon: Map },
+    { title: t("nav.articleAudit"), url: "/article-audit", icon: Search },
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
-    { title: lang === "ru" ? "Календарь" : "Calendar", url: "/calendar", icon: CalendarDays },
-    { title: lang === "ru" ? "База знаний" : "Wiki", url: "/wiki", icon: BookOpen },
-    { title: lang === "ru" ? "UTM-генератор" : "UTM Generator", url: "/utm-generator", icon: Link2 },
+    { title: t("nav.calendarPlanner"), url: "/calendar", icon: CalendarDays },
+    { title: t("nav.wiki"), url: "/wiki", icon: BookOpen },
+    { title: t("nav.utmGenerator"), url: "/utm-generator", icon: Link2 },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
     { title: t("nav.support"), url: "/support", icon: LifeBuoy },
@@ -166,7 +166,7 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sm font-normal">{lang === "ru" ? "Создать" : "Create"}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sm font-normal">{t("nav.create")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {createItems.map((item) => (
@@ -197,7 +197,7 @@ export function AppSidebar() {
                 <SidebarGroupLabel className="text-sm font-normal cursor-pointer flex items-center justify-between hover:text-primary">
                   <span className="flex items-center gap-2">
                     <Send className="h-4 w-4" />
-                    {!collapsed && (lang === "ru" ? "Опубликовать" : "Publish")}
+                    {!collapsed && t("nav.publish")}
                   </span>
                   {!collapsed && <ChevronDown className={`h-4 w-4 transition-transform ${publishOpen ? "" : "-rotate-90"}`} />}
                 </SidebarGroupLabel>
@@ -234,7 +234,7 @@ export function AppSidebar() {
               <SidebarGroupLabel className="text-sm font-normal cursor-pointer flex items-center justify-between hover:text-primary">
                 <span className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" />
-                  {!collapsed && (lang === "ru" ? "Аналитика" : "Analytics")}
+                  {!collapsed && t("nav.analytics")}
                 </span>
                 {!collapsed && <ChevronDown className={`h-4 w-4 transition-transform ${analyticsOpen ? "" : "-rotate-90"}`} />}
               </SidebarGroupLabel>
@@ -270,7 +270,7 @@ export function AppSidebar() {
               <SidebarGroupLabel className="text-sm font-normal cursor-pointer flex items-center justify-between hover:text-primary">
                 <span className="flex items-center gap-2">
                   <MoreHorizontal className="h-4 w-4" />
-                  {!collapsed && (lang === "ru" ? "Ещё" : "More")}
+                  {!collapsed && t("nav.more")}
                 </span>
                 {!collapsed && <ChevronDown className={`h-4 w-4 transition-transform ${moreOpen ? "" : "-rotate-90"}`} />}
               </SidebarGroupLabel>
@@ -345,7 +345,7 @@ export function AppSidebar() {
                     </span>
                     {!collapsed && (
                       <span className="flex-1 flex items-center justify-between">
-                        <span className="text-sm">{lang === "ru" ? "Обновления" : "Changelog"}</span>
+                        <span className="text-sm">{t("nav.changelog")}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium">{APP_VERSION}</span>
                       </span>
                     )}

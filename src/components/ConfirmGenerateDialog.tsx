@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Coins, AlertTriangle, Sparkles } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,7 @@ interface Props {
 export function ConfirmGenerateDialog({
   open, onOpenChange, credits, balance, modelName, onConfirm,
 }: Props) {
+  const { t } = useI18n();
   const pct = balance > 0 ? Math.round((credits / balance) * 100) : 100;
   const danger = pct >= 30;
   const remaining = Math.max(0, balance - credits);
@@ -63,12 +65,10 @@ export function ConfirmGenerateDialog({
 
             <div className="space-y-1.5">
               <AlertDialogTitle className="text-xl font-bold tracking-tight">
-                Подтвердите генерацию
+                {t("confirmGen.title")}
               </AlertDialogTitle>
               <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed">
-                {danger
-                  ? "Расход выше среднего - убедитесь, что готовы потратить эти кредиты."
-                  : "Проверьте стоимость перед запуском генерации."}
+                {danger ? t("confirmGen.descHigh") : t("confirmGen.descNormal")}
               </AlertDialogDescription>
             </div>
           </AlertDialogHeader>
@@ -78,17 +78,17 @@ export function ConfirmGenerateDialog({
             <div className="flex items-end justify-between">
               <div>
                 <div className="text-[11px] font-tech uppercase tracking-[0.15em] text-muted-foreground/70 mb-1">
-                  К списанию
+                  {t("confirmGen.toDeduct")}
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <Coins className={`h-5 w-5 ${danger ? "text-amber-400" : "text-primary"}`} />
                   <span className="text-3xl font-black tracking-tight tabular-nums">{credits}</span>
-                  <span className="text-sm font-tech text-muted-foreground">кр</span>
+                  <span className="text-sm font-tech text-muted-foreground">{t("planCard.creditsShort")}</span>
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-[11px] font-tech uppercase tracking-[0.15em] text-muted-foreground/70 mb-1">
-                  Останется
+                  {t("confirmGen.remaining")}
                 </div>
                 <div className="text-xl font-bold tabular-nums">
                   {remaining}
@@ -111,11 +111,11 @@ export function ConfirmGenerateDialog({
               </div>
               <div className="mt-2 flex items-center justify-between text-[11px] font-tech">
                 <span className="text-muted-foreground/70">
-                  {pct}% от баланса
+                  {t("confirmGen.pctOfBalance", { n: pct })}
                 </span>
                 {danger && (
                   <span className="text-amber-400 font-semibold uppercase tracking-wider">
-                    Высокий расход
+                    {t("confirmGen.highSpend")}
                   </span>
                 )}
               </div>
@@ -124,7 +124,7 @@ export function ConfirmGenerateDialog({
 
           <AlertDialogFooter className="mt-6 gap-2 sm:gap-2">
             <AlertDialogCancel className="flex-1 sm:flex-initial border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05] mt-0">
-              Отмена
+              {t("common.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={onConfirm}
@@ -134,7 +134,7 @@ export function ConfirmGenerateDialog({
                   : "bg-gradient-to-r from-primary to-[#3b82f6] hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)] text-white"
               }`}
             >
-              Сгенерировать за {credits} кр
+              {t("confirmGen.generateFor", { n: credits })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </div>

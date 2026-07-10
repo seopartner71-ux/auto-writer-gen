@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { CreditCostBadge } from "@/components/CreditCostBadge";
 import { Sparkles, Lock } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface AiModel {
   id: string;
@@ -40,6 +41,7 @@ export function ModelSelector({
   stealth = false,
   label,
 }: Props) {
+  const { t } = useI18n();
   const { data: models = [] } = useQuery({
     queryKey: ["ai-models-active"],
     queryFn: async () => {
@@ -77,7 +79,7 @@ export function ModelSelector({
       <div className="flex items-center gap-2">
         <Select value={value} onValueChange={onChange}>
           <SelectTrigger className="flex-1">
-            <SelectValue placeholder="Выберите модель" />
+            <SelectValue placeholder={t("model.selectPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
             {models.map((m) => {
@@ -95,7 +97,7 @@ export function ModelSelector({
                       )}
                     </span>
                     <span className="text-xs text-primary font-tech">
-                      {m.credit_cost} кр.
+                      {m.credit_cost} {t("model.creditsShort")}
                       {locked && ` · ${m.min_plan.toUpperCase()}+`}
                     </span>
                   </div>

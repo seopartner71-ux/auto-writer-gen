@@ -7,20 +7,17 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface Msg { role: "user" | "assistant"; content: string; ts: number }
 
 const STORAGE_KEY = "ai_assistant_history";
-const QUICK = [
-  "Что такое LSI термины?",
-  "Как работает Тургенев?",
-  "Как сделать bulk генерацию?",
-  "Как улучшить AI Score?",
-];
+const QUICK_KEYS = ["aiFab.quick1", "aiFab.quick2", "aiFab.quick3", "aiFab.quick4"];
 const HIDDEN_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 export function AIAssistantFab() {
   const { pathname } = useLocation();
+  const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -54,24 +51,24 @@ export function AIAssistantFab() {
       if (!session) {
         setHistory(h => [...h, {
           role: "assistant",
-          content: "Чтобы задать вопрос AI-помощнику, войдите или зарегистрируйтесь - это бесплатно и занимает 30 секунд.\n\n[Зарегистрироваться →](/register)\n[Войти →](/login)",
+          content: t("aiFab.needAuth"),
           ts: Date.now(),
         }]);
         return;
       }
       const payload = next.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const { data, error } = await supabase.functions.invoke("ai-assistant", {
-        body: { messages: payload, language: "ru" },
+        body: { messages: payload, language: lang },
       });
       if (error) throw error;
       if ((data as any)?.error === "limit_reached") {
-        toast.error(`Дневной лимит вопросов исчерпан (${(data as any).limit}/день). Обновите тариф.`);
+        toast.error(t("aiFab.limitReached", { limit: (data as any).limit }));
         return;
       }
-      const content = (data as any)?.content || "Не удалось получить ответ.";
+      const content = (data as any)?.content || t("aiFab.noAnswer");
       setHistory(h => [...h, { role: "assistant", content, ts: Date.now() }]);
     } catch (e: any) {
-      toast.error(e?.message || "Ошибка запроса");
+      toast.error(e?.message || t("aiFab.requestError"));
     } finally {
       setLoading(false);
     }
@@ -80,15 +77,15 @@ export function AIAssistantFab() {
   const clearHistory = () => {
     setHistory([]);
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
-    toast.success("История очищена");
+    toast.success(t("aiFab.historyCleared"));
   };
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        title="AI-помощник"
-        aria-label="AI-помощник"
+        title={t("aiFab.title")}
+        aria-label={t("aiFab.title")}
         className="ai-fab-btn fixed z-40 flex items-center gap-2 text-white font-medium text-sm"
         style={{
           bottom: "24px",
@@ -102,7 +99,7 @@ export function AIAssistantFab() {
         }}
       >
         <MessageCircle className="h-5 w-5" />
-        <span>AI-помощник</span>
+        <span>{t("aiFab.title")}</span>
         {!open && (
           <span
             aria-hidden
@@ -137,7 +134,7 @@ export function AIAssistantFab() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
-              <div className="font-semibold text-sm">AI-помощник по SEO</div>
+              <div className="font-semibold text-sm">{t("aiFab.header")}</div>
             </div>
           </div>
 
@@ -145,19 +142,22 @@ export function AIAssistantFab() {
             {history.length === 0 && (
               <>
                 <div className="rounded-lg bg-muted/50 p-3 text-sm">
-                  🤖 Привет! Я помогу разобраться с SEO и функционалом СЕО-Модуля. Задайте любой вопрос!
+                  {t("aiFab.hello", { brand: t("brand.name") })}
                 </div>
                 <div className="space-y-1.5">
-                  <div className="text-xs text-muted-foreground">Быстрые вопросы:</div>
-                  {QUICK.map((q) => (
+                  <div className="text-xs text-muted-foreground">{t("aiFab.quickTitle")}</div>
+                  {QUICK_KEYS.map((key) => {
+                    const q = t(key);
+                    return (
                     <button
-                      key={q}
+                      key={key}
                       onClick={() => send(q)}
                       className="w-full text-left text-xs px-3 py-2 rounded-md border border-border hover:bg-muted/40 transition-colors"
                     >
                       {q}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -175,7 +175,7 @@ export function AIAssistantFab() {
             ))}
             {loading && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> 🤖 печатает...
+                <Loader2 className="h-3 w-3 animate-spin" /> {t("aiFab.typing")}
               </div>
             )}
           </div>
@@ -188,7 +188,7 @@ export function AIAssistantFab() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Задайте вопрос..."
+                placeholder={t("aiFab.inputPlaceholder")}
                 disabled={loading}
                 className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -201,7 +201,7 @@ export function AIAssistantFab() {
                 onClick={clearHistory}
                 className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
               >
-                <Trash2 className="h-3 w-3" /> Очистить историю
+                <Trash2 className="h-3 w-3" /> {t("aiFab.clearHistory")}
               </button>
             )}
           </div>
