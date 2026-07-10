@@ -567,4 +567,9 @@ export const quality: Dict = {
   "dfd.rewriteError": { ru: "Ошибка переписывания", en: "Rewrite error" },
   "qic.tips.label": { ru: "Улучшаем текст...", en: "Improving text..." },
   "qic.tips.heading": { ru: "Пока ждете - SEO совет", en: "While you wait - SEO tip" },
+  "rad.title": { ru: "Переписать статью с учётом всех отклонений", en: "Rewrite article fixing all deviations" },
+  "rad.description": { ru: "ИИ получит список найденных нарушений и перепишет проблемные фрагменты, сохранив структуру и объём.", en: "AI will receive the list of detected issues and rewrite the problem fragments, keeping the structure and length." },
+  "rad.rewrite": { ru: "Переписать", en: "Rewrite" },
+  "rad.toastDone": { ru: "Статья переписана. Запустите проверку заново.", en: "Article rewritten. Run the check again." },
+  "rad.toastAborted": { ru: "Переписывание остановлено", en: "Rewrite stopped" },
 };
