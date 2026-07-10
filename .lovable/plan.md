@@ -1,53 +1,104 @@
-## Что и почему
+# /rewrite — рерайт чужих статей
 
-Сейчас цикл «Улучшить качество текста» дирижируется из QualityImproveCard в браузере: он вызывает `improve-article`, ждёт, читает баллы, решает следующий проход, откатывает при ухудшении. Один проход `improve-article` уже живёт в `EdgeRuntime.waitUntil` — переживает F5. Но следующий проход некому запустить, если вкладка умерла. Отсюда «всё слетает».
+Переиспользуем existing pipeline (`improve-article`, quality-check, humanizePass, validators, judges). Ничего в нём не ломаем — добавляем новый профиль и новый источник черновиков.
 
-Переносим верхний оркестратор (loop MAX_PASSES=2 + decideFix + rollback) на сервер, в тот же файл, где уже лежит серверный пайплайн одного прохода.
+## 1. Данные (миграция)
 
-## Изменения
+- `articles`: добавить `source text default 'generated'` (значения: `generated | rewrite | factory | vc_writer`) и `humanize_profile text default 'standard'` (`standard | conservative`). Backfill существующих в `generated`.
+- Индекс: `create index on articles(user_id, source) where source = 'rewrite';`
+- `cost_log`: колонка уже есть, будем писать `source='rewrite'` через существующее поле context/meta (проверю по факту — если поля source нет, добавлю).
+- Никаких новых таблиц.
 
-### 1. `supabase/functions/improve-article/index.ts`
-- Новая ветка запроса: `body = { article_id, cycle: true, priority: "auto"|"ai"|"turgenev" }` → отвечает 202 и запускает `runImproveCycle` через `EdgeRuntime.waitUntil`.
-- Новая функция `runImproveCycle({ admin, article_id, user_id, priority, orKey, lovableKey, authHeader, supabaseUrl })` в этом же файле:
-  1. Ставит `quality_status='improving'`, `improve_stop_requested=false`, стартует `cycle_progress` в `quality_details`.
-  2. Читает исходные баллы, `bestSnapshot = { content, ai, turg }`.
-  3. Цикл `for pass in 1..2`:
-     - Проверяет `improve_stop_requested` → если стоп, break.
-     - `decideFix(scores, priority)` → `"humanize"` / `"turgenev"` / `null`.
-     - Если `null` (цели достигнуты) → break, status `targets_met`.
-     - Пишет `cycle_progress = { status:"running", pass, action, started_at }` в `quality_details`.
-     - Вызывает существующую `runImprovePipeline({ ..., phase, initialContent: currentContent })` **прямым вызовом** и `await`.
-     - После прохода читает свежие ai_score/turgenev_score. Правило отката (как на клиенте): humanize не должен поднять turgenev >+2; turgenev не должен уронить ai >3пп — откат к pre-снимку.
-     - Обновляет `bestSnapshot`, если новый лучше.
-  4. Финализация:
-     - `quality_details.cycle_progress = { status: "done"|"stopped"|"balanced"|"no_progress", pass, best: {...}, finished_at }`.
-     - `quality_status = null`, `improve_stop_requested = false`.
-     - Событие `pipeline_events` с итогом (stage `improve`, meta `cycle_summary`).
-- Между проходами `runImprovePipeline` уже сама пишет best-score и очищает status в 'checking'/null — оркестратор просто перечитывает статью и возвращает в `improving` перед следующим проходом.
+## 2. Роут и навигация
 
-### 2. `src/features/article-quality/QualityImproveCard.tsx`
-- `runImprove()` заменяется на одиночный POST в `improve-article` с `{ cycle: true, priority }` → 202, дальше **никаких клиентских проходов**.
-- Прогресс читается из `articles.quality_details.cycle_progress`:
-  - Уже подписаны на UPDATE — добавляем `quality_details` в `select`.
-  - Poll-fallback раз в 5с на случай пропущенного realtime-события.
-- Рендер запущенного состояния берётся из `cycle_progress.pass / action / status`.
-- **При монтировании компонента**: если `quality_status === "improving"` и `cycle_progress.status === "running"` — сразу показать «Проход X/2, ...» без ожидания клика. F5 бесшовный.
-- «Остановить» уже пишет `improve_stop_requested = true` — сервер читает между шагами (`checkStopFlag` уже есть в pipeline; в оркестраторе тоже добавим).
-- `logLines` больше не собирается на клиенте — вместо этого читаем `improve_last.trace` и `cycle_progress` для строки статуса.
+- Роут `/rewrite` в `App.tsx` под `ProtectedRoute`.
+- Пункт в `AppSidebar` в группе «Создать» (после «Новая статья»), иконка `Wand2`.
+- Ключи в `src/shared/i18n/article.ts` неймспейс `rewrite.*`.
 
-### 3. Правки, вытекающие из уроков предыдущих итераций
-- Никаких fetch между своими функциями — `runImprovePipeline` вызывается напрямую как JS-функция в том же процессе.
-- Финальный best-score уже пишется синхронно с content внутри `runImprovePipeline` — не трогаем.
-- Ошибка любого прохода: пишем в `cycle_progress.error`, `improve_last.status='error'`, снимаем `quality_status`.
+## 3. UI — `src/pages/RewritePage.tsx`
 
-## Что НЕ трогаем
-- Сам пайплайн одного прохода (`runImprovePipeline`, humanize, turgenev, validators) — код тот же, вызывается в цикле.
-- `quality-check` — остаётся фоновой перепроверкой после последнего прохода (как сейчас).
-- Миграции БД не нужны: `cycle_progress` — просто ключ внутри существующего `quality_details jsonb`.
+Одна страница, горизонтальный степпер (Вход → Аудит → Исправление), состояние в локальном reducer + URL-параметр `?article=<id>` для F5-safe восстановления.
 
-## Проверка
-- Ручной прогон: жму «Улучшить», через 5с F5 — панель показывает «Проход 1/2: гуманизация» без перезапуска.
-- В логах edge-функции: одна цепочка `improve` событий за весь цикл, `cycle_summary` в конце.
-- В `pipeline_events` виден `stop_requested` при клике «Остановить», и цикл действительно останавливается перед следующим проходом.
+### Шаг 1 — Вход
+Компонент `RewriteInput.tsx`:
+- textarea 50 000 знаков + live-счётчик, вставка HTML/MD/plain.
+- upload `.docx` (mammoth → HTML) и `.md` (readAsText).
+- поля: главный ключ (required), URL источника (optional).
+- Автодетект языка: доля кириллицы > 30% → `ru`, иначе `en`. Селектор языка с ручным override.
+- Кнопка «Проверить бесплатно».
 
-Готов реализовать — жду одобрения.
+### Шаг 2 — Аудит (0 кредитов)
+При клике:
+1. Insert в `articles`: `source='rewrite'`, `status='draft'`, `content`, `language`, `main_keyword`, `source_url`, `humanize_profile='conservative'`.
+2. Вызов существующего `quality-check` с флагом `mode='audit'` (уже поддерживается — только пре-скан без LLM).
+3. Дополнительно вызвать `_shared/contentValidator` client-side для мгновенного отображения (dangling, fake_quotes, nominative, sentence_structure). Плотность ключа — уже есть в quality-check, лемматизированная.
+4. Для `ru` — Тургенев (существующий бесплатный вызов). Для `en` — статус `not_applicable`.
+
+Компонент `RewriteAuditReport.tsx`:
+- Две колонки/секции:
+  - «Исправим автоматически»: cliches, canceler, dangling, nominative_inserts, predictability, keyword_density, ai_detection.
+  - «Требует вашей правки»: broken_h_structure, factual_conflicts, missing_h1, fake_quotes (с меткой «можно только удалить»).
+- Каждая проблема = карточка: цитата фрагмента (highlight в оригинале) + пояснение + категория.
+- Вердикт: `ready | needs_fixes | needs_rewrite` (по количеству/тяжести проблем во 2-й группе).
+- Cost-бейдж: `N = max(5, ceil(chars/1500))` кредитов, кнопка «Исправить за N».
+
+Классификация багов по группам — маппинг в `src/features/rewrite/issueGroups.ts`.
+
+### Шаг 3 — Исправление
+1. Клиент → новая edge-функция `rewrite-start` (тонкая обёртка):
+   - `verifyAuth`, load article, проверка `source='rewrite'` и владельца.
+   - Атомарное списание N кредитов через существующий RPC (`deduct_credits` или аналог из `improve-article`).
+   - Пометка `articles.humanize_profile='conservative'`.
+   - Проксирует в существующий `improve-article` с флагом `cycle:true, priority:'auto'`.
+   - Возвращает 202.
+2. `humanizePass.ts` — единственная точка изменения существующего кода: при `humanize_profile='conservative'` в system-prompt добавляется блок «Это авторский текст пользователя…» (текст из ТЗ). Никакой другой логики не трогаем — валидаторы, судьи, СОХРАНИТЬ-блок, rollback, no_progress, turgenev_unavailable работают как есть.
+3. Прогресс — уже пишется в `articles.quality_details.cycle_progress`, реюзаем `QualityImproveCard` / `HumanizeProgress`.
+4. Rollback кредитов: в `improve-article` уже есть терминальные статусы. Добавляем в его финалайзер: если `source='rewrite'` и итог = `error | no_progress_upstream_fail` — возврат кредитов + `pipeline_events{kind:'rewrite_refund'}`. (Плановый `no_progress` без падения — не возвращаем, работа сделана.)
+
+Финальный экран `RewriteResult.tsx`:
+- DIFF-вьюер поабзацно: `diff-match-patch` (уже возможно в bundle, иначе `bun add diff`), рендер side-by-side или inline с подсветкой. MVP — просто подсветка изменённых абзацев без accept/reject (accept/reject — во вторую итерацию, честно проговариваем).
+- Действия: копировать HTML, скачать .docx (реюзаем `markdownToDocx.ts` / существующий экспорт `MyArticlesPage`), «Сохранить в проект» → выбор проекта, обновление `articles.project_id`.
+
+## 4. Логирование
+
+- `cost_log`: все LLM-вызовы уже логируются через `logLLM` внутри improve-article, `article_id` попадёт автоматически. Дополнительно проставим `source='rewrite'` через meta (или новую колонку — см. п.1).
+- `pipeline_events`: existing события + `rewrite_started`, `rewrite_refund`, `rewrite_completed`.
+- `tg-daily-digest`: добавить агрегат «рерайтов: N» — count `articles where source='rewrite' and created_at::date = today`.
+
+## 5. Уникальность (опционально)
+
+Если в `api_keys` есть валидный `text_ru` — вызов на шаге 1 после ввода, warning-бейдж «текст неуникален (X%)». Не блокирует. Если ключа нет — секция скрыта.
+
+## 6. Чего НЕ делаем в этой итерации
+
+- Accept/reject по абзацам в DIFF — вторая итерация.
+- Originality.ai для EN — вторая итерация (пока `detector_not_applicable`).
+- Не трогаем формат `subscription_plans`, лимиты — рерайт списывает из того же баланса.
+
+## Файлы
+
+Новые:
+- `supabase/migrations/*_articles_source_and_profile.sql`
+- `supabase/functions/rewrite-start/index.ts`
+- `src/pages/RewritePage.tsx`
+- `src/features/rewrite/RewriteInput.tsx`
+- `src/features/rewrite/RewriteAuditReport.tsx`
+- `src/features/rewrite/RewriteResult.tsx`
+- `src/features/rewrite/issueGroups.ts`
+- `src/features/rewrite/diffView.tsx`
+- `src/features/rewrite/detectLang.ts`
+
+Правки (минимальные):
+- `src/App.tsx` — роут.
+- `src/components/AppSidebar.tsx` — пункт меню.
+- `src/shared/i18n/article.ts` — ключи `rewrite.*`.
+- `supabase/functions/_shared/humanizePass.ts` — блок промпта при `conservative`.
+- `supabase/functions/improve-article/index.ts` — read `humanize_profile`, refund-hook для `source='rewrite'`.
+- `supabase/functions/tg-daily-digest/index.ts` — строка «рерайтов».
+
+## Вопросы перед стартом
+
+1. **Оценка кредитов**: формула `max(5, ceil(chars/1500))` — при 50k знаков это 34 кредита. Сойдёт или хочешь другой прайсинг (например, привязать к тарифу)?
+2. **DIFF в MVP**: подсветка изменённых абзацев без accept/reject устраивает как первая версия?
+3. **Лимит по тарифу**: рерайт доступен всем тарифам, включая NANO? Или только PRO/FACTORY?
+4. **Экспорт .docx**: реюзать текущий парсер из `MyArticlesPage` или нужен отдельный (там есть чистка под Miralinks/GGL — для рерайта не нужна)?
