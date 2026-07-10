@@ -37,8 +37,6 @@ const EXCLUDE_PREFIXES = [
   "src/features/article-quality/startImproveCycle.ts",
   "src/features/article-quality/ImprovingTipsLoader.tsx",
   "src/pages/PricingPage.tsx",
-  "src/components/site-factory/InjectionLinksPreview.tsx",
-  "src/pages/SiteFactoryPage.tsx",
   "src/pages/DashboardPage.tsx",
 ];
 
