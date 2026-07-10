@@ -1,21 +1,22 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { translate, type Lang } from "@/shared/hooks/useI18n";
 
 export type HumanizeStage = "pass1" | "pass2" | "finalize" | "done" | "error";
 
 interface Step {
   key: Exclude<HumanizeStage, "done" | "error">;
-  labelRu: string;
-  labelEn: string;
+  /** i18n key produced from `humanize.step.<key>`. */
+  labelKey: string;
   /** Cumulative progress (0..1) at the end of this step. */
   endAt: number;
 }
 
 const STEPS: Step[] = [
-  { key: "pass1",    labelRu: "Pass 1 - глубокое переписывание (Sonnet)", labelEn: "Pass 1 - deep rewrite (Sonnet)",    endAt: 0.50 },
-  { key: "pass2",    labelRu: "Pass 2 - микро-полировка (Opus)",          labelEn: "Pass 2 - micro polish (Opus)",      endAt: 0.92 },
-  { key: "finalize", labelRu: "Finalize - сохраняем результат",           labelEn: "Finalize - saving result",          endAt: 1.00 },
+  { key: "pass1",    labelKey: "humanize.step.pass1",    endAt: 0.50 },
+  { key: "pass2",    labelKey: "humanize.step.pass2",    endAt: 0.92 },
+  { key: "finalize", labelKey: "humanize.step.finalize", endAt: 1.00 },
 ];
 
 export interface HumanizeMetricsSnapshot {
@@ -87,13 +88,12 @@ export function HumanizeProgress({
     : STEPS.findIndex((s) => pct < s.endAt);
   const safeIdx = currentIdx === -1 ? STEPS.length - 1 : currentIdx;
 
-  const title = lang === "ru"
-    ? (forcedStage === "done" ? "Гуманизация завершена" :
-       forcedStage === "error" ? "Гуманизация не завершилась" :
-       "Гуманизируем текст")
-    : (forcedStage === "done" ? "Humanize complete" :
-       forcedStage === "error" ? "Humanize didn't finish" :
-       "Humanizing text");
+  const title = translate(
+    forcedStage === "done" ? "humanize.title.done"
+    : forcedStage === "error" ? "humanize.title.error"
+    : "humanize.title.running",
+    lang,
+  );
 
   const elapsedSec = Math.floor(elapsed / 1000);
 
@@ -145,7 +145,7 @@ export function HumanizeProgress({
               >
                 {isDone ? <Check className="h-2.5 w-2.5" /> : i + 1}
               </span>
-              <span>{lang === "ru" ? s.labelRu : s.labelEn}</span>
+              <span>{translate(s.labelKey, lang)}</span>
             </li>
           );
         })}
@@ -175,19 +175,19 @@ function MetricsDelta({
   lang,
 }: {
   metrics: HumanizeMetricsReport;
-  lang: "ru" | "en";
+  lang: Lang;
 }) {
   const pre = metrics.pre || {};
   const post = metrics.postCleanup || metrics.postPass2 || metrics.postPass1 || {};
-  const t = (ru: string, en: string) => (lang === "ru" ? ru : en);
+  const t = (key: string) => translate(key, lang);
 
   const rows: Array<{ key: string; label: string; before?: number; after?: number; lowerBetter: boolean; digits?: number; suffix?: string }> = [
-    { key: "avg",   label: t("Средняя длина", "Avg length"), before: pre.avgWords,        after: post.avgWords,        lowerBetter: false, digits: 1, suffix: t(" сл.", " w") },
-    { key: "short", label: t("Коротких",     "Short %"),     before: pre.shortRatio != null ? Math.round(pre.shortRatio * 100) : undefined, after: post.shortRatio != null ? Math.round(post.shortRatio * 100) : undefined, lowerBetter: true, suffix: "%" },
-    { key: "chain", label: t("Цепочки союзов","Chains"),     before: pre.chainViolations, after: post.chainViolations, lowerBetter: true },
-    { key: "ban",   label: t("Запрещ. слова", "Banlist"),    before: pre.banlistHits,     after: post.banlistHits,     lowerBetter: true },
-    { key: "open",  label: t("Повторы зачинов","Repeated openers"), before: pre.repeatedOpeners, after: post.repeatedOpeners, lowerBetter: true },
-    { key: "ngram", label: t("Повторы фраз",  "Repeated phrases"),  before: pre.repeatedNgrams,  after: post.repeatedNgrams,  lowerBetter: true },
+    { key: "avg",   label: t("humanize.metric.avg"),     before: pre.avgWords,        after: post.avgWords,        lowerBetter: false, digits: 1, suffix: t("humanize.metric.avgSuffix") },
+    { key: "short", label: t("humanize.metric.short"),   before: pre.shortRatio != null ? Math.round(pre.shortRatio * 100) : undefined, after: post.shortRatio != null ? Math.round(post.shortRatio * 100) : undefined, lowerBetter: true, suffix: "%" },
+    { key: "chain", label: t("humanize.metric.chain"),   before: pre.chainViolations, after: post.chainViolations, lowerBetter: true },
+    { key: "ban",   label: t("humanize.metric.banlist"), before: pre.banlistHits,     after: post.banlistHits,     lowerBetter: true },
+    { key: "open",  label: t("humanize.metric.openers"), before: pre.repeatedOpeners, after: post.repeatedOpeners, lowerBetter: true },
+    { key: "ngram", label: t("humanize.metric.ngrams"),  before: pre.repeatedNgrams,  after: post.repeatedNgrams,  lowerBetter: true },
   ];
 
   // Drop rows where both sides are zero - keeps the panel tight.
@@ -198,7 +198,7 @@ function MetricsDelta({
   return (
     <div className="mt-3 pt-2 border-t border-border space-y-1">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-        {t("Качество до → после", "Quality before → after")}
+        {t("humanize.metrics.title")}
       </div>
       {visible.map((r) => (
         <div key={r.key} className="flex items-center justify-between text-[11px]">
@@ -214,7 +214,7 @@ function MetricsDelta({
       ))}
       {fakes > 0 && (
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-muted-foreground">{t("Фейк-нейтрализации", "Fake fixes")}</span>
+          <span className="text-muted-foreground">{t("humanize.metrics.fakes")}</span>
           <span className="tabular-nums font-medium text-emerald-500">{fakes}</span>
         </div>
       )}
