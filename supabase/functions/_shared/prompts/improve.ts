@@ -7,6 +7,25 @@
 // from — added in step 2 after tone approval.
 
 import { registerPrompt } from "./index.ts";
+import { BANNED_PHRASES_EN } from "../validators/cancellaryGuard.ts";
+
+/**
+ * Build the EN `lexicalBanBlock` from the shared `BANNED_PHRASES_EN` source
+ * used by cancellaryGuard. This keeps one canonical banlist for both the
+ * pre-generation prompt and the post-generation validator — a new phrase
+ * added to the validator is instantly enforced at prompt time too.
+ *
+ * Callers pass the result as the `lexicalBanBlock` param of the EN
+ * `improve.humanize.user` prompt (mirror of what RU does inline in
+ * improve-article/index.ts:927).
+ */
+export function buildEnLexicalBanBlock(): string {
+  const list = BANNED_PHRASES_EN.map((p) => `- "${p}"`).join("\n");
+  return `
+BANNED CLICHÉS (remove entirely — replace with a concrete number, scenario, example, or observation from the article's own text, never a synonym):
+${list}
+Do NOT swap one banned phrase for another one on the list. If nothing concrete replaces it, cut the sentence.`;
+}
 
 export function registerImprove() {
   // ─────────────────────────────────────────────────────────────────────
