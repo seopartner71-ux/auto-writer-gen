@@ -19,6 +19,7 @@ const EXCLUDE_PREFIXES = [
   "src/shared/hooks/useI18n.tsx",
   "src/shared/i18n/",
   "src/shared/utils/liveTurgenev.ts",
+  "src/features/article-editor/LiveTurgenevBadge.tsx",
   "src/shared/utils/contentSanity.ts",
   "src/shared/utils/contentValidator.ts",
   "src/shared/utils/sanitizeKeyword.ts",
