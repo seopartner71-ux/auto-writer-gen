@@ -182,6 +182,23 @@ async function processQueuedItem(params: {
     const geo = isRussian ? "ru" : "us";
     const lang = isRussian ? "ru" : "en";
 
+    // ─── Persona language sanity-check ───────────────────────────────
+    // Server-side guard: FACTORY jobs may carry a persona from the wrong
+    // locale (e.g. RU persona on EN keywords). Drop the persona prompt if
+    // languages diverge — bulk item will fall back to plain style.
+    {
+      const kept = assertPersonaLanguage({
+        authorProfile,
+        articleLang: lang,
+        context: {
+          fn: "bulk-generate",
+          userId,
+          keywordId: item.keyword_id ?? null,
+        },
+      });
+      if (authorProfile && !kept) authorProfile = null;
+    }
+
     let competitors: any[] = [];
     if (serperApiKey) {
       try {
