@@ -314,7 +314,7 @@ export default function RankTrackerPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">{isRu ? "Трекер позиций" : "Rank Tracker"}</h1>
-          <p className="text-sm text-muted-foreground">{isRu ? "Ежедневный мониторинг позиций в Google и Яндекс до ТОП-30" : "Daily Google and Yandex position monitoring up to TOP-30"}</p>
+          <p className="text-sm text-muted-foreground">{isRu ? "Ежедневный мониторинг позиций в Google и Яндекс до ТОП-30" : "Daily Google position monitoring up to TOP-30"}</p>
         </div>
         <Button onClick={() => refreshMut.mutate()} disabled={refreshMut.isPending || tracked.length === 0 || isImpersonating}>
           {refreshMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
