@@ -3,6 +3,7 @@ import { logger, errMessage } from "@/shared/utils/logger";
 import { toast } from "sonner";
 import { createElement } from "react";
 import { HumanizeProgress, type HumanizeStage, type HumanizeMetricsReport } from "./HumanizeProgress";
+import { translate } from "@/shared/hooks/useI18n";
 
 const HUMANIZE_THRESHOLD = 70;
 const FIRST_PASS_THRESHOLD = 60;
@@ -53,7 +54,7 @@ function setStealthFlag(articleId: string, value: boolean) {
  * and Turgenev fix. Uses one updating toast and finishes with a metrics summary.
  */
 export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = "ru"): Promise<void> {
-  const t = (ru: string, en: string) => (lang === "ru" ? ru : en);
+  const t = (key: string) => translate(key, lang);
   const toastId = `stealth-${articleId}`;
   const startedAt = Date.now();
   const timeLeft = () => TOTAL_BUDGET_MS - (Date.now() - startedAt);
@@ -63,7 +64,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
   try { sessionStorage.removeItem(`stealth_running_${articleId}`); } catch { /* noop */ }
   try { sessionStorage.setItem(`stealth_running_${articleId}`, "true"); } catch { /* noop */ }
   logger.debug("[stealth] START", articleId);
-  toast.loading(t("Проверяем качество текста...", "Checking text quality..."), {
+  toast.loading(t("stealth.checking"), {
     id: toastId,
     duration: TOTAL_BUDGET_MS,
   });
@@ -141,8 +142,8 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
       passCount++;
       toast.loading(
         passCount === 1
-          ? t("Улучшаем AI Score...", "Improving AI Score...")
-          : t("Второй проход улучшения...", "Second improvement pass..."),
+          ? t("stealth.improving1")
+          : t("stealth.improving2"),
         { id: toastId, duration: timeLeft() },
       );
 
@@ -183,7 +184,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     const turgScoreInitial = numberOr(qc?.turgenev_score, 0);
     const turgRisky = turgStatusInitial === "fail" || turgScoreInitial > 7;
     if (turgRisky && timeLeft() > 10_000) {
-      toast.loading(t("Снижаем риск Баден-Бадена...", "Reducing Baden-Baden risk..."), {
+      toast.loading(t("stealth.baden"), {
         id: toastId,
         duration: timeLeft(),
       });
@@ -208,10 +209,7 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
 
     if (timeLeft() <= 0) {
       toast.warning(
-        t(
-          "Автопроверка не завершилась. Проверьте качество вручную.",
-          "Auto-check didn't finish. Please review quality manually.",
-        ),
+        t("stealth.notFinished"),
         { id: toastId, duration: 6000 },
       );
       return;
@@ -349,8 +347,8 @@ function numberOr(v: unknown, fallback: number): number {
 }
 
 function buildSummary(final: QualityCheckResult | null, lang: "ru" | "en"): string {
-  const t = (ru: string, en: string) => (lang === "ru" ? ru : en);
-  if (!final) return t("Готово. Текст готов к публикации.", "Done. Text is ready to publish.");
+  const t = (key: string) => translate(key, lang);
+  if (!final) return t("stealth.doneReady");
 
   const parts: string[] = [];
   const aiScore = typeof final.ai_score === "number" ? final.ai_score : null;
@@ -360,9 +358,9 @@ function buildSummary(final: QualityCheckResult | null, lang: "ru" | "en"): stri
   }
   const turg = final.turgenev_status as string | undefined;
   if (turg) {
-    const okLabel = t("OK", "OK");
-    const riskLabel = t("риск", "risk");
-    parts.push(`${turg === "ok" ? "🛡️" : "⚠️"} ${t("Тургенев", "Turgenev")}: ${turg === "ok" ? okLabel : riskLabel}`);
+    const okLabel = t("stealth.turgOk");
+    const riskLabel = t("stealth.turgRisk");
+    parts.push(`${turg === "ok" ? "🛡️" : "⚠️"} ${t("stealth.turgenev")}: ${turg === "ok" ? okLabel : riskLabel}`);
   }
   const uniq =
     typeof final.uniqueness_score === "number"
@@ -371,9 +369,9 @@ function buildSummary(final: QualityCheckResult | null, lang: "ru" | "en"): stri
         ? final.uniqueness_percent
         : null;
   if (uniq != null) {
-    parts.push(`📝 ${t("Уник.", "Uniq.")} ${uniq}%`);
+    parts.push(`📝 ${t("stealth.uniq")} ${uniq}%`);
   }
 
-  if (!parts.length) return t("Готово. Текст готов к публикации.", "Done. Text is ready to publish.");
-  return `${t("Готово", "Done")} · ${parts.join(" · ")}`;
+  if (!parts.length) return t("stealth.doneReady");
+  return `${t("stealth.done")} · ${parts.join(" · ")}`;
 }
