@@ -4555,6 +4555,17 @@ export type Database = {
         }
         Returns: Json
       }
+      rewrite_start: {
+        Args: {
+          p_article_id?: string
+          p_content: string
+          p_language: string
+          p_main_keyword: string
+          p_source_url?: string
+          p_title?: string
+        }
+        Returns: Json
+      }
       submit_content_plan_response: {
         Args: { p_responses: Json; p_uuid: string }
         Returns: Json
