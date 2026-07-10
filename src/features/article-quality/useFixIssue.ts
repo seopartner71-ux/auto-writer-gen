@@ -37,7 +37,7 @@ export function useFixIssue(deps: FixIssueDeps) {
   const runFixIssue = useCallback(async (issueKey: string, instruction: string) => {
     const d = depsRef.current;
     if (!d.selectedKeywordId || !d.content.trim()) {
-      toast.error("Нет контента для исправления");
+      toast.error(d.lang === "ru" ? "Нет контента для исправления" : "No content to fix");
       return;
     }
     d.setFixingIssue(issueKey);
