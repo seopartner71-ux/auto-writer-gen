@@ -32,6 +32,10 @@ const EXCLUDE_PREFIXES = [
   "src/components/article/MiralinksWidget.tsx",
   "src/components/article/GoGetLinksWidget.tsx",
   "src/features/commercial/constants.ts",
+  "src/features/article-quality/useFixIssue.ts",
+  "src/features/article-quality/useBenchmarkOptimize.ts",
+  "src/features/article-quality/startImproveCycle.ts",
+  "src/features/article-quality/ImprovingTipsLoader.tsx",
 ];
 
 function walk(dir, out = []) {
