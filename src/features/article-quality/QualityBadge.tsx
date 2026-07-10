@@ -7,6 +7,7 @@ import {
   Loader2, Wand2, RotateCcw, History, Sparkles, ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 /**
  * Unified quality badge - replaces AutoQualityBadge + LiveQualityBadge.
@@ -37,10 +38,10 @@ function bandFromScore(score: number): "ok" | "warning" | "fail" {
   if (score >= 40) return "warning";
   return "fail";
 }
-const BAND_META: Record<"ok" | "warning" | "fail", { dot: string; pill: string; bar: string; label: string }> = {
-  ok:      { dot: "🟢", pill: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", bar: "bg-emerald-500", label: "ОТЛИЧНО" },
-  warning: { dot: "🟡", pill: "bg-amber-500/15 text-amber-300 border-amber-500/30",       bar: "bg-amber-500",   label: "ХОРОШО" },
-  fail:    { dot: "🔴", pill: "bg-rose-500/15 text-rose-300 border-rose-500/30",          bar: "bg-rose-500",    label: "СЛАБО" },
+const BAND_META: Record<"ok" | "warning" | "fail", { dot: string; pill: string; bar: string }> = {
+  ok:      { dot: "🟢", pill: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", bar: "bg-emerald-500" },
+  warning: { dot: "🟡", pill: "bg-amber-500/15 text-amber-300 border-amber-500/30",       bar: "bg-amber-500"   },
+  fail:    { dot: "🔴", pill: "bg-rose-500/15 text-rose-300 border-rose-500/30",          bar: "bg-rose-500"    },
 };
 
 function aiBand(score: number | null | undefined): "ok" | "warning" | "fail" | null {
@@ -50,25 +51,12 @@ function aiBand(score: number | null | undefined): "ok" | "warning" | "fail" | n
   if (score >= 40) return "warning";
   return "fail";
 }
-function aiHint(score: number): string {
-  const sim = Math.max(0, Math.min(100, 100 - score));
-  if (score >= 80) return `Отлично - похож на человеческий. Похожесть на AI: ${sim}% (ниже = лучше)`;
-  if (score >= 60) return `Хорошо - слабые следы ИИ. Похожесть на AI: ${sim}% (ниже = лучше)`;
-  if (score >= 40) return `Средне - заметны паттерны ИИ. Похожесть на AI: ${sim}% (ниже = лучше)`;
-  return `Плохо - явный ИИ-текст. Похожесть на AI: ${sim}% (ниже = лучше)`;
-}
 function burstBand(sigma: number | null | undefined): "ok" | "warning" | "fail" | null {
   if (sigma == null) return null;
   if (sigma >= 10) return "ok";
   if (sigma >= 7) return "ok";
   if (sigma >= 5) return "warning";
   return "fail";
-}
-function burstHint(sigma: number): string {
-  if (sigma >= 10) return "Отличная вариация предложений";
-  if (sigma >= 7) return "Хорошая вариация";
-  if (sigma >= 5) return "Слабая вариация - текст монотонный";
-  return "Плохо - все предложения одинаковые";
 }
 function densityBand(s: string | null | undefined): "ok" | "warning" | "fail" | null {
   if (!s) return null;
@@ -77,22 +65,11 @@ function densityBand(s: string | null | undefined): "ok" | "warning" | "fail" | 
   if (s === "overuse") return "fail";
   return null;
 }
-function densityHint(pct: number | null | undefined, status: string | null | undefined): string {
-  const v = pct == null ? "-" : `${pct}%`;
-  if (status === "overuse") return `${v} - переспам, нужно убрать повторы`;
-  if (status === "underuse") return `${v} - мало, ключ встречается слишком редко`;
-  return `${v} - в норме`;
-}
 function turgBand(score: number | null | undefined): "ok" | "warning" | "fail" | null {
   if (score == null) return null;
   if (score <= 5) return "ok";
   if (score <= 10) return "warning";
   return "fail";
-}
-function turgHint(score: number): string {
-  if (score <= 5) return `${score} бал. (цель ≤5) - безопасно для Яндекса`;
-  if (score <= 10) return `${score} бал. (цель ≤5) - есть риск фильтра`;
-  return `${score} бал. (цель ≤5) - высокий риск Баден-Бадена`;
 }
 function bandToScore(b: "ok" | "warning" | "fail" | null): number | null {
   if (b === "ok") return 90;
@@ -102,6 +79,7 @@ function bandToScore(b: "ok" | "warning" | "fail" | null): number | null {
 }
 
 export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
+  const { t, lang } = useI18n();
   const [data, setData] = useState<any>(initial || {});
   const [improving, setImproving] = useState(false);
   const [rechecking, setRechecking] = useState(false);
@@ -109,6 +87,32 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
   const stoppedRef = useRef(false);
+
+  const aiHint = (score: number): string => {
+    const sim = String(Math.max(0, Math.min(100, 100 - score)));
+    if (score >= 80) return t("qb.ai.excellent", { n: sim });
+    if (score >= 60) return t("qb.ai.good", { n: sim });
+    if (score >= 40) return t("qb.ai.mid", { n: sim });
+    return t("qb.ai.bad", { n: sim });
+  };
+  const burstHint = (sigma: number): string => {
+    if (sigma >= 10) return t("qb.burst.great");
+    if (sigma >= 7) return t("qb.burst.good");
+    if (sigma >= 5) return t("qb.burst.weak");
+    return t("qb.burst.bad");
+  };
+  const densityHint = (pct: number | null | undefined, status: string | null | undefined): string => {
+    const v = pct == null ? "-" : `${pct}%`;
+    if (status === "overuse") return t("qb.dens.overuse", { v });
+    if (status === "underuse") return t("qb.dens.underuse", { v });
+    return t("qb.dens.ok", { v });
+  };
+  const turgHint = (score: number): string => {
+    const n = String(score);
+    if (score <= 5) return t("qb.turg.ok", { n });
+    if (score <= 10) return t("qb.turg.warn", { n });
+    return t("qb.turg.fail", { n });
+  };
 
   function cleanupChannel() {
     if (channelRef.current) {
@@ -185,7 +189,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
   async function callEdge(fnName: string, body: Record<string, unknown>): Promise<any> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
-    if (!token) throw new Error("Нужно войти заново - сессия истекла");
+    if (!token) throw new Error(t("qb.err.session"));
 
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fnName}`;
     const resp = await fetch(url, {
@@ -200,7 +204,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     let payload: any = null;
     try { payload = await resp.json(); } catch { /* non-JSON */ }
     if (!resp.ok) {
-      throw new Error(payload?.error || `Ошибка ${resp.status}. Попробуйте снова.`);
+      throw new Error(payload?.error || t("qb.err.generic", { n: String(resp.status) }));
     }
     return payload;
   }
@@ -210,17 +214,15 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     try {
       const res = await callEdge("improve-article", { article_id: articleId });
       if (res?.cooldown) {
-        toast.warning(res.message || "Подождите перед повторной доработкой");
+        toast.warning(res.message || t("qb.toast.cooldown"));
         return;
       }
-      // improve-article теперь асинхронна: 202 accepted → фоновая обработка.
-      // Итог придёт по realtime через quality_status ('improving' → 'checking' → готово).
-      toast.info("Улучшение запущено - обработка займёт до пары минут");
+      toast.info(t("qb.toast.improveStart"));
       setData((d: any) => ({ ...d, quality_status: "improving" }));
       stoppedRef.current = false;
       startRealtime();
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось выполнить запрос");
+      toast.error(e?.message || t("qb.err.request"));
     } finally {
       setImproving(false);
     }
@@ -230,14 +232,14 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     setRechecking(true);
     try {
       const { data: art } = await supabase.from("articles").select("content").eq("id", articleId).maybeSingle();
-      if (!art?.content) { toast.error("Нет контента для проверки"); return; }
+      if (!art?.content) { toast.error(t("qb.err.noContent")); return; }
       await callEdge("quality-check", { article_id: articleId, content: art.content, mode: "auto" });
-      toast.success("Готово ✓ Проверка запущена");
+      toast.success(t("qb.toast.recheckDone"));
       setData((d: any) => ({ ...d, quality_status: "checking" }));
       stoppedRef.current = false;
       startRealtime();
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось выполнить запрос");
+      toast.error(e?.message || t("qb.err.request"));
     } finally {
       setRechecking(false);
     }
@@ -247,8 +249,8 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     setCheckingUniq(true);
     try {
       const { data: art } = await supabase.from("articles").select("content").eq("id", articleId).maybeSingle();
-      if (!art?.content) { toast.error("Нет контента для проверки"); return; }
-      toast.info("Запущена проверка уникальности через text.ru. Результат через 1-2 мин.");
+      if (!art?.content) { toast.error(t("qb.err.noContent")); return; }
+      toast.info(t("qb.toast.uniqStart"));
       const res = await callEdge("quality-check", {
         article_id: articleId,
         content: art.content,
@@ -259,10 +261,10 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
         startRealtime();
       } else if (res?.uniqueness_percent != null) {
         setData((d: any) => ({ ...d, uniqueness_percent: res.uniqueness_percent, uniqueness_checked_at: new Date().toISOString() }));
-        toast.success(`Уникальность: ${res.uniqueness_percent}%`);
+        toast.success(t("qb.toast.uniqResult", { n: String(res.uniqueness_percent) }));
       }
     } catch (e: any) {
-      toast.error(e?.message || "Не удалось проверить уникальность");
+      toast.error(e?.message || t("qb.err.uniq"));
     } finally {
       setCheckingUniq(false);
     }
@@ -307,34 +309,36 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     : overallBand === "warning" ? "warning"
     : overallBand === "fail" ? "fail"
     : "none";
-  const TRIGGER_META: Record<TriggerKind, { icon: string; label: string; cls: string }> = {
-    ok:       { icon: "✓", label: "Готово",     cls: "bg-success/15 text-success border-success/30" },
-    warning:  { icon: "!", label: "Проверьте",  cls: "bg-warning/15 text-warning border-warning/30" },
-    fail:     { icon: "✗", label: "Доработка",  cls: "bg-destructive/15 text-destructive border-destructive/30" },
-    checking: { icon: "⏳", label: "Проверка...", cls: "bg-muted/40 text-muted-foreground border-border" },
-    timeout:  { icon: "!", label: "Таймаут",    cls: "bg-muted/40 text-muted-foreground border-border" },
-    none:     { icon: "◎", label: "Качество",   cls: "bg-secondary text-secondary-foreground border-border" },
+  const TRIGGER_META: Record<TriggerKind, { icon: string; cls: string }> = {
+    ok:       { icon: "✓", cls: "bg-success/15 text-success border-success/30" },
+    warning:  { icon: "!", cls: "bg-warning/15 text-warning border-warning/30" },
+    fail:     { icon: "✗", cls: "bg-destructive/15 text-destructive border-destructive/30" },
+    checking: { icon: "⏳", cls: "bg-muted/40 text-muted-foreground border-border" },
+    timeout:  { icon: "!", cls: "bg-muted/40 text-muted-foreground border-border" },
+    none:     { icon: "◎", cls: "bg-secondary text-secondary-foreground border-border" },
   };
   const trig = TRIGGER_META[triggerKind];
+  const trigLabel = t(`qb.trig.${triggerKind}` as any);
+  const overallLabel = overallBand === "ok" ? t("qb.excellent") : overallBand === "warning" ? t("qb.good") : overallBand === "fail" ? t("qb.weak") : null;
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           className={`inline-flex items-center justify-center gap-1.5 h-8 w-[120px] rounded-md border text-xs font-medium transition-colors hover:opacity-90 ${trig.cls}`}
-          title={isShort ? "Текст короткий для проверки" : trig.label}
+          title={isShort ? t("qb.tooShortTitle") : trigLabel}
           onClick={(e) => e.stopPropagation()}
         >
           <span className="leading-none">{trig.icon}</span>
-          <span>{trig.label}</span>
+          <span>{trigLabel}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-4 text-xs space-y-3" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="font-semibold text-sm">Качество статьи</div>
+          <div className="font-semibold text-sm">{t("qb.title")}</div>
           <span className={`text-[10px] font-semibold uppercase tracking-wider ${overallBand === "ok" ? "text-emerald-400" : overallBand === "warning" ? "text-amber-400" : overallBand === "fail" ? "text-rose-400" : "text-muted-foreground"}`}>
-            {isChecking ? "ПРОВЕРКА" : isShort ? "КОРОТКИЙ" : isTimeout ? "ТАЙМАУТ" : meta?.label ?? "НЕТ ДАННЫХ"}
+            {isChecking ? t("qb.state.checking") : isShort ? t("qb.state.short") : isTimeout ? t("qb.state.timeout") : overallLabel ?? t("qb.state.noData")}
           </span>
         </div>
 
@@ -348,7 +352,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
               />
             </div>
             <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-              <span>Общий балл</span>
+              <span>{t("qb.overall")}</span>
               <span className="font-semibold text-foreground">{overall}/100</span>
             </div>
           </div>
@@ -356,7 +360,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
 
         {isShort && (
           <div className="text-muted-foreground text-[11px] leading-snug">
-            Текст короче 200 символов - проверка качества не проводилась.
+            {t("qb.tooShortBody")}
           </div>
         )}
 
@@ -366,8 +370,8 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             {data.ai_score != null && aiB && (
               <MetricRow
                 emoji={BAND_META[aiB].dot}
-                title="Человечность"
-                value={`${data.ai_score}/100 (цель ≥70)`}
+                title={t("qb.metric.human")}
+                value={t("qb.metric.humanValue", { n: String(data.ai_score) })}
                 hint={aiHint(data.ai_score)}
               />
             )}
@@ -375,7 +379,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             {data.burstiness_score != null && burstB && (
               <MetricRow
                 emoji={BAND_META[burstB].dot}
-                title="Ритм текста"
+                title={t("qb.metric.rhythm")}
                 value={`σ=${data.burstiness_score}`}
                 hint={burstHint(Number(data.burstiness_score))}
               />
@@ -384,34 +388,34 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             {data.keyword_density_status && densB && (
               <MetricRow
                 emoji={BAND_META[densB].dot}
-                title="Плотность ключа"
+                title={t("qb.metric.density")}
                 value={data.keyword_density != null ? `${data.keyword_density}%${data.keyword_density_status === "overuse" ? "↑" : data.keyword_density_status === "underuse" ? "↓" : ""}` : "-"}
                 hint={densityHint(data.keyword_density, data.keyword_density_status)}
               />
             )}
-            {/* Turgenev */}
-            {data.turgenev_score != null && turgB && (
+            {/* Turgenev — RU-only feature, hidden for EN UI */}
+            {lang === "ru" && data.turgenev_score != null && turgB && (
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="cursor-help">
                       <MetricRow
                         emoji={BAND_META[turgB].dot}
-                        title="Тургенев"
-                        value={`${data.turgenev_score} бал. (цель ≤5)`}
+                        title={t("qb.metric.turgenev")}
+                        value={t("qb.metric.turgenevValue", { n: String(data.turgenev_score) })}
                         hint={turgHint(Number(data.turgenev_score))}
                       />
                     </div>
                   </TooltipTrigger>
                   {data.turgenev_details && (
                     <TooltipContent side="left" className="max-w-[260px] text-[11px] leading-snug">
-                      <div className="font-medium mb-1">Риск фильтра Баден-Баден</div>
+                      <div className="font-medium mb-1">{t("qb.turg.badenTitle")}</div>
                       <div className="space-y-0.5">
-                        <div>Повторы: {data.turgenev_details.repeats ?? 0} бал.</div>
-                        <div>Стилистика: {data.turgenev_details.style ?? 0} бал.</div>
-                        <div>Переспам: {data.turgenev_details.spam ?? 0} бал.</div>
-                        <div>Вода: {data.turgenev_details.water ?? 0} бал.</div>
-                        <div>Читаемость: {data.turgenev_details.readability ?? 0} бал.</div>
+                        <div>{t("qb.turg.repeats", { n: String(data.turgenev_details.repeats ?? 0) })}</div>
+                        <div>{t("qb.turg.style", { n: String(data.turgenev_details.style ?? 0) })}</div>
+                        <div>{t("qb.turg.spam", { n: String(data.turgenev_details.spam ?? 0) })}</div>
+                        <div>{t("qb.turg.water", { n: String(data.turgenev_details.water ?? 0) })}</div>
+                        <div>{t("qb.turg.read", { n: String(data.turgenev_details.readability ?? 0) })}</div>
                       </div>
                     </TooltipContent>
                   )}
@@ -422,14 +426,14 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             {data.uniqueness_percent != null && (
               <MetricRow
                 emoji={data.uniqueness_percent >= 85 ? "🟢" : data.uniqueness_percent >= 70 ? "🟡" : "🔴"}
-                title="Уникальность"
+                title={t("qb.metric.uniq")}
                 value={`${data.uniqueness_percent}%`}
                 hint={
                   data.uniqueness_percent >= 85
-                    ? "Отличная уникальность (text.ru антиплагиат)"
+                    ? t("qb.uniq.great")
                     : data.uniqueness_percent >= 70
-                    ? "Средняя уникальность - есть совпадения"
-                    : "Низкая уникальность - много совпадений"
+                    ? t("qb.uniq.mid")
+                    : t("qb.uniq.low")
                 }
               />
             )}
@@ -446,13 +450,13 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
               disabled={improving || rechecking}
             >
               {improving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
-              {improving ? "Выполняется..." : "Улучшить автоматически"}
+              {improving ? t("qb.act.running") : t("qb.act.improve")}
             </Button>
           )}
           {showRetry && (
             <Button size="sm" variant="outline" className="w-full" onClick={runRecheck} disabled={rechecking || improving}>
               {rechecking ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}
-              {rechecking ? "Выполняется..." : "Перепроверить"}
+              {rechecking ? t("qb.act.running") : t("qb.act.recheck")}
             </Button>
           )}
           <Button
@@ -461,10 +465,10 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             className="w-full"
             onClick={runUniqueness}
             disabled={checkingUniq || rechecking || improving}
-            title="Запустить отдельную проверку уникальности через text.ru (1 кредит)"
+            title={t("qb.act.uniqTitle")}
           >
             {checkingUniq ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
-            {checkingUniq ? "Запуск..." : "Проверить уникальность (text.ru)"}
+            {checkingUniq ? t("qb.act.starting") : t("qb.act.uniq")}
           </Button>
           <Button
             size="sm"
@@ -477,7 +481,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
             }}
           >
             <History className="h-3 w-3 mr-1" />
-            История версий
+            {t("qb.act.history")}
           </Button>
         </div>
       </PopoverContent>

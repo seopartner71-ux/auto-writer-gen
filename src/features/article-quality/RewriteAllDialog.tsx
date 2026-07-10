@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 interface RewriteAllDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface RewriteAllDialogProps {
  * Extracted from ArticlesPage as part of Step 5 refactor.
  */
 export function RewriteAllDialog(props: RewriteAllDialogProps) {
+  const { t, lang } = useI18n();
   const {
     open, onOpenChange, complianceResult, setComplianceResult, complianceCheckedLenRef,
     isStreaming, setIsStreaming, setStreamPhase, abortRef,
@@ -43,10 +45,10 @@ export function RewriteAllDialog(props: RewriteAllDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-4 w-4 text-primary" />
-            Переписать статью с учётом всех отклонений
+            {t("rad.title")}
           </DialogTitle>
           <DialogDescription>
-            ИИ получит список найденных нарушений и перепишет проблемные фрагменты, сохранив структуру и объём.
+            {t("rad.description")}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -61,7 +63,7 @@ export function RewriteAllDialog(props: RewriteAllDialogProps) {
           )}
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={isStreaming}>
-              Отмена
+              {t("common.cancel")}
             </Button>
             <Button
               className="flex-1"
@@ -69,11 +71,15 @@ export function RewriteAllDialog(props: RewriteAllDialogProps) {
               onClick={async () => {
                 if (!complianceResult) return;
                 onOpenChange(false);
+                const isEn = lang === "en";
                 const rules = complianceResult.deviations.map((d: any, i: number) =>
-                  `${i + 1}. [${d.severity}/${d.category}] ${d.rule}\n   Цитата: «${d.quote}»\n   Что сделать: ${d.suggestion || "переписать в стиле автора"}`
+                  isEn
+                    ? `${i + 1}. [${d.severity}/${d.category}] ${d.rule}\n   Quote: "${d.quote}"\n   Fix: ${d.suggestion || "rewrite in the author's style"}`
+                    : `${i + 1}. [${d.severity}/${d.category}] ${d.rule}\n   Цитата: «${d.quote}»\n   Что сделать: ${d.suggestion || "переписать в стиле автора"}`
                 ).join("\n\n");
-                const instruction =
-                  `Перепиши статью, ИСПРАВИВ следующие отклонения от инструкции автора. Сохрани структуру, заголовки, объём и факты. Меняй ТОЛЬКО проблемные фрагменты.\n\nОТКЛОНЕНИЯ:\n${rules}`;
+                const instruction = isEn
+                  ? `Rewrite the article FIXING the following deviations from the author's instructions. Keep structure, headings, length and facts. Change ONLY the problem fragments.\n\nDEVIATIONS:\n${rules}`
+                  : `Перепиши статью, ИСПРАВИВ следующие отклонения от инструкции автора. Сохрани структуру, заголовки, объём и факты. Меняй ТОЛЬКО проблемные фрагменты.\n\nОТКЛОНЕНИЯ:\n${rules}`;
                 setIsStreaming(true);
                 setStreamPhase("thinking");
                 const prevContent = content;
@@ -138,9 +144,9 @@ export function RewriteAllDialog(props: RewriteAllDialogProps) {
                   }
                   setComplianceResult(null);
                   complianceCheckedLenRef.current = 0;
-                  toast.success("Статья переписана. Запустите проверку заново.");
+                  toast.success(t("rad.toastDone"));
                 } catch (e: any) {
-                  if (e.name === "AbortError") toast.info("Переписывание остановлено");
+                  if (e.name === "AbortError") toast.info(t("rad.toastAborted"));
                   else { toast.error(e.message); setContent(prevContent); }
                 } finally {
                   setIsStreaming(false);
@@ -150,7 +156,7 @@ export function RewriteAllDialog(props: RewriteAllDialogProps) {
               }}
             >
               <Wand2 className="h-3 w-3 mr-1" />
-              Переписать
+              {t("rad.rewrite")}
             </Button>
           </div>
         </div>
