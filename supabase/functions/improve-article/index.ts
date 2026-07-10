@@ -10,6 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { chatComplete, AiError } from "../_shared/aiClient.ts";
 import { logLLM } from "../_shared/costLogger.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 import { ensureHtml, isStaleStatus } from "../_shared/ensureHtml.ts";
 import { getPlanLimit, IMPROVE_LIMITS, normalizePlanKey } from "../_shared/planLimits.ts";
 import { analyzeSentenceStructure, buildSentenceStructureFixHint } from "../_shared/sentenceStructure.ts";
