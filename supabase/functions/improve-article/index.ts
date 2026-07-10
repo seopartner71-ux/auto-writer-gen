@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
     const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
 
     const { data: art } = await admin.from("articles")
-      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested")
+      .select("id,user_id,content,title,meta_description,keyword_id,keywords,ai_score,ai_score_internal,ai_score_claude,burstiness_status,keyword_density_status,keyword_density,last_improve_at,turgenev_status,language,seo_improve_count,author_profile_id,quality_details,quality_status,improve_stop_requested,humanize_profile,source,main_keyword,source_url")
       .eq("id", article_id).maybeSingle();
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
@@ -1106,7 +1106,10 @@ ${rhythmSharedRules}`;
         : judgeReasonsBlock; // fallback to prior-only critique if no init reasons
       judgeReasonsBlock = preserveBlock + overrideBlock + critiqueBlock;
       const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
-      const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).
+      const conservativeBlock = ((art as any).humanize_profile === "conservative")
+        ? `\n\nВНИМАНИЕ: РЕЖИМ КОНСЕРВАТИВНОГО РЕРАЙТА (авторский текст пользователя).\n- НЕ меняй факты, структуру заголовков, порядок мыслей и авторские примеры.\n- НЕ переставляй абзацы, НЕ добавляй новые смысловые блоки, НЕ придумывай цитаты и источники.\n- Исправляй ТОЛЬКО: клише, канцелярит, обрубленные предложения, номинативные вставки ключей, чрезмерную предсказуемость формулировок.\n- Сохраняй авторский голос: если у пользователя короткие рубленые фразы или длинные периоды — оставь этот ритм там, где он не даёт технических дефектов.\n`
+        : "";
+      const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).${conservativeBlock}
 ${validatorContextBlock}
 ${judgeReasonsBlock}
 ${lexicalBanBlock}
@@ -2062,6 +2065,64 @@ async function finalizeCycle(
       priority,
     },
   });
+
+  // ── Rewrite refund ────────────────────────────────────────────────
+  // For articles created via the /rewrite flow we deducted credits UP-FRONT
+  // in rewrite-start. If the improvement cycle ends in a hard failure
+  // (error / timed_out / turgenev_unavailable) OR delivered no measurable
+  // AI-score progress at all — refund the user automatically and mark the
+  // charge as refunded so we can't double-refund.
+  try {
+    const { data: refundArt } = await admin
+      .from("articles")
+      .select("source, quality_details")
+      .eq("id", article_id)
+      .maybeSingle();
+    if (refundArt && (refundArt as any).source === "rewrite") {
+      const qd = ((refundArt as any).quality_details && typeof (refundArt as any).quality_details === "object")
+        ? (refundArt as any).quality_details
+        : {};
+      const rewriteMeta = (qd.rewrite && typeof qd.rewrite === "object") ? qd.rewrite : {};
+      const charged = Number(rewriteMeta.credits_charged || 0);
+      const alreadyRefunded = rewriteMeta.refunded === true;
+      const hardFail = finalStatus === "error" || finalStatus === "timed_out" || finalStatus === "turgenev_unavailable";
+      const noAiProgress = finalStatus === "no_progress"
+        && typeof bestSnapshot.ai === "number"
+        && typeof initialSnap.ai === "number"
+        && bestSnapshot.ai <= initialSnap.ai;
+      if (charged > 0 && !alreadyRefunded && (hardFail || noAiProgress)) {
+        try {
+          await admin.rpc("refund_credits", {
+            p_user_id: user.id,
+            p_amount: charged,
+            p_reason: "rewrite_cycle_failed",
+            p_article_id: article_id,
+            p_metadata: { final_status: finalStatus, ai_initial: initialSnap.ai, ai_best: bestSnapshot.ai },
+          });
+          const nextQD = {
+            ...qd,
+            rewrite: {
+              ...rewriteMeta,
+              refunded: true,
+              refunded_at: new Date().toISOString(),
+              refund_reason: hardFail ? finalStatus : "no_progress",
+            },
+          };
+          await admin.from("articles").update({ quality_details: nextQD }).eq("id", article_id);
+          logPipelineEvent({
+            stage: "improve",
+            user_id: user.id,
+            article_id,
+            verdict: "warning",
+            duration_ms: 0,
+            meta: { event: "rewrite_refund", credits: charged, final_status: finalStatus },
+          });
+        } catch (e) {
+          console.warn("[finalizeCycle] rewrite refund failed:", (e as Error).message);
+        }
+      }
+    }
+  } catch (_) { /* non-fatal */ }
 
   // ── Populate turgenev_score if the cycle never got a real judge on it ──
   // In cycle mode the standard quality-check dispatch is skipped (to avoid

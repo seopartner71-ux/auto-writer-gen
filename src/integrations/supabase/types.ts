@@ -661,6 +661,7 @@ export type Database = {
           geo_details: Json | null
           h2_warnings: Json | null
           humanize_meta: Json | null
+          humanize_profile: string
           id: string
           improve_stop_requested: boolean
           is_ab_test: boolean
@@ -672,6 +673,7 @@ export type Database = {
           language: string | null
           last_improve_at: string | null
           lsi_keywords: Json | null
+          main_keyword: string | null
           meta_description: string | null
           page_type: string
           persona_deviation: number | null
@@ -689,6 +691,7 @@ export type Database = {
           serp_cluster_pipeline: boolean | null
           share_token: string | null
           source: string
+          source_url: string | null
           status: string | null
           suggested_outline: Json | null
           telegraph_path: string | null
@@ -734,6 +737,7 @@ export type Database = {
           geo_details?: Json | null
           h2_warnings?: Json | null
           humanize_meta?: Json | null
+          humanize_profile?: string
           id?: string
           improve_stop_requested?: boolean
           is_ab_test?: boolean
@@ -745,6 +749,7 @@ export type Database = {
           language?: string | null
           last_improve_at?: string | null
           lsi_keywords?: Json | null
+          main_keyword?: string | null
           meta_description?: string | null
           page_type?: string
           persona_deviation?: number | null
@@ -762,6 +767,7 @@ export type Database = {
           serp_cluster_pipeline?: boolean | null
           share_token?: string | null
           source?: string
+          source_url?: string | null
           status?: string | null
           suggested_outline?: Json | null
           telegraph_path?: string | null
@@ -807,6 +813,7 @@ export type Database = {
           geo_details?: Json | null
           h2_warnings?: Json | null
           humanize_meta?: Json | null
+          humanize_profile?: string
           id?: string
           improve_stop_requested?: boolean
           is_ab_test?: boolean
@@ -818,6 +825,7 @@ export type Database = {
           language?: string | null
           last_improve_at?: string | null
           lsi_keywords?: Json | null
+          main_keyword?: string | null
           meta_description?: string | null
           page_type?: string
           persona_deviation?: number | null
@@ -835,6 +843,7 @@ export type Database = {
           serp_cluster_pipeline?: boolean | null
           share_token?: string | null
           source?: string
+          source_url?: string | null
           status?: string | null
           suggested_outline?: Json | null
           telegraph_path?: string | null

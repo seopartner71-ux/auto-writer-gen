@@ -41,6 +41,7 @@ export const nav: Dict = {
   "nav.domainHunter": { ru: "Aged домены", en: "Domain Hunter" },
   "nav.topicalMap": { ru: "Карта тем", en: "Topical Map" },
   "nav.articleAudit": { ru: "Аудит статьи", en: "Article Audit" },
+  "nav.rewrite": { ru: "Рерайт статьи", en: "Rewrite" },
   "nav.calendarPlanner": { ru: "Календарь", en: "Calendar" },
   "nav.utmGenerator": { ru: "UTM-генератор", en: "UTM Generator" },
 };
