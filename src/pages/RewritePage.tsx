@@ -98,8 +98,8 @@ function localPreScan(content: string, keyword: string, lang: Lang): QualityFlag
 
 export default function RewritePage() {
   const { user } = useAuth();
-  const { language } = useI18n();
-  const isRu = language !== "en";
+  const { lang: uiLang } = useI18n();
+  const isRu = uiLang !== "en";
   const [step, setStep] = useState<StepKey>("input");
 
   // Step 1 — input
