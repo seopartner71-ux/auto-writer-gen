@@ -428,7 +428,7 @@ export default function RankTrackerPage() {
                     <th>{isRu ? "Запрос" : "Keyword"}</th>
                     <th>{isRu ? "Домен" : "Domain"}</th>
                     <th>Google</th>
-                    <th>Yandex</th>
+                    {isRu && <th>Yandex</th>}
                     <th>{isRu ? "Страницы в ТОП" : "Ranking pages"}</th>
                     <th>{isRu ? "Выдача" : "SERP"}</th>
                     <th>{isRu ? "История (30 дн)" : "History (30d)"}</th>
@@ -464,12 +464,12 @@ export default function RankTrackerPage() {
                             {renderTrend(google?.id)}
                           </div>
                         </td>
-                        <td>
+                        {isRu && <td>
                           <div className="flex items-center gap-2">
                             {renderPosition(yandex)}
                             {renderTrend(yandex?.id)}
                           </div>
-                        </td>
+                        </td>}
                         <td className="max-w-[260px]">
                           <div className="space-y-1">
                             {google?.last_url && (
@@ -479,14 +479,14 @@ export default function RankTrackerPage() {
                                 Google: {google.last_url.replace(/^https?:\/\//, "").slice(0, 48)}
                               </a>
                             )}
-                            {yandex?.last_url && (
+                            {isRu && yandex?.last_url && (
                               <a href={yandex.last_url} target="_blank" rel="noopener noreferrer"
                                 className="text-xs text-primary hover:underline truncate block"
                                 title={yandex.last_url}>
                                 Yandex: {yandex.last_url.replace(/^https?:\/\//, "").slice(0, 48)}
                               </a>
                             )}
-                            {!google?.last_url && !yandex?.last_url && <span className="text-xs text-muted-foreground">-</span>}
+                            {!google?.last_url && (!isRu || !yandex?.last_url) && <span className="text-xs text-muted-foreground">-</span>}
                           </div>
                         </td>
                         <td>
@@ -496,11 +496,11 @@ export default function RankTrackerPage() {
                               className="text-xs text-primary hover:underline">
                               Google ↗
                             </a>
-                            <a href={buildSerpUrl("yandex", group.keyword, group.region, group.city)}
+                            {isRu && <a href={buildSerpUrl("yandex", group.keyword, group.region, group.city)}
                               target="_blank" rel="noopener noreferrer"
                               className="text-xs text-primary hover:underline">
                               Yandex ↗
-                            </a>
+                            </a>}
                           </div>
                         </td>
                         <td className="w-32 h-10">
