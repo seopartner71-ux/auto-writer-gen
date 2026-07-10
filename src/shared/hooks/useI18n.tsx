@@ -3,6 +3,24 @@ import { translations, type Lang } from "@/shared/i18n";
 
 export type { Lang };
 
+/**
+ * Framework-agnostic translator for non-React modules (e.g. orchestrators,
+ * utilities). Prefer the `useI18n` hook inside components.
+ */
+export function translate(
+  key: string,
+  lang: Lang,
+  params?: Record<string, string | number>,
+): string {
+  let s = translations[key]?.[lang] || key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      s = s.split(`{${k}}`).join(String(v));
+    }
+  }
+  return s;
+}
+
 interface I18nContextValue {
   lang: Lang;
   setLang: (l: Lang) => void;
