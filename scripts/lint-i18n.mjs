@@ -9,12 +9,12 @@ const ROOT = "src";
 const CYR = /[А-Яа-яЁё]/;
 
 const EXCLUDE_PREFIXES = [
+  // === A. Вечные (не переводим никогда) ===
   "src/components/admin/",
   "src/components/landing/",
   "src/components/vc-writer/",
   "src/pages/VcWriterPage.tsx",
   "src/pages/AdminPage.tsx",
-  "src/pages/ContentPlanPage.tsx",
   "src/features/geo/constants.ts",
   "src/shared/hooks/useI18n.tsx",
   "src/shared/i18n/",
@@ -26,18 +26,19 @@ const EXCLUDE_PREFIXES = [
   "src/shared/utils/sentenceStructure.ts",
   "src/components/article/humanScore/",
   "src/components/article/HumanScorePanel.tsx",
-  "src/components/article/InlineAIToolbar.tsx",
-  "src/components/article/SeoTipTicker.tsx",
-  "src/components/article/GenerationStageProgress.tsx",
   "src/components/article/MiralinksWidget.tsx",
   "src/components/article/GoGetLinksWidget.tsx",
   "src/features/commercial/constants.ts",
+  // === B. Языковое ветвление (i18n:lang-branch) ===
+  // Файлы содержат кириллицу только в ветках `language === "ru"`.
+  // EN-ветка отрендерена отдельно. Помечено маркером `i18n:lang-branch` в шапке файла.
+  "src/components/article/InlineAIToolbar.tsx",
+  "src/components/article/SeoTipTicker.tsx",
+  "src/components/article/GenerationStageProgress.tsx",
+  // === Промпты к LLM: см. отдельный разбор ниже ===
   "src/features/article-quality/useFixIssue.ts",
   "src/features/article-quality/useBenchmarkOptimize.ts",
   "src/features/article-quality/startImproveCycle.ts",
-  "src/features/article-quality/ImprovingTipsLoader.tsx",
-  "src/pages/PricingPage.tsx",
-  "src/pages/DashboardPage.tsx",
 ];
 
 function walk(dir, out = []) {
