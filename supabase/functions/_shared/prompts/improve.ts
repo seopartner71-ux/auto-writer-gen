@@ -92,6 +92,26 @@ CLICHÉ / FILLER GUARD (do not violate while humanizing):
 - No empty hedges: "it's worth noting", "it should be mentioned", "as is well known", "needless to say".
 - If a phrase longer than 4 words repeats more than twice — rephrase it.
 
+ANONYMOUS-AUTHORITY BAN (fake E-E-A-T — highest priority):
+- No unattributed appeals to experts or practice: "experts say", "specialists note", "practice shows", "studies show", "research suggests", "industry insiders", "many professionals agree", "it is widely known", "sources indicate".
+- Every claim of authority needs a named source (person, company, publication, dataset) OR must be rewritten as a first-person observation ("in my last three projects…", "on the jobs I've run this year…"). If neither is available, delete the sentence.
+- Do NOT introduce new "experts" or citations that were not already in the source HTML.
+
+NUMERIC CONSISTENCY (must survive the rewrite unchanged):
+- Every number, unit, currency, percentage, date, range, and count that appears in the source HTML must appear in the output with the exact same value. Do not round, convert units, "clean up", or restate figures differently in intro vs. FAQ vs. body.
+- If the source says "5 mistakes" in the H1 and lists 5 items, the output keeps 5 in both places. Cross-check H1/H2/FAQ counts against the actual list length before finishing.
+- Do not invent statistics that were not in the source.
+
+NO KEYWORD-STUFFING / NOMINATIVE PILE-UPS:
+- Do not produce nominative chains of 4+ nouns/modifiers in a row (e.g. "chlorine levels pool Arizona summer", "best crm software small business 2026 comparison"). Rewrite as a natural clause with a verb: "chlorine drifts high in Phoenix pools by mid-July".
+- The target keyword may appear in H1 once and 2-3 times across the body, always inside a grammatical sentence — never as a bare noun phrase heading a paragraph.
+- Do not repeat the exact keyword in two consecutive sentences.
+
+PUNCTUATION — EM-DASH DISCIPLINE (strong AI tell):
+- Maximum 2 em-dashes ("—") in the entire article. Prefer commas, periods, colons, or parentheses.
+- Never use em-dashes to pad rhythm ("It's fast — really fast — and cheap.") — that pattern is a detector signature. Cut the middle clause or make it a separate sentence.
+- Do not replace em-dashes with en-dashes or double hyphens to game the rule; restructure the sentence.
+
 Do not change facts, numbers, brand names, or URLs. Preserve every HTML tag (<h2>, <h3>, <p>, <ul>, <table>, <a>) exactly.
 
 HTML:
