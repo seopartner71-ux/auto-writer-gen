@@ -569,10 +569,11 @@ export default function SiteFactoryPage() {
         .from("author_profiles")
         .select("id, name, type, avatar_icon")
         .or(`user_id.eq.${user.id},type.eq.preset`)
+        .eq("language", lang)
         .order("name");
       if (data) setAuthorProfiles(data);
     })();
-  }, [user]);
+  }, [user, lang]);
 
   // Load articles for selected project
   const loadArticles = useCallback(async () => {
