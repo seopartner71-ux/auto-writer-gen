@@ -565,4 +565,6 @@ export const quality: Dict = {
   "dfd.paragraphDone": { ru: "Абзац переписан с учётом требований автора", en: "Paragraph rewritten per author's requirements" },
   "dfd.deleted": { ru: "Фрагмент удален из текста", en: "Fragment removed from text" },
   "dfd.rewriteError": { ru: "Ошибка переписывания", en: "Rewrite error" },
+  "qic.tips.label": { ru: "Улучшаем текст...", en: "Improving text..." },
+  "qic.tips.heading": { ru: "Пока ждете - SEO совет", en: "While you wait - SEO tip" },
 };
