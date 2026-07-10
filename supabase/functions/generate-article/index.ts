@@ -15,6 +15,7 @@ import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurg
 import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
+import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
