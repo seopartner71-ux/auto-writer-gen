@@ -170,10 +170,10 @@ async function processQueuedItem(params: {
     serperApiKey,
     writerModel,
     researchModel,
-    authorProfile,
     bulkJobId,
     completedCount,
   } = params;
+  let authorProfile = params.authorProfile;
 
   try {
     await admin.from("bulk_job_items").update({ status: "researching", error_message: null }).eq("id", item.id);
