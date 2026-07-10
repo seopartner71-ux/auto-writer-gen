@@ -111,7 +111,9 @@ export default function RankTrackerPage() {
 
   const [kw, setKw] = useState("");
   const [domain, setDomain] = useState("");
-  const [engine, setEngine] = useState<"google" | "yandex" | "both">("both");
+  const [engine, setEngine] = useState<"google" | "yandex" | "both">(
+    lang === "ru" ? "both" : "google",
+  );
   const [region, setRegion] = useState("ru");
   const [city, setCity] = useState("");
   const [viewUserId, setViewUserId] = useState<string>("");
@@ -376,9 +378,9 @@ export default function RankTrackerPage() {
             <Select value={engine} onValueChange={(v) => setEngine(v as "google" | "yandex" | "both")}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="both">{isRu ? "Google + Yandex" : "Google + Yandex"}</SelectItem>
+                {isRu && <SelectItem value="both">Google + Yandex</SelectItem>}
                 <SelectItem value="google">Google</SelectItem>
-                <SelectItem value="yandex">Yandex</SelectItem>
+                {isRu && <SelectItem value="yandex">Yandex</SelectItem>}
               </SelectContent>
             </Select>
             <Input placeholder={engine === "yandex" ? "lr (213)" : "ru"} value={region} onChange={e => setRegion(e.target.value)} />
