@@ -309,13 +309,13 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     : overallBand === "warning" ? "warning"
     : overallBand === "fail" ? "fail"
     : "none";
-  const TRIGGER_META: Record<TriggerKind, { icon: string; label: string; cls: string }> = {
-    ok:       { icon: "✓", label: "Готово",     cls: "bg-success/15 text-success border-success/30" },
-    warning:  { icon: "!", label: "Проверьте",  cls: "bg-warning/15 text-warning border-warning/30" },
-    fail:     { icon: "✗", label: "Доработка",  cls: "bg-destructive/15 text-destructive border-destructive/30" },
-    checking: { icon: "⏳", label: "Проверка...", cls: "bg-muted/40 text-muted-foreground border-border" },
-    timeout:  { icon: "!", label: "Таймаут",    cls: "bg-muted/40 text-muted-foreground border-border" },
-    none:     { icon: "◎", label: "Качество",   cls: "bg-secondary text-secondary-foreground border-border" },
+  const TRIGGER_META: Record<TriggerKind, { icon: string; cls: string }> = {
+    ok:       { icon: "✓", cls: "bg-success/15 text-success border-success/30" },
+    warning:  { icon: "!", cls: "bg-warning/15 text-warning border-warning/30" },
+    fail:     { icon: "✗", cls: "bg-destructive/15 text-destructive border-destructive/30" },
+    checking: { icon: "⏳", cls: "bg-muted/40 text-muted-foreground border-border" },
+    timeout:  { icon: "!", cls: "bg-muted/40 text-muted-foreground border-border" },
+    none:     { icon: "◎", cls: "bg-secondary text-secondary-foreground border-border" },
   };
   const trig = TRIGGER_META[triggerKind];
   const trigLabel = t(`qb.trig.${triggerKind}` as any);
