@@ -27,6 +27,7 @@ export const article: Dict = {
   "keywords.batchDoneErrors": { ru: " (ошибок: {failed})", en: " (errors: {failed})" },
   "keywords.researchBatch": { ru: "Исследовать ({n})", en: "Research ({n})" },
   "keywords.batchProcessing": { ru: "Обработка {current} / {total}: {kw}", en: "Processing {current} / {total}: {kw}" },
+  "planBuilder.refreshList": { ru: "Обновить список", en: "Refresh list" },
   // Research Results
   "research.intent": { ru: "Интент", en: "Intent" },
   "research.difficulty": { ru: "Сложность", en: "Difficulty" },
