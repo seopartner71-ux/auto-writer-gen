@@ -57,14 +57,9 @@ interface PersonaSelectorProps {
   keywordText?: string | null;
 }
 
-const SYNTAX_PRESETS: { key: string; label: string }[] = [
-  { key: "standard", label: "Стандартный" },
-  { key: "blogger", label: "Блогер" },
-  { key: "practitioner", label: "Практик" },
-  { key: "skeptic", label: "Скептик" },
-  { key: "provocateur", label: "Провокатор" },
-  { key: "academic", label: "Академик" },
-];
+const SYNTAX_PRESET_KEYS = [
+  "standard", "blogger", "practitioner", "skeptic", "provocateur", "academic",
+] as const;
 
 export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keywordText }: PersonaSelectorProps) {
   const { t } = useI18n();
@@ -121,11 +116,11 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
       if (recommendedPrompt) {
         setNewInstruction(prev => (prev ? `${prev}\n\n${recommendedPrompt}` : recommendedPrompt));
         const details = [
-          analysis.formality && `Формальность: ${analysis.formality}`,
-          analysis.tone_description && `Тон: ${analysis.tone_description}`,
-          analysis.vocabulary_level && `Лексика: ${analysis.vocabulary_level}`,
+          analysis.formality && t("ps.formality", { v: analysis.formality }),
+          analysis.tone_description && t("ps.tone", { v: analysis.tone_description }),
+          analysis.vocabulary_level && t("ps.vocab", { v: analysis.vocabulary_level }),
         ].filter(Boolean).join(" · ");
-        toast.success(`✅ Стиль проанализирован!`, {
+        toast.success(`✅ ${t("ps.styleAnalyzed")}`, {
           description: details || t("ps.styleAdded"),
           duration: 6000,
         });
@@ -186,26 +181,26 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
             <SelectItem value="none">{t("ps.noStyle")}</SelectItem>
             {recommendedByQuery && (
               <>
-                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 По теме запроса</div>
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 {t("ps.byQuery")}</div>
                 <SelectItem key={recommendedByQuery.id} value={recommendedByQuery.id}>
                   {recommendedByQuery.name}
                 </SelectItem>
               </>
             )}
             {starred.length > 0 && (
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-400/90">⭐ Рекомендуемые</div>
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-amber-400/90">⭐ {t("ps.recommended")}</div>
             )}
             {starred.map(a => (
               <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
             ))}
             {otherPresets.length > 0 && (
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Все авторы</div>
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{t("ps.allAuthors")}</div>
             )}
             {otherPresets.map(a => (
               <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
             ))}
             {customs.length > 0 && (
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Мои авторы</div>
+              <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{t("ps.myAuthors")}</div>
             )}
             {customs.map(a => (
               <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
@@ -225,7 +220,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
           <>
             <div className="flex items-center gap-2">
               <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 По теме запроса</span>
+              <span className="text-[10px] uppercase tracking-wider text-emerald-400/90">🎯 {t("ps.byQuery")}</span>
               <span className="h-px flex-1 bg-border" />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
@@ -245,7 +240,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
           <>
             <div className="flex items-center gap-2">
               <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] uppercase tracking-wider text-amber-400/90">⭐ Рекомендуемые</span>
+              <span className="text-[10px] uppercase tracking-wider text-amber-400/90">⭐ {t("ps.recommended")}</span>
               <span className="h-px flex-1 bg-border" />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
@@ -265,7 +260,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
         )}
         <div className="flex items-center gap-2 pt-1">
           <span className="h-px flex-1 bg-border" />
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Все авторы</span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ps.allAuthors")}</span>
           <span className="h-px flex-1 bg-border" />
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
@@ -294,7 +289,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
           <>
             <div className="flex items-center gap-2 pt-1">
               <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Мои авторы</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("ps.myAuthors")}</span>
               <span className="h-px flex-1 bg-border" />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-1.5">
@@ -323,7 +318,7 @@ export function PersonaSelector({ authors, selectedId, onSelect, quickMode, keyw
                 className="flex h-[70px] w-full items-center justify-center gap-1 rounded-md border border-dashed border-muted-foreground/30 px-2 text-[11px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground hover:bg-accent/30"
               >
                 <Plus className="h-3 w-3" />
-                <span>Создать автора</span>
+                <span>{t("ps.createAuthor")}</span>
               </button>
             </div>
           </>
