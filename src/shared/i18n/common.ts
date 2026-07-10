@@ -36,6 +36,8 @@ export const common: Dict = {
   "common.close": { ru: "Закрыть", en: "Close" },
   "common.copied": { ru: "Скопировано", en: "Copied" },
   "common.copy": { ru: "Копировать", en: "Copy" },
+  // Brand
+  "brand.name": { ru: "СЕО-Модуль", en: "Draften" },
   // Admin
   "admin.title": { ru: "Админ-панель", en: "Admin Panel" },
   "admin.subtitle": { ru: "Управление ключами, моделями и пользователями", en: "Manage keys, models and users" },

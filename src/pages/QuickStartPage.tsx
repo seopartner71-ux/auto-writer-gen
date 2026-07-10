@@ -117,16 +117,11 @@ export default function QuickStartPage() {
     return () => { clearTimeout(t); setPredictionLoading(false); };
   }, [keyword, stage]);
 
-  const stages: StageInfo[] = lang === "ru" ? [
-    { key: "research",  icon: Search,      label: "Анализируем конкурентов", hint: "Сбор данных из ТОП-10 Google" },
-    { key: "structure", icon: ListTree,    label: "Создаём структуру",       hint: "Подбор H1/H2/H3 на основе SERP" },
-    { key: "writing",   icon: PenLine,     label: "Пишем статью",            hint: "Генерация в реальном времени" },
-    { key: "quality",   icon: ShieldCheck, label: "Проверяем качество",      hint: "SEO Score и AI-детектор" },
-  ] : [
-    { key: "research",  icon: Search,      label: "Analyzing competitors", hint: "Collecting Top-10 Google data" },
-    { key: "structure", icon: ListTree,    label: "Building structure",    hint: "Picking H1/H2/H3 from SERP" },
-    { key: "writing",   icon: PenLine,     label: "Writing the article",   hint: "Live AI generation" },
-    { key: "quality",   icon: ShieldCheck, label: "Quality check",         hint: "SEO Score and AI detector" },
+  const stages: StageInfo[] = [
+    { key: "research",  icon: Search,      label: t("qs.stage.research"),  hint: t("qs.stage.researchHint") },
+    { key: "structure", icon: ListTree,    label: t("qs.stage.structure"), hint: t("qs.stage.structureHint") },
+    { key: "writing",   icon: PenLine,     label: t("qs.stage.writing"),   hint: t("qs.stage.writingHint") },
+    { key: "quality",   icon: ShieldCheck, label: t("qs.stage.quality"),   hint: t("qs.stage.qualityHint") },
   ];
 
   function startTimer() {
@@ -147,7 +142,7 @@ export default function QuickStartPage() {
   async function runPipeline() {
     const kw = keyword.trim();
     if (kw.length < 2) {
-      toast.error(lang === "ru" ? "Введите ключевое слово" : "Enter a keyword");
+      toast.error(t("qs.enterKeyword"));
       return;
     }
 
@@ -220,7 +215,7 @@ export default function QuickStartPage() {
         }),
       });
       if (!resp.ok) {
-        if (resp.status === 402) throw new Error(lang === "ru" ? "Недостаточно кредитов" : "Insufficient credits");
+        if (resp.status === 402) throw new Error(t("qs.insufficientCredits"));
         const e = await resp.json().catch(() => ({}));
         throw new Error(e.error || `HTTP ${resp.status}`);
       }
@@ -358,16 +353,14 @@ export default function QuickStartPage() {
         <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs font-medium text-primary uppercase tracking-wider">
-            {lang === "ru" ? "Быстрый старт" : "Quick Start"}
+            {t("qs.badge")}
           </span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-          {lang === "ru" ? "Статья за 60 секунд" : "Article in 60 seconds"}
+          {t("qs.title")}
         </h1>
         <p className="text-muted-foreground">
-          {lang === "ru"
-            ? "Введите ключевое слово - мы сами сделаем Research, структуру и текст"
-            : "Enter a keyword - we'll handle research, structure, and content"}
+          {t("qs.subtitle")}
         </p>
       </div>
 
@@ -376,24 +369,23 @@ export default function QuickStartPage() {
         <Card className="p-6 space-y-4 border-primary/20 bg-gradient-to-b from-card to-card/50">
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {lang === "ru" ? "Ключевое слово" : "Keyword"}
+              {t("qs.keywordLabel")}
             </label>
             <Input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder={lang === "ru" ? "Например: как выбрать ноутбук" : "e.g. how to choose a laptop"}
+              placeholder={t("qs.keywordPlaceholder")}
               className="h-12 text-base"
               onKeyDown={(e) => { if (e.key === "Enter") runPipeline(); }}
               autoFocus
             />
           </div>
 
-          {prediction && lang === "ru" && (
+          {prediction && (
             <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium flex items-center gap-2">
-                  <span className="text-base">📊</span>
-                  Прогноз для "{prediction.label}"
+                  {t("qs.forecastFor", { kw: prediction.label })}
                 </div>
                 {predictionLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
               </div>
@@ -401,8 +393,8 @@ export default function QuickStartPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>Конкуренция</span>
-                    <span>{prediction.competition >= 70 ? "Высокая" : prediction.competition >= 40 ? "Средняя" : "Низкая"}</span>
+                    <span>{t("qs.competition")}</span>
+                    <span>{prediction.competition >= 70 ? t("qs.levelHigh") : prediction.competition >= 40 ? t("qs.levelMed") : t("qs.levelLow")}</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
@@ -413,8 +405,8 @@ export default function QuickStartPage() {
                 </div>
                 <div>
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>Сложность</span>
-                    <span>{prediction.difficulty >= 70 ? "Высокая" : prediction.difficulty >= 40 ? "Средняя" : "Низкая"}</span>
+                    <span>{t("qs.difficulty")}</span>
+                    <span>{prediction.difficulty >= 70 ? t("qs.levelHigh") : prediction.difficulty >= 40 ? t("qs.levelMed") : t("qs.levelLow")}</span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
@@ -426,16 +418,16 @@ export default function QuickStartPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground border-t border-border pt-2">
-                <span>Медиана ТОП-10:</span>
-                <span>📝 {prediction.medianWords.toLocaleString("ru-RU")} слов</span>
-                <span>📌 {prediction.medianH2} H2</span>
-                <span>📋 {prediction.medianLists} списка</span>
+                <span>{t("qs.medianTop")}</span>
+                <span>{t("qs.medianWords", { n: prediction.medianWords.toLocaleString(lang === "ru" ? "ru-RU" : "en-US") })}</span>
+                <span>{t("qs.medianH2", { n: prediction.medianH2 })}</span>
+                <span>{t("qs.medianLists", { n: prediction.medianLists })}</span>
               </div>
 
               <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
-                <span className="text-xs text-muted-foreground">Если напишем лучше топа:</span>
+                <span className="text-xs text-muted-foreground">{t("qs.ifBetter")}</span>
                 <span className="text-sm font-semibold text-primary">
-                  🎯 Прогноз Score: {prediction.predictedScore}/100
+                  {t("qs.forecastScore", { n: prediction.predictedScore })}
                 </span>
               </div>
             </div>
@@ -447,12 +439,10 @@ export default function QuickStartPage() {
             className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-[#3b82f6] hover:opacity-90"
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            {lang === "ru" ? "Создать статью автоматически" : "Generate article automatically"}
+            {t("qs.generateBtn")}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
-            {lang === "ru"
-              ? "Спишется 1 кредит за статью. Структура и проверка качества бесплатно."
-              : "1 credit per article. Structure and quality check are free."}
+            {t("qs.generateNote")}
           </p>
         </Card>
       )}
@@ -462,7 +452,7 @@ export default function QuickStartPage() {
         <Card className="p-6 space-y-5">
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground font-mono">
-              {lang === "ru" ? "Прошло" : "Elapsed"}: {elapsed}{lang === "ru" ? "с" : "s"}
+              {t("qs.elapsed")}: {elapsed}{t("qs.secondsShort")}
             </div>
             <div className="text-sm text-muted-foreground font-mono">{progress}%</div>
           </div>
@@ -522,10 +512,10 @@ export default function QuickStartPage() {
             </div>
             <div>
               <h2 className="text-xl font-bold">
-                {lang === "ru" ? `Готово за ${elapsed} секунд!` : `Done in ${elapsed} seconds!`}
+                {t("qs.doneIn", { n: elapsed })}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {lang === "ru" ? "Ваша первая статья готова" : "Your first article is ready"}
+                {t("qs.articleReady")}
               </p>
             </div>
           </div>
@@ -534,7 +524,7 @@ export default function QuickStartPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className={`rounded-lg border p-3 ${seoOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                {lang === "ru" ? "SEO Score" : "SEO Score"}
+                {t("qs.seoScore")}
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-bold">{seoDisplay !== null ? seoDisplay : "-"}</span>
@@ -543,11 +533,11 @@ export default function QuickStartPage() {
             </div>
             <div className={`rounded-lg border p-3 ${aiOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                {lang === "ru" ? "AI-детектор" : "AI Detector"}
+                {t("qs.humanScore")}
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-bold">{scores.ai !== null ? scores.ai : "-"}</span>
-                <span className="text-xs text-muted-foreground">% {lang === "ru" ? "человек" : "human"}</span>
+                <span className="text-xs text-muted-foreground">{t("qs.humanUnit")}</span>
               </div>
             </div>
           </div>
@@ -555,19 +545,19 @@ export default function QuickStartPage() {
           {scores.badge === "excellent" && (
             <div className="flex items-center gap-2 text-sm text-emerald-400">
               <Trophy className="h-4 w-4" />
-              {lang === "ru" ? "Отлично - готово к публикации" : "Excellent - ready to publish"}
+              {t("qs.badgeExcellent")}
             </div>
           )}
           {scores.badge === "good" && (
             <div className="flex items-center gap-2 text-sm text-amber-400">
               <ThumbsUp className="h-4 w-4" />
-              {lang === "ru" ? "Хорошо - можно публиковать" : "Good - can be published"}
+              {t("qs.badgeGood")}
             </div>
           )}
           {scores.badge === "needs_work" && (
             <div className="flex items-center gap-2 text-sm text-rose-400">
               <AlertTriangle className="h-4 w-4" />
-              {lang === "ru" ? "Требует доработки" : "Needs work"}
+              {t("qs.badgeNeedsWork")}
             </div>
           )}
 
@@ -579,7 +569,7 @@ export default function QuickStartPage() {
               className="bg-primary"
             >
               <Pencil className="h-4 w-4 mr-2" />
-              {lang === "ru" ? "Редактировать" : "Edit"}
+              {t("qs.edit")}
             </Button>
             <Button
               variant="outline"
@@ -587,11 +577,11 @@ export default function QuickStartPage() {
               disabled={!resultArticleId}
             >
               <Send className="h-4 w-4 mr-2" />
-              {lang === "ru" ? "Опубликовать" : "Publish"}
+              {t("qs.publish")}
             </Button>
             <Button variant="outline" onClick={reset}>
               <RotateCcw className="h-4 w-4 mr-2" />
-              {lang === "ru" ? "Создать ещё" : "Create another"}
+              {t("qs.createMore")}
             </Button>
           </div>
         </Card>
@@ -604,7 +594,7 @@ export default function QuickStartPage() {
             <AlertTriangle className="h-5 w-5 text-rose-400" />
             <div className="flex-1">
               <h3 className="font-semibold">
-                {lang === "ru" ? "Что-то пошло не так" : "Something went wrong"}
+                {t("qs.somethingWrong")}
               </h3>
               <p className="text-sm text-muted-foreground">{errMsg}</p>
             </div>
@@ -612,11 +602,11 @@ export default function QuickStartPage() {
           <div className="flex gap-2">
             <Button onClick={reset} variant="outline">
               <RotateCcw className="h-4 w-4 mr-2" />
-              {lang === "ru" ? "Попробовать снова" : "Try again"}
+              {t("qs.tryAgain")}
             </Button>
             <Button onClick={() => navigate("/keywords")} variant="ghost">
               <ArrowRight className="h-4 w-4 mr-2" />
-              {lang === "ru" ? "Перейти в обычный режим" : "Switch to standard mode"}
+              {t("qs.switchStandard")}
             </Button>
           </div>
         </Card>
