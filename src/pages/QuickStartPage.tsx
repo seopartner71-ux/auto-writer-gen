@@ -117,16 +117,11 @@ export default function QuickStartPage() {
     return () => { clearTimeout(t); setPredictionLoading(false); };
   }, [keyword, stage]);
 
-  const stages: StageInfo[] = lang === "ru" ? [
-    { key: "research",  icon: Search,      label: "Анализируем конкурентов", hint: "Сбор данных из ТОП-10 Google" },
-    { key: "structure", icon: ListTree,    label: "Создаём структуру",       hint: "Подбор H1/H2/H3 на основе SERP" },
-    { key: "writing",   icon: PenLine,     label: "Пишем статью",            hint: "Генерация в реальном времени" },
-    { key: "quality",   icon: ShieldCheck, label: "Проверяем качество",      hint: "SEO Score и AI-детектор" },
-  ] : [
-    { key: "research",  icon: Search,      label: "Analyzing competitors", hint: "Collecting Top-10 Google data" },
-    { key: "structure", icon: ListTree,    label: "Building structure",    hint: "Picking H1/H2/H3 from SERP" },
-    { key: "writing",   icon: PenLine,     label: "Writing the article",   hint: "Live AI generation" },
-    { key: "quality",   icon: ShieldCheck, label: "Quality check",         hint: "SEO Score and AI detector" },
+  const stages: StageInfo[] = [
+    { key: "research",  icon: Search,      label: t("qs.stage.research"),  hint: t("qs.stage.researchHint") },
+    { key: "structure", icon: ListTree,    label: t("qs.stage.structure"), hint: t("qs.stage.structureHint") },
+    { key: "writing",   icon: PenLine,     label: t("qs.stage.writing"),   hint: t("qs.stage.writingHint") },
+    { key: "quality",   icon: ShieldCheck, label: t("qs.stage.quality"),   hint: t("qs.stage.qualityHint") },
   ];
 
   function startTimer() {
@@ -147,7 +142,7 @@ export default function QuickStartPage() {
   async function runPipeline() {
     const kw = keyword.trim();
     if (kw.length < 2) {
-      toast.error(lang === "ru" ? "Введите ключевое слово" : "Enter a keyword");
+      toast.error(t("qs.enterKeyword"));
       return;
     }
 
@@ -220,7 +215,7 @@ export default function QuickStartPage() {
         }),
       });
       if (!resp.ok) {
-        if (resp.status === 402) throw new Error(lang === "ru" ? "Недостаточно кредитов" : "Insufficient credits");
+        if (resp.status === 402) throw new Error(t("qs.insufficientCredits"));
         const e = await resp.json().catch(() => ({}));
         throw new Error(e.error || `HTTP ${resp.status}`);
       }
