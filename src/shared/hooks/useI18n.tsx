@@ -32,7 +32,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     let s = translations[key]?.[lang] || key;
     if (params) {
       for (const [k, v] of Object.entries(params)) {
-        s = s.replaceAll(`{${k}}`, String(v));
+        s = s.split(`{${k}}`).join(String(v));
       }
     }
     return s;
