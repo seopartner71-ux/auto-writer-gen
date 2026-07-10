@@ -906,6 +906,7 @@ export type Database = {
           id: string
           is_gogetlinks_profile: boolean
           is_miralinks_profile: boolean
+          language: string
           name: string
           niche: string | null
           prompt_improved_at: string | null
@@ -928,6 +929,7 @@ export type Database = {
           id?: string
           is_gogetlinks_profile?: boolean
           is_miralinks_profile?: boolean
+          language?: string
           name: string
           niche?: string | null
           prompt_improved_at?: string | null
@@ -950,6 +952,7 @@ export type Database = {
           id?: string
           is_gogetlinks_profile?: boolean
           is_miralinks_profile?: boolean
+          language?: string
           name?: string
           niche?: string | null
           prompt_improved_at?: string | null
