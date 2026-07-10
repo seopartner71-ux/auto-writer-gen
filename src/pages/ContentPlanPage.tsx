@@ -1505,6 +1505,7 @@ function WritingSettingsDialog({ initial, singleTopic, onClose, onSubmit, submit
   onSubmit: (s: TemplateSettings) => void; submitting: boolean;
 }) {
   const [s, setS] = useState<TemplateSettings>({ ...DEFAULT_SETTINGS, ...(initial ?? {}) });
+  const { lang: cpLang } = useI18n();
 
   // Live authors from author_profiles (same source as /articles).
   // Falls back to legacy persona presets if the table is empty.
