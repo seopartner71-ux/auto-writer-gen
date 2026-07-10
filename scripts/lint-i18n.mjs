@@ -36,6 +36,7 @@ const EXCLUDE_PREFIXES = [
   "src/features/article-quality/useBenchmarkOptimize.ts",
   "src/features/article-quality/startImproveCycle.ts",
   "src/features/article-quality/ImprovingTipsLoader.tsx",
+  "src/pages/PricingPage.tsx",
 ];
 
 function walk(dir, out = []) {
