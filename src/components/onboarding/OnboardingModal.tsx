@@ -10,7 +10,7 @@ interface OnboardingModalProps {
 }
 
 export function OnboardingModal({ open, onDismiss }: OnboardingModalProps) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const steps = [
@@ -39,16 +39,14 @@ export function OnboardingModal({ open, onDismiss }: OnboardingModalProps) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-sm">
-                  {lang === "ru" ? "Статья за 60 секунд" : "Article in 60 seconds"}
+                  {t("onboarding.quickStartTitle")}
                 </span>
                 <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/15 text-primary">
-                  {lang === "ru" ? "Рекомендуем" : "Recommended"}
+                  {t("onboarding.recommended")}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {lang === "ru"
-                  ? "Введите ключ - получите готовую статью с проверкой качества"
-                  : "Enter a keyword - get a ready article with quality check"}
+                {t("onboarding.quickStartDesc")}
               </p>
             </div>
             <Sparkles className="h-4 w-4 text-primary self-center transition-transform group-hover:scale-110" />
@@ -61,7 +59,7 @@ export function OnboardingModal({ open, onDismiss }: OnboardingModalProps) {
           </div>
           <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
             <span className="bg-background px-2 text-muted-foreground">
-              {lang === "ru" ? "или вручную по шагам" : "or step by step"}
+              {t("onboarding.orStepByStep")}
             </span>
           </div>
         </div>
