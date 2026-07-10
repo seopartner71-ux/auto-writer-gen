@@ -594,28 +594,29 @@ export function QualityCheckPanel({ articleId, content, initial, onUpdate, onHum
 
 // Compact badge for article list rows.
 export function QualityBadgeIcon({ badge }: { badge: string | null | undefined }) {
+  const { t } = useI18n();
   if (badge === "excellent") return (
     <Tooltip>
       <TooltipTrigger><Trophy className="h-4 w-4 text-success" /></TooltipTrigger>
-      <TooltipContent>Отлично - все проверки пройдены</TooltipContent>
+      <TooltipContent>{t("qcp.badgeIcon.excellent")}</TooltipContent>
     </Tooltip>
   );
   if (badge === "good") return (
     <Tooltip>
       <TooltipTrigger><ThumbsUp className="h-4 w-4 text-warning" /></TooltipTrigger>
-      <TooltipContent>Хорошо - можно публиковать</TooltipContent>
+      <TooltipContent>{t("qcp.badgeIcon.good")}</TooltipContent>
     </Tooltip>
   );
   if (badge === "needs_work") return (
     <Tooltip>
       <TooltipTrigger><AlertTriangle className="h-4 w-4 text-destructive" /></TooltipTrigger>
-      <TooltipContent>Требует доработки</TooltipContent>
+      <TooltipContent>{t("qcp.badgeIcon.needsWork")}</TooltipContent>
     </Tooltip>
   );
   return (
     <Tooltip>
       <TooltipTrigger><span className="inline-block h-3 w-3 rounded-full border border-muted-foreground/40" /></TooltipTrigger>
-      <TooltipContent>Не проверено</TooltipContent>
+      <TooltipContent>{t("qcp.badgeIcon.none")}</TooltipContent>
     </Tooltip>
   );
 }
