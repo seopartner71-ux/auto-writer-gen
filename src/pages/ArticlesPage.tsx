@@ -700,7 +700,7 @@ export default function ArticlesPage() {
           author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
           outline,
           lsi_keywords: lsiKeywords,
-          language: (selectedKeyword as any)?.language || null,
+          language: articleLang,
           competitor_tables: (() => {
             const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
               authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
@@ -2013,7 +2013,7 @@ export default function ArticlesPage() {
                             author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
                             outline,
                             lsi_keywords: lsiKeywords,
-                            language: (selectedKeyword as any)?.language || null,
+                            language: articleLang,
                             optimize_instructions: `ЗАДАЧА: Продолжи писать статью с того места, где она оборвалась. НЕ повторяй то, что уже написано. Допиши оставшиеся разделы и ОБЯЗАТЕЛЬНО добавь заключение.\n\nПОСЛЕДНИЙ КОНТЕКСТ (продолжай отсюда):\n${lastParagraph}`,
                             existing_content: prevContent,
                           }),
@@ -2263,7 +2263,7 @@ export default function ArticlesPage() {
                         author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
                           outline,
                           lsi_keywords: lsiKeywords,
-                          language: (selectedKeyword as any)?.language || null,
+                          language: articleLang,
                           optimize_instructions: instructions,
                           deep_analysis_context: benchmarkContext,
                           existing_content: prevContent,
