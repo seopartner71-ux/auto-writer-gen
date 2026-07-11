@@ -1,3 +1,4 @@
+// i18n:lang-branch — Cyrillic content lives only inside `language === "ru"` branches; EN branch renders separately.
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles } from "lucide-react";
