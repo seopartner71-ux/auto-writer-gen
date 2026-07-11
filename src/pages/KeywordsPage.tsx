@@ -15,6 +15,20 @@ import { toast } from "sonner";
 import { ResearchResults } from "@/components/research/ResearchResults";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GEO_OPTIONS, LANG_OPTIONS, cityLabel, cityValue } from "@/features/geo/constants";
+import { useQuery } from "@tanstack/react-query";
+
+const LS_GEO = "keywords.geo";
+const LS_LANG = "keywords.language";
+const LS_GEO_MODE = "keywords.geoMode";
+
+function localeDefaults(uiLang: string): { geo: string; language: string } {
+  return uiLang === "en" ? { geo: "us", language: "en" } : { geo: "ru", language: "ru" };
+}
+
+function geoFromLang(lang: string): string {
+  const map: Record<string, string> = { en: "us", ru: "ru", de: "de", fr: "fr", es: "es", it: "it", pl: "pl", uk: "ua", tr: "tr", pt: "br" };
+  return map[lang] || lang;
+}
 
 export interface Competitor {
   position: number;
@@ -53,10 +67,83 @@ export default function KeywordsPage() {
   const { t, lang } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [keyword, setKeyword] = useState("");
-  const [geo, setGeo] = useState("ru");
-  const [geoMode, setGeoMode] = useState<"country" | "city">("country");
+  // Load active project (for project → geo/language priority).
+  const activeProjectId =
+    typeof window !== "undefined" ? localStorage.getItem("active_project_id") : null;
+  const { data: activeProject } = useQuery({
+    queryKey: ["active-project-geo", activeProjectId],
+    enabled: !!activeProjectId && activeProjectId !== "none",
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("projects")
+        .select("id, language")
+        .eq("id", activeProjectId!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  // Compute initial defaults synchronously from localStorage + UI locale.
+  // Project (async) is applied via effect below once loaded.
+  const initial = (() => {
+    const def = localeDefaults(lang);
+    const savedGeo = typeof window !== "undefined" ? localStorage.getItem(LS_GEO) : null;
+    const savedLang = typeof window !== "undefined" ? localStorage.getItem(LS_LANG) : null;
+    const savedMode = typeof window !== "undefined" ? localStorage.getItem(LS_GEO_MODE) : null;
+    return {
+      geo: savedGeo || def.geo,
+      language: savedLang || def.language,
+      geoMode: (savedMode === "city" ? "city" : "country") as "country" | "city",
+    };
+  })();
+  const [geo, setGeo] = useState(initial.geo);
+  const [geoMode, setGeoMode] = useState<"country" | "city">(initial.geoMode);
   const [city, setCity] = useState("");
-  const [language, setLanguage] = useState("ru");
+  const [language, setLanguage] = useState(initial.language);
+  const userTouchedRef = useRef({ geo: false, language: false });
+  const [dismissLangHint, setDismissLangHint] = useState(false);
+
+  // Project overrides (highest priority), applied only if user didn't touch fields.
+  useEffect(() => {
+    if (!activeProject) return;
+    const projLang = (activeProject as any).language as string | undefined;
+    if (!projLang) return;
+    if (!userTouchedRef.current.language && !localStorage.getItem(LS_LANG)) {
+      setLanguage(projLang);
+    }
+    if (!userTouchedRef.current.geo && !localStorage.getItem(LS_GEO)) {
+      setGeo(geoFromLang(projLang));
+    }
+  }, [activeProject]);
+
+  // Persist user selections.
+  const onGeoChange = (v: string) => {
+    userTouchedRef.current.geo = true;
+    setGeo(v); setCity("");
+    try { localStorage.setItem(LS_GEO, v); } catch {}
+  };
+  const onLanguageChange = (v: string) => {
+    userTouchedRef.current.language = true;
+    setLanguage(v);
+    try { localStorage.setItem(LS_LANG, v); } catch {}
+    setDismissLangHint(false);
+  };
+  const onGeoModeChange = (v: "country" | "city") => {
+    setGeoMode(v); setCity("");
+    try { localStorage.setItem(LS_GEO_MODE, v); } catch {}
+  };
+
+  // Lightweight keyword-language auto-detect for the hint banner.
+  const firstKw = parsedKeywordsRefHack(keyword);
+  const kwLooksLatin = /[a-z]/i.test(firstKw) && !/[а-яё]/i.test(firstKw);
+  const kwLooksCyrillic = /[а-яё]/i.test(firstKw);
+  const suggestSwitchToEn = kwLooksLatin && language === "ru" && firstKw.length >= 3;
+  const suggestSwitchToRu = kwLooksCyrillic && language === "en" && firstKw.length >= 3;
+
+  const applyLangSwitch = (target: "en" | "ru") => {
+    onLanguageChange(target);
+    onGeoChange(geoFromLang(target));
+  };
   const [results, setResults] = useState<ResearchData | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; currentKw: string } | null>(null);
 
@@ -150,6 +237,25 @@ export default function KeywordsPage() {
         <OnboardingHint message={t("onboarding.hintKeyword")} />
       )}
 
+      {(suggestSwitchToEn || suggestSwitchToRu) && !dismissLangHint && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 flex items-center gap-3 text-sm">
+          <span className="flex-1 text-foreground/90">
+            {suggestSwitchToEn ? t("keywords.langHintEn") : t("keywords.langHintRu")}
+          </span>
+          <Button
+            size="sm"
+            variant="default"
+            className="h-8"
+            onClick={() => applyLangSwitch(suggestSwitchToEn ? "en" : "ru")}
+          >
+            {t("keywords.langHintSwitch")}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8" onClick={() => setDismissLangHint(true)}>
+            {t("keywords.langHintDismiss")}
+          </Button>
+        </div>
+      )}
+
       {/* Search Form */}
       <div className="rounded-lg border border-border bg-card p-5">
         <div className="flex flex-col gap-3">
@@ -177,7 +283,7 @@ export default function KeywordsPage() {
           {/* Settings row: geo + language, always visible, aligned with the CTA */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <Tabs value={geoMode} onValueChange={(v) => { setGeoMode(v as "country" | "city"); setCity(""); }} className="w-auto">
+              <Tabs value={geoMode} onValueChange={(v) => onGeoModeChange(v as "country" | "city")} className="w-auto">
                 <TabsList className="h-10 p-0.5">
                   <TabsTrigger value="country" className="text-xs px-3 h-9 gap-1">
                     <Globe className="h-3.5 w-3.5" /> {t("geo.country")}
@@ -187,7 +293,7 @@ export default function KeywordsPage() {
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              <Select value={geo} onValueChange={(v) => { setGeo(v); setCity(""); }}>
+              <Select value={geo} onValueChange={onGeoChange}>
                 <SelectTrigger className="w-[170px] h-10 font-medium">
                   <SelectValue />
                 </SelectTrigger>
@@ -212,7 +318,7 @@ export default function KeywordsPage() {
                   </SelectContent>
                 </Select>
               )}
-              <Select value={language} onValueChange={setLanguage}>
+              <Select value={language} onValueChange={onLanguageChange}>
                 <SelectTrigger className="w-[150px] h-10 font-medium">
                   <SelectValue />
                 </SelectTrigger>
