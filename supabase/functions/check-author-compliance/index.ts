@@ -73,12 +73,12 @@ serve(async (req) => {
     const author_profile_id: string | undefined = body.author_profile_id;
 
     if (!content || content.length < 100) {
-      return new Response(JSON.stringify({ error: "Контент слишком короткий для проверки (мин. 100 символов)" }), {
+      return new Response(JSON.stringify({ error: "Контент слишком короткий для проверки (мин. 100 символов)", error_key: "edge.authorComplianceShort" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     if (!author_profile_id) {
-      return new Response(JSON.stringify({ error: "Не указан профиль автора" }), {
+      return new Response(JSON.stringify({ error: "Не указан профиль автора", error_key: "edge.authorComplianceNoProfile" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -92,7 +92,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (authorErr || !author) {
-      return new Response(JSON.stringify({ error: "Профиль автора не найден" }), {
+      return new Response(JSON.stringify({ error: "Профиль автора не найден", error_key: "edge.authorComplianceNotFound" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
