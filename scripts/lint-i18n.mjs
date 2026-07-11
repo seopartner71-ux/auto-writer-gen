@@ -4,16 +4,23 @@
 //
 // ============================================================
 // RULE — EXCLUSIONS POLICY (do NOT relax without explicit user sign-off):
-//   EXCLUDE lists contain ONLY two categories:
+//   EXCLUDE lists contain ONLY three categories, each with a mandatory
+//   header marker in the first 5 lines of the file (except A/PERMANENT):
 //     A. PERMANENT — admin UI, landing, VC writer, RU-only integrations
 //        (Miralinks/GoGetLinks/Turgenev), i18n dictionaries themselves,
 //        RU language heuristics (contentSanity/Validator/sanitizeKeyword/…).
 //     B. LANG-BRANCH — files whose Cyrillic sits ONLY inside `language === "ru"`
 //        branches (or LLM prompts gated by RU). MUST carry the header marker
 //        `i18n:lang-branch` — enforced below at runtime.
+//     C. LLM-PROMPT — files whose Cyrillic sits ONLY inside RU-language LLM
+//        prompts (system/user strings sent to the model). MUST carry the
+//        header marker `i18n:llm-prompt` — enforced below at runtime.
 //   Anything else that is "translatable but not yet done" stays in the DEBT
 //   (the lint output) — it MUST NOT be added here to hide the number.
-//   Adding a new entry requires explicit user confirmation in chat.
+//   Adding a new entry requires explicit user confirmation in chat AND the
+//   corresponding category marker in the file header. Adding to EXCLUDE
+//   without a marker (for B or C) is forbidden — the runtime check below
+//   fails the lint if the marker is missing.
 // ============================================================
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -49,9 +56,20 @@ const PERMANENT_EXCLUDE = [
 const LANG_BRANCH_EXCLUDE = [
   "src/components/article/SeoTipTicker.tsx",
   "src/features/article-quality/useFixIssue.ts",
+  "src/components/article/GenerationStageProgress.tsx",
 ];
 
-const EXCLUDE_PREFIXES = [...PERMANENT_EXCLUDE, ...LANG_BRANCH_EXCLUDE];
+// C. LLM-PROMPT — files that contain RU LLM prompts and MUST carry the
+//    marker `i18n:llm-prompt` in the first 5 lines.
+const LLM_PROMPT_EXCLUDE = [
+  "src/features/article-quality/useBenchmarkOptimize.ts",
+];
+
+const EXCLUDE_PREFIXES = [
+  ...PERMANENT_EXCLUDE,
+  ...LANG_BRANCH_EXCLUDE,
+  ...LLM_PROMPT_EXCLUDE,
+];
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -68,7 +86,7 @@ function isExcluded(path) {
   return EXCLUDE_PREFIXES.some((p) => rel === p || rel.startsWith(p));
 }
 
-// Enforce the `i18n:lang-branch` marker for category B entries.
+// Enforce the required marker for category B and C entries.
 const markerErrors = [];
 for (const p of LANG_BRANCH_EXCLUDE) {
   try {
@@ -78,6 +96,16 @@ for (const p of LANG_BRANCH_EXCLUDE) {
     }
   } catch {
     markerErrors.push(`${p}: file not found (stale LANG_BRANCH_EXCLUDE entry)`);
+  }
+}
+for (const p of LLM_PROMPT_EXCLUDE) {
+  try {
+    const head = readFileSync(p, "utf8").split("\n").slice(0, 5).join("\n");
+    if (!head.includes("i18n:llm-prompt")) {
+      markerErrors.push(`${p}: missing 'i18n:llm-prompt' marker in first 5 lines`);
+    }
+  } catch {
+    markerErrors.push(`${p}: file not found (stale LLM_PROMPT_EXCLUDE entry)`);
   }
 }
 if (markerErrors.length) {
