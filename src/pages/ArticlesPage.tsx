@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
 import { usePlanLimits } from "@/shared/hooks/usePlanLimits";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { PlanGate } from "@/shared/components/PlanGate";
@@ -741,7 +742,7 @@ export default function ArticlesPage() {
           setStreamPhase(null);
           return;
         }
-        throw new Error(err.error || `HTTP ${resp.status}`);
+        throw new Error(edgeErrorMessage(err, lang, `HTTP ${resp.status}`));
       }
 
       if (!resp.body) throw new Error("No stream body");
@@ -1158,7 +1159,7 @@ export default function ArticlesPage() {
         },
       });
       if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      if (data.error) throw new Error(edgeErrorMessage(data, lang));
       return data;
     },
     onSuccess: (data) => {
@@ -1454,7 +1455,7 @@ export default function ArticlesPage() {
                             body: { keyword: kw, current_title: h1 || title, language: lang },
                           });
                           if (error) throw error;
-                          if (data?.error) throw new Error(data.error);
+                          if (data?.error) throw new Error(edgeErrorMessage(data, lang));
                           const arr: string[] = Array.isArray(data?.titles) ? data.titles : [];
                           if (arr.length === 0) throw new Error(t("articles.titleGenEmpty"));
                           setTitleVariants(arr);
@@ -1692,7 +1693,7 @@ export default function ArticlesPage() {
                                   lang,
                                 },
                               });
-                              if (error || !data?.success) throw new Error(data?.error || t("articles.telegraphPublishError"));
+                              if (error || !data?.success) throw new Error(edgeErrorMessage(data, lang, t("articles.telegraphPublishError")));
                               setTelegraphPath(data.url ? "exists" : "");
                               setTelegraphUrl(data.url);
                               const msg = data.is_update ? t("articles.telegraphUpdated") : t("articles.telegraphPublished");
@@ -2285,7 +2286,7 @@ export default function ArticlesPage() {
 
                       if (!resp.ok) {
                         const err = await resp.json().catch(() => ({ error: "Unknown error" }));
-                        throw new Error(err.error || `HTTP ${resp.status}`);
+                        throw new Error(edgeErrorMessage(err, lang, `HTTP ${resp.status}`));
                       }
                       if (!resp.body) throw new Error("No stream body");
 
