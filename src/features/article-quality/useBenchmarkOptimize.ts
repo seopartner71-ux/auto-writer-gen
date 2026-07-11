@@ -1,3 +1,5 @@
+// i18n:llm-prompt — remaining Cyrillic is a RU LLM instruction string sent to
+// the writer model (`instructions`). All UI toasts already go through translate().
 import { useCallback, useRef, type MutableRefObject } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";

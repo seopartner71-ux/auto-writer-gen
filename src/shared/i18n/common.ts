@@ -11,6 +11,7 @@ export const common: Dict = {
   "common.confirmTitle": { ru: "Подтверждение", en: "Confirm" },
   "common.ok": { ru: "ОК", en: "OK" },
   "common.input": { ru: "Ввод", en: "Input" },
+  "auth.sessionExpired": { ru: "Сессия истекла", en: "Session expired" },
   "protected.queueTitle": { ru: "Доступ в режиме очереди", en: "Queued for access" },
   "protected.queueIntro": {
       ru: "Ваш аккаунт зарегистрирован. Чтобы гарантировать качество синтеза и 0% детекции ИИ, мы одобряем пользователей вручную. В течение 15 минут инженер активирует ваш профиль и начислит",
