@@ -8,6 +8,7 @@ import { ShieldCheck, AlertTriangle, XCircle, Loader2, CheckCircle2, ChevronDown
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
 
 export type ComplianceDeviation = {
   severity: "high" | "medium" | "low";
@@ -33,7 +34,7 @@ interface Props {
 }
 
 export function AuthorComplianceCard({ content, authorProfileId, authorHasInstruction, onResult }: Props) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ComplianceResult | null>(null);
   const [expanded, setExpanded] = useState(true);
@@ -50,7 +51,7 @@ export function AuthorComplianceCard({ content, authorProfileId, authorHasInstru
         body: { content, author_profile_id: authorProfileId },
       });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) throw new Error(edgeErrorMessage(data, lang));
       const r = data.result as ComplianceResult;
       setResult(r);
       onResult?.(r);
