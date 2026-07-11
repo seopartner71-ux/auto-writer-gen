@@ -2402,6 +2402,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     of: CYCLE_MAX_PASSES,
     action: null,
     sub_step: "Оценка состояния",
+    sub_step_key: "subStep.state_check",
     ...(isFirstPass ? { started_at: new Date().toISOString(), initial: initialSnap, priority, best: bestSnapshot, no_progress_streak: 0 } : {}),
     pass_started_at: new Date().toISOString(),
   });
@@ -2424,7 +2425,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     // and only when RU (Turgenev only supports Russian).
     const isRuArt = String((art as any).language || "ru").toLowerCase() === "ru";
     if (isFirstPass && isRuArt && curScores.turg == null && art.content) {
-      await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева (первый шаг)" });
+      await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева (первый шаг)", sub_step_key: "subStep.turgenev_measure" });
       // Up to 2 attempts — external Turgenev API timeouts are usually transient.
       const tryPrescore = async (attempt: number): Promise<boolean> => {
         try {
@@ -2456,7 +2457,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       art = await refreshCycleArt(admin, article_id);
       if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
       if (!ok && curScores.turg == null) {
-        await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева - повторная попытка" });
+        await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева - повторная попытка", sub_step_key: "subStep.turgenev_retry" });
         ok = await tryPrescore(2);
         art = await refreshCycleArt(admin, article_id);
         if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
@@ -2669,6 +2670,10 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         fix === "humanize" ? "Гуманизация (Sonnet)"
         : fix === "turgenev" ? "Тургенев-фикс"
         : "Плотность ключа (первый шаг)",
+      sub_step_key:
+        fix === "humanize" ? "subStep.humanize_sonnet"
+        : fix === "turgenev" ? "subStep.turgenev_fix"
+        : "subStep.keyword_density",
     });
 
     // ── ONE pass ─────────────────────────────────────────────────────
@@ -2686,8 +2691,8 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         bypassLimits,
         cycleMode: true,
         passIndex,
-        reportSubStep: async (label) => {
-          await writeCycleProgress(admin, article_id, { sub_step: label });
+        reportSubStep: async (label, key) => {
+          await writeCycleProgress(admin, article_id, { sub_step: label, sub_step_key: key ?? null });
         },
       });
     } catch (e) {
@@ -2769,6 +2774,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       status: "running",
       pass: passIndex,
       sub_step: "Передача следующему воркеру",
+      sub_step_key: "subStep.hand_off",
     });
     relayNextPass(supabaseUrl, serviceKey, {
       article_id,
