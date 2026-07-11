@@ -84,7 +84,7 @@ serve(async (req) => {
         p_window_minutes: 60,
       });
       if (rateLimitOk === false) {
-        return new Response(JSON.stringify({ error: "Превышен лимит генераций. Попробуйте позже." }), {
+        return new Response(JSON.stringify({ error: "Превышен лимит генераций. Попробуйте позже.", error_key: "edge.rateLimitGenerations" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -103,7 +103,7 @@ serve(async (req) => {
 
     // Check credits before generation (skip for admins)
     if (!isAdmin && credits <= 0) {
-      return new Response(JSON.stringify({ error: "Недостаточно кредитов. Пополните баланс." }), {
+      return new Response(JSON.stringify({ error: "Недостаточно кредитов. Пополните баланс.", error_key: "edge.notEnoughCredits" }), {
         status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -115,6 +115,7 @@ serve(async (req) => {
         console.warn("[generate-article] budget block:", budget);
         return new Response(JSON.stringify({
           error: "Месячный лимит расходов AI исчерпан. Лимит обновится в начале месяца или повысьте тариф.",
+          error_key: "edge.monthlyBudgetExhausted",
           budget,
         }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
