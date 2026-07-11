@@ -253,6 +253,13 @@ export default function ArticlesPage() {
     }
   }, [authorProfiles]);
 
+  // Reset selected author when article language changes — persona from the
+  // wrong locale would otherwise be dropped server-side by the language guard.
+  useEffect(() => {
+    setSelectedAuthorId("");
+    setAutoPersonaTried(false);
+  }, [articleLang]);
+
   // Auto-select preset Persona by user's onboarding_niche so the matching
   // syntax_preset is applied without manual selection. Runs once when the
   // author list loads and the user has not picked anything yet.
