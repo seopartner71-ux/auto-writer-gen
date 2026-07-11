@@ -858,8 +858,6 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
 
   try {
     // Determine primary keyword
-    const articleLang = normalizeLang((art as any).language);
-    const isRuArticle = articleLang === "ru";
     let primaryKeyword = "";
     if (art.keyword_id) {
       const { data: kw } = await admin.from("keywords").select("seed_keyword").eq("id", art.keyword_id).maybeSingle();
@@ -935,11 +933,14 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
     // ── Judge feedback loop. quality-check saves reasons from Claude + Gemini
     // into quality_details.ai_*_reasons; feed them back so the next humanize
     // pass fixes EXACTLY what dropped the score (not just structural metrics).
+    const reasonAllowed = (s: string) => isRuArticle || !hasRussianLetters(s);
     const priorClaudeReasons: string[] = Array.isArray((art as any).quality_details?.ai_claude_reasons)
       ? (art as any).quality_details.ai_claude_reasons.map((s: any) => String(s)).filter(Boolean)
+        .filter(reasonAllowed)
       : [];
     const priorInternalReasons: string[] = Array.isArray((art as any).quality_details?.ai_internal_reasons)
       ? (art as any).quality_details.ai_internal_reasons.map((s: any) => String(s)).filter(Boolean)
+        .filter(reasonAllowed)
       : [];
     const judgeReasonsAll = [...priorClaudeReasons, ...priorInternalReasons];
     let judgeReasonsBlock = judgeReasonsAll.length
@@ -1103,10 +1104,10 @@ ${rhythmSharedRules}`);
           ? prevImproveLast.score_history.find((x: any) => x?.label === "initial")
           : null);
       const iClaudeR: string[] = Array.isArray(initEntry?.reasons?.claude)
-        ? initEntry.reasons.claude.map((s: unknown) => String(s)).filter(Boolean)
+        ? initEntry.reasons.claude.map((s: unknown) => String(s)).filter(Boolean).filter(reasonAllowed)
         : [];
       const iGeminiR: string[] = Array.isArray(initEntry?.reasons?.gemini)
-        ? initEntry.reasons.gemini.map((s: unknown) => String(s)).filter(Boolean)
+        ? initEntry.reasons.gemini.map((s: unknown) => String(s)).filter(Boolean).filter(reasonAllowed)
         : [];
       const iClaudeS: number | null = typeof initEntry?.parts?.claude === "number" ? initEntry.parts.claude : null;
       const iGeminiS: number | null = typeof initEntry?.parts?.gemini === "number" ? initEntry.parts.gemini : null;
@@ -1161,13 +1162,19 @@ ${rhythmSharedRules}`);
       // Preserve block — praise reasons that survived the validator filter.
       const preserveBits: string[] = [];
       if (iClaudeS !== null && iClaudeS >= 70 && claudeF.keep.length) {
-        preserveBits.push(`Судья Claude поставил ${iClaudeS}/100 и отметил как «человеческое»:\n  - ${claudeF.keep.slice(0, 6).join("\n  - ")}`);
+        preserveBits.push(isRuArticle
+          ? `Судья Claude поставил ${iClaudeS}/100 и отметил как «человеческое»:\n  - ${claudeF.keep.slice(0, 6).join("\n  - ")}`
+          : `Claude judge scored ${iClaudeS}/100 and marked as human-like:\n  - ${claudeF.keep.slice(0, 6).join("\n  - ")}`);
       }
       if (iGeminiS !== null && iGeminiS >= 70 && geminiF.keep.length) {
-        preserveBits.push(`Судья Gemini поставил ${iGeminiS}/100 и отметил как «человеческое»:\n  - ${geminiF.keep.slice(0, 6).join("\n  - ")}`);
+        preserveBits.push(isRuArticle
+          ? `Судья Gemini поставил ${iGeminiS}/100 и отметил как «человеческое»:\n  - ${geminiF.keep.slice(0, 6).join("\n  - ")}`
+          : `Gemini judge scored ${iGeminiS}/100 and marked as human-like:\n  - ${geminiF.keep.slice(0, 6).join("\n  - ")}`);
       }
       const preserveBlock = preserveBits.length
-        ? `\n\nСОХРАНИТЬ, НЕ ПЕРЕПИСЫВАТЬ (эти обороты и приёмы уже прошли AI-детекцию — оставляй их в тексте дословно или почти дословно; критика ниже применяется ТОЛЬКО к фрагментам, НЕ попадающим под "СОХРАНИТЬ"):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+        ? isRuArticle
+          ? `\n\nСОХРАНИТЬ, НЕ ПЕРЕПИСЫВАТЬ (эти обороты и приёмы уже прошли AI-детекцию — оставляй их в тексте дословно или почти дословно; критика ниже применяется ТОЛЬКО к фрагментам, НЕ попадающим под "СОХРАНИТЬ"):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+          : `\n\nPRESERVE, DO NOT REWRITE (these moves already passed AI detection - leave them verbatim or nearly verbatim; critique below applies ONLY to fragments outside this block):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
         : "";
 
       // Override block — praise the validators nullified. Validator veto wins.
@@ -1176,7 +1183,9 @@ ${rhythmSharedRules}`);
         ...geminiF.overridden.map((o) => ({ ...o, judge: "Gemini" })),
       ];
       const overrideBlock = overrideAll.length
-        ? `\n\nПОХВАЛА СУДЕЙ ОТМЕНЕНА ВАЛИДАТОРАМИ (валидатор сильнее судьи — эти приёмы УБРАТЬ, не «сохранять»):\n${overrideAll.slice(0, 6).map((o, i) => `${i + 1}. Судья ${o.judge} хвалил: «${o.reason.slice(0, 200)}» — но pre-validator поймал шаблон «${o.frag}». Удали фрагмент или замени конкретной атрибуцией (имя, должность, компания, ссылка на исследование).`).join("\n")}\n`
+        ? isRuArticle
+          ? `\n\nПОХВАЛА СУДЕЙ ОТМЕНЕНА ВАЛИДАТОРАМИ (валидатор сильнее судьи — эти приёмы УБРАТЬ, не «сохранять»):\n${overrideAll.slice(0, 6).map((o, i) => `${i + 1}. Судья ${o.judge} хвалил: «${o.reason.slice(0, 200)}» — но pre-validator поймал шаблон «${o.frag}». Удали фрагмент или замени конкретной атрибуцией (имя, должность, компания, ссылка на исследование).`).join("\n")}\n`
+          : `\n\nJUDGE PRAISE OVERRIDDEN BY VALIDATORS (validator beats judge - remove these moves, do not preserve them):\n${overrideAll.slice(0, 6).map((o, i) => `${i + 1}. ${o.judge} praised: "${o.reason.slice(0, 200)}" - but pre-validator caught "${o.frag}". Remove it or replace it with concrete attribution (name, role, company, source).`).join("\n")}\n`
         : "";
 
       // Critique block — reasons from judges that scored <70 (real
@@ -1186,7 +1195,9 @@ ${rhythmSharedRules}`);
       if (iGeminiS !== null && iGeminiS < 70 && iGeminiR.length) critiqueReasons.push(...iGeminiR);
       critiqueReasons.push(...priorClaudeReasons, ...priorInternalReasons);
       const critiqueBlock = critiqueReasons.length
-        ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, но НЕ ломай элементы из блока "СОХРАНИТЬ"):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+        ? isRuArticle
+          ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, но НЕ ломай элементы из блока "СОХРАНИТЬ"):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+          : `\n\nJUDGES LOWERED THE SCORE FOR (fix precisely, but do NOT damage elements from the PRESERVE block):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
         : judgeReasonsBlock; // fallback to prior-only critique if no init reasons
       judgeReasonsBlock = preserveBlock + overrideBlock + critiqueBlock;
       const sys = getPrompt("improve.humanize.system", articleLang, {});
