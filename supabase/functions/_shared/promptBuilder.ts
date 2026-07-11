@@ -48,6 +48,10 @@ export interface StealthPromptInput {
   interlinkingContext?: { projectName: string; domain: string; articles: { title: string; url: string }[] } | null;
 }
 
+// EN-native writer lives in prompts/writer.ts. Imported lazily-shaped as a
+// runtime import so the RU-only path pays no parse cost when unused.
+import { buildEnWriterSystem, buildEnWriterUser } from "./prompts/writer.ts";
+
 export function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
   const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets, seoKeywords, geoLocation, customInstructions, interlinkingContext } = input;
   
