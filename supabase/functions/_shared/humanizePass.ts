@@ -377,40 +377,74 @@ export async function runDoubleHumanizePass(
   }
 
   // Optional 3rd mini-pass: targeted BANLIST cleanup if hits remain too high.
-  // Cheap and short (Sonnet, 35s budget). Only RU, only if pass1 ran.
+  // Cheap and short (Sonnet, 35s budget). Runs for both RU and EN.
   const afterMetrics = postPass2 || postPass1;
   const banlistAfter = afterMetrics ? afterMetrics.banlistHits : 0;
   const chainsAfter = afterMetrics ? afterMetrics.chainViolations : 0;
+  const cleanupTrigger =
+    language === "ru"
+      ? (banlistAfter >= 6 || chainsAfter >= 3)
+      : true; // EN: always run the predictability-breaker cleanup after pass1/pass2
   if (
-    language === "ru" &&
     passes > 0 &&
-    (banlistAfter >= 6 || chainsAfter >= 3) &&
+    cleanupTrigger &&
     (budgetMs === 0 || remaining() >= 40_000)
   ) {
     const hits = listBanlistHits(current, language, 10);
-    const hintList = hits.length
-      ? `Конкретно перепиши/убери эти обороты: ${hits.map((h) => `"${h}"`).join(", ")}.`
-      : "";
-    const cleanupUser = [
-      "Финальная зачистка штампов. Не меняй структуру, факты, числа, ссылки, HTML-теги, заголовки и списки.",
-      hintList,
-      chainsAfter >= 3
-        ? "Если в одном предложении 2+ союзов из \"в то время как\", \"поскольку\", \"что\" - разбей на два предложения."
-        : "",
-      "Возвращай ТОЛЬКО переписанный markdown.",
-      "",
-      "Текст:",
-      current,
-    ].filter(Boolean).join("\n");
+    let cleanupUser: string;
+    if (language === "ru") {
+      const hintList = hits.length
+        ? `Конкретно перепиши/убери эти обороты: ${hits.map((h) => `"${h}"`).join(", ")}.`
+        : "";
+      cleanupUser = [
+        "Финальная зачистка штампов. Не меняй структуру, факты, числа, ссылки, HTML-теги, заголовки и списки.",
+        hintList,
+        chainsAfter >= 3
+          ? "Если в одном предложении 2+ союзов из \"в то время как\", \"поскольку\", \"что\" - разбей на два предложения."
+          : "",
+        "Возвращай ТОЛЬКО переписанный markdown.",
+        "",
+        "Текст:",
+        current,
+      ].filter(Boolean).join("\n");
+    } else {
+      const hintList = hits.length
+        ? `Rewrite/remove these phrases specifically: ${hits.map((h) => `"${h}"`).join(", ")}.`
+        : "";
+      cleanupUser = [
+        "Final EN predictability-breaker pass. This is the last line of defense before the AI-detector.",
+        "Do NOT change structure, facts, numbers, links, HTML tags, headings, or lists.",
+        "",
+        "MANDATORY EDITS (apply everywhere you see them):",
+        "1. Any 2-5 word aphoristic sentence (\"Start simple.\", \"Keep it simple.\", \"Measure, don't guess.\", \"It depends.\", \"Simple as that.\", \"Trust the process.\") — rewrite into a specific claim with a number, entity, or scenario, or delete.",
+        "2. Intro first sentence AND meta description first sentence MUST NOT be a 2-5 word imperative — open with a concrete claim.",
+        "3. Rhetorical questions above 2 total, or any question opening a section — convert to declarative.",
+        "4. Em-dashes above 2 total — replace with commas/periods/colons.",
+        "5. Three consecutive paragraphs starting with the same construction — rewrite the middle one.",
+        "6. Missing contractions (it's / don't / you'll / can't / won't / I've / we've / they're) — add them where natural.",
+        "7. Unattributed authority (\"experts say\", \"studies show\", \"practice shows\") — name the source or convert to first-person observation.",
+        hintList,
+        "",
+        "Return ONLY the rewritten markdown.",
+        "",
+        "Text:",
+        current,
+      ].filter(Boolean).join("\n");
+    }
     const out3 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, cleanupUser, 35_000, { ...logCtx, functionName: `${logCtx.functionName}/cleanup` });
     if (out3) {
       const cand3 = applyStealthPostProcess(stripCodeFences(out3), language);
       const candSig = measureHumanize(cand3, language).signatures;
       const struct = structuralIntegrityOk(preSig, candSig);
       if (integrityOk(current, cand3) && struct.ok) {
-        // Accept only if it actually reduces violations.
+        // Accept only if it actually reduces violations (RU) or is
+        // structurally valid (EN — the metric is qualitative, not banlist).
         const after = measureHumanize(cand3, language);
-        if (after.banlistHits + after.chainViolations < banlistAfter + chainsAfter) {
+        const improved =
+          language === "ru"
+            ? after.banlistHits + after.chainViolations < banlistAfter + chainsAfter
+            : true;
+        if (improved) {
           current = cand3;
           passes++;
           modelsUsed.push(SONNET_MODEL + ":cleanup");
