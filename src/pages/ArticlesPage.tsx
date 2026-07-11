@@ -784,6 +784,22 @@ export default function ArticlesPage() {
 
           try {
             const parsed = JSON.parse(jsonStr);
+            // Language-contamination retry control frame (server-side guard).
+            // Server detected EN body with Cyrillic and either (a) started
+            // a silent retry, or (b) finished the retry with clean_content.
+            if (parsed.lovable_language_retry) {
+              if (parsed.status === "success" && typeof parsed.clean_content === "string" && parsed.clean_content) {
+                fullContent = parsed.clean_content;
+                setContent(fullContent);
+                toast.success("Language slip auto-corrected. Article rewritten in English.");
+              } else if (parsed.status === "failed") {
+                toast.error("Language mix detected; auto-retry failed. Please regenerate.");
+              } else {
+                setStreamPhase("writing");
+                toast.info("Language slip detected — regenerating…");
+              }
+              continue;
+            }
             const delta = parsed.choices?.[0]?.delta?.content;
             const fr = parsed.choices?.[0]?.finish_reason;
             if (fr) lastFinishReason = fr;

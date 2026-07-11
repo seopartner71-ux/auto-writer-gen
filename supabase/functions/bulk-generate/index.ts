@@ -381,6 +381,56 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
     const rawContent = articleData.choices?.[0]?.message?.content || "";
     let articleContent = applyStealthPostProcess(rawContent, isRussian ? "ru" : "en");
 
+    // ─── Language contamination guard + silent retry (max 1) ─────────
+    // Same guard as generate-article. FACTORY jobs are longer than
+    // one-off writer runs, so code-switching risk is higher.
+    try {
+      const { detectContamination, buildLanguageEnforcementDirective } = await import("../_shared/languageGuard.ts");
+      const guardLang: "ru" | "en" = isRussian ? "ru" : "en";
+      const rep = detectContamination(articleContent, guardLang);
+      if (rep.contaminated) {
+        console.warn(
+          `[bulk-generate][lang-guard] contamination "${item.seed_keyword}" lang=${guardLang} foreign=${rep.foreignChars} ratio=${rep.ratio.toFixed(3)}`,
+        );
+        const retryModel = guardLang === "en" && /gemini-.*(flash|flash-lite)/i.test(String(writerModel))
+          ? "anthropic/claude-sonnet-4"
+          : String(writerModel);
+        const retrySystem = systemPrompt + buildLanguageEnforcementDirective(guardLang);
+        const rr = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openRouterApiKey}`,
+            "HTTP-Referer": "https://seo-modul.pro",
+            "X-Title": "SEO-Modul bulk-generate lang-retry",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: retryModel,
+            messages: [
+              { role: "system", content: retrySystem },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: authorProfile?.temperature ? Number(authorProfile.temperature) : 0.85,
+          }),
+        }, AI_TIMEOUT_MS);
+        if (rr.ok) {
+          const rj = await rr.json();
+          const clean = String(rj?.choices?.[0]?.message?.content || "");
+          const rep2 = detectContamination(clean, guardLang);
+          if (clean && !rep2.contaminated) {
+            articleContent = applyStealthPostProcess(clean, guardLang);
+            console.log(`[bulk-generate][lang-guard] retry OK "${item.seed_keyword}" via ${retryModel}`);
+          } else {
+            console.warn(`[bulk-generate][lang-guard] retry still contaminated "${item.seed_keyword}" foreign=${rep2.foreignChars}`);
+          }
+        } else {
+          console.warn(`[bulk-generate][lang-guard] retry upstream failed ${rr.status}`);
+        }
+      }
+    } catch (guardErr) {
+      console.warn(`[bulk-generate][lang-guard] threw:`, (guardErr as Error).message);
+    }
+
     // ─── Auto Fact-Check Guard (FACTORY pipeline) ────────────────────
     // Apply server-side regex validator: strips fake experts, pseudo-stats,
     // fake organizations. Mirrors the client-side fact-check that runs in

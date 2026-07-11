@@ -16,6 +16,7 @@ import { getStyleProfile } from "../_shared/styleProfile.ts";
 import { resolveAutoAuthorByNiche } from "../_shared/authorAutoSelect.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { assertPersonaLanguage } from "../_shared/personaLanguageGuard.ts";
+import { detectContamination, buildLanguageEnforcementDirective } from "../_shared/languageGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -287,6 +288,32 @@ serve(async (req) => {
         "->",
         model,
       );
+    }
+
+    // ─── Smart-model routing for long EN articles ──────────────────────
+    // Gemini Flash / Flash-Lite reliably code-switch (Cyrillic bleed) on
+    // long English generations. Sonnet is virtually immune. Route
+    // EN + difficulty >= 60 to Sonnet regardless of plan; short EN and
+    // all RU keep the assignment model. Skipped on humanize/polish (own
+    // model) and platform overrides above.
+    {
+      const kwLangEarly = String(
+        bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
+      ).toLowerCase();
+      const diff = Number(keyword.difficulty || 0);
+      const flashish = /gemini-.*(flash|flash-lite)/i.test(model);
+      if (
+        kwLangEarly === "en" &&
+        diff >= 60 &&
+        !isHumanizePolish &&
+        !project_id &&
+        flashish
+      ) {
+        const prev = model;
+        model = "anthropic/claude-sonnet-4";
+        logModel = model;
+        console.log("[generate-article] EN long-article model override:", prev, "->", model, "(difficulty=", diff, ")");
+      }
     }
 
     // Build interlinking context if project_id is provided
@@ -599,6 +626,7 @@ serve(async (req) => {
         let realOut = 0;
         let realCostUsd: number | null = null;
         let genId: string | null = null;
+        let assistantText = "";
         const ping = setInterval(() => {
           if (closed) return;
           try { controller.enqueue(encoder.encode(": ping\n\n")); } catch { /* ignore */ }
@@ -627,6 +655,8 @@ serve(async (req) => {
                     const c = Number(j.usage.cost);
                     if (Number.isFinite(c) && c > 0) realCostUsd = c;
                   }
+                  const delta = j?.choices?.[0]?.delta?.content;
+                  if (typeof delta === "string" && delta) assistantText += delta;
                 }
               } catch { /* ignore parse errors mid-stream */ }
             }
@@ -635,6 +665,137 @@ serve(async (req) => {
           } finally {
             closed = true;
             clearInterval(ping);
+            // ─── Language contamination post-check ────────────────────
+            // Runs on ANY model. If EN body came back with Cyrillic — do
+            // a single silent retry inline (non-stream) and append the
+            // clean version as a synthesized SSE frame with a control
+            // marker so the client replaces the tainted buffer. RU with
+            // heavy latin drift: log-only (safer threshold).
+            try {
+              const langForGuard = String(
+                bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
+              ).toLowerCase() === "ru" ? "ru" : "en";
+              const report = detectContamination(assistantText, langForGuard);
+              if (report.contaminated) {
+                console.warn(
+                  "[generate-article][lang-guard] contamination detected:",
+                  "lang=", langForGuard,
+                  "foreign=", report.foreignChars,
+                  "ratio=", report.ratio.toFixed(3),
+                  "sample=", report.sample.slice(0, 160),
+                );
+                logPipelineEvent({
+                  stage: "generate",
+                  user_id: user.id,
+                  verdict: "fail",
+                  duration_ms: elapsed(),
+                  model: String(model),
+                  error_kind: "language_contamination",
+                  error_message: `foreign_chars=${report.foreignChars} ratio=${report.ratio.toFixed(3)}`,
+                  meta: {
+                    lang: langForGuard,
+                    sample: report.sample.slice(0, 240),
+                  },
+                });
+                if (langForGuard === "en") {
+                  try {
+                    // Notify client — hint to show "regenerating" state.
+                    controller.enqueue(new TextEncoder().encode(
+                      `data: ${JSON.stringify({ lovable_language_retry: true, reason: "cyrillic_in_en" })}\n\n`,
+                    ));
+                  } catch { /* ignore */ }
+                  // Non-streaming retry with strengthened language lock.
+                  const retryModel = /gemini-.*(flash|flash-lite)/i.test(String(model))
+                    ? "anthropic/claude-sonnet-4"
+                    : String(model);
+                  const retrySystem = systemPrompt + buildLanguageEnforcementDirective("en");
+                  try {
+                    const rr = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://seo-modul.pro",
+                        "X-Title": "SEO-Modul generate-article lang-retry",
+                      },
+                      body: JSON.stringify({
+                        model: retryModel,
+                        messages: [
+                          { role: "system", content: retrySystem },
+                          { role: "user", content: userPrompt },
+                        ],
+                        temperature: authorTemperature,
+                        max_tokens: 12000,
+                      }),
+                    });
+                    if (rr.ok) {
+                      const rj = await rr.json();
+                      const clean = String(rj?.choices?.[0]?.message?.content || "");
+                      const rep2 = detectContamination(clean, "en");
+                      // Cost log for retry attempt.
+                      try {
+                        const rIn = Number(rj?.usage?.prompt_tokens || 0);
+                        const rOut = Number(rj?.usage?.completion_tokens || 0);
+                        await logCost(supabaseAdmin, {
+                          project_id: project_id || null,
+                          user_id: user.id,
+                          operation_type: "article_generation_lang_retry",
+                          model: String(retryModel),
+                          tokens_input: rIn,
+                          tokens_output: rOut,
+                          metadata: { context: "writer_lang_retry", original_model: String(model) },
+                        });
+                      } catch (_) {}
+                      if (clean && !rep2.contaminated) {
+                        try {
+                          controller.enqueue(new TextEncoder().encode(
+                            `data: ${JSON.stringify({
+                              lovable_language_retry: true,
+                              status: "success",
+                              clean_content: clean,
+                              retry_model: retryModel,
+                            })}\n\n`,
+                          ));
+                        } catch { /* ignore */ }
+                        logPipelineEvent({
+                          stage: "generate",
+                          user_id: user.id,
+                          verdict: "pass",
+                          duration_ms: elapsed(),
+                          model: String(retryModel),
+                          meta: { context: "lang_retry_success", original_model: String(model) },
+                        });
+                      } else {
+                        try {
+                          controller.enqueue(new TextEncoder().encode(
+                            `data: ${JSON.stringify({
+                              lovable_language_retry: true,
+                              status: "failed",
+                              reason: "still_contaminated_after_retry",
+                            })}\n\n`,
+                          ));
+                        } catch { /* ignore */ }
+                        logPipelineEvent({
+                          stage: "generate",
+                          user_id: user.id,
+                          verdict: "fail",
+                          duration_ms: elapsed(),
+                          model: String(retryModel),
+                          error_kind: "language_contamination_after_retry",
+                          error_message: `foreign_chars=${rep2.foreignChars}`,
+                        });
+                      }
+                    } else {
+                      console.warn("[generate-article][lang-retry] upstream failed:", rr.status);
+                    }
+                  } catch (retryErr) {
+                    console.warn("[generate-article][lang-retry] threw:", (retryErr as Error).message);
+                  }
+                }
+              }
+            } catch (guardErr) {
+              console.warn("[generate-article][lang-guard] threw:", (guardErr as Error).message);
+            }
             try { controller.close(); } catch { /* ignore */ }
             // Post-stream cost log with real usage. Backoff-poll OpenRouter
             // /generation if usage was not in the stream. Never throws.
