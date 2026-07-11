@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
 
 /**
  * Unified quality badge - replaces AutoQualityBadge + LiveQualityBadge.
@@ -204,7 +205,7 @@ export function QualityBadge({ articleId, initial, onOpenVersions }: Props) {
     let payload: any = null;
     try { payload = await resp.json(); } catch { /* non-JSON */ }
     if (!resp.ok) {
-      throw new Error(payload?.error || t("qb.err.generic", { n: String(resp.status) }));
+      throw new Error(edgeErrorMessage(payload, lang, t("qb.err.generic", { n: String(resp.status) })));
     }
     return payload;
   }

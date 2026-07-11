@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseSseStream } from "@/features/article-editor/parseSseStream";
 import type { KeywordRef } from "@/features/article-editor/types";
 import type { FactCheckStatus } from "@/features/article-editor/ArticleEditorContext";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
+import type { Lang } from "@/shared/hooks/useI18n";
 
 export interface FixIssueDeps {
   selectedKeywordId: string;
@@ -91,7 +93,7 @@ export function useFixIssue(deps: FixIssueDeps) {
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(err.error || `HTTP ${resp.status}`);
+        throw new Error(edgeErrorMessage(err, (d.lang as Lang) || "ru", `HTTP ${resp.status}`));
       }
       if (!resp.body) throw new Error("No stream body");
       let fullContent = "";

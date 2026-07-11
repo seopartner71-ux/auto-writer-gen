@@ -6,6 +6,7 @@ import { Loader2, Wand2, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
 
 interface ActiveDeviation { idx: number; quote: string }
 
@@ -26,7 +27,7 @@ interface DeviationFixDialogProps {
 export function DeviationFixDialog({
   activeDeviation, onClose, complianceResult, content, setContent, selectedAuthorId,
 }: DeviationFixDialogProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [isRewritingFragment, setIsRewritingFragment] = useState(false);
 
   const handleClose = (open: boolean) => {
@@ -137,7 +138,7 @@ export function DeviationFixDialog({
                 }),
               });
               const data = await resp.json();
-              if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+              if (!resp.ok) throw new Error(edgeErrorMessage(data, lang, `HTTP ${resp.status}`));
               const rewritten = (data.rewritten || "").toString().trim();
               if (!rewritten) throw new Error(t("dfd.emptyResponse"));
               setContent(range.before + rewritten + range.after);

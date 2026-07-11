@@ -6,6 +6,7 @@ import { Loader2, Sparkles, Check, X, ChevronDown, ChevronUp, Info, StopCircle }
 import { toast } from "sonner";
 import { ImprovingTipsLoader } from "./ImprovingTipsLoader";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
 
 type Mode = "quick" | "expert";
 
@@ -235,7 +236,7 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
         setStarting(false);
         startingSinceRef.current = null;
         if (startingTimerRef.current) { window.clearTimeout(startingTimerRef.current); startingTimerRef.current = null; }
-        toast.error(payload?.error || t("qic.errorN", { n: String(resp.status) }));
+        toast.error(edgeErrorMessage(payload, lang, t("qic.errorN", { n: String(resp.status) })));
         return;
       }
       if (payload?.cooldown) {

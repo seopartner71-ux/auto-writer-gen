@@ -3,6 +3,7 @@ import { logger } from "@/shared/utils/logger";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -217,7 +218,7 @@ export function BulkGenerationMode() {
     mutationFn: async (jobId: string) => {
       const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) throw new Error(edgeErrorMessage(data, lang));
       return data;
     },
     onSuccess: (_, jobId) => {
@@ -242,7 +243,7 @@ export function BulkGenerationMode() {
       if (updateError) throw updateError;
       const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) throw new Error(edgeErrorMessage(data, lang));
       return data;
     },
     onSuccess: (_, jobId) => {
@@ -291,7 +292,7 @@ export function BulkGenerationMode() {
           meta_description: article.meta_description || "",
         },
       });
-      if (error || data?.error) throw new Error(data?.error || t("bulk.publishError"));
+      if (error || data?.error) throw new Error(edgeErrorMessage(data, lang, t("bulk.publishError")));
       return data;
     },
     onSuccess: (data) => {

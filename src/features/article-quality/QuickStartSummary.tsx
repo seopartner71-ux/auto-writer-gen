@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
 
 interface Props {
   articleId: string | null;
@@ -61,7 +62,7 @@ function overallStatusKey(rows: { tone: string }[]): { key: string; cls: string 
 }
 
 export function QuickStartSummary({ articleId, hasContent, onSave, saveDisabled, saving }: Props) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [data, setData] = useState<any>({});
   const [improving, setImproving] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -127,7 +128,7 @@ export function QuickStartSummary({ articleId, hasContent, onSave, saveDisabled,
       });
       const payload = await resp.json().catch(() => null);
       const httpOk = resp.ok || resp.status === 202;
-      if (!httpOk) throw new Error(payload?.error || t("qss.improveFailed"));
+      if (!httpOk) throw new Error(edgeErrorMessage(payload, lang, t("qss.improveFailed")));
       if (payload?.cooldown) {
         toast.warning(payload.message || t("qss.cooldown"));
         return;
