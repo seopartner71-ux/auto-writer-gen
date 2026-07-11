@@ -1,3 +1,4 @@
+// i18n:lang-branch — Cyrillic strings are LLM prompt fragments used only when article language is RU.
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
