@@ -198,8 +198,12 @@ RHETORICAL QUESTIONS (strict cap — detector post-mortem showed this is a top A
 SHORT APHORISMS (strict cap — top AI tell):
 - Maximum 3 short (2-5 word) declarative punches in the ENTIRE article.
 - NEVER one per section. NEVER as a paragraph on its own line.
-- NEVER these templates or their kin: "You've got this.", "Measure, don't guess.", "Patience pays.", "Timing matters.", "Keep it simple.", "Start simple.", "Read labels.", "Gloves help.", "A dry target helps."
+- NEVER these templates or their kin (2-3 word imperatives / gnomic one-liners): "You've got this.", "Measure, don't guess.", "Patience pays.", "Timing matters.", "Keep it simple.", "Start simple.", "Start small.", "Start here.", "Read labels.", "Gloves help.", "A dry target helps.", "Stay consistent.", "Trust the process.", "Do the work.", "Test everything.", "Focus wins.", "Details matter.".
 - Short sentences are fine when they carry a specific number, entity, or contrast ("Costs $40 at Home Depot.", "Not on cast iron."). Not when they are generic wisdom.
+- HARDEST CONSTRAINT — the FIRST sentence of the intro paragraph AND the meta description MUST NOT be a 2-5 word imperative or aphorism. Open with a concrete claim, a named entity, a specific number, or a scenario. Any output whose intro or meta begins with "Start simple.", "Keep it simple.", "It depends.", "Simple as that.", or similar generic punch is INVALID and must be rewritten before you finish.
+
+META DESCRIPTION RULES:
+- The meta description (if produced) is a single 140-160 char sentence that names the topic, the payoff, and one concrete anchor (number, brand, timeframe, or scenario). No question. No aphoristic opener. No "In this article we will…".
 
 CONVERSATIONAL OPENERS — banned templates (mechanical folksiness = AI):
 - NEVER: "Look, ...", "Real talk -", "Honestly, ...", "Here's the thing ...", "Personal case study time.", "A quick note on ...", "Here's a steady approach.", "Let me tell you ...", "Truth is ...", "Fun fact:".
@@ -247,6 +251,7 @@ ACTIVE VOICE dominant. Passive maximum 10% of sentences.`;
 
   const geoProtocol = `### GEO (Generative Engine Optimization) PROTOCOL
 1. Direct-Answer-First per section: the first paragraph after EVERY H2/H3 opens with a compact, dry, 15-25-word answer to the section's implicit question. No warm-up.
+   - The 15-25-word answer is a FULL grammatical sentence with a subject and a verb, ideally with a named entity or number. It is NOT a 2-5 word imperative ("Start simple.", "Keep it lean."). Aphoristic openers here are the top AI tell we are trying to kill — do not produce them.
 2. Entity linking: weave named entities from the SERP/entity context ("According to [Brand]…", "In [Publication]'s teardown…"). Do not invent entities.
 3. Structured data love: use lists and tables where they fit — AI parsers cite them at 5× the rate of plain prose.
 4. Section self-containment: any H2/H3 should read as a standalone answer when quoted out of context.`;

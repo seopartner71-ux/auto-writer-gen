@@ -50,6 +50,12 @@ STRICT rules:
 - A SHORT sentence must be grammatically complete: subject+verb or a full noun phrase. NEVER cut a subordinate clause on a conjunction/preposition and place a period. Fragments like "…because.", "…but in winter.", "…if.", "…when.", "…although." are forbidden — either finish the clause or restructure without the conjunction.
 - Blend all keywords into natural grammar (inflect for case/number where applicable). No raw nominative insertions mid-sentence.
 - Forbidden filler: "in today's world", "it is worth noting", "needless to say", "as we all know".
+- APHORISTIC OPENERS ARE THE #1 EN AI TELL — kill them. The FIRST sentence of the intro and of every H2/H3 section MUST NOT be a 2-5 word imperative or gnomic one-liner ("Start simple.", "Keep it simple.", "Measure, don't guess.", "Trust the process.", "It depends.", "Simple as that."). Replace with a specific claim, a named entity, or a number.
+- Maximum 2 rhetorical questions in the entire body (FAQ excluded). NEVER open a section with a rhetorical question. Never use "Why does this matter?", "Wondering ...?", "What if ...?".
+- Maximum 2 em-dashes ("—") in the entire text. Prefer commas, periods, colons, parentheses. Do not substitute en-dashes or "--".
+- Use contractions (it's, don't, you'll, can't, won't, I've, we've, they're) unless emphasis genuinely requires the full form.
+- Do NOT open two consecutive paragraphs with the same construction (same first word, same "It's ..." shape, same "You ..." shape).
+- No unattributed authority: "experts say", "studies show", "practice shows", "research suggests". Either name the source or rewrite as first-person observation.
 - Replace em/en dashes (—, –) with regular hyphens (-).
 - Write directly and concretely. Return ONLY the rewritten markdown, no commentary.`;
 
@@ -87,14 +93,35 @@ const PASS1_USER = (lang: "ru" | "en", content: string) => {
   const hint = structureHintFor(lang, content);
   return lang === "ru"
     ? `Перепиши текст под живой человеческий ритм. Цель: AI-детектор должен показать <30%. Не теряй ни одного факта или ссылки.${hint}\nТекст:\n${content}`
-    : `Rewrite the text with a lively human rhythm. Goal: AI detectors must score <30%. Do not lose any facts or links.\n\nText:\n${content}`;
+    : `Rewrite the text so it defeats EN AI-detectors (GPTZero, Copyleaks, Sapling, Originality). Goal: <30% AI.
+
+Priorities in order:
+1. Kill aphoristic openers. Every intro and every H2/H3 first sentence must be a full, specific claim — not a 2-5 word punch.
+2. Break statistical predictability: vary sentence length aggressively, vary paragraph openers, do not repeat clause structures.
+3. Add contractions everywhere they fit. Cut em-dashes (max 2 total).
+4. Cut rhetorical questions (max 2 total, never opening a section).
+5. Preserve every fact, number, brand, link and heading text unchanged.${hint}
+
+Text:
+${content}`;
 };
 
 const PASS2_USER = (lang: "ru" | "en", content: string) => {
   const hint = structureHintFor(lang, content);
   return lang === "ru"
     ? `Микро-проход: убери оставшиеся "ИИ-подписи" - монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Цель: AI-детектор <5%. Никаких изменений в фактах, цифрах, ссылках.${hint}\nТекст:\n${content}`
-    : `Micro-pass: remove remaining "AI fingerprints" - monotonous syntax, repeated paragraph openers, lexical bursts. Goal: AI detectors <5%. Do not touch facts, numbers, or links.\n\nText:\n${content}`;
+    : `Micro-pass: remove remaining EN AI fingerprints.
+Targets (in this priority):
+- Any leftover 2-5 word aphoristic sentence — rewrite into a specific claim or delete.
+- Repeated paragraph openers (three paragraphs starting the same way).
+- Uniform sentence length (perplexity/burstiness must feel human — mix 4-8 word and 20-28 word sentences).
+- Rhetorical questions above 2 total, and any question opening a section.
+- Em-dashes above 2 total.
+- Missing contractions where natural.
+Do NOT touch facts, numbers, brand names, URLs, or heading text.${hint}
+
+Text:
+${content}`;
 };
 
 async function callOpenRouter(
@@ -350,40 +377,74 @@ export async function runDoubleHumanizePass(
   }
 
   // Optional 3rd mini-pass: targeted BANLIST cleanup if hits remain too high.
-  // Cheap and short (Sonnet, 35s budget). Only RU, only if pass1 ran.
+  // Cheap and short (Sonnet, 35s budget). Runs for both RU and EN.
   const afterMetrics = postPass2 || postPass1;
   const banlistAfter = afterMetrics ? afterMetrics.banlistHits : 0;
   const chainsAfter = afterMetrics ? afterMetrics.chainViolations : 0;
+  const cleanupTrigger =
+    language === "ru"
+      ? (banlistAfter >= 6 || chainsAfter >= 3)
+      : true; // EN: always run the predictability-breaker cleanup after pass1/pass2
   if (
-    language === "ru" &&
     passes > 0 &&
-    (banlistAfter >= 6 || chainsAfter >= 3) &&
+    cleanupTrigger &&
     (budgetMs === 0 || remaining() >= 40_000)
   ) {
     const hits = listBanlistHits(current, language, 10);
-    const hintList = hits.length
-      ? `Конкретно перепиши/убери эти обороты: ${hits.map((h) => `"${h}"`).join(", ")}.`
-      : "";
-    const cleanupUser = [
-      "Финальная зачистка штампов. Не меняй структуру, факты, числа, ссылки, HTML-теги, заголовки и списки.",
-      hintList,
-      chainsAfter >= 3
-        ? "Если в одном предложении 2+ союзов из \"в то время как\", \"поскольку\", \"что\" - разбей на два предложения."
-        : "",
-      "Возвращай ТОЛЬКО переписанный markdown.",
-      "",
-      "Текст:",
-      current,
-    ].filter(Boolean).join("\n");
+    let cleanupUser: string;
+    if (language === "ru") {
+      const hintList = hits.length
+        ? `Конкретно перепиши/убери эти обороты: ${hits.map((h) => `"${h}"`).join(", ")}.`
+        : "";
+      cleanupUser = [
+        "Финальная зачистка штампов. Не меняй структуру, факты, числа, ссылки, HTML-теги, заголовки и списки.",
+        hintList,
+        chainsAfter >= 3
+          ? "Если в одном предложении 2+ союзов из \"в то время как\", \"поскольку\", \"что\" - разбей на два предложения."
+          : "",
+        "Возвращай ТОЛЬКО переписанный markdown.",
+        "",
+        "Текст:",
+        current,
+      ].filter(Boolean).join("\n");
+    } else {
+      const hintList = hits.length
+        ? `Rewrite/remove these phrases specifically: ${hits.map((h) => `"${h}"`).join(", ")}.`
+        : "";
+      cleanupUser = [
+        "Final EN predictability-breaker pass. This is the last line of defense before the AI-detector.",
+        "Do NOT change structure, facts, numbers, links, HTML tags, headings, or lists.",
+        "",
+        "MANDATORY EDITS (apply everywhere you see them):",
+        "1. Any 2-5 word aphoristic sentence (\"Start simple.\", \"Keep it simple.\", \"Measure, don't guess.\", \"It depends.\", \"Simple as that.\", \"Trust the process.\") — rewrite into a specific claim with a number, entity, or scenario, or delete.",
+        "2. Intro first sentence AND meta description first sentence MUST NOT be a 2-5 word imperative — open with a concrete claim.",
+        "3. Rhetorical questions above 2 total, or any question opening a section — convert to declarative.",
+        "4. Em-dashes above 2 total — replace with commas/periods/colons.",
+        "5. Three consecutive paragraphs starting with the same construction — rewrite the middle one.",
+        "6. Missing contractions (it's / don't / you'll / can't / won't / I've / we've / they're) — add them where natural.",
+        "7. Unattributed authority (\"experts say\", \"studies show\", \"practice shows\") — name the source or convert to first-person observation.",
+        hintList,
+        "",
+        "Return ONLY the rewritten markdown.",
+        "",
+        "Text:",
+        current,
+      ].filter(Boolean).join("\n");
+    }
     const out3 = await callOpenRouter(openRouterKey, SONNET_MODEL, system, cleanupUser, 35_000, { ...logCtx, functionName: `${logCtx.functionName}/cleanup` });
     if (out3) {
       const cand3 = applyStealthPostProcess(stripCodeFences(out3), language);
       const candSig = measureHumanize(cand3, language).signatures;
       const struct = structuralIntegrityOk(preSig, candSig);
       if (integrityOk(current, cand3) && struct.ok) {
-        // Accept only if it actually reduces violations.
+        // Accept only if it actually reduces violations (RU) or is
+        // structurally valid (EN — the metric is qualitative, not banlist).
         const after = measureHumanize(cand3, language);
-        if (after.banlistHits + after.chainViolations < banlistAfter + chainsAfter) {
+        const improved =
+          language === "ru"
+            ? after.banlistHits + after.chainViolations < banlistAfter + chainsAfter
+            : true;
+        if (improved) {
           current = cand3;
           passes++;
           modelsUsed.push(SONNET_MODEL + ":cleanup");
