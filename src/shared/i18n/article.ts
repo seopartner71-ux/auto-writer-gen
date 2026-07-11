@@ -27,6 +27,10 @@ export const article: Dict = {
   "keywords.batchDoneErrors": { ru: " (ошибок: {failed})", en: " (errors: {failed})" },
   "keywords.researchBatch": { ru: "Исследовать ({n})", en: "Research ({n})" },
   "keywords.batchProcessing": { ru: "Обработка {current} / {total}: {kw}", en: "Processing {current} / {total}: {kw}" },
+  "keywords.langHintEn": { ru: "Ключ выглядит английским, а язык поиска - Русский. Переключить на English?", en: "Keyword looks English but language is Russian. Switch research to English?" },
+  "keywords.langHintRu": { ru: "Ключ выглядит русским, а язык поиска - English. Переключить на Русский?", en: "Keyword looks Russian but language is English. Switch research to Russian?" },
+  "keywords.langHintSwitch": { ru: "Переключить", en: "Switch" },
+  "keywords.langHintDismiss": { ru: "Скрыть", en: "Dismiss" },
   "planBuilder.refreshList": { ru: "Обновить список", en: "Refresh list" },
   // Generation Form
   "generation.aiModelAndCost": { ru: "Модель ИИ и стоимость", en: "AI model & cost" },
