@@ -1351,6 +1351,8 @@ export default function ArticlesPage() {
         selectedModel={selectedModel}
         onModelChange={setSelectedModel}
         userPlan={userPlan}
+        articleLang={articleLang}
+        onArticleLangChange={setArticleLang}
         isStreaming={isStreaming}
         onGenerate={handleGenerate}
         onStop={handleStop}
