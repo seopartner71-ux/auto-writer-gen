@@ -290,6 +290,32 @@ serve(async (req) => {
       );
     }
 
+    // ─── Smart-model routing for long EN articles ──────────────────────
+    // Gemini Flash / Flash-Lite reliably code-switch (Cyrillic bleed) on
+    // long English generations. Sonnet is virtually immune. Route
+    // EN + difficulty >= 60 to Sonnet regardless of plan; short EN and
+    // all RU keep the assignment model. Skipped on humanize/polish (own
+    // model) and platform overrides above.
+    {
+      const kwLangEarly = String(
+        bodyLanguage || keyword.language || (/[а-яё]/i.test(keyword.seed_keyword) ? "ru" : "en"),
+      ).toLowerCase();
+      const diff = Number(keyword.difficulty || 0);
+      const flashish = /gemini-.*(flash|flash-lite)/i.test(model);
+      if (
+        kwLangEarly === "en" &&
+        diff >= 60 &&
+        !isHumanizePolish &&
+        !project_id &&
+        flashish
+      ) {
+        const prev = model;
+        model = "anthropic/claude-sonnet-4";
+        logModel = model;
+        console.log("[generate-article] EN long-article model override:", prev, "->", model, "(difficulty=", diff, ")");
+      }
+    }
+
     // Build interlinking context if project_id is provided
     let interlinkingContext: StealthPromptInput["interlinkingContext"] = null;
     if (project_id) {
