@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { translate } from "@/shared/hooks/useI18n";
 
 /**
  * Kick off the server-side improve cycle (2-pass humanize + turgenev
@@ -12,7 +13,10 @@ export async function startImproveCycle(
 ): Promise<{ ok: boolean; status: number; error?: string; cooldown?: boolean; message?: string }> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
-  if (!token) return { ok: false, status: 401, error: "Сессия истекла" };
+  const lang = (typeof window !== "undefined"
+    ? (localStorage.getItem("app-lang") as "ru" | "en")
+    : "ru") || "ru";
+  if (!token) return { ok: false, status: 401, error: translate("auth.sessionExpired", lang) };
 
   const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/improve-article`, {
     method: "POST",
