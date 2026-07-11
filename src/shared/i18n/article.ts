@@ -30,6 +30,10 @@ export const article: Dict = {
   "planBuilder.refreshList": { ru: "Обновить список", en: "Refresh list" },
   // Generation Form
   "generation.aiModelAndCost": { ru: "Модель ИИ и стоимость", en: "AI model & cost" },
+  "generation.articleLanguage": { ru: "Язык статьи", en: "Article language" },
+  "generation.articleLanguageHint": { ru: "Определяет язык генерации и фильтр авторов. Не зависит от языка интерфейса.", en: "Sets generation language and filters authors. Independent of UI language." },
+  "generation.langRu": { ru: "Русский", en: "Russian" },
+  "generation.langEn": { ru: "English", en: "English" },
   "generation.enterPageUrl": { ru: "Укажите URL страницы", en: "Enter page URL" },
   "generation.urlMustBeHttp": { ru: "URL должен начинаться с http:// или https://", en: "URL must start with http:// or https://" },
   "generation.factsLoaded": { ru: "Факты со страницы загружены", en: "Page facts loaded" },

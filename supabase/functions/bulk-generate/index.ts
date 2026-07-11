@@ -178,9 +178,14 @@ async function processQueuedItem(params: {
   try {
     await admin.from("bulk_job_items").update({ status: "researching", error_message: null }).eq("id", item.id);
 
-    const isRussian = /[а-яё]/i.test(item.seed_keyword);
+    // Prefer explicit job language (set by user in bulk UI). Fall back to
+    // legacy keyword sniffing for old jobs created before the column existed.
+    const jobLang = ((job as any)?.language ?? "").toString().toLowerCase();
+    const isRussian = jobLang
+      ? jobLang === "ru"
+      : /[а-яё]/i.test(item.seed_keyword);
     const geo = isRussian ? "ru" : "us";
-    const lang = isRussian ? "ru" : "en";
+    const lang: "ru" | "en" = isRussian ? "ru" : "en";
 
     // ─── Persona language sanity-check ───────────────────────────────
     // Server-side guard: FACTORY jobs may carry a persona from the wrong
@@ -578,7 +583,7 @@ async function processBulkChunk(params: {
 
   const { data: job } = await admin
     .from("bulk_jobs")
-    .select("id, status, completed_items, author_profile_id, total_items, auto_publish_blogger, blogger_blog_id")
+    .select("id, status, completed_items, author_profile_id, total_items, auto_publish_blogger, blogger_blog_id, language")
     .eq("id", bulkJobId)
     .eq("user_id", userId)
     .single();

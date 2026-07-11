@@ -167,6 +167,10 @@ export default function ArticlesPage() {
   });
   const [showInterlinkingArticles, setShowInterlinkingArticles] = useState(false);
 
+  // Explicit article language (independent of UI locale). Default = UI lang.
+  // Must be declared before author-profiles query which filters by it.
+  const [articleLang, setArticleLang] = useState<"ru" | "en">(lang === "en" ? "en" : "ru");
+
   const { data: keywords = [] } = useQuery({
     queryKey: ["keywords-for-writer"],
     queryFn: async () => {
@@ -181,12 +185,12 @@ export default function ArticlesPage() {
   });
 
   const { data: authorProfiles = [] } = useQuery({
-    queryKey: ["author-profiles-for-writer", lang],
+    queryKey: ["author-profiles-for-writer", articleLang],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("author_profiles")
         .select("*")
-        .eq("language", lang)
+        .eq("language", articleLang)
         .order("name");
       if (error) throw error;
       return data;
@@ -248,6 +252,13 @@ export default function ArticlesPage() {
       setSelectedAuthorId(authorProfiles[0].id);
     }
   }, [authorProfiles]);
+
+  // Reset selected author when article language changes — persona from the
+  // wrong locale would otherwise be dropped server-side by the language guard.
+  useEffect(() => {
+    setSelectedAuthorId("");
+    setAutoPersonaTried(false);
+  }, [articleLang]);
 
   // Auto-select preset Persona by user's onboarding_niche so the matching
   // syntax_preset is applied without manual selection. Runs once when the
@@ -696,7 +707,7 @@ export default function ArticlesPage() {
           author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
           outline,
           lsi_keywords: lsiKeywords,
-          language: (selectedKeyword as any)?.language || null,
+          language: articleLang,
           competitor_tables: (() => {
             const isTelegraphAuthor = !!(selectedAuthorId && selectedAuthorId !== "none" &&
               authorProfiles.find((a: any) => a.id === selectedAuthorId && a.name === "Телеграф"));
@@ -992,9 +1003,7 @@ export default function ArticlesPage() {
         const cyr = (txt.match(/[А-Яа-яЁё]/g) || []).length;
         return cyr / letters.length >= 0.3 ? "ru" : "en";
       };
-      const detectedLanguage =
-        (selectedKeyword as any)?.language ||
-        detectLang(content || title || "");
+      const detectedLanguage = articleLang || detectLang(content || title || "");
 
       const payload = {
         user_id: userId,
@@ -1347,6 +1356,8 @@ export default function ArticlesPage() {
         selectedModel={selectedModel}
         onModelChange={setSelectedModel}
         userPlan={userPlan}
+        articleLang={articleLang}
+        onArticleLangChange={setArticleLang}
         isStreaming={isStreaming}
         onGenerate={handleGenerate}
         onStop={handleStop}
@@ -2007,7 +2018,7 @@ export default function ArticlesPage() {
                             author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
                             outline,
                             lsi_keywords: lsiKeywords,
-                            language: (selectedKeyword as any)?.language || null,
+                            language: articleLang,
                             optimize_instructions: `ЗАДАЧА: Продолжи писать статью с того места, где она оборвалась. НЕ повторяй то, что уже написано. Допиши оставшиеся разделы и ОБЯЗАТЕЛЬНО добавь заключение.\n\nПОСЛЕДНИЙ КОНТЕКСТ (продолжай отсюда):\n${lastParagraph}`,
                             existing_content: prevContent,
                           }),
@@ -2257,7 +2268,7 @@ export default function ArticlesPage() {
                         author_profile_id: (selectedAuthorId && selectedAuthorId !== "none") ? selectedAuthorId : null,
                           outline,
                           lsi_keywords: lsiKeywords,
-                          language: (selectedKeyword as any)?.language || null,
+                          language: articleLang,
                           optimize_instructions: instructions,
                           deep_analysis_context: benchmarkContext,
                           existing_content: prevContent,

@@ -33,6 +33,7 @@ export function BulkGenerationMode() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [manualInput, setManualInput] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
+  const [articleLang, setArticleLang] = useState<"ru" | "en">(lang === "en" ? "en" : "ru");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [publishingItemId, setPublishingItemId] = useState<string | null>(null);
@@ -61,8 +62,8 @@ export function BulkGenerationMode() {
   };
 
   const { data: authorProfiles = [] } = useQuery({
-    queryKey: ["author-profiles-bulk", lang],
-    queryFn: async () => { const { data, error } = await supabase.from("author_profiles").select("*").eq("language", lang).order("name"); if (error) throw error; return data; },
+    queryKey: ["author-profiles-bulk", articleLang],
+    queryFn: async () => { const { data, error } = await supabase.from("author_profiles").select("*").eq("language", articleLang).order("name"); if (error) throw error; return data; },
   });
 
   const { data: bulkJobs = [] } = useQuery({
@@ -192,7 +193,7 @@ export function BulkGenerationMode() {
       }
       const { data: job, error: jobErr } = await supabase
         .from("bulk_jobs")
-        .insert({ user_id: session.user.id, author_profile_id: selectedAuthorId || null, total_items: keywords.length, status: "pending" })
+        .insert({ user_id: session.user.id, author_profile_id: selectedAuthorId || null, total_items: keywords.length, status: "pending", language: articleLang } as any)
         .select("id")
         .single();
       if (jobErr) throw jobErr;
@@ -443,6 +444,25 @@ export function BulkGenerationMode() {
                 <SelectTrigger className="w-[200px]"><SelectValue placeholder={t("bulk.noProfile")} /></SelectTrigger>
                 <SelectContent>{authorProfiles.map((p: any) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">{t("generation.articleLanguage")}</Label>
+              <div className="inline-flex rounded-md border border-border bg-muted/30 p-0.5 h-10">
+                <button
+                  type="button"
+                  onClick={() => { setArticleLang("ru"); setSelectedAuthorId(""); }}
+                  className={`px-3 text-xs font-medium rounded transition-colors ${articleLang === "ru" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {t("generation.langRu")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setArticleLang("en"); setSelectedAuthorId(""); }}
+                  className={`px-3 text-xs font-medium rounded transition-colors ${articleLang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {t("generation.langEn")}
+                </button>
+              </div>
             </div>
             <Button disabled={keywords.length === 0 || createJob.isPending || isProcessing} onClick={() => createJob.mutate()} className="gap-2">
               {createJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}

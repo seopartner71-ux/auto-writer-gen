@@ -1173,6 +1173,7 @@ export type Database = {
           completed_items: number
           created_at: string | null
           id: string
+          language: string | null
           status: string
           total_items: number
           updated_at: string | null
@@ -1185,6 +1186,7 @@ export type Database = {
           completed_items?: number
           created_at?: string | null
           id?: string
+          language?: string | null
           status?: string
           total_items?: number
           updated_at?: string | null
@@ -1197,6 +1199,7 @@ export type Database = {
           completed_items?: number
           created_at?: string | null
           id?: string
+          language?: string | null
           status?: string
           total_items?: number
           updated_at?: string | null

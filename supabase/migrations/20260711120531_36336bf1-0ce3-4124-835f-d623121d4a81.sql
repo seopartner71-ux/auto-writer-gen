@@ -1,0 +1,1 @@
+ALTER TABLE public.bulk_jobs ADD COLUMN IF NOT EXISTS language text;
