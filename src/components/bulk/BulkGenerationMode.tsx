@@ -33,6 +33,7 @@ export function BulkGenerationMode() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [manualInput, setManualInput] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
+  const [articleLang, setArticleLang] = useState<"ru" | "en">(lang === "en" ? "en" : "ru");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [publishingItemId, setPublishingItemId] = useState<string | null>(null);
@@ -61,8 +62,8 @@ export function BulkGenerationMode() {
   };
 
   const { data: authorProfiles = [] } = useQuery({
-    queryKey: ["author-profiles-bulk", lang],
-    queryFn: async () => { const { data, error } = await supabase.from("author_profiles").select("*").eq("language", lang).order("name"); if (error) throw error; return data; },
+    queryKey: ["author-profiles-bulk", articleLang],
+    queryFn: async () => { const { data, error } = await supabase.from("author_profiles").select("*").eq("language", articleLang).order("name"); if (error) throw error; return data; },
   });
 
   const { data: bulkJobs = [] } = useQuery({
@@ -192,7 +193,7 @@ export function BulkGenerationMode() {
       }
       const { data: job, error: jobErr } = await supabase
         .from("bulk_jobs")
-        .insert({ user_id: session.user.id, author_profile_id: selectedAuthorId || null, total_items: keywords.length, status: "pending" })
+        .insert({ user_id: session.user.id, author_profile_id: selectedAuthorId || null, total_items: keywords.length, status: "pending", language: articleLang } as any)
         .select("id")
         .single();
       if (jobErr) throw jobErr;
