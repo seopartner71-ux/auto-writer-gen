@@ -13,7 +13,7 @@ serve(async (req) => {
 
     const { keyword, current_title, language } = await req.json().catch(() => ({}));
     if (!keyword || typeof keyword !== "string") {
-      return errorResponse("keyword required", 400);
+      return errorResponse("keyword required", 400, { error_key: "err.missing_field", error_params: { field: "keyword" } });
     }
     const lang = (language === "en") ? "en" : "ru";
 
@@ -25,7 +25,7 @@ serve(async (req) => {
       .eq("is_valid", true)
       .maybeSingle();
     const OPENROUTER_API_KEY = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) return errorResponse("OpenRouter API key не настроен", 500);
+    if (!OPENROUTER_API_KEY) return errorResponse("OpenRouter API key not configured", 500, { error_key: "err.openrouter_missing" });
 
     const { data: assignment } = await admin
       .from("task_model_assignments")
@@ -82,7 +82,9 @@ Return only a JSON array of 5 strings.`;
 
     if (!aiResp.ok) {
       const txt = await aiResp.text();
-      return errorResponse(`AI error: ${aiResp.status} ${txt.slice(0, 200)}`, 500);
+      const key = aiResp.status === 429 ? "err.rate_limit" : aiResp.status === 402 ? "err.ai_credits" : "err.ai_error";
+      const status = aiResp.status === 429 ? 429 : aiResp.status === 402 ? 402 : 500;
+      return errorResponse(`AI error: ${aiResp.status} ${txt.slice(0, 200)}`, status, { error_key: key });
     }
     const aj = await aiResp.json();
     try { logLLM({ functionName: "generate-titles", model: ((aj as any)?.model) as string, tokensIn: Number((aj as any)?.usage?.prompt_tokens || 0), tokensOut: Number((aj as any)?.usage?.completion_tokens || 0) }); } catch(_) {}
@@ -103,6 +105,6 @@ Return only a JSON array of 5 strings.`;
 
     return jsonResponse({ titles });
   } catch (e: any) {
-    return errorResponse(e?.message || "Internal error", 500);
+    return errorResponse(e?.message || "Internal error", 500, { error_key: "err.internal" });
   }
 });
