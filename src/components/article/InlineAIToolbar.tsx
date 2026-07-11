@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Scissors, StretchHorizontal, Baby, Lightbulb, GraduationCap, RefreshCw } from "lucide-react";
+import { useI18n } from "@/shared/hooks/useI18n";
 
 type Command = "shorter" | "longer" | "simpler" | "example" | "expert" | "rewrite";
 
@@ -25,16 +26,17 @@ interface Props {
   articleId?: string | null;
 }
 
-const COMMANDS: { id: Command; ru: string; en: string; Icon: any }[] = [
-  { id: "shorter", ru: "Короче",     en: "Shorter", Icon: Scissors },
-  { id: "longer",  ru: "Длиннее",    en: "Longer",  Icon: StretchHorizontal },
-  { id: "simpler", ru: "Проще",      en: "Simpler", Icon: Baby },
-  { id: "example", ru: "Пример",     en: "Example", Icon: Lightbulb },
-  { id: "expert",  ru: "Экспертнее", en: "Expert",  Icon: GraduationCap },
-  { id: "rewrite", ru: "Перепиши",   en: "Rewrite", Icon: RefreshCw },
+const COMMANDS: { id: Command; labelKey: string; Icon: any }[] = [
+  { id: "shorter", labelKey: "inline.shorter", Icon: Scissors },
+  { id: "longer",  labelKey: "inline.longer",  Icon: StretchHorizontal },
+  { id: "simpler", labelKey: "inline.simpler", Icon: Baby },
+  { id: "example", labelKey: "inline.example", Icon: Lightbulb },
+  { id: "expert",  labelKey: "inline.expert",  Icon: GraduationCap },
+  { id: "rewrite", labelKey: "inline.rewrite", Icon: RefreshCw },
 ];
 
 export function InlineAIToolbar({ textareaRef, content, onReplace, language = "ru", articleId }: Props) {
+  const { t } = useI18n();
   const [sel, setSel] = useState<Selection | null>(null);
   const [running, setRunning] = useState<Command | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
@@ -88,7 +90,7 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
   const runCommand = async (cmd: Command) => {
     if (!sel || running) return;
     if (sel.text.length > 6000) {
-      toast.error(language === "en" ? "Selection too long (max 6000 chars)" : "Слишком длинный фрагмент (макс 6000 символов)");
+      toast.error(t("inline.selectionTooLong"));
       return;
     }
     setRunning(cmd);
@@ -99,13 +101,13 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
       });
       if (error) throw new Error(error.message);
       const rewritten = String(data?.rewritten || "").trim();
-      if (!rewritten) throw new Error(language === "en" ? "Empty response" : "Пустой ответ");
+      if (!rewritten) throw new Error(t("inline.emptyResponse"));
       setDiffOrig(sel.text);
       setDiffNew(rewritten);
       setDiffRange({ start: sel.start, end: sel.end });
       setDiffOpen(true);
     } catch (e: any) {
-      toast.error(e?.message || (language === "en" ? "AI command failed" : "Не удалось выполнить команду"));
+      toast.error(e?.message || t("inline.commandFailed"));
     } finally {
       setRunning(null);
     }
@@ -116,7 +118,7 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
     onReplace(diffRange.start, diffRange.end, diffNew);
     setDiffOpen(false);
     setSel(null);
-    toast.success(language === "en" ? "Text replaced" : "Текст заменен");
+    toast.success(t("inline.textReplaced"));
   };
 
   const toolbar = sel && !diffOpen ? (
@@ -125,7 +127,7 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
       style={{ top: sel.rect.top, left: sel.rect.left }}
       onMouseDown={(e) => e.preventDefault()} // prevent textarea blur on click
     >
-      {COMMANDS.map(({ id, ru, en, Icon }) => (
+      {COMMANDS.map(({ id, labelKey, Icon }) => (
         <Button
           key={id}
           variant="ghost"
@@ -133,12 +135,12 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
           className="h-8 px-2 text-xs gap-1"
           disabled={!!running}
           onClick={() => runCommand(id)}
-          title={language === "en" ? en : ru}
+          title={t(labelKey)}
         >
           {running === id
             ? <Loader2 className="h-3 w-3 animate-spin" />
             : <Icon className="h-3 w-3" />}
-          <span className="hidden md:inline">{language === "en" ? en : ru}</span>
+          <span className="hidden md:inline">{t(labelKey)}</span>
         </Button>
       ))}
     </div>
@@ -151,18 +153,16 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
-              {language === "en" ? "AI rewrite preview" : "Предпросмотр правки"}
+              {t("inline.previewTitle")}
             </DialogTitle>
             <DialogDescription>
-              {language === "en"
-                ? "Compare the original and the AI version, then accept or cancel."
-                : "Сравните оригинал и версию ИИ, затем примите или отмените."}
+              {t("inline.previewDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {language === "en" ? "Original" : "Оригинал"}
+                {t("inline.original")}
               </div>
               <div className="rounded-md border border-border bg-muted/30 p-3 text-sm whitespace-pre-wrap max-h-80 overflow-auto">
                 {diffOrig}
@@ -170,7 +170,7 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
             </div>
             <div className="space-y-1">
               <div className="text-[11px] uppercase tracking-wide text-primary">
-                {language === "en" ? "AI version" : "Версия ИИ"}
+                {t("inline.aiVersion")}
               </div>
               <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-sm whitespace-pre-wrap max-h-80 overflow-auto">
                 {diffNew}
@@ -179,7 +179,7 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDiffOpen(false)}>
-              {language === "en" ? "Cancel" : "Отмена"}
+              {t("inline.cancel")}
             </Button>
             {lastCmdRef.current && (
               <Button
@@ -188,11 +188,11 @@ export function InlineAIToolbar({ textareaRef, content, onReplace, language = "r
                 onClick={() => runCommand(lastCmdRef.current!)}
               >
                 {running ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                {language === "en" ? "Try again" : "Ещё раз"}
+                {t("inline.tryAgain")}
               </Button>
             )}
             <Button onClick={accept}>
-              {language === "en" ? "Replace" : "Заменить"}
+              {t("inline.replace")}
             </Button>
           </DialogFooter>
         </DialogContent>
