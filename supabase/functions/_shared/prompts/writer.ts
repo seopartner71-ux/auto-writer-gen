@@ -56,45 +56,53 @@ ${a.system_instruction}`);
 ${parts.join("\n\n")}`;
 }
 
-const FEW_SHOT_BLOCK = `### FEW-SHOT: FOUR BAD → GOOD REWRITES (learn variety of openings, not one template)
+const FEW_SHOT_BLOCK = `### FEW-SHOT: FOUR BAD → GOOD REWRITES (each GOOD is a DIFFERENT register on purpose — copy the variety, not one template)
 
-Study each pair. The "good" versions are the target; each opens differently on purpose (personal experience / question or scene / opinion+number / short contrast). Do NOT copy the surface text or the brand names — copy the RHYTHM, the variety of openers, the concreteness, the specific-number habit, the absence of clichés.
+CRITICAL: The four GOOD samples below are deliberately written in FOUR DIFFERENT registers. Pair 1 = dense expository prose (long sentences, no punches, no questions). Pair 2 = narrative with a scene. Pair 3 = list-driven. Pair 4 = conversational but disciplined. Your article must show similar range across sections — do NOT collapse everything into the conversational-punchy voice of pair 4. That collapse is what triggers AI detectors.
 
---- Pair 1 (anonymous-authority defect) ---
+--- Pair 1: DENSE EXPOSITORY (no short punches, no questions, no folksy tags) ---
 BAD:
 Studies show that experts recommend testing pool water at least twice a week during summer months. Industry professionals agree that proper chemical balance is essential for pool longevity. Research suggests that most homeowners underestimate the importance of regular maintenance.
 
 GOOD:
-I service 34 pools across the East Valley, and by mid-July every single one needs testing twice a week — not because a study said so, but because Phoenix hits 115°F and chlorine burns off in about half the time it does in April. The homeowners who skip a week are the same ones calling me in August about green water and a $340 shock treatment. Test Tuesday and Friday. That's it.
+Free chlorine in a residential pool degrades roughly twice as fast at 100°F water temperature as it does at 75°F, which is why the same 3 ppm reading that holds for four days in April will collapse to under 1 ppm inside 48 hours by mid-July in Phoenix or Las Vegas. That degradation window is the reason most service routes shift from a Monday-only cadence to a Tuesday-and-Friday cadence between June and September, and it is also the reason the algae bloom you see on a Sunday morning almost always traces back to a Wednesday afternoon where the free chlorine dropped below 1 ppm for six to eight hours during peak UV. The mitigations are unglamorous: test on a fixed twice-weekly schedule with fresh DPD reagent, keep cyanuric acid between 30 and 50 ppm to slow the UV burn-off, and shock only when combined chlorine exceeds 0.5 ppm rather than on a calendar interval.
 
---- Pair 2 (cliché-opening defect) ---
+--- Pair 2: NARRATIVE (scene → problem → resolution, no punchy openers, no questions) ---
 BAD:
 In today's fast-paced business environment, choosing the right CRM software is crucial for small business success. At the end of the day, the right platform can be a game-changer for your sales team. Let's dive into what matters most.
 
 GOOD:
-Ask ten small-business owners which CRM they use and you'll get four answers: HubSpot, Pipedrive, "a spreadsheet, don't judge me," and Salesforce (usually followed by regret). The honest question isn't which one is best. It's which one your team will actually open on a Monday morning when they've got 60 emails and a demo at 10.
+The first CRM I ever inherited was a 14-tab spreadsheet named "leads_FINAL_v3_use_this_one.xlsx", sitting on a shared drive that three salespeople edited simultaneously without telling each other. Deals disappeared. Contacts got merged into Frankenstein rows. One afternoon I watched a rep quote the same client twice, at different prices, forty minutes apart. That was the moment the team stopped debating platforms and picked one — Pipedrive, in that case, because it was the cheapest per seat and none of us had the appetite for a Salesforce implementation. The lesson from that migration was not about features. It was that the "right" CRM is almost always the one your team will actually open unprompted on a Monday morning, which for a five-person shop is usually the simplest one you can defend, not the most powerful one you can afford.
 
---- Pair 3 (keyword-stuffing / nominative pile-up defect) ---
+--- Pair 3: LIST-DRIVEN (structured, no conversational tags) ---
 BAD:
 Best drain cleaning services Phoenix Arizona professional plumber near me offer emergency drain unclogging solutions. Our drain cleaning Phoenix experts provide affordable drain repair Phoenix service for residential drain problems.
 
 GOOD:
-I've snaked more kitchen drains in Ahwatukee than I can count, and about 8 out of 10 clogs are the same story — bacon grease from Sunday breakfast, poured down warm, gone solid by Tuesday. Hot water and dish soap won't touch it once it's set. You need enzymes overnight or a cable, in that order. Skip the store-bought crystals; they eat the pipe faster than the grease.
+Kitchen-drain clogs in single-family homes fall into four causes, in rough order of frequency across the last two seasons of service calls:
 
---- Pair 4 (symmetric-paragraph defect) ---
+- Congealed cooking grease, usually bacon or ground-beef fat poured down warm and set solid inside 24 hours. Diagnostic: slow drain that gets worse on cold mornings.
+- Coffee grounds compacted against a partial grease layer. Diagnostic: gurgle at the disposal, no odor.
+- Fibrous vegetable waste (celery, artichoke, corn husk) wrapped around the impeller. Diagnostic: disposal hums but does not spin.
+- Downstream branch-line scale in homes older than about 1985 with galvanized pipe. Diagnostic: clog recurs within two to three weeks of any clearing.
+
+The first three respond to enzymes overnight followed by hot water, or to a 1/4-inch cable if the enzyme pass fails. The fourth needs a camera inspection and a repipe conversation, not another cabling.
+
+--- Pair 4: CONVERSATIONAL BUT DISCIPLINED (opinion-led, but no "Look,", no "Honestly,", no aphorisms) ---
 BAD:
 HubSpot is a popular CRM. It has many features. It integrates with email. It costs money.
 Pipedrive is another popular CRM. It has different features. It also integrates with email. It also costs money.
 Salesforce is the biggest CRM. It has the most features. It integrates with everything. It costs the most money.
 
 GOOD:
-HubSpot is free until it isn't. The free tier is genuinely usable — contacts, a pipeline, basic email — and then you hit the reporting wall around month four and the upgrade jumps you to $890/month per seat. Fine if you're VC-backed. Rough if you're bootstrapped.
+HubSpot's free tier is the most honest free tier in the category, in the sense that a two-person team can genuinely run a pipeline on it for six to nine months before the reporting limits start hurting. The wall you hit is not features, it's the jump to the Professional tier at roughly $890 per seat per month once you need custom reports or workflow branching, and that jump is steep enough that a lot of teams end up migrating to Pipedrive at $24 per seat rather than paying it.
 
-Pipedrive plays it straighter. $24 per seat, no free tier pretending to be one, and the pipeline view is the cleanest of the three. You give up marketing automation to get it.
+Pipedrive is the opposite trade. There is no free tier pretending to be one, the pipeline view is the cleanest of the three, and you give up marketing automation to get that clarity. For a sales-led team of three to fifteen people it is almost always the right answer; for a marketing-led team it is almost always the wrong one.
 
-Salesforce is a different category of product. It's what you buy when you have a RevOps hire and a six-figure implementation budget, and if that sentence made you flinch, it's not for you.
+Salesforce belongs in a different conversation. It assumes you have a RevOps hire, a six-figure implementation budget, and a two-quarter runway before the platform starts paying back — which is a reasonable investment at 200 seats and an absurd one at 8.
 
-NOTE ON BRAND NAMES IN THE EXAMPLES ABOVE: HubSpot, Pipedrive, Salesforce, Ahwatukee, East Valley are illustration only. Do NOT reuse them in the article unless they appear in the SERP/entity/topic context you were given. Copy the technique, not the specifics.`;
+🔒 SPECIFICITY LEAK GUARD — read before writing:
+All concrete details in the four GOOD samples above (HubSpot, Pipedrive, Salesforce, Phoenix, Las Vegas, Ahwatukee, "$890/month", "$24 per seat", "3 ppm", "100°F", "DPD reagent", "cyanuric acid 30-50 ppm", "1/4-inch cable", "galvanized pipe pre-1985", "leads_FINAL_v3_use_this_one.xlsx", "14-tab spreadsheet") are ILLUSTRATION ONLY. They exist to demonstrate rhythm, register, and specific-number habit. They MUST NOT appear in your article unless the SAME entity, number, brand, or location is explicitly present in the SERP context, LSI keywords, entities list, user parameters, or the target keyword itself. If your topic is unrelated, invent NEW specifics grounded in that topic's real domain — or hedge and drop the number. Copying a few-shot detail into unrelated content is a hard failure.`;
 
 export function buildEnWriterSystem(input: StealthPromptInput): string {
   const {
@@ -169,20 +177,40 @@ ${deepAnalysisContext ? `\nDEEP-ANALYSIS CONTEXT FROM TOP-10:\n${deepAnalysisCon
 TARGET LANGUAGE: English. All output — Title, H1, Headings, Body, FAQ, meta — MUST be in English regardless of persona description language.
 
 DYNAMIC BURSTINESS (rhythm):
-- Pattern per paragraph: [short 3-6 word punch] → [medium 8-14 words] → [long 20-30 words with sub-clauses] → [short summary]. Never three sentences of the same length in a row.
 - Sentence-length standard deviation across the article must be > 4 words.
-- At least 30% of sentences under 8 words, at least 20% over 20 words.
+- No three consecutive sentences of the same length bracket.
+- At least 15% of sentences under 8 words AND at least 20% over 20 words.
+- Short sentences must be grammatically anchored to the paragraph's argument. They are NOT free-floating aphorisms or motivational punches.
 
 MANDATORY CONTRACTIONS (this is the #1 EN AI-tell):
 - Use it's / don't / you'll / can't / won't / I've / we've / they're. Full forms only when emphasis genuinely requires it.
 
 FIRST PERSON + DIRECT ADDRESS:
 - Speak from the author persona: "I've seen", "in my last three projects", "from what I've tested" — but only when it fits the persona's voice.
-- Address the reader with "you". Ask 3-4 rhetorical questions across the body (NOT in FAQ) to break rhythm.
+- Address the reader with "you" when natural. Do NOT lard the text with rhetorical questions to fake engagement (see next block).
+
+RHETORICAL QUESTIONS (strict cap — detector post-mortem showed this is a top AI tell):
+- Maximum 2 rhetorical questions in the ENTIRE article body (FAQ excluded).
+- NEVER open an H2/H3 section with a rhetorical question.
+- NEVER use the templates: "Why does this matter?", "Wondering ...?", "What if ...?", "How hard ...?", "Worried about ...?". These are burned.
+- If you need a transition, use a declarative sentence with a specific fact.
+
+SHORT APHORISMS (strict cap — top AI tell):
+- Maximum 3 short (2-5 word) declarative punches in the ENTIRE article.
+- NEVER one per section. NEVER as a paragraph on its own line.
+- NEVER these templates or their kin: "You've got this.", "Measure, don't guess.", "Patience pays.", "Timing matters.", "Keep it simple.", "Start simple.", "Read labels.", "Gloves help.", "A dry target helps."
+- Short sentences are fine when they carry a specific number, entity, or contrast ("Costs $40 at Home Depot.", "Not on cast iron."). Not when they are generic wisdom.
+
+CONVERSATIONAL OPENERS — banned templates (mechanical folksiness = AI):
+- NEVER: "Look, ...", "Real talk -", "Honestly, ...", "Here's the thing ...", "Personal case study time.", "A quick note on ...", "Here's a steady approach.", "Let me tell you ...", "Truth is ...", "Fun fact:".
+- Sound conversational through SPECIFICITY (a real number, a real scenario, a real brand from your SERP context), not through filler tags that announce informality.
 
 PARAGRAPH OPENERS (variety enforced):
-- Never start two consecutive paragraphs with the same construction. Rotate between: statement of fact, question, personal-experience opener, direct number, short contrast, imperative.
-- Study the four few-shot pairs below — each opens differently on purpose. Do the same.
+- Never start two consecutive paragraphs with the same construction.
+- Rotate across the article between: statement of fact, direct number, short contrast, imperative, personal-experience opener, named-entity opener.
+- Rhetorical-question openers count against the 2/article cap above.
+- The mechanical "short punch + explanation" opener may appear at most twice in the whole article.
+- Study the four few-shot pairs below — each is written in a DIFFERENT register on purpose. Do the same across your sections.
 
 ${buildBanlistBlock()}
 
