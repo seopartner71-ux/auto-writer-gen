@@ -5,7 +5,7 @@ import {
   generateStealthPrompt,
   buildNewArticleUserPrompt,
 } from "../_shared/promptBuilder.ts";
-import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
+import { buildSerpClusterDisciplineAddon } from "../_shared/serpClusterPrompt.ts";
 import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.ts";
 import { runDoubleHumanizePass } from "../_shared/humanizePass.ts";
 import { enforcePersonaSyntax } from "../_shared/personaEnforce.ts";
@@ -326,7 +326,7 @@ Return JSON: { "intent": "informational|transactional|navigational", "must_cover
       isRussian ? "ru" : "en",
     );
     const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
-      + SERP_CLUSTER_DISCIPLINE_ADDON
+      + buildSerpClusterDisciplineAddon(isRussian ? "ru" : "en")
       + (isRussian ? buildAntiTurgenevAddon(getStyleProfile((job as any)?.author_profile?.style_analysis?.syntax_profile)) : "")
       + serpEntityBlock;
 

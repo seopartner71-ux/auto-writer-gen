@@ -18,6 +18,7 @@ import {
   buildNewArticleUserPrompt,
   type StealthPromptInput,
 } from "../_shared/promptBuilder.ts";
+import { buildSerpClusterDisciplineAddon } from "../_shared/serpClusterPrompt.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,7 @@ serve(async (req) => {
     }
     const geoLocation = body.geoLocation ?? null;
     const model = body.model || "google/gemini-2.5-pro-preview";
+    const language = String(body.language || "en").toLowerCase() === "ru" ? "ru" : "en";
 
     // Minimal fake context — no SERP/entity/LSI. We are testing the writer
     // prompt's own quality, not the research pipeline.
@@ -49,12 +51,15 @@ serve(async (req) => {
         seed_keyword,
         intent: body.intent || "informational",
         difficulty: 40,
-        language: "en",
+        language,
         questions: [],
       },
       geoLocation,
     };
-    const { system } = generateStealthPrompt(input);
+    const { system: baseSystem } = generateStealthPrompt(input);
+    // Mirror generate-article's real addon stack so we can reproduce the
+    // language-slip bug through the SAME code path (minus SERP entities).
+    const system = baseSystem + buildSerpClusterDisciplineAddon(language);
     const user = buildNewArticleUserPrompt(
       input.keyword, "", "", "", "",
       undefined, undefined, undefined, undefined, undefined, undefined,
