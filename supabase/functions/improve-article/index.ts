@@ -1791,7 +1791,7 @@ ${content}`;
     // focused Sonnet pass on the flagged sentences; guarded by htmlIntegrity.
     let nominativeHits: string[] = [];
     try {
-      nominativeHits = (!stoppedByUser && primaryKeyword) ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
+      nominativeHits = (!stoppedByUser && isRuArticle && primaryKeyword) ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
     } catch { nominativeHits = []; }
     if (!stoppedByUser && isRuArticle && nominativeHits.length && orKey) {
       const nomBefore = metricsOf(bestContent);
