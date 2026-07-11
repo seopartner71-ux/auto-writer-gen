@@ -65,6 +65,27 @@ SERP-КЛАСТЕРНАЯ ДИСЦИПЛИНА (обязательно):
 Если запрос формирует отдельный SERP-кластер (например: скачать, приложение, регистрация, отзывы как отдельная страница, мобильная версия, бонусы) - ИСКЛЮЧИ его. Не добавляй смежные сущности и подинтенты, которые в реальной выдаче Google закрываются другими URL. Цель - не максимум ключей, а максимум покрытия ОДНОГО SERP-кластера.`;
 
 /**
+ * Bilingual, lang-aware variant. Prefer this over the RU constant above —
+ * gluing the RU addon onto an EN system prompt was causing the writer to
+ * slip into Russian mid-article (the "post-translation" ghost bug).
+ * EN version is native, not machine-translated, and drops the CAPS/emojis
+ * that were overriding target language.
+ */
+export function buildSerpClusterDisciplineAddon(lang: string = "ru"): string {
+  if (String(lang).toLowerCase() === "en") {
+    return `
+
+SERP cluster discipline (mandatory):
+This page must cover exactly one SERP cluster — one intent, one result type, one entity. Before you use any keyword, subtopic, or subheading, silently check:
+- Would the same page realistically rank for it as for the main query?
+- Is the intent the same (informational / commercial / navigational)?
+- Is it the same entity, with no drift into adjacent topics?
+If a query forms its own SERP cluster (for example: download, mobile app, sign-up, standalone reviews page, bonuses), leave it out. Do not expand into adjacent entities or sub-intents that Google actually serves on a different URL. The goal is not the largest keyword list — it is the deepest coverage of one SERP cluster.`;
+  }
+  return SERP_CLUSTER_DISCIPLINE_ADDON;
+}
+
+/**
  * Build the user prompt for full SERP-clustering analysis (topical-map use case).
  * Returns 12-section structured output as specified.
  */
