@@ -31,10 +31,21 @@ const BANNED_PHRASES = [
 
 // English starter banlist. Kept intentionally small: only the most obvious
 // LLM/blog clichés and vague hedges. Extend as we ship more en content.
-const BANNED_PHRASES_EN = [
+//
+// Exported so the EN writer/humanize prompts pull the SAME list (single
+// source of truth: new phrase here = enforced at prompt time AND at
+// post-generation validation time).
+export const BANNED_PHRASES_EN = [
   "here's the kicker", "let that sink in", "real talk", "game-changer",
   "game changer", "let's dive in", "let's dive into", "in today's fast-paced world",
   "it's worth noting", "at the end of the day",
+  // anonymous-authority tells
+  "studies show", "experts say", "experts recommend", "specialists note",
+  "industry insiders", "research suggests", "it is widely known",
+  // LLM connective tissue
+  "furthermore", "moreover", "in conclusion", "in summary", "essentially",
+  "delve into", "leverage", "utilize", "plays a crucial role",
+  "comprehensive guide", "it should be noted", "it is important to note",
 ];
 
 export interface CancellaryHit {

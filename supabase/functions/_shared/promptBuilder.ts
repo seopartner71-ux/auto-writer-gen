@@ -48,6 +48,10 @@ export interface StealthPromptInput {
   interlinkingContext?: { projectName: string; domain: string; articles: { title: string; url: string }[] } | null;
 }
 
+// EN-native writer lives in prompts/writer.ts. Imported lazily-shaped as a
+// runtime import so the RU-only path pays no parse cost when unused.
+import { buildEnWriterSystem, buildEnWriterUser } from "./prompts/writer.ts";
+
 export function generateStealthPrompt(input: StealthPromptInput): { system: string; user: string } {
   const { authorProfile, serpData, lsiKeywords, userStructure, keyword, competitorTables, competitorLists, deepAnalysisContext, includeExpertQuote, includeComparisonTable, dataNuggets, seoKeywords, geoLocation, customInstructions, interlinkingContext } = input;
   
@@ -64,6 +68,18 @@ export function generateStealthPrompt(input: StealthPromptInput): { system: stri
   const isRussian = explicitLang === "ru" || (!explicitLang && /[а-яё]/i.test(keyword.seed_keyword));
   const targetLanguage = explicitLang || (isRussian ? "ru" : "en");
   const targetLangName = langMap[targetLanguage] || "English";
+
+  // ─── EN path: route to native EN writer (prompts/writer.ts) ──────────
+  // RU / everything else keeps the legacy code below unchanged.
+  if (targetLanguage === "en") {
+    let effectiveAuthor = authorProfile;
+    if (authorProfile && (authorProfile.is_miralinks_profile || authorProfile.is_gogetlinks_profile)) {
+      try { console.warn(`[en-writer] author "${authorProfile.name || "?"}" has RU-only link flags (miralinks/gogetlinks) but article language is EN — flags ignored`); } catch (_) { /* noop */ }
+      effectiveAuthor = { ...authorProfile, is_miralinks_profile: false, is_gogetlinks_profile: false };
+    }
+    const system = buildEnWriterSystem({ ...input, authorProfile: effectiveAuthor });
+    return { system, user: "" };
+  }
 
   // ═══ BLOCK A: Author Context ═══
   let blockA = "";
@@ -978,6 +994,15 @@ export function buildNewArticleUserPrompt(
   geoLocation?: string | null,
   customInstructions?: string | null
 ): string {
+  // EN path: use native EN user prompt (prompts/writer.ts). Miralinks/GGL
+  // links are RU-only exchanges — ignored in EN (see generateStealthPrompt).
+  const lang = (keyword?.language || "").toLowerCase();
+  if (lang === "en" || (!lang && !/[а-яё]/i.test(String(keyword?.seed_keyword || "")))) {
+    return buildEnWriterUser(keyword, outlineStr, competitorStr, lsiStr, questionsStr, {
+      anchorLinks, mustCoverTopics, contentGaps, entities, expertInsights,
+      seoKeywords, geoLocation, customInstructions,
+    });
+  }
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
   const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
   const allLinks = [...activeLinks, ...activeGGLLinks];

@@ -1,0 +1,485 @@
+// Native EN writer prompts (system + user turn).
+//
+// Contract: takes the same `StealthPromptInput` shape as the legacy RU-only
+// `generateStealthPrompt` in _shared/promptBuilder.ts, and returns the two
+// prompt strings. Used ONLY for `keyword.language === "en"`. RU path stays
+// on the legacy code until the RU port lands (step 2 of the migration).
+//
+// What is deliberately NOT here vs. the RU writer:
+//   - Turgenev / Baden-Baden constraints
+//   - Russian morphology (падежи, «ё» rule, склонение ключей)
+//   - Miralinks / GoGetLinks blocks (RU-only link exchanges)
+//   - Yandex-specific SEO nuances
+// If `authorProfile.is_miralinks_profile || is_gogetlinks_profile` is true
+// for an EN article, callers should log a pipeline_events warning and pass
+// `authorProfile = null` — we do NOT rehydrate a russian link protocol in
+// english.
+
+import type { StealthPromptInput } from "../promptBuilder.ts";
+import { BANNED_PHRASES_EN } from "../validators/cancellaryGuard.ts";
+
+function buildBanlistBlock(): string {
+  const list = BANNED_PHRASES_EN.map((p) => `  "${p}"`).join(",\n");
+  return `BANNED PHRASES / CLICHÉS (any occurrence = rewrite the sentence, do NOT substitute another cliché from the list):
+${list}`;
+}
+
+function buildPersonaBlock(a: StealthPromptInput["authorProfile"]): string {
+  if (!a) {
+    return `### AUTHOR PERSONA
+No persona attached. Write as a working practitioner in the field of the target keyword — first-person, with specific numbers from your own jobs, opinions, and mild grumpiness where warranted. Do NOT slip into a neutral "helpful assistant" register.`;
+  }
+  const parts: string[] = [];
+  if (a.type === "preset" && a.system_instruction) {
+    parts.push(`AUTHOR CORE DIRECTIVE (highest priority — overrides any general rule below):
+${a.system_instruction}`);
+  } else {
+    if (a.name) parts.push(`You are ${a.name}.`);
+    if (a.voice_tone) parts.push(`Voice/tone: ${a.voice_tone}. Every sentence must sound like this voice.`);
+    if (a.niche) parts.push(`Use the professional vocabulary of "${a.niche}" like a native — never define terms you would not define to a peer.`);
+    const sa = a.style_analysis || {};
+    if (sa.tone_description) parts.push(`Tone description: ${sa.tone_description}`);
+    if (sa.vocabulary_level) parts.push(`Vocabulary level: ${sa.vocabulary_level}`);
+    if (sa.paragraph_length) parts.push(`Paragraph length: ${sa.paragraph_length}`);
+    if (sa.sentence_style) parts.push(`Sentence style: ${sa.sentence_style}`);
+    if (sa.metaphor_usage) parts.push(`Metaphors: ${sa.metaphor_usage}`);
+    if (sa.formality) parts.push(`Formality: ${sa.formality}`);
+    if (sa.emotional_tone) parts.push(`Emotional tone: ${sa.emotional_tone}`);
+    if (a.style_examples) parts.push(`REFERENCE STYLE SAMPLE (mimic the rhythm and register as closely as possible — never copy sentences verbatim):
+"${a.style_examples.slice(0, 1500)}"`);
+    if (a.system_instruction) parts.push(`ADDITIONAL AUTHOR INSTRUCTION (highest priority):
+${a.system_instruction}`);
+  }
+  if (a.stop_words?.length) parts.push(`BANNED WORDS (never use): ${a.stop_words.join(", ")}`);
+  if (a.system_prompt_override) parts.push(`EXTRA AUTHOR INSTRUCTIONS: ${a.system_prompt_override}`);
+  return `### AUTHOR PERSONA (follow strictly — this is who is writing)
+${parts.join("\n\n")}`;
+}
+
+const FEW_SHOT_BLOCK = `### FEW-SHOT: FOUR BAD → GOOD REWRITES (learn variety of openings, not one template)
+
+Study each pair. The "good" versions are the target; each opens differently on purpose (personal experience / question or scene / opinion+number / short contrast). Do NOT copy the surface text or the brand names — copy the RHYTHM, the variety of openers, the concreteness, the specific-number habit, the absence of clichés.
+
+--- Pair 1 (anonymous-authority defect) ---
+BAD:
+Studies show that experts recommend testing pool water at least twice a week during summer months. Industry professionals agree that proper chemical balance is essential for pool longevity. Research suggests that most homeowners underestimate the importance of regular maintenance.
+
+GOOD:
+I service 34 pools across the East Valley, and by mid-July every single one needs testing twice a week — not because a study said so, but because Phoenix hits 115°F and chlorine burns off in about half the time it does in April. The homeowners who skip a week are the same ones calling me in August about green water and a $340 shock treatment. Test Tuesday and Friday. That's it.
+
+--- Pair 2 (cliché-opening defect) ---
+BAD:
+In today's fast-paced business environment, choosing the right CRM software is crucial for small business success. At the end of the day, the right platform can be a game-changer for your sales team. Let's dive into what matters most.
+
+GOOD:
+Ask ten small-business owners which CRM they use and you'll get four answers: HubSpot, Pipedrive, "a spreadsheet, don't judge me," and Salesforce (usually followed by regret). The honest question isn't which one is best. It's which one your team will actually open on a Monday morning when they've got 60 emails and a demo at 10.
+
+--- Pair 3 (keyword-stuffing / nominative pile-up defect) ---
+BAD:
+Best drain cleaning services Phoenix Arizona professional plumber near me offer emergency drain unclogging solutions. Our drain cleaning Phoenix experts provide affordable drain repair Phoenix service for residential drain problems.
+
+GOOD:
+I've snaked more kitchen drains in Ahwatukee than I can count, and about 8 out of 10 clogs are the same story — bacon grease from Sunday breakfast, poured down warm, gone solid by Tuesday. Hot water and dish soap won't touch it once it's set. You need enzymes overnight or a cable, in that order. Skip the store-bought crystals; they eat the pipe faster than the grease.
+
+--- Pair 4 (symmetric-paragraph defect) ---
+BAD:
+HubSpot is a popular CRM. It has many features. It integrates with email. It costs money.
+Pipedrive is another popular CRM. It has different features. It also integrates with email. It also costs money.
+Salesforce is the biggest CRM. It has the most features. It integrates with everything. It costs the most money.
+
+GOOD:
+HubSpot is free until it isn't. The free tier is genuinely usable — contacts, a pipeline, basic email — and then you hit the reporting wall around month four and the upgrade jumps you to $890/month per seat. Fine if you're VC-backed. Rough if you're bootstrapped.
+
+Pipedrive plays it straighter. $24 per seat, no free tier pretending to be one, and the pipeline view is the cleanest of the three. You give up marketing automation to get it.
+
+Salesforce is a different category of product. It's what you buy when you have a RevOps hire and a six-figure implementation budget, and if that sentence made you flinch, it's not for you.
+
+NOTE ON BRAND NAMES IN THE EXAMPLES ABOVE: HubSpot, Pipedrive, Salesforce, Ahwatukee, East Valley are illustration only. Do NOT reuse them in the article unless they appear in the SERP/entity/topic context you were given. Copy the technique, not the specifics.`;
+
+export function buildEnWriterSystem(input: StealthPromptInput): string {
+  const {
+    authorProfile,
+    serpData,
+    lsiKeywords,
+    userStructure,
+    keyword,
+    competitorTables,
+    competitorLists,
+    deepAnalysisContext,
+    dataNuggets,
+    seoKeywords,
+    geoLocation,
+    customInstructions,
+    interlinkingContext,
+    includeExpertQuote,
+    includeComparisonTable,
+  } = input;
+
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const prevYear = currentYear - 1;
+  const nextYear = currentYear + 1;
+  const monthEn = now.toLocaleString("en-US", { month: "long", timeZone: "UTC" });
+
+  const personaBlock = buildPersonaBlock(authorProfile);
+
+  const outlineStr = (userStructure || [])
+    .map((o) => `${{ h1: "#", h2: "##", h3: "###" }[o.level] || "##"} ${o.text}`)
+    .join("\n");
+  const competitorStr = (serpData || [])
+    .map((r, i) => `${i + 1}. "${r.title}" — ${r.snippet || ""}`)
+    .join("\n");
+  const lsiStr = lsiKeywords.join(", ");
+
+  let tablesListsInstructions = "";
+  if (competitorTables?.length) {
+    tablesListsInstructions += "\n\nTABLES (from competitor analysis):\n";
+    competitorTables.forEach((t: any, i: number) => {
+      tablesListsInstructions += `${i + 1}. Table about "${t.topic}" with columns: ${(t.columns || []).join(" | ")}\n`;
+    });
+    tablesListsInstructions += "Build these tables with real, useful data. GFM syntax with pipes and a header separator row.";
+  }
+  if (competitorLists?.length) {
+    tablesListsInstructions += "\n\nLISTS (from competitor analysis):\n";
+    competitorLists.forEach((l: any, i: number) => {
+      tablesListsInstructions += `${i + 1}. ${l.type === "numbered" ? "Numbered" : l.type === "checklist" ? "Checklist" : "Bulleted"} list about "${l.topic}"${l.estimated_items ? ` (~${l.estimated_items} items)` : ""}\n`;
+    });
+    tablesListsInstructions += "Fold these lists into the matching sections naturally.";
+  }
+
+  const lsiCount = lsiKeywords.length;
+  const factBlock = `### SOURCE MATERIAL & STRUCTURE
+Top-10 SERP context:
+${competitorStr || "No competitor data provided."}
+
+LSI KEYWORDS (must appear in the body):
+${lsiStr || "None"}
+${lsiCount > 0 ? `- Total LSI: ${lsiCount}. Cover AT LEAST ${Math.max(1, Math.ceil(lsiCount * 0.8))} of them (80%+).
+- Distribute them across the article — do NOT cluster in one paragraph.
+- Vary forms (singular/plural, possessive) as grammar demands.
+- The first 5 LSI are priority — thread them into H2/H3 or the opening sentences of their section.` : ""}
+
+ARTICLE OUTLINE (follow these headings; enrich each with the author's voice):
+${outlineStr || "Write a comprehensive article on the target keyword."}
+${tablesListsInstructions}
+${deepAnalysisContext ? `\nDEEP-ANALYSIS CONTEXT FROM TOP-10:\n${deepAnalysisContext}` : ""}`;
+
+  const stealthBlock = `### GLOBAL STEALTH PROTOCOL (highest priority)
+
+TARGET LANGUAGE: English. All output — Title, H1, Headings, Body, FAQ, meta — MUST be in English regardless of persona description language.
+
+DYNAMIC BURSTINESS (rhythm):
+- Pattern per paragraph: [short 3-6 word punch] → [medium 8-14 words] → [long 20-30 words with sub-clauses] → [short summary]. Never three sentences of the same length in a row.
+- Sentence-length standard deviation across the article must be > 4 words.
+- At least 30% of sentences under 8 words, at least 20% over 20 words.
+
+MANDATORY CONTRACTIONS (this is the #1 EN AI-tell):
+- Use it's / don't / you'll / can't / won't / I've / we've / they're. Full forms only when emphasis genuinely requires it.
+
+FIRST PERSON + DIRECT ADDRESS:
+- Speak from the author persona: "I've seen", "in my last three projects", "from what I've tested" — but only when it fits the persona's voice.
+- Address the reader with "you". Ask 3-4 rhetorical questions across the body (NOT in FAQ) to break rhythm.
+
+PARAGRAPH OPENERS (variety enforced):
+- Never start two consecutive paragraphs with the same construction. Rotate between: statement of fact, question, personal-experience opener, direct number, short contrast, imperative.
+- Study the four few-shot pairs below — each opens differently on purpose. Do the same.
+
+${buildBanlistBlock()}
+
+PLUS THESE INLINE PATTERNS ARE BANNED (rewrite if produced):
+  "in today's world" → cut the framing, start with the concrete problem
+  "let's dive into" → cut, start with the point
+  "when it comes to X" → replace with a specific scenario
+  "the world of X" → cut
+  "unlock the power of" → cut
+  "at the end of the day" → cut or replace with a concrete outcome
+  "here's the thing" (as opener) → allowed maximum once per article
+
+ANONYMOUS-AUTHORITY BAN (fake E-E-A-T — highest priority):
+- No unattributed appeals to authority: "experts say", "specialists note", "practice shows", "studies show", "research suggests", "industry insiders", "many professionals agree", "it is widely known", "sources indicate".
+- Every authority claim needs a named source (person, company, publication, dataset) OR must be rewritten as first-person observation from the persona ("on the last 12 jobs I ran…", "in my clinic we see…").
+- Do NOT invent experts, studies, statistics, laws, standards, or citations that are not in the SERP/entity/data-nugget context.
+
+NUMERIC CONSISTENCY:
+- Every number, unit, currency, percentage, date, range, and count you introduce must appear consistently across intro, body, tables, and FAQ. If H1 says "5 mistakes", list exactly 5.
+- Do not fabricate statistics. If you need a number and the context doesn't give one, hedge ("most", "the majority I've seen", "roughly two-thirds") or drop the sentence.
+
+NO KEYWORD-STUFFING / NOMINATIVE PILE-UPS:
+- No chains of 4+ nouns/modifiers in a row ("chlorine levels pool Arizona summer"). Rewrite as a grammatical clause with a verb.
+- Target keyword: once in H1, 2-3 times in body, always inside a grammatical sentence — never as a bare noun-phrase heading.
+- Do not repeat the exact keyword in two consecutive sentences.
+- Do not put a keyword in a heading in a form that breaks grammar just to include it.
+
+EM-DASH DISCIPLINE (strong AI signal):
+- Maximum 2 em-dashes ("—") in the entire article. Prefer commas, periods, colons, parentheses.
+- Never use em-dashes to pad rhythm ("It's fast — really fast — and cheap."). Cut the middle clause or make it a separate sentence.
+- Do NOT substitute en-dashes or double-hyphens to game the count; restructure the sentence.
+
+ACTIVE VOICE dominant. Passive maximum 10% of sentences.`;
+
+  const geoProtocol = `### GEO (Generative Engine Optimization) PROTOCOL
+1. Direct-Answer-First per section: the first paragraph after EVERY H2/H3 opens with a compact, dry, 15-25-word answer to the section's implicit question. No warm-up.
+2. Entity linking: weave named entities from the SERP/entity context ("According to [Brand]…", "In [Publication]'s teardown…"). Do not invent entities.
+3. Structured data love: use lists and tables where they fit — AI parsers cite them at 5× the rate of plain prose.
+4. Section self-containment: any H2/H3 should read as a standalone answer when quoted out of context.`;
+
+  const dataNuggetsBlock = dataNuggets?.length
+    ? `### DATA NUGGETS (integrate as personal findings, not bullet points)
+${dataNuggets.map((n, i) => `${i + 1}. ${n}`).join("\n")}
+- Present each as a first-person observation ("we tested and found…") through the persona's lens. Never dump as a list.`
+    : "";
+
+  const seoKeywordsBlock = seoKeywords?.trim()
+    ? `### USER-PROVIDED SEO KEYWORDS
+Integrate these keys naturally: ${seoKeywords}
+- Vary word forms (singular/plural, possessive) so grammar stays clean.
+- Distribute them across the article — no clustering.
+- Never insert a key as a bare noun phrase if that breaks the sentence.`
+    : "";
+
+  const geoBlock = geoLocation?.trim()
+    ? `### GEO-LOCALIZATION
+Target geo: ${geoLocation}
+- Mention "${geoLocation}" (or its adjective form) in H1 and in the first paragraph.
+- Reference it 2-4 more times across the body — vary with "locally", "in the area", "residents here", "in and around ${geoLocation}".
+- If the topic depends on geography (climate, regulations, logistics, prices), include one H2 that addresses ${geoLocation}-specific realities.`
+    : "";
+
+  const customBlock = customInstructions?.trim()
+    ? `### CLIENT REQUIREMENTS (absolute priority — overrides any style rule if in conflict)
+"""
+${customInstructions}
+"""
+Every named fact, brand, number, and condition MUST appear in the finished article. Present as expert observation, not as advertising, unless the client says otherwise.`
+    : "";
+
+  const showTable = includeComparisonTable !== false;
+  const showQuote = includeExpertQuote !== false;
+
+  const formattingBlock = `### FORMATTING RULES
+- OUTPUT FORMAT: clean Markdown only. Start with a single "# H1" as the very first line. Then H2 sections ("## "), H3 sub-sections ("### ") where useful.
+- Minimum 4 H2 sections unless the outline already dictates more.
+- NO HTML tags anywhere. No <p>, <div>, <span>, <br>, <script>, no style="…".
+- NO JSON-LD, no <!-- FAQ Schema --> comments — schema is generated by a separate step.
+- NO bold for keywords/LSI/entities. Bold ONLY for genuine semantic emphasis on original ideas, and sparingly.
+- Heading case: sentence case. Do NOT Title Case Every Word. Proper nouns keep their capitalization.
+- Em-dash: see EM-DASH DISCIPLINE above (max 2 in the article, hyphen "-" otherwise).
+${showTable
+  ? `- TABLES: include 1-2 comparison tables with real data. GFM only:
+
+| Column 1 | Column 2 | Column 3 |
+| --- | --- | --- |
+| Value 1 | Value 2 | Value 3 |`
+  : `- TABLES: do NOT include tables.`}
+- LISTS: at least 2-3 bulleted or numbered lists across different sections. Vary types.
+${showQuote
+  ? `- QUOTES: allowed only if attributed to a real, named source from the SERP/entity context. NEVER fabricate an expert name, title, or company. If no named source exists, replace the quote with a scenario ("Typical case: …") or a first-person paragraph from the persona.`
+  : `- QUOTES: do not include expert quotes.`}`;
+
+  const faqBlock = `### FAQ (mandatory)
+- End the article with "## Quick-fire Q&A" (or an equivalent EN heading that fits the topic — never "Frequently Asked Questions" verbatim).
+- 5-7 Q&A pairs based on real user questions from the SERP context.
+- Format: "### <question>\\n<answer 1-4 sentences>".
+- Conversational — like answering in a chat, not a legal FAQ.
+- Vary answer length aggressively: one 1-sentence, one 4-sentence.
+- Direct-Answer-First: the first sentence of each answer IS the answer. Context after.
+- Do NOT add JSON-LD, <script>, or "<!-- FAQ Schema -->" — schema is a separate pipeline step.`;
+
+  const conclusionBlock = `### CONCLUSION
+- After all outline sections, write a final section with a UNIQUE 2-5 word heading tied to the topic. Do NOT use: "Conclusion", "In Conclusion", "The Bottom Line", "Key Takeaways", "Summary", "Wrapping Up", "Final Thoughts", "TL;DR".
+- Must contain: (a) 3-4-sentence summary of what mattered, (b) one authorial opinion or non-obvious insight, (c) one CTA or open question for the reader.
+- Written in the persona's voice, not in a "let me summarize" register.`;
+
+  const zeroRepeat = `### ZERO REPETITION
+Before writing each new section, mentally check: has this concept been explained above? If yes — move to a new angle (implementation detail, edge case, contrarian view). Every section = new value, not a paraphrase of the previous one.`;
+
+  const interlinkingBlock = interlinkingContext && interlinkingContext.articles.length > 0
+    ? `### INTERNAL LINKING (SEO)
+Project: "${interlinkingContext.projectName}" (${interlinkingContext.domain})
+Available URLs:
+${interlinkingContext.articles.map((a) => `- "${a.title}" → ${a.url}`).join("\n")}
+- Place up to 3 internal links, each with a DIFFERENT natural anchor woven into a sentence.
+- Only link to topically related pages. Never place links in the first or last paragraph.`
+    : "";
+
+  const authorOverride = authorProfile && authorProfile.type !== "preset" && authorProfile.system_instruction?.trim()
+    ? `\n\n═══════════════════════════════════════════════
+### ABSOLUTE FINAL OVERRIDE — USER'S OWN SYSTEM PROMPT (highest priority)
+═══════════════════════════════════════════════
+Below is the system prompt the user attached to this author. It OVERRIDES every rule above (style, tone, structure, formatting, bans). If any rule above conflicts with this prompt, follow this prompt.
+
+--- USER PROMPT START ---
+${authorProfile.system_instruction.trim()}
+--- USER PROMPT END ---
+
+Re-read this prompt before every paragraph.`
+    : "";
+
+  return `### TEMPORAL CONTEXT (must follow)
+NOW: ${monthEn} ${currentYear}. Current year is ${currentYear}.
+- Any bare year reference defaults to ${currentYear}.
+- Do NOT write about ${prevYear} as if it were the present.
+- "Currently", "this year", "as of today", "right now" = ${currentYear}.
+- "Recently" / "lately" = second half of ${prevYear} through ${currentYear}.
+- ${nextYear} appears only as forecast or upcoming trend.
+- Do not fabricate ${currentYear}-specific statistics if not in the source data — hedge with "in recent seasons", "over the past few years", or drop.
+
+### ROLE & MISSION
+You are a senior SEO engineer and content strategist. Your job: produce expert-level content that is indistinguishable from a human working practitioner (0% AI-detector score) and that dominates Google SGE / LLM-search citations (GEO).
+
+${personaBlock}
+
+${factBlock}
+
+${stealthBlock}
+
+${geoProtocol}
+
+${zeroRepeat}
+
+${formattingBlock}
+
+${faqBlock}
+
+${conclusionBlock}
+
+${dataNuggetsBlock}
+
+${seoKeywordsBlock}
+
+${geoBlock}
+
+${customBlock}
+
+${interlinkingBlock}
+
+${FEW_SHOT_BLOCK}
+
+### FINAL INSTRUCTION
+- No meta-commentary. No "in this article we will…". Start with # H1 and write the article.
+- Target keyword: "${keyword.seed_keyword}". Search intent: ${keyword.intent || "informational"}.
+- Write EVERYTHING in English.${authorOverride}`;
+}
+
+export function buildEnWriterUser(
+  keyword: any,
+  outlineStr: string,
+  competitorStr: string,
+  lsiStr: string,
+  questionsStr: string,
+  opts: {
+    anchorLinks?: { url: string; anchor: string }[];
+    mustCoverTopics?: string[];
+    contentGaps?: any[];
+    entities?: string[];
+    expertInsights?: { recommendation: string; eeat_category: string; impact: string }[];
+    seoKeywords?: string | null;
+    geoLocation?: string | null;
+    customInstructions?: string | null;
+  } = {},
+): string {
+  const { anchorLinks, mustCoverTopics, contentGaps, entities, expertInsights, seoKeywords, geoLocation, customInstructions } = opts;
+
+  const seoList = (seoKeywords || "").split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+  const userSeoBlock = seoList.length ? `\n🔴 USER-PROVIDED SEO KEYWORDS — every one MUST appear:
+${seoList.map((k, i) => `${i + 1}. "${k}" — at least 1 natural occurrence. Vary form (plural/possessive) as grammar requires. Never insert as a bare noun phrase that breaks the sentence.`).join("\n")}
+- At least ONE of these keys goes into H1 or Title.
+- Spread the rest across H2 headings and body.
+- Max 3 occurrences per key. Never cluster keys in one paragraph.
+- Missing key = article is invalid.\n` : "";
+
+  const userGeoBlock = geoLocation?.trim() ? `\n🔴 GEO ANCHOR: "${geoLocation}" — critical, do not ignore:
+- H1 MUST include "${geoLocation}" (or its adjective form).
+- The first paragraph MUST include "${geoLocation}".
+- Mention "${geoLocation}" at least 4 times across the article (H1 and intro count).
+- At least ONE H2 addresses ${geoLocation}-specific realities (climate, regulation, logistics, local prices/demand).
+- Synonyms allowed: "in ${geoLocation}", "locally", "residents here", "${geoLocation} and the surrounding area".\n` : "";
+
+  const userCustomBlock = customInstructions?.trim() ? `\n🔴 CLIENT REQUIREMENTS — highest priority (execute ALL):
+"""
+${customInstructions}
+"""
+- Above competitors, above LSI, above structure. In conflict, THESE win.
+- Every named fact / brand / number / condition MUST appear in the final text.
+- Present as expert observation, not advertising (unless the client says otherwise).
+- The conclusion must reference at least one item from these requirements.\n` : "";
+
+  const userParamsHeader = (seoList.length || geoLocation?.trim() || customInstructions?.trim())
+    ? `═══════════════════════════════════════════
+🔴 USER PARAMETERS — process FIRST. These override every other context (SERP, LSI, general rules).
+═══════════════════════════════════════════${userSeoBlock}${userGeoBlock}${userCustomBlock}
+═══════════════════════════════════════════
+END OF USER PARAMETERS
+═══════════════════════════════════════════
+`
+    : "";
+
+  const topicsBlock = mustCoverTopics?.length
+    ? `\nMUST-COVER TOPICS (from competitor analysis):
+${mustCoverTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}
+- Each topic gets its own paragraph or section.\n`
+    : "";
+
+  const gapsBlock = contentGaps?.length
+    ? `\nCONTENT GAPS (topics competitors missed — your edge):
+${contentGaps.map((g, i) => `${i + 1}. ${typeof g === "string" ? g : `${g.topic} — ${g.reason || ""}`}`).join("\n")}
+- Use these gaps to make the article deeper and more useful than the top-10.\n`
+    : "";
+
+  const entitiesBlock = entities?.length
+    ? `\nTOP-10 ENTITIES (terms, brands, concepts to include):
+${entities.slice(0, 30).join(", ")}
+- Include at least 70% of these entities naturally in the body.\n`
+    : "";
+
+  const insightsBlock = expertInsights?.length
+    ? `\nE-E-A-T INSIGHTS (mandatory integration):
+${expertInsights.map((ins, i) => `${i + 1}. [${(ins.eeat_category || "").toUpperCase()}] ${ins.recommendation}`).join("\n")}
+- Weave each into the relevant section naturally, not as a separate block.\n`
+    : "";
+
+  const activeAnchors = (anchorLinks || []).filter((l) => l.url && l.anchor);
+  const anchorBlock = activeAnchors.length ? `\nANCHOR LINKS (insert exactly as written):
+${activeAnchors.map((l, i) => `${i + 1}. [${l.anchor}](${l.url})`).join("\n")}
+- Use the EXACT URL and anchor. Do not invent or swap.
+- Distribute evenly. Never in the first or last paragraph.\n` : "";
+
+  const allowedUrls = activeAnchors.map((l) => l.url);
+  const noExternalLinksBlock = allowedUrls.length
+    ? `\n🚫 EXTERNAL LINKS — strict rule:
+- Only these URLs are allowed as markdown links: ${allowedUrls.join(", ")}.
+- No other [text](url) anywhere in the body.
+- Marketplace / brand names may be mentioned as plain text only (never as links).\n`
+    : `\n🚫 EXTERNAL LINKS — strict rule:
+- No markdown links [text](url) anywhere in the body.
+- Marketplace / brand names may be mentioned as plain text only.\n`;
+
+  const finalReminder = (seoList.length || geoLocation?.trim() || customInstructions?.trim()) ? `
+
+═══════════════════════════════════════════
+🔴 FINAL CHECK BEFORE YOU START WRITING (do this silently):
+${seoList.length ? `□ Every SEO key from the list (${seoList.length}) is placed at least once.\n` : ""}${seoList.length ? "□ One SEO key sits in H1 or Title.\n" : ""}${geoLocation?.trim() ? `□ "${geoLocation}" is in H1 and in the first paragraph.\n` : ""}${geoLocation?.trim() ? `□ "${geoLocation}" is mentioned at least 4 times.\n` : ""}${geoLocation?.trim() ? `□ At least one H2 addresses ${geoLocation}-specific realities.\n` : ""}${customInstructions?.trim() ? "□ Every client requirement is honored, every named fact/brand/number placed.\n" : ""}If any box is unchecked — rewrite the relevant section before responding.
+═══════════════════════════════════════════` : "";
+
+  return `${userParamsHeader}TARGET KEYWORD: "${keyword.seed_keyword}"
+SEARCH INTENT: ${keyword.intent || "informational"}
+
+ARTICLE OUTLINE:
+${outlineStr || "Write a comprehensive article on the target keyword."}
+
+COMPETITOR DATA (top-10):
+${competitorStr || "No competitor data."}
+
+LSI KEYWORDS (use at least 80%, distribute evenly):
+${lsiStr || "None"}
+
+USER QUESTIONS:
+${questionsStr ? `- ${questionsStr}` : "None"}
+${topicsBlock}${gapsBlock}${entitiesBlock}${insightsBlock}${anchorBlock}
+${noExternalLinksBlock}
+TARGET LENGTH: ${keyword.difficulty && keyword.difficulty > 50 ? "2000-3000" : "1500-2000"} words.
+
+IMPORTANT: the article MUST start with a single H1 (# heading) as the very first line.${geoLocation?.trim() ? ` H1 MUST include "${geoLocation}".` : ""} H1 must include the target keyword.${finalReminder}
+
+Now write the complete article, starting with the # H1.`;
+}
