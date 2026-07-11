@@ -9,7 +9,7 @@ import {
   buildNewArticleUserPrompt,
   type StealthPromptInput,
 } from "../_shared/promptBuilder.ts";
-import { SERP_CLUSTER_DISCIPLINE_ADDON } from "../_shared/serpClusterPrompt.ts";
+import { buildSerpClusterDisciplineAddon } from "../_shared/serpClusterPrompt.ts";
 import { buildSerpEntityDisciplineAddon } from "../_shared/serpEntityDiscipline.ts";
 import { ANTI_TURGENEV_ADDON, buildAntiTurgenevAddon } from "../_shared/antiTurgenevAddon.ts";
 import { getStyleProfile } from "../_shared/styleProfile.ts";
@@ -391,22 +391,56 @@ serve(async (req) => {
           .maybeSingle();
         const facts = cached?.facts;
         if (facts && typeof facts === "object") {
+          const isEn = articleLang === "en";
+          const L = isEn
+            ? {
+                service_name: "Service/product",
+                usp: "USP",
+                key_numbers: "Key numbers",
+                features: "Features",
+                brands: "Brands/models",
+                audience: "Audience",
+                location: "Location",
+                pricing: "Pricing/format",
+                guarantees: "Guarantees/certifications",
+                delivery: "Delivery/installation",
+                contacts: "Contacts/hours",
+                must_mention: "Must mention",
+              }
+            : {
+                service_name: "Услуга/продукт",
+                usp: "УТП",
+                key_numbers: "Ключевые цифры",
+                features: "Особенности",
+                brands: "Бренды/модели",
+                audience: "Аудитория",
+                location: "Гео",
+                pricing: "Цены/формат",
+                guarantees: "Гарантии/сертификаты",
+                delivery: "Доставка/монтаж",
+                contacts: "Контакты/режим",
+                must_mention: "Обязательно упомянуть",
+              };
           const lines: string[] = [];
-          if (facts.service_name) lines.push(`Услуга/продукт: ${facts.service_name}`);
-          if (facts.usp) lines.push(`УТП: ${facts.usp}`);
-          if (Array.isArray(facts.key_numbers) && facts.key_numbers.length) lines.push(`Ключевые цифры: ${facts.key_numbers.join("; ")}`);
-          if (Array.isArray(facts.features) && facts.features.length) lines.push(`Особенности: ${facts.features.join("; ")}`);
-          if (Array.isArray(facts.brands) && facts.brands.length) lines.push(`Бренды/модели: ${facts.brands.join("; ")}`);
-          if (facts.audience) lines.push(`Аудитория: ${facts.audience}`);
-          if (facts.location) lines.push(`Гео: ${facts.location}`);
-          if (facts.pricing) lines.push(`Цены/формат: ${facts.pricing}`);
-          if (facts.guarantees) lines.push(`Гарантии/сертификаты: ${facts.guarantees}`);
-          if (facts.delivery) lines.push(`Доставка/монтаж: ${facts.delivery}`);
-          if (facts.contacts) lines.push(`Контакты/режим: ${facts.contacts}`);
-          if (Array.isArray(facts.must_mention) && facts.must_mention.length) lines.push(`Обязательно упомянуть: ${facts.must_mention.join("; ")}`);
+          if (facts.service_name) lines.push(`${L.service_name}: ${facts.service_name}`);
+          if (facts.usp) lines.push(`${L.usp}: ${facts.usp}`);
+          if (Array.isArray(facts.key_numbers) && facts.key_numbers.length) lines.push(`${L.key_numbers}: ${facts.key_numbers.join("; ")}`);
+          if (Array.isArray(facts.features) && facts.features.length) lines.push(`${L.features}: ${facts.features.join("; ")}`);
+          if (Array.isArray(facts.brands) && facts.brands.length) lines.push(`${L.brands}: ${facts.brands.join("; ")}`);
+          if (facts.audience) lines.push(`${L.audience}: ${facts.audience}`);
+          if (facts.location) lines.push(`${L.location}: ${facts.location}`);
+          if (facts.pricing) lines.push(`${L.pricing}: ${facts.pricing}`);
+          if (facts.guarantees) lines.push(`${L.guarantees}: ${facts.guarantees}`);
+          if (facts.delivery) lines.push(`${L.delivery}: ${facts.delivery}`);
+          if (facts.contacts) lines.push(`${L.contacts}: ${facts.contacts}`);
+          if (Array.isArray(facts.must_mention) && facts.must_mention.length) lines.push(`${L.must_mention}: ${facts.must_mention.join("; ")}`);
           if (lines.length) {
-            sourcePageBlock = `\n\n═══════════════════════════════════════════\n🔴 ФАКТЫ С САЙТА ПОЛЬЗОВАТЕЛЯ (URL: ${resolvedUrl}) — ВЫСШИЙ ПРИОРИТЕТ\n═══════════════════════════════════════════\nКРИТИЧНО: эти факты ПЕРЕБИВАЮТ данные ТОП-10 конкурентов. При любом конфликте между фактами конкурентов и фактами ниже — выигрывают факты ниже.\n- Если на странице указано "5 дней" — пиши "5 дней", а не "от 1 до 10".\n- Все цифры, названия услуг, бренды, цены, гарантии, контакты должны соответствовать ИМЕННО этому сайту.\n- Минимум 3 факта из списка ниже должны быть органично вплетены в основной текст статьи (не в FAQ).\n- УТП и ключевые цифры должны прозвучать во введении или в первом H2-разделе.\n- "Обязательно упомянуть" — упомянуть КАЖДЫЙ пункт из этого подсписка минимум один раз.\n\n${lines.join("\n")}\n═══════════════════════════════════════════\nКОНЕЦ ФАКТОВ С САЙТА\n═══════════════════════════════════════════`;
-            console.log("[generate-article] injected source page facts from", resolvedUrl);
+            if (isEn) {
+              sourcePageBlock = `\n\nUser's website facts (URL: ${resolvedUrl}) — HIGHEST PRIORITY\nThese facts override any TOP-10 competitor data. On any conflict between competitor data and the facts below, the facts below win.\n- If the page says "5 days", write "5 days", not "1 to 10".\n- All numbers, service names, brands, prices, guarantees, and contacts must match this specific site.\n- At least 3 facts below must be woven naturally into the main body (not just the FAQ).\n- The USP and key numbers must appear in the intro or the first H2 section.\n- "Must mention" items must each appear at least once.\n\n${lines.join("\n")}\nEnd of website facts.`;
+            } else {
+              sourcePageBlock = `\n\n═══════════════════════════════════════════\n🔴 ФАКТЫ С САЙТА ПОЛЬЗОВАТЕЛЯ (URL: ${resolvedUrl}) — ВЫСШИЙ ПРИОРИТЕТ\n═══════════════════════════════════════════\nКРИТИЧНО: эти факты ПЕРЕБИВАЮТ данные ТОП-10 конкурентов. При любом конфликте между фактами конкурентов и фактами ниже — выигрывают факты ниже.\n- Если на странице указано "5 дней" — пиши "5 дней", а не "от 1 до 10".\n- Все цифры, названия услуг, бренды, цены, гарантии, контакты должны соответствовать ИМЕННО этому сайту.\n- Минимум 3 факта из списка ниже должны быть органично вплетены в основной текст статьи (не в FAQ).\n- УТП и ключевые цифры должны прозвучать во введении или в первом H2-разделе.\n- "Обязательно упомянуть" — упомянуть КАЖДЫЙ пункт из этого подсписка минимум один раз.\n\n${lines.join("\n")}\n═══════════════════════════════════════════\nКОНЕЦ ФАКТОВ С САЙТА\n═══════════════════════════════════════════`;
+            }
+            console.log("[generate-article] injected source page facts from", resolvedUrl, "lang:", articleLang);
           }
         } else {
           console.log("[generate-article] source_page_url provided but no cached facts:", resolvedUrl);
@@ -417,7 +451,7 @@ serve(async (req) => {
     }
 
     const systemPrompt = (lexiconBlock ? `${baseSystemPrompt}\n\n${lexiconBlock}` : baseSystemPrompt)
-      + SERP_CLUSTER_DISCIPLINE_ADDON
+      + buildSerpClusterDisciplineAddon(articleLang)
       + antiTurgBlock
       + serpEntityBlock
       + sourcePageBlock;
