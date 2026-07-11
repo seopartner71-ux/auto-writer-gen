@@ -2,6 +2,24 @@
 import type { Dict } from './types';
 
 export const article: Dict = {
+  // Inline AI toolbar
+  "inline.shorter": { ru: "Короче", en: "Shorter" },
+  "inline.longer": { ru: "Длиннее", en: "Longer" },
+  "inline.simpler": { ru: "Проще", en: "Simpler" },
+  "inline.example": { ru: "Пример", en: "Example" },
+  "inline.expert": { ru: "Экспертнее", en: "Expert" },
+  "inline.rewrite": { ru: "Перепиши", en: "Rewrite" },
+  "inline.selectionTooLong": { ru: "Слишком длинный фрагмент (макс 6000 символов)", en: "Selection too long (max 6000 chars)" },
+  "inline.emptyResponse": { ru: "Пустой ответ", en: "Empty response" },
+  "inline.commandFailed": { ru: "Не удалось выполнить команду", en: "AI command failed" },
+  "inline.textReplaced": { ru: "Текст заменен", en: "Text replaced" },
+  "inline.previewTitle": { ru: "Предпросмотр правки", en: "AI rewrite preview" },
+  "inline.previewDesc": { ru: "Сравните оригинал и версию ИИ, затем примите или отмените.", en: "Compare the original and the AI version, then accept or cancel." },
+  "inline.original": { ru: "Оригинал", en: "Original" },
+  "inline.aiVersion": { ru: "Версия ИИ", en: "AI version" },
+  "inline.cancel": { ru: "Отмена", en: "Cancel" },
+  "inline.tryAgain": { ru: "Ещё раз", en: "Try again" },
+  "inline.replace": { ru: "Заменить", en: "Replace" },
   // Keywords / Smart Research
   "keywords.title": { ru: "Smart Research", en: "Smart Research" },
   "keywords.subtitle": { ru: "Анализ выдачи Google и интеллектуальная обработка конкурентов", en: "Google SERP analysis and intelligent competitor processing" },
