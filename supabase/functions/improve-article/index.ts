@@ -2522,10 +2522,29 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       // structure are language-agnostic.
       const artLang = String((art as any).language || "ru").toLowerCase();
       const isRu = artLang === "ru";
+      let scanStyleProfile: StyleProfile = getStyleProfile(null);
+      if ((art as any).author_profile_id) {
+        try {
+          const { data: scanAuthor } = await admin.from("author_profiles")
+            .select("id,name,language,style_analysis")
+            .eq("id", (art as any).author_profile_id)
+            .maybeSingle();
+          const kept = assertPersonaLanguage({
+            authorProfile: scanAuthor,
+            articleLang: isRu ? "ru" : "en",
+            context: {
+              fn: "improve-article",
+              userId: (art as any).user_id ?? null,
+              articleId: (art as any).id ?? null,
+            },
+          });
+          if (kept) scanStyleProfile = getStyleProfile((scanAuthor?.style_analysis as any)?.syntax_profile);
+        } catch (_) { /* keep default */ }
+      }
       const scan = {
         sentence_structure: analyzeSentenceStructure(plainForScan),
         cancellary: analyzeCancellary(plainForScan, {
-          ...cancellaryOptionsFromStyleProfile(styleProfile),
+          ...cancellaryOptionsFromStyleProfile(scanStyleProfile),
           language: isRu ? "ru" : "en",
         }),
         dangling: analyzeDanglingThoughts((art.content as string) || ""),
