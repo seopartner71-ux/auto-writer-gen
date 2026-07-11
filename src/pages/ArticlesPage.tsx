@@ -1093,17 +1093,10 @@ export default function ArticlesPage() {
       queryClient.invalidateQueries({ queryKey: ["articles-list"] });
       if (result.isNew) {
         queryClient.invalidateQueries({ queryKey: ["profile"] });
-        toast.success(
-          lang === "ru"
-            ? "Статья сохранена, баланс обновлён"
-            : "Article saved, balance updated",
-          {
-            description: lang === "ru"
-              ? "Статья автоматически сохранена после генерации. Баланс обновлён."
-              : "Article was auto-saved after generation. Balance updated.",
-            duration: 6000,
-          }
-        );
+        toast.success(t("articles.savedBalanceUpdated"), {
+          description: t("articles.savedBalanceUpdatedDesc"),
+          duration: 6000,
+        });
       } else {
         toast.success(t("articles.articleSaved"));
       }
@@ -1290,29 +1283,29 @@ export default function ArticlesPage() {
                 try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
                 // Триггерим показ кнопки «Дописать» (та же логика, что для finish_reason=length)
                 setFinishReason("length");
-                toast.success("Черновик восстановлен - нажмите «Дописать», чтобы продолжить");
+                toast.success(t("articles.draftRestoredContinue"));
                 // Прокручиваем к кнопке продолжения
                 setTimeout(() => {
                   const el = document.querySelector('[data-continue-generation]') as HTMLElement | null;
                   el?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }, 100);
               }}
-              className="px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-500 text-amber-950 hover:bg-amber-400"
-            >
-              Восстановить и дописать
-            </button>
+                className="px-3 py-1.5 rounded-md text-xs font-semibold bg-amber-500 text-amber-950 hover:bg-amber-400"
+              >
+                {t("articles.restoreAndContinue")}
+              </button>
             <button
               type="button"
               onClick={() => {
                 setContent(interruptedDraft);
                 setInterruptedDraft(null);
                 try { localStorage.removeItem("aiwriter_partial_draft"); } catch { /* ignore */ }
-                toast.success("Черновик восстановлен");
+                toast.success(t("articles.draftRestored"));
               }}
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 border border-amber-500/40"
-            >
-              Только восстановить
-            </button>
+                className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 border border-amber-500/40"
+              >
+                {t("articles.onlyRestore")}
+              </button>
             <button
               type="button"
               onClick={() => {
@@ -1450,7 +1443,7 @@ export default function ArticlesPage() {
                       disabled={titleVariantsLoading}
                       onClick={async () => {
                         const kw = selectedKeyword?.seed_keyword || h1 || title;
-                        if (!kw) { toast.error("Выберите ключевое слово"); return; }
+                        if (!kw) { toast.error(t("articles.chooseKeyword")); return; }
                         setTitleVariantsOpen(true);
                         setTitleVariants([]);
                         setSelectedTitleVariant("");
@@ -1463,10 +1456,10 @@ export default function ArticlesPage() {
                           if (error) throw error;
                           if (data?.error) throw new Error(data.error);
                           const arr: string[] = Array.isArray(data?.titles) ? data.titles : [];
-                          if (arr.length === 0) throw new Error("Не удалось сгенерировать варианты");
+                          if (arr.length === 0) throw new Error(t("articles.titleGenEmpty"));
                           setTitleVariants(arr);
                         } catch (e: any) {
-                          toast.error(e?.message || "Ошибка генерации заголовков");
+                          toast.error(e?.message || t("articles.titleGenError"));
                           setTitleVariantsOpen(false);
                         } finally {
                           setTitleVariantsLoading(false);
@@ -1658,10 +1651,10 @@ export default function ArticlesPage() {
                         try {
                           const blob = await markdownToDocxBlob(content, title, metaDescription);
                           saveAs(blob, safeFilename(title, "docx"));
-                          toast.success("Файл .docx скачан");
+                          toast.success(t("articles.docxDownloaded"));
                         } catch (e) {
                           console.error("[docx export]", e);
-                          toast.error("Ошибка экспорта в .docx");
+                          toast.error(t("articles.docxExportError"));
                         }
                       }}
                     >
@@ -1699,15 +1692,13 @@ export default function ArticlesPage() {
                                   lang,
                                 },
                               });
-                              if (error || !data?.success) throw new Error(data?.error || (lang === "ru" ? "Ошибка публикации" : "Publish error"));
+                              if (error || !data?.success) throw new Error(data?.error || t("articles.telegraphPublishError"));
                               setTelegraphPath(data.url ? "exists" : "");
                               setTelegraphUrl(data.url);
-                              const msg = data.is_update
-                                ? (lang === "ru" ? "Пост в Telegra.ph успешно обновлен" : "Telegra.ph post successfully updated")
-                                : (lang === "ru" ? "Опубликовано в Telegra.ph!" : "Published to Telegra.ph!");
-                              toast.success(msg, { description: data.url, action: { label: lang === "ru" ? "Открыть" : "Open", onClick: () => window.open(data.url, "_blank") } });
+                              const msg = data.is_update ? t("articles.telegraphUpdated") : t("articles.telegraphPublished");
+                              toast.success(msg, { description: data.url, action: { label: t("articles.open"), onClick: () => window.open(data.url, "_blank") } });
                             } catch (e: any) {
-                              toast.error(e.message || "Ошибка Telegra.ph");
+                              toast.error(e.message || t("articles.telegraphError"));
                             } finally {
                               setPublishingTo(null);
                             }
@@ -2071,7 +2062,7 @@ export default function ArticlesPage() {
                             } catch { buffer = line + "\n" + buffer; break; }
                           }
                         }
-                        toast.success(lang === "ru" ? "Статья дописана" : "Article completed");
+                        toast.success(t("articles.articleContinued"));
                       } catch (e: any) {
                         if (e.name !== "AbortError") toast.error(e.message);
                       } finally {
@@ -2326,7 +2317,7 @@ export default function ArticlesPage() {
 
                       // Auto-generate SEO Title via AI
                       generateSeoTitle(fullContent);
-                      toast.success("Статья оптимизирована по ТОП-10 бенчмарку");
+                      toast.success(t("articles.benchOptimized"));
                     } catch (e: any) {
                       if (e.name === "AbortError") { toast.info(t("articles.genStopped")); }
                       else { toast.error(e.message); setContent(prevContent); }
@@ -2478,7 +2469,7 @@ export default function ArticlesPage() {
               onComplete={(md, h1Text) => {
                 setContentRaw(md);
                 if (h1Text) { setTitle(h1Text); setH1(h1Text); }
-                toast.success("Статья собрана из разделов");
+                toast.success(t("articles.sectionsAssembled"));
               }}
             />
           </div>
@@ -2535,7 +2526,7 @@ export default function ArticlesPage() {
             )}
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" size="sm" onClick={() => setTitleVariantsOpen(false)}>Закрыть</Button>
+              <Button variant="ghost" size="sm" onClick={() => setTitleVariantsOpen(false)}>{t("common.close")}</Button>
               <Button
                 size="sm"
                 disabled={!selectedTitleVariant}
@@ -2543,10 +2534,10 @@ export default function ArticlesPage() {
                   setH1(selectedTitleVariant);
                   setTitle(selectedTitleVariant.slice(0, 70));
                   setTitleVariantsOpen(false);
-                  toast.success("Заголовок применён");
+                  toast.success(t("articles.titleApplied"));
                 }}
               >
-                Применить выбранный
+                {t("articles.applySelected")}
               </Button>
             </div>
           </div>
