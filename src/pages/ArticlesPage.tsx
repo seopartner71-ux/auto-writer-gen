@@ -905,7 +905,7 @@ export default function ArticlesPage() {
       // если функция не отвечает или возвращает skipped, оставляем оригинал.
       try {
         const { data: polishData } = await supabase.functions.invoke("polish-article", {
-          body: { content: fullContent },
+          body: { content: fullContent, language: article_lang },
         });
         if (polishData?.polished && typeof polishData.content === "string" && polishData.content.length > 200) {
           fullContent = polishData.content;
