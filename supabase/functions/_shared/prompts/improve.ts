@@ -117,6 +117,12 @@ Do not change facts, numbers, brand names, or URLs. Preserve every HTML tag (<h2
 HTML:
 ${content}`);
 
+  registerPrompt("improve.humanize.system", "ru", () =>
+    "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-оберток.");
+
+  registerPrompt("improve.humanize.system", "en", () =>
+    "You are a human editor. Rewrite HTML while preserving every fact, number, brand, URL, and tag. Keep the article in English. Do not translate it into Russian. Return only the final HTML, without markdown fences.");
+
   // ─────────────────────────────────────────────────────────────────────
   // Reserved keys — registered in step 2 after tone approval.
   //
