@@ -552,4 +552,17 @@ export const article: Dict = {
   "articles.sectionsAssembled": { ru: "Статья собрана из разделов", en: "Article assembled from sections" },
   "articles.titleApplied": { ru: "Заголовок применён", en: "Title applied" },
   "articles.applySelected": { ru: "Применить выбранный", en: "Apply selected" },
+
+  // Edge function errors surfaced as toasts (returned via error_key from server)
+  "edge.rateLimitGenerations": { ru: "Превышен лимит генераций. Попробуйте позже.", en: "Generation rate limit exceeded. Please try again later." },
+  "edge.notEnoughCredits": { ru: "Недостаточно кредитов. Пополните баланс.", en: "Not enough credits. Please top up your balance." },
+  "edge.monthlyBudgetExhausted": { ru: "Месячный лимит расходов AI исчерпан. Лимит обновится в начале месяца или повысьте тариф.", en: "Monthly AI spend limit reached. It will reset next month, or upgrade your plan." },
+  "edge.bulkPlanRequired": { ru: "Массовая генерация доступна только на тарифах PRO и FACTORY", en: "Bulk generation is only available on PRO and FACTORY plans" },
+  "edge.qualityTooShort": { ru: "Текст слишком короткий для проверки (минимум 200 символов)", en: "Text is too short to check (minimum 200 characters)" },
+  "edge.qualityTooLong": { ru: "Текст слишком длинный (максимум 50000 символов)", en: "Text is too long (maximum 50000 characters)" },
+  "edge.qualityUniqTooShort": { ru: "Текст слишком короткий для проверки уникальности (минимум 100 символов)", en: "Text is too short for uniqueness check (minimum 100 characters)" },
+  "edge.textruTimeout": { ru: "Text.ru не вернул результат за отведённое время", en: "Text.ru did not respond in time" },
+  "edge.authorComplianceShort": { ru: "Контент слишком короткий для проверки (мин. 100 символов)", en: "Content is too short to check (min. 100 characters)" },
+  "edge.authorComplianceNoProfile": { ru: "Не указан профиль автора", en: "Author profile not specified" },
+  "edge.authorComplianceNotFound": { ru: "Профиль автора не найден", en: "Author profile not found" },
 };

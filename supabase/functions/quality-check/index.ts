@@ -1287,8 +1287,8 @@ const __QC_HANDLER = async (req: Request) => {
     if (!art || art.user_id !== user.id) return json({ error: "Article not found" }, 404);
 
     const plain = stripHtml(normalizedContent);
-    if (plain.length < 200) return json({ error: "Текст слишком короткий для проверки (минимум 200 символов)" }, 400);
-    if (plain.length > 50000) return json({ error: "Текст слишком длинный (максимум 50000 символов)" }, 400);
+    if (plain.length < 200) return json({ error: "Текст слишком короткий для проверки (минимум 200 символов)", error_key: "edge.qualityTooShort" }, 400);
+    if (plain.length > 50000) return json({ error: "Текст слишком длинный (максимум 50000 символов)", error_key: "edge.qualityTooLong" }, 400);
 
     // Charge 1 credit only if uniqueness requested. If text.ru is unusable
     // (no key / no balance / no credits), skip uniqueness silently instead

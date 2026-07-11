@@ -721,7 +721,7 @@ serve(async (req) => {
     const allowedPlans = new Set(["pro", "factory", "business", "enterprise", "admin"]);
     console.log("[bulk-generate][plan-check] user:", userId, "plan:", profile?.plan, "key:", planRaw, "allowed:", allowedPlans.has(planRaw));
     if (!profile || !allowedPlans.has(planRaw)) {
-      return jsonResponse({ error: "Массовая генерация доступна только на тарифах PRO и FACTORY" }, 403);
+      return jsonResponse({ error: "Массовая генерация доступна только на тарифах PRO и FACTORY", error_key: "edge.bulkPlanRequired" }, 403);
     }
 
     const { bulk_job_id } = await req.json();
