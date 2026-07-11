@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAndAnalyze, buildAnalysisContext, type DeepParseResult } from "@/entities/competitor/analysisService";
 import { parseSseStream } from "@/features/article-editor/parseSseStream";
 import type { KeywordRef } from "@/features/article-editor/types";
+import { translate } from "@/shared/hooks/useI18n";
 
 export interface BenchmarkCacheEntry {
   data: DeepParseResult;
@@ -43,13 +44,16 @@ export function useBenchmarkOptimize(deps: BenchmarkOptimizeDeps) {
     const d = depsRef.current;
     if (!d.selectedKeywordId) return;
     if (d.isStreaming) return;
+    const lang = (typeof window !== "undefined"
+      ? (localStorage.getItem("app-lang") as "ru" | "en")
+      : "ru") || "ru";
     const { data: { session: freshSession } } = await supabase.auth.refreshSession();
     const token = freshSession?.access_token;
     if (!token) throw new Error("Not authenticated");
     const cached = d.benchmarkCacheRef.current.get(d.selectedKeywordId);
     let data: DeepParseResult, benchmarkContext: string, instructions: string;
     if (cached) {
-      toast.info("Используем кэш ТОП-10...", { duration: 3000 });
+      toast.info(translate("articles.benchCacheTop10", lang), { duration: 3000 });
       data = cached.data; benchmarkContext = cached.context; instructions = cached.instructions;
     } else {
       const userId = freshSession?.user?.id;
@@ -65,13 +69,13 @@ export function useBenchmarkOptimize(deps: BenchmarkOptimizeDeps) {
         dbHit = row;
       }
       if (dbHit) {
-        toast.info("Используем сохранённый анализ ТОП-10...", { duration: 3000 });
+        toast.info(translate("articles.benchSavedTop10", lang), { duration: 3000 });
         data = (dbHit as any).data;
         benchmarkContext = (dbHit as any).context;
         instructions = (dbHit as any).instructions;
         d.benchmarkCacheRef.current.set(d.selectedKeywordId, { data, context: benchmarkContext, instructions });
       } else {
-        toast.info("Анализ ТОП-10 и сущностей...", { duration: 8000 });
+        toast.info(translate("articles.benchAnalyzingTop10", lang), { duration: 8000 });
         data = await fetchAndAnalyze(d.selectedKeywordId, token, false);
         benchmarkContext = buildAnalysisContext(data);
         instructions = `Перепиши статью с учетом ТОП-10:
@@ -139,7 +143,7 @@ ${data.entities.filter((e:any)=>e.importance>=5).length > 0 ? `\nКлючевы�
         fullContent += delta;
         d.setContent(fullContent);
       });
-      toast.success("Оптимизировано под ТОП-10");
+      toast.success(translate("articles.benchOptimizedTop10", lang));
     } catch (e: any) {
       throw e;
     } finally {
