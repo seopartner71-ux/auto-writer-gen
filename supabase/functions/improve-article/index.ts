@@ -617,8 +617,9 @@ interface PipelineArgs {
   /** Cycle relay pass index (>=2 means this is a relay hop; initial content
    *  was already scored on pass 1 — skip re-scoring to save 60-80s). */
   passIndex?: number;
-  /** Optional sub-step reporter (used by cycle for UI progress: "Гуманизация (Sonnet)" etc). */
-  reportSubStep?: (label: string) => Promise<void>;
+  /** Optional sub-step reporter (used by cycle for UI progress: "Гуманизация (Sonnet)" etc).
+   *  `key` is an i18n key that the client can translate; `label` is a RU fallback. */
+  reportSubStep?: (label: string, key?: string) => Promise<void>;
 }
 
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
@@ -627,8 +628,8 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const isRelay = (args.passIndex ?? 0) >= 2;
   const articleLang = normalizeLang((art as any).language);
   const isRuArticle = articleLang === "ru";
-  const emitSubStep = async (label: string) => {
-    if (reportSubStep) { try { await reportSubStep(label); } catch (_) {} }
+  const emitSubStep = async (label: string, key?: string) => {
+    if (reportSubStep) { try { await reportSubStep(label, key); } catch (_) {} }
   };
   let content = args.initialContent;
   // ── Best-candidate tracking. Every state (initial + after each successful
@@ -1273,7 +1274,7 @@ ${rhythmSharedRules}`);
       let humanizeLlmError: string | undefined;
       let humanizeDurationMs = 0;
       if (orKey) {
-        await emitSubStep("Гуманизация (Sonnet)");
+        await emitSubStep("Гуманизация (Sonnet)", "subStep.humanize_sonnet");
         // 75s был впритык — Sonnet стабильно уходил в timeout и мы падали
         // на gemini-2.5-flash. Поднято до 90s (worker budget всё ещё держит:
         // 90 humanize + 80 judges + overhead ≈ 180s, реле распилит проходы).
@@ -1284,7 +1285,7 @@ ${rhythmSharedRules}`);
       }
       if (!rewritten && lovableKey) {
         humanizeModel = "google/gemini-2.5-flash";
-        await emitSubStep("Гуманизация (Gemini Flash fallback)");
+        await emitSubStep("Гуманизация (Gemini Flash fallback)", "subStep.humanize_flash_fallback");
         // Explicit 12000 max_tokens — default (2000) обрывал длинные RU
         // статьи (finish:"length", 2212 слов → 34), integrity rejected.
         rewritten = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000, { ...llmCtx, functionName: "improve-article/humanize-flash-fb" });
@@ -1307,7 +1308,7 @@ ${rhythmSharedRules}`);
         }
       }
       if (humanizeApplied) {
-        await emitSubStep("Оценка кандидата (судьи)");
+        await emitSubStep("Оценка кандидата (судьи)", "subStep.judges_eval");
         await scoreCandidate(content, "humanize.sonnet");
       }
       recordPass({
@@ -2401,6 +2402,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     of: CYCLE_MAX_PASSES,
     action: null,
     sub_step: "Оценка состояния",
+    sub_step_key: "subStep.state_check",
     ...(isFirstPass ? { started_at: new Date().toISOString(), initial: initialSnap, priority, best: bestSnapshot, no_progress_streak: 0 } : {}),
     pass_started_at: new Date().toISOString(),
   });
@@ -2423,7 +2425,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
     // and only when RU (Turgenev only supports Russian).
     const isRuArt = String((art as any).language || "ru").toLowerCase() === "ru";
     if (isFirstPass && isRuArt && curScores.turg == null && art.content) {
-      await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева (первый шаг)" });
+      await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева (первый шаг)", sub_step_key: "subStep.turgenev_measure" });
       // Up to 2 attempts — external Turgenev API timeouts are usually transient.
       const tryPrescore = async (attempt: number): Promise<boolean> => {
         try {
@@ -2455,7 +2457,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       art = await refreshCycleArt(admin, article_id);
       if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
       if (!ok && curScores.turg == null) {
-        await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева - повторная попытка" });
+        await writeCycleProgress(admin, article_id, { sub_step: "Замер Тургенева - повторная попытка", sub_step_key: "subStep.turgenev_retry" });
         ok = await tryPrescore(2);
         art = await refreshCycleArt(admin, article_id);
         if (art) curScores.turg = (art.turgenev_score as number | null) ?? null;
@@ -2668,6 +2670,10 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         fix === "humanize" ? "Гуманизация (Sonnet)"
         : fix === "turgenev" ? "Тургенев-фикс"
         : "Плотность ключа (первый шаг)",
+      sub_step_key:
+        fix === "humanize" ? "subStep.humanize_sonnet"
+        : fix === "turgenev" ? "subStep.turgenev_fix"
+        : "subStep.keyword_density",
     });
 
     // ── ONE pass ─────────────────────────────────────────────────────
@@ -2685,8 +2691,8 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
         bypassLimits,
         cycleMode: true,
         passIndex,
-        reportSubStep: async (label) => {
-          await writeCycleProgress(admin, article_id, { sub_step: label });
+        reportSubStep: async (label, key) => {
+          await writeCycleProgress(admin, article_id, { sub_step: label, sub_step_key: key ?? null });
         },
       });
     } catch (e) {
@@ -2768,6 +2774,7 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       status: "running",
       pass: passIndex,
       sub_step: "Передача следующему воркеру",
+      sub_step_key: "subStep.hand_off",
     });
     relayNextPass(supabaseUrl, serviceKey, {
       article_id,

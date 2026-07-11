@@ -33,6 +33,7 @@ interface CycleProgress {
   of?: number;
   action?: "humanize" | "turgenev" | null;
   sub_step?: string | null;
+  sub_step_key?: string | null;
   initial?: { ai: number | null; turg: number | null; content?: string };
   best?: { ai: number | null; turg: number | null; content?: string };
   rolled_back?: boolean;
@@ -311,7 +312,11 @@ export function QualityImproveCard({ mode, articleId, currentContent, onRevertCo
   const progressPct = !running ? 0 : Math.min(99, (currentPass / (totalPasses + 1)) * 95);
   const elapsedMs = cycle?.started_at ? Math.max(0, nowTick - Date.parse(cycle.started_at)) : 0;
   const elapsedLabel = cycle?.started_at ? fmtDuration(elapsedMs) : "0:00";
-  const subStepLabel = cycle?.sub_step && cycle.sub_step.trim().length > 0 ? cycle.sub_step : null;
+  const subStepKey = cycle?.sub_step_key && cycle.sub_step_key.trim().length > 0 ? cycle.sub_step_key : null;
+  const translatedSubStep = subStepKey ? t(subStepKey) : null;
+  const subStepLabel = translatedSubStep && translatedSubStep !== subStepKey
+    ? translatedSubStep
+    : (cycle?.sub_step && cycle.sub_step.trim().length > 0 ? cycle.sub_step : null);
   const passLine = cycle
     ? t("qic.passLine", {
         p: String(Math.min(currentPass, totalPasses)),

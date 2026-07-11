@@ -155,7 +155,11 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Unauthorized");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized", error_key: "err.unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -171,7 +175,9 @@ Deno.serve(async (req) => {
     const lang = body?.lang || "ru";
 
     if (!article_id || typeof article_id !== "string") {
-      throw new Error("article_id is required");
+      return new Response(JSON.stringify({ success: false, error: "article_id is required", error_key: "err.missing_field", error_params: { field: "article_id" } }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Get article
@@ -182,7 +188,11 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id)
       .single();
 
-    if (articleError || !article) throw new Error(lang === "ru" ? "Статья не найдена" : "Article not found");
+    if (articleError || !article) {
+      return new Response(JSON.stringify({ success: false, error: lang === "ru" ? "Статья не найдена" : "Article not found", error_key: "err.article_not_found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Get telegraph token from separate secure table
     const { data: tokenRow } = await admin
@@ -293,7 +303,10 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("Telegraph publish error:", msg);
-    return new Response(JSON.stringify({ success: false, error: msg }), {
+    const isAccountErr = msg.includes("Telegraph account");
+    const isTelegraphErr = msg.startsWith("Telegraph error");
+    const error_key = isAccountErr ? "err.telegraph_account" : isTelegraphErr ? "err.telegraph_publish" : "err.internal";
+    return new Response(JSON.stringify({ success: false, error: msg, error_key }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

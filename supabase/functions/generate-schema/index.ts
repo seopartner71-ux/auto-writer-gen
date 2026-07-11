@@ -15,7 +15,11 @@ serve(async (req) => {
     const supabaseAdmin0 = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: orKey } = await supabaseAdmin0.from("api_keys").select("api_key").eq("provider", "openrouter").eq("is_valid", true).single();
     const OPENROUTER_API_KEY = orKey?.api_key || Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
+    if (!OPENROUTER_API_KEY) {
+      return new Response(JSON.stringify({ error: "OpenRouter API key not configured", error_key: "err.openrouter_missing" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Unauthorized");
@@ -30,7 +34,11 @@ serve(async (req) => {
     const user = { id: __auth.userId };
 
     const { title, content, keyword, questions, lsi_keywords, mode, skip_schema } = await req.json();
-    if (!content) throw new Error("Content is required");
+    if (!content) {
+      return new Response(JSON.stringify({ error: "Content is required", error_key: "err.missing_field", error_params: { field: "content" } }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseAdmin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -162,12 +170,12 @@ Generate:
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded", error_key: "err.rate_limit" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted" }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted", error_key: "err.ai_credits" }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -231,8 +239,12 @@ Generate:
   } catch (e) {
     console.error("generate-schema error:", e);
     const msg = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ error: msg }), {
-      status: msg.includes("Unauthorized") ? 401 : 500,
+    const isUnauth = msg.includes("Unauthorized");
+    const isAiErr = msg.startsWith("AI error");
+    const isParseErr = msg.includes("parse AI response");
+    const error_key = isUnauth ? "err.unauthorized" : isAiErr ? "err.ai_error" : isParseErr ? "err.parse_failed" : "err.internal";
+    return new Response(JSON.stringify({ error: msg, error_key }), {
+      status: isUnauth ? 401 : 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
