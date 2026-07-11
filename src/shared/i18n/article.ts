@@ -545,8 +545,6 @@ export const article: Dict = {
   "articles.titleGenEmpty": { ru: "Не удалось сгенерировать варианты", en: "Could not generate variants" },
   "articles.docxDownloaded": { ru: "Файл .docx скачан", en: ".docx file downloaded" },
   "articles.docxExportError": { ru: "Ошибка экспорта в .docx", en: ".docx export error" },
-  "articles.telegraphUpdated": { ru: "Пост в Telegra.ph успешно обновлен", en: "Telegra.ph post successfully updated" },
-  "articles.telegraphPublished": { ru: "Опубликовано в Telegra.ph!", en: "Published to Telegra.ph!" },
   "articles.telegraphError": { ru: "Ошибка Telegra.ph", en: "Telegra.ph error" },
   "articles.telegraphPublishError": { ru: "Ошибка публикации", en: "Publish error" },
   "articles.articleContinued": { ru: "Статья дописана", en: "Article completed" },
@@ -554,5 +552,4 @@ export const article: Dict = {
   "articles.sectionsAssembled": { ru: "Статья собрана из разделов", en: "Article assembled from sections" },
   "articles.titleApplied": { ru: "Заголовок применён", en: "Title applied" },
   "articles.applySelected": { ru: "Применить выбранный", en: "Apply selected" },
-  "common.close": { ru: "Закрыть", en: "Close" },
 };
