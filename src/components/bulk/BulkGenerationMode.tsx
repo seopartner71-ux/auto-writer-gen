@@ -445,6 +445,25 @@ export function BulkGenerationMode() {
                 <SelectContent>{authorProfiles.map((p: any) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">{t("generation.articleLanguage")}</Label>
+              <div className="inline-flex rounded-md border border-border bg-muted/30 p-0.5 h-10">
+                <button
+                  type="button"
+                  onClick={() => { setArticleLang("ru"); setSelectedAuthorId(""); }}
+                  className={`px-3 text-xs font-medium rounded transition-colors ${articleLang === "ru" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {t("generation.langRu")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setArticleLang("en"); setSelectedAuthorId(""); }}
+                  className={`px-3 text-xs font-medium rounded transition-colors ${articleLang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {t("generation.langEn")}
+                </button>
+              </div>
+            </div>
             <Button disabled={keywords.length === 0 || createJob.isPending || isProcessing} onClick={() => createJob.mutate()} className="gap-2">
               {createJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               {t("bulk.startSynthesis")} ({keywords.length})
