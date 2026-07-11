@@ -180,9 +180,10 @@ export async function runAutoStealthPass(articleId: string, lang: "ru" | "en" = 
     }
 
     // Step 3 - Turgenev (Baden-Baden) auto-fix when flagged
+    // Turgenev / Baden-Baden is a Russian-language tool — skip entirely for EN.
     const turgStatusInitial = String(qc?.turgenev_status || "ok");
     const turgScoreInitial = numberOr(qc?.turgenev_score, 0);
-    const turgRisky = turgStatusInitial === "fail" || turgScoreInitial > 7;
+    const turgRisky = lang === "ru" && (turgStatusInitial === "fail" || turgScoreInitial > 7);
     if (turgRisky && timeLeft() > 10_000) {
       toast.loading(t("stealth.baden"), {
         id: toastId,
