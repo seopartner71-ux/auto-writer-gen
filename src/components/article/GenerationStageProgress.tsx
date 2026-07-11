@@ -1,3 +1,4 @@
+// i18n:lang-branch — all Cyrillic sits inside `language === "ru"` branch of STAGE_LABELS.
 import { Search, ListOrdered, PenLine, Shield, CheckCircle2, Loader2 } from "lucide-react";
 
 type StageKey = "research" | "outline" | "writing" | "stealth" | "quality";
