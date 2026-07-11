@@ -251,6 +251,7 @@ ACTIVE VOICE dominant. Passive maximum 10% of sentences.`;
 
   const geoProtocol = `### GEO (Generative Engine Optimization) PROTOCOL
 1. Direct-Answer-First per section: the first paragraph after EVERY H2/H3 opens with a compact, dry, 15-25-word answer to the section's implicit question. No warm-up.
+   - The 15-25-word answer is a FULL grammatical sentence with a subject and a verb, ideally with a named entity or number. It is NOT a 2-5 word imperative ("Start simple.", "Keep it lean."). Aphoristic openers here are the top AI tell we are trying to kill — do not produce them.
 2. Entity linking: weave named entities from the SERP/entity context ("According to [Brand]…", "In [Publication]'s teardown…"). Do not invent entities.
 3. Structured data love: use lists and tables where they fit — AI parsers cite them at 5× the rate of plain prose.
 4. Section self-containment: any H2/H3 should read as a standalone answer when quoted out of context.`;
