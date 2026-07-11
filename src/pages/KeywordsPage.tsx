@@ -134,7 +134,7 @@ export default function KeywordsPage() {
   };
 
   // Lightweight keyword-language auto-detect for the hint banner.
-  const firstKw = parsedKeywordsRefHack(keyword);
+  const firstKw = (keyword.split(/\r?\n/)[0] || "").trim();
   const kwLooksLatin = /[a-z]/i.test(firstKw) && !/[а-яё]/i.test(firstKw);
   const kwLooksCyrillic = /[а-яё]/i.test(firstKw);
   const suggestSwitchToEn = kwLooksLatin && language === "ru" && firstKw.length >= 3;
