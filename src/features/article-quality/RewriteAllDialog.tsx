@@ -4,6 +4,7 @@ import { Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { edgeErrorMessage } from "@/shared/utils/edgeError";
 
 interface RewriteAllDialogProps {
   open: boolean;
@@ -116,7 +117,7 @@ export function RewriteAllDialog(props: RewriteAllDialogProps) {
                   });
                   if (!resp.ok) {
                     const err = await resp.json().catch(() => ({ error: "Unknown" }));
-                    throw new Error(err.error || `HTTP ${resp.status}`);
+                    throw new Error(edgeErrorMessage(err, lang, `HTTP ${resp.status}`));
                   }
                   if (!resp.body) throw new Error("No stream body");
                   const reader = resp.body.getReader();
