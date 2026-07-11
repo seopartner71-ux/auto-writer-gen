@@ -50,6 +50,12 @@ STRICT rules:
 - A SHORT sentence must be grammatically complete: subject+verb or a full noun phrase. NEVER cut a subordinate clause on a conjunction/preposition and place a period. Fragments like "…because.", "…but in winter.", "…if.", "…when.", "…although." are forbidden — either finish the clause or restructure without the conjunction.
 - Blend all keywords into natural grammar (inflect for case/number where applicable). No raw nominative insertions mid-sentence.
 - Forbidden filler: "in today's world", "it is worth noting", "needless to say", "as we all know".
+- APHORISTIC OPENERS ARE THE #1 EN AI TELL — kill them. The FIRST sentence of the intro and of every H2/H3 section MUST NOT be a 2-5 word imperative or gnomic one-liner ("Start simple.", "Keep it simple.", "Measure, don't guess.", "Trust the process.", "It depends.", "Simple as that."). Replace with a specific claim, a named entity, or a number.
+- Maximum 2 rhetorical questions in the entire body (FAQ excluded). NEVER open a section with a rhetorical question. Never use "Why does this matter?", "Wondering ...?", "What if ...?".
+- Maximum 2 em-dashes ("—") in the entire text. Prefer commas, periods, colons, parentheses. Do not substitute en-dashes or "--".
+- Use contractions (it's, don't, you'll, can't, won't, I've, we've, they're) unless emphasis genuinely requires the full form.
+- Do NOT open two consecutive paragraphs with the same construction (same first word, same "It's ..." shape, same "You ..." shape).
+- No unattributed authority: "experts say", "studies show", "practice shows", "research suggests". Either name the source or rewrite as first-person observation.
 - Replace em/en dashes (—, –) with regular hyphens (-).
 - Write directly and concretely. Return ONLY the rewritten markdown, no commentary.`;
 
@@ -87,14 +93,35 @@ const PASS1_USER = (lang: "ru" | "en", content: string) => {
   const hint = structureHintFor(lang, content);
   return lang === "ru"
     ? `Перепиши текст под живой человеческий ритм. Цель: AI-детектор должен показать <30%. Не теряй ни одного факта или ссылки.${hint}\nТекст:\n${content}`
-    : `Rewrite the text with a lively human rhythm. Goal: AI detectors must score <30%. Do not lose any facts or links.\n\nText:\n${content}`;
+    : `Rewrite the text so it defeats EN AI-detectors (GPTZero, Copyleaks, Sapling, Originality). Goal: <30% AI.
+
+Priorities in order:
+1. Kill aphoristic openers. Every intro and every H2/H3 first sentence must be a full, specific claim — not a 2-5 word punch.
+2. Break statistical predictability: vary sentence length aggressively, vary paragraph openers, do not repeat clause structures.
+3. Add contractions everywhere they fit. Cut em-dashes (max 2 total).
+4. Cut rhetorical questions (max 2 total, never opening a section).
+5. Preserve every fact, number, brand, link and heading text unchanged.${hint}
+
+Text:
+${content}`;
 };
 
 const PASS2_USER = (lang: "ru" | "en", content: string) => {
   const hint = structureHintFor(lang, content);
   return lang === "ru"
     ? `Микро-проход: убери оставшиеся "ИИ-подписи" - монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Цель: AI-детектор <5%. Никаких изменений в фактах, цифрах, ссылках.${hint}\nТекст:\n${content}`
-    : `Micro-pass: remove remaining "AI fingerprints" - monotonous syntax, repeated paragraph openers, lexical bursts. Goal: AI detectors <5%. Do not touch facts, numbers, or links.\n\nText:\n${content}`;
+    : `Micro-pass: remove remaining EN AI fingerprints.
+Targets (in this priority):
+- Any leftover 2-5 word aphoristic sentence — rewrite into a specific claim or delete.
+- Repeated paragraph openers (three paragraphs starting the same way).
+- Uniform sentence length (perplexity/burstiness must feel human — mix 4-8 word and 20-28 word sentences).
+- Rhetorical questions above 2 total, and any question opening a section.
+- Em-dashes above 2 total.
+- Missing contractions where natural.
+Do NOT touch facts, numbers, brand names, URLs, or heading text.${hint}
+
+Text:
+${content}`;
 };
 
 async function callOpenRouter(
