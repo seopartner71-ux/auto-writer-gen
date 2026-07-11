@@ -1,15 +1,28 @@
 #!/usr/bin/env node
 // Lints Cyrillic strings in JSX/TS outside of allowed areas.
 // Fails (exit 1) with a list of file:line:snippet occurrences.
-// Excludes: admin UI, landing, VC writer, i18n files themselves, and language heuristics.
+//
+// ============================================================
+// RULE — EXCLUSIONS POLICY (do NOT relax without explicit user sign-off):
+//   EXCLUDE lists contain ONLY two categories:
+//     A. PERMANENT — admin UI, landing, VC writer, RU-only integrations
+//        (Miralinks/GoGetLinks/Turgenev), i18n dictionaries themselves,
+//        RU language heuristics (contentSanity/Validator/sanitizeKeyword/…).
+//     B. LANG-BRANCH — files whose Cyrillic sits ONLY inside `language === "ru"`
+//        branches (or LLM prompts gated by RU). MUST carry the header marker
+//        `i18n:lang-branch` — enforced below at runtime.
+//   Anything else that is "translatable but not yet done" stays in the DEBT
+//   (the lint output) — it MUST NOT be added here to hide the number.
+//   Adding a new entry requires explicit user confirmation in chat.
+// ============================================================
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = "src";
 const CYR = /[А-Яа-яЁё]/;
 
-const EXCLUDE_PREFIXES = [
-  // === A. Вечные (не переводим никогда) ===
+// A. PERMANENT exclusions — never translated.
+const PERMANENT_EXCLUDE = [
   "src/components/admin/",
   "src/components/landing/",
   "src/components/vc-writer/",
@@ -29,17 +42,16 @@ const EXCLUDE_PREFIXES = [
   "src/components/article/MiralinksWidget.tsx",
   "src/components/article/GoGetLinksWidget.tsx",
   "src/features/commercial/constants.ts",
-  // === B. Языковое ветвление (i18n:lang-branch) ===
-  // Файлы содержат кириллицу только в ветках `language === "ru"`.
-  // EN-ветка отрендерена отдельно. Помечено маркером `i18n:lang-branch` в шапке файла.
-  "src/components/article/InlineAIToolbar.tsx",
-  "src/components/article/SeoTipTicker.tsx",
-  "src/components/article/GenerationStageProgress.tsx",
-  // === Промпты к LLM: см. отдельный разбор ниже ===
-  "src/features/article-quality/useFixIssue.ts",
-  "src/features/article-quality/useBenchmarkOptimize.ts",
-  "src/features/article-quality/startImproveCycle.ts",
 ];
+
+// B. LANG-BRANCH — MUST contain the marker `i18n:lang-branch` in file header
+//    (checked at runtime; missing marker fails the lint).
+const LANG_BRANCH_EXCLUDE = [
+  "src/components/article/SeoTipTicker.tsx",
+  "src/features/article-quality/useFixIssue.ts",
+];
+
+const EXCLUDE_PREFIXES = [...PERMANENT_EXCLUDE, ...LANG_BRANCH_EXCLUDE];
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -54,6 +66,24 @@ function walk(dir, out = []) {
 function isExcluded(path) {
   const rel = relative(".", path).replaceAll("\\", "/");
   return EXCLUDE_PREFIXES.some((p) => rel === p || rel.startsWith(p));
+}
+
+// Enforce the `i18n:lang-branch` marker for category B entries.
+const markerErrors = [];
+for (const p of LANG_BRANCH_EXCLUDE) {
+  try {
+    const head = readFileSync(p, "utf8").split("\n").slice(0, 5).join("\n");
+    if (!head.includes("i18n:lang-branch")) {
+      markerErrors.push(`${p}: missing 'i18n:lang-branch' marker in first 5 lines`);
+    }
+  } catch {
+    markerErrors.push(`${p}: file not found (stale LANG_BRANCH_EXCLUDE entry)`);
+  }
+}
+if (markerErrors.length) {
+  console.log("[lint:i18n] LANG_BRANCH_EXCLUDE integrity failure:");
+  console.log(markerErrors.map((s) => "  " + s).join("\n"));
+  process.exit(1);
 }
 
 const files = walk(ROOT).filter((f) => !isExcluded(f));
