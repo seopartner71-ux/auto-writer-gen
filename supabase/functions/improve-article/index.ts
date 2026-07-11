@@ -617,8 +617,9 @@ interface PipelineArgs {
   /** Cycle relay pass index (>=2 means this is a relay hop; initial content
    *  was already scored on pass 1 — skip re-scoring to save 60-80s). */
   passIndex?: number;
-  /** Optional sub-step reporter (used by cycle for UI progress: "Гуманизация (Sonnet)" etc). */
-  reportSubStep?: (label: string) => Promise<void>;
+  /** Optional sub-step reporter (used by cycle for UI progress: "Гуманизация (Sonnet)" etc).
+   *  `key` is an i18n key that the client can translate; `label` is a RU fallback. */
+  reportSubStep?: (label: string, key?: string) => Promise<void>;
 }
 
 async function runImprovePipeline(args: PipelineArgs): Promise<void> {
@@ -627,8 +628,8 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const isRelay = (args.passIndex ?? 0) >= 2;
   const articleLang = normalizeLang((art as any).language);
   const isRuArticle = articleLang === "ru";
-  const emitSubStep = async (label: string) => {
-    if (reportSubStep) { try { await reportSubStep(label); } catch (_) {} }
+  const emitSubStep = async (label: string, key?: string) => {
+    if (reportSubStep) { try { await reportSubStep(label, key); } catch (_) {} }
   };
   let content = args.initialContent;
   // ── Best-candidate tracking. Every state (initial + after each successful
@@ -1273,7 +1274,7 @@ ${rhythmSharedRules}`);
       let humanizeLlmError: string | undefined;
       let humanizeDurationMs = 0;
       if (orKey) {
-        await emitSubStep("Гуманизация (Sonnet)");
+        await emitSubStep("Гуманизация (Sonnet)", "subStep.humanize_sonnet");
         // 75s был впритык — Sonnet стабильно уходил в timeout и мы падали
         // на gemini-2.5-flash. Поднято до 90s (worker budget всё ещё держит:
         // 90 humanize + 80 judges + overhead ≈ 180s, реле распилит проходы).
@@ -1284,7 +1285,7 @@ ${rhythmSharedRules}`);
       }
       if (!rewritten && lovableKey) {
         humanizeModel = "google/gemini-2.5-flash";
-        await emitSubStep("Гуманизация (Gemini Flash fallback)");
+        await emitSubStep("Гуманизация (Gemini Flash fallback)", "subStep.humanize_flash_fallback");
         // Explicit 12000 max_tokens — default (2000) обрывал длинные RU
         // статьи (finish:"length", 2212 слов → 34), integrity rejected.
         rewritten = await callGateway("google/gemini-2.5-flash", sys, usr, lovableKey, 12000, { ...llmCtx, functionName: "improve-article/humanize-flash-fb" });
@@ -1307,7 +1308,7 @@ ${rhythmSharedRules}`);
         }
       }
       if (humanizeApplied) {
-        await emitSubStep("Оценка кандидата (судьи)");
+        await emitSubStep("Оценка кандидата (судьи)", "subStep.judges_eval");
         await scoreCandidate(content, "humanize.sonnet");
       }
       recordPass({
