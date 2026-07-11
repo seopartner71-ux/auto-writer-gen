@@ -1280,7 +1280,7 @@ ${rhythmSharedRules}`);
         // Strip stray markdown code fences
         const candidate = rewritten.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
         humanizeCandidateMetrics = metricsOf(candidate);
-        const integrity = htmlIntegrityOk(content, candidate);
+        const integrity = htmlIntegrityOk(content, candidate, articleLang);
         humanizeIntegrity = integrity;
         if (integrity.ok) {
           content = candidate;
@@ -1351,7 +1351,7 @@ ${content}`;
         if (polished && polished.length > 200) {
           const cand2 = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           opusCandidateMetrics = metricsOf(cand2);
-          const integrity2 = htmlIntegrityOk(content, cand2);
+          const integrity2 = htmlIntegrityOk(content, cand2, articleLang);
           opusIntegrity = integrity2;
           if (integrity2.ok) {
             content = cand2;
@@ -1438,7 +1438,7 @@ ${content}`;
       if (added && added.length > 200) {
         const candidate = added.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
         candMetrics = metricsOf(candidate);
-        const integrity = htmlIntegrityOk(content, candidate);
+        const integrity = htmlIntegrityOk(content, candidate, articleLang);
         integrityRes = integrity;
         if (integrity.ok) { content = candidate; applied = true; }
         else console.warn("[improve-article] density-fix rejected:", integrity.reason);
@@ -1497,7 +1497,7 @@ ${content}`;
       if (fixed && fixed.length > 200) {
         const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
         candMetrics = metricsOf(candidate);
-        const integrity = htmlIntegrityOk(content, candidate);
+        const integrity = htmlIntegrityOk(content, candidate, articleLang);
         integrityRes = integrity;
         if (integrity.ok) { content = candidate; applied = true; }
         else console.warn("[improve-article] turgenev-fix rejected:", integrity.reason);
@@ -1562,7 +1562,7 @@ ${content}`;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           candMetrics = metricsOf(candidate);
-          const integrity = htmlIntegrityOk(content, candidate);
+          const integrity = htmlIntegrityOk(content, candidate, articleLang);
           integrityRes = integrity;
           if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] sentence-fix rejected:", integrity.reason);
@@ -1623,7 +1623,7 @@ ${content}`;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           candMetrics = metricsOf(candidate);
-          const integrity = htmlIntegrityOk(content, candidate);
+          const integrity = htmlIntegrityOk(content, candidate, articleLang);
           integrityRes = integrity;
           if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] dangling-fix rejected:", integrity.reason);
@@ -1682,7 +1682,7 @@ ${content}`;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           candMetrics = metricsOf(candidate);
-          const integrity = htmlIntegrityOk(content, candidate);
+          const integrity = htmlIntegrityOk(content, candidate, articleLang);
           integrityRes = integrity;
           if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] cancellary-fix rejected:", integrity.reason);
@@ -1740,7 +1740,7 @@ ${content}`;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           candMetrics = metricsOf(candidate);
-          const integrity = htmlIntegrityOk(content, candidate);
+          const integrity = htmlIntegrityOk(content, candidate, articleLang);
           integrityRes = integrity;
           if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] keyword-freq-fix rejected:", integrity.reason);
@@ -1818,7 +1818,7 @@ ${bestContent}`;
       if (polished && polished.length > 200) {
         const cand = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
         nomMetrics = metricsOf(cand);
-        const integ = htmlIntegrityOk(bestContent, cand);
+        const integ = htmlIntegrityOk(bestContent, cand, articleLang);
         nomIntegrity = integ;
         if (integ.ok) {
           // Verify the fix actually removed injections; accept only if hits ↓.
