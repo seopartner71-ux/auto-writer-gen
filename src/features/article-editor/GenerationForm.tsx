@@ -64,6 +64,10 @@ interface GenerationFormProps {
   onModelChange?: (modelKey: string) => void;
   userPlan?: string;
 
+  // Article language (explicit control, independent of UI locale)
+  articleLang: "ru" | "en";
+  onArticleLangChange: (v: "ru" | "en") => void;
+
   // Generation actions
   isStreaming: boolean;
   onGenerate: () => void;
@@ -95,6 +99,7 @@ export function GenerationForm(props: GenerationFormProps) {
     sourcePageUrl, onSourcePageUrlChange,
     sourcePageFacts, onSourcePageFactsChange,
     selectedModel, onModelChange, userPlan,
+    articleLang, onArticleLangChange,
     isStreaming, onGenerate, onStop, onOpenSectioned,
     quickMode,
   } = props;
@@ -147,6 +152,39 @@ export function GenerationForm(props: GenerationFormProps) {
           />
         </div>
       )}
+
+      {/* Article language switcher (explicit, independent of UI locale) */}
+      <div className="mb-3 pb-3 border-b border-border">
+        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <Globe className="h-3 w-3" />
+          {t("generation.articleLanguage")}
+        </Label>
+        <div className="mt-1.5 inline-flex rounded-md border border-border bg-muted/30 p-0.5">
+          <button
+            type="button"
+            onClick={() => onArticleLangChange("ru")}
+            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+              articleLang === "ru"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t("generation.langRu")}
+          </button>
+          <button
+            type="button"
+            onClick={() => onArticleLangChange("en")}
+            className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+              articleLang === "en"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t("generation.langEn")}
+          </button>
+        </div>
+        <p className="mt-1 text-[10px] text-muted-foreground">{t("generation.articleLanguageHint")}</p>
+      </div>
 
       {/* Project selector (FACTORY only) */}
       {projects.length > 0 && (
