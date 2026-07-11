@@ -170,9 +170,10 @@ function countTags(html: string): { h: number; a: number; p: number; li: number;
 }
 
 // Returns true if the rewritten HTML preserves structure (within tolerance).
-function htmlIntegrityOk(before: string, after: string): { ok: boolean; reason?: string } {
+function htmlIntegrityOk(before: string, after: string, lang: Lang = "ru"): { ok: boolean; reason?: string } {
   const b = countTags(before);
   const a = countTags(after);
+  if (lang === "en" && hasRussianLetters(stripHtml(after))) return { ok: false, reason: "language drift: russian text in EN article" };
   if (a.words < b.words * 0.6) return { ok: false, reason: `words shrunk ${b.words}->${a.words}` };
   if (a.words > b.words * 1.6) return { ok: false, reason: `words inflated ${b.words}->${a.words}` };
   if (a.h < b.h) return { ok: false, reason: `headings lost ${b.h}->${a.h}` };
@@ -624,6 +625,8 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, cycleMode, reportSubStep } = args;
   const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
   const isRelay = (args.passIndex ?? 0) >= 2;
+  const articleLang = normalizeLang((art as any).language);
+  const isRuArticle = articleLang === "ru";
   const emitSubStep = async (label: string) => {
     if (reportSubStep) { try { await reportSubStep(label); } catch (_) {} }
   };
@@ -673,8 +676,12 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       const sample = lastEnd > 800 ? raw.slice(0, lastEnd + 1) : raw;
       const r = await chatComplete({
         apiKey: key, model: "anthropic/claude-sonnet-4",
-        system: "Ты - детектор ИИ-текста. Верни JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = живой человек, 0 = явный ИИ.",
-        user: `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100 и дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
+        system: isRuArticle
+          ? "Ты - детектор ИИ-текста. Верни JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = живой человек, 0 = явный ИИ."
+          : "You are an AI-text detector. Return JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = clearly human, 0 = clearly AI. Evaluate as English text.",
+        user: isRuArticle
+          ? `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100 и дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`
+          : `This is a fragment from a long English article; ignore truncation. Score 0-100 and give 2-4 short reasons. Reply only with JSON.\n\n${sample}`,
         maxTokens: 180, temperature: 0, timeoutMs: 60_000,
         appTitle: "SEO-Modul improve-article score",
         functionName: "improve-article/judge-claude",
@@ -703,8 +710,12 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       const sample = plain.slice(0, 5000);
       const r = await chatComplete({
         apiKey: key, model: "google/gemini-2.5-flash",
-        system: 'Ты - детектор AI-текста. Верни JSON {"score":<0-100>,"reasons":["..."]}.',
-        user: `Оцени: 100 = написан человеком, 0 = ИИ. Дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
+        system: isRuArticle
+          ? 'Ты - детектор AI-текста. Верни JSON {"score":<0-100>,"reasons":["..."]}.'
+          : 'You are an AI-text detector. Return JSON {"score":<0-100>,"reasons":["..."]}. Evaluate as English text.',
+        user: isRuArticle
+          ? `Оцени: 100 = написан человеком, 0 = ИИ. Дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`
+          : `Score this English article fragment: 100 = written by a human, 0 = AI. Give 2-4 short reasons. Reply only with JSON.\n\n${sample}`,
         maxTokens: 180, temperature: 0, timeoutMs: 20_000,
         appTitle: "SEO-Modul improve-article score",
         functionName: "improve-article/judge-gemini",
