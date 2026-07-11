@@ -20,6 +20,8 @@ import { analyzeDanglingThoughts, buildDanglingFixHint } from "../_shared/valida
 import { analyzeNominativeKeys } from "../_shared/validators/nominativeKeyGuard.ts";
 import { analyzeFakeQuotes } from "../_shared/validators/fakeQuoteGuard.ts";
 import { analyzeSanity } from "../_shared/contentSanity.ts";
+import { getPrompt, type Lang } from "../_shared/prompts/index.ts";
+import { buildEnLexicalBanBlock } from "../_shared/prompts/improve.ts";
 import {
   getStyleProfile,
   sentenceOptionsFromStyleProfile,
@@ -40,6 +42,14 @@ function json(body: unknown, status = 200) {
 
 function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function normalizeLang(value: unknown): Lang {
+  return String(value || "ru").toLowerCase() === "en" ? "en" : "ru";
+}
+
+function hasRussianLetters(value: string): boolean {
+  return /[а-яА-Я]/.test(value || "");
 }
 
 // Detect nominative-case keyword injections that hint the LLM glued the raw
@@ -160,9 +170,10 @@ function countTags(html: string): { h: number; a: number; p: number; li: number;
 }
 
 // Returns true if the rewritten HTML preserves structure (within tolerance).
-function htmlIntegrityOk(before: string, after: string): { ok: boolean; reason?: string } {
+function htmlIntegrityOk(before: string, after: string, lang: Lang = "ru"): { ok: boolean; reason?: string } {
   const b = countTags(before);
   const a = countTags(after);
+  if (lang === "en" && hasRussianLetters(stripHtml(after))) return { ok: false, reason: "language drift: russian text in EN article" };
   if (a.words < b.words * 0.6) return { ok: false, reason: `words shrunk ${b.words}->${a.words}` };
   if (a.words > b.words * 1.6) return { ok: false, reason: `words inflated ${b.words}->${a.words}` };
   if (a.h < b.h) return { ok: false, reason: `headings lost ${b.h}->${a.h}` };
@@ -614,6 +625,8 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
   const { admin, supabaseUrl, article_id, user, phase, art, orKey, lovableKey, authHeader, elapsed, source, bypassLimits, cycleMode, reportSubStep } = args;
   const llmCtx = { userId: user.id, articleId: article_id, functionName: "improve-article" };
   const isRelay = (args.passIndex ?? 0) >= 2;
+  const articleLang = normalizeLang((art as any).language);
+  const isRuArticle = articleLang === "ru";
   const emitSubStep = async (label: string) => {
     if (reportSubStep) { try { await reportSubStep(label); } catch (_) {} }
   };
@@ -663,8 +676,12 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       const sample = lastEnd > 800 ? raw.slice(0, lastEnd + 1) : raw;
       const r = await chatComplete({
         apiKey: key, model: "anthropic/claude-sonnet-4",
-        system: "Ты - детектор ИИ-текста. Верни JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = живой человек, 0 = явный ИИ.",
-        user: `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100 и дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
+        system: isRuArticle
+          ? "Ты - детектор ИИ-текста. Верни JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = живой человек, 0 = явный ИИ."
+          : "You are an AI-text detector. Return JSON: {\"score\":<0-100>,\"reasons\":[\"...\"]}. 100 = clearly human, 0 = clearly AI. Evaluate as English text.",
+        user: isRuArticle
+          ? `Это фрагмент длинного текста, обрыв не учитывай.\nОцени 0-100 и дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`
+          : `This is a fragment from a long English article; ignore truncation. Score 0-100 and give 2-4 short reasons. Reply only with JSON.\n\n${sample}`,
         maxTokens: 180, temperature: 0, timeoutMs: 60_000,
         appTitle: "SEO-Modul improve-article score",
         functionName: "improve-article/judge-claude",
@@ -693,8 +710,12 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
       const sample = plain.slice(0, 5000);
       const r = await chatComplete({
         apiKey: key, model: "google/gemini-2.5-flash",
-        system: 'Ты - детектор AI-текста. Верни JSON {"score":<0-100>,"reasons":["..."]}.',
-        user: `Оцени: 100 = написан человеком, 0 = ИИ. Дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`,
+        system: isRuArticle
+          ? 'Ты - детектор AI-текста. Верни JSON {"score":<0-100>,"reasons":["..."]}.'
+          : 'You are an AI-text detector. Return JSON {"score":<0-100>,"reasons":["..."]}. Evaluate as English text.',
+        user: isRuArticle
+          ? `Оцени: 100 = написан человеком, 0 = ИИ. Дай 2-4 короткие причины. Ответь только JSON.\n\n${sample}`
+          : `Score this English article fragment: 100 = written by a human, 0 = AI. Give 2-4 short reasons. Reply only with JSON.\n\n${sample}`,
         maxTokens: 180, temperature: 0, timeoutMs: 20_000,
         appTitle: "SEO-Modul improve-article score",
         functionName: "improve-article/judge-gemini",
@@ -889,54 +910,79 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
     // Build a plain-text "прошлые проверки нашли" block for the LLM.
     const validatorTasks: string[] = [];
     if (vSentence?.verdict === "fail" && Array.isArray(vSentence.issues) && vSentence.issues.length) {
-      const action = sentenceTooShort
-        ? "УДЛИНЯЙ и СКЛЕИВАЙ короткие предложения — но чередуй способы: двоеточие, тире, причастный оборот, соседние предложения без связки. Связки-костыли (поскольку, при этом, так как, тогда как, поэтому) — не более 2 раз на весь текст каждая."
-        : "Выровняй ритм — избегай серий одинаковой длины.";
-      validatorTasks.push(`Структура предложений (${action})\n  - ${vSentence.issues.join("\n  - ")}`);
+      const safeIssues = vSentence.issues.map((s: unknown) => String(s)).filter((s: string) => isRuArticle || !hasRussianLetters(s));
+      if (isRuArticle) {
+        const action = sentenceTooShort
+          ? "УДЛИНЯЙ и СКЛЕИВАЙ короткие предложения — но чередуй способы: двоеточие, тире, причастный оборот, соседние предложения без связки. Связки-костыли (поскольку, при этом, так как, тогда как, поэтому) — не более 2 раз на весь текст каждая."
+          : "Выровняй ритм — избегай серий одинаковой длины.";
+        validatorTasks.push(`Структура предложений (${action})\n  - ${vSentence.issues.join("\n  - ")}`);
+      } else {
+        const action = sentenceTooShort
+          ? "lengthen and merge over-short sentences while keeping varied joins"
+          : "smooth sentence rhythm and avoid same-length runs";
+        validatorTasks.push(`Sentence structure (${action})\n  - ${safeIssues.length ? safeIssues.join("\n  - ") : `avg_words=${vSentence.avg_words ?? "n/a"}, max_short_run=${vSentence.max_short_run ?? "n/a"}`}`);
+      }
     }
     if (vCancellary?.verdict === "fail" && Array.isArray(vCancellary.issues) && vCancellary.issues.length) {
-      validatorTasks.push(`Канцелярит и штампы (заменяй конкретикой, не выкидывай слова механически)\n  - ${vCancellary.issues.slice(0, 8).join("\n  - ")}`);
+      const safeIssues = vCancellary.issues.map((s: unknown) => String(s)).filter((s: string) => isRuArticle || !hasRussianLetters(s));
+      validatorTasks.push(isRuArticle
+        ? `Канцелярит и штампы (заменяй конкретикой, не выкидывай слова механически)\n  - ${vCancellary.issues.slice(0, 8).join("\n  - ")}`
+        : `Cliches and filler (replace with concrete detail, not word-for-word synonyms)\n  - ${safeIssues.length ? safeIssues.slice(0, 8).join("\n  - ") : "Remove banned English phrases caught by the validator."}`);
     }
     if (vDangling?.verdict === "fail" && Array.isArray(vDangling.issues) && vDangling.issues.length) {
-      validatorTasks.push(`Оборванные мысли (допиши логическое завершение, не обрывай на "и", "но", "поэтому")\n  - ${vDangling.issues.slice(0, 6).join("\n  - ")}`);
+      const safeIssues = vDangling.issues.map((s: unknown) => String(s)).filter((s: string) => isRuArticle || !hasRussianLetters(s));
+      validatorTasks.push(isRuArticle
+        ? `Оборванные мысли (допиши логическое завершение, не обрывай на "и", "но", "поэтому")\n  - ${vDangling.issues.slice(0, 6).join("\n  - ")}`
+        : `Dangling thoughts (complete unfinished clauses; do not end on "and", "but", "so", "because")\n  - ${safeIssues.length ? safeIssues.slice(0, 6).join("\n  - ") : "Complete any dangling clauses found by the validator."}`);
     }
     if (vKwFreq?.verdict === "fail" && Array.isArray(vKwFreq.issues) && vKwFreq.issues.length) {
-      validatorTasks.push(`Частотность слов (используй синонимы, местоимения, перестройку фразы)\n  - ${vKwFreq.issues.slice(0, 6).join("\n  - ")}`);
+      const safeIssues = vKwFreq.issues.map((s: unknown) => String(s)).filter((s: string) => isRuArticle || !hasRussianLetters(s));
+      validatorTasks.push(isRuArticle
+        ? `Частотность слов (используй синонимы, местоимения, перестройку фразы)\n  - ${vKwFreq.issues.slice(0, 6).join("\n  - ")}`
+        : `Word frequency (use synonyms, pronouns, and sentence restructuring)\n  - ${safeIssues.length ? safeIssues.slice(0, 6).join("\n  - ") : "Reduce repeated words without losing meaning."}`);
     }
     const validatorContextBlock = validatorTasks.length
-      ? `\n\nПРОШЛАЯ ПРОВЕРКА КАЧЕСТВА НАШЛА КОНКРЕТНЫЕ ПРОБЛЕМЫ — ИСПРАВЬ ИХ ПРИЦЕЛЬНО:\n${validatorTasks.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nЭто приоритетные задачи текущего прохода. Не создавай новых дефектов того же класса.\n`
+      ? isRuArticle
+        ? `\n\nПРОШЛАЯ ПРОВЕРКА КАЧЕСТВА НАШЛА КОНКРЕТНЫЕ ПРОБЛЕМЫ — ИСПРАВЬ ИХ ПРИЦЕЛЬНО:\n${validatorTasks.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nЭто приоритетные задачи текущего прохода. Не создавай новых дефектов того же класса.\n`
+        : `\n\nPREVIOUS QUALITY CHECK FOUND SPECIFIC ISSUES - FIX THEM DIRECTLY:\n${validatorTasks.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nThese are priority tasks for this pass. Do not create new defects of the same type.\n`
       : "";
 
     // ── Judge feedback loop. quality-check saves reasons from Claude + Gemini
     // into quality_details.ai_*_reasons; feed them back so the next humanize
     // pass fixes EXACTLY what dropped the score (not just structural metrics).
+    const reasonAllowed = (s: string) => isRuArticle || !hasRussianLetters(s);
     const priorClaudeReasons: string[] = Array.isArray((art as any).quality_details?.ai_claude_reasons)
       ? (art as any).quality_details.ai_claude_reasons.map((s: any) => String(s)).filter(Boolean)
+        .filter(reasonAllowed)
       : [];
     const priorInternalReasons: string[] = Array.isArray((art as any).quality_details?.ai_internal_reasons)
       ? (art as any).quality_details.ai_internal_reasons.map((s: any) => String(s)).filter(Boolean)
+        .filter(reasonAllowed)
       : [];
     const judgeReasonsAll = [...priorClaudeReasons, ...priorInternalReasons];
     let judgeReasonsBlock = judgeReasonsAll.length
-      ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, не воспроизводи эти же дефекты):\n${judgeReasonsAll.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+      ? isRuArticle
+        ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, не воспроизводи эти же дефекты):\n${judgeReasonsAll.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+        : `\n\nJUDGES LOWERED THE SCORE FOR (fix precisely, do not reproduce these defects):\n${judgeReasonsAll.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
       : "";
 
     // ── Постоянный лексический запрет. Эти клише срабатывают у обоих судей
     // независимо от ритма и метрик, поэтому висят всегда, а не только когда
     // валидатор их поймал в прошлом прогоне.
-    const lexicalBanBlock = `
+    const lexicalBanBlock = isRuArticle ? `
 ЗАПРЕЩЁННЫЕ КЛИШЕ (полностью убрать, заменить конкретикой из ТЕКСТА статьи — цифрой, сценарием, примером, наблюдением):
 - "практика показывает"
 - "ключевой момент"
 - "стоит отметить"
 - "зависит от конкретных задач"
 - "важно понимать"
-Конструкция "чем больше ... тем ..." — не более 1 раза на весь текст. Второе повторение переформулируй через конкретный сценарий ("если объем перевалок > 40 м³ / день — колесный универсал окупается быстрее").`;
+Конструкция "чем больше ... тем ..." — не более 1 раза на весь текст. Второе повторение переформулируй через конкретный сценарий ("если объем перевалок > 40 м³ / день — колесный универсал окупается быстрее").`
+      : buildEnLexicalBanBlock();
 
     // Rhythm block for the humanize pass. If sentenceTooShort — instruct to
     // LENGTHEN, not chop; otherwise use the standard cadence rules.
     // Shared rules for BOTH modes: cap connectors, vary joins, vary paragraph openings.
-    const rhythmSharedRules = `
+    const rhythmSharedRules = isRuArticle ? `
 ЛИМИТЫ НА СВЯЗКИ (жёстко, считай по всему тексту):
 - "поскольку" — не более 2 раз на весь текст.
 - "при этом" — не более 2 раз.
@@ -972,21 +1018,63 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
 ЗАГОЛОВКИ (H2/H3/H4) — НЕ ТРОГАТЬ:
 - Текст заголовков, порядок слов и регистр букв оставляй как есть (первая буква — заглавная, имена собственные — с заглавной).
 - НЕ приводи заголовки к нижнему регистру, НЕ переписывай их в вопрос/тезис, НЕ добавляй туда разговорные вставки.
-- Все правила ритма, длин, связок и разнообразия применяются ТОЛЬКО к тексту абзацев и пунктам списков, НЕ к строкам заголовков.`;
+- Все правила ритма, длин, связок и разнообразия применяются ТОЛЬКО к тексту абзацев и пунктам списков, НЕ к строкам заголовков.`
+      : `
+CONNECTOR LIMITS (strict, count across the whole article):
+- "because" - no more than 3 times.
+- "while" - no more than 3 times.
+- "therefore" - no more than 1 time.
+- "however" - no more than 2 times.
+- If you need to connect ideas, rotate methods: colon, comma, short neighboring sentences, question then answer, concrete example. Do not repeat the same join pattern in adjacent paragraphs.
+
+SENTENCE LENGTH DISTRIBUTION (inside each H2/H3 section):
+- 1-2 short emphasis sentences (up to 8 words).
+- Most sentences: 12-18 words.
+- 1-2 longer sentences: 22-30 words.
+- No runs of 3+ short sentences.
+- No runs of 4+ long sentences.
+- No sentence longer than 30 words.
+
+PARAGRAPH VARIETY:
+- Do not start more than 2 paragraphs in a row with a statistic, percentage, or year.
+- Rotate openings: reader question, field observation, objection, short claim, concrete scenario, "if ... then" setup.
+- The same paragraph pattern (claim -> connector -> reason) must not appear more than twice in a row.
+
+GRAMMATICAL COMPLETENESS OF SHORT SENTENCES (strict):
+- A short sentence must be complete: subject + verb, a complete fragment with context, or a full question.
+- Never leave a clause hanging after "but", "and", "because", "when", "if", "although", "so that", "despite".
+
+KEYWORDS IN BODY COPY:
+- Never force the exact keyword if it breaks English grammar.
+- Convert bare keyword strings into natural clauses with verbs and prepositions.
+- If the keyword cannot fit naturally, skip that insertion.
+
+HEADINGS (H2/H3/H4) - DO NOT TOUCH:
+- Keep heading text, word order, and capitalization as-is.
+- Apply rhythm and sentence rules only to paragraphs and list items, not headings.`;
 
     const rhythmBlock = sentenceTooShort
-      ? `РИТМ (текст уже перерублен — СКЛЕИВАЙ, НЕ ДРОБИ; но не превращай в поток однотипных связок):
+      ? (isRuArticle ? `РИТМ (текст уже перерублен — СКЛЕИВАЙ, НЕ ДРОБИ; но не превращай в поток однотипных связок):
 - Средняя длина предложения 14-18 слов.
 - Короткие (до 8 слов) — редкий акцент, не более 1 подряд, не чаще 1 на 4-5 предложений.
 - Категорически запрещено 2+ коротких предложения подряд.
 - Каждая мысль развёрнута до законченного суждения (подлежащее + сказуемое + пояснение/причина/следствие).
-${rhythmSharedRules}`
-      : `РИТМ (жёсткие рамки):
+${rhythmSharedRules}` : `RHYTHM (the text is already over-chopped - merge and lengthen, do not chop more):
+- Average sentence length: 14-18 words.
+- Short sentences (up to 8 words) are rare emphasis, not more than 1 in a row and not more often than once per 4-5 sentences.
+- Every thought must become a complete sentence with a subject, verb, and reason or consequence.
+${rhythmSharedRules}`)
+      : (isRuArticle ? `РИТМ (жёсткие рамки):
 - Средняя длина предложения 12-16 слов.
 - Короткие предложения (до 8 слов) — инструмент акцента, а не основной ритм.
 - После 1-2 коротких подряд ОБЯЗАТЕЛЬНО идёт длинное (18+ слов).
 - Запрет более 2 коротких предложений подряд.
-${rhythmSharedRules}`;
+${rhythmSharedRules}` : `RHYTHM (strict):
+- Average sentence length: 12-16 words.
+- Short sentences (up to 8 words) are emphasis, not the default cadence.
+- After 1-2 short sentences, use a longer sentence (18+ words).
+- Never use more than 2 short sentences in a row.
+${rhythmSharedRules}`);
 
     // Resolve StyleProfile for this article (same source-of-truth as quality-check).
     let styleProfile: StyleProfile = getStyleProfile(null);
@@ -1033,10 +1121,10 @@ ${rhythmSharedRules}`;
           ? prevImproveLast.score_history.find((x: any) => x?.label === "initial")
           : null);
       const iClaudeR: string[] = Array.isArray(initEntry?.reasons?.claude)
-        ? initEntry.reasons.claude.map((s: unknown) => String(s)).filter(Boolean)
+        ? initEntry.reasons.claude.map((s: unknown) => String(s)).filter(Boolean).filter(reasonAllowed)
         : [];
       const iGeminiR: string[] = Array.isArray(initEntry?.reasons?.gemini)
-        ? initEntry.reasons.gemini.map((s: unknown) => String(s)).filter(Boolean)
+        ? initEntry.reasons.gemini.map((s: unknown) => String(s)).filter(Boolean).filter(reasonAllowed)
         : [];
       const iClaudeS: number | null = typeof initEntry?.parts?.claude === "number" ? initEntry.parts.claude : null;
       const iGeminiS: number | null = typeof initEntry?.parts?.gemini === "number" ? initEntry.parts.gemini : null;
@@ -1091,13 +1179,19 @@ ${rhythmSharedRules}`;
       // Preserve block — praise reasons that survived the validator filter.
       const preserveBits: string[] = [];
       if (iClaudeS !== null && iClaudeS >= 70 && claudeF.keep.length) {
-        preserveBits.push(`Судья Claude поставил ${iClaudeS}/100 и отметил как «человеческое»:\n  - ${claudeF.keep.slice(0, 6).join("\n  - ")}`);
+        preserveBits.push(isRuArticle
+          ? `Судья Claude поставил ${iClaudeS}/100 и отметил как «человеческое»:\n  - ${claudeF.keep.slice(0, 6).join("\n  - ")}`
+          : `Claude judge scored ${iClaudeS}/100 and marked as human-like:\n  - ${claudeF.keep.slice(0, 6).join("\n  - ")}`);
       }
       if (iGeminiS !== null && iGeminiS >= 70 && geminiF.keep.length) {
-        preserveBits.push(`Судья Gemini поставил ${iGeminiS}/100 и отметил как «человеческое»:\n  - ${geminiF.keep.slice(0, 6).join("\n  - ")}`);
+        preserveBits.push(isRuArticle
+          ? `Судья Gemini поставил ${iGeminiS}/100 и отметил как «человеческое»:\n  - ${geminiF.keep.slice(0, 6).join("\n  - ")}`
+          : `Gemini judge scored ${iGeminiS}/100 and marked as human-like:\n  - ${geminiF.keep.slice(0, 6).join("\n  - ")}`);
       }
       const preserveBlock = preserveBits.length
-        ? `\n\nСОХРАНИТЬ, НЕ ПЕРЕПИСЫВАТЬ (эти обороты и приёмы уже прошли AI-детекцию — оставляй их в тексте дословно или почти дословно; критика ниже применяется ТОЛЬКО к фрагментам, НЕ попадающим под "СОХРАНИТЬ"):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+        ? isRuArticle
+          ? `\n\nСОХРАНИТЬ, НЕ ПЕРЕПИСЫВАТЬ (эти обороты и приёмы уже прошли AI-детекцию — оставляй их в тексте дословно или почти дословно; критика ниже применяется ТОЛЬКО к фрагментам, НЕ попадающим под "СОХРАНИТЬ"):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+          : `\n\nPRESERVE, DO NOT REWRITE (these moves already passed AI detection - leave them verbatim or nearly verbatim; critique below applies ONLY to fragments outside this block):\n${preserveBits.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
         : "";
 
       // Override block — praise the validators nullified. Validator veto wins.
@@ -1106,7 +1200,9 @@ ${rhythmSharedRules}`;
         ...geminiF.overridden.map((o) => ({ ...o, judge: "Gemini" })),
       ];
       const overrideBlock = overrideAll.length
-        ? `\n\nПОХВАЛА СУДЕЙ ОТМЕНЕНА ВАЛИДАТОРАМИ (валидатор сильнее судьи — эти приёмы УБРАТЬ, не «сохранять»):\n${overrideAll.slice(0, 6).map((o, i) => `${i + 1}. Судья ${o.judge} хвалил: «${o.reason.slice(0, 200)}» — но pre-validator поймал шаблон «${o.frag}». Удали фрагмент или замени конкретной атрибуцией (имя, должность, компания, ссылка на исследование).`).join("\n")}\n`
+        ? isRuArticle
+          ? `\n\nПОХВАЛА СУДЕЙ ОТМЕНЕНА ВАЛИДАТОРАМИ (валидатор сильнее судьи — эти приёмы УБРАТЬ, не «сохранять»):\n${overrideAll.slice(0, 6).map((o, i) => `${i + 1}. Судья ${o.judge} хвалил: «${o.reason.slice(0, 200)}» — но pre-validator поймал шаблон «${o.frag}». Удали фрагмент или замени конкретной атрибуцией (имя, должность, компания, ссылка на исследование).`).join("\n")}\n`
+          : `\n\nJUDGE PRAISE OVERRIDDEN BY VALIDATORS (validator beats judge - remove these moves, do not preserve them):\n${overrideAll.slice(0, 6).map((o, i) => `${i + 1}. ${o.judge} praised: "${o.reason.slice(0, 200)}" - but pre-validator caught "${o.frag}". Remove it or replace it with concrete attribution (name, role, company, source).`).join("\n")}\n`
         : "";
 
       // Critique block — reasons from judges that scored <70 (real
@@ -1116,33 +1212,25 @@ ${rhythmSharedRules}`;
       if (iGeminiS !== null && iGeminiS < 70 && iGeminiR.length) critiqueReasons.push(...iGeminiR);
       critiqueReasons.push(...priorClaudeReasons, ...priorInternalReasons);
       const critiqueBlock = critiqueReasons.length
-        ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, но НЕ ломай элементы из блока "СОХРАНИТЬ"):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+        ? isRuArticle
+          ? `\n\nСУДЬИ СНИЗИЛИ БАЛЛ ЗА (устрани прицельно, но НЕ ломай элементы из блока "СОХРАНИТЬ"):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
+          : `\n\nJUDGES LOWERED THE SCORE FOR (fix precisely, but do NOT damage elements from the PRESERVE block):\n${critiqueReasons.slice(0, 8).map((r, i) => `${i + 1}. ${r}`).join("\n")}\n`
         : judgeReasonsBlock; // fallback to prior-only critique if no init reasons
       judgeReasonsBlock = preserveBlock + overrideBlock + critiqueBlock;
-      const sys = "Ты редактор-человек. Переписываешь HTML-контент сохраняя ВСЕ факты, цифры, бренды, ссылки, теги. Возвращаешь только итоговый HTML без markdown-обёрток.";
+      const sys = getPrompt("improve.humanize.system", articleLang, {});
       const conservativeBlock = ((art as any).humanize_profile === "conservative")
-        ? `\n\nВНИМАНИЕ: РЕЖИМ КОНСЕРВАТИВНОГО РЕРАЙТА (авторский текст пользователя).\n- НЕ меняй факты, структуру заголовков, порядок мыслей и авторские примеры.\n- НЕ переставляй абзацы, НЕ добавляй новые смысловые блоки, НЕ придумывай цитаты и источники.\n- Исправляй ТОЛЬКО: клише, канцелярит, обрубленные предложения, номинативные вставки ключей, чрезмерную предсказуемость формулировок.\n- Сохраняй авторский голос: если у пользователя короткие рубленые фразы или длинные периоды — оставь этот ритм там, где он не даёт технических дефектов.\n`
+        ? isRuArticle
+          ? `\n\nВНИМАНИЕ: РЕЖИМ КОНСЕРВАТИВНОГО РЕРАЙТА (авторский текст пользователя).\n- НЕ меняй факты, структуру заголовков, порядок мыслей и авторские примеры.\n- НЕ переставляй абзацы, НЕ добавляй новые смысловые блоки, НЕ придумывай цитаты и источники.\n- Исправляй ТОЛЬКО: клише, канцелярит, обрубленные предложения, номинативные вставки ключей, чрезмерную предсказуемость формулировок.\n- Сохраняй авторский голос: если у пользователя короткие рубленые фразы или длинные периоды — оставь этот ритм там, где он не даёт технических дефектов.\n`
+          : `\n\nCONSERVATIVE REWRITE MODE (user-authored text).\n- Do not change facts, heading structure, order of ideas, or author examples.\n- Do not move paragraphs, add new sections, invent quotes, or invent sources.\n- Fix only clichés, filler, broken sentences, forced keyword insertions, and overly predictable phrasing.\n- Preserve the author's voice where it does not create technical defects.\n`
         : "";
-      const usr = `Перепиши текст так, чтобы он одновременно прошёл AI-детектор И Тургенев (Баден-Баден).${conservativeBlock}
-${validatorContextBlock}
-${judgeReasonsBlock}
-${lexicalBanBlock}
-${rhythmBlock}
-
-ЦЕЛЬ AI-детектор:
-- Живой ритм в рамках правил выше — НЕ телеграфный стиль.
-- Разговорные вставки: "на практике", "вот что важно", "и тут начинается интересное" — точечно, а не в каждом абзаце.
-- Разнообразие начал абзацев.
-
-ЦЕЛЬ Тургенев (НЕ нарушать при гуманизации):
-- Не использовать канцелярит: "является", "осуществляет", "в целях", "в рамках", "на сегодняшний день", "в настоящее время".
-- Не использовать воду: "следует отметить", "стоит сказать", "как известно", "не секрет что".
-- Если фраза длиннее 4 слов повторяется более 2 раз - перефразируй.
-
-Не меняй факты, цифры, бренды. Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <table>, <a>).
-
-HTML:
-${content}`;
+      const usr = getPrompt("improve.humanize.user", articleLang, {
+        content,
+        conservativeBlock,
+        validatorContextBlock,
+        judgeReasonsBlock,
+        lexicalBanBlock,
+        rhythmBlock,
+      });
       let rewritten: string | null = null;
       const humanizeBefore = metricsOf(content);
       const humanizeBlocks = {
@@ -1209,7 +1297,7 @@ ${content}`;
         // Strip stray markdown code fences
         const candidate = rewritten.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
         humanizeCandidateMetrics = metricsOf(candidate);
-        const integrity = htmlIntegrityOk(content, candidate);
+        const integrity = htmlIntegrityOk(content, candidate, articleLang);
         humanizeIntegrity = integrity;
         if (integrity.ok) {
           content = candidate;
@@ -1244,14 +1332,25 @@ ${content}`;
       // whole worker budget with 0 applied passes in >2 days. Manual buttons
       // (fix_type=humanize outside a cycle) still get it.
       if (!stoppedByUser && !cycleMode && aiScore < 40 && orKey) {
-        const sysOpus = "Ты редактор-человек. Делаешь микро-проход по HTML: убираешь монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
-        const usrOpus = `Микро-проход: убери оставшиеся "ИИ-подписи" — монотонность синтаксиса, одинаковые зачины абзацев, лексические всплески. Цель: AI-детектор <30%. НЕ трогай факты, цифры, ссылки, теги (<h2>,<h3>,<p>,<ul>,<table>,<a>).
+        const sysOpus = isRuArticle
+          ? "Ты редактор-человек. Делаешь микро-проход по HTML: убираешь монотонность синтаксиса, одинаковые начала абзацев, лексические всплески. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
+          : "You are a human editor. Make a micro-pass over English HTML: reduce syntax monotony, repeated paragraph openings, and lexical spikes. Keep the article in English. Preserve every tag, fact, number, and URL. Return only final HTML.";
+        const usrOpus = isRuArticle ? `Микро-проход: убери оставшиеся "ИИ-подписи" — монотонность синтаксиса, одинаковые зачины абзацев, лексические всплески. Цель: AI-детектор <30%. НЕ трогай факты, цифры, ссылки, теги (<h2>,<h3>,<p>,<ul>,<table>,<a>).
 ${validatorContextBlock}
 ${judgeReasonsBlock}
 ${lexicalBanBlock}
 ${rhythmBlock}
 
 ВАЖНО: не превращай текст в набор коротких рубленых фраз ради «живости» — соблюдай рамки ритма выше.
+
+HTML:
+${content}` : `Micro-pass: remove remaining AI fingerprints - syntax monotony, repeated paragraph openings, lexical spikes. Keep the article in English. Do not touch facts, numbers, URLs, or tags (<h2>,<h3>,<p>,<ul>,<table>,<a>).
+${validatorContextBlock}
+${judgeReasonsBlock}
+${lexicalBanBlock}
+${rhythmBlock}
+
+Do not turn the text into clipped fragments for the sake of "human" rhythm. Follow the rhythm rules above.
 
 HTML:
 ${content}`;
@@ -1269,7 +1368,7 @@ ${content}`;
         if (polished && polished.length > 200) {
           const cand2 = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           opusCandidateMetrics = metricsOf(cand2);
-          const integrity2 = htmlIntegrityOk(content, cand2);
+          const integrity2 = htmlIntegrityOk(content, cand2, articleLang);
           opusIntegrity = integrity2;
           if (integrity2.ok) {
             content = cand2;
@@ -1321,8 +1420,10 @@ ${content}`;
       && (dStatus === "underuse" || phase === "keyword_density")
       && (orKey || lovableKey)
     ) {
-      const sys = "Ты редактор. Встраиваешь ключевое слово в текст с полной грамматической адаптацией. Возвращаешь только итоговый HTML.";
-      const usr = `Встрой фразу "${primaryKeyword}" органично в 2-3 места текста.
+      const sys = isRuArticle
+        ? "Ты редактор. Встраиваешь ключевое слово в текст с полной грамматической адаптацией. Возвращаешь только итоговый HTML."
+        : "You are an editor. Add the target keyword only where it fits natural English grammar. Return only final HTML. Keep the article in English.";
+      const usr = isRuArticle ? `Встрой фразу "${primaryKeyword}" органично в 2-3 места текста.
 
 ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА ВСТРАИВАНИЯ:
 - Ключ склоняется по падежу, числу и роду под грамматику предложения. Именительный падеж посреди фразы ЗАПРЕЩЁН.
@@ -1330,6 +1431,16 @@ ${content}`;
 - Правильно: "Цена на минитрактор из Китая приятная", "Отзывы владельцев китайских минитракторов это подтверждают", "Стоимость минитрактора невысокая".
 - Если ключ не встраивается грамматически естественно в конкретное место — пропусти это место, не втыкай в сыром виде.
 - Не меняй факты, цифры, бренды. Сохрани все HTML-теги. Верни только исправленный HTML.
+
+HTML:
+${content}` : `Add the phrase "${primaryKeyword}" organically in 1-3 places only if it reads like natural English.
+
+REQUIRED RULES:
+- Do not paste the keyword as a bare noun phrase.
+- Rewrite it into a grammatical clause with verbs/prepositions when needed.
+- If the exact phrase breaks grammar, skip that spot instead of forcing it.
+- Do not change facts, numbers, brands, or URLs. Preserve all HTML tags.
+- Keep the article in English.
 
 HTML:
 ${content}`;
@@ -1344,7 +1455,7 @@ ${content}`;
       if (added && added.length > 200) {
         const candidate = added.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
         candMetrics = metricsOf(candidate);
-        const integrity = htmlIntegrityOk(content, candidate);
+        const integrity = htmlIntegrityOk(content, candidate, articleLang);
         integrityRes = integrity;
         if (integrity.ok) { content = candidate; applied = true; }
         else console.warn("[improve-article] density-fix rejected:", integrity.reason);
@@ -1403,7 +1514,7 @@ ${content}`;
       if (fixed && fixed.length > 200) {
         const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
         candMetrics = metricsOf(candidate);
-        const integrity = htmlIntegrityOk(content, candidate);
+        const integrity = htmlIntegrityOk(content, candidate, articleLang);
         integrityRes = integrity;
         if (integrity.ok) { content = candidate; applied = true; }
         else console.warn("[improve-article] turgenev-fix rejected:", integrity.reason);
@@ -1428,9 +1539,13 @@ ${content}`;
     if (!stoppedByUser && (phase === "sentence" || phase === "all") && orKey) {
       const metrics = analyzeSentenceStructure(stripHtml(content), sentenceOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
-        const hint = buildSentenceStructureFixHint(metrics) || "";
-        const sys = "Ты редактор-человек. Переписываешь абзацы HTML так, чтобы предложения были связными и завершёнными. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
-        const usr = `Перепиши текст, исправив структуру предложений.
+        const hint = isRuArticle
+          ? (buildSentenceStructureFixHint(metrics) || "")
+          : `Validator metrics: avg_words=${metrics.avgWords}, max_short_run=${metrics.maxShortRun}, short_ratio=${metrics.shortRatio}. Fix sentence rhythm without changing facts.`;
+        const sys = isRuArticle
+          ? "Ты редактор-человек. Переписываешь абзацы HTML так, чтобы предложения были связными и завершенными. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
+          : "You are a human editor. Rewrite HTML paragraphs so sentences are connected and complete. Keep the article in English. Preserve every tag, fact, number, and URL. Return only final HTML.";
+        const usr = isRuArticle ? `Перепиши текст, исправив структуру предложений.
 
 ${hint}
 
@@ -1443,6 +1558,20 @@ ${hint}
 - Не меняй факты, цифры, бренды, ссылки. Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
 
 HTML:
+${content}` : `Rewrite the text to fix sentence structure.
+
+${hint}
+
+REQUIREMENTS:
+- Average sentence length: 18-30 words.
+- No more than 1 short sentence in a row as emphasis.
+- Connect related ideas with varied methods: comma, colon, concrete example, adjacent sentence, or question-answer.
+- Every sentence must be complete; no dangling endings after "and", "but", "because", "so".
+- Do not mechanically equalize length. Alternate medium (15-22 words) and long (22-30 words) sentences.
+- Keep the article in English.
+- Do not change facts, numbers, brands, or URLs. Preserve all HTML tags (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
+
+HTML:
 ${content}`;
         const before = metricsOf(content);
         const fixed = await callOpenRouter("anthropic/claude-sonnet-4", sys, usr, orKey, 12000, { ...llmCtx, functionName: "improve-article/sentence-structure" });
@@ -1452,7 +1581,7 @@ ${content}`;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           candMetrics = metricsOf(candidate);
-          const integrity = htmlIntegrityOk(content, candidate);
+          const integrity = htmlIntegrityOk(content, candidate, articleLang);
           integrityRes = integrity;
           if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] sentence-fix rejected:", integrity.reason);
@@ -1477,9 +1606,13 @@ ${content}`;
     if (!stoppedByUser && (phase === "dangling" || phase === "all") && orKey) {
       const metrics = analyzeDanglingThoughts(content);
       if (metrics.verdict === "fail") {
-        const hint = buildDanglingFixHint(metrics) || "";
-        const sys = "Ты редактор. Закрываешь оборванные мысли в HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
-        const usr = `Закрой оборванные мысли в тексте. Каждое предложение должно быть завершённым; ни один абзац не должен заканчиваться висящим союзом ("и", "но", "поэтому", "однако") или без терминатора.
+        const hint = isRuArticle
+          ? (buildDanglingFixHint(metrics) || "")
+          : `Validator caught dangling or unfinished thoughts. Complete only those clauses and keep the rest stable.`;
+        const sys = isRuArticle
+          ? "Ты редактор. Закрываешь оборванные мысли в HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
+          : "You are an editor. Complete dangling thoughts in English HTML while preserving every tag, fact, number, and URL. Return only final HTML.";
+        const usr = isRuArticle ? `Закрой оборванные мысли в тексте. Каждое предложение должно быть завершённым; ни один абзац не должен заканчиваться висящим союзом ("и", "но", "поэтому", "однако") или без терминатора.
 
 ${hint}
 
@@ -1488,6 +1621,18 @@ ${hint}
 - Не выкидывай абзацы целиком — дополни их.
 - Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
 - Не меняй факты, цифры, бренды, ссылки.
+
+HTML:
+${content}` : `Complete dangling thoughts in the text. Every sentence must be finished; no paragraph should end with a dangling conjunction ("and", "but", "so", "because") or without terminal punctuation.
+
+${hint}
+
+Rules:
+- Add the missing logical ending where the thought breaks off.
+- Do not delete whole paragraphs; complete them.
+- Keep the article in English.
+- Preserve all HTML tags (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
+- Do not change facts, numbers, brands, or URLs.
 
 HTML:
 ${content}`;
@@ -1499,7 +1644,7 @@ ${content}`;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           candMetrics = metricsOf(candidate);
-          const integrity = htmlIntegrityOk(content, candidate);
+          const integrity = htmlIntegrityOk(content, candidate, articleLang);
           integrityRes = integrity;
           if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] dangling-fix rejected:", integrity.reason);
@@ -1522,11 +1667,18 @@ ${content}`;
     // 7) Cancellary: канцеляризмы и штампы из BANLIST.
     await checkStopFlag("dangling");
     if (!stoppedByUser && (phase === "cancellary" || phase === "all") && orKey) {
-      const metrics = analyzeCancellary(stripHtml(content), cancellaryOptionsFromStyleProfile(styleProfile));
+      const metrics = analyzeCancellary(stripHtml(content), {
+        ...cancellaryOptionsFromStyleProfile(styleProfile),
+        language: articleLang,
+      });
       if (metrics.verdict === "fail") {
-        const hint = buildCancellaryFixHint(metrics) || "";
-        const sys = "Ты редактор. Убираешь канцеляризмы и штампы из HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
-        const usr = `Перепиши фразы, содержащие запрещённые обороты. Заменяй конкретикой, фактом или действием — не выбрасывай слова механически.
+        const hint = isRuArticle
+          ? (buildCancellaryFixHint(metrics) || "")
+          : `Banned phrases found:\n${metrics.hits.slice(0, 10).map((h) => `  - "${h.phrase}" - ${h.count} times`).join("\n")}\nReplace with concrete detail from the article, or cut cleanly.`;
+        const sys = isRuArticle
+          ? "Ты редактор. Убираешь канцеляризмы и штампы из HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
+          : "You are an editor. Remove clichés, filler, and vague authority claims from English HTML while preserving every tag, fact, number, and URL. Return only final HTML.";
+        const usr = isRuArticle ? `Перепиши фразы, содержащие запрещённые обороты. Заменяй конкретикой, фактом или действием — не выбрасывай слова механически.
 
 ${hint}
 
@@ -1534,6 +1686,17 @@ ${hint}
 - Сохрани все HTML-теги и структуру.
 - Не меняй цифры, бренды, ссылки.
 - Если фразу нечем заменить — выкидывай целиком, не оставляй обрубок.
+
+HTML:
+${content}` : `Rewrite phrases that contain banned English clichés, filler, or anonymous-authority claims. Replace them with concrete facts, actions, or observations from the article - do not swap in synonyms.
+
+${hint}
+
+Rules:
+- Keep all HTML tags and structure.
+- Keep the article in English.
+- Do not change numbers, brands, or URLs.
+- If a phrase has no concrete replacement, remove the sentence cleanly instead of leaving a fragment.
 
 HTML:
 ${content}`;
@@ -1545,7 +1708,7 @@ ${content}`;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           candMetrics = metricsOf(candidate);
-          const integrity = htmlIntegrityOk(content, candidate);
+          const integrity = htmlIntegrityOk(content, candidate, articleLang);
           integrityRes = integrity;
           if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] cancellary-fix rejected:", integrity.reason);
@@ -1570,9 +1733,13 @@ ${content}`;
     if (!stoppedByUser && (phase === "keyword_freq" || phase === "all") && orKey) {
       const metrics = analyzeKeywordFrequency(content, primaryKeyword || null, keywordOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
-        const hint = buildKeywordFrequencyFixHint(metrics) || "";
-        const sys = "Ты редактор. Снижаешь частотность повторяющихся слов в HTML через синонимы, местоимения и перестройку фраз. Сохраняешь ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-обёрток.";
-        const usr = `Снизь частотность сверхчастых слов и seed-ключа. Используй синонимы, местоимения, перестройку фразы — не выкидывай слова механически.
+        const hint = isRuArticle
+          ? (buildKeywordFrequencyFixHint(metrics) || "")
+          : `Validator found repeated words or repeated target keyword. Reduce repetition with natural English synonyms and pronouns while preserving meaning.`;
+        const sys = isRuArticle
+          ? "Ты редактор. Снижаешь частотность повторяющихся слов в HTML через синонимы, местоимения и перестройку фраз. Сохраняешь ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
+          : "You are an editor. Reduce repeated-word frequency in English HTML through synonyms, pronouns, and sentence restructuring. Preserve every tag, fact, number, and URL. Return only final HTML.";
+        const usr = isRuArticle ? `Снизь частотность сверхчастых слов и seed-ключа. Используй синонимы, местоимения, перестройку фразы — не выкидывай слова механически.
 
 ${hint}
 
@@ -1580,6 +1747,16 @@ ${hint}
 - Норма: значимое слово ≤ 2 раз на 1000 знаков; seed-ключ ≤ 1 раз в каждом H2-блоке.
 - Сохрани смысл и факты; не делай текст безличным.
 - Сохрани все HTML-теги (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
+
+HTML:
+${content}` : `Reduce overused words and repeated seed keywords. Use synonyms, pronouns, and sentence restructuring - do not delete words mechanically.
+
+${hint}
+
+Rules:
+- Preserve meaning and facts. Do not make the text generic.
+- Keep the article in English.
+- Preserve all HTML tags (<h2>, <h3>, <p>, <ul>, <li>, <table>, <a>).
 
 HTML:
 ${content}`;
@@ -1591,7 +1768,7 @@ ${content}`;
         if (fixed && fixed.length > 200) {
           const candidate = fixed.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
           candMetrics = metricsOf(candidate);
-          const integrity = htmlIntegrityOk(content, candidate);
+          const integrity = htmlIntegrityOk(content, candidate, articleLang);
           integrityRes = integrity;
           if (integrity.ok) { content = candidate; applied = true; }
           else console.warn("[improve-article] keyword-freq-fix rejected:", integrity.reason);
@@ -1642,9 +1819,9 @@ ${content}`;
     // focused Sonnet pass on the flagged sentences; guarded by htmlIntegrity.
     let nominativeHits: string[] = [];
     try {
-      nominativeHits = (!stoppedByUser && primaryKeyword) ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
+      nominativeHits = (!stoppedByUser && isRuArticle && primaryKeyword) ? detectNominativeKeywordHits(bestContent, primaryKeyword) : [];
     } catch { nominativeHits = []; }
-    if (!stoppedByUser && nominativeHits.length && orKey) {
+    if (!stoppedByUser && isRuArticle && nominativeHits.length && orKey) {
       const nomBefore = metricsOf(bestContent);
       const sysNom =
         "Ты редактор. Задача — исправить сырые вставки ключевого слова в именительном падеже. " +
@@ -1669,7 +1846,7 @@ ${bestContent}`;
       if (polished && polished.length > 200) {
         const cand = polished.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
         nomMetrics = metricsOf(cand);
-        const integ = htmlIntegrityOk(bestContent, cand);
+        const integ = htmlIntegrityOk(bestContent, cand, articleLang);
         nomIntegrity = integ;
         if (integ.ok) {
           // Verify the fix actually removed injections; accept only if hits ↓.
@@ -2345,10 +2522,29 @@ async function runImproveCycleStep(args: CycleArgs): Promise<void> {
       // structure are language-agnostic.
       const artLang = String((art as any).language || "ru").toLowerCase();
       const isRu = artLang === "ru";
+      let scanStyleProfile: StyleProfile = getStyleProfile(null);
+      if ((art as any).author_profile_id) {
+        try {
+          const { data: scanAuthor } = await admin.from("author_profiles")
+            .select("id,name,language,style_analysis")
+            .eq("id", (art as any).author_profile_id)
+            .maybeSingle();
+          const kept = assertPersonaLanguage({
+            authorProfile: scanAuthor,
+            articleLang: isRu ? "ru" : "en",
+            context: {
+              fn: "improve-article",
+              userId: (art as any).user_id ?? null,
+              articleId: (art as any).id ?? null,
+            },
+          });
+          if (kept) scanStyleProfile = getStyleProfile((scanAuthor?.style_analysis as any)?.syntax_profile);
+        } catch (_) { /* keep default */ }
+      }
       const scan = {
         sentence_structure: analyzeSentenceStructure(plainForScan),
         cancellary: analyzeCancellary(plainForScan, {
-          ...cancellaryOptionsFromStyleProfile(styleProfile),
+          ...cancellaryOptionsFromStyleProfile(scanStyleProfile),
           language: isRu ? "ru" : "en",
         }),
         dangling: analyzeDanglingThoughts((art.content as string) || ""),
