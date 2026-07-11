@@ -522,21 +522,21 @@ export default function ArticlesPage() {
   }, []);
 
   const runStealthFromHint = useCallback(async () => {
-    if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
+    if (!currentArticleId) { toast.error(t("articles.saveFirst")); return; }
     const res = await startImproveCycle(currentArticleId, "auto");
     if (res.ok) {
-      toast.message("Цикл улучшения запущен. Работа идёт на сервере - можно закрыть или обновить страницу.");
+      toast.message(t("articles.improveStarted"));
     } else if (res.cooldown) {
-      toast.message(res.message || "Подождите перед повторной доработкой");
+      toast.message(res.message || t("articles.improveCooldown"));
     } else {
-      toast.error(res.error || "Не удалось запустить цикл");
+      toast.error(res.error || t("articles.improveFailed"));
     }
   }, [currentArticleId, content]);
 
   const openFactCheck = useCallback(() => {
     const el = document.getElementById("quality-check-panel");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    else toast.info("Откройте панель качества справа");
+    else toast.info(t("articles.openRightPanel"));
   }, []);
 
   const autoFixFacts = useCallback(() => {
@@ -545,18 +545,18 @@ export default function ArticlesPage() {
       if (r.fixedContent && r.fixedContent !== content) {
         setContent(r.fixedContent);
         setFactCheckStatus("verified");
-        toast.success(`Авто-исправлено: ${r.issues.length}`);
+        toast.success(`${t("articles.autoFixed")}: ${r.issues.length}`);
       } else {
-        toast.info("Нет авто-исправляемых проблем");
+        toast.info(t("articles.noAutoFix"));
       }
     } catch {
-      toast.error("Не удалось исправить");
+      toast.error(t("articles.autoFixFail"));
     }
   }, [content, setFactCheckStatus]);
 
   const checkGeoFromArticle = useCallback(async () => {
-    if (!currentArticleId) { toast.error("Сначала сохраните статью"); return; }
-    if (!selectedKeyword?.seed_keyword) { toast.error("Нет ключевого слова"); return; }
+    if (!currentArticleId) { toast.error(t("articles.saveFirst")); return; }
+    if (!selectedKeyword?.seed_keyword) { toast.error(t("articles.noKeyword")); return; }
     setCheckingGeo(true);
     setGeoResult(null);
     try {
@@ -867,8 +867,8 @@ export default function ArticlesPage() {
         if (sanity.corrupted) {
           setFactCheckStatus("warning");
           try { localStorage.setItem("aiwriter_partial_draft", JSON.stringify({ content: fullContent, keyword_id: selectedKeywordId, ts: Date.now() })); } catch { /* ignore */ }
-          toast.error("Содержимое статьи повреждено - модель ушла в токен-салат.", {
-            description: `Причины: ${sanity.reasons.join(", ")}. Черновик сохранен локально, но не записан в базу. Нажмите «Сгенерировать» заново.`,
+          toast.error(t("articles.sanityCorrupted"), {
+            description: t("articles.sanityCorruptedDesc", { reasons: sanity.reasons.join(", ") }),
             duration: 12000,
           });
           return;
@@ -884,12 +884,12 @@ export default function ArticlesPage() {
         const pseudoStats = validation.issues.filter(i => i.type === "pseudo_stat").length;
         const fakeOrgs = validation.issues.filter(i => i.type === "fake_company").length;
         const parts: string[] = [];
-        if (fakeExperts) parts.push(`${fakeExperts} фейк. экспертов`);
-        if (pseudoStats) parts.push(`${pseudoStats} псевдостатистик`);
-        if (fakeOrgs) parts.push(`${fakeOrgs} фейк. организаций`);
+        if (fakeExperts) parts.push(`${fakeExperts} ${t("articles.fakeExperts")}`);
+        if (pseudoStats) parts.push(`${pseudoStats} ${t("articles.pseudoStats")}`);
+        if (fakeOrgs) parts.push(`${fakeOrgs} ${t("articles.fakeOrgs")}`);
 
-        toast.warning(`Валидатор исправил: ${parts.join(", ")}`, {
-          description: "Текст автоматически очищен от подозрительных элементов. Проверьте результат.",
+        toast.warning(`${t("articles.validatorFixed")}: ${parts.join(", ")}`, {
+          description: t("articles.validatorFixedDesc"),
           duration: 8000,
         });
 
@@ -937,7 +937,7 @@ export default function ArticlesPage() {
             if (saved?.content && typeof saved.content === "string" && saved.content.length > 200) {
               setInterruptedDraft(saved.content);
               setContent(saved.content);
-              toast.warning("Соединение прервано. Черновик сохранен - можно продолжить.", { duration: 8000 });
+              toast.warning(t("articles.streamInterrupted"), { duration: 8000 });
               return;
             }
           }
