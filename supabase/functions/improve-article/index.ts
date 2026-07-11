@@ -910,19 +910,36 @@ async function runImprovePipeline(args: PipelineArgs): Promise<void> {
     // Build a plain-text "прошлые проверки нашли" block for the LLM.
     const validatorTasks: string[] = [];
     if (vSentence?.verdict === "fail" && Array.isArray(vSentence.issues) && vSentence.issues.length) {
-      const action = sentenceTooShort
-        ? "УДЛИНЯЙ и СКЛЕИВАЙ короткие предложения — но чередуй способы: двоеточие, тире, причастный оборот, соседние предложения без связки. Связки-костыли (поскольку, при этом, так как, тогда как, поэтому) — не более 2 раз на весь текст каждая."
-        : "Выровняй ритм — избегай серий одинаковой длины.";
-      validatorTasks.push(`Структура предложений (${action})\n  - ${vSentence.issues.join("\n  - ")}`);
+      const safeIssues = vSentence.issues.map((s: unknown) => String(s)).filter((s: string) => isRuArticle || !hasRussianLetters(s));
+      if (isRuArticle) {
+        const action = sentenceTooShort
+          ? "УДЛИНЯЙ и СКЛЕИВАЙ короткие предложения — но чередуй способы: двоеточие, тире, причастный оборот, соседние предложения без связки. Связки-костыли (поскольку, при этом, так как, тогда как, поэтому) — не более 2 раз на весь текст каждая."
+          : "Выровняй ритм — избегай серий одинаковой длины.";
+        validatorTasks.push(`Структура предложений (${action})\n  - ${vSentence.issues.join("\n  - ")}`);
+      } else {
+        const action = sentenceTooShort
+          ? "lengthen and merge over-short sentences while keeping varied joins"
+          : "smooth sentence rhythm and avoid same-length runs";
+        validatorTasks.push(`Sentence structure (${action})\n  - ${safeIssues.length ? safeIssues.join("\n  - ") : `avg_words=${vSentence.avg_words ?? "n/a"}, max_short_run=${vSentence.max_short_run ?? "n/a"}`}`);
+      }
     }
     if (vCancellary?.verdict === "fail" && Array.isArray(vCancellary.issues) && vCancellary.issues.length) {
-      validatorTasks.push(`Канцелярит и штампы (заменяй конкретикой, не выкидывай слова механически)\n  - ${vCancellary.issues.slice(0, 8).join("\n  - ")}`);
+      const safeIssues = vCancellary.issues.map((s: unknown) => String(s)).filter((s: string) => isRuArticle || !hasRussianLetters(s));
+      validatorTasks.push(isRuArticle
+        ? `Канцелярит и штампы (заменяй конкретикой, не выкидывай слова механически)\n  - ${vCancellary.issues.slice(0, 8).join("\n  - ")}`
+        : `Cliches and filler (replace with concrete detail, not word-for-word synonyms)\n  - ${safeIssues.length ? safeIssues.slice(0, 8).join("\n  - ") : "Remove banned English phrases caught by the validator."}`);
     }
     if (vDangling?.verdict === "fail" && Array.isArray(vDangling.issues) && vDangling.issues.length) {
-      validatorTasks.push(`Оборванные мысли (допиши логическое завершение, не обрывай на "и", "но", "поэтому")\n  - ${vDangling.issues.slice(0, 6).join("\n  - ")}`);
+      const safeIssues = vDangling.issues.map((s: unknown) => String(s)).filter((s: string) => isRuArticle || !hasRussianLetters(s));
+      validatorTasks.push(isRuArticle
+        ? `Оборванные мысли (допиши логическое завершение, не обрывай на "и", "но", "поэтому")\n  - ${vDangling.issues.slice(0, 6).join("\n  - ")}`
+        : `Dangling thoughts (complete unfinished clauses; do not end on "and", "but", "so", "because")\n  - ${safeIssues.length ? safeIssues.slice(0, 6).join("\n  - ") : "Complete any dangling clauses found by the validator."}`);
     }
     if (vKwFreq?.verdict === "fail" && Array.isArray(vKwFreq.issues) && vKwFreq.issues.length) {
-      validatorTasks.push(`Частотность слов (используй синонимы, местоимения, перестройку фразы)\n  - ${vKwFreq.issues.slice(0, 6).join("\n  - ")}`);
+      const safeIssues = vKwFreq.issues.map((s: unknown) => String(s)).filter((s: string) => isRuArticle || !hasRussianLetters(s));
+      validatorTasks.push(isRuArticle
+        ? `Частотность слов (используй синонимы, местоимения, перестройку фразы)\n  - ${vKwFreq.issues.slice(0, 6).join("\n  - ")}`
+        : `Word frequency (use synonyms, pronouns, and sentence restructuring)\n  - ${safeIssues.length ? safeIssues.slice(0, 6).join("\n  - ") : "Reduce repeated words without losing meaning."}`);
     }
     const validatorContextBlock = validatorTasks.length
       ? isRuArticle
@@ -1522,7 +1539,9 @@ ${content}`;
     if (!stoppedByUser && (phase === "sentence" || phase === "all") && orKey) {
       const metrics = analyzeSentenceStructure(stripHtml(content), sentenceOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
-        const hint = buildSentenceStructureFixHint(metrics) || "";
+        const hint = isRuArticle
+          ? (buildSentenceStructureFixHint(metrics) || "")
+          : `Validator metrics: avg_words=${metrics.avgWords}, max_short_run=${metrics.maxShortRun}, short_ratio=${metrics.shortRatio}. Fix sentence rhythm without changing facts.`;
         const sys = isRuArticle
           ? "Ты редактор-человек. Переписываешь абзацы HTML так, чтобы предложения были связными и завершенными. Сохраняешь ВСЕ HTML-теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
           : "You are a human editor. Rewrite HTML paragraphs so sentences are connected and complete. Keep the article in English. Preserve every tag, fact, number, and URL. Return only final HTML.";
@@ -1587,7 +1606,9 @@ ${content}`;
     if (!stoppedByUser && (phase === "dangling" || phase === "all") && orKey) {
       const metrics = analyzeDanglingThoughts(content);
       if (metrics.verdict === "fail") {
-        const hint = buildDanglingFixHint(metrics) || "";
+        const hint = isRuArticle
+          ? (buildDanglingFixHint(metrics) || "")
+          : `Validator caught dangling or unfinished thoughts. Complete only those clauses and keep the rest stable.`;
         const sys = isRuArticle
           ? "Ты редактор. Закрываешь оборванные мысли в HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
           : "You are an editor. Complete dangling thoughts in English HTML while preserving every tag, fact, number, and URL. Return only final HTML.";
@@ -1646,9 +1667,14 @@ ${content}`;
     // 7) Cancellary: канцеляризмы и штампы из BANLIST.
     await checkStopFlag("dangling");
     if (!stoppedByUser && (phase === "cancellary" || phase === "all") && orKey) {
-      const metrics = analyzeCancellary(stripHtml(content), cancellaryOptionsFromStyleProfile(styleProfile));
+      const metrics = analyzeCancellary(stripHtml(content), {
+        ...cancellaryOptionsFromStyleProfile(styleProfile),
+        language: articleLang,
+      });
       if (metrics.verdict === "fail") {
-        const hint = buildCancellaryFixHint(metrics) || "";
+        const hint = isRuArticle
+          ? (buildCancellaryFixHint(metrics) || "")
+          : `Banned phrases found:\n${metrics.hits.slice(0, 10).map((h) => `  - "${h.phrase}" - ${h.count} times`).join("\n")}\nReplace with concrete detail from the article, or cut cleanly.`;
         const sys = isRuArticle
           ? "Ты редактор. Убираешь канцеляризмы и штампы из HTML, сохраняя ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
           : "You are an editor. Remove clichés, filler, and vague authority claims from English HTML while preserving every tag, fact, number, and URL. Return only final HTML.";
@@ -1707,7 +1733,9 @@ ${content}`;
     if (!stoppedByUser && (phase === "keyword_freq" || phase === "all") && orKey) {
       const metrics = analyzeKeywordFrequency(content, primaryKeyword || null, keywordOptionsFromStyleProfile(styleProfile));
       if (metrics.verdict === "fail") {
-        const hint = buildKeywordFrequencyFixHint(metrics) || "";
+        const hint = isRuArticle
+          ? (buildKeywordFrequencyFixHint(metrics) || "")
+          : `Validator found repeated words or repeated target keyword. Reduce repetition with natural English synonyms and pronouns while preserving meaning.`;
         const sys = isRuArticle
           ? "Ты редактор. Снижаешь частотность повторяющихся слов в HTML через синонимы, местоимения и перестройку фраз. Сохраняешь ВСЕ теги, факты, цифры, ссылки. Возвращаешь только итоговый HTML без markdown-оберток."
           : "You are an editor. Reduce repeated-word frequency in English HTML through synonyms, pronouns, and sentence restructuring. Preserve every tag, fact, number, and URL. Return only final HTML.";
