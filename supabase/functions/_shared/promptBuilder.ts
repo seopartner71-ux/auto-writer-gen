@@ -994,6 +994,15 @@ export function buildNewArticleUserPrompt(
   geoLocation?: string | null,
   customInstructions?: string | null
 ): string {
+  // EN path: use native EN user prompt (prompts/writer.ts). Miralinks/GGL
+  // links are RU-only exchanges — ignored in EN (see generateStealthPrompt).
+  const lang = (keyword?.language || "").toLowerCase();
+  if (lang === "en" || (!lang && !/[а-яё]/i.test(String(keyword?.seed_keyword || "")))) {
+    return buildEnWriterUser(keyword, outlineStr, competitorStr, lsiStr, questionsStr, {
+      anchorLinks, mustCoverTopics, contentGaps, entities, expertInsights,
+      seoKeywords, geoLocation, customInstructions,
+    });
+  }
   const activeLinks = (miralinksLinks || []).filter(l => l.url && l.anchor);
   const activeGGLLinks = (gogetlinksLinks || []).filter(l => l.url && l.anchor);
   const allLinks = [...activeLinks, ...activeGGLLinks];
