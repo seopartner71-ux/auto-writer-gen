@@ -67,43 +67,83 @@ serve(async (req) => {
     };
     const langLabel = langName[language] || "English";
 
-    const rules = `Жесткие правила форматирования:
+    const isRu = language === "ru";
+    const rules = isRu
+      ? `Жесткие правила форматирования:
 - Без жирного (не используй ** или __).
 - Тире заменяй на дефис (-).
-${language === "ru" ? "- В русском НИКОГДА не используй букву 'ё', только 'е'." : ""}
+- В русском НИКОГДА не используй букву 'ё', только 'е'.
 - Markdown: используй ## для подзаголовков внутри раздела (если нужно), списки через -, абзацы через пустую строку.
 - НЕ повторяй H1 статьи.
-- НЕ пиши вводные мета-фразы вроде "В этом разделе мы рассмотрим".`;
+- НЕ пиши вводные мета-фразы вроде "В этом разделе мы рассмотрим".`
+      : `Strict formatting rules:
+- No bold (do not use ** or __).
+- Replace em/en dashes with hyphen (-).
+- OUTPUT MUST BE 100% ENGLISH. NO CYRILLIC CHARACTERS anywhere.
+- Markdown: use ## for subheadings inside the section (if needed), bullet lists with -, paragraphs separated by blank line.
+- DO NOT repeat the article H1.
+- DO NOT write meta intros like "In this section we will discuss".`;
 
     let userMsg = "";
     if (section_kind === "intro") {
-      userMsg = `Статья на ${langLabel} языке по теме: "${keyword}".
+      userMsg = isRu
+        ? `Статья на ${langLabel} языке по теме: "${keyword}".
 H1: "${h1_title}"
 Структура (H2): ${all_h2_titles.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n")}
 
-Напиши Введение (~150-200 слов). Direct Answer First: в первом абзаце дай прямой ответ на ключевой запрос пользователя. Без H2 в начале.`;
+Напиши Введение (~150-200 слов). Direct Answer First: в первом абзаце дай прямой ответ на ключевой запрос пользователя. Без H2 в начале.`
+        : `Article in ${langLabel} on the topic: "${keyword}".
+H1: "${h1_title}"
+Outline (H2): ${all_h2_titles.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n")}
+
+Write the Introduction (~150-200 words). Direct Answer First: give a direct answer to the user's query in the first paragraph. Do not start with an H2.`;
     } else if (section_kind === "faq") {
-      userMsg = `Тема: "${keyword}" (H1: "${h1_title}"). Язык: ${langLabel}.
+      userMsg = isRu
+        ? `Тема: "${keyword}" (H1: "${h1_title}"). Язык: ${langLabel}.
 Сгенерируй блок "## Часто задаваемые вопросы" с 4-6 короткими Q/A. Формат:
 ### Вопрос?
-Ответ 2-4 предложения.`;
+Ответ 2-4 предложения.`
+        : `Topic: "${keyword}" (H1: "${h1_title}"). Language: ${langLabel}.
+Generate a block "## Frequently Asked Questions" with 4-6 short Q/A. Format:
+### Question?
+Answer in 2-4 sentences.`;
     } else if (section_kind === "conclusion") {
-      userMsg = `Тема: "${keyword}" (H1: "${h1_title}"). Язык: ${langLabel}.
-Напиши Заключение (~100-150 слов) с заголовком "## Заключение". Кратко резюмируй и дай практический CTA-вывод без воды.`;
+      userMsg = isRu
+        ? `Тема: "${keyword}" (H1: "${h1_title}"). Язык: ${langLabel}.
+Напиши Заключение (~100-150 слов) с заголовком "## Заключение". Кратко резюмируй и дай практический CTA-вывод без воды.`
+        : `Topic: "${keyword}" (H1: "${h1_title}"). Language: ${langLabel}.
+Write a Conclusion (~100-150 words) under the heading "## Conclusion". Summarise briefly and give a practical CTA takeaway without filler.`;
     } else {
-      userMsg = `Статья на ${langLabel} языке. Тема: "${keyword}". H1: "${h1_title}".
+      userMsg = isRu
+        ? `Статья на ${langLabel} языке. Тема: "${keyword}". H1: "${h1_title}".
 Полная структура (H2): ${all_h2_titles.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n")}
 
 Напиши только раздел номер ${section_index} с заголовком:
 ## ${h2_title}
 
-Объем 250-400 слов. Конкретика, цифры/факты где уместно, без воды. НЕ дублируй контент других H2.`;
-    }
-    if (extra_prompt) userMsg += `\n\nДополнительные инструкции пользователя:\n${extra_prompt}`;
+Объем 250-400 слов. Конкретика, цифры/факты где уместно, без воды. НЕ дублируй контент других H2.`
+        : `Article in ${langLabel}. Topic: "${keyword}". H1: "${h1_title}".
+Full outline (H2): ${all_h2_titles.map((t: string, i: number) => `${i + 1}. ${t}`).join("\n")}
 
-    const systemPrompt = `Ты опытный SEO-копирайтер. Пишешь экспертные статьи для людей.
+Write ONLY section number ${section_index} under the heading:
+## ${h2_title}
+
+Length 250-400 words. Concrete details, numbers/facts where relevant, no filler. Do NOT duplicate content from other H2 sections.`;
+    }
+    if (extra_prompt) userMsg += isRu
+      ? `\n\nДополнительные инструкции пользователя:\n${extra_prompt}`
+      : `\n\nAdditional user instructions:\n${extra_prompt}`;
+
+    const systemPrompt = isRu
+      ? `Ты опытный SEO-копирайтер. Пишешь экспертные статьи для людей.
 ${persona_prompt ? `\nПерсона автора:\n${persona_prompt}\n` : ""}
+${rules}`
+      : `You are an experienced SEO copywriter writing expert articles for humans. OUTPUT MUST BE 100% ENGLISH — NO CYRILLIC CHARACTERS.
+${persona_prompt ? `\nAuthor persona:\n${persona_prompt}\n` : ""}
 ${rules}`;
+
+    // EN sections: never use Flash (code-switching risk). Use Sonnet.
+    const sectionModel = isRu ? "google/gemini-2.5-flash" : "anthropic/claude-sonnet-4";
 
     const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -114,7 +154,7 @@ ${rules}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: sectionModel,
         stream: true,
         messages: [
           { role: "system", content: systemPrompt },
