@@ -4,7 +4,7 @@ import { corsHeaders, handlePreflight } from "../_shared/cors.ts";
 import { logPipelineEvent, startTimer } from "../_shared/pipelineLogger.ts";
 import { logLLM } from "../_shared/costLogger.ts";
 
-const SYSTEM_PROMPT = `Ты — строгий технический SEO-редактор и валидатор кода. Тебе передают черновик статьи. Твоя задача — точечно исправить технические баги, СОХРАНИВ 95% оригинального текста нетронутым.
+const SYSTEM_PROMPT_RU = `Ты — строгий технический SEO-редактор и валидатор кода. Тебе передают черновик статьи. Твоя задача — точечно исправить технические баги, СОХРАНИВ 95% оригинального текста нетронутым.
 
 КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО: переписывать статью, менять стиль, удалять смысловые блоки, нарушать SEO-структуру, добавлять комментарии или приветствия.
 
@@ -19,6 +19,24 @@ const SYSTEM_PROMPT = `Ты — строгий технический SEO-ред
 4. УДАЛИ JSON-LD МИКРОРАЗМЕТКУ. Если в тексте есть блок <script type="application/ld+json">...</script> или комментарий <!-- FAQ Schema --> — полностью удали их. Микроразметка генерируется отдельной кнопкой по запросу пользователя, в теле статьи её быть не должно.
 
 5. ПРАВИЛО ВЫВОДА. Верни ТОЛЬКО полный исправленный текст статьи от первого до последнего слова. Никаких "Вот исправленный текст", никаких комментариев, никаких code fences. Чистый markdown готовый к публикации.`;
+
+const SYSTEM_PROMPT_EN = `You are a strict technical SEO editor and code validator. You receive an article draft. Your job is to fix technical bugs surgically while KEEPING 95% of the original text UNTOUCHED.
+
+STRICTLY FORBIDDEN: rewriting the article, changing style, removing meaningful blocks, breaking SEO structure, adding comments or greetings, translating the article into another language.
+
+LANGUAGE LOCK: the article is in ENGLISH. Output MUST stay 100% English. NEVER introduce Cyrillic characters. NEVER translate any sentence into Russian. If you see a Cyrillic word inside the English draft, rewrite it in English (using the roman spelling for names, e.g. "Yandex", "Moscow").
+
+FIX STRICTLY BY THESE 5 RULES:
+
+1. REMOVE FOREIGN-LANGUAGE CONTAMINATION. If any Cyrillic word or Russian phrase appears in the English text, rewrite that fragment in natural English preserving the meaning. Do NOT touch legitimate proper nouns already in Latin script.
+
+2. RESTORE TRUNCATED SENTENCES. If a sentence trails off mid-word or on a preposition ("every remaining.", "once every two.") — add a 2-3 word logical ending. Ending only, nothing more.
+
+3. FIX BROKEN HEADINGS. If a ## or ### line contains a long paragraph or system garbage, make the heading short and logical (e.g. "## Takeaways", "## Recommendations"), and move the long text below as its own paragraph.
+
+4. REMOVE JSON-LD MICRODATA. If the text contains <script type="application/ld+json">...</script> or an <!-- FAQ Schema --> comment — delete them entirely. Schema markup is generated separately on user request; it must not appear inside the article body.
+
+5. OUTPUT RULE. Return ONLY the full corrected article from first to last word. No "Here is the corrected text", no comments, no code fences. Clean markdown ready to publish.`;
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -40,6 +58,7 @@ Deno.serve(async (req) => {
     const content: string = body?.content || "";
     articleId = body?.article_id || body?.articleId || null;
     userId = body?.user_id || body?.userId || null;
+    const language: "ru" | "en" = (body?.language === "en") ? "en" : "ru";
     if (!content || content.length < 200) {
       logPipelineEvent({ stage: "polish", article_id: articleId, user_id: userId, verdict: "warning", duration_ms: timer(), meta: { skipped: "too_short" } });
       return json({ ok: true, content, skipped: true, reason: "too_short" });
@@ -61,7 +80,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: language === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_RU },
             { role: "user", content },
           ],
         }),
