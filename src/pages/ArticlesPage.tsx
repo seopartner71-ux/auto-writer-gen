@@ -196,6 +196,8 @@ export default function ArticlesPage() {
   // State
   const [selectedKeywordId, setSelectedKeywordId] = useState("");
   const [selectedAuthorId, setSelectedAuthorId] = useState("");
+  // Explicit article language (independent of UI locale). Default = UI lang.
+  const [articleLang, setArticleLang] = useState<"ru" | "en">(lang === "en" ? "en" : "ru");
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     // Cheapest default for all plans/users (1 credit). Premium models opt-in.
     const DEFAULT_MODEL = "google/gemini-2.5-flash-lite";
