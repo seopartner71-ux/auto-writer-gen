@@ -218,7 +218,7 @@ export function BulkGenerationMode() {
     mutationFn: async (jobId: string) => {
       const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) throw new Error(edgeErrorMessage(data, lang));
       return data;
     },
     onSuccess: (_, jobId) => {
@@ -243,7 +243,7 @@ export function BulkGenerationMode() {
       if (updateError) throw updateError;
       const { data, error } = await supabase.functions.invoke("bulk-generate", { body: { bulk_job_id: jobId } });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) throw new Error(edgeErrorMessage(data, lang));
       return data;
     },
     onSuccess: (_, jobId) => {
@@ -292,7 +292,7 @@ export function BulkGenerationMode() {
           meta_description: article.meta_description || "",
         },
       });
-      if (error || data?.error) throw new Error(data?.error || t("bulk.publishError"));
+      if (error || data?.error) throw new Error(edgeErrorMessage(data, lang, t("bulk.publishError")));
       return data;
     },
     onSuccess: (data) => {
