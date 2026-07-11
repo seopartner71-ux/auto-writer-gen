@@ -69,6 +69,18 @@ export function generateStealthPrompt(input: StealthPromptInput): { system: stri
   const targetLanguage = explicitLang || (isRussian ? "ru" : "en");
   const targetLangName = langMap[targetLanguage] || "English";
 
+  // ─── EN path: route to native EN writer (prompts/writer.ts) ──────────
+  // RU / everything else keeps the legacy code below unchanged.
+  if (targetLanguage === "en") {
+    let effectiveAuthor = authorProfile;
+    if (authorProfile && (authorProfile.is_miralinks_profile || authorProfile.is_gogetlinks_profile)) {
+      try { console.warn(`[en-writer] author "${authorProfile.name || "?"}" has RU-only link flags (miralinks/gogetlinks) but article language is EN — flags ignored`); } catch (_) { /* noop */ }
+      effectiveAuthor = { ...authorProfile, is_miralinks_profile: false, is_gogetlinks_profile: false };
+    }
+    const system = buildEnWriterSystem({ ...input, authorProfile: effectiveAuthor });
+    return { system, user: "" };
+  }
+
   // ═══ BLOCK A: Author Context ═══
   let blockA = "";
   if (authorProfile) {
