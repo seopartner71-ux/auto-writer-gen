@@ -177,20 +177,40 @@ ${deepAnalysisContext ? `\nDEEP-ANALYSIS CONTEXT FROM TOP-10:\n${deepAnalysisCon
 TARGET LANGUAGE: English. All output — Title, H1, Headings, Body, FAQ, meta — MUST be in English regardless of persona description language.
 
 DYNAMIC BURSTINESS (rhythm):
-- Pattern per paragraph: [short 3-6 word punch] → [medium 8-14 words] → [long 20-30 words with sub-clauses] → [short summary]. Never three sentences of the same length in a row.
 - Sentence-length standard deviation across the article must be > 4 words.
-- At least 30% of sentences under 8 words, at least 20% over 20 words.
+- No three consecutive sentences of the same length bracket.
+- At least 15% of sentences under 8 words AND at least 20% over 20 words.
+- Short sentences must be grammatically anchored to the paragraph's argument. They are NOT free-floating aphorisms or motivational punches.
 
 MANDATORY CONTRACTIONS (this is the #1 EN AI-tell):
 - Use it's / don't / you'll / can't / won't / I've / we've / they're. Full forms only when emphasis genuinely requires it.
 
 FIRST PERSON + DIRECT ADDRESS:
 - Speak from the author persona: "I've seen", "in my last three projects", "from what I've tested" — but only when it fits the persona's voice.
-- Address the reader with "you". Ask 3-4 rhetorical questions across the body (NOT in FAQ) to break rhythm.
+- Address the reader with "you" when natural. Do NOT lard the text with rhetorical questions to fake engagement (see next block).
+
+RHETORICAL QUESTIONS (strict cap — detector post-mortem showed this is a top AI tell):
+- Maximum 2 rhetorical questions in the ENTIRE article body (FAQ excluded).
+- NEVER open an H2/H3 section with a rhetorical question.
+- NEVER use the templates: "Why does this matter?", "Wondering ...?", "What if ...?", "How hard ...?", "Worried about ...?". These are burned.
+- If you need a transition, use a declarative sentence with a specific fact.
+
+SHORT APHORISMS (strict cap — top AI tell):
+- Maximum 3 short (2-5 word) declarative punches in the ENTIRE article.
+- NEVER one per section. NEVER as a paragraph on its own line.
+- NEVER these templates or their kin: "You've got this.", "Measure, don't guess.", "Patience pays.", "Timing matters.", "Keep it simple.", "Start simple.", "Read labels.", "Gloves help.", "A dry target helps."
+- Short sentences are fine when they carry a specific number, entity, or contrast ("Costs $40 at Home Depot.", "Not on cast iron."). Not when they are generic wisdom.
+
+CONVERSATIONAL OPENERS — banned templates (mechanical folksiness = AI):
+- NEVER: "Look, ...", "Real talk -", "Honestly, ...", "Here's the thing ...", "Personal case study time.", "A quick note on ...", "Here's a steady approach.", "Let me tell you ...", "Truth is ...", "Fun fact:".
+- Sound conversational through SPECIFICITY (a real number, a real scenario, a real brand from your SERP context), not through filler tags that announce informality.
 
 PARAGRAPH OPENERS (variety enforced):
-- Never start two consecutive paragraphs with the same construction. Rotate between: statement of fact, question, personal-experience opener, direct number, short contrast, imperative.
-- Study the four few-shot pairs below — each opens differently on purpose. Do the same.
+- Never start two consecutive paragraphs with the same construction.
+- Rotate across the article between: statement of fact, direct number, short contrast, imperative, personal-experience opener, named-entity opener.
+- Rhetorical-question openers count against the 2/article cap above.
+- The mechanical "short punch + explanation" opener may appear at most twice in the whole article.
+- Study the four few-shot pairs below — each is written in a DIFFERENT register on purpose. Do the same across your sections.
 
 ${buildBanlistBlock()}
 
