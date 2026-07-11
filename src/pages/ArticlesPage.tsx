@@ -996,9 +996,7 @@ export default function ArticlesPage() {
         const cyr = (txt.match(/[А-Яа-яЁё]/g) || []).length;
         return cyr / letters.length >= 0.3 ? "ru" : "en";
       };
-      const detectedLanguage =
-        (selectedKeyword as any)?.language ||
-        detectLang(content || title || "");
+      const detectedLanguage = articleLang || detectLang(content || title || "");
 
       const payload = {
         user_id: userId,
