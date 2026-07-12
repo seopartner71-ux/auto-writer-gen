@@ -463,16 +463,16 @@ export default function QuickStartPage() {
     <div className="max-w-3xl mx-auto py-8 space-y-6">
       {/* Header */}
       <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5">
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-medium text-primary uppercase tracking-wider">
+          <span className="text-[11px] font-medium text-primary uppercase tracking-[0.14em]">
             {t("qs.badge")}
           </span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+        <h1 className="text-3xl sm:text-[34px] font-semibold tracking-tight leading-tight">
           {t("qs.title")}
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-[15px] max-w-2xl mx-auto">
           {t("qs.subtitle")}
         </p>
       </div>
@@ -524,8 +524,18 @@ export default function QuickStartPage() {
               <div className="mb-1.5">{t("qs.examples")}</div>
               <div className="flex flex-wrap gap-2">
                 {(lang === "ru"
-                  ? ["как выбрать котёл", "лучшие окна 2026", "ремонт квартиры цена"]
-                  : ["how to choose a boiler", "best windows 2026", "apartment renovation cost"]
+                  ? [
+                      "seo аудит сайта чек-лист",
+                      "коммерческая недвижимость москва аренда",
+                      "интеграция crm с 1с",
+                      "лазерная эпиляция цена спб",
+                    ]
+                  : [
+                      "b2b saas seo strategy",
+                      "commercial real estate nyc lease",
+                      "crm integration best practices",
+                      "enterprise cybersecurity checklist",
+                    ]
                 ).map((ex) => (
                   <button
                     key={ex}
@@ -537,7 +547,7 @@ export default function QuickStartPage() {
                         void trackActivation("started_typing", { source: "qs_example" });
                       }
                     }}
-                    className="px-2 py-1 rounded-md bg-muted hover:bg-muted/70 transition-colors"
+                    className="px-2.5 py-1 rounded-md border border-border/60 bg-muted/40 hover:border-primary/40 hover:text-foreground text-muted-foreground font-mono text-[11px] transition-all"
                   >
                     {ex}
                   </button>
@@ -549,8 +559,13 @@ export default function QuickStartPage() {
           {prediction && (
             <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  {t("qs.forecastFor", { kw: prediction.label })}
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium">
+                    {t("qs.forecastTitle")}
+                  </div>
+                  <div className="text-sm font-medium mt-0.5 font-mono">
+                    {t("qs.forecastFor", { kw: prediction.label })}
+                  </div>
                 </div>
                 {predictionLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
               </div>
@@ -582,16 +597,29 @@ export default function QuickStartPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground border-t border-border pt-2">
-                <span>{t("qs.medianTop")}</span>
-                <span>{t("qs.medianWords", { n: prediction.medianWords.toLocaleString(lang === "ru" ? "ru-RU" : "en-US") })}</span>
-                <span>{t("qs.medianH2", { n: prediction.medianH2 })}</span>
-                <span>{t("qs.medianLists", { n: prediction.medianLists })}</span>
+              <div className="border-t border-border pt-3">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1.5">
+                  {t("qs.medianTop")}
+                </div>
+                <div className="grid grid-cols-3 gap-2 font-mono">
+                  <div className="rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
+                    <div className="text-sm font-semibold">{prediction.medianWords.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</div>
+                    <div className="text-[10px] text-muted-foreground">{lang === "ru" ? "слов" : "words"}</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
+                    <div className="text-sm font-semibold">{prediction.medianH2}</div>
+                    <div className="text-[10px] text-muted-foreground">H2</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
+                    <div className="text-sm font-semibold">{prediction.medianLists}</div>
+                    <div className="text-[10px] text-muted-foreground">{lang === "ru" ? "списков" : "lists"}</div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
                 <span className="text-xs text-muted-foreground">{t("qs.ifBetter")}</span>
-                <span className="text-sm font-semibold text-primary">
+                <span className="text-lg font-semibold text-primary font-mono">
                   {t("qs.forecastScore", { n: prediction.predictedScore })}
                 </span>
               </div>
