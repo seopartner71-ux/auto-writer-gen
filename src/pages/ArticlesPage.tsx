@@ -1440,7 +1440,7 @@ export default function ArticlesPage() {
                       size="sm"
                       variant="outline"
                       className="h-8 px-2 shrink-0 gap-1"
-                      title="Варианты заголовка"
+                      title={t("variants.title")}
                       disabled={titleVariantsLoading}
                       onClick={async () => {
                         const kw = selectedKeyword?.seed_keyword || h1 || title;
@@ -1468,7 +1468,7 @@ export default function ArticlesPage() {
                       }}
                     >
                       {titleVariantsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                      <span className="text-[11px]">Варианты</span>
+                      <span className="text-[11px]">{t("variants.button")}</span>
                     </Button>
                   </div>
                 </div>
@@ -2481,22 +2481,22 @@ export default function ArticlesPage() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Wand2 className="h-4 w-4 text-primary" /> Варианты заголовка
+              <Wand2 className="h-4 w-4 text-primary" /> {t("variants.title")}
             </DialogTitle>
             <DialogDescription>
-              Выберите альтернативный заголовок и нажмите "Применить"
+              {t("variants.desc")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <div className="rounded-md border border-border bg-muted/30 p-2">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Текущий</div>
-              <div className="text-sm">{h1 || title || "(пусто)"}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t("variants.current")}</div>
+              <div className="text-sm">{h1 || title || t("variants.empty")}</div>
             </div>
 
             {titleVariantsLoading && (
               <div className="flex items-center justify-center py-6 text-muted-foreground text-sm">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Генерируем варианты...
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> {t("variants.generating")}
               </div>
             )}
 
@@ -2518,7 +2518,7 @@ export default function ArticlesPage() {
                       </div>
                       <div className="flex-1 text-sm">
                         <span className="text-muted-foreground mr-1">{i + 1}.</span>{tv}
-                        <div className="text-[10px] text-muted-foreground mt-0.5">{tv.length} симв.</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">{tv.length} {t("variants.chars")}</div>
                       </div>
                     </button>
                   );
