@@ -158,6 +158,7 @@ export const common: Dict = {
   "admin.tabLegal": { ru: "Юр. страницы", en: "Legal Pages" },
   "admin.tabQueue": { ru: "Очередь", en: "Queue" },
   "admin.tabPaymentLogs": { ru: "💰 Платежи-лог", en: "💰 Payment Logs" },
+  "admin.tabFunnel": { ru: "Воронка", en: "Funnel" },
   // Tariff / changelog notifiers
   "notifier.tariffTitle": { ru: "🎁 Ваш тариф стал лучше!", en: "🎁 Your plan just got better!" },
   "notifier.tariffDesc": { ru: "Мы добавили новые функции без изменения цены.", en: "We added new features at no extra cost." },
