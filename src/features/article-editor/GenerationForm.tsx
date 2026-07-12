@@ -149,6 +149,7 @@ export function GenerationForm(props: GenerationFormProps) {
             onChange={onModelChange}
             userPlan={userPlan}
             label={t("generation.aiModelAndCost")}
+            articleLang={articleLang}
           />
         </div>
       )}
