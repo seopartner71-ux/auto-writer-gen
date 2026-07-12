@@ -452,7 +452,7 @@ export function SectionVideoDemo() {
               className="h-14 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 transition-colors relative"
             >
               <a href="/register">
-                {isEn ? "Sign up" : "Регистрация"}
+                {isEn ? "Try for free" : "Попробовать бесплатно"}
                 <span className="ml-1">-&gt;</span>
               </a>
             </Button>

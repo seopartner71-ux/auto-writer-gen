@@ -71,7 +71,7 @@ export function SectionHero() {
                 href="/register"
                 className="group inline-flex items-center gap-2 rounded-lg bg-primary px-8 py-4 text-sm font-tech font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90">
                 <span className="flex items-center gap-2">
-                  {lang === "ru" ? "Регистрация" : "Sign up"}
+                  {lang === "ru" ? "Попробовать бесплатно" : "Try for free"}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </a>

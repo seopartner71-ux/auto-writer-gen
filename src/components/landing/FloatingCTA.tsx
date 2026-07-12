@@ -40,7 +40,7 @@ export function FloatingCTA() {
         cookieVisible ? "bottom-[140px] sm:bottom-6" : "bottom-6"
       }`}
     >
-      {lang === "ru" ? "Регистрация" : "Sign up"}
+      {lang === "ru" ? "Попробовать бесплатно" : "Try for free"}
       <ArrowRight className="h-4 w-4" />
     </a>
   );

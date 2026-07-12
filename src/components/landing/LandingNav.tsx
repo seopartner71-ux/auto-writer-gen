@@ -66,7 +66,7 @@ export function LandingNav() {
             href="/register"
             className="text-xs sm:text-sm font-semibold rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] px-3 sm:px-5 py-1.5 text-white hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all whitespace-nowrap"
           >
-            {lang === "ru" ? "Регистрация" : "Sign up"}
+            {lang === "ru" ? "Попробовать бесплатно" : "Try for free"}
           </a>
         </div>
       </div>
