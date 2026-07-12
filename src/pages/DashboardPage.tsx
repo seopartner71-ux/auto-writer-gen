@@ -1,3 +1,6 @@
+// i18n:lang-branch — MetricaWidget (Яндекс.Метрика) is a RU-only integration
+// and is gated by `lang === "ru"` below; all Cyrillic in this file sits
+// inside that widget.
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -842,6 +845,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const isAdmin = role === "admin";
 
+  const { lang } = useI18n();
   const plan = (profile?.plan ?? "basic") as "basic" | "pro";
   const limits = PLAN_LIMITS[plan];
 
