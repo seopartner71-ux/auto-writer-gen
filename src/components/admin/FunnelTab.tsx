@@ -206,7 +206,7 @@ export function FunnelTab() {
                         {i + 1}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {t(`funnel.event.${r.event}` as keyof typeof t)}
+                        {t(`funnel.event.${r.event}` as string)}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {r.total.toLocaleString("ru-RU")}
