@@ -125,7 +125,9 @@ export function AppSidebar() {
   ] : [];
   const analyticsItems = [
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
-    { title: t("nav.rankTracker"), url: "/rank-tracker", icon: LineChartIcon },
+    ...(isBasicOrHigher ? [
+      { title: t("nav.rankTracker"), url: "/rank-tracker", icon: LineChartIcon },
+    ] : []),
     ...(isFactory ? [
       { title: "AI Radar", url: "/radar", icon: Radar },
       { title: t("nav.networkMonitor"), url: "/network-monitor", icon: Activity },
