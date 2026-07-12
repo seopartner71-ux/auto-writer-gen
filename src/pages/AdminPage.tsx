@@ -80,6 +80,7 @@ export default function AdminPage() {
           <TabsTrigger value="semantic">Семантика</TabsTrigger>
           <TabsTrigger value="copilot">Copilot Logs</TabsTrigger>
           <TabsTrigger value="visits">Посещения</TabsTrigger>
+          <TabsTrigger value="funnel">{t("admin.tabFunnel")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
