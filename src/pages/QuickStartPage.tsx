@@ -40,6 +40,8 @@ export default function QuickStartPage() {
   });
   const [finalContent, setFinalContent] = useState<string>("");
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [lsiPool, setLsiPool] = useState<string[]>([]);
+  const [mainKeyword, setMainKeyword] = useState<string>("");
   const startRef = useRef<number>(0);
   const elapsedTimerRef = useRef<number | null>(null);
   const autostartedRef = useRef(false);
@@ -160,6 +162,8 @@ export default function QuickStartPage() {
     setResultArticleId(null);
     setScores({ seo: null, ai: null, badge: null });
     setFinalContent("");
+      setLsiPool([]);
+      setMainKeyword(kw);
     startTimer();
     cancelledRef.current = false;
     abortCtrlRef.current = new AbortController();
@@ -189,6 +193,7 @@ export default function QuickStartPage() {
       const serpTitles = (rData.competitors || []).map((c: any) => c.title).filter(Boolean);
       const questions = rData.people_also_ask || [];
       const lsi = rData.analysis?.lsi_keywords || [];
+      setLsiPool(Array.isArray(lsi) ? lsi.slice(0, 30) : []);
 
       const { data: oData, error: oErr } = await supabase.functions.invoke("generate-outline", {
         body: {
