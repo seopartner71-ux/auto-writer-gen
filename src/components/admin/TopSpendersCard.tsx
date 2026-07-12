@@ -37,10 +37,12 @@ export function TopSpendersCard() {
 
       const ids = Array.from(agg.keys());
       if (ids.length === 0) { if (!cancelled) setRows([]); return; }
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id,email,plan")
-        .in("id", ids);
+      const [{ data: profiles }, { data: payments }] = await Promise.all([
+        supabase.from("profiles").select("id,email,plan").in("id", ids),
+        supabase.from("payment_logs").select("user_id").eq("status", "success").in("user_id", ids),
+      ]);
+
+      const payingIds = new Set((payments || []).map((p: any) => p.user_id));
 
       const merged: Row[] = (profiles || []).map((p: any) => {
         const a = agg.get(p.id)!;
@@ -49,6 +51,7 @@ export function TopSpendersCard() {
           user_id: p.id,
           email: p.email || p.id.slice(0, 8),
           plan: p.plan || "basic",
+          isPaying: payingIds.has(p.id),
           cost: Math.round(a.cost * 100) / 100,
           opus: a.opus,
           cap: caps.cost,
