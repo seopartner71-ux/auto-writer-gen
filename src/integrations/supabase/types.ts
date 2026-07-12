@@ -2529,6 +2529,7 @@ export type Database = {
           medium_token: string | null
           monthly_limit: number | null
           onboarding_niche: string | null
+          paying_manual_reason: string | null
           plan: string | null
           planned_articles_month: number | null
           preferred_language: string | null
@@ -2559,6 +2560,7 @@ export type Database = {
           medium_token?: string | null
           monthly_limit?: number | null
           onboarding_niche?: string | null
+          paying_manual_reason?: string | null
           plan?: string | null
           planned_articles_month?: number | null
           preferred_language?: string | null
@@ -2589,6 +2591,7 @@ export type Database = {
           medium_token?: string | null
           monthly_limit?: number | null
           onboarding_niche?: string | null
+          paying_manual_reason?: string | null
           plan?: string | null
           planned_articles_month?: number | null
           preferred_language?: string | null
