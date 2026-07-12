@@ -17,7 +17,7 @@ export function LandingNav() {
       <div className="container mx-auto flex items-center justify-between px-3 sm:px-4 h-14">
         <div className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0" onClick={() => { window.location.href = "/"; }}>
           <Hexagon className="h-5 w-5 text-primary" />
-          <span className="text-base sm:text-xl font-brand tracking-tight whitespace-nowrap">{lang === "ru" ? <>СЕО-<span className="gradient-text">Модуль</span></> : <>SEO-<span className="gradient-text">Module</span></>}</span>
+          <span className="text-base sm:text-xl font-brand tracking-tight whitespace-nowrap">{lang === "ru" ? <>СЕО-<span className="gradient-text inline-block whitespace-nowrap">Модуль</span></> : <>SEO-<span className="gradient-text inline-block whitespace-nowrap">Module</span></>}</span>
         </div>
 
         {/* Nav links - hidden on mobile */}

@@ -52,8 +52,8 @@ export function LandingFooter() {
               <Hexagon className="h-5 w-5 text-primary" />
               <span className="text-lg font-brand tracking-tight">
                 {lang === "ru"
-                  ? <>СЕО-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">Модуль</span></>
-                  : <>SEO-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6]">Module</span></>}
+                  ? <>СЕО-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6] inline-block whitespace-nowrap">Модуль</span></>
+                  : <>SEO-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-[#3b82f6] inline-block whitespace-nowrap">Module</span></>}
               </span>
             </div>
             <div className="flex items-center gap-2">

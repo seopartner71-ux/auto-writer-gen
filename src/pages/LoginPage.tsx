@@ -63,8 +63,8 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl font-brand tracking-tight">
             {lang === "ru"
-              ? (<>СЕО-<span className="gradient-text">Модуль</span></>)
-              : (<span className="gradient-text">{t("brand.name")}</span>)}
+              ? (<>СЕО-<span className="gradient-text inline-block whitespace-nowrap">Модуль</span></>)
+              : (<span className="gradient-text inline-block whitespace-nowrap">{t("brand.name")}</span>)}
           </CardTitle>
           <CardDescription>{t("auth.loginTitle")}</CardDescription>
         </CardHeader>
