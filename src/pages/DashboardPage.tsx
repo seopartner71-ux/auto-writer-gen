@@ -841,11 +841,10 @@ function AdminDashboard() {
 /* ──────────── User Dashboard (existing) ──────────── */
 export default function DashboardPage() {
   const { profile, role } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const isAdmin = role === "admin";
 
-  const { lang } = useI18n();
   const plan = (profile?.plan ?? "basic") as "basic" | "pro";
   const limits = PLAN_LIMITS[plan];
 
