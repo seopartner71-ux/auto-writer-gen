@@ -59,7 +59,7 @@ export function ProtectedRoute({ children, requiredRole, allowedRoles }: Props) 
           <div className="flex items-center justify-center gap-2">
             <Hexagon className="h-5 w-5 text-primary" />
             <span className="text-lg font-bold tracking-tight">
-              СЕО-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-500">Модуль</span>
+              СЕО-<span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-500 inline-block whitespace-nowrap">Модуль</span>
             </span>
           </div>
           <h2 className="text-2xl font-black text-foreground" style={{ letterSpacing: "-0.03em" }}>

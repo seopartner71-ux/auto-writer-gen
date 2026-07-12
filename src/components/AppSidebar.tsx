@@ -164,7 +164,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-2 px-4 py-2">
           <Hexagon className="h-6 w-6 text-primary shrink-0" />
           {!collapsed && (
-            <span className="text-lg font-brand tracking-tight">{lang === "ru" ? <>СЕО-<span className="gradient-text">Модуль</span></> : <>SEO-<span className="gradient-text">Module</span></>}</span>
+            <span className="text-lg font-brand tracking-tight">{lang === "ru" ? <>СЕО-<span className="gradient-text inline-block whitespace-nowrap">Модуль</span></> : <>SEO-<span className="gradient-text inline-block whitespace-nowrap">Module</span></>}</span>
           )}
         </div>
 
