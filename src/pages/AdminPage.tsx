@@ -110,6 +110,7 @@ export default function AdminPage() {
         <TabsContent value="semantic" className="mt-4"><SemanticInterlinkingTab /></TabsContent>
         <TabsContent value="copilot" className="mt-4"><CopilotLogsTab /></TabsContent>
         <TabsContent value="visits" className="mt-4"><PageVisitsTab /></TabsContent>
+        <TabsContent value="funnel" className="mt-4"><FunnelTab /></TabsContent>
       </Tabs>
     </div>
   );
