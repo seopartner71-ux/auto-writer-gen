@@ -80,6 +80,7 @@ import { markdownToDocxBlob, safeFilename } from "@/pages/articles/markdownToDoc
 import { saveAs } from "file-saver";
 import { useArticleAutoSave } from "@/pages/articles/useArticleAutoSave";
 import { useAiScorePoll } from "@/pages/articles/useAiScorePoll";
+import { capitalizeHeadings, capitalizeTitle } from "@/shared/utils/capitalizeHeadings";
 
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
