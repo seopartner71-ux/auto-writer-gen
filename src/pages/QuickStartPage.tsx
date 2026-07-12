@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activationTracking";
+import { capitalizeHeadings } from "@/shared/utils/capitalizeHeadings";
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
   Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle, ThumbsUp,
@@ -303,7 +304,7 @@ export default function QuickStartPage() {
         if (uid) {
           const { data: ins } = await supabase
             .from("articles")
-            .insert({ user_id: uid, keyword_id: keywordId, content: full, status: "draft", language: lng })
+            .insert({ user_id: uid, keyword_id: keywordId, content: capitalizeHeadings(full), status: "draft", language: lng })
             .select("id")
             .single();
           articleId = ins?.id || null;
