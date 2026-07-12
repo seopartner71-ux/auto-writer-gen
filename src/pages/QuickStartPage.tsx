@@ -728,49 +728,92 @@ export default function QuickStartPage() {
           </div>
 
           {/* Honest quality metrics — no AI detector (unreliable, especially for EN). */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             <div className={`rounded-lg border p-3 ${seoOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.seoScore")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{seoDisplay !== null ? seoDisplay : "-"}</span>
+                <span className="text-2xl font-semibold font-mono">{seoDisplay !== null ? seoDisplay : "-"}</span>
                 <span className="text-xs text-muted-foreground">/100</span>
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
+                {t("qs.metricSemantic")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-semibold font-mono">
+                  {contentStats && contentStats.semanticPct !== null ? contentStats.semanticPct : "-"}
+                </span>
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
+              {contentStats && contentStats.lsiTotal > 0 && (
+                <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                  {t("qs.metricSemHint", { used: contentStats.lsiUsed, total: contentStats.lsiTotal })}
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
+                {t("qs.metricDensity")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-semibold font-mono">
+                  {contentStats ? contentStats.density : "-"}
+                </span>
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
+              {contentStats && (
+                <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                  ×{contentStats.kwCount}
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricWords")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">
+                <span className="text-2xl font-semibold font-mono">
                   {contentStats ? contentStats.words.toLocaleString(lang === "ru" ? "ru-RU" : "en-US") : "-"}
                 </span>
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricHeadings")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{contentStats ? contentStats.headings : "-"}</span>
+                <span className="text-2xl font-semibold font-mono">{contentStats ? contentStats.headings : "-"}</span>
                 {contentStats && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground font-mono">
                     H2:{contentStats.h2} H3:{contentStats.h3}
                   </span>
                 )}
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricFaq")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{contentStats ? contentStats.faq : "-"}</span>
+                <span className="text-2xl font-semibold font-mono">{contentStats ? contentStats.faq : "-"}</span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
+                {t("qs.metricIntent")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-semibold font-mono">
+                  {contentStats ? contentStats.intents : "-"}
+                </span>
+                <span className="text-xs text-muted-foreground">/3</span>
               </div>
             </div>
             <div className={`rounded-lg border p-3 ${contentStats?.hasSchema ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricSchema")}
               </div>
               <div className="flex items-baseline gap-1">
@@ -780,7 +823,7 @@ export default function QuickStartPage() {
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricReadability")}
               </div>
               <div className="flex items-baseline gap-1">
