@@ -787,7 +787,7 @@ export default function QuickStartPage() {
               onClick={() => navigate("/pricing")}
               className="text-primary hover:underline font-medium"
             >
-              {profile?.plan === "pro" || profile?.plan === "factory"
+              {profile?.plan && profile.plan !== "free"
                 ? t("qs.planHintPro")
                 : t("qs.planHintUpgrade")}
             </button>
