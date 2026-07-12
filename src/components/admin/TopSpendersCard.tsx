@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-type Row = { user_id: string; email: string; plan: string; cost: number; opus: number; cap: number; opusCap: number };
+type Row = { user_id: string; email: string; plan: string; isPaying: boolean; cost: number; opus: number; cap: number; opusCap: number };
 
 function planCaps(plan: string) {
   if (plan === "factory") return { cost: 80, opus: 75 };
@@ -37,10 +37,12 @@ export function TopSpendersCard() {
 
       const ids = Array.from(agg.keys());
       if (ids.length === 0) { if (!cancelled) setRows([]); return; }
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id,email,plan")
-        .in("id", ids);
+      const [{ data: profiles }, { data: payments }] = await Promise.all([
+        supabase.from("profiles").select("id,email,plan").in("id", ids),
+        supabase.from("payment_logs").select("user_id").eq("status", "success").in("user_id", ids),
+      ]);
+
+      const payingIds = new Set((payments || []).map((p: any) => p.user_id));
 
       const merged: Row[] = (profiles || []).map((p: any) => {
         const a = agg.get(p.id)!;
@@ -49,6 +51,7 @@ export function TopSpendersCard() {
           user_id: p.id,
           email: p.email || p.id.slice(0, 8),
           plan: p.plan || "basic",
+          isPaying: payingIds.has(p.id),
           cost: Math.round(a.cost * 100) / 100,
           opus: a.opus,
           cap: caps.cost,
@@ -87,6 +90,11 @@ export function TopSpendersCard() {
                     {danger && <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
                     <span className="truncate font-medium">{r.email}</span>
                     <span className="uppercase text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{r.plan}</span>
+                    {r.isPaying && (
+                      <span title="Оплачивает сервис" className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 shrink-0">
+                        <CreditCard className="h-3 w-3" /> оплачивает
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0 tabular-nums">
                     <span className={pct >= 90 ? "text-red-500" : pct >= 70 ? "text-yellow-500" : "text-foreground"}>
