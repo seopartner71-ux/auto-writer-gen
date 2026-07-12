@@ -98,6 +98,7 @@ export function AppSidebar() {
 
   const plan = profile?.plan ?? "free";
   const isFactory = plan === "pro";
+  const isBasicOrHigher = plan === "basic" || plan === "pro";
   const isStaffOrAdmin = role === "admin" || role === "staff";
 
   const networkPaths = ["/site-factory", "/network-monitor", "/domain-hunter"];
