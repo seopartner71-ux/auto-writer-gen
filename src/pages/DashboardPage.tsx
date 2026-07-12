@@ -26,7 +26,7 @@ import { ru } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { RankingTracker } from "@/components/analytics/RankingTracker";
-import { trackActivation } from "@/shared/utils/activationTracking";
+import { trackActivation, trackActivationOnce } from "@/shared/utils/activationTracking";
 
 /* ──────────── Quick Start Banner ──────────── */
 function QuickStartBanner() {
@@ -849,6 +849,8 @@ export default function DashboardPage() {
   // Activation funnel: user reached the dashboard.
   useEffect(() => {
     void trackActivation("opened_dashboard");
+    // v3: first_session_start — fires once per browser for new users.
+    trackActivationOnce("first_session_start", {});
   }, []);
 
   const plan = (profile?.plan ?? "basic") as "basic" | "pro";
