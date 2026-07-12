@@ -6,10 +6,18 @@ import { supabase } from "@/integrations/supabase/client";
  * Best-effort — never throws, never blocks the UI.
  *
  * Funnel events:
- *   registered, opened_dashboard, focused_keyword_field, started_typing,
- *   clicked_generate, generation_done, generation_failed,
- *   generation_cancelled, closed_tab_during_generation,
- *   opened_article, copied_or_exported
+ *   Legacy (kept for back-compat):
+ *     registered, opened_dashboard, focused_keyword_field, started_typing,
+ *     clicked_generate, generation_done, generation_cancelled,
+ *     closed_tab_during_generation, opened_article, copied_or_exported
+ *   v3 (canonical, per onboarding v3 spec — 17 events):
+ *     registration_completed, first_session_start,
+ *     onboarding_modal_shown, onboarding_quick_path_clicked,
+ *     onboarding_manual_path_clicked, onboarding_skipped,
+ *     keyword_entered, generation_started, generation_stage_completed,
+ *     generation_failed, generation_completed, article_editor_opened,
+ *     article_copied, article_downloaded, stealth_pass_clicked,
+ *     tab_closed_during_generation, session_ended
  */
 
 const SESSION_KEY = "activation_session_id";
@@ -41,17 +49,35 @@ function readAndBumpLastTs(): number | null {
 }
 
 export type ActivationEvent =
+  // legacy names (kept firing for back-compat)
   | "registered"
   | "opened_dashboard"
   | "focused_keyword_field"
   | "started_typing"
   | "clicked_generate"
   | "generation_done"
-  | "generation_failed"
   | "generation_cancelled"
   | "closed_tab_during_generation"
   | "opened_article"
-  | "copied_or_exported";
+  | "copied_or_exported"
+  // v3 canonical
+  | "registration_completed"
+  | "first_session_start"
+  | "onboarding_modal_shown"
+  | "onboarding_quick_path_clicked"
+  | "onboarding_manual_path_clicked"
+  | "onboarding_skipped"
+  | "keyword_entered"
+  | "generation_started"
+  | "generation_stage_completed"
+  | "generation_failed"
+  | "generation_completed"
+  | "article_editor_opened"
+  | "article_copied"
+  | "article_downloaded"
+  | "stealth_pass_clicked"
+  | "tab_closed_during_generation"
+  | "session_ended";
 
 export async function trackActivation(
   event: ActivationEvent,
@@ -115,10 +141,31 @@ export function armCloseDuringGeneration(getContext: () => Record<string, unknow
       // Also fire via supabase client (may or may not flush before unload).
       navigator.sendBeacon?.(`${url}?apikey=${key}`, blob);
       void trackActivation("closed_tab_during_generation", getContext());
+      // v3 canonical alias
+      void trackActivation("tab_closed_during_generation", getContext());
     } catch {
       // ignore
     }
   };
   window.addEventListener("beforeunload", handler);
   return () => window.removeEventListener("beforeunload", handler);
+}
+
+/**
+ * Global session_ended listener. Fires on beforeunload when NOT during
+ * a generation (armCloseDuringGeneration handles that case separately).
+ * Install once from AppLayout. Idempotent via a module-level flag.
+ */
+let sessionEndArmed = false;
+export function armSessionEnd(getContext: () => Record<string, unknown> = () => ({})) {
+  if (sessionEndArmed) return;
+  sessionEndArmed = true;
+  const handler = () => {
+    try {
+      void trackActivation("session_ended", getContext());
+    } catch {
+      // ignore
+    }
+  };
+  window.addEventListener("beforeunload", handler);
 }
