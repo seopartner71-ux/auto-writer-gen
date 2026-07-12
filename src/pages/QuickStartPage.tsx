@@ -11,7 +11,9 @@ import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activa
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
   Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle, ThumbsUp,
+  X, History, User as UserIcon, CheckCheck,
 } from "lucide-react";
+import { useAuth } from "@/shared/hooks/useAuth";
 
 type Stage = "idle" | "research" | "structure" | "writing" | "quality" | "done" | "error";
 
@@ -26,6 +28,7 @@ export default function QuickStartPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { lang, t } = useI18n();
+  const { profile } = useAuth();
   const [keyword, setKeyword] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
   const [progress, setProgress] = useState(0);
@@ -42,6 +45,8 @@ export default function QuickStartPage() {
   const autostartedRef = useRef(false);
   const startedTypingRef = useRef(false);
   const generationArmRef = useRef<null | (() => void)>(null);
+  const abortCtrlRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
 
   // Score prediction
   const [prediction, setPrediction] = useState<{
@@ -156,6 +161,8 @@ export default function QuickStartPage() {
     setScores({ seo: null, ai: null, badge: null });
     setFinalContent("");
     startTimer();
+    cancelledRef.current = false;
+    abortCtrlRef.current = new AbortController();
     void trackActivation("clicked_generate", { keyword_len: kw.length });
     generationArmRef.current = armCloseDuringGeneration(() => ({ keyword_len: kw.length }));
 
@@ -172,6 +179,7 @@ export default function QuickStartPage() {
       });
       if (rErr) throw new Error(rErr.message || "Research failed");
       if (rData?.error) throw new Error(rData.error);
+      if (cancelledRef.current) throw new DOMException("cancelled", "AbortError");
       const keywordId: string = rData.keyword_id;
       if (!keywordId) throw new Error("No keyword_id from research");
       setProgress(35);
@@ -192,6 +200,7 @@ export default function QuickStartPage() {
       });
       if (oErr) throw new Error(oErr.message || "Outline failed");
       if (oData?.error) throw new Error(oData.error);
+      if (cancelledRef.current) throw new DOMException("cancelled", "AbortError");
       const outline = oData.outline || [];
       setProgress(50);
 
@@ -220,6 +229,7 @@ export default function QuickStartPage() {
           include_expert_quote: true,
           include_comparison_table: true,
         }),
+        signal: abortCtrlRef.current?.signal,
       });
       if (!resp.ok) {
         if (resp.status === 402) throw new Error(t("qs.insufficientCredits"));
@@ -337,14 +347,30 @@ export default function QuickStartPage() {
     } catch (e: any) {
       console.error("[QuickStart] pipeline failed:", e);
       stopTimer();
-      setErrMsg(e?.message || "Unknown error");
-      setStage("error");
       generationArmRef.current?.();
       generationArmRef.current = null;
-      void trackActivation("generation_failed", {
-        message: String(e?.message || "unknown").slice(0, 200),
-      });
+      const isAbort = cancelledRef.current || e?.name === "AbortError";
+      if (isAbort) {
+        void trackActivation("generation_cancelled", {
+          elapsed_s: Math.floor((Date.now() - startRef.current) / 1000),
+          stage,
+        });
+        toast.info(t("qs.cancelled"));
+        setStage("idle");
+        setProgress(0);
+      } else {
+        setErrMsg(e?.message || "Unknown error");
+        setStage("error");
+        void trackActivation("generation_failed", {
+          message: String(e?.message || "unknown").slice(0, 200),
+        });
+      }
     }
+  }
+
+  function cancelPipeline() {
+    cancelledRef.current = true;
+    try { abortCtrlRef.current?.abort(); } catch { /* noop */ }
   }
 
   function reset() {
