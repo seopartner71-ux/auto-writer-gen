@@ -118,6 +118,7 @@ export default function WelcomePage() {
               if (!startedTypingRef.fired && e.target.value.trim().length > 0) {
                 startedTypingRef.fired = true;
                 void trackActivation("started_typing", { source: "welcome" });
+                void trackActivation("keyword_entered", { source: "welcome" });
               }
             }}
             onFocus={() => void trackActivation("focused_keyword_field", { source: "welcome" })}
