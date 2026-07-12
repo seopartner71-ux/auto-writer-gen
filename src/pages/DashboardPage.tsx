@@ -502,7 +502,7 @@ function OnlineUsersPanel() {
 
 /* ──────────── Admin Dashboard ──────────── */
 function AdminDashboard() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { data: profiles = [] } = useQuery({
     queryKey: ["admin-dashboard-profiles"],
     queryFn: async () => {
@@ -841,7 +841,7 @@ function AdminDashboard() {
 /* ──────────── User Dashboard (existing) ──────────── */
 export default function DashboardPage() {
   const { profile, role } = useAuth();
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const isAdmin = role === "admin";
 
