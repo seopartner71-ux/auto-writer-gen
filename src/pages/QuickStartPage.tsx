@@ -426,7 +426,37 @@ export default function QuickStartPage() {
       avgWps <= 14 ? { key: "easy", pct: 90 } :
       avgWps <= 20 ? { key: "medium", pct: 70 } :
                      { key: "hard", pct: 45 };
-    return { words, h2, h3, headings, faq, hasSchema, readability };
+    // Semantic coverage: how many LSI terms from research appear in the body
+    const plainLower = plain.toLowerCase();
+    const lsiTotal = lsiPool.length;
+    const lsiUsed = lsiPool.reduce((n, term) => {
+      const t = String(term || "").trim().toLowerCase();
+      if (t.length < 2) return n;
+      return plainLower.includes(t) ? n + 1 : n;
+    }, 0);
+    const semanticPct = lsiTotal > 0 ? Math.round((lsiUsed / lsiTotal) * 100) : null;
+    // Keyword density: main-keyword occurrences / words * 100
+    const kwNorm = mainKeyword.trim().toLowerCase();
+    let kwCount = 0;
+    if (kwNorm.length >= 2) {
+      const re = new RegExp(
+        kwNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "gi",
+      );
+      kwCount = (plainLower.match(re) || []).length;
+    }
+    const density = words > 0 ? +((kwCount / words) * 100).toFixed(2) : 0;
+    // Intents closed: informational (headings), transactional (FAQ + lists), navigational (schema)
+    const intents =
+      (headings >= 4 ? 1 : 0) +
+      (faq >= 2 ? 1 : 0) +
+      (hasSchema ? 1 : 0);
+    return {
+      words, h2, h3, headings, faq, hasSchema, readability,
+      semanticPct, lsiUsed, lsiTotal,
+      density, kwCount,
+      intents,
+    };
   })();
 
   return (
