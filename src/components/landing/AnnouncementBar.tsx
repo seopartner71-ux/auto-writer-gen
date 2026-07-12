@@ -52,29 +52,25 @@ export function AnnouncementBar() {
     >
       <div className="relative mx-auto flex min-h-[40px] items-center justify-center px-10 py-2 text-center text-[12px] leading-snug md:text-[13px]">
         <p className="m-0">
-          <span aria-hidden>🔒</span>{" "}
+          <span aria-hidden>🎁</span>{" "}
           {isRu ? (
             <>
-              Закрытая регистрация · Доступ предоставляется по приглашениям,{" "}
+              Регистрация открыта · Бесплатный тариф NANO + 3 кредита на старт,{" "}
               <a
-                href="https://t.me/sin0ptick"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/register"
                 className="underline underline-offset-2 font-semibold hover:text-white/90"
               >
-                напишите нам →
+                создать аккаунт →
               </a>
             </>
           ) : (
             <>
-              Closed registration · Access is by invitation only,{" "}
+              Registration is open · Free NANO plan + 3 starter credits,{" "}
               <a
-                href="https://t.me/sin0ptick"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/register"
                 className="underline underline-offset-2 font-semibold hover:text-white/90"
               >
-                contact us →
+                create account →
               </a>
             </>
           )}
