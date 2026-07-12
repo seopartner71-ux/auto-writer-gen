@@ -96,16 +96,17 @@ serve(async (req) => {
 
     const dateLabel = formatDateRu(new Date());
 
-    // Load cost_log for the same 24h window. We aggregate by article_id (for
-    // primary-model detection) and by user_id (for daily spend totals).
-    const articleIds = doneArticles.map((a) => a.id);
-    const { data: costRows } = articleIds.length
-      ? await admin
-          .from("cost_log")
-          .select("article_id,user_id,model,cost_usd,metadata")
-          .gte("created_at", since)
-          .limit(20000)
-      : { data: [] as any[] };
+    // Load cost_log for the ENTIRE 24h window (not filtered by article_id).
+    // Previously we skipped rows tied to users with no completed articles,
+    // which hid smart-research runs and any improve/polish costs whose
+    // article never reached "completed" within the window — the digest total
+    // routinely diverged from the true OpenRouter spend. Now we sum all rows.
+    const { data: allCostRows } = await admin
+      .from("cost_log")
+      .select("article_id,user_id,model,cost_usd,metadata")
+      .gte("created_at", since)
+      .limit(50000);
+    const costRows = (allCostRows || []) as any[];
 
     // Map article_id -> { model -> summed cost } for "primary model" pick.
     const modelCostByArticle = new Map<string, Map<string, number>>();
@@ -113,11 +114,23 @@ serve(async (req) => {
     const costByArticle = new Map<string, number>();
     // Map user_id -> total daily cost across all their log entries (any article + writer_stream w/o article_id via user_id).
     const costByUser = new Map<string, number>();
-    for (const c of (costRows || []) as any[]) {
+    // Global per-kind breakdown across ALL users (for the digest header).
+    const costByKind = new Map<string, { calls: number; usd: number }>();
+    let grandTotalUsd = 0;
+    for (const c of costRows) {
       const aid = c.article_id as string | null;
       const uid = c.user_id as string | null;
       const cost = Number(c.cost_usd || 0);
       const model = String(c.model || "");
+      const meta = (c.metadata as Record<string, unknown> | null) || {};
+      const kindRaw = (meta.kind as string) || (meta.source as string) || (meta.context as string) || "other";
+      // Group all improve-article/* sub-steps into one bucket
+      const kind = kindRaw.startsWith("improve-article") ? "improve-article" : kindRaw;
+      const bucket = costByKind.get(kind) || { calls: 0, usd: 0 };
+      bucket.calls += 1;
+      bucket.usd += cost;
+      costByKind.set(kind, bucket);
+      grandTotalUsd += cost;
       if (aid) {
         costByArticle.set(aid, (costByArticle.get(aid) || 0) + cost);
         if (model) {
@@ -140,7 +153,14 @@ serve(async (req) => {
     }
 
     if (doneArticles.length === 0) {
-      const emptyText = `📊 <b>Статьи за ${dateLabel}</b>\n\nСегодня статей не было.`;
+      // Even without completed articles, spend can be non-zero
+      // (research runs, aborted generations). Report it honestly.
+      const rub = Math.round(grandTotalUsd * USD_RUB);
+      const breakdown = renderKindBreakdown(costByKind, USD_RUB);
+      const emptyText =
+        `📊 <b>Статьи за ${dateLabel}</b>\n\nСегодня завершенных статей не было.\n` +
+        `Затраты за сутки: $${grandTotalUsd.toFixed(2)} (~${rub} ₽)` +
+        (breakdown ? `\n${breakdown}` : "");
       await postDigest(supabaseUrl, serviceRoleKey, emptyText);
       return new Response(JSON.stringify({ ok: true, total: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -217,15 +237,24 @@ serve(async (req) => {
     // Sort users by article count desc
     const sorted = Array.from(buckets.values()).sort((a, b) => b.count - a.count);
 
-    const totalCostUsd = sorted.reduce((s, b) => s + b.costUsd, 0);
+    // Grand total = ALL cost_log rows for the window (matches OpenRouter).
+    // Per-user buckets remain "articles + their user-scoped rows" and may
+    // sum to less than the grand total when there are users with spend but
+    // no completed articles today — that delta is shown as "прочее".
+    const bucketsSum = sorted.reduce((s, b) => s + b.costUsd, 0);
+    const totalCostUsd = grandTotalUsd;
     const totalCostRub = Math.round(totalCostUsd * USD_RUB);
     const avgPerArticle = doneArticles.length ? totalCostUsd / doneArticles.length : 0;
+    const otherUsd = Math.max(0, totalCostUsd - bucketsSum);
 
     const lines: string[] = [];
     lines.push(
       `📊 <b>Статьи за ${dateLabel} — всего ${doneArticles.length}</b>\n` +
       `Затраты: $${totalCostUsd.toFixed(2)} (~${totalCostRub} ₽) · среднее $${avgPerArticle.toFixed(2)}/статья`
     );
+    // Category breakdown line — Smart Research is listed here whenever it fired.
+    const breakdownLine = renderKindBreakdown(costByKind, USD_RUB);
+    if (breakdownLine) lines.push(breakdownLine);
     lines.push("");
 
     for (const b of sorted) {
@@ -259,6 +288,10 @@ serve(async (req) => {
     lines.push(
       `Требуют доработки: ${needsImprove} | Битых заблокировано: ${brokenArticles.length}`
     );
+    if (otherUsd > 0.01) {
+      const otherRub = Math.round(otherUsd * USD_RUB);
+      lines.push(`Прочее (юзеры без завершенных статей за сутки): $${otherUsd.toFixed(2)} (~${otherRub} ₽)`);
+    }
 
     const text = lines.join("\n");
     await postDigest(supabaseUrl, serviceRoleKey, text);
@@ -283,6 +316,36 @@ function pluralArticles(n: number): string {
   if (mod10 === 1 && mod100 !== 11) return "статья";
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "статьи";
   return "статей";
+}
+
+function pluralRuns(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "прогон";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "прогона";
+  return "прогонов";
+}
+
+function renderKindBreakdown(
+  costByKind: Map<string, { calls: number; usd: number }>,
+  usdRub: number,
+): string {
+  // Whitelist of kinds we surface individually (in display order).
+  const order: Array<{ key: string; label: string; kindLabel: string }> = [
+    { key: "smart-research", label: "Smart Research", kindLabel: pluralRuns(0) },
+    { key: "deep-parse-competitors", label: "Deep Parse", kindLabel: pluralRuns(0) },
+    { key: "improve-article", label: "Improve/Humanize", kindLabel: pluralRuns(0) },
+    { key: "polish-article", label: "Polish", kindLabel: pluralRuns(0) },
+    { key: "writer_stream", label: "Writer stream", kindLabel: pluralRuns(0) },
+  ];
+  const parts: string[] = [];
+  for (const { key, label } of order) {
+    const b = costByKind.get(key);
+    if (!b || b.usd < 0.005) continue;
+    const rub = Math.round(b.usd * usdRub);
+    parts.push(`${label}: ${b.calls} ${pluralRuns(b.calls)}, $${b.usd.toFixed(2)} (~${rub} ₽)`);
+  }
+  return parts.length ? parts.join("\n") : "";
 }
 
 function formatCounts(m: Map<string, number>): string {
