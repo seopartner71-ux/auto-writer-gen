@@ -90,7 +90,7 @@ export const article: Dict = {
   "research.lsiKeys": { ru: "LSI-ключи", en: "LSI keys" },
   "research.found": { ru: "найдено", en: "found" },
   "research.competitors": { ru: "Конкуренты (ТОП-10)", en: "Competitors (TOP-10)" },
-  "research.excluded": { ru: "Исключён", en: "Excluded" },
+  "research.excluded": { ru: "Исключен", en: "Excluded" },
   "research.active": { ru: "Активен", en: "Active" },
   "research.collapse": { ru: "Свернуть", en: "Collapse" },
   "research.showMore": { ru: "Показать ещё", en: "Show more" },
