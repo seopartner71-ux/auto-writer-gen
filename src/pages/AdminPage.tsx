@@ -27,6 +27,7 @@ import { PipelineHealthTab } from "@/components/admin/PipelineHealthTab";
 import { TurgenevAnalyticsTab } from "@/components/admin/TurgenevAnalyticsTab";
 import { SemanticInterlinkingTab } from "@/components/admin/SemanticInterlinkingTab";
 import { PageVisitsTab } from "@/components/admin/PageVisitsTab";
+import { FunnelTab } from "@/components/admin/FunnelTab";
 import { TodayKpiCard } from "@/components/admin/TodayKpiCard";
 import { TopSpendersCard } from "@/components/admin/TopSpendersCard";
 import { OpenRouterBalanceBanner } from "@/components/admin/OpenRouterBalanceBanner";
@@ -79,6 +80,7 @@ export default function AdminPage() {
           <TabsTrigger value="semantic">Семантика</TabsTrigger>
           <TabsTrigger value="copilot">Copilot Logs</TabsTrigger>
           <TabsTrigger value="visits">Посещения</TabsTrigger>
+          <TabsTrigger value="funnel">{t("admin.tabFunnel")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="vault" className="mt-4"><ApiVaultTab /></TabsContent>
@@ -108,6 +110,7 @@ export default function AdminPage() {
         <TabsContent value="semantic" className="mt-4"><SemanticInterlinkingTab /></TabsContent>
         <TabsContent value="copilot" className="mt-4"><CopilotLogsTab /></TabsContent>
         <TabsContent value="visits" className="mt-4"><PageVisitsTab /></TabsContent>
+        <TabsContent value="funnel" className="mt-4"><FunnelTab /></TabsContent>
       </Tabs>
     </div>
   );
