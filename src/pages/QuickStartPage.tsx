@@ -168,6 +168,7 @@ export default function QuickStartPage() {
     cancelledRef.current = false;
     abortCtrlRef.current = new AbortController();
     void trackActivation("clicked_generate", { keyword_len: kw.length });
+    void trackActivation("generation_started", { keyword: kw, keyword_len: kw.length });
     generationArmRef.current = armCloseDuringGeneration(() => ({ keyword_len: kw.length }));
 
     try {
@@ -187,6 +188,10 @@ export default function QuickStartPage() {
       const keywordId: string = rData.keyword_id;
       if (!keywordId) throw new Error("No keyword_id from research");
       setProgress(35);
+      void trackActivation("generation_stage_completed", {
+        stage: "serp",
+        duration_sec: Math.floor((Date.now() - startRef.current) / 1000),
+      });
 
       // ── 2. Structure ───────────────────────────────────────
       setStage("structure");
@@ -208,6 +213,10 @@ export default function QuickStartPage() {
       if (cancelledRef.current) throw new DOMException("cancelled", "AbortError");
       const outline = oData.outline || [];
       setProgress(50);
+      void trackActivation("generation_stage_completed", {
+        stage: "structure",
+        duration_sec: Math.floor((Date.now() - startRef.current) / 1000),
+      });
 
       // ── 3. Article (stream) ────────────────────────────────
       setStage("writing");
@@ -302,6 +311,10 @@ export default function QuickStartPage() {
       }
       setResultArticleId(articleId);
       setProgress(88);
+      void trackActivation("generation_stage_completed", {
+        stage: "text",
+        duration_sec: Math.floor((Date.now() - startRef.current) / 1000),
+      });
 
       // ── 3.5 Humanize pass (double Sonnet+Opus, budget-gated) ─────────
       if (articleId && full.replace(/<[^>]+>/g, "").length > 400) {
@@ -345,9 +358,20 @@ export default function QuickStartPage() {
       stopTimer();
       generationArmRef.current?.();
       generationArmRef.current = null;
+      const elapsedS = Math.floor((Date.now() - startRef.current) / 1000);
+      void trackActivation("generation_stage_completed", {
+        stage: "quality_gate",
+        duration_sec: elapsedS,
+      });
       void trackActivation("generation_done", {
         article_id: resultArticleId,
-        elapsed_s: Math.floor((Date.now() - startRef.current) / 1000),
+        elapsed_s: elapsedS,
+      });
+      void trackActivation("generation_completed", {
+        article_id: resultArticleId,
+        duration_sec: elapsedS,
+        seo_score: scores.seo,
+        words: (finalContent || full || "").split(/\s+/).filter(Boolean).length,
       });
     } catch (e: any) {
       console.error("[QuickStart] pipeline failed:", e);
@@ -367,6 +391,8 @@ export default function QuickStartPage() {
         setErrMsg(e?.message || "Unknown error");
         setStage("error");
         void trackActivation("generation_failed", {
+          stage,
+          error_message: String(e?.message || "unknown").slice(0, 200),
           message: String(e?.message || "unknown").slice(0, 200),
         });
       }
@@ -859,6 +885,7 @@ export default function QuickStartPage() {
               onClick={() => {
                 if (!resultArticleId) return;
                 void trackActivation("opened_article", { article_id: resultArticleId });
+                void trackActivation("article_editor_opened", { article_id: resultArticleId });
                 navigate(`/articles?edit=${resultArticleId}`);
               }}
               disabled={!resultArticleId}
