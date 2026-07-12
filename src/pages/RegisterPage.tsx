@@ -24,7 +24,6 @@ export default function RegisterPage() {
   const [agreed, setAgreed] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
-  const [submitted, setSubmitted] = useState(false);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
@@ -176,10 +175,12 @@ export default function RegisterPage() {
         (window as any).turnstile.reset(widgetIdRef.current);
       }
     } else {
-      // Closed registration: user lands in `pending` status, admin reviews manually.
-      setSubmitted(true);
-      // Note: `registered` event is recorded server-side via a DB trigger on
-      // profile insertion (no active session yet on closed registration).
+      // Open registration + auto_confirm=true: session is active immediately.
+      // Send new user straight into onboarding (/welcome) — not a dead-end screen.
+      try { localStorage.removeItem("onboarding_skipped"); } catch {}
+      try { localStorage.removeItem("first_article_wizard_shown"); } catch {}
+      toast.success(t("auth.registerSuccessShort"));
+      navigate("/welcome", { replace: true });
     }
   };
 
@@ -198,24 +199,13 @@ export default function RegisterPage() {
               : (<span className="gradient-text inline-block whitespace-nowrap">{t("brand.name")}</span>)}
           </CardTitle>
           <CardDescription>
-            {submitted
-              ? t("auth.applicationReceived")
-              : registrationOpen === false
-                ? t("auth.registrationClosed")
-                : t("auth.registerTitle")}
+            {registrationOpen === false
+              ? t("auth.registrationClosed")
+              : t("auth.registerTitle")}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {submitted ? (
-            <div className="space-y-4 text-center">
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-4 py-4 text-sm text-emerald-300/90">
-                {t("auth.applicationSent")}
-              </div>
-              <Link to="/login" className="inline-block text-sm text-primary hover:underline">
-                {t("auth.backToLogin")}
-              </Link>
-            </div>
-          ) : registrationOpen === false ? (
+          {registrationOpen === false ? (
             <div className="space-y-4 text-center">
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-4 py-4 text-sm text-amber-300/90">
                 {t("auth.registrationClosedDesc")}
