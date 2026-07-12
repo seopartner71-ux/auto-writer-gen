@@ -33,9 +33,7 @@ export const onboarding: Dict = {
   "auth.captchaRequired": { ru: "Пожалуйста, пройдите проверку CAPTCHA", en: "Please complete the CAPTCHA check" },
   "auth.registrationBlocked": { ru: "Регистрация заблокирована", en: "Registration blocked" },
   "auth.accountBlocked": { ru: "Ваш аккаунт заблокирован. Свяжитесь с поддержкой.", en: "Your account is blocked. Please contact support." },
-  "auth.accountPending": { ru: "Ваш аккаунт ожидает активации. Мы пришлем письмо, как только откроем доступ.", en: "Your account is awaiting activation. We'll email you once access is granted." },
-  "auth.applicationReceived": { ru: "Аккаунт создан", en: "Account created" },
-  "auth.applicationSent": { ru: "Проверьте почту - мы отправили письмо для подтверждения email. После подтверждения сразу входите: тариф NANO и 3 бесплатных кредита уже на счете.", en: "Check your inbox - we sent a confirmation email. Once confirmed, sign in and start: you already have the NANO plan and 3 free credits on your account." },
+  "auth.registerSuccessShort": { ru: "Аккаунт создан. 3 бесплатных кредита на счете.", en: "Account created. 3 free credits on your account." },
   "auth.backToLogin": { ru: "Вернуться к входу", en: "Back to login" },
   "auth.registrationClosed": { ru: "Регистрация закрыта", en: "Registration closed" },
   "auth.registrationClosedDesc": { ru: "Регистрация временно закрыта. Свяжитесь с нами для получения доступа.", en: "Registration is temporarily closed. Contact us to request access." },
@@ -57,6 +55,7 @@ export const onboarding: Dict = {
   "dashboard.quickStart.title": { ru: "Статья за 60 секунд", en: "Article in 60 seconds" },
   "dashboard.quickStart.badge": { ru: "Авто-режим", en: "Auto mode" },
   "dashboard.quickStart.desc": { ru: "Введите ключ - получите Research, структуру и готовый текст за один клик", en: "Enter a keyword - get research, structure and finished text in one click" },
+  "qs.examples": { ru: "Или выберите пример:", en: "Or pick an example:" },
   // Reset password
   "reset.title": { ru: "Новый пароль", en: "New Password" },
   "reset.subtitle": { ru: "Введите новый пароль для вашего аккаунта", en: "Enter a new password for your account" },

@@ -27,7 +27,7 @@ export default function LoginPage() {
       return;
     }
 
-    // Closed registration: check approval status before letting the user in.
+    // Registration is open. Only block hard-blocked accounts.
     const userId = signInData?.user?.id;
     if (userId) {
       const { data: profile } = await supabase
@@ -36,20 +36,27 @@ export default function LoginPage() {
         .eq("id", userId)
         .maybeSingle();
       const status = (profile as any)?.status as "pending" | "active" | "blocked" | undefined;
-        if (status && status !== "active") {
-          await supabase.auth.signOut();
-          if (status === "blocked") {
-            toast.error(t("auth.accountBlocked"), { duration: 8000 });
-          } else {
-            toast.info(t("auth.accountPending"), { duration: 8000 });
-          }
-          return;
-        }
+      if (status === "blocked") {
+        await supabase.auth.signOut();
+        toast.error(t("auth.accountBlocked"), { duration: 8000 });
+        return;
+      }
     }
 
-      const isWelcome = searchParams.get("welcome") === "1";
-      const wizardShown = localStorage.getItem("first_article_wizard_shown") === "true";
-      navigate(isWelcome && !wizardShown ? "/welcome" : "/dashboard");
+    // Onboarding routing: brand-new users (0 articles) go to /welcome,
+    // unless they explicitly skipped onboarding before.
+    const skipped = localStorage.getItem("onboarding_skipped") === "true";
+    const wizardShown = localStorage.getItem("first_article_wizard_shown") === "true";
+    let goWelcome = false;
+    if (!skipped && !wizardShown) {
+      const { count } = await supabase
+        .from("articles")
+        .select("id", { count: "exact", head: true })
+        .eq("is_ab_test", false);
+      goWelcome = (count ?? 0) === 0;
+    }
+    if (searchParams.get("welcome") === "1" && !wizardShown) goWelcome = true;
+    navigate(goWelcome ? "/welcome" : "/dashboard");
   };
 
   return (

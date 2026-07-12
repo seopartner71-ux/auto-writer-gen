@@ -69,6 +69,7 @@ export default function WelcomePage() {
 
   const handleSkip = () => {
     localStorage.setItem(LS_KEY, "true");
+    localStorage.setItem("onboarding_skipped", "true");
     navigate("/dashboard", { replace: true });
   };
 

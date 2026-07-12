@@ -402,6 +402,30 @@ export default function QuickStartPage() {
               onKeyDown={(e) => { if (e.key === "Enter") runPipeline(); }}
               autoFocus
             />
+            <div className="text-xs text-muted-foreground">
+              <div className="mb-1.5">{t("qs.examples")}</div>
+              <div className="flex flex-wrap gap-2">
+                {(lang === "ru"
+                  ? ["как выбрать котёл", "лучшие окна 2026", "ремонт квартиры цена"]
+                  : ["how to choose a boiler", "best windows 2026", "apartment renovation cost"]
+                ).map((ex) => (
+                  <button
+                    key={ex}
+                    type="button"
+                    onClick={() => {
+                      setKeyword(ex);
+                      if (!startedTypingRef.current) {
+                        startedTypingRef.current = true;
+                        void trackActivation("started_typing", { source: "qs_example" });
+                      }
+                    }}
+                    className="px-2 py-1 rounded-md bg-muted hover:bg-muted/70 transition-colors"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {prediction && (
