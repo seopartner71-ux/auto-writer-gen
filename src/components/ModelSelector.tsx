@@ -25,9 +25,21 @@ interface Props {
   articleLength?: number;
   stealth?: boolean;
   label?: string;
+  /** Article target language. When "en", RU-only models (e.g. Mistral) are hidden. */
+  articleLang?: "ru" | "en";
 }
 
 const PLAN_RANK: Record<string, number> = { free: 0, basic: 1, pro: 2 };
+
+// Models known to code-switch or degrade quality on English output.
+// Kept in sync with server-side EN override in generate-article/bulk-generate.
+const RU_ONLY_MODEL_PATTERNS: RegExp[] = [/mistral/i, /saiga/i, /yandex/i];
+function isRuOnlyModel(modelKey: string, displayName?: string | null): boolean {
+  const hay = `${modelKey} ${displayName || ""}`;
+  return RU_ONLY_MODEL_PATTERNS.some((r) => r.test(hay));
+}
+
+const CYR = /[А-Яа-яЁё]/;
 
 /**
  * AI Model picker with live credit cost badge.
@@ -40,8 +52,9 @@ export function ModelSelector({
   articleLength = 3000,
   stealth = false,
   label,
+  articleLang,
 }: Props) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { data: models = [] } = useQuery({
     queryKey: ["ai-models-active"],
     queryFn: async () => {
@@ -56,18 +69,26 @@ export function ModelSelector({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Auto-select first available if current value is missing
+  // Filter RU-only models when writing in English
+  const visibleModels = articleLang === "en"
+    ? models.filter((m) => !isRuOnlyModel(m.model_key, m.display_name))
+    : models;
+
+  // Auto-select first available if current value is missing or filtered out
   useEffect(() => {
-    if (models.length === 0) return;
-    if (!value || !models.find((m) => m.model_key === value)) {
-      const firstAvailable = models.find(
+    if (visibleModels.length === 0) return;
+    const currentVisible = visibleModels.find((m) => m.model_key === value);
+    if (!value || !currentVisible) {
+      const firstAvailable = visibleModels.find(
         (m) => (PLAN_RANK[m.min_plan] ?? 0) <= (PLAN_RANK[userPlan] ?? 0),
       );
       if (firstAvailable) onChange(firstAvailable.model_key);
     }
-  }, [models, userPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visibleModels, userPlan, articleLang]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const current = models.find((m) => m.model_key === value);
+  const current = visibleModels.find((m) => m.model_key === value);
+  // Hide Cyrillic descriptions when UI is EN or article target is EN.
+  const hideDescription = !!current?.description && CYR.test(current.description) && (lang === "en" || articleLang === "en");
 
   return (
     <div className="space-y-1.5">
@@ -82,7 +103,7 @@ export function ModelSelector({
             <SelectValue placeholder={t("model.selectPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            {models.map((m) => {
+            {visibleModels.map((m) => {
               const locked = (PLAN_RANK[m.min_plan] ?? 0) > (PLAN_RANK[userPlan] ?? 0);
               return (
                 <SelectItem key={m.id} value={m.model_key} disabled={locked}>
@@ -114,8 +135,11 @@ export function ModelSelector({
           />
         )}
       </div>
-      {current?.description && (
+      {current?.description && !hideDescription && (
         <p className="text-[11px] text-muted-foreground leading-tight">{current.description}</p>
+      )}
+      {articleLang === "en" && (
+        <p className="text-[10px] text-muted-foreground/70 leading-tight">{t("model.ruOnlyHint")}</p>
       )}
     </div>
   );
