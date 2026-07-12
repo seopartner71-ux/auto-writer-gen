@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { Sparkles, Zap, ListTree, FileText } from "lucide-react";
+import { trackActivation } from "@/shared/utils/activationTracking";
 
 interface OnboardingModalProps {
   open: boolean;
@@ -12,6 +14,15 @@ interface OnboardingModalProps {
 export function OnboardingModal({ open, onDismiss }: OnboardingModalProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (open) void trackActivation("onboarding_modal_shown", {});
+  }, [open]);
+
+  const handleSkip = () => {
+    void trackActivation("onboarding_skipped", {});
+    onDismiss();
+  };
 
   const steps = [
     { title: t("onboarding.step1Title"), desc: t("onboarding.step1Desc") },
@@ -29,7 +40,11 @@ export function OnboardingModal({ open, onDismiss }: OnboardingModalProps) {
 
         {/* Quick Start spotlight */}
         <div
-          onClick={() => { onDismiss(); navigate("/quick-start"); }}
+          onClick={() => {
+            void trackActivation("onboarding_quick_path_clicked", {});
+            onDismiss();
+            navigate("/quick-start");
+          }}
           className="group relative cursor-pointer rounded-xl border border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 transition-all hover:border-primary/60 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.5)]"
         >
           <div className="flex items-start gap-3">
@@ -79,13 +94,14 @@ export function OnboardingModal({ open, onDismiss }: OnboardingModalProps) {
         </div>
 
         <div className="flex gap-3 justify-end">
-          <Button variant="ghost" size="sm" onClick={onDismiss}>
+          <Button variant="ghost" size="sm" onClick={handleSkip}>
             {t("onboarding.skip")}
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => {
+              void trackActivation("onboarding_manual_path_clicked", {});
               onDismiss();
               navigate("/keywords");
             }}

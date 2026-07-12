@@ -85,7 +85,11 @@ export function ArticleQualityHints({
             size="sm"
             variant="outline"
             className="h-7 text-xs border-orange-500/60 text-orange-100 hover:bg-orange-500/20"
-            onClick={() => { onRunStealth(); setStealthDismissed(true); }}
+            onClick={() => {
+              import("@/shared/utils/activationTracking").then(m => m.trackActivation("stealth_pass_clicked", { ai_score: aiScore ?? null }));
+              onRunStealth();
+              setStealthDismissed(true);
+            }}
             disabled={stealthRunning || globalLock}
           >
             ✨ {stealthRunning ? "..." : t("hints.stealth.yes")}

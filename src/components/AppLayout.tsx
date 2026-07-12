@@ -15,6 +15,8 @@ import { useTariffUpdateNotifier } from "@/shared/hooks/useTariffUpdateNotifier"
 import { usePresenceHeartbeat } from "@/shared/hooks/usePresenceHeartbeat";
 import { useSubscriptionPlansRealtime } from "@/shared/hooks/useSubscriptionPlansRealtime";
 import { QuickFeedbackBar } from "@/components/QuickFeedbackBar";
+import { useEffect } from "react";
+import { armSessionEnd } from "@/shared/utils/activationTracking";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -26,6 +28,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   useTariffUpdateNotifier();
   usePresenceHeartbeat();
   useSubscriptionPlansRealtime();
+
+  // v3 funnel: session_ended on tab close.
+  useEffect(() => { armSessionEnd(() => ({})); }, []);
 
   return (
     <SidebarProvider>

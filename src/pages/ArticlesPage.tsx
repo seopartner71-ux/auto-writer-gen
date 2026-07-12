@@ -324,6 +324,7 @@ export default function ArticlesPage() {
       setTitle(data.title || "");
       setMetaDescription(data.meta_description || "");
       setCurrentArticleId(data.id);
+      import("@/shared/utils/activationTracking").then(m => m.trackActivation("article_editor_opened", { article_id: data.id }));
       if (typeof (data as any).ai_score === "number") setAiScore((data as any).ai_score);
       if (data.keyword_id) setSelectedKeywordId(data.keyword_id);
       if (data.author_profile_id) setSelectedAuthorId(data.author_profile_id);
@@ -1600,6 +1601,10 @@ export default function ArticlesPage() {
                         setTextCopied(true);
                         toast.success(t("common.copied"));
                         setTimeout(() => setTextCopied(false), 2000);
+                        try {
+                          const m = await import("@/shared/utils/activationTracking");
+                          void m.trackActivation("article_copied", {});
+                        } catch { /* ignore */ }
                       }}
                     >
                       {textCopied ? <Check className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
@@ -1619,6 +1624,7 @@ export default function ArticlesPage() {
                         a.click();
                         URL.revokeObjectURL(url);
                         toast.success(t("articles.htmlDownloaded"));
+                        import("@/shared/utils/activationTracking").then(m => m.trackActivation("article_downloaded", { format: "html" }));
                       }}
                     >
                       <Download className="h-3 w-3 mr-1" />
@@ -1639,6 +1645,7 @@ export default function ArticlesPage() {
                         a.click();
                         URL.revokeObjectURL(url);
                         toast.success(t("articles.docDownloaded"));
+                        import("@/shared/utils/activationTracking").then(m => m.trackActivation("article_downloaded", { format: "doc" }));
                       }}
                     >
                       <FileText className="h-3 w-3 mr-1" />
@@ -1653,6 +1660,10 @@ export default function ArticlesPage() {
                           const blob = await markdownToDocxBlob(content, title, metaDescription);
                           saveAs(blob, safeFilename(title, "docx"));
                           toast.success(t("articles.docxDownloaded"));
+                          try {
+                            const m = await import("@/shared/utils/activationTracking");
+                            void m.trackActivation("article_downloaded", { format: "docx" });
+                          } catch { /* ignore */ }
                         } catch (e) {
                           console.error("[docx export]", e);
                           toast.error(t("articles.docxExportError"));

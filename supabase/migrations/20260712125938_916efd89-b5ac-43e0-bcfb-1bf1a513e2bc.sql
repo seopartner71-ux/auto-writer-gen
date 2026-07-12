@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_activation_events_session ON public.activation_events (session_id);
