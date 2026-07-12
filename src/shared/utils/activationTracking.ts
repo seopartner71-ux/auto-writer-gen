@@ -55,11 +55,15 @@ export type ActivationEvent =
 
 export async function trackActivation(
   event: ActivationEvent,
-  metadata: Record<string, unknown> = {}
+  metadata: Record<string, unknown> = {},
+  explicitUserId?: string
 ): Promise<void> {
   try {
-    const { data } = await supabase.auth.getSession();
-    const uid = data.session?.user?.id;
+    let uid = explicitUserId;
+    if (!uid) {
+      const { data } = await supabase.auth.getSession();
+      uid = data.session?.user?.id;
+    }
     if (!uid) return;
     const prev = readAndBumpLastTs();
     const timeSincePrev = prev ? Date.now() - prev : null;
