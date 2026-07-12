@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Hexagon } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { trackActivation } from "@/shared/utils/activationTracking";
 
 const TURNSTILE_SITE_KEY = "0x4AAAAAAC84aeQX5SSFSSdh";
 
@@ -179,6 +180,11 @@ export default function RegisterPage() {
       // Send new user straight into onboarding (/welcome) — not a dead-end screen.
       try { localStorage.removeItem("onboarding_skipped"); } catch {}
       try { localStorage.removeItem("first_article_wizard_shown"); } catch {}
+      // v3 funnel: registration_completed. utm_source from URL (?utm_source=...) or 'direct'.
+      try {
+        const utm = new URLSearchParams(window.location.search).get("utm_source") || "direct";
+        void trackActivation("registration_completed", { source: utm });
+      } catch { /* ignore */ }
       toast.success(t("auth.registerSuccessShort"));
       navigate("/welcome", { replace: true });
     }
