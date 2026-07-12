@@ -79,14 +79,12 @@ export function SectionFinalCta() {
 
             <div className="mt-10 flex flex-col sm:flex-row gap-3 items-center justify-center">
               <a
-                href="https://t.me/sin0ptick"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/register"
                 className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] px-10 py-5 text-base font-tech font-bold text-white shadow-[0_20px_60px_rgba(139,92,246,0.35)] transition-all duration-300 hover:scale-[1.04] hover:shadow-[0_25px_80px_rgba(139,92,246,0.5)] active:scale-[0.98]"
               >
                 <span className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] opacity-20 blur-2xl animate-[pulse_2.5s_ease-in-out_infinite]" />
                 <span className="relative flex items-center gap-2">
-                  {isRu ? "Написать в поддержку" : "Contact Support"}
+                  {isRu ? "Регистрация" : "Sign up"}
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </span>
               </a>

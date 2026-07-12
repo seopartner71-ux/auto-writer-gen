@@ -63,12 +63,10 @@ export function LandingNav() {
           </button>
 
           <a
-            href="https://t.me/sin0ptick"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/register"
             className="text-xs sm:text-sm font-semibold rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] px-3 sm:px-5 py-1.5 text-white hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] transition-all whitespace-nowrap"
           >
-            {lang === "ru" ? "Написать в поддержку" : "Contact Support"}
+            {lang === "ru" ? "Регистрация" : "Sign up"}
           </a>
         </div>
       </div>

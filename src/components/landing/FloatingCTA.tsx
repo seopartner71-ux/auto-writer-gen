@@ -35,14 +35,12 @@ export function FloatingCTA() {
 
   return (
     <a
-      href="https://t.me/sin0ptick"
-      target="_blank"
-      rel="noopener noreferrer"
+      href="/register"
       className={`fixed right-4 sm:right-6 z-50 flex items-center gap-2 rounded-full bg-primary px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors duration-200 animate-in fade-in slide-in-from-bottom-4 ${
         cookieVisible ? "bottom-[140px] sm:bottom-6" : "bottom-6"
       }`}
     >
-      {lang === "ru" ? "Написать в поддержку" : "Contact Support"}
+      {lang === "ru" ? "Регистрация" : "Sign up"}
       <ArrowRight className="h-4 w-4" />
     </a>
   );
