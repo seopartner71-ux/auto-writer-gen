@@ -26,6 +26,8 @@ import { ru } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { RankingTracker } from "@/components/analytics/RankingTracker";
+import { useEffect } from "react";
+import { trackActivation } from "@/shared/utils/activationTracking";
 
 /* ──────────── Quick Start Banner ──────────── */
 function QuickStartBanner() {
@@ -844,6 +846,11 @@ export default function DashboardPage() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const isAdmin = role === "admin";
+
+  // Activation funnel: user reached the dashboard.
+  useEffect(() => {
+    void trackActivation("opened_dashboard");
+  }, []);
 
   const plan = (profile?.plan ?? "basic") as "basic" | "pro";
   const limits = PLAN_LIMITS[plan];
