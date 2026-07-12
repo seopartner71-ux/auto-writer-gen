@@ -35,6 +35,7 @@ export default function QuickStartPage() {
   const [scores, setScores] = useState<{ seo: number | null; ai: number | null; badge: string | null }>({
     seo: null, ai: null, badge: null,
   });
+  const [finalContent, setFinalContent] = useState<string>("");
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const startRef = useRef<number>(0);
   const elapsedTimerRef = useRef<number | null>(null);
@@ -153,6 +154,7 @@ export default function QuickStartPage() {
     setContentPreview("");
     setResultArticleId(null);
     setScores({ seo: null, ai: null, badge: null });
+    setFinalContent("");
     startTimer();
     void trackActivation("clicked_generate", { keyword_len: kw.length });
     generationArmRef.current = armCloseDuringGeneration(() => ({ keyword_len: kw.length }));
@@ -308,6 +310,7 @@ export default function QuickStartPage() {
             .eq("id", articleId)
             .maybeSingle();
           const checkContent = (freshRow?.content as string | undefined) || full;
+          setFinalContent(checkContent);
           const { data: qData } = await supabase.functions.invoke("quality-check", {
             body: { article_id: articleId, content: checkContent, checks: ["score", "ai"] },
           });
@@ -351,16 +354,49 @@ export default function QuickStartPage() {
     setContentPreview("");
     setResultArticleId(null);
     setScores({ seo: null, ai: null, badge: null });
+    setFinalContent("");
     setErrMsg(null);
     setKeyword("");
   }
 
   // ─── UI ──────────────────────────────────────────────────
   const seoOk = scores.seo !== null && scores.seo <= 4;
-  const aiOk = scores.ai !== null && scores.ai >= 80;
 
   // Compute SEO display: convert risk (0-10) to "score 0-100"
   const seoDisplay = scores.seo !== null ? Math.max(0, 100 - scores.seo * 10) : null;
+
+  // Honest, content-derived quality metrics (no AI detector — unreliable, esp. for EN).
+  const contentStats = (() => {
+    const html = finalContent || "";
+    if (!html) return null;
+    // Strip tags for plain-text measures
+    const plain = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const words = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
+    const h2 = (html.match(/<h2[\s>]/gi) || []).length
+      + (html.match(/^##\s/gm) || []).length;
+    const h3 = (html.match(/<h3[\s>]/gi) || []).length
+      + (html.match(/^###\s/gm) || []).length;
+    const headings = h2 + h3;
+    // FAQ: count questions inside an FAQ block (headings ending with "?" or <details>)
+    const faqDetails = (html.match(/<details[\s>]/gi) || []).length;
+    const faqQuestions = (plain.match(/\?/g) || []).length;
+    const faq = faqDetails > 0 ? faqDetails : Math.min(faqQuestions, 12);
+    const hasSchema = /application\/ld\+json/i.test(html) || /"@type"\s*:\s*"FAQPage"/i.test(html);
+    // Readability: sentences + avg words/sentence -> "простая/средняя/сложная"
+    const sentences = Math.max(1, (plain.match(/[.!?…]+\s|[.!?…]+$/g) || []).length);
+    const avgWps = words / sentences;
+    const readability =
+      avgWps <= 14 ? { key: "easy", pct: 90 } :
+      avgWps <= 20 ? { key: "medium", pct: 70 } :
+                     { key: "hard", pct: 45 };
+    return { words, h2, h3, headings, faq, hasSchema, readability };
+  })();
 
   return (
     <div className="max-w-3xl mx-auto py-8 space-y-6">
@@ -567,8 +603,8 @@ export default function QuickStartPage() {
             </div>
           </div>
 
-          {/* Score badges */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Honest quality metrics — no AI detector (unreliable, especially for EN). */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className={`rounded-lg border p-3 ${seoOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
                 {t("qs.seoScore")}
@@ -578,13 +614,55 @@ export default function QuickStartPage() {
                 <span className="text-xs text-muted-foreground">/100</span>
               </div>
             </div>
-            <div className={`rounded-lg border p-3 ${aiOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
+            <div className="rounded-lg border border-border bg-card p-3">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                {t("qs.humanScore")}
+                {t("qs.metricWords")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{scores.ai !== null ? scores.ai : "-"}</span>
-                <span className="text-xs text-muted-foreground">{t("qs.humanUnit")}</span>
+                <span className="text-2xl font-bold">
+                  {contentStats ? contentStats.words.toLocaleString(lang === "ru" ? "ru-RU" : "en-US") : "-"}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {t("qs.metricHeadings")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold">{contentStats ? contentStats.headings : "-"}</span>
+                {contentStats && (
+                  <span className="text-xs text-muted-foreground">
+                    H2:{contentStats.h2} H3:{contentStats.h3}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {t("qs.metricFaq")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold">{contentStats ? contentStats.faq : "-"}</span>
+              </div>
+            </div>
+            <div className={`rounded-lg border p-3 ${contentStats?.hasSchema ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {t("qs.metricSchema")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-semibold">
+                  {contentStats ? (contentStats.hasSchema ? t("qs.schemaYes") : t("qs.schemaNo")) : "-"}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {t("qs.metricReadability")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-semibold">
+                  {contentStats ? t(`qs.readability.${contentStats.readability.key}`) : "-"}
+                </span>
               </div>
             </div>
           </div>
