@@ -91,7 +91,7 @@ export function TopSpendersCard() {
                     <span className="truncate font-medium">{r.email}</span>
                     <span className="uppercase text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{r.plan}</span>
                     {r.isPaying && (
-                      <span title="Оплачивает сервис" className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 shrink-0">
+                      <span title="Оплачивает сервис" className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 shrink-0">
                         <CreditCard className="h-3 w-3" /> оплачивает
                       </span>
                     )}
