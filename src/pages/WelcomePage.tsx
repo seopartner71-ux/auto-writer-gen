@@ -18,8 +18,18 @@ const STYLES = [
 ];
 
 const EXAMPLES_BY_LANG: Record<string, string[]> = {
-  ru: ["купить диван недорого", "стоматология Москва цены", "как похудеть за месяц"],
-  en: ["buy cheap sofa", "dentist New York prices", "how to lose weight in a month"],
+  ru: [
+    "seo аудит сайта чек-лист",
+    "коммерческая недвижимость москва аренда",
+    "интеграция crm с 1с",
+    "лазерная эпиляция цена спб",
+  ],
+  en: [
+    "b2b saas seo strategy",
+    "commercial real estate nyc lease",
+    "crm integration best practices",
+    "enterprise cybersecurity checklist",
+  ],
 };
 
 export default function WelcomePage() {
@@ -84,12 +94,19 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-2xl p-8 space-y-6 border-border">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-primary/10">
-            <Sparkles className="h-6 w-6 text-primary" />
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
+              {t("welcome.eyebrow")}
+            </span>
           </div>
-          <h1 className="text-2xl font-bold">{t("welcome.title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("welcome.subtitle")}</p>
+          <h1 className="text-2xl sm:text-[26px] font-semibold tracking-tight leading-tight">
+            {t("welcome.title")}
+          </h1>
+          <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+            {t("welcome.subtitle")}
+          </p>
         </div>
 
         <div className="space-y-3">
