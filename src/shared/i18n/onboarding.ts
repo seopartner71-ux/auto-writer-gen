@@ -55,6 +55,7 @@ export const onboarding: Dict = {
   "dashboard.quickStart.title": { ru: "Статья за 60 секунд", en: "Article in 60 seconds" },
   "dashboard.quickStart.badge": { ru: "Авто-режим", en: "Auto mode" },
   "dashboard.quickStart.desc": { ru: "Введите ключ - получите Research, структуру и готовый текст за один клик", en: "Enter a keyword - get research, structure and finished text in one click" },
+  "qs.examples": { ru: "Или выберите пример:", en: "Or pick an example:" },
   // Reset password
   "reset.title": { ru: "Новый пароль", en: "New Password" },
   "reset.subtitle": { ru: "Введите новый пароль для вашего аккаунта", en: "Enter a new password for your account" },
