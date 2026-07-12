@@ -603,8 +603,8 @@ export default function QuickStartPage() {
             </div>
           </div>
 
-          {/* Score badges */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Honest quality metrics — no AI detector (unreliable, especially for EN). */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className={`rounded-lg border p-3 ${seoOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
                 {t("qs.seoScore")}
@@ -614,13 +614,55 @@ export default function QuickStartPage() {
                 <span className="text-xs text-muted-foreground">/100</span>
               </div>
             </div>
-            <div className={`rounded-lg border p-3 ${aiOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
+            <div className="rounded-lg border border-border bg-card p-3">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                {t("qs.humanScore")}
+                {t("qs.metricWords")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{scores.ai !== null ? scores.ai : "-"}</span>
-                <span className="text-xs text-muted-foreground">{t("qs.humanUnit")}</span>
+                <span className="text-2xl font-bold">
+                  {contentStats ? contentStats.words.toLocaleString(lang === "ru" ? "ru-RU" : "en-US") : "-"}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {t("qs.metricHeadings")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold">{contentStats ? contentStats.headings : "-"}</span>
+                {contentStats && (
+                  <span className="text-xs text-muted-foreground">
+                    H2:{contentStats.h2} H3:{contentStats.h3}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {t("qs.metricFaq")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold">{contentStats ? contentStats.faq : "-"}</span>
+              </div>
+            </div>
+            <div className={`rounded-lg border p-3 ${contentStats?.hasSchema ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {t("qs.metricSchema")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-semibold">
+                  {contentStats ? (contentStats.hasSchema ? t("qs.schemaYes") : t("qs.schemaNo")) : "-"}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                {t("qs.metricReadability")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-lg font-semibold">
+                  {contentStats ? t(`qs.readability.${contentStats.readability.key}`) : "-"}
+                </span>
               </div>
             </div>
           </div>
