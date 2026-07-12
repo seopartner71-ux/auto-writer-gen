@@ -145,7 +145,7 @@ export default function RegisterPage() {
       // If check fails, allow registration to proceed
     }
 
-    const { data: signUpData, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -179,17 +179,8 @@ export default function RegisterPage() {
     } else {
       // Closed registration: user lands in `pending` status, admin reviews manually.
       setSubmitted(true);
-      // Fire activation funnel event (best-effort). Pass explicit user id
-      // because closed registration leaves the user without an active session.
-      void trackActivation(
-        "registered",
-        {
-          niche: niche.trim() || null,
-          planned_articles: parseInt(plannedArticles) || null,
-          referral_source: referralSource.trim() || null,
-        },
-        signUpData?.user?.id
-      );
+      // Note: `registered` event is recorded server-side via a DB trigger on
+      // profile insertion (no active session yet on closed registration).
     }
   };
 
