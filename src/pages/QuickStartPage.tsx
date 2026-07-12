@@ -389,7 +389,14 @@ export default function QuickStartPage() {
             </label>
             <Input
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              onChange={(e) => {
+                setKeyword(e.target.value);
+                if (!startedTypingRef.current && e.target.value.trim().length > 0) {
+                  startedTypingRef.current = true;
+                  void trackActivation("started_typing");
+                }
+              }}
+              onFocus={() => void trackActivation("focused_keyword_field")}
               placeholder={t("qs.keywordPlaceholder")}
               className="h-12 text-base"
               onKeyDown={(e) => { if (e.key === "Enter") runPipeline(); }}
