@@ -107,7 +107,7 @@ export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode, aiwriterMo
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            🚀 Быстрый старт
+            🚀 {t("aiwriter.quick")}
           </button>
           <button
             type="button"
@@ -118,23 +118,17 @@ export function ArticlesPageHeader({ mode, onModeChange, hasBulkMode, aiwriterMo
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            ⚙️ Эксперт
+            ⚙️ {t("aiwriter.expert")}
           </button>
             </div>
           </PopoverTrigger>
           <PopoverContent side="bottom" align="start" className="w-80 p-4 space-y-3">
-            <div className="text-sm font-semibold">👋 Два режима работы</div>
+            <div className="text-sm font-semibold">👋 {t("aiwriter.hintTitle")}</div>
             <div className="space-y-2 text-xs text-muted-foreground">
-              <div>
-                <span className="text-foreground font-medium">🚀 Быстрый старт</span> - минимум настроек.
-                Просто выберите тему и жмите Generate.
-              </div>
-              <div>
-                <span className="text-foreground font-medium">⚙️ Эксперт</span> - полный контроль:
-                SEO настройки, авторский стиль, детальные метрики.
-              </div>
+              <div>{t("aiwriter.hintQuick")}</div>
+              <div>{t("aiwriter.hintExpert")}</div>
             </div>
-            <Button size="sm" className="w-full" onClick={dismissHint}>Понятно!</Button>
+            <Button size="sm" className="w-full" onClick={dismissHint}>{t("aiwriter.hintOk")}</Button>
           </PopoverContent>
         </Popover>
       )}
