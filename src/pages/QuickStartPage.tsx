@@ -35,6 +35,7 @@ export default function QuickStartPage() {
   const [scores, setScores] = useState<{ seo: number | null; ai: number | null; badge: string | null }>({
     seo: null, ai: null, badge: null,
   });
+  const [finalContent, setFinalContent] = useState<string>("");
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const startRef = useRef<number>(0);
   const elapsedTimerRef = useRef<number | null>(null);
@@ -153,6 +154,7 @@ export default function QuickStartPage() {
     setContentPreview("");
     setResultArticleId(null);
     setScores({ seo: null, ai: null, badge: null });
+    setFinalContent("");
     startTimer();
     void trackActivation("clicked_generate", { keyword_len: kw.length });
     generationArmRef.current = armCloseDuringGeneration(() => ({ keyword_len: kw.length }));
@@ -308,6 +310,7 @@ export default function QuickStartPage() {
             .eq("id", articleId)
             .maybeSingle();
           const checkContent = (freshRow?.content as string | undefined) || full;
+          setFinalContent(checkContent);
           const { data: qData } = await supabase.functions.invoke("quality-check", {
             body: { article_id: articleId, content: checkContent, checks: ["score", "ai"] },
           });
@@ -351,16 +354,49 @@ export default function QuickStartPage() {
     setContentPreview("");
     setResultArticleId(null);
     setScores({ seo: null, ai: null, badge: null });
+    setFinalContent("");
     setErrMsg(null);
     setKeyword("");
   }
 
   // ─── UI ──────────────────────────────────────────────────
   const seoOk = scores.seo !== null && scores.seo <= 4;
-  const aiOk = scores.ai !== null && scores.ai >= 80;
 
   // Compute SEO display: convert risk (0-10) to "score 0-100"
   const seoDisplay = scores.seo !== null ? Math.max(0, 100 - scores.seo * 10) : null;
+
+  // Honest, content-derived quality metrics (no AI detector — unreliable, esp. for EN).
+  const contentStats = (() => {
+    const html = finalContent || "";
+    if (!html) return null;
+    // Strip tags for plain-text measures
+    const plain = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const words = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
+    const h2 = (html.match(/<h2[\s>]/gi) || []).length
+      + (html.match(/^##\s/gm) || []).length;
+    const h3 = (html.match(/<h3[\s>]/gi) || []).length
+      + (html.match(/^###\s/gm) || []).length;
+    const headings = h2 + h3;
+    // FAQ: count questions inside an FAQ block (headings ending with "?" or <details>)
+    const faqDetails = (html.match(/<details[\s>]/gi) || []).length;
+    const faqQuestions = (plain.match(/\?/g) || []).length;
+    const faq = faqDetails > 0 ? faqDetails : Math.min(faqQuestions, 12);
+    const hasSchema = /application\/ld\+json/i.test(html) || /"@type"\s*:\s*"FAQPage"/i.test(html);
+    // Readability: sentences + avg words/sentence -> "простая/средняя/сложная"
+    const sentences = Math.max(1, (plain.match(/[.!?…]+\s|[.!?…]+$/g) || []).length);
+    const avgWps = words / sentences;
+    const readability =
+      avgWps <= 14 ? { key: "easy", pct: 90 } :
+      avgWps <= 20 ? { key: "medium", pct: 70 } :
+                     { key: "hard", pct: 45 };
+    return { words, h2, h3, headings, faq, hasSchema, readability };
+  })();
 
   return (
     <div className="max-w-3xl mx-auto py-8 space-y-6">
