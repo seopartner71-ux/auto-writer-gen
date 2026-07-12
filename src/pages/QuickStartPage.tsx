@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
 import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activationTracking";
+import { capitalizeHeadings } from "@/shared/utils/capitalizeHeadings";
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
   Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle, ThumbsUp,
