@@ -761,8 +761,8 @@ function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Yandex Metrica */}
-      <MetricaWidget />
+      {/* Yandex Metrica — RU-only integration */}
+      {lang === "ru" && <MetricaWidget />}
 
       {/* Service Load */}
       <ServiceLoadPanel />
