@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertTriangle, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-type Row = { user_id: string; email: string; plan: string; isPaying: boolean; manual: boolean; cost: number; opus: number; cap: number; opusCap: number };
+type Row = { user_id: string; email: string; plan: string; isPaying: boolean; manual: boolean; reason: string | null; cost: number; opus: number; cap: number; opusCap: number };
 
 function planCaps(plan: string) {
   if (plan === "factory") return { cost: 80, opus: 75 };
@@ -38,7 +38,7 @@ export function TopSpendersCard() {
       const ids = Array.from(agg.keys());
       if (ids.length === 0) { if (!cancelled) setRows([]); return; }
       const [{ data: profiles }, { data: payments }] = await Promise.all([
-        supabase.from("profiles").select("id,email,plan,is_paying_manual").in("id", ids),
+        supabase.from("profiles").select("id,email,plan,is_paying_manual,paying_manual_reason").in("id", ids),
         supabase.from("payment_logs").select("user_id").eq("status", "success").in("user_id", ids),
       ]);
 
@@ -54,6 +54,7 @@ export function TopSpendersCard() {
           plan: p.plan || "basic",
           isPaying: payingIds.has(p.id) || manual,
           manual,
+          reason: p.paying_manual_reason || null,
           cost: Math.round(a.cost * 100) / 100,
           opus: a.opus,
           cap: caps.cost,
@@ -93,7 +94,7 @@ export function TopSpendersCard() {
                     <span className="truncate font-medium">{r.email}</span>
                     <span className="uppercase text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{r.plan}</span>
                     {r.isPaying && (
-                      <span title={r.manual ? "Отмечен админом как платящий" : "Есть успешный платёж"} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 shrink-0">
+                      <span title={r.manual ? `Отмечен админом${r.reason ? ": " + r.reason : ""}` : "Есть успешный платёж"} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 shrink-0">
                         <CreditCard className="h-3 w-3" /> оплачивает{r.manual ? " (ручн.)" : ""}
                       </span>
                     )}
@@ -101,12 +102,21 @@ export function TopSpendersCard() {
                       type="button"
                       onClick={async () => {
                         const next = !r.manual;
-                        const { error } = await supabase.from("profiles").update({ is_paying_manual: next }).eq("id", r.user_id);
+                        let reason: string | null = null;
+                        if (next) {
+                          const input = window.prompt("Причина ручной пометки «оплачивает»:", r.reason || "");
+                          if (input === null) return; // отмена
+                          reason = input.trim() || null;
+                        }
+                        const { error } = await supabase
+                          .from("profiles")
+                          .update({ is_paying_manual: next, paying_manual_reason: next ? reason : null })
+                          .eq("id", r.user_id);
                         if (error) { alert("Не удалось сохранить: " + error.message); return; }
-                        setRows((cur) => cur ? cur.map((x) => x.user_id === r.user_id ? { ...x, manual: next, isPaying: next || x.isPaying } : x) : cur);
+                        setRows((cur) => cur ? cur.map((x) => x.user_id === r.user_id ? { ...x, manual: next, reason: next ? reason : null, isPaying: next || x.isPaying } : x) : cur);
                       }}
                       className="text-[10px] px-1.5 py-0.5 rounded border border-border/60 text-muted-foreground hover:text-foreground hover:border-border shrink-0"
-                      title="Ручная пометка «оплачивает»"
+                      title={r.manual && r.reason ? `Причина: ${r.reason}` : "Ручная пометка «оплачивает»"}
                     >
                       {r.manual ? "Снять" : "Отметить"}
                     </button>
