@@ -130,19 +130,17 @@ export function armCloseDuringGeneration(getContext: () => Record<string, unknow
       const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       // We can't easily get auth token synchronously; fall back to a fire-and-forget insert
       // using the same session cached in memory via supabase client. sendBeacon needs a body.
-      const body = JSON.stringify({
-        user_id: uidRaw,
-        event_name: "closed_tab_during_generation",
-        session_id: getSessionId(),
-        metadata: getContext(),
-      });
-      const blob = new Blob([body], { type: "application/json" });
-      // Best-effort: won't include auth headers, RLS will drop it if not authenticated.
-      // Also fire via supabase client (may or may not flush before unload).
-      navigator.sendBeacon?.(`${url}?apikey=${key}`, blob);
-      void trackActivation("closed_tab_during_generation", getContext());
-      // v3 canonical alias
-      void trackActivation("tab_closed_during_generation", getContext());
+      const sid = getSessionId();
+      const ctx = getContext();
+      // sendBeacon both legacy + canonical names (only sendBeacon reliably flushes on unload).
+      for (const event_name of ["closed_tab_during_generation", "tab_closed_during_generation"] as const) {
+        const body = JSON.stringify({ user_id: uidRaw, event_name, session_id: sid, metadata: ctx });
+        const blob = new Blob([body], { type: "application/json" });
+        navigator.sendBeacon?.(`${url}?apikey=${key}`, blob);
+      }
+      // Async fallback (may not flush before unload).
+      void trackActivation("closed_tab_during_generation", ctx);
+      void trackActivation("tab_closed_during_generation", ctx);
     } catch {
       // ignore
     }
