@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-type Row = { user_id: string; email: string; plan: string; cost: number; opus: number; cap: number; opusCap: number };
+type Row = { user_id: string; email: string; plan: string; isPaying: boolean; cost: number; opus: number; cap: number; opusCap: number };
 
 function planCaps(plan: string) {
   if (plan === "factory") return { cost: 80, opus: 75 };
