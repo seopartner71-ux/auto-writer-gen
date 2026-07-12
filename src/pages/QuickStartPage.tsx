@@ -40,6 +40,8 @@ export default function QuickStartPage() {
   });
   const [finalContent, setFinalContent] = useState<string>("");
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [lsiPool, setLsiPool] = useState<string[]>([]);
+  const [mainKeyword, setMainKeyword] = useState<string>("");
   const startRef = useRef<number>(0);
   const elapsedTimerRef = useRef<number | null>(null);
   const autostartedRef = useRef(false);
@@ -160,6 +162,8 @@ export default function QuickStartPage() {
     setResultArticleId(null);
     setScores({ seo: null, ai: null, badge: null });
     setFinalContent("");
+      setLsiPool([]);
+      setMainKeyword(kw);
     startTimer();
     cancelledRef.current = false;
     abortCtrlRef.current = new AbortController();
@@ -189,6 +193,7 @@ export default function QuickStartPage() {
       const serpTitles = (rData.competitors || []).map((c: any) => c.title).filter(Boolean);
       const questions = rData.people_also_ask || [];
       const lsi = rData.analysis?.lsi_keywords || [];
+      setLsiPool(Array.isArray(lsi) ? lsi.slice(0, 30) : []);
 
       const { data: oData, error: oErr } = await supabase.functions.invoke("generate-outline", {
         body: {
@@ -421,23 +426,53 @@ export default function QuickStartPage() {
       avgWps <= 14 ? { key: "easy", pct: 90 } :
       avgWps <= 20 ? { key: "medium", pct: 70 } :
                      { key: "hard", pct: 45 };
-    return { words, h2, h3, headings, faq, hasSchema, readability };
+    // Semantic coverage: how many LSI terms from research appear in the body
+    const plainLower = plain.toLowerCase();
+    const lsiTotal = lsiPool.length;
+    const lsiUsed = lsiPool.reduce((n, term) => {
+      const t = String(term || "").trim().toLowerCase();
+      if (t.length < 2) return n;
+      return plainLower.includes(t) ? n + 1 : n;
+    }, 0);
+    const semanticPct = lsiTotal > 0 ? Math.round((lsiUsed / lsiTotal) * 100) : null;
+    // Keyword density: main-keyword occurrences / words * 100
+    const kwNorm = mainKeyword.trim().toLowerCase();
+    let kwCount = 0;
+    if (kwNorm.length >= 2) {
+      const re = new RegExp(
+        kwNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "gi",
+      );
+      kwCount = (plainLower.match(re) || []).length;
+    }
+    const density = words > 0 ? +((kwCount / words) * 100).toFixed(2) : 0;
+    // Intents closed: informational (headings), transactional (FAQ + lists), navigational (schema)
+    const intents =
+      (headings >= 4 ? 1 : 0) +
+      (faq >= 2 ? 1 : 0) +
+      (hasSchema ? 1 : 0);
+    return {
+      words, h2, h3, headings, faq, hasSchema, readability,
+      semanticPct, lsiUsed, lsiTotal,
+      density, kwCount,
+      intents,
+    };
   })();
 
   return (
     <div className="max-w-3xl mx-auto py-8 space-y-6">
       {/* Header */}
       <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5">
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.06] px-3 py-1">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-medium text-primary uppercase tracking-wider">
+          <span className="text-[11px] font-medium text-primary uppercase tracking-[0.14em]">
             {t("qs.badge")}
           </span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+        <h1 className="text-3xl sm:text-[34px] font-semibold tracking-tight leading-tight">
           {t("qs.title")}
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-[15px] max-w-2xl mx-auto">
           {t("qs.subtitle")}
         </p>
       </div>
@@ -489,8 +524,18 @@ export default function QuickStartPage() {
               <div className="mb-1.5">{t("qs.examples")}</div>
               <div className="flex flex-wrap gap-2">
                 {(lang === "ru"
-                  ? ["как выбрать котёл", "лучшие окна 2026", "ремонт квартиры цена"]
-                  : ["how to choose a boiler", "best windows 2026", "apartment renovation cost"]
+                  ? [
+                      "seo аудит сайта чек-лист",
+                      "коммерческая недвижимость москва аренда",
+                      "интеграция crm с 1с",
+                      "лазерная эпиляция цена спб",
+                    ]
+                  : [
+                      "b2b saas seo strategy",
+                      "commercial real estate nyc lease",
+                      "crm integration best practices",
+                      "enterprise cybersecurity checklist",
+                    ]
                 ).map((ex) => (
                   <button
                     key={ex}
@@ -502,7 +547,7 @@ export default function QuickStartPage() {
                         void trackActivation("started_typing", { source: "qs_example" });
                       }
                     }}
-                    className="px-2 py-1 rounded-md bg-muted hover:bg-muted/70 transition-colors"
+                    className="px-2.5 py-1 rounded-md border border-border/60 bg-muted/40 hover:border-primary/40 hover:text-foreground text-muted-foreground font-mono text-[11px] transition-all"
                   >
                     {ex}
                   </button>
@@ -514,8 +559,13 @@ export default function QuickStartPage() {
           {prediction && (
             <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium flex items-center gap-2">
-                  {t("qs.forecastFor", { kw: prediction.label })}
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium">
+                    {t("qs.forecastTitle")}
+                  </div>
+                  <div className="text-sm font-medium mt-0.5 font-mono">
+                    {t("qs.forecastFor", { kw: prediction.label })}
+                  </div>
                 </div>
                 {predictionLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
               </div>
@@ -547,16 +597,29 @@ export default function QuickStartPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground border-t border-border pt-2">
-                <span>{t("qs.medianTop")}</span>
-                <span>{t("qs.medianWords", { n: prediction.medianWords.toLocaleString(lang === "ru" ? "ru-RU" : "en-US") })}</span>
-                <span>{t("qs.medianH2", { n: prediction.medianH2 })}</span>
-                <span>{t("qs.medianLists", { n: prediction.medianLists })}</span>
+              <div className="border-t border-border pt-3">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1.5">
+                  {t("qs.medianTop")}
+                </div>
+                <div className="grid grid-cols-3 gap-2 font-mono">
+                  <div className="rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
+                    <div className="text-sm font-semibold">{prediction.medianWords.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}</div>
+                    <div className="text-[10px] text-muted-foreground">{lang === "ru" ? "слов" : "words"}</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
+                    <div className="text-sm font-semibold">{prediction.medianH2}</div>
+                    <div className="text-[10px] text-muted-foreground">H2</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
+                    <div className="text-sm font-semibold">{prediction.medianLists}</div>
+                    <div className="text-[10px] text-muted-foreground">{lang === "ru" ? "списков" : "lists"}</div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
                 <span className="text-xs text-muted-foreground">{t("qs.ifBetter")}</span>
-                <span className="text-sm font-semibold text-primary">
+                <span className="text-lg font-semibold text-primary font-mono">
                   {t("qs.forecastScore", { n: prediction.predictedScore })}
                 </span>
               </div>
@@ -665,49 +728,92 @@ export default function QuickStartPage() {
           </div>
 
           {/* Honest quality metrics — no AI detector (unreliable, especially for EN). */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             <div className={`rounded-lg border p-3 ${seoOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.seoScore")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{seoDisplay !== null ? seoDisplay : "-"}</span>
+                <span className="text-2xl font-semibold font-mono">{seoDisplay !== null ? seoDisplay : "-"}</span>
                 <span className="text-xs text-muted-foreground">/100</span>
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
+                {t("qs.metricSemantic")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-semibold font-mono">
+                  {contentStats && contentStats.semanticPct !== null ? contentStats.semanticPct : "-"}
+                </span>
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
+              {contentStats && contentStats.lsiTotal > 0 && (
+                <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                  {t("qs.metricSemHint", { used: contentStats.lsiUsed, total: contentStats.lsiTotal })}
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
+                {t("qs.metricDensity")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-semibold font-mono">
+                  {contentStats ? contentStats.density : "-"}
+                </span>
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
+              {contentStats && (
+                <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                  ×{contentStats.kwCount}
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricWords")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">
+                <span className="text-2xl font-semibold font-mono">
                   {contentStats ? contentStats.words.toLocaleString(lang === "ru" ? "ru-RU" : "en-US") : "-"}
                 </span>
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricHeadings")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{contentStats ? contentStats.headings : "-"}</span>
+                <span className="text-2xl font-semibold font-mono">{contentStats ? contentStats.headings : "-"}</span>
                 {contentStats && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground font-mono">
                     H2:{contentStats.h2} H3:{contentStats.h3}
                   </span>
                 )}
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricFaq")}
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{contentStats ? contentStats.faq : "-"}</span>
+                <span className="text-2xl font-semibold font-mono">{contentStats ? contentStats.faq : "-"}</span>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
+                {t("qs.metricIntent")}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-semibold font-mono">
+                  {contentStats ? contentStats.intents : "-"}
+                </span>
+                <span className="text-xs text-muted-foreground">/3</span>
               </div>
             </div>
             <div className={`rounded-lg border p-3 ${contentStats?.hasSchema ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-card"}`}>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricSchema")}
               </div>
               <div className="flex items-baseline gap-1">
@@ -717,7 +823,7 @@ export default function QuickStartPage() {
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-medium mb-1">
                 {t("qs.metricReadability")}
               </div>
               <div className="flex items-baseline gap-1">
