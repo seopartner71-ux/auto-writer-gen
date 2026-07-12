@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Loader2, Rocket, Sparkles, UserCheck, PenLine, FlaskConical } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { trackActivation } from "@/shared/utils/activationTracking";
 
 const LS_KEY = "first_article_wizard_shown";
 
@@ -28,6 +29,7 @@ export default function WelcomePage() {
   const [keyword, setKeyword] = useState("");
   const [author, setAuthor] = useState("blogger");
   const [checking, setChecking] = useState(true);
+  const startedTypingRef = (globalThis as any).__welcomeTyped ||= { fired: false };
   const EXAMPLES = EXAMPLES_BY_LANG[lang] || EXAMPLES_BY_LANG.ru;
 
   // Bail out if user already has articles or already saw the wizard
@@ -93,7 +95,14 @@ export default function WelcomePage() {
           <label className="text-sm font-medium">{t("welcome.aboutWhat")}</label>
           <Input
             value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
+            onChange={(e) => {
+              setKeyword(e.target.value);
+              if (!startedTypingRef.fired && e.target.value.trim().length > 0) {
+                startedTypingRef.fired = true;
+                void trackActivation("started_typing", { source: "welcome" });
+              }
+            }}
+            onFocus={() => void trackActivation("focused_keyword_field", { source: "welcome" })}
             placeholder={t("welcome.placeholder")}
             className="h-12 text-base"
             autoFocus

@@ -178,6 +178,8 @@ export default function RegisterPage() {
     } else {
       // Closed registration: user lands in `pending` status, admin reviews manually.
       setSubmitted(true);
+      // Note: `registered` event is recorded server-side via a DB trigger on
+      // profile insertion (no active session yet on closed registration).
     }
   };
 
