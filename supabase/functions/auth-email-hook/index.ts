@@ -17,12 +17,12 @@ const corsHeaders = {
 }
 
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Подтвердите ваш email',
-  invite: 'Вас пригласили',
-  magiclink: 'Ваша ссылка для входа',
-  recovery: 'Сброс пароля',
-  email_change: 'Подтвердите смену email',
-  reauthentication: 'Ваш код подтверждения',
+  signup: 'Confirm your email',
+  invite: "You've been invited",
+  magiclink: 'Your login link',
+  recovery: 'Reset your password',
+  email_change: 'Confirm your new email',
+  reauthentication: 'Your verification code',
 }
 
 // Template mapping
@@ -36,7 +36,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "СЕО-Модуль"
+const SITE_NAME = "auto-writer-gen"
 const SENDER_DOMAIN = "notify.seo-modul.pro"
 const ROOT_DOMAIN = "seo-modul.pro"
 const FROM_DOMAIN = "notify.seo-modul.pro" // Domain shown in From address (may be root or sender subdomain)
@@ -46,7 +46,7 @@ const FROM_DOMAIN = "notify.seo-modul.pro" // Domain shown in From address (may 
 // The sample email uses a fixed placeholder (RFC 6761 .test TLD) so the Go backend
 // can always find-and-replace it with the actual recipient when sending test emails,
 // even if the project's domain has changed since the template was scaffolded.
-const SAMPLE_PROJECT_URL = "https://seo-modul.pro"
+const SAMPLE_PROJECT_URL = "https://auto-writer-gen.lovable.app"
 const SAMPLE_EMAIL = "user@example.test"
 const SAMPLE_DATA: Record<string, object> = {
   signup: {
@@ -91,14 +91,10 @@ async function handlePreview(req: Request): Promise<Response> {
     return new Response(null, { headers: previewCorsHeaders })
   }
 
-  // Accept INTERNAL_API_KEY (preferred) or LOVABLE_API_KEY (legacy) as the
-  // shared secret. We are migrating non-AI auth off the AI gateway key.
-  const internalKey = Deno.env.get('INTERNAL_API_KEY')
-  const legacyKey = Deno.env.get('LOVABLE_API_KEY')
+  const apiKey = Deno.env.get('LOVABLE_API_KEY')
   const authHeader = req.headers.get('Authorization')
-  const valid = (internalKey && authHeader === `Bearer ${internalKey}`)
-    || (legacyKey && authHeader === `Bearer ${legacyKey}`)
-  if (!valid) {
+
+  if (!apiKey || authHeader !== `Bearer ${apiKey}`) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...previewCorsHeaders, 'Content-Type': 'application/json' },
@@ -136,10 +132,10 @@ async function handlePreview(req: Request): Promise<Response> {
 
 // Webhook handler - verifies signature and sends email
 async function handleWebhook(req: Request): Promise<Response> {
-  const apiKey = Deno.env.get('INTERNAL_API_KEY') || Deno.env.get('LOVABLE_API_KEY')
+  const apiKey = Deno.env.get('LOVABLE_API_KEY')
 
   if (!apiKey) {
-    console.error('Neither INTERNAL_API_KEY nor LOVABLE_API_KEY configured')
+    console.error('LOVABLE_API_KEY not configured')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
