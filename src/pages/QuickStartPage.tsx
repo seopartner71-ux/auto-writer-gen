@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
+import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activationTracking";
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
   Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle, ThumbsUp,
@@ -38,6 +39,8 @@ export default function QuickStartPage() {
   const startRef = useRef<number>(0);
   const elapsedTimerRef = useRef<number | null>(null);
   const autostartedRef = useRef(false);
+  const startedTypingRef = useRef(false);
+  const generationArmRef = useRef<null | (() => void)>(null);
 
   // Score prediction
   const [prediction, setPrediction] = useState<{
@@ -151,6 +154,8 @@ export default function QuickStartPage() {
     setResultArticleId(null);
     setScores({ seo: null, ai: null, badge: null });
     startTimer();
+    void trackActivation("clicked_generate", { keyword_len: kw.length });
+    generationArmRef.current = armCloseDuringGeneration(() => ({ keyword_len: kw.length }));
 
     try {
       // ── 1. Research ────────────────────────────────────────
@@ -320,11 +325,22 @@ export default function QuickStartPage() {
       setProgress(100);
       setStage("done");
       stopTimer();
+      generationArmRef.current?.();
+      generationArmRef.current = null;
+      void trackActivation("generation_done", {
+        article_id: resultArticleId,
+        elapsed_s: Math.floor((Date.now() - startRef.current) / 1000),
+      });
     } catch (e: any) {
       console.error("[QuickStart] pipeline failed:", e);
       stopTimer();
       setErrMsg(e?.message || "Unknown error");
       setStage("error");
+      generationArmRef.current?.();
+      generationArmRef.current = null;
+      void trackActivation("generation_failed", {
+        message: String(e?.message || "unknown").slice(0, 200),
+      });
     }
   }
 
