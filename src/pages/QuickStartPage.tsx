@@ -11,7 +11,9 @@ import { trackActivation, armCloseDuringGeneration } from "@/shared/utils/activa
 import {
   Sparkles, Search, ListTree, PenLine, ShieldCheck, CheckCircle2,
   Loader2, ArrowRight, Pencil, Send, RotateCcw, Trophy, AlertTriangle, ThumbsUp,
+  X, History, User as UserIcon, CheckCheck,
 } from "lucide-react";
+import { useAuth } from "@/shared/hooks/useAuth";
 
 type Stage = "idle" | "research" | "structure" | "writing" | "quality" | "done" | "error";
 
@@ -26,6 +28,7 @@ export default function QuickStartPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { lang, t } = useI18n();
+  const { profile } = useAuth();
   const [keyword, setKeyword] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
   const [progress, setProgress] = useState(0);
@@ -42,6 +45,8 @@ export default function QuickStartPage() {
   const autostartedRef = useRef(false);
   const startedTypingRef = useRef(false);
   const generationArmRef = useRef<null | (() => void)>(null);
+  const abortCtrlRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
 
   // Score prediction
   const [prediction, setPrediction] = useState<{
@@ -156,6 +161,8 @@ export default function QuickStartPage() {
     setScores({ seo: null, ai: null, badge: null });
     setFinalContent("");
     startTimer();
+    cancelledRef.current = false;
+    abortCtrlRef.current = new AbortController();
     void trackActivation("clicked_generate", { keyword_len: kw.length });
     generationArmRef.current = armCloseDuringGeneration(() => ({ keyword_len: kw.length }));
 
@@ -172,6 +179,7 @@ export default function QuickStartPage() {
       });
       if (rErr) throw new Error(rErr.message || "Research failed");
       if (rData?.error) throw new Error(rData.error);
+      if (cancelledRef.current) throw new DOMException("cancelled", "AbortError");
       const keywordId: string = rData.keyword_id;
       if (!keywordId) throw new Error("No keyword_id from research");
       setProgress(35);
@@ -192,6 +200,7 @@ export default function QuickStartPage() {
       });
       if (oErr) throw new Error(oErr.message || "Outline failed");
       if (oData?.error) throw new Error(oData.error);
+      if (cancelledRef.current) throw new DOMException("cancelled", "AbortError");
       const outline = oData.outline || [];
       setProgress(50);
 
@@ -220,6 +229,7 @@ export default function QuickStartPage() {
           include_expert_quote: true,
           include_comparison_table: true,
         }),
+        signal: abortCtrlRef.current?.signal,
       });
       if (!resp.ok) {
         if (resp.status === 402) throw new Error(t("qs.insufficientCredits"));
@@ -337,14 +347,30 @@ export default function QuickStartPage() {
     } catch (e: any) {
       console.error("[QuickStart] pipeline failed:", e);
       stopTimer();
-      setErrMsg(e?.message || "Unknown error");
-      setStage("error");
       generationArmRef.current?.();
       generationArmRef.current = null;
-      void trackActivation("generation_failed", {
-        message: String(e?.message || "unknown").slice(0, 200),
-      });
+      const isAbort = cancelledRef.current || e?.name === "AbortError";
+      if (isAbort) {
+        void trackActivation("generation_cancelled", {
+          elapsed_s: Math.floor((Date.now() - startRef.current) / 1000),
+          stage,
+        });
+        toast.info(t("qs.cancelled"));
+        setStage("idle");
+        setProgress(0);
+      } else {
+        setErrMsg(e?.message || "Unknown error");
+        setStage("error");
+        void trackActivation("generation_failed", {
+          message: String(e?.message || "unknown").slice(0, 200),
+        });
+      }
     }
+  }
+
+  function cancelPipeline() {
+    cancelledRef.current = true;
+    try { abortCtrlRef.current?.abort(); } catch { /* noop */ }
   }
 
   function reset() {
@@ -419,6 +445,27 @@ export default function QuickStartPage() {
       {/* Input form (hidden when running) */}
       {stage === "idle" && (
         <Card className="p-6 space-y-4 border-primary/20 bg-gradient-to-b from-card to-card/50">
+          {/* Promise: what you get in a few minutes */}
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2.5">
+            <div className="text-[11px] uppercase tracking-wider text-emerald-400/80 font-medium mb-1.5">
+              {t("qs.promise")}
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/85">
+              {[
+                t("qs.promise.structure"),
+                t("qs.promise.article"),
+                t("qs.promise.faq"),
+                t("qs.promise.schema"),
+                t("qs.promise.quality"),
+              ].map((label) => (
+                <span key={label} className="inline-flex items-center gap-1">
+                  <CheckCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">
               {t("qs.keywordLabel")}
@@ -583,6 +630,20 @@ export default function QuickStartPage() {
               ...{contentPreview}
             </div>
           )}
+
+          {/* Cancel */}
+          <div className="flex justify-end pt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={cancelPipeline}
+              disabled={cancelledRef.current}
+              className="text-muted-foreground hover:text-rose-400"
+            >
+              <X className="h-4 w-4 mr-1.5" />
+              {t("qs.cancel")}
+            </Button>
+          </div>
         </Card>
       )}
 
@@ -686,8 +747,8 @@ export default function QuickStartPage() {
             </div>
           )}
 
-          {/* Actions */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {/* Primary actions */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Button
               onClick={() => {
                 if (!resultArticleId) return;
@@ -714,10 +775,43 @@ export default function QuickStartPage() {
               <Send className="h-4 w-4 mr-2" />
               {t("qs.publish")}
             </Button>
-            <Button variant="outline" onClick={reset}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              {t("qs.createMore")}
-            </Button>
+          </div>
+
+          {/* Credits line + plan hint */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs">
+            <span className="text-muted-foreground">
+              {t("qs.creditsLeft", { n: profile?.credits_amount ?? 0 })}
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate("/pricing")}
+              className="text-primary hover:underline font-medium"
+            >
+              {profile?.plan && profile.plan !== "free"
+                ? t("qs.planHintPro")
+                : t("qs.planHintUpgrade")}
+            </button>
+          </div>
+
+          {/* What's next */}
+          <div className="space-y-2">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+              {t("qs.whatNext")}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Button variant="outline" size="sm" onClick={reset}>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                {t("qs.next.more")}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate("/articles")}>
+                <History className="h-4 w-4 mr-2" />
+                {t("qs.next.history")}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate("/author-profiles")}>
+                <UserIcon className="h-4 w-4 mr-2" />
+                {t("qs.next.profile")}
+              </Button>
+            </div>
           </div>
         </Card>
       )}
