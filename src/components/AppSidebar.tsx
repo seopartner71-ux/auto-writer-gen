@@ -98,6 +98,7 @@ export function AppSidebar() {
 
   const plan = profile?.plan ?? "free";
   const isFactory = plan === "pro";
+  const isBasicOrHigher = plan === "basic" || plan === "pro";
   const isStaffOrAdmin = role === "admin" || role === "staff";
 
   const networkPaths = ["/site-factory", "/network-monitor", "/domain-hunter"];
@@ -107,7 +108,9 @@ export function AppSidebar() {
     { title: t("nav.keywords"), url: "/keywords", icon: Search },
     { title: t("nav.planBuilder"), url: "/plan-builder", icon: ListTree },
     { title: t("nav.articles"), url: "/articles", icon: FileText },
-    { title: lang === "ru" ? "vc.ru Writer" : "vc.ru Writer", url: "/vc-writer", icon: PenSquare },
+    ...(isBasicOrHigher ? [
+      { title: lang === "ru" ? "vc.ru Writer" : "vc.ru Writer", url: "/vc-writer", icon: PenSquare },
+    ] : []),
     ...(isStaffOrAdmin ? [
       { title: t("nav.images"), url: "/images", icon: ImageIcon },
       { title: t("nav.commercialPages"), url: "/commercial", icon: Store },
@@ -122,7 +125,9 @@ export function AppSidebar() {
   ] : [];
   const analyticsItems = [
     { title: t("nav.analytics"), url: "/analytics", icon: BarChart3 },
-    { title: t("nav.rankTracker"), url: "/rank-tracker", icon: LineChartIcon },
+    ...(isBasicOrHigher ? [
+      { title: t("nav.rankTracker"), url: "/rank-tracker", icon: LineChartIcon },
+    ] : []),
     ...(isFactory ? [
       { title: "AI Radar", url: "/radar", icon: Radar },
       { title: t("nav.networkMonitor"), url: "/network-monitor", icon: Activity },
@@ -130,13 +135,15 @@ export function AppSidebar() {
     ] : []),
   ];
   const moreItems = [
-    { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
+    ...(isBasicOrHigher ? [
+      { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
+      { title: t("nav.calendarPlanner"), url: "/calendar", icon: CalendarDays },
+      { title: t("nav.wiki"), url: "/wiki", icon: BookOpen },
+    ] : []),
     { title: t("nav.topicalMap"), url: "/topical-map", icon: Map },
     { title: t("nav.articleAudit"), url: "/article-audit", icon: Search },
     { title: t("nav.rewrite"), url: "/rewrite", icon: Wand2 },
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
-    { title: t("nav.calendarPlanner"), url: "/calendar", icon: CalendarDays },
-    { title: t("nav.wiki"), url: "/wiki", icon: BookOpen },
     { title: t("nav.utmGenerator"), url: "/utm-generator", icon: Link2 },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
