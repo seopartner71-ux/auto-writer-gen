@@ -807,7 +807,7 @@ export default function QuickStartPage() {
                 <History className="h-4 w-4 mr-2" />
                 {t("qs.next.history")}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate("/authors")}>
+              <Button variant="outline" size="sm" onClick={() => navigate("/author-profiles")}>
                 <UserIcon className="h-4 w-4 mr-2" />
                 {t("qs.next.profile")}
               </Button>
