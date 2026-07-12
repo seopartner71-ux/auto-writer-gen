@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Hexagon } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/shared/hooks/useI18n";
-import { trackActivation } from "@/shared/utils/activationTracking";
 
 const TURNSTILE_SITE_KEY = "0x4AAAAAAC84aeQX5SSFSSdh";
 
