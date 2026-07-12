@@ -306,13 +306,11 @@ export function LandingSandbox() {
                       </div>
                     </div>
                     <a
-                      href="https://t.me/sin0ptick"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href="/register"
                       className="w-full md:w-auto"
                     >
                       <Button size="lg" className="w-full md:w-auto whitespace-nowrap shadow-lg shadow-primary/20">
-                        {isEn ? "Contact Support" : "Написать в поддержку"}
+                        {isEn ? "Sign up" : "Регистрация"}
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </a>

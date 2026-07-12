@@ -451,8 +451,8 @@ export function SectionVideoDemo() {
               size="lg"
               className="h-14 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 transition-colors relative"
             >
-              <a href="https://t.me/sin0ptick" target="_blank" rel="noopener noreferrer">
-                {isEn ? "Contact Support" : "Написать в поддержку"}
+              <a href="/register">
+                {isEn ? "Sign up" : "Регистрация"}
                 <span className="ml-1">-&gt;</span>
               </a>
             </Button>

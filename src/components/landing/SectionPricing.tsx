@@ -228,15 +228,13 @@ export function SectionPricing() {
                   </ul>
 
                   <a
-                    href="https://t.me/sin0ptick"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="/register"
                     className={`w-full py-3.5 rounded-xl text-sm font-tech font-semibold transition-colors ${
                       plan.popular
                         ? "bg-primary text-primary-foreground hover:bg-primary/90"
                         : "border border-border bg-transparent text-foreground hover:bg-accent/50"
                     } inline-flex items-center justify-center`}>
-                    {isEn ? "Contact Support" : "Написать в поддержку"}
+                    {isEn ? "Buy" : "Купить"}
                   </a>
                 </div>
               </motion.div>

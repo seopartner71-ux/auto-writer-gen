@@ -256,16 +256,14 @@ export function LandingPricing() {
                 </ul>
 
                 <a
-                  href="https://t.me/sin0ptick"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="/register"
                   className={`w-full py-3.5 rounded-xl text-sm font-tech font-semibold transition-all ${
                     plan.popular
                       ? "bg-gradient-to-r from-primary to-[#3b82f6] text-white hover:shadow-[0_0_30px_hsl(var(--primary)/0.4)]"
                       : "border border-white/[0.1] bg-white/[0.03] text-foreground hover:bg-white/[0.06]"
                   } inline-flex items-center justify-center`}
                 >
-                  {isEn ? "Contact Support" : "Написать в поддержку"}
+                  {isEn ? "Buy" : "Купить"}
                 </a>
               </motion.div>
             );
