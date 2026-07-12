@@ -1,3 +1,5 @@
+// i18n:lang-branch — all user-facing Cyrillic in this file sits inside
+// `isEn ? "…EN…" : "…RU…"` ternaries or the RUB/Prodamus branch (RU-only).
 import { useState } from "react";
 import { Check, X, Zap, Crown, Sparkles, CreditCard, Loader2, Shield, Atom, Sparkle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
