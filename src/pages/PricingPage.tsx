@@ -212,11 +212,11 @@ export default function PricingPage() {
       const links = prodamusLinks[planId];
       const link = yearly ? (links?.annual || links?.monthly) : links?.monthly;
       if (!link) {
-        toast.error("Оплата ещё не настроена. Обратитесь к администратору.");
+        toast.error(isEn ? "Payments are not configured yet. Contact the administrator." : "Оплата еще не настроена. Обратитесь к администратору.");
         return;
       }
       if (yearly && !links?.annual) {
-        toast.message("Годовой план ещё не настроен - оформляем месячную подписку.");
+        toast.message(isEn ? "Annual plan is not configured yet - opening the monthly checkout." : "Годовой план еще не настроен - оформляем месячную подписку.");
       }
       const url = new URL(link);
       if (user.email) url.searchParams.set("customer_email", user.email);
