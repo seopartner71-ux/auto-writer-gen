@@ -135,13 +135,15 @@ export function AppSidebar() {
     ] : []),
   ];
   const moreItems = [
-    { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
+    ...(isBasicOrHigher ? [
+      { title: t("nav.projects"), url: "/projects", icon: FolderKanban },
+      { title: t("nav.calendarPlanner"), url: "/calendar", icon: CalendarDays },
+      { title: t("nav.wiki"), url: "/wiki", icon: BookOpen },
+    ] : []),
     { title: t("nav.topicalMap"), url: "/topical-map", icon: Map },
     { title: t("nav.articleAudit"), url: "/article-audit", icon: Search },
     { title: t("nav.rewrite"), url: "/rewrite", icon: Wand2 },
     { title: t("nav.authorProfiles"), url: "/author-profiles", icon: UserPen },
-    { title: t("nav.calendarPlanner"), url: "/calendar", icon: CalendarDays },
-    { title: t("nav.wiki"), url: "/wiki", icon: BookOpen },
     { title: t("nav.utmGenerator"), url: "/utm-generator", icon: Link2 },
     { title: t("nav.pricing"), url: "/pricing", icon: CreditCard },
     { title: t("nav.settings"), url: "/settings", icon: Settings },
