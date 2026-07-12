@@ -44,6 +44,36 @@ export type Database = {
         }
         Relationships: []
       }
+      activation_events: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: string
+          metadata: Json
+          session_id: string | null
+          time_since_prev_ms: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: string
+          metadata?: Json
+          session_id?: string | null
+          time_since_prev_ms?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: string
+          metadata?: Json
+          session_id?: string | null
+          time_since_prev_ms?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_assistant_usage: {
         Row: {
           count: number
