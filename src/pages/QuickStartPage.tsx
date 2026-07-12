@@ -538,6 +538,7 @@ export default function QuickStartPage() {
                 if (!startedTypingRef.current && e.target.value.trim().length > 0) {
                   startedTypingRef.current = true;
                   void trackActivation("started_typing");
+                  void trackActivation("keyword_entered", { keyword_length: e.target.value.length });
                 }
               }}
               onFocus={() => void trackActivation("focused_keyword_field")}
@@ -571,6 +572,7 @@ export default function QuickStartPage() {
                       if (!startedTypingRef.current) {
                         startedTypingRef.current = true;
                         void trackActivation("started_typing", { source: "qs_example" });
+                        void trackActivation("keyword_entered", { source: "qs_example" });
                       }
                     }}
                     className="px-2.5 py-1 rounded-md border border-border/60 bg-muted/40 hover:border-primary/40 hover:text-foreground text-muted-foreground font-mono text-[11px] transition-all"
