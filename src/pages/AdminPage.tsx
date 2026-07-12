@@ -27,6 +27,7 @@ import { PipelineHealthTab } from "@/components/admin/PipelineHealthTab";
 import { TurgenevAnalyticsTab } from "@/components/admin/TurgenevAnalyticsTab";
 import { SemanticInterlinkingTab } from "@/components/admin/SemanticInterlinkingTab";
 import { PageVisitsTab } from "@/components/admin/PageVisitsTab";
+import { FunnelTab } from "@/components/admin/FunnelTab";
 import { TodayKpiCard } from "@/components/admin/TodayKpiCard";
 import { TopSpendersCard } from "@/components/admin/TopSpendersCard";
 import { OpenRouterBalanceBanner } from "@/components/admin/OpenRouterBalanceBanner";
