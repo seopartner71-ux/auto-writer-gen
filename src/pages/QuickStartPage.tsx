@@ -587,7 +587,11 @@ export default function QuickStartPage() {
           {/* Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Button
-              onClick={() => resultArticleId && navigate(`/articles?edit=${resultArticleId}`)}
+              onClick={() => {
+                if (!resultArticleId) return;
+                void trackActivation("opened_article", { article_id: resultArticleId });
+                navigate(`/articles?edit=${resultArticleId}`);
+              }}
               disabled={!resultArticleId}
               className="bg-primary"
             >
@@ -596,7 +600,13 @@ export default function QuickStartPage() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => navigate("/wordpress")}
+              onClick={() => {
+                void trackActivation("copied_or_exported", {
+                  target: "wordpress",
+                  article_id: resultArticleId,
+                });
+                navigate("/wordpress");
+              }}
               disabled={!resultArticleId}
             >
               <Send className="h-4 w-4 mr-2" />
