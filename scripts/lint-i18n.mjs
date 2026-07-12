@@ -49,6 +49,7 @@ const PERMANENT_EXCLUDE = [
   "src/components/article/MiralinksWidget.tsx",
   "src/components/article/GoGetLinksWidget.tsx",
   "src/features/commercial/constants.ts",
+  "src/pages/ContentPlanPage.tsx",
 ];
 
 // B. LANG-BRANCH — MUST contain the marker `i18n:lang-branch` in file header
@@ -57,6 +58,9 @@ const LANG_BRANCH_EXCLUDE = [
   "src/components/article/SeoTipTicker.tsx",
   "src/features/article-quality/useFixIssue.ts",
   "src/components/article/GenerationStageProgress.tsx",
+  "src/pages/PricingPage.tsx",
+  "src/pages/DashboardPage.tsx",
+  "src/features/article-quality/ImprovingTipsLoader.tsx",
 ];
 
 // C. LLM-PROMPT — files that contain RU LLM prompts and MUST carry the

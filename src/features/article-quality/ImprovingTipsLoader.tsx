@@ -1,3 +1,5 @@
+// i18n:lang-branch — TIPS_RU is only rendered when `lang !== "en"`;
+// TIPS_EN is used for the English locale.
 import { useEffect, useState } from "react";
 import { Sparkles, Lightbulb } from "lucide-react";
 import { useI18n } from "@/shared/hooks/useI18n";

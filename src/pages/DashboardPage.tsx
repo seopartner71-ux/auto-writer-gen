@@ -1,3 +1,6 @@
+// i18n:lang-branch — MetricaWidget (Яндекс.Метрика) is a RU-only integration
+// and is gated by `lang === "ru"` below; all Cyrillic in this file sits
+// inside that widget.
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -499,7 +502,7 @@ function OnlineUsersPanel() {
 
 /* ──────────── Admin Dashboard ──────────── */
 function AdminDashboard() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { data: profiles = [] } = useQuery({
     queryKey: ["admin-dashboard-profiles"],
     queryFn: async () => {
@@ -758,8 +761,8 @@ function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Yandex Metrica */}
-      <MetricaWidget />
+      {/* Yandex Metrica — RU-only integration */}
+      {lang === "ru" && <MetricaWidget />}
 
       {/* Service Load */}
       <ServiceLoadPanel />
