@@ -84,7 +84,7 @@ export function SectionFinalCta() {
               >
                 <span className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-[#3b82f6] opacity-20 blur-2xl animate-[pulse_2.5s_ease-in-out_infinite]" />
                 <span className="relative flex items-center gap-2">
-                  {isRu ? "Регистрация" : "Sign up"}
+                  {isRu ? "Попробовать бесплатно" : "Try for free"}
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </span>
               </a>

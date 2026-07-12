@@ -263,7 +263,7 @@ export function LandingPricing() {
                       : "border border-white/[0.1] bg-white/[0.03] text-foreground hover:bg-white/[0.06]"
                   } inline-flex items-center justify-center`}
                 >
-                  {isEn ? "Buy" : "Купить"}
+                  {isEn ? "Choose" : "Выбрать"}
                 </a>
               </motion.div>
             );

@@ -310,7 +310,7 @@ export function LandingSandbox() {
                       className="w-full md:w-auto"
                     >
                       <Button size="lg" className="w-full md:w-auto whitespace-nowrap shadow-lg shadow-primary/20">
-                        {isEn ? "Sign up" : "Регистрация"}
+                        {isEn ? "Try for free" : "Попробовать бесплатно"}
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </a>
