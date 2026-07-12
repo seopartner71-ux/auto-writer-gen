@@ -114,7 +114,7 @@ export default function PricingPage() {
     {
       id: "free" as const,
       name: fmtName("free", "NANO"),
-      price: fmtPrice("free", 990, 19),
+      price: fmtPrice("free", 2490, 29),
       period: t("pricing.perMonth"),
       icon: Atom,
       description: fmtDesc("free", "Для быстрого теста качества", "Quick quality test"),
@@ -133,7 +133,7 @@ export default function PricingPage() {
     {
       id: "basic" as const,
       name: fmtName("basic", "PRO"),
-      price: fmtPrice("basic", 5900, 79),
+      price: fmtPrice("basic", 5900, 59),
       period: t("pricing.perMonth"),
       icon: Zap,
       description: fmtDesc("basic", "Идеальный баланс для SEO-профи", "Perfect balance for SEO pros"),
@@ -152,7 +152,7 @@ export default function PricingPage() {
     {
       id: "pro" as const,
       name: fmtName("pro", "FACTORY"),
-      price: fmtPrice("pro", 19900, 249),
+      price: fmtPrice("pro", 19900, 149),
       period: t("pricing.perMonth"),
       icon: Crown,
       description: fmtDesc("pro", "Контентный завод для агентств", "Content factory for agencies"),
