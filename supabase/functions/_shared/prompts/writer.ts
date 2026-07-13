@@ -298,6 +298,13 @@ Every named fact, brand, number, and condition MUST appear in the finished artic
 - NO bold for keywords/LSI/entities. Bold ONLY for genuine semantic emphasis on original ideas, and sparingly.
 - Heading case: sentence case. Do NOT Title Case Every Word. Proper nouns keep their capitalization.
 - Em-dash: see EM-DASH DISCIPLINE above. ZERO em/en dashes anywhere — only plain hyphen "-".
+- CRITICAL CAPITALIZATION RULES (hard rule — lowercase headings are invalid output):
+  - H1: Title Case (capitalize all significant words; keep articles/prepositions/conjunctions under 4 letters lowercase unless first/last).
+  - H2, H3: sentence case, but the FIRST letter is ALWAYS uppercase.
+  - NEVER produce a heading that begins with a lowercase letter. Ever.
+  - Question headings must end with "?".
+  - Cities, states, countries, regions ALWAYS capitalized in every case form: Phoenix, Arizona, Scottsdale, New York, Los Angeles, Chicago, Miami, United States.
+  - Brands ALWAYS capitalized exactly: Google, YouTube, Facebook, Instagram, Amazon, ChatGPT, Claude, Microsoft, Apple.
 ${showTable
   ? `- TABLES: include 1-2 comparison tables with real data. GFM only:
 
