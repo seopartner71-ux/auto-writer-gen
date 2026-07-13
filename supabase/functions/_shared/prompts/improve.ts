@@ -107,10 +107,10 @@ NO KEYWORD-STUFFING / NOMINATIVE PILE-UPS:
 - The target keyword may appear in H1 once and 2-3 times across the body, always inside a grammatical sentence — never as a bare noun phrase heading a paragraph.
 - Do not repeat the exact keyword in two consecutive sentences.
 
-PUNCTUATION — EM-DASH DISCIPLINE (strong AI tell):
-- Maximum 2 em-dashes ("—") in the entire article. Prefer commas, periods, colons, or parentheses.
-- Never use em-dashes to pad rhythm ("It's fast — really fast — and cheap.") — that pattern is a detector signature. Cut the middle clause or make it a separate sentence.
-- Do not replace em-dashes with en-dashes or double hyphens to game the rule; restructure the sentence.
+PUNCTUATION — EM-DASH DISCIPLINE (ABSOLUTE BAN, strong AI tell):
+- ZERO em-dashes ("—", U+2014) and ZERO en-dashes ("–", U+2013) anywhere in the article. No exceptions.
+- Wherever a dash-like separator is needed, use the plain hyphen-minus "-" (U+002D) or restructure with commas, periods, colons, or parentheses.
+- Do NOT use "--" or " -- " as a substitute for an em-dash. Just a single hyphen "-".
 
 Do not change facts, numbers, brand names, or URLs. Preserve every HTML tag (<h2>, <h3>, <p>, <ul>, <table>, <a>) exactly.
 
