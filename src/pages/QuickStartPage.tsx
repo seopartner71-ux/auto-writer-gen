@@ -529,6 +529,35 @@ export default function QuickStartPage() {
       {/* Input form (hidden when running) */}
       {stage === "idle" && (
         <Card className="p-6 space-y-4 border-primary/20 bg-gradient-to-b from-card to-card/50">
+          {/* FREE-tier hybrid model hint */}
+          {(() => {
+            const plan = String((profile as any)?.plan || "").toLowerCase();
+            const isFree = plan === "free" || plan === "nano" || plan === "";
+            if (!isFree || priorArticleCount === null) return null;
+            if (priorArticleCount === 0) {
+              return (
+                <div className="rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2.5 text-xs text-foreground/85">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-primary font-medium mb-1">
+                    {lang === "ru" ? "Ваша первая статья - на флагманской модели" : "Your first article runs on our flagship model"}
+                  </div>
+                  {lang === "ru"
+                    ? "Мы генерируем её на Claude Opus 4 - топовой модели тарифа PRO. Бесплатно, чтобы вы увидели максимальное качество."
+                    : "We generate it on Claude Opus 4 - the flagship PRO model. Free, so you can judge the top quality upfront."}
+                </div>
+              );
+            }
+            if (priorArticleCount === 1) {
+              return (
+                <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.05] px-3 py-2.5 text-xs text-foreground/85">
+                  {lang === "ru"
+                    ? "Первая статья была на Claude Opus 4. Следующие на бесплатном тарифе - на Gemini 2.5 Flash. PRO даёт полный доступ к Opus."
+                    : "Your first article ran on Claude Opus 4. Further FREE-tier generations use Gemini 2.5 Flash. PRO keeps you on Opus."}
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Promise: what you get in a few minutes */}
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] px-3 py-2.5">
             <div className="text-[11px] uppercase tracking-wider text-emerald-400/80 font-medium mb-1.5">
