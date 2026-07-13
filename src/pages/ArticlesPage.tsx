@@ -48,6 +48,7 @@ import { OnboardingHint } from "@/components/onboarding/OnboardingHint";
 import { useArticleVersions } from "@/features/article-versions/useArticleVersions";
 import { VersionsBlock } from "@/features/article-versions/VersionsBlock";
 import { ArticleFeedback } from "@/features/article-editor/ArticleFeedback";
+import { getDefaultModel, WRITER_MODEL_RESET_FLAG } from "@/shared/lib/defaultModel";
 import { QuickStartSummary } from "@/features/article-quality/QuickStartSummary";
 import { QualityImproveCard } from "@/features/article-quality/QualityImproveCard";
 import { ImprovingTipsLoader } from "@/features/article-quality/ImprovingTipsLoader";
