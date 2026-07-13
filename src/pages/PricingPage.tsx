@@ -387,6 +387,79 @@ export default function PricingPage() {
           </table>
         </div>
       </div>
+
+      {/* AI models & credit costs */}
+      <div className="max-w-4xl mx-auto px-2 pb-8">
+        <h2 className="text-xl font-bold text-center mb-2">
+          {isEn ? "AI models & credit cost per article" : "AI-модели и стоимость статьи в кредитах"}
+        </h2>
+        <p className="text-center text-xs text-muted-foreground mb-4 max-w-2xl mx-auto">
+          {isEn
+            ? "One article = one generation. The cost in credits depends on the model you pick in the writer."
+            : "Одна статья - одна генерация. Стоимость в кредитах зависит от модели, выбранной в редакторе."}
+        </p>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40">
+              <tr>
+                <th className="text-left p-3 font-semibold">{isEn ? "Model" : "Модель"}</th>
+                <th className="p-3 font-semibold">{isEn ? "Credits / article" : "Кредитов / статья"}</th>
+                <th className="p-3 font-semibold">NANO</th>
+                <th className="p-3 font-semibold">PRO</th>
+                <th className="p-3 font-semibold">FACTORY</th>
+              </tr>
+            </thead>
+            <tbody className="[&_tr]:border-t [&_tr]:border-border [&_td]:p-3 [&_td:not(:first-child)]:text-center">
+              <tr>
+                <td>
+                  <span className="font-semibold">Claude Opus 4</span>
+                  <span className="ml-2 text-[10px] uppercase text-primary">{isEn ? "flagship" : "флагман"}</span>
+                </td>
+                <td>8</td>
+                <td className="text-muted-foreground/60">{isEn ? "1st article free" : "1-я статья бесплатно"}</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>Claude Sonnet 4 / GPT-5 / Mistral Large</td>
+                <td>5</td>
+                <td>-</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>GPT-5 Mini</td>
+                <td>3</td>
+                <td>-</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>Gemini 2.5 Pro / Flash / GPT-5 Nano</td>
+                <td>3</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>
+                  <span>Gemini 2.5 Flash Lite</span>
+                  <span className="ml-2 text-[10px] uppercase text-emerald-500">{isEn ? "cheapest" : "дешевле всего"}</span>
+                </td>
+                <td>1</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-center text-[11px] text-muted-foreground/70 mt-3">
+          {isEn
+            ? "Example: 450 PRO credits = ~56 articles on Opus, ~90 on Sonnet, ~150 on Flash, or 450 on Flash Lite."
+            : "Пример: 450 кредитов PRO = ~56 статей на Opus, ~90 на Sonnet, ~150 на Flash или 450 на Flash Lite."}
+        </p>
+      </div>
     </div>
   );
 }
