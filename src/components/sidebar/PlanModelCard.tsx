@@ -6,6 +6,7 @@ import { useI18n } from "@/shared/hooks/useI18n";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Coins, Sparkles, Info, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getDefaultModel } from "@/shared/lib/defaultModel";
 
 const PLAN_LABEL: Record<string, string> = { free: "NANO", basic: "PRO", pro: "FACTORY" };
 const PLAN_RANK: Record<string, number> = { free: 0, basic: 1, pro: 2 };
@@ -44,6 +45,15 @@ export function PlanModelCard() {
     window.addEventListener("writer-model-changed", h);
     return () => window.removeEventListener("writer-model-changed", h);
   }, [modelKey]);
+  // Reflect plan-aware default in the sidebar if the user has not chosen a
+  // model yet (fresh browser / cleared storage). PRO/FACTORY -> Opus 4.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!profile?.id) return;
+    if (localStorage.getItem("writer_model")) return;
+    const target = getDefaultModel(plan, firstFreeOpus ? 0 : 1);
+    setModelKey(target);
+  }, [profile?.id, plan, firstFreeOpus]);
 
   const { data: models = [] } = useQuery({
     queryKey: ["ai-models-active"],
