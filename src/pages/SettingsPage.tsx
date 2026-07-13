@@ -224,59 +224,33 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* AI Budget - monthly spend + Opus quota */}
+          {/* Credits balance — единственный лимит, видимый клиенту */}
           <Card className="bg-card border-border overflow-hidden">
             <CardHeader className="pb-3 pt-4 px-4">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-primary" />
-                {lang === "ru" ? "AI-бюджет месяца" : "Monthly AI budget"}
+                <Coins className="h-4 w-4 text-primary" />
+                {lang === "ru" ? "Баланс кредитов" : "Credits balance"}
               </CardTitle>
               <CardDescription className="text-xs">
-                {isPrivileged
-                  ? (lang === "ru" ? "Без лимитов (admin/staff)" : "Unlimited (admin/staff)")
-                  : (lang === "ru" ? "Защита от перерасхода API" : "API spend guardrails")}
+                {lang === "ru"
+                  ? "1 статья или скан = 1 кредит. Пополнение — в разделе Тарифы."
+                  : "1 article or scan = 1 credit. Top up in the Pricing section."}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 px-4 pb-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {lang === "ru" ? "Потрачено" : "Spent"}
-                  </span>
-                  <span className="font-medium tabular-nums">
-                    ${monthlyCost.toFixed(2)}{!isPrivileged && ` / $${planCostCap}`}
-                  </span>
-                </div>
-                {!isPrivileged && (
-                  <Progress
-                    value={costPercent}
-                    className={`h-1.5 ${costPercent >= 90 ? "[&>div]:bg-red-500" : costPercent >= 70 ? "[&>div]:bg-yellow-500" : ""}`}
-                  />
-                )}
+            <CardContent className="space-y-3 px-4 pb-4">
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-semibold tabular-nums text-foreground">
+                  {creditsAmount}
+                </span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                  {lang === "ru" ? "доступно" : "available"}
+                </span>
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Opus
-                  </span>
-                  <span className="font-medium tabular-nums">
-                    {planOpusCap > 0
-                      ? `${opusCalls} / ${planOpusCap}`
-                      : (lang === "ru" ? "недоступен на этом плане" : "not on this plan")}
-                  </span>
-                </div>
-                {planOpusCap > 0 && !isPrivileged && (
-                  <Progress
-                    value={opusPercent}
-                    className={`h-1.5 ${opusPercent >= 90 ? "[&>div]:bg-red-500" : opusPercent >= 70 ? "[&>div]:bg-yellow-500" : ""}`}
-                  />
-                )}
-              </div>
-              {!isPrivileged && (costPercent >= 90 || opusPercent >= 90) && (
-                <p className="text-[11px] text-red-500">
+              {creditsAmount <= 3 && (
+                <p className="text-[11px] text-yellow-500">
                   {lang === "ru"
-                    ? "Лимит почти исчерпан. Дальнейшие запросы могут быть ограничены."
-                    : "Quota almost exhausted. Further requests may be throttled."}
+                    ? "Кредиты заканчиваются — пополните баланс, чтобы не прерывать работу."
+                    : "Credits running low — top up to keep generating."}
                 </p>
               )}
             </CardContent>
