@@ -31,7 +31,7 @@ export function usePlanLimits() {
         models: Array.isArray(ff.models) ? ff.models as string[] : DEFAULT_PLAN_CONFIG.models,
       };
     }
-    return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+    return PLAN_LIMITS[plan] || PLAN_LIMITS.nano;
   }, [dbFlags, plan]);
 
   return useMemo(() => ({
