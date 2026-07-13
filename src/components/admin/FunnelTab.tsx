@@ -358,6 +358,38 @@ export function FunnelTab() {
           </div>
         )}
 
+        {sources.length > 0 && (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/30 border-b border-border">
+              Источники трафика (регистрации) - топ {Math.min(sources.length, 15)}
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Источник</TableHead>
+                  <TableHead className="text-right">Регистрации</TableHead>
+                  <TableHead className="text-right">Первые сессии</TableHead>
+                  <TableHead className="text-right">% от всех</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sources.slice(0, 15).map((s) => {
+                  const totalReg = sources.reduce((a, b) => a + b.registrations, 0);
+                  const pct = totalReg ? Math.round((s.registrations / totalReg) * 100) : 0;
+                  return (
+                    <TableRow key={s.source}>
+                      <TableCell className="font-mono text-xs">{s.source}</TableCell>
+                      <TableCell className="text-right font-mono">{s.registrations}</TableCell>
+                      <TableCell className="text-right font-mono">{s.first_sessions}</TableCell>
+                      <TableCell className="text-right font-mono text-muted-foreground">{pct}%</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
         <div className="rounded-lg border border-border overflow-hidden">
           <Table>
             <TableHeader>
