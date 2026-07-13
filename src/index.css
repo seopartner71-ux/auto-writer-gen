@@ -1,14 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@800;900&display=swap');
 
-/* Sidebar typography — matches PageForge stylistic: Inter Tight + tightened tracking + stylistic sets */
-[data-sidebar="sidebar"],
-[data-sidebar="sidebar"] * {
+/* App-wide typography — Inter Tight + tightened tracking + stylistic sets (PageForge stylistic) */
+.app-shell,
+.app-shell * {
   font-family: 'Inter Tight', Inter, system-ui, -apple-system, sans-serif;
   font-feature-settings: 'cv11', 'ss01', 'ss03', 'cv02';
   letter-spacing: -0.011em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+/* Preserve monospaced code/metrics inside the app shell */
+.app-shell code,
+.app-shell pre,
+.app-shell kbd,
+.app-shell samp,
+.app-shell .font-mono,
+.app-shell [class*="font-mono"] {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: 0;
 }
 
 @tailwind base;
