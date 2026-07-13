@@ -80,7 +80,7 @@ import { markdownToDocxBlob, safeFilename } from "@/pages/articles/markdownToDoc
 import { saveAs } from "file-saver";
 import { useArticleAutoSave } from "@/pages/articles/useArticleAutoSave";
 import { useAiScorePoll } from "@/pages/articles/useAiScorePoll";
-import { capitalizeHeadings, capitalizeTitle } from "@/shared/utils/capitalizeHeadings";
+import { capitalizeHeadings, capitalizeTitle, stripLongDashes } from "@/shared/utils/capitalizeHeadings";
 
 export default function ArticlesPage() {
   const queryClient = useQueryClient();
@@ -1028,8 +1028,8 @@ export default function ArticlesPage() {
         user_id: userId,
         keyword_id: selectedKeywordId || null,
         author_profile_id: selectedAuthorId || null,
-        title: title ? capitalizeTitle(title) : null,
-        content: capitalizeHeadings(content || ""),
+        title: title ? stripLongDashes(capitalizeTitle(title)) : null,
+        content: stripLongDashes(capitalizeHeadings(content || "")),
         meta_description: metaDescription || null,
         anchor_target_url: JSON.stringify(anchorLinks.filter(l => l.url.trim())),
         published_url: publishedUrl.trim() || null,
